@@ -43,3 +43,6 @@ docs/miniapp-migration.md
 
 # Stray screenshots dropped in the repo root
 /*.png
+
+# Local working document, not part of the published project
+docs/feature-audit.md
