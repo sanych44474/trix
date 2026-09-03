@@ -1,7 +1,7 @@
 // Trainers & clients section — extracted verbatim from src/bot.ts (mechanical split).
 
 import { InlineKeyboard } from "grammy";
-import type { BankPlan, Env, Lang, PlanDoc, SetEntry, TrainerDoc, TrainerProfileInput, UserDoc, Weekday } from "../types";
+import type { BankPlan, Lang, PlanDoc, SetEntry, TrainerDoc, TrainerProfileInput, UserDoc, Weekday } from "../types";
 import {
   addOrUpdateReview, applyTrainer, approveTrainer, assignDraftPlan, bodyLogsByUser, canReview,
   countClientsOf, countCompletedWorkouts, countSessionsDoneSince, createRequest, deleteDraftPlan,
@@ -15,6 +15,7 @@ import {
   setRequestStatus, setUserFlag, unlinkClient, updateTrainer, updateUser, upsertStrengthRecord,
   upsertWorkoutLog, workoutLogsSince,
 } from "../db/repos";
+import { botDeepLink } from "./links";
 import { isOwner } from "./owner";
 import { adaptPlan } from "../domain/planAdapt";
 import { anthroLines, birthdayInfo, parseBirthdayInput, trainerCanSee } from "../domain/clientCard";
@@ -35,15 +36,6 @@ import {
 
 // ================ trainers & clients ================
 
-/**
- * Deep link into this deployment's bot (`t.me/<bot>?start=<payload>`). The username comes from
- * `BOT_USERNAME` so no deployment's identity is hardcoded; a fork that hasn't set it gets an
- * empty string back and the caller renders "—" instead of a link to someone else's bot.
- */
-export function botDeepLink(env: Env, payload: string): string {
-  const user = env.BOT_USERNAME?.replace(/^@/, "");
-  return user ? `https://t.me/${user}?start=${payload}` : "";
-}
 
 // Trainer menu = the compact trainer hub (own training / clients / profile).
 export function trainerMenu(lang: Lang): InlineKeyboard {

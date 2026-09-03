@@ -948,6 +948,10 @@ export const en = {
   wcard_prs: "New PRs",
   wcard_empty: "Nothing logged in the last 7 days yet — log a workout and come back. 💪",
   wcard_share_hint: "Forward this card to a friend or your chat — let them see the week. 😎",
+  // Carries the sender's referral link, so a forwarded card is something a reader can act on.
+  wcard_ref: "Forward this card to a friend or your chat — let them see the week. 😎\nTraining with me: {link}",
+  buddy_offer_btn: "🤝 Invite a training buddy",
+  buddy_offer_share: "I just started training with an AI coach in Telegram — be my accountability buddy?",
   cc_week: "📤 Week card",
   wcard_client_hint: "Forward this card to the client — their week at a glance. 📊",
   wcard_client_empty: "{name} has nothing logged in the last 7 days.",

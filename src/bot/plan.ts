@@ -7,6 +7,7 @@ import type { CatalogExercise, Env, Lang, PlanDay, PlanExercise, PlanDoc, UserDo
 import type { AiPlan, MyContext } from "../bot";
 import { HTML, MIN_EXERCISES_PER_DAY, localizePlanNames, reply, saveBaselineBody, videosForDays } from "../bot";
 import { mainMenu, menuBtn, planActionsKb } from "./keyboards";
+import { botDeepLink, shareUrl } from "./links";
 import { countExercises, getActivePlan, getCatalogExercise, getExerciseTranslation, getTrainer, getUser, listCandidatesByMuscles, listPlanBank, listStrength, recordPlanSource, saveDraftPlan, setActivePlan, updateUser } from "../db/repos";
 import { sanitizeBodyMetrics } from "./onboarding";
 import { trainerStyleBlock } from "./trainer";
@@ -162,10 +163,17 @@ export async function finalizeOnboardingPlan(
     } else {
       await setActivePlan(db, plan);
       await updateUser(db, user._id, { onboarded: true, nutrition: plan.nutrition, session: { mode: "idle" } });
+      // Getting the plan is the high point of onboarding — the one moment the user is committed
+      // but not yet training alone. An accountability buddy is a two-person feature, so offering
+      // it here turns one signup into an invitation; buried in settings it never gets found.
+      const buddy = botDeepLink(env, `buddy_${user._id}`);
+      const reply_markup = buddy
+        ? { inline_keyboard: [[{ text: t(lang, "buddy_offer_btn"), url: shareUrl(buddy, t(lang, "buddy_offer_share")) }]] }
+        : undefined;
       await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "plan_ready"), parse_mode: "HTML" }),
+        body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "plan_ready"), parse_mode: "HTML", ...(reply_markup ? { reply_markup } : {}) }),
       });
     }
     return true;

@@ -26,6 +26,7 @@ export * from "./bot/survey";
 export * from "./bot/onboarding";
 import { mainMenu, moreMenu, progressHubMenu, trainerHubMenu, trainerClientsMenu, appendOwnerRow, ownerHubMenu, menuBtn, planViewKb, langMenu, hourMenu, tzMenu, settingsMenu } from "./bot/keyboards";
 export * from "./bot/keyboards";
+import { botDeepLink } from "./bot/links";
 import { generateClientDraft, translatePlanExercises, healPlanIfDegenerate, generatePlan, regenBankPlan } from "./bot/plan";
 export * from "./bot/plan";
 import { MENU_MAP, deferAi, maybeCelebrateLevel, onError } from "./bot/router";
@@ -2958,7 +2959,13 @@ export async function cmdWeekCard(ctx: MyContext) {
     await reply(ctx, t(lang, "wcard_empty"), menuBtn(lang));
     return;
   }
-  await reply(ctx, `${card}\n\n${t(lang, "wcard_share_hint")}`, menuBtn(lang));
+  // The card gets forwarded into group chats as-is, so it carries the sender's referral link:
+  // every forward becomes a click target instead of just a screenshot. Only on the self-serve
+  // path — a trainer forwarding a CLIENT's card (buildWeekCard's other callers) must not attach
+  // the client's link.
+  const ref = botDeepLink(ctx.env, `ref_${ctx.user._id}`);
+  const footer = ref ? t(lang, "wcard_ref", { link: ref }) : t(lang, "wcard_share_hint");
+  await reply(ctx, `${card}\n\n${footer}`, menuBtn(lang));
 }
 
 // Strength standards — classify the user's tracked big lifts (squat/bench/deadlift/OHP/row) into
@@ -5430,6 +5437,13 @@ interface PrHit {
 }
 
 // Celebrate a new PR (with a global rank if opted in) and any freshly-earned badges.
+/** Share + invite offered at a celebration moment (PR, badge, level-up). */
+function celebrationShareKb(lang: Lang): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(t(lang, "wcard_btn"), "share:week")
+    .text(t(lang, "menu_invite"), "invite");
+}
+
 export async function celebrateRecords(ctx: MyContext, prHit: PrHit | null) {
   const lang = ctx.user.lang;
   const you = ctx.user._id;
@@ -5466,10 +5480,13 @@ export async function celebrateRecords(ctx: MyContext, prHit: PrHit | null) {
     }
     // Extra praise — a rotating, celebratory line (plus the running PR count).
     msg += "\n" + t(lang, `pr_praise${(prCount % 3) + 1}` as TKey, { n: prCount });
-    await reply(ctx, msg);
+    // A personal record is the moment someone actually wants to tell people. Offering the share
+    // and invite here is the whole reason the referral machinery exists — buried in a settings
+    // menu it never fires, because nobody opens settings feeling proud.
+    await reply(ctx, msg, celebrationShareKb(lang));
   }
   if (fresh.length) {
-    await reply(ctx, t(lang, "badge_unlocked", { badges: fresh.map((c) => badgeLabel(lang, c)).join(", ") }));
+    await reply(ctx, t(lang, "badge_unlocked", { badges: fresh.map((c) => badgeLabel(lang, c)).join(", ") }), celebrationShareKb(lang));
   }
   await maybeCelebrateLevel(ctx);
 }
