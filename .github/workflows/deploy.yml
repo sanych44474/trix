@@ -11,9 +11,13 @@ on:
 permissions:
   contents: read
 
+# A gated deploy sits in `waiting` until a reviewer approves it, so pushes during that window
+# pile up behind it. Without cancellation the reviewer is offered the OLDEST queued commit while
+# newer ones are stuck — the approval prompt then deploys superseded code. Cancelling supersedes
+# the stale run so the pending approval always refers to the current tip of main.
 concurrency:
   group: deploy-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
