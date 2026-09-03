@@ -48,11 +48,6 @@ for (const [marker, content] of [
   page = page.replace(marker, () => content);
 }
 
-// ZXing barcode decoder ships as a SEPARATE static file (public/zxing.js), loaded lazily only
-// when the user opens the scanner — so app.html stays small and most users never download the
-// 336KB library. Served same-origin (CSP script-src 'self'), cached immutable.
-if (!page.includes("<!--__ZXING__-->")) throw new Error("marker <!--__ZXING__--> missing from shell.html");
-page = page.replace("<!--__ZXING__-->", () => "");
 
 // Minify the app's own inline <script> (the FIRST/only <script> WITHOUT a marker attribute) and
 // <style>. Identifier renaming is off so cross-fragment globals + error reports stay intact.
@@ -73,7 +68,4 @@ try {
 const outDir = join(root, "public");
 mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, "app.html"), page);
-// Emit the barcode lib as its own cacheable asset (lazy-loaded by the scanner).
-const zxing = readFileSync(join(root, "node_modules", "@zxing", "library", "umd", "index.min.js"), "utf8");
-writeFileSync(join(outDir, "zxing.js"), zxing);
-console.log(`built public/app.html (${page.length} bytes, raw ${rawLen}) + zxing.js (${zxing.length} bytes)`);
+console.log(`built public/app.html (${page.length} bytes, raw ${rawLen})`);

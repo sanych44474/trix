@@ -19,8 +19,8 @@ export function decodeEntities(s: string): string {
 }
 
 // Last-resort AI lookup when no food database has the product (common for Ukrainian items). The
-// LLM has NO web access, so it can only answer from training knowledge — by NAME it's usually
-// reliable, by barcode number rarely. Hard guardrail: unsure → found:false, never invent.
+// LLM has NO web access, so it can only answer from training knowledge, which is usually reliable
+// for a named product. Hard guardrail: unsure → found:false, never invent.
 const AI_PRODUCT_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -37,12 +37,12 @@ const AI_PRODUCT_SCHEMA = {
 
 interface AiProduct { found: boolean; name?: string; brand?: string; kcal?: number; protein?: number; fat?: number; carbs?: number }
 
-export async function aiProductLookup(env: Env, lang: Lang, q: { barcode?: string; name?: string }, userId?: number): Promise<FoodItem | null> {
-  const subject = q.barcode ? `barcode ${q.barcode}` : q.name ? `product "${q.name}"` : "";
+export async function aiProductLookup(env: Env, lang: Lang, q: { name?: string }, userId?: number): Promise<FoodItem | null> {
+  const subject = q.name ? `product "${q.name}"` : "";
   if (!subject) return null;
   const res = await aiJSON<AiProduct>(env, {
     system:
-      "You are a food-nutrition database. Given a product name or EAN/UPC barcode, return its " +
+      "You are a food-nutrition database. Given a product name, return its " +
       "per-100g nutrition. Set found=true ONLY if you actually recognize the SPECIFIC product " +
       "and are confident of realistic values; otherwise found=false. NEVER invent numbers. " +
       `Write the name in ${lang === "uk" ? "Ukrainian" : "English"}. Return per-100g kcal/protein/fat/carbs.`,

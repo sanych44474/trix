@@ -27,7 +27,6 @@
     "verify-schema": "node scripts/verify-schema.mjs"
   },
   "dependencies": {
-    "@zxing/library": "^0.23.0",
     "grammy": "^1.46.0"
   },
   "devDependencies": {

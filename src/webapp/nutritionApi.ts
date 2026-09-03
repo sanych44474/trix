@@ -106,26 +106,6 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     const ai = await aiProductLookup(env, user.lang, { name: q }, user._id).catch(() => null);
     return Response.json({ items: ai ? [ai] : [], source: ai ? "ai" : "off" }, { headers: { "cache-control": "no-store" } });
   }
-  // Barcode lookup: the Mini App scans an EAN/UPC via Telegram's QR/barcode scanner and posts
-  // the digits here; we resolve exact per-100g macros from Open Food Facts by barcode.
-  if (action === "barcode") {
-    const code = typeof body.code === "string" ? body.code.replace(/\D/g, "").slice(0, 14) : "";
-    if (code.length < 6) return Response.json({ error: "bad request" }, { status: 400 });
-    const url2 = `https://world.openfoodfacts.org/api/v0/product/${code}.json`;
-    const res = await fetch(url2, { signal: AbortSignal.timeout(6000), headers: { "User-Agent": "trix-bot/1.0" } })
-      .then((r) => (r.ok ? (r.json() as Promise<{ status?: number; product?: { product_name?: string; brands?: string; nutriments?: Record<string, number> } }>) : null))
-      .catch(() => null);
-    const p = res && res.status === 1 ? res.product : undefined;
-    const per100 = p ? offPer100(p.nutriments) : null;
-    if (p && p.product_name && per100 && per100.kcal > 0) {
-      return Response.json({
-        item: { name: decodeEntities(p.product_name).trim().slice(0, 60), brand: decodeEntities((p.brands || "").split(",")[0]).trim().slice(0, 30), per100 },
-      });
-    }
-    // Not in OFF (common for UA products) → AI attempt by barcode (rarely known) then null.
-    const ai = await aiProductLookup(env, user.lang, { barcode: code }, user._id).catch(() => null);
-    return Response.json({ item: ai });
-  }
   if (action === "dbadd") {
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
     const grams = Number(body.grams);

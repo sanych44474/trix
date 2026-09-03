@@ -68,7 +68,6 @@ function nuRender() {
   // Food-DB search: exact per-100g macros from Open Food Facts (server-proxied).
   h += "<h2>🔍 " + WA.wa_food_db + '</h2><div class="card">';
   h += '<div class="lrow"><input id="nu-dbq" placeholder="' + esc(WA.wa_food_db_ph) + '"><button class="chipbtn" data-nu="dbsearch">' + WA.wa_search + "</button></div>";
-  h += '<button class="chipbtn" data-nu="scan" style="margin-top:6px">' + WA.wa_food_scan + "</button>";
   h += '<div id="nu-dbr" style="margin-top:6px"></div></div>';
   if (d.mealPlan && d.mealPlan.days && d.mealPlan.days.length) {
     h += "<h2>" + WA.wa_nu_plan + "</h2>";
@@ -116,149 +115,6 @@ function nuAct(action, i, extra) {
       }
     })
     .catch(function () {});
-}
-// Barcode → product. NOTE: Telegram's showScanQrPopup reads QR only, NOT 1D product barcodes,
-// so we use the native BarcodeDetector on a live camera stream where available, and always offer
-// manual digit entry (the number is printed under every barcode) as a reliable fallback.
-var NU_CAM = { reader: null, devices: [], idx: 0 };
-
-function nuBarcodeLookup(code) {
-  var box = el("nu-dbr");
-  code = String(code || "").replace(/\D/g, "");
-  if (code.length < 6) { if (box) box.innerHTML = '<span class="sub">' + WA.wa_err + "</span>"; return; }
-  if (box) box.innerHTML = '<span class="sub">' + WA.wa_loading + "</span>";
-  ccFetch("/api/nutrition", { method: "POST", body: { action: "barcode", code: code } })
-    .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
-    .then(function (res) {
-      if (!res.item) { if (box) box.innerHTML = nuAiFallbackHtml(""); return; }
-      NU.db = [res.item];
-      var it = res.item;
-      var p100b = it.per100 || {}; box.innerHTML = '<div class="sub" style="margin:4px 0"><b>' + esc(it.name) + "</b>" + (it.brand ? " · " + esc(it.brand) : "") + (it.ai ? " " + WA.wa_food_ai_tag : "") + " · " + (p100b.kcal || 0) + " " + WA.wa_kcal + "/100" + WA.wa_g + "</div>"
-        + '<div class="lrow"><input id="nu-dbg" type="number" inputmode="numeric" placeholder="' + esc(WA.wa_food_db_g) + '"><button class="chipbtn" data-nu="dbadd" data-k="0">' + WA.wa_add + "</button></div>";
-      var gi = el("nu-dbg"); if (gi) gi.focus();
-    })
-    .catch(function () { if (box) box.innerHTML = '<span class="sub">' + WA.wa_err + "</span>"; });
-}
-
-function nuManualBarcode() {
-  var box = el("nu-dbr");
-  if (!box) return;
-  box.innerHTML = '<div class="sub" style="margin:4px 0">' + WA.wa_food_barcode_manual + "</div>"
-    + '<div class="lrow"><input id="nu-bc" type="number" inputmode="numeric" placeholder="4820113927362"><button class="chipbtn" data-nu="bcgo">OK</button></div>';
-  var i = el("nu-bc"); if (i) i.focus();
-}
-
-function nuCamStop() {
-  try { if (NU_CAM.reader) NU_CAM.reader.reset(); } catch (e) {}
-  NU_CAM.reader = null;
-  el("nu-cam").classList.add("hidden");
-}
-
-function nuCamDecodeCb(result) {
-  if (!result) return;
-  var code = (result.getText() || "").replace(/\D/g, "");
-  if (code.length < 6) return;
-  if (TG && TG.HapticFeedback && TG.HapticFeedback.notificationOccurred) TG.HapticFeedback.notificationOccurred("success");
-  nuCamStop();
-  nuBarcodeLookup(code);
-}
-
-// Best-effort continuous autofocus once the stream is live (fixed-focus streams keep close
-// barcodes blurry). Applied to whatever track ZXing opened.
-function nuCamFocus() {
-  try {
-    var stream = NU_CAM.reader && NU_CAM.reader.stream;
-    var track = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
-    if (!track || !track.getCapabilities || !track.applyConstraints) return;
-    var caps = track.getCapabilities();
-    if (caps.focusMode && caps.focusMode.indexOf("continuous") >= 0) {
-      track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(function () {});
-    }
-  } catch (e) {}
-}
-
-// Start decoding. With no chosen device → decodeFromConstraints(environment) so we get the BACK
-// camera (never front); an explicit deviceId (from the 🔄 switch) uses that exact lens.
-function nuCamStart() {
-  var v = el("nu-cam-v");
-  try { NU_CAM.reader.reset(); } catch (e) {}
-  var dev = NU_CAM.devices[NU_CAM.idx];
-  var done = function () { setTimeout(nuCamFocus, 600); };
-  if (dev && dev.deviceId) {
-    NU_CAM.reader.decodeFromVideoDevice(dev.deviceId, v, nuCamDecodeCb).then(done).catch(function () {});
-  } else {
-    // HD capture — more pixels on the barcode so it decodes from a bit further / slightly out of
-    // focus (crucial on iOS, where web APIs can't force autofocus). `ideal` degrades gracefully.
-    NU_CAM.reader.decodeFromConstraints(
-      { video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
-      v, nuCamDecodeCb,
-    ).then(done).catch(function () { nuCamStop(); nuManualBarcode(); });
-  }
-}
-
-// Cycle to the next camera (lazily enumerating on first use — labels are only available after
-// permission, which the running stream has already granted).
-function nuCamSwitch() {
-  var go = function () {
-    if (NU_CAM.devices.length < 2) return;
-    NU_CAM.idx = (NU_CAM.idx + 1) % NU_CAM.devices.length;
-    nuCamStart();
-  };
-  if (NU_CAM.devices.length) { go(); return; }
-  NU_CAM.reader.listVideoInputDevices().then(function (devs) {
-    NU_CAM.devices = devs || [];
-    // Start the cycle from a back camera if we can identify one.
-    var back = NU_CAM.devices.filter(function (d) { return /back|rear|environment|задн/i.test(d.label); });
-    var first = back[0] || NU_CAM.devices[0];
-    NU_CAM.idx = first ? NU_CAM.devices.indexOf(first) : 0;
-    go();
-  }).catch(function () {});
-}
-
-// Lazily fetch the barcode library (separate cached asset) the first time the scanner is used.
-function nuLoadZxing() {
-  if (window.ZXing) return Promise.resolve(true);
-  if (NU_CAM.zxingP) return NU_CAM.zxingP;
-  NU_CAM.zxingP = new Promise(function (resolve) {
-    var s = document.createElement("script");
-    s.src = "/zxing.js";
-    s.onload = function () { resolve(!!window.ZXing); };
-    s.onerror = function () { resolve(false); };
-    document.head.appendChild(s);
-  });
-  return NU_CAM.zxingP;
-}
-
-function nuScan() {
-  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { nuManualBarcode(); return; }
-  var box = el("nu-dbr");
-  if (box) box.innerHTML = '<span class="sub">' + WA.wa_loading + "</span>";
-  nuLoadZxing().then(function (ok) {
-    if (box) box.innerHTML = "";
-    // ZXing (pure JS) decodes on iOS too, where the native BarcodeDetector doesn't exist.
-    if (!ok || typeof window.ZXing === "undefined") { nuManualBarcode(); return; }
-    nuScanStart();
-  });
-}
-
-function nuScanStart() {
-  var cam = el("nu-cam");
-  el("nu-cam-hint").textContent = WA.wa_food_scan_hint;
-  el("nu-cam-x").onclick = nuCamStop;
-  var manualBtn = el("nu-cam-manual");
-  if (manualBtn) { manualBtn.textContent = WA.wa_food_scan_manual; manualBtn.onclick = function () { nuCamStop(); nuManualBarcode(); }; }
-  var switchBtn = el("nu-cam-switch");
-  if (switchBtn) { switchBtn.style.display = ""; switchBtn.textContent = WA.wa_food_scan_switch; switchBtn.onclick = nuCamSwitch; } // always available
-  var hints = new Map();
-  try {
-    var F = window.ZXing.BarcodeFormat;
-    hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E]);
-  } catch (e) {}
-  NU_CAM.reader = new window.ZXing.BrowserMultiFormatReader(hints, 400);
-  NU_CAM.devices = [];
-  NU_CAM.idx = 0;
-  cam.classList.remove("hidden");
-  nuCamStart(); // environment camera via constraints; 🔄 switches lenses afterwards
 }
 // Not in any food database (common for Ukrainian products) → let the AI estimate it from a
 // free-text description. Reuses the dashboard's /api/log food path, then reloads the meals.
@@ -318,8 +174,6 @@ function nuDbSearch() {
     if (a === "readd") { nuAct("readd", undefined, { ri: Number(t.getAttribute("data-ri")) }); return; }
     if (a === "recipe") { nuRecipe("recipe"); return; }
     if (a === "recover") { nuRecipe("recover"); return; }
-    if (a === "scan") { nuScan(); return; }
-    if (a === "bcgo") { var bc = el("nu-bc"); nuBarcodeLookup(bc ? bc.value : ""); return; }
     if (a === "aiest") { nuAiEstimate(); return; }
     if (a === "dbpick") {
       var it = NU.db && NU.db[Number(t.getAttribute("data-k"))];
