@@ -1,0 +1,49 @@
+name: CI
+
+# Typecheck + tests + Mini App build on every push and PR. All three must be green before a
+# deploy — the deploy workflow re-runs them behind the production approval gate as well.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Catches a broken shell.html marker or a client fragment that no longer parses —
+      # failures that would otherwise only surface at deploy time.
+      - name: Build Mini App shell
+        run: npm run build:webapp
+
+      # Runtime dependencies only. Dev-tool advisories (wrangler's transitive tree) never reach
+      # the deployed Worker and must not block a release.
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high

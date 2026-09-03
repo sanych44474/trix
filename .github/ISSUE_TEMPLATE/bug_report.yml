@@ -1,0 +1,72 @@
+name: Bug report
+description: Something in the bot or Mini App does not behave as it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do **not** include your bot token, API keys, or the
+        contents of `.dev.vars`. For security vulnerabilities, open a private advisory instead
+        (see SECURITY.md).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Send /plan
+        2. Tap "Edit day"
+        3. …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did it happen
+      options:
+        - Telegram chat (bot messages)
+        - Telegram Mini App
+        - Cron / scheduled reminders
+        - Local development
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Which role were you using
+      options:
+        - Solo athlete
+        - Trainer
+        - Trainer's client
+        - Owner / admin
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error text
+      description: >
+        Output from `npm run tail` or the error the bot showed. Redact tokens and user ids.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      placeholder: e.g. main @ a1b2c3d
+    validations:
+      required: false

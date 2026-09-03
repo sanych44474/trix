@@ -1,0 +1,4 @@
+
+  #lt-back { background: none; border: none; color: var(--accent); font-size: 24px; line-height: 1; padding: 2px 10px; cursor: pointer; }
+  .lt-bar { height: 8px; background: var(--rest); border-radius: 4px; overflow: hidden; margin: 4px 0; }
+  .lt-bar > span { display: block; height: 100%; background: var(--grad); }

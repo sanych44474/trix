@@ -1,0 +1,16 @@
+
+  #ow-back { background: none; border: none; color: var(--accent); font-size: 24px; line-height: 1; padding: 2px 10px; cursor: pointer; }
+  #ow-body pre { overflow-x: auto; font-size: 11px; line-height: 1.5; background: var(--card); border-radius: 10px; padding: 8px; }
+  #ow-body b { display: inline-block; margin-top: 6px; }
+  /* Owner users table: sortable headers, group rows, horizontal scroll on narrow phones. */
+  .owu-ctl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 2px 0 10px; }
+  .owu-hint { margin-left: auto; font-size: 11px; }
+  .owu-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: var(--r); }
+  table.owu { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.owu th, table.owu td { padding: 7px 9px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  table.owu th { position: sticky; top: 0; background: var(--card); cursor: pointer; font-size: 12px; color: var(--hint); font-weight: 600; user-select: none; }
+  table.owu th.num, table.owu td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  table.owu tbody tr:active { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  table.owu .owu-nm { max-width: 50vw; overflow: hidden; text-overflow: ellipsis; }
+  table.owu .owu-grp td { background: color-mix(in srgb, var(--accent) 9%, transparent); font-weight: 700; font-size: 12px; color: var(--fg); position: sticky; left: 0; }
+  table.owu tr:last-child td { border-bottom: none; }

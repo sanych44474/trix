@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a capability for the bot or the Mini App
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve
+      description: >
+        Describe the situation a user is in, not the implementation. A feature without a
+        concrete user problem behind it is unlikely to be accepted — this project actively
+        works to stay small.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      options:
+        - Telegram chat
+        - Mini App
+        - Both
+        - Backend only (cron, reports, API)
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including "an existing feature almost does this, but…"
+    validations:
+      required: false

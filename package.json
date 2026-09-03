@@ -1,0 +1,40 @@
+{
+  "name": "trix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI personal trainer Telegram bot on Cloudflare Workers",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sanych44474/trix.git"
+  },
+  "homepage": "https://github.com/sanych44474/trix#readme",
+  "bugs": {
+    "url": "https://github.com/sanych44474/trix/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
+  "scripts": {
+    "build:webapp": "node --import tsx scripts/build-webapp.mjs",
+    "dev": "npm run build:webapp && wrangler dev",
+    "deploy": "npm run build:webapp && wrangler deploy",
+    "tail": "wrangler tail",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --experimental-sqlite --test \"test/**/*.test.ts\"",
+    "smoke": "node scripts/smoke.mjs",
+    "verify-schema": "node scripts/verify-schema.mjs"
+  },
+  "dependencies": {
+    "@zxing/library": "^0.21.3",
+    "grammy": "^1.30.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "wrangler": "^4.98.0"
+  }
+}

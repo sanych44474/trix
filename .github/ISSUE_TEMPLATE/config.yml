@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/sanych44474/trix/security/advisories/new
+    about: Report privately via a GitHub security advisory — never as a public issue.
+  - name: Question or setup help
+    url: https://github.com/sanych44474/trix/discussions
+    about: Ask about self-hosting, configuration, or how something works.

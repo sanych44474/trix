@@ -1,0 +1,12 @@
+# Headers for the Mini App static shell (Cloudflare Workers static assets).
+# Same CSP the Worker used to set inline: only Telegram's SDK script + same-origin API calls.
+/app
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:
+  Cache-Control: public, max-age=86400
+/app.html
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:
+  Cache-Control: public, max-age=86400
+/zxing.js
+  Cache-Control: public, max-age=31536000, immutable
+/mascot.png
+  Cache-Control: public, max-age=604800

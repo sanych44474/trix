@@ -1,0 +1,87 @@
+name = "trix"
+main = "src/index.ts"
+compatibility_date = "2025-05-01"
+compatibility_flags = ["nodejs_compat"]
+# account_id is intentionally NOT committed — wrangler reads CLOUDFLARE_ACCOUNT_ID from the
+# environment (set it in .dev.vars for local work, or as a repo secret for CI deploys).
+
+# Cron every minute: onboarding-recovery sweep + retry of failed AI calls run each tick
+# (so a silent-hung user is answered within ~1 min); reminders are timezone/date-deduped in code.
+[triggers]
+crons = ["* * * * *"]
+
+[observability]
+enabled = true
+
+# Static assets: the Mini App shell (public/app.html, built by scripts/build-webapp.mjs at deploy
+# time) is served at GET /app straight from Cloudflare's edge — no Worker invocation, no bundle
+# bloat. html_handling defaults to serving /app.html for /app; every non-asset path (/, /api/*,
+# /webhook, /admin/*, /v, cron) still falls through to the Worker.
+[assets]
+directory = "public"
+
+# Cloudflare Workers AI binding (free, on-platform) — used as a fallback provider.
+[ai]
+binding = "AI"
+
+# Cloudflare D1 (SQLite) — primary datastore, in-network (no external DB hangs).
+[[d1_databases]]
+binding = "DB"
+database_name = "trix"
+# Replace with your own D1 id: `npx wrangler d1 create trix` prints it.
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# Non-secret vars. Secrets (TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, GEMINI_API_KEY,
+# GROQ_API_KEY, OLLAMA_API_KEY, OPENROUTER_API_KEY, ADMIN_SECRET, YOUTUBE_API_KEY) are set
+# with `wrangler secret put`. YOUTUBE_API_KEY (YouTube Data API v3) powers exercise technique
+# shorts (cache-first; ~100 search.list calls/day on the free quota).
+# EXERCISES_API_KEY (API Ninjas) is only used by scripts/seed-exercises.mjs, not at runtime.
+#
+# Deployment identity (WORKER_URL, BOT_USERNAME, BOT_ID, BOT_NAME) is placeholder-only here so
+# no one's bot is baked into the source tree. Local dev overrides these from .dev.vars; the
+# deploy workflow substitutes the real values from repo variables before `wrangler deploy`.
+[vars]
+# Public worker origin — powers the Mini App dashboard buttons (/app). Leave unset in local dev
+# (wrangler dev) to enable the ?debugUser= bypass and hide the buttons.
+WORKER_URL = ""
+# Your bot's @username (no @), numeric id and display name. BOT_ID + BOT_USERNAME let the Worker
+# skip a getMe round-trip per webhook; leave them empty and grammY fetches it once instead.
+BOT_USERNAME = ""
+BOT_ID = ""
+BOT_NAME = ""
+# Gemini leads ONLY for plan/translate (native responseSchema = most reliable structured
+# JSON). gemini-2.5-flash is the strongest WORKING free model: live tests showed the 3.x
+# models 404 (gemini-3-flash), 429/503 (gemini-3.5-flash) or time out (gemini-3.1-flash-lite),
+# while 2.5-flash/2.5-flash-lite respond in <1 s. Pro models are paid-only since Apr 2026.
+# Gemini ladder (verified available to this key via ListModels, ordered strongest → most
+# reliable). Each model is a SEPARATE quota/load bucket, so the deep ladder rides out the
+# free-tier 503/429 storms. Plan/translate try the whole ladder (quality first); fast kinds
+# only reach Gemini as a deep fallback behind Groq.
+#   gemini-3.5-flash      — strongest flash (plan primary)
+#   gemini-3-flash-preview— Gemini 3 Flash
+#   gemini-2.5-flash      — reliable workhorse (native responseSchema)
+#   gemini-2.5-flash-lite — fast, light
+#   gemini-3.1-flash-lite — extra bucket
+#   gemma-4-31b-it / gemma-4-26b-a4b-it — open-weight fallbacks (gemini.ts omits thinkingConfig for Gemma)
+# Order: strongest first, then reliable workhorses, then OPEN-weight + timeout-prone preview
+# models LAST. Benchmark showed 3.5-flash/2.5-flash fail FAST (503) under load while
+# 3-flash-preview / 3.1-flash-lite TIME OUT — so they sit at the tail to not starve the
+# Groq fallback. (Gemini 3 Flash + Gemma 4 31B are both present, per request.)
+GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_LIGHT_MODEL = "gemini-2.5-flash"
+GEMINI_FALLBACK_MODELS = "gemini-2.5-flash,gemini-2.5-flash-lite,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-3-flash-preview,gemini-3.1-flash-lite"
+# Groq Cloud — fast, reliable JSON, generous free tier (first fallback after Gemini).
+# Primary: llama-3.3-70b-versatile (best quality, json_object mode).
+# Fallbacks: gpt-oss-120b (500 TPS, same model as Ollama, cheaper), qwen3-32b (good reasoning),
+#            llama-3.1-8b-instant (560 TPS, 14,400 RPD free — excellent for high-volume light tasks).
+GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_FALLBACK_MODELS = "openai/gpt-oss-120b,qwen/qwen3-32b,llama-3.1-8b-instant"
+GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+# Ollama Cloud — text-only fallback after Groq (free tier: gpt-oss:120b).
+OLLAMA_MODEL = "gpt-oss:120b"
+# OpenRouter free models (tertiary fallback). NOTE: model availability changes — verify.
+# gpt-oss-120b:free = strong, fast, same model family as Groq/Ollama fallbacks.
+# Vision: llama-3.2-11b still best free multimodal on OR.
+OPENROUTER_MODEL = "openai/gpt-oss-120b:free"
+OPENROUTER_TRANSLATE_MODEL = "openai/gpt-oss-120b:free"
+OPENROUTER_VISION_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free"

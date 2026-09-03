@@ -1,0 +1,24 @@
+
+  #lg-back { background: none; border: none; color: var(--accent); font-size: 24px; line-height: 1; padding: 2px 10px; cursor: pointer; }
+  #lg-title { flex: 1; font-size: 17px; font-weight: 600; }
+  .lg-ex { margin-bottom: 10px; }
+  .lg-exh { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 4px; }
+  .lg-exname { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
+  .lg-exbtns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .lg-wmmenu { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+  .setrow { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+  .setrow input { flex: 1; min-width: 0; padding: 7px; }
+  .setrow .u { color: var(--hint); font-size: 12px; white-space: nowrap; }
+  .setrow .del { background: none; border: none; color: var(--miss); font-size: 18px; padding: 0 6px; cursor: pointer; }
+  .chipbtn { background: var(--card); border: 1px solid var(--rest); border-radius: 10px; padding: 4px 10px; font-size: 13px; color: var(--fg); cursor: pointer; }
+  .chipbtn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .lg-rpe { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .lg-pop { position: fixed; left: 12px; right: 12px; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 72;
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; background: var(--card);
+    border: 1px solid var(--rest); border-radius: 16px; padding: 12px; box-shadow: 0 -4px 24px rgba(0,0,0,.25);
+    animation: cc-in .15s ease-out; }
+  .lg-pop.hidden { display: none; }
+  .lg-pop .chipbtn { font-size: 15px; padding: 8px 14px; }
+  .lg-info { margin: 6px 0 2px; }
+  .lg-info summary { color: var(--accent); font-size: 13px; cursor: pointer; list-style-position: inside; }
+  .lg-tech { margin: 6px 0; white-space: pre-wrap; }

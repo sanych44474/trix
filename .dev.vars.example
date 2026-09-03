@@ -1,0 +1,42 @@
+# Copy to .dev.vars (gitignored) and fill in. Values here override [vars] from wrangler.toml
+# during `wrangler dev`, so this is also where local deployment identity lives.
+
+# --- Required: Telegram ---
+# From @BotFather. TELEGRAM_WEBHOOK_SECRET is any random string you also pass to setWebhook.
+TELEGRAM_BOT_TOKEN=""
+TELEGRAM_WEBHOOK_SECRET=""
+
+# --- Deployment identity ---
+# Your bot's @username without the @, its numeric id, and its display name. BOT_ID +
+# BOT_USERNAME let the Worker skip a getMe call per webhook; leave them empty to pay for one.
+BOT_USERNAME=""
+BOT_ID=""
+BOT_NAME=""
+# Public origin of your deployed Worker, e.g. https://trix.<your-subdomain>.workers.dev.
+# Leave empty in local dev to enable the ?debugUser= bypass and hide the Mini App buttons.
+WORKER_URL=""
+
+# --- Cloudflare ---
+# Wrangler reads this instead of an account_id committed to wrangler.toml.
+CLOUDFLARE_ACCOUNT_ID=""
+
+# --- AI providers (all optional; the chain falls back through whatever is configured) ---
+# Gemini leads for plan/translate, Groq for conversational kinds, then OpenRouter, then the
+# on-platform Workers AI binding (needs no key at all).
+GEMINI_API_KEY=""
+GEMINI_FALLBACK_MODELS=""
+GROQ_API_KEY=""
+OLLAMA_API_KEY=""
+OPENROUTER_API_KEY=""
+
+# --- Optional data sources ---
+# YouTube Data API v3 — exercise technique shorts (cache-first, ~100 search.list calls/day free).
+YOUTUBE_API_KEY=""
+# API Ninjas — only scripts/seed-exercises.mjs uses it, never the runtime.
+EXERCISES_API_KEY=""
+# USDA FoodData Central — nutrition cross-check. "DEMO_KEY" works for light use.
+USDA_FDC_API_KEY=""
+
+# --- Admin ---
+# Guards the /admin/* routes. Use a long random string; anyone holding it is the operator.
+ADMIN_SECRET=""

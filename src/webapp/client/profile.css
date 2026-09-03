@@ -1,0 +1,5 @@
+
+  #pf-back { background: none; border: none; color: var(--accent); font-size: 24px; line-height: 1; padding: 2px 10px; cursor: pointer; }
+  #pf-body label { display: block; font-size: 12px; color: var(--hint); margin: 10px 0 3px; }
+  .pf-days, .pf-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pf-danger { color: var(--miss); }

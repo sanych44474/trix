@@ -1,0 +1,110 @@
+name: Deploy
+
+# Deploys the Worker to Cloudflare. The job targets the `production` environment, which has a
+# required reviewer — so every deploy (and the D1 migration that precedes it) waits for an
+# explicit human approval before anything live is touched.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ vars.WORKER_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Re-run both gates inside the gated job. CI already ran them, but this guarantees a
+      # deploy can never ship a commit whose checks were skipped, re-run, or raced.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # wrangler.toml ships with placeholder identity so no deployment is baked into the source
+      # tree. Values arrive as env vars (never interpolated straight into the script) and are
+      # written in just before wrangler reads the file.
+      - name: Inject deployment configuration
+        env:
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          WORKER_URL: ${{ vars.WORKER_URL }}
+          BOT_USERNAME: ${{ vars.BOT_USERNAME }}
+          BOT_ID: ${{ vars.BOT_ID }}
+          BOT_NAME: ${{ vars.BOT_NAME }}
+        run: |
+          set -euo pipefail
+          if [ -z "${D1_DATABASE_ID}" ]; then
+            echo "::error::D1_DATABASE_ID secret is not set for the production environment"
+            exit 1
+          fi
+          if [ -z "${WORKER_URL}" ]; then
+            echo "::error::WORKER_URL repository variable is not set"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os, re, pathlib
+          cfg = pathlib.Path("wrangler.toml")
+          text = cfg.read_text(encoding="utf-8")
+          replacements = {
+              "database_id": os.environ["D1_DATABASE_ID"],
+              "WORKER_URL": os.environ["WORKER_URL"],
+              "BOT_USERNAME": os.environ.get("BOT_USERNAME", ""),
+              "BOT_ID": os.environ.get("BOT_ID", ""),
+              "BOT_NAME": os.environ.get("BOT_NAME", ""),
+          }
+          for key, value in replacements.items():
+              pattern = rf'^({re.escape(key)}\s*=\s*)"[^"]*"$'
+              new, n = re.subn(pattern, lambda m: m.group(1) + '"' + value + '"', text, flags=re.M)
+              if n != 1:
+                  raise SystemExit(f"expected exactly one {key} assignment in wrangler.toml, found {n}")
+              text = new
+          cfg.write_text(text, encoding="utf-8")
+          print("wrangler.toml configured")
+          PY
+
+      - name: Build Mini App shell
+        env:
+          BOT_USERNAME: ${{ vars.BOT_USERNAME }}
+        run: npm run build:webapp
+
+      # Schema first: new code may depend on new columns, old code never depends on their
+      # absence. Migrations are forward-only, so this is safe to run on every deploy.
+      - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler d1 migrations apply trix --remote
+
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy
+
+      - name: Smoke test
+        env:
+          SMOKE_URL: ${{ vars.WORKER_URL }}
+        run: node scripts/smoke.mjs
