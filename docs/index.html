@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trix — AI-тренер у Telegram</title>
+<meta name="description" content="Телеграм-бот, який складає програму тренувань під твої дні, обладнання й травми, веде щоденник, рахує КБЖУ і сам нагадує. Безкоштовно, без встановлення застосунків.">
+<link rel="canonical" href="https://sanych44474.github.io/trix/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="trix — AI-тренер у Telegram">
+<meta property="og:description" content="Складає програму під твої дні, обладнання й травми. Веде щоденник, рахує КБЖУ і нагадує сам. Безкоштовно.">
+<meta property="og:url" content="https://sanych44474.github.io/trix/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+
+<style>
+  /* Dark-first: the product is used in the evening, in a gym, on a phone. Light theme mirrors
+     the same token roles rather than inverting them naively. */
+  :root {
+    --ground:  #0E121A;
+    --surface: #161C27;
+    --raised:  #1E2532;
+    --ink:     #EDEFF3;
+    --ink-soft:#B6BECD;
+    --muted:   #7D879B;
+    --line:    #252D3B;
+    --accent:  #F0B429;
+    --accent-ink: #0E121A;
+    --accent-soft:#3A2E12;
+    --good:    #5FBF8B;
+  }
+
+  :root[data-theme="light"] {
+    --ground:  #F4F5F7;
+    --surface: #FFFFFF;
+    --raised:  #ECEEF2;
+    --ink:     #0E121A;
+    --ink-soft:#3E4657;
+    --muted:   #6B7488;
+    --line:    #DCE0E7;
+    --accent:  #8A6100;
+    --accent-ink: #FFFFFF;
+    --accent-soft:#FBF0D5;
+    --good:    #2F7D57;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --ground:  #F4F5F7;
+      --surface: #FFFFFF;
+      --raised:  #ECEEF2;
+      --ink:     #0E121A;
+      --ink-soft:#3E4657;
+      --muted:   #6B7488;
+      --line:    #DCE0E7;
+      --accent:  #8A6100;
+      --accent-ink: #FFFFFF;
+      --accent-soft:#FBF0D5;
+      --good:    #2F7D57;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img { max-width: 100%; }
+
+  .wrap { max-width: 66rem; margin: 0 auto; padding: 0 1.5rem; }
+
+  h1, h2, h3 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: -.025em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  a { color: var(--accent); }
+
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  /* ---------- top bar ---------- */
+
+  .bar {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1.25rem 0; border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    font-family: Archivo, sans-serif; font-weight: 800; font-size: 1.15rem;
+    letter-spacing: -.03em; color: var(--ink); text-decoration: none;
+  }
+  .brand span { color: var(--accent); }
+  .bar nav { margin-left: auto; display: flex; align-items: center; gap: .4rem; }
+  .ghost {
+    background: none; border: 1px solid var(--line); color: var(--ink-soft);
+    font: inherit; font-size: .82rem; padding: .32rem .7rem; border-radius: 4px;
+    cursor: pointer; text-decoration: none; line-height: 1.5;
+  }
+  .ghost:hover { border-color: var(--muted); color: var(--ink); }
+
+  /* ---------- hero ---------- */
+
+  .hero {
+    display: grid; grid-template-columns: 1.05fr .95fr; gap: 3.5rem;
+    align-items: center; padding: 4.5rem 0 4rem;
+  }
+
+  .kicker {
+    font-family: "IBM Plex Mono", monospace; font-size: .74rem;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+    margin: 0 0 1.1rem;
+  }
+
+  h1 { font-size: clamp(2.4rem, 5.6vw, 3.9rem); font-weight: 800; line-height: 1.04; }
+  h1 em { font-style: normal; color: var(--accent); }
+
+  .sub { font-size: 1.13rem; color: var(--ink-soft); margin: 1.35rem 0 0; max-width: 32rem; }
+
+  .cta-row { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: var(--accent); color: var(--accent-ink);
+    font-family: Archivo, sans-serif; font-weight: 700; font-size: 1rem;
+    letter-spacing: -.01em; padding: .8rem 1.5rem; border-radius: 6px;
+    text-decoration: none; border: 1px solid transparent;
+  }
+  .btn:hover { filter: brightness(1.08); }
+
+  .btn-2 {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: none; color: var(--ink); border: 1px solid var(--line);
+    font-family: Archivo, sans-serif; font-weight: 600; font-size: 1rem;
+    padding: .8rem 1.4rem; border-radius: 6px; text-decoration: none;
+  }
+  .btn-2:hover { border-color: var(--muted); }
+
+  .free-note {
+    font-family: "IBM Plex Mono", monospace; font-size: .78rem;
+    color: var(--muted); margin: 1.1rem 0 0;
+  }
+
+  /* ---------- chat mock: the product IS a conversation, so show one ---------- */
+
+  .phone {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 1.1rem 1.1rem 1.35rem; box-shadow: 0 24px 60px -30px rgba(0,0,0,.6);
+  }
+  .phone-top {
+    display: flex; align-items: center; gap: .6rem;
+    padding-bottom: .85rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line);
+  }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center; font-size: .95rem; flex: none;
+  }
+  .phone-name { font-family: Archivo, sans-serif; font-weight: 700; font-size: .92rem; }
+  .phone-status { font-size: .74rem; color: var(--muted); }
+
+  .b { max-width: 84%; padding: .6rem .85rem; border-radius: 12px; font-size: .93rem; line-height: 1.5; }
+  .b + .b { margin-top: .5rem; }
+  .b.in  { background: var(--raised); border-bottom-left-radius: 4px; }
+  .b.out { background: var(--accent-soft); color: var(--ink); margin-left: auto; border-bottom-right-radius: 4px; }
+  .b .who {
+    display: block; font-family: "IBM Plex Mono", monospace; font-size: .65rem;
+    letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: .25rem;
+  }
+  .b b { color: var(--accent); }
+  .b .pr { color: var(--good); font-weight: 600; }
+
+  /* ---------- sections ---------- */
+
+  section { padding: 4.5rem 0; border-top: 1px solid var(--line); }
+
+  .sec-kicker {
+    font-family: "IBM Plex Mono", monospace; font-size: .72rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 .9rem;
+  }
+  h2 { font-size: clamp(1.7rem, 3.4vw, 2.3rem); font-weight: 700; }
+  .sec-lede { color: var(--ink-soft); max-width: 38rem; margin: 1rem 0 0; }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; margin-top: 2.5rem; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 9px; padding: 1.5rem 1.4rem;
+  }
+  .card h3 { font-size: 1.08rem; font-weight: 700; margin-bottom: .55rem; }
+  .card p { margin: 0; color: var(--ink-soft); font-size: .96rem; }
+  .card .ico { font-size: 1.5rem; display: block; margin-bottom: .85rem; }
+
+  /* comparison */
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; margin-top: 2.5rem; }
+  .vs > div { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 1.4rem; }
+  .vs .t {
+    font-family: "IBM Plex Mono", monospace; font-size: .7rem; letter-spacing: .11em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 1rem;
+  }
+  .vs ul { margin: 0; padding-left: 1.15rem; color: var(--ink-soft); font-size: .96rem; }
+  .vs li { margin-bottom: .55rem; }
+  .vs li::marker { color: var(--muted); }
+  .vs .mine { border-color: var(--accent); }
+  .vs .mine .t { color: var(--accent); }
+
+  /* steps */
+  ol.steps { list-style: none; padding: 0; margin: 2.5rem 0 0; counter-reset: s; display: grid; gap: 1.75rem; }
+  ol.steps li { counter-increment: s; display: grid; grid-template-columns: 2.5rem 1fr; gap: 0 1.1rem; }
+  ol.steps li::before {
+    content: counter(s);
+    font-family: Archivo, sans-serif; font-weight: 800; font-size: 1.5rem;
+    color: var(--accent); line-height: 1;
+  }
+  ol.steps h3 { font-size: 1.05rem; margin-bottom: .3rem; }
+  ol.steps p { margin: 0; color: var(--ink-soft); font-size: .96rem; max-width: 34rem; }
+
+  /* tech strip */
+  .tech { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 1.75rem 1.6rem; margin-top: 2rem; }
+  .tech p { margin: 0; color: var(--ink-soft); max-width: 44rem; }
+  .stack {
+    display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.25rem;
+    font-family: "IBM Plex Mono", monospace; font-size: .77rem;
+  }
+  .stack span {
+    background: var(--raised); color: var(--ink-soft);
+    padding: .28rem .6rem; border-radius: 4px; border: 1px solid var(--line);
+  }
+
+  /* final cta */
+  .final { text-align: center; padding: 5rem 0; }
+  .final h2 { max-width: 24rem; margin: 0 auto; }
+  .final .cta-row { justify-content: center; }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 2rem 0 3rem;
+    font-family: "IBM Plex Mono", monospace; font-size: .78rem; color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: .6rem 1.5rem; align-items: center;
+  }
+  footer a { color: var(--muted); }
+  footer .sp { margin-left: auto; }
+
+  [hidden] { display: none !important; }
+
+  @media (max-width: 60rem) {
+    .hero { grid-template-columns: 1fr; gap: 2.75rem; padding: 3rem 0; }
+    .grid3 { grid-template-columns: 1fr; }
+    .vs { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="bar">
+    <a class="brand" href="./">tri<span>x</span></a>
+    <nav>
+      <button class="ghost" id="lang" type="button">EN</button>
+      <button class="ghost" id="theme" type="button" aria-label="Змінити тему">◐</button>
+      <a class="ghost" href="https://github.com/sanych44474/trix" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+
+  <!-- ============ HERO ============ -->
+  <div class="hero">
+    <div>
+      <p class="kicker" data-uk="Безкоштовно · без застосунків" data-en="Free · nothing to install">Безкоштовно · без застосунків</p>
+      <h1 data-uk-html="Тренер, який живе <em>там, де ти вже сидиш</em>"
+          data-en-html="A coach that lives <em>where you already are</em>">Тренер, який живе <em>там, де ти вже сидиш</em></h1>
+      <p class="sub" data-uk="Складає програму під твої дні, обладнання і травми. Веде щоденник тренувань, рахує КБЖУ за фото їжі та нагадує сам. Усе всередині Telegram — нічого не треба встановлювати."
+                     data-en="Builds a program around your days, your equipment and your injuries. Logs your training, reads macros off a photo of your meal, and reminds you itself. All inside Telegram — nothing to install.">Складає програму під твої дні, обладнання і травми. Веде щоденник тренувань, рахує КБЖУ за фото їжі та нагадує сам. Усе всередині Telegram — нічого не треба встановлювати.</p>
+
+      <div class="cta-row">
+        <a class="btn" id="start" href="#" rel="noopener">
+          <span data-uk="Почати в Telegram" data-en="Open in Telegram">Почати в Telegram</span> →
+        </a>
+        <a class="btn-2" href="#how"><span data-uk="Як це працює" data-en="How it works">Як це працює</span></a>
+      </div>
+      <p class="free-note" data-uk="Без реклами · без підписки · відкритий код"
+                           data-en="No ads · no subscription · open source">Без реклами · без підписки · відкритий код</p>
+    </div>
+
+    <!-- The product is a conversation, so the hero shows one rather than describing it. -->
+    <div class="phone" aria-label="Приклад діалогу з ботом">
+      <div class="phone-top">
+        <div class="avatar" aria-hidden="true">🏋️</div>
+        <div>
+          <div class="phone-name">trix</div>
+          <div class="phone-status" data-uk="бот · онлайн" data-en="bot · online">бот · онлайн</div>
+        </div>
+      </div>
+
+      <div class="b in">
+        <span class="who">trix</span>
+        <span data-uk-html="Середа, день ніг. Присідання — <b>62,5 кг</b>, минулого разу зробив 3×8 при RIR 2, тому додав 2,5."
+              data-en-html="Wednesday, leg day. Squat — <b>62.5 kg</b>: you hit 3×8 at RIR 2 last time, so I added 2.5.">Середа, день ніг. Присідання — <b>62,5 кг</b>, минулого разу зробив 3×8 при RIR 2, тому додав 2,5.</span>
+      </div>
+
+      <div class="b out">
+        <span class="who" data-uk="ти" data-en="you">ти</span>
+        <span>62.5 8,8,7</span>
+      </div>
+
+      <div class="b in">
+        <span class="who">trix</span>
+        <span data-uk-html="Записав. <span class='pr'>Це персональний рекорд 🏆</span> Наступного тижня спробуємо 65."
+              data-en-html="Logged. <span class='pr'>That's a personal record 🏆</span> Next week we try 65.">Записав. <span class="pr">Це персональний рекорд 🏆</span> Наступного тижня спробуємо 65.</span>
+      </div>
+
+      <div class="b out">
+        <span class="who" data-uk="ти" data-en="you">ти</span>
+        <span data-uk="[фото обіду]" data-en="[photo of lunch]">[фото обіду]</span>
+      </div>
+
+      <div class="b in">
+        <span class="who">trix</span>
+        <span data-uk-html="Курка з рисом і салатом, ~520 ккал · Б 42 · Ж 14 · В 55. Залишилось на сьогодні <b>780 ккал</b>."
+              data-en-html="Chicken with rice and salad, ~520 kcal · P 42 · F 14 · C 55. <b>780 kcal</b> left for today.">Курка з рисом і салатом, ~520 ккал · Б 42 · Ж 14 · В 55. Залишилось на сьогодні <b>780 ккал</b>.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WHAT MAKES IT DIFFERENT ============ -->
+<section>
+  <div class="wrap">
+    <p class="sec-kicker" data-uk="Чим відрізняється" data-en="What's different">Чим відрізняється</p>
+    <h2 data-uk="Це не щоденник тренувань. Це тренер." data-en="It isn't a workout log. It's a coach.">Це не щоденник тренувань. Це тренер.</h2>
+    <p class="sec-lede" data-uk="Щоденник чекає, поки ти принесеш йому програму і сам її відкриєш. Тут навпаки."
+                        data-en="A log waits for you to bring it a program and open the app. This works the other way round.">Щоденник чекає, поки ти принесеш йому програму і сам її відкриєш. Тут навпаки.</p>
+
+    <div class="grid3">
+      <div class="card">
+        <span class="ico" aria-hidden="true">📋</span>
+        <h3 data-uk="Програму складає він" data-en="It writes the program">Програму складає він</h3>
+        <p data-uk="Питає про ціль, рівень, дні, обладнання і травми — і будує спліт із підходами, вагами та технікою. Не треба знати, з чого почати."
+           data-en="It asks about your goal, level, days, equipment and injuries, then builds the split with sets, starting weights and technique notes. You don't need to know where to start.">Питає про ціль, рівень, дні, обладнання і травми — і будує спліт із підходами, вагами та технікою. Не треба знати, з чого почати.</p>
+      </div>
+      <div class="card">
+        <span class="ico" aria-hidden="true">📈</span>
+        <h3 data-uk="Сам вирішує, коли додати вагу" data-en="It decides when to add weight">Сам вирішує, коли додати вагу</h3>
+        <p data-uk="Подвійна прогресія, врахування RPE, виявлення плато й заміна вправ при болю. Ти просто пишеш, що зробив."
+           data-en="Double progression, RPE-aware autoregulation, plateau detection and swaps when something hurts. You just write down what you did.">Подвійна прогресія, врахування RPE, виявлення плато й заміна вправ при болю. Ти просто пишеш, що зробив.</p>
+      </div>
+      <div class="card">
+        <span class="ico" aria-hidden="true">🔔</span>
+        <h3 data-uk="Приходить першим" data-en="It comes to you first">Приходить першим</h3>
+        <p data-uk="Застосунок чекає, поки його відкриють. Бот з'являється в списку чатів у день тренування — і саме тому про нього не забувають."
+           data-en="An app waits to be opened. A bot shows up in your chat list on training day — which is exactly why it doesn't get forgotten.">Застосунок чекає, поки його відкриють. Бот з'являється в списку чатів у день тренування — і саме тому про нього не забувають.</p>
+      </div>
+    </div>
+
+    <div class="vs">
+      <div>
+        <p class="t" data-uk="Звичайний трекер" data-en="A typical tracker">Звичайний трекер</p>
+        <ul>
+          <li data-uk="Встанови застосунок, заведи акаунт" data-en="Install an app, create an account">Встанови застосунок, заведи акаунт</li>
+          <li data-uk="Принеси власну програму" data-en="Bring your own program">Принеси власну програму</li>
+          <li data-uk="Сам вирішуй, коли додавати вагу" data-en="Decide for yourself when to add weight">Сам вирішуй, коли додавати вагу</li>
+          <li data-uk="Харчування — окремий застосунок" data-en="Nutrition lives in a second app">Харчування — окремий застосунок</li>
+          <li data-uk="Половина корисного — за підписку" data-en="Half the useful part is behind a subscription">Половина корисного — за підписку</li>
+        </ul>
+      </div>
+      <div class="mine">
+        <p class="t">trix</p>
+        <ul>
+          <li data-uk="Відкрив Telegram — уже працює" data-en="Open Telegram — it already works">Відкрив Telegram — уже працює</li>
+          <li data-uk="Програму складе під тебе" data-en="The program is written for you">Програму складе під тебе</li>
+          <li data-uk="Прогресію веде сам і пояснює чому" data-en="It runs the progression and explains why">Прогресію веде сам і пояснює чому</li>
+          <li data-uk="Тренування і КБЖУ в одному місці" data-en="Training and macros in one place">Тренування і КБЖУ в одному місці</li>
+          <li data-uk="Усе безкоштовно, код відкритий" data-en="All of it free, code in the open">Усе безкоштовно, код відкритий</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW ============ -->
+<section id="how">
+  <div class="wrap">
+    <p class="sec-kicker" data-uk="Як почати" data-en="Getting started">Як почати</p>
+    <h2 data-uk="Три кроки, приблизно п'ять хвилин" data-en="Three steps, about five minutes">Три кроки, приблизно п'ять хвилин</h2>
+
+    <ol class="steps">
+      <li>
+        <div>
+          <h3 data-uk="Коротке інтерв'ю" data-en="A short interview">Коротке інтерв'ю</h3>
+          <p data-uk="Кнопками, без набору тексту: стать, вік, зріст і вага, ціль, досвід, дні тренувань, обладнання, обмеження і травми."
+             data-en="Buttons, not typing: sex, age, height and weight, goal, experience, training days, equipment, limitations and injuries.">Кнопками, без набору тексту: стать, вік, зріст і вага, ціль, досвід, дні тренувань, обладнання, обмеження і травми.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3 data-uk="Отримуєш програму" data-en="You get the program">Отримуєш програму</h3>
+          <p data-uk="Спліт на твої дні: вправи, підходи, стартові ваги, техніка і відео до кожної вправи. Будь-що можна замінити або прибрати."
+             data-en="A split across your days: exercises, sets, starting weights, technique cues and a video for each movement. Anything can be swapped or removed.">Спліт на твої дні: вправи, підходи, стартові ваги, техніка і відео до кожної вправи. Будь-що можна замінити або прибрати.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3 data-uk="Тренуєшся і пишеш результат" data-en="You train and write down the result">Тренуєшся і пишеш результат</h3>
+          <p data-uk="Текстом «80 8,7,6», голосовим повідомленням або кнопками в застосунку. Далі бот сам веде прогресію, рахує рекорди й нагадує про наступне тренування."
+             data-en="As text — «80 8,7,6» — as a voice note, or with buttons in the Mini App. From there it runs the progression, tracks records and reminds you about the next session.">Текстом «80 8,7,6», голосовим повідомленням або кнопками в застосунку. Далі бот сам веде прогресію, рахує рекорди й нагадує про наступне тренування.</p>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ TECH ============ -->
+<section>
+  <div class="wrap">
+    <p class="sec-kicker" data-uk="Під капотом" data-en="Under the hood">Під капотом</p>
+    <h2 data-uk="Безкоштовно — і це не тимчасова акція" data-en="Free — and not as a temporary promotion">Безкоштовно — і це не тимчасова акція</h2>
+
+    <div class="tech">
+      <p data-uk="Бот повністю працює на безкоштовних тарифах: обчислення й база — Cloudflare Workers та D1, а за текст відповідає каскад із кількох AI-провайдерів, який автоматично перемикається, якщо один із них недоступний. Немає серверів, за які треба платити, — тому немає й потреби вводити підписку. Код відкритий: його можна прочитати, форкнути й запустити власного бота."
+         data-en="The bot runs entirely on free tiers: Cloudflare Workers and D1 for compute and storage, and a ladder of AI providers that fails over automatically when one is unavailable. There are no servers to pay for, so there is no need to introduce a subscription. The code is open — read it, fork it, run your own.">Бот повністю працює на безкоштовних тарифах: обчислення й база — Cloudflare Workers та D1, а за текст відповідає каскад із кількох AI-провайдерів, який автоматично перемикається, якщо один із них недоступний. Немає серверів, за які треба платити, — тому немає й потреби вводити підписку. Код відкритий: його можна прочитати, форкнути й запустити власного бота.</p>
+      <div class="stack">
+        <span>Cloudflare Workers</span><span>D1 · SQLite</span><span>TypeScript</span>
+        <span>grammY</span><span>Telegram Mini App</span><span>Gemini · Groq · Workers AI</span><span>MIT</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="final">
+  <div class="wrap">
+    <h2 data-uk="Наступне тренування — вже за планом" data-en="Your next session is already planned">Наступне тренування — вже за планом</h2>
+    <div class="cta-row">
+      <a class="btn" id="start2" href="#" rel="noopener">
+        <span data-uk="Почати в Telegram" data-en="Open in Telegram">Почати в Telegram</span> →
+      </a>
+    </div>
+    <p class="free-note" data-uk="Українською та англійською" data-en="Available in Ukrainian and English">Українською та англійською</p>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>
+    <span>© 2026 trix</span>
+    <a href="https://github.com/sanych44474/trix">GitHub</a>
+    <a href="https://github.com/sanych44474/trix/blob/main/LICENSE">MIT</a>
+    <a href="https://github.com/sanych44474/trix/blob/main/SECURITY.md" data-uk="Безпека" data-en="Security">Безпека</a>
+    <span class="sp" data-uk="Не є медичною порадою" data-en="Not medical advice">Не є медичною порадою</span>
+  </footer>
+</div>
+
+<script>
+  // ---- Deployment config. Change this one line when running your own instance. ----
+  var BOT_USERNAME = "hack_limits_bot";
+
+  var startUrl = "https://t.me/" + BOT_USERNAME;
+  document.getElementById("start").href = startUrl;
+  document.getElementById("start2").href = startUrl;
+
+  // ---- Theme toggle (falls back to the OS preference when never set) ----
+  var themeBtn = document.getElementById("theme");
+  try {
+    var saved = localStorage.getItem("trix_site_theme");
+    if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
+  } catch (e) {}
+  themeBtn.addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    if (!cur) cur = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    var next = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("trix_site_theme", next); } catch (e) {}
+  });
+
+  // ---- Language toggle. UA is primary (the audience), EN for the GitHub crowd. ----
+  var langBtn = document.getElementById("lang");
+  var lang = "uk";
+  try {
+    var savedLang = localStorage.getItem("trix_site_lang");
+    if (savedLang === "en" || savedLang === "uk") lang = savedLang;
+  } catch (e) {}
+
+  function applyLang(l) {
+    lang = l;
+    document.documentElement.lang = l;
+    langBtn.textContent = l === "uk" ? "EN" : "UA";
+    var plain = document.querySelectorAll("[data-uk][data-en]");
+    for (var i = 0; i < plain.length; i++) {
+      plain[i].textContent = plain[i].getAttribute("data-" + l);
+    }
+    var rich = document.querySelectorAll("[data-uk-html][data-en-html]");
+    for (var j = 0; j < rich.length; j++) {
+      rich[j].innerHTML = rich[j].getAttribute("data-" + l + "-html");
+    }
+    try { localStorage.setItem("trix_site_lang", l); } catch (e) {}
+  }
+
+  langBtn.addEventListener("click", function () { applyLang(lang === "uk" ? "en" : "uk"); });
+  if (lang === "en") applyLang("en");
+</script>
+
+</body>
+</html>
