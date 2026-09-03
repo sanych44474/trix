@@ -47,11 +47,10 @@ export function monthGrid(ym: string): (string | null)[][] {
 
 const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTHS_UK = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
-const MONTHS_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 
 export function monthTitle(ym: string, lang: Lang): string {
   const [y, m] = ym.split("-").map(Number);
-  return `${(lang === "uk" ? MONTHS_UK : lang === "ru" ? MONTHS_RU : MONTHS_EN)[m - 1]} ${y}`;
+  return `${(lang === "uk" ? MONTHS_UK : MONTHS_EN)[m - 1]} ${y}`;
 }
 
 export interface DayCtx {

@@ -3,7 +3,6 @@
 // once at module load and interpolated into the app HTML as `var WA_ALL = ...`.
 import { en, type Dict } from "../locales/en";
 import { uk } from "../locales/uk";
-import { ru } from "../locales/ru";
 
 // Keys are collected AUTOMATICALLY by prefix from the en catalog — adding a `wa_*` key to
 // en.ts/uk.ts is enough (no third manual list to forget; that class of bugs is gone). The
@@ -20,4 +19,4 @@ function pick(d: Dict): Record<string, string> {
 }
 
 // <-escape "<" so the JSON can never terminate the surrounding <script> block.
-export const WA_I18N_JSON = JSON.stringify({ en: pick(en), uk: pick(uk), ru: pick(ru) }).replace(/</g, "\\u003c");
+export const WA_I18N_JSON = JSON.stringify({ en: pick(en), uk: pick(uk) }).replace(/</g, "\\u003c");

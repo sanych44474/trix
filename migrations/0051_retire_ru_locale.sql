@@ -1,0 +1,11 @@
+-- The `ru` UI locale is retired: it served zero users while costing a third of the work on every
+-- new string, since the Dict type forces every key to exist in all catalogs.
+--
+-- Any row still holding 'ru' would resolve to an undefined dictionary at render time. The code
+-- already coerces on read (normalizeLang in src/locales/i18n.ts, applied in the users row mapper),
+-- so this is belt-and-braces — it keeps the stored data honest rather than relying on the reader.
+-- Ukrainian is the fallback: it is what a Russian-speaking user here reads most comfortably.
+--
+-- Note this does NOT touch trainers.languages, which records the languages a trainer coaches in.
+-- A trainer may well speak Russian; that is unrelated to which locales the interface ships.
+UPDATE users SET lang = 'uk' WHERE lang NOT IN ('uk', 'en');

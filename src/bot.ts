@@ -524,9 +524,7 @@ export function difficultyLabel(lang: Lang, difficulty?: string): string {
   const map: Record<string, string> =
     lang === "uk"
       ? { beginner: "початковий", intermediate: "середній", expert: "просунутий" }
-      : lang === "ru"
-        ? { beginner: "начальный", intermediate: "средний", expert: "продвинутый" }
-        : { beginner: "beginner", intermediate: "intermediate", expert: "expert" };
+      : { beginner: "beginner", intermediate: "intermediate", expert: "expert" };
   return map[difficulty] ?? difficulty;
 }
 
@@ -4332,7 +4330,6 @@ export async function toggleShare(ctx: MyContext, key: "body" | "health") {
 
 export const WD_SHORT: Record<Lang, string[]> = {
   uk: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"],
-  ru: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
   en: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
 };
 export function weekdayOf(date: string): Weekday {
@@ -4801,7 +4798,7 @@ export async function onGoalMaintain(ctx: MyContext) {
   const lang = ctx.user.lang;
   await ctx.answerCallbackQuery().catch(() => {});
   if (ctx.user.role === "client") return;
-  const profile = { ...ctx.user.profile, goal: lang === "uk" ? "рекомпозиція / підтримання форми" : lang === "ru" ? "рекомпозиция / поддержание формы" : "recomposition / maintenance" };
+  const profile = { ...ctx.user.profile, goal: lang === "uk" ? "рекомпозиція / підтримання форми" : "recomposition / maintenance" };
   ctx.user.profile = profile;
   await updateUser(ctx.db, ctx.user._id, { profile });
   await recordPlanSource(ctx.db, ctx.user._id, "goal_switch", "bank").catch(() => {});
@@ -4923,14 +4920,10 @@ export async function logMeal(ctx: MyContext, items: P.NutritionItem[]) {
     (remaining > 0
       ? lang === "uk"
         ? `Залишилось ${remaining} ккал на сьогодні.`
-        : lang === "ru"
-          ? `Осталось ${remaining} ккал на сегодня.`
-          : `${remaining} kcal left for today.`
+        : `${remaining} kcal left for today.`
       : lang === "uk"
         ? `Ліміт калорій вичерпано (${-remaining} ккал понад ціль).`
-        : lang === "ru"
-          ? `Лимит калорий исчерпан (${-remaining} ккал сверх цели).`
-          : `Calorie target reached (${-remaining} kcal over).`);
+        : `Calorie target reached (${-remaining} kcal over).`);
   if (verified > 0) advice += t(lang, "verified_suffix", { n: verified, total: final.length, src: source });
 
   // List every recognised item so the user sees all foods (USDA-verified or AI-estimated).
@@ -5702,17 +5695,17 @@ export async function cmdReport(ctx: MyContext) {
   await reply(ctx, parts.join("\n"), menuBtn(lang));
 }
 
-export const BODY_FIELDS: { key: keyof NonNullable<BodyLogDoc["measurements"]>; en: string; uk: string; ru: string }[] = [
-  { key: "waist", en: "waist", uk: "талія", ru: "талия" },
-  { key: "chest", en: "chest", uk: "груди", ru: "грудь" },
-  { key: "arm", en: "arm", uk: "рука", ru: "рука" },
-  { key: "hips", en: "hips", uk: "стегна", ru: "бёдра" },
-  { key: "thigh", en: "thigh", uk: "нога", ru: "нога" },
+export const BODY_FIELDS: { key: keyof NonNullable<BodyLogDoc["measurements"]>; en: string; uk: string }[] = [
+  { key: "waist", en: "waist", uk: "талія" },
+  { key: "chest", en: "chest", uk: "груди" },
+  { key: "arm", en: "arm", uk: "рука" },
+  { key: "hips", en: "hips", uk: "стегна" },
+  { key: "thigh", en: "thigh", uk: "нога" },
 ];
 
 // Localized label for a body-measurement field.
-export function bodyFieldLabel(lang: Lang, f: { en: string; uk: string; ru: string }): string {
-  return lang === "uk" ? f.uk : lang === "ru" ? f.ru : f.en;
+export function bodyFieldLabel(lang: Lang, f: { en: string; uk: string }): string {
+  return lang === "uk" ? f.uk : f.en;
 }
 
 export function renderBodyDynamics(lang: Lang, bodyAsc: BodyLogDoc[]): string {
@@ -5726,7 +5719,7 @@ export function renderBodyDynamics(lang: Lang, bodyAsc: BodyLogDoc[]): string {
     const sign = d > 0 ? "+" : "";
     return `${b}${d !== 0 ? ` (${sign}${d})` : ""}`;
   };
-  const wLabel = lang === "uk" ? "вага" : lang === "ru" ? "вес" : "weight";
+  const wLabel = lang === "uk" ? "вага" : "weight";
   const w = fmtDelta(first.weight, last.weight) ?? (last.weight ? `${last.weight}` : undefined);
   if (w) segs.push(`${wLabel} ${w}kg`);
   for (const f of BODY_FIELDS) {

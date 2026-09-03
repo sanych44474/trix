@@ -1,9 +1,20 @@
 import type { Lang } from "../types";
 import { en, type Dict } from "./en";
 import { uk } from "./uk";
-import { ru } from "./ru";
 
-const dicts: Record<Lang, Dict> = { en, uk, ru };
+const dicts: Record<Lang, Dict> = { en, uk };
+
+/**
+ * Coerce a language code of unknown provenance into a supported one.
+ *
+ * The single place where a `lang` value enters the system from outside — a database row, a
+ * client payload — so that no unsupported code can reach `t()`, where it would resolve to an
+ * undefined dictionary and throw on every string. Anything unrecognised falls back to `uk`,
+ * which is what discontinued locales were closest to.
+ */
+export function normalizeLang(v: unknown): Lang {
+  return v === "en" ? "en" : "uk";
+}
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -47,5 +58,4 @@ export function t(
 export const LANG_NAME: Record<Lang, string> = {
   en: "English",
   uk: "Українська",
-  ru: "Русский",
 };

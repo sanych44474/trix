@@ -106,7 +106,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
         user.reminders = reminders;
       }
     } else if (action === "lang") {
-      const next = body.lang === "en" ? "en" : body.lang === "uk" ? "uk" : body.lang === "ru" ? "ru" : null;
+      const next = body.lang === "en" ? "en" : body.lang === "uk" ? "uk" : null;
       if (!next) return Response.json({ error: "bad request" }, { status: 400 });
       await updateUser(env.DB, user._id, { lang: next });
       user.lang = next;

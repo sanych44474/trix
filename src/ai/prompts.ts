@@ -19,7 +19,7 @@ export function candidateBlock(candidates: CatalogExercise[]): string {
   return `\n\nCANDIDATE EXERCISES — choose ONLY from these; copy the exact [id] into exerciseId and the English name into canonicalName:\n${sections.join("\n")}`;
 }
 
-const langName = (l: Lang) => (l === "uk" ? "Ukrainian" : l === "ru" ? "Russian" : "English");
+const langName = (l: Lang) => (l === "uk" ? "Ukrainian" : "English");
 
 // ---------- Onboarding interview ----------
 

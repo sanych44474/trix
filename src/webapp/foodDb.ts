@@ -45,7 +45,7 @@ export async function aiProductLookup(env: Env, lang: Lang, q: { barcode?: strin
       "You are a food-nutrition database. Given a product name or EAN/UPC barcode, return its " +
       "per-100g nutrition. Set found=true ONLY if you actually recognize the SPECIFIC product " +
       "and are confident of realistic values; otherwise found=false. NEVER invent numbers. " +
-      `Write the name in ${lang === "uk" ? "Ukrainian" : lang === "ru" ? "Russian" : "English"}. Return per-100g kcal/protein/fat/carbs.`,
+      `Write the name in ${lang === "uk" ? "Ukrainian" : "English"}. Return per-100g kcal/protein/fat/carbs.`,
     user: `Identify: ${subject}`,
     schema: AI_PRODUCT_SCHEMA,
     temperature: 0,

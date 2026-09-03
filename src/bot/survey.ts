@@ -90,20 +90,20 @@ export async function onSurveyItem(ctx: MyContext, item: string) {
 
 // ===================== Cardio quick log =====================
 
-const CARDIO_TYPES: { key: string; en: string; uk: string; ru: string }[] = [
-  { key: "row", en: "Rowing", uk: "Веслування", ru: "Гребля" },
-  { key: "bike", en: "Cycling", uk: "Велотренажер", ru: "Велотренажёр" },
-  { key: "run", en: "Running", uk: "Біг", ru: "Бег" },
-  { key: "walk", en: "Walking", uk: "Ходьба", ru: "Ходьба" },
-  { key: "swim", en: "Swimming", uk: "Плавання", ru: "Плавание" },
-  { key: "ellipt", en: "Elliptical", uk: "Еліптичний", ru: "Эллипс" },
-  { key: "rope", en: "Jump rope", uk: "Скакалка", ru: "Скакалка" },
-  { key: "other", en: "Other", uk: "Інше", ru: "Другое" },
+const CARDIO_TYPES: { key: string; en: string; uk: string }[] = [
+  { key: "row", en: "Rowing", uk: "Веслування" },
+  { key: "bike", en: "Cycling", uk: "Велотренажер" },
+  { key: "run", en: "Running", uk: "Біг" },
+  { key: "walk", en: "Walking", uk: "Ходьба" },
+  { key: "swim", en: "Swimming", uk: "Плавання" },
+  { key: "ellipt", en: "Elliptical", uk: "Еліптичний" },
+  { key: "rope", en: "Jump rope", uk: "Скакалка" },
+  { key: "other", en: "Other", uk: "Інше" },
 ];
 
 const cardioName = (lang: Lang, key: string): string => {
   const c = CARDIO_TYPES.find((x) => x.key === key);
-  return c ? (lang === "uk" ? c.uk : lang === "ru" ? c.ru : c.en) : "";
+  return c ? (lang === "uk" ? c.uk : c.en) : "";
 };
 
 export async function showCardioMenu(ctx: MyContext) {

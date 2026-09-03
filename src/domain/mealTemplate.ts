@@ -172,7 +172,7 @@ export const DISH_NAME: Record<string, { en: string; uk: string }> = {
 /** Human display name for a curated food key, or null to fall back to plain translation.
  * The curated dish dictionary is en/uk only; ru borrows the uk name (mutually readable). */
 export function dishName(foodKey: string, lang: Lang): string | null {
-  const l: "en" | "uk" = lang === "ru" ? "uk" : lang;
+  const l: "en" | "uk" = lang;
   return DISH_NAME[foodKey.toLowerCase().trim()]?.[l] ?? null;
 }
 

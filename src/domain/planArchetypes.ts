@@ -234,55 +234,47 @@ export function stepsTarget(lifestyle: string | undefined): number {
 // ---- Localized structural text (no runtime translation) ----
 
 export const DAY_LABEL: Record<DayLabel, Record<Lang, string>> = {
-  full_body: { en: "Full Body", uk: "Все тіло", ru: "Всё тело" },
-  upper: { en: "Upper Body", uk: "Верх тіла", ru: "Верх тела" },
-  lower: { en: "Lower Body", uk: "Низ тіла", ru: "Низ тела" },
-  push: { en: "Push (Chest/Triceps)", uk: "Жим (Груди/Трицепс)", ru: "Жим (Грудь/Трицепс)" },
-  pull: { en: "Pull (Back/Biceps)", uk: "Тяга (Спина/Біцепс)", ru: "Тяга (Спина/Бицепс)" },
-  legs: { en: "Legs", uk: "Ноги", ru: "Ноги" },
+  full_body: { en: "Full Body", uk: "Все тіло" },
+  upper: { en: "Upper Body", uk: "Верх тіла" },
+  lower: { en: "Lower Body", uk: "Низ тіла" },
+  push: { en: "Push (Chest/Triceps)", uk: "Жим (Груди/Трицепс)" },
+  pull: { en: "Pull (Back/Biceps)", uk: "Тяга (Спина/Біцепс)" },
+  legs: { en: "Legs", uk: "Ноги" },
 };
 
 export const WARMUP: Record<Lang, string[]> = {
   en: ["5 min easy cardio (bike/row) Z2", "dynamic mobility for the day's joints", "2 light ramp-up sets on the first lift"],
   uk: ["5 хв легке кардіо (велотренажер/гребля) Z2", "динамічна мобілізація суглобів дня", "2 розминкові підходи на першій вправі"],
-  ru: ["5 мин лёгкое кардио (велотренажёр/гребля) Z2", "динамическая мобилизация суставов дня", "2 разминочных подхода на первом упражнении"],
 };
 export const COOLDOWN: Record<Lang, string[]> = {
   en: ["3-5 min easy walk", "static stretch the trained muscles 20-30s each"],
   uk: ["3-5 хв спокійна ходьба", "статична розтяжка опрацьованих м'язів по 20-30с"],
-  ru: ["3-5 мин спокойная ходьба", "статическая растяжка проработанных мышц по 20-30с"],
 };
 
 export const METHODOLOGY: Record<GoalBucket, Record<Lang, string>> = {
   strength: {
     en: "Train the key lifts with double progression: add reps to the top of the range, then add 2.5kg (upper) / 5kg (lower) and reset to the bottom. Keep primaries at RPE 8 (2 reps in reserve), accessories lighter. Deload every 6-8 weeks. Track key-lift loads weekly.",
     uk: "Тренуй базові вправи за подвійною прогресією: додавай повтори до верху діапазону, потім +2.5кг (верх) / +5кг (низ) і починай з нижньої межі. Базові — RPE 8 (2 повтори в запасі), підсобні легше. Розвантаження кожні 6-8 тижнів. Веди облік ваг щотижня.",
-    ru: "Тренируй базовые упражнения по двойной прогрессии: добавляй повторы до верха диапазона, затем +2.5кг (верх) / +5кг (низ) и начинай с нижней границы. Базовые — RPE 8 (2 повтора в запасе), подсобные легче. Разгрузка каждые 6-8 недель. Веди учёт весов еженедельно.",
   },
   muscle: {
     en: "Drive hypertrophy with double progression in the 6-15 rep range at RPE 8, controlled tempo, and short rests on accessories. Add a set or small load each week you hit the top of the range. Eat in a slight surplus, prioritise protein, deload every 6-8 weeks.",
     uk: "Нарощуй м'язи за подвійною прогресією в діапазоні 6-15 повторів при RPE 8, контрольований темп, короткий відпочинок на підсобці. Додавай підхід або невелику вагу щотижня, коли досягаєш верху діапазону. Невеликий профіцит калорій, пріоритет білку, розвантаження кожні 6-8 тижнів.",
-    ru: "Наращивай мышцы по двойной прогрессии в диапазоне 6-15 повторов при RPE 8, контролируемый темп, короткий отдых на подсобке. Добавляй подход или небольшой вес каждую неделю, когда достигаешь верха диапазона. Небольшой профицит калорий, приоритет белку, разгрузка каждые 6-8 недель.",
   },
   recomp: {
     en: "Balance strength and conditioning at RPE 7-8 with autoregulation — push hard on good days, hold back when recovery is low. Keep protein high at maintenance calories. Progress loads gradually; deload every 6-8 weeks.",
     uk: "Поєднуй силу та кондицію при RPE 7-8 з ауторегуляцією — викладайся у хороші дні, стримуйся при поганому відновленні. Тримай білок високим при підтримуючих калоріях. Прогресуй ваги поступово; розвантаження кожні 6-8 тижнів.",
-    ru: "Сочетай силу и кондицию при RPE 7-8 с ауторегуляцией — выкладывайся в хорошие дни, сдерживайся при плохом восстановлении. Держи белок высоким при поддерживающих калориях. Прогрессируй веса постепенно; разгрузка каждые 6-8 недель.",
   },
   fatloss: {
     en: "Preserve muscle in a calorie deficit: keep loads moderate-high at RPE 7, higher reps, short rests, plus the weekly NEAT steps target and at least one Z2 cardio session. Don't chase failure — maintain strength while the deficit does the fat loss. Deload every 6-8 weeks.",
     uk: "Зберігай м'язи в дефіциті калорій: тримай ваги помірно-високими при RPE 7, більше повторів, короткий відпочинок, плюс тижнева ціль кроків (NEAT) і щонайменше одне кардіо Z2. Не женися за відмовою — підтримуй силу, а жир спалює дефіцит. Розвантаження кожні 6-8 тижнів.",
-    ru: "Сохраняй мышцы в дефиците калорий: держи веса умеренно-высокими при RPE 7, больше повторов, короткий отдых, плюс недельная цель шагов (NEAT) и хотя бы одно кардио Z2. Не гонись за отказом — поддерживай силу, а жир сжигает дефицит. Разгрузка каждые 6-8 недель.",
   },
   endurance: {
     en: "Polarised endurance: 80% easy Z2 (aerobic base, nasal breathing), 20% quality (intervals Z4-Z5 or tempo Z3). Progress weekly volume ~10%, hold a down week every 4th. Keep 1 short strength day at RPE 6-7 for injury prevention. Fuel long sessions with carbs; protein 1.4-1.8 g/kg.",
     uk: "Поляризована витривалість: 80% легко Z2 (аеробна база, носове дихання), 20% якість (інтервали Z4-Z5 або темп Z3). Нарощуй тижневий обʼєм ~10%, розвантажний тиждень кожен 4-й. Тримай 1 коротку силову за RPE 6-7 для профілактики травм. Довгі сесії — з вуглеводами; білок 1.4-1.8 г/кг.",
-    ru: "Поляризованная выносливость: 80% легко Z2 (аэробная база, носовое дыхание), 20% качество (интервалы Z4-Z5 или темп Z3). Наращивай недельный объём ~10%, разгрузочная неделя каждая 4-я. Держи 1 короткую силовую при RPE 6-7 для профилактики травм. Длинные сессии — с углеводами; белок 1.4-1.8 г/кг.",
   },
 };
 
 export const MOVEMENT_AUDIT: Record<Lang, string> = {
   en: "Weekly coverage: squat, hinge, horizontal & vertical push, horizontal & vertical pull, core. Push:pull balance ≥ 1:1.",
   uk: "Тижневе покриття: присід, нахил (hinge), горизонтальні та вертикальні жими, горизонтальні та вертикальні тяги, кор. Баланс жим:тяга ≥ 1:1.",
-  ru: "Недельное покрытие: присед, наклон (hinge), горизонтальные и вертикальные жимы, горизонтальные и вертикальные тяги, кор. Баланс жим:тяга ≥ 1:1.",
 };

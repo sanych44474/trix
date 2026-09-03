@@ -47,7 +47,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
         stalled_lifts: stalled.slice(0, 6),
         top_lifts: records.slice(0, 8).map((r) => ({ name: r.exercise, best: `${r.bestWeight ?? 0}kg×${r.bestReps ?? 0}` })),
       };
-      const langName = user.lang === "uk" ? "Ukrainian" : user.lang === "ru" ? "Russian" : "English";
+      const langName = user.lang === "uk" ? "Ukrainian" : "English";
       const text = await aiText(env, {
         system: `You are an elite strength coach. From the athlete's 45-day training JSON, give 2-3 SPECIFIC, actionable insights: what's progressing, what stalled (and one concrete fix each — e.g. deload, variation, add a set, check recovery), and one priority for next week. Reference their real lifts by name. Answer in ${langName}. Plain text only, no markdown, no LaTeX, no backslashes, max 8 short lines.`,
         user: JSON.stringify(summary),

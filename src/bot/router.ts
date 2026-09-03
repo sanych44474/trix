@@ -742,7 +742,7 @@ export async function localizeMealNames(env: Env, db: D1Database, lang: Lang, us
 type CbHandler = (ctx: MyContext, rest: string, data: string) => Promise<unknown> | unknown;
 
 const pickLang: CbHandler = async (ctx, _rest, data) => {
-  const lang: Lang = data === "lang:uk" ? "uk" : data === "lang:ru" ? "ru" : "en";
+  const lang: Lang = data === "lang:uk" ? "uk" : "en";
   const wasOnboarded = ctx.user.onboarded;
   await updateUser(ctx.db, ctx.user._id, { lang });
   ctx.user.lang = lang;

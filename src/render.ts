@@ -58,7 +58,7 @@ function localizeMuscles(s: string, lang: Lang): string {
 function startWeightLabel(raw: string, lang: Lang): string {
   const w = (raw || "").trim();
   if (!w || w === "—" || w === "-") return "";
-  if (/^(bodyweight|власна вага|своя вага)$/i.test(w)) return lang === "uk" ? "власна вага" : lang === "ru" ? "свой вес" : "bodyweight";
+  if (/^(bodyweight|власна вага|своя вага)$/i.test(w)) return lang === "uk" ? "власна вага" : "bodyweight";
   return w;
 }
 
@@ -78,7 +78,7 @@ export function renderActivityGrid(lang: Lang, cells: ActivityCell[]): string {
 export function renderMealPlan(lang: Lang, plan: MealPlanDoc): string {
   const g = lang === "en" ? "g" : "г";
   const macros = (p: number, f: number, c: number) =>
-    lang === "uk" ? `Б${p}/Ж${f}/В${c}` : lang === "ru" ? `Б${p}/Ж${f}/У${c}` : `P${p}/F${f}/C${c}`;
+    lang === "uk" ? `Б${p}/Ж${f}/В${c}` : `P${p}/F${f}/C${c}`;
   const parts: string[] = [t(lang, "mealplan_header")];
   for (const day of plan.days) {
     if (plan.days.length > 1) parts.push(`\n<b>${escapeHtml(day.label)}</b>`);
@@ -98,7 +98,6 @@ export function renderMealPlan(lang: Lang, plan: MealPlanDoc): string {
 const WEEKDAYS: Record<Lang, Record<Weekday, string>> = {
   en: { 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun" },
   uk: { 1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Нд" },
-  ru: { 1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс" },
 };
 
 export function weekdayName(lang: Lang, w: Weekday): string {
@@ -152,8 +151,8 @@ export function renderDay(
     const gsize = g ? groupSize.get(g) ?? 0 : 0;
     const ssTag = g
       ? gsize >= 3
-        ? `🔁 ${_lang === "uk" ? "коло" : _lang === "ru" ? "круг" : "circuit"} ${escapeHtml(g)} `
-        : `🔗 ${_lang === "uk" ? "суперсет" : _lang === "ru" ? "суперсет" : "superset"} ${escapeHtml(g)} `
+        ? `🔁 ${_lang === "uk" ? "коло" : "circuit"} ${escapeHtml(g)} `
+        : `🔗 ${_lang === "uk" ? "суперсет" : "superset"} ${escapeHtml(g)} `
       : "";
     const indent = g ? "   " : "";
     const wLabel = startWeightLabel(cleanAi(ex.startWeight), _lang);
@@ -163,16 +162,16 @@ export function renderDay(
     let s = `${indent}${i + 1}. ${ssTag}<b>${escapeHtml(cleanAi(ex.name))}</b> — ${escapeHtml(cleanAi(ex.sets))}${wLabel ? ` · ${escapeHtml(wLabel)}${wmLabel}` : ""}`;
     // Compact professional meta (role/RPE/RIR/rest/tempo/HR-zone) — short universal tokens.
     const meta = [
-      ex.role ? (ex.role === "primary" ? (_lang === "uk" ? "основна" : _lang === "ru" ? "основное" : "primary") : (_lang === "uk" ? "допоміжна" : _lang === "ru" ? "вспомогательное" : "accessory")) : "",
+      ex.role ? (ex.role === "primary" ? (_lang === "uk" ? "основна" : "primary") : (_lang === "uk" ? "допоміжна" : "accessory")) : "",
       ex.rpe ? `RPE ${cleanAi(ex.rpe)}` : "",
       ex.rir ? `RIR ${cleanAi(ex.rir)}` : "",
       ex.rest ? `⏱ ${cleanAi(ex.rest)}` : "",
-      ex.tempo ? `${_lang === "uk" ? "темп" : _lang === "ru" ? "темп" : "tempo"} ${cleanAi(ex.tempo)}` : "",
+      ex.tempo ? `${_lang === "uk" ? "темп" : "tempo"} ${cleanAi(ex.tempo)}` : "",
       ex.heartRateZone ? `❤️ ${cleanAi(ex.heartRateZone)}` : "",
     ].filter(Boolean);
     if (meta.length) s += `\n   ${indent}<i>${escapeHtml(meta.join(" · "))}</i>`;
     if (ex.warmupScheme) {
-      s += `\n   ${indent}<i>${_lang === "uk" ? "розминка" : _lang === "ru" ? "разминка" : "warm-up"}: ${escapeHtml(cleanAi(ex.warmupScheme))}</i>`;
+      s += `\n   ${indent}<i>${_lang === "uk" ? "розминка" : "warm-up"}: ${escapeHtml(cleanAi(ex.warmupScheme))}</i>`;
     }
     if (tech !== "none" && ex.technique) {
       const technique =
@@ -217,18 +216,10 @@ const SESSION_TYPE_EN: Record<string, string> = {
   hybrid: "hybrid",
   "active-recovery": "active recovery",
 };
-const SESSION_TYPE_RU: Record<string, string> = {
-  strength: "силовая",
-  hypertrophy: "гипертрофия",
-  conditioning: "кардио",
-  mobility: "подвижность",
-  hybrid: "гибрид",
-  "active-recovery": "активное восстановление",
-};
 
 function localizeSessionType(lang: Lang, raw: string): string {
   const key = raw.toLowerCase().trim();
-  const map = lang === "uk" ? SESSION_TYPE_UK : lang === "ru" ? SESSION_TYPE_RU : SESSION_TYPE_EN;
+  const map = lang === "uk" ? SESSION_TYPE_UK : SESSION_TYPE_EN;
   return map[key] ?? raw;
 }
 
@@ -236,7 +227,7 @@ function localizeSessionType(lang: Lang, raw: string): string {
 function dayMeta(lang: Lang, day: PlanDay): string {
   const bits = [
     day.sessionType ? `🏷 ${escapeHtml(localizeSessionType(lang, cleanAi(day.sessionType)))}` : "",
-    typeof day.durationMin === "number" ? `⏳ ~${day.durationMin} ${lang === "uk" ? "хв" : lang === "ru" ? "мин" : "min"}` : "",
+    typeof day.durationMin === "number" ? `⏳ ~${day.durationMin} ${lang === "uk" ? "хв" : "min"}` : "",
   ].filter(Boolean);
   return bits.length ? `<i>${bits.join(" · ")}</i>\n` : "";
 }
@@ -338,7 +329,7 @@ export function renderPlan(lang: Lang, plan: PlanDoc, videos?: Map<string, Exerc
   }
 
   if (typeof plan.stepsTarget === "number") {
-    parts.push(`🚶 ${plan.stepsTarget} ${lang === "uk" ? "кроків/день" : lang === "ru" ? "шагов/день" : "steps/day"}`, "");
+    parts.push(`🚶 ${plan.stepsTarget} ${lang === "uk" ? "кроків/день" : "steps/day"}`, "");
   }
 
   if (plan.movementAudit) {
@@ -380,7 +371,7 @@ export function exerciseChart(lang: Lang, name: string, history: { date: string;
     type: "line",
     data: { datasets: [{ label: name, data: pts, type: "line", borderColor: "__GRAD:#36a2eb|#a336eb|#eb3639__", backgroundColor: "#eb3639", fill: false, lineTension: 0.3, pointRadius: 3, borderWidth: 4 }] },
     options: {
-      title: { display: true, text: `${lang === "ru" ? "Прогресс" : uk ? "Прогрес" : "Progress"}: ${name} (e1RM)` },
+      title: { display: true, text: `${uk ? "Прогрес" : "Progress"}: ${name} (e1RM)` },
       legend: { display: false },
       scales: { xAxes: [timeX], yAxes: [{ scaleLabel: { display: true, labelString: lang === "en" ? "kg (1RM)" : "кг (1ПМ)" }, ticks: { beginAtZero: false } }] },
     },
@@ -406,13 +397,13 @@ export function wellbeingChart(lang: Lang, checkins: DailyCheckinDoc[]): string 
     type: "line",
     data: {
       datasets: [
-        line(lang === "ru" ? "Энергия" : uk ? "Енергія" : "Energy", (c) => c.energy, ["#a5d6a7", "#2e7d32"]),
-        line(lang === "ru" ? "Сон" : uk ? "Сон" : "Sleep", (c) => c.sleep, ["#90caf9", "#1565c0"]),
-        line(lang === "ru" ? "Стресс" : uk ? "Стрес" : "Stress", (c) => c.stress, ["#ef9a9a", "#c62828"]),
+        line(uk ? "Енергія" : "Energy", (c) => c.energy, ["#a5d6a7", "#2e7d32"]),
+        line(uk ? "Сон" : "Sleep", (c) => c.sleep, ["#90caf9", "#1565c0"]),
+        line(uk ? "Стрес" : "Stress", (c) => c.stress, ["#ef9a9a", "#c62828"]),
       ],
     },
     options: {
-      title: { display: true, text: lang === "ru" ? "Самочувствие (1–5)" : uk ? "Самопочуття (1–5)" : "Wellbeing (1–5)" },
+      title: { display: true, text: uk ? "Самопочуття (1–5)" : "Wellbeing (1–5)" },
       legend: { display: true, position: "top" },
       scales: { xAxes: [timeX], yAxes: [{ ticks: { beginAtZero: true, max: 5, stepSize: 1 } }] },
     },

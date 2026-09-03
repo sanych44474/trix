@@ -188,7 +188,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     const remKcal = Math.max(0, Math.round(tg.calories - tot.kcal));
     const remP = Math.max(0, Math.round(tg.protein - tot.protein));
     if (remKcal < 50) return Response.json({ text: "", done: true });
-    const langName = user.lang === "uk" ? "Ukrainian" : user.lang === "ru" ? "Russian" : "English";
+    const langName = user.lang === "uk" ? "Ukrainian" : "English";
     const text = await aiText(env, {
       system: `You are a practical nutrition coach. Suggest ONE simple dish that fits about ${remKcal} kcal and ${remP} g protein, using common affordable foods. Give the dish name, a short ingredient list with grams, and its approx kcal/protein. Answer in ${langName}. Plain text only — no markdown, no LaTeX, no backslashes, max 7 short lines.`,
       user: `Remaining today: ~${remKcal} kcal, ~${remP} g protein.`,
@@ -207,7 +207,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     const tg = await dayTargets(env, user);
     if (!tg) return Response.json({ text: "" });
     const over = Math.round(tot.kcal - tg.calories);
-    const langName = user.lang === "uk" ? "Ukrainian" : user.lang === "ru" ? "Russian" : "English";
+    const langName = user.lang === "uk" ? "Ukrainian" : "English";
     const text = await aiText(env, {
       system: `You are a supportive, non-judgmental nutrition coach. Today the athlete ate ${Math.round(tot.kcal)} kcal vs a ${Math.round(tg.calories)} kcal target (${over > 0 ? over + " over" : "within target"}). Give a short, encouraging recovery plan for TOMORROW: 2-3 concrete tips (e.g. protein-first breakfast, more steps, hydration, a normal — not crash — deficit). Never shame, never suggest starving or skipping meals. Answer in ${langName}. Plain text, no markdown, no LaTeX, max 6 short lines.`,
       user: `Today ${Math.round(tot.kcal)} kcal, target ${Math.round(tg.calories)}. Give a recovery plan.`,

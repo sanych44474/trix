@@ -35,6 +35,7 @@ import type {
   Weekday,
   WorkoutLogDoc,
 } from "../types";
+import { normalizeLang } from "../locales/i18n";
 
 type DB = D1Database;
 const nowIso = () => new Date().toISOString();
@@ -93,7 +94,8 @@ function toUser(r: UserRow): UserDoc {
     _id: r.id,
     chatId: r.chatId,
     username: r.username ?? undefined,
-    lang: r.lang as Lang,
+    // Coerced, not cast: a row written before a locale was retired must not reach t().
+    lang: normalizeLang(r.lang),
     onboarded: !!r.onboarded,
     role: (r.role as Role) ?? "solo",
     trainerId: r.trainerId ?? undefined,
@@ -1128,9 +1130,6 @@ export async function getExerciseTranslation(
   exerciseId: string,
   lang: string,
 ): Promise<ExerciseTranslation | null> {
-  // Exercise-name translations are seeded for "uk" only; Russian speakers read Ukrainian
-  // exercise names far better than the English canonical, so ru borrows the uk translations.
-  if (lang === "ru") lang = "uk";
   const r = await db
     .prepare("SELECT name, instructions, safety_info FROM exercise_translations WHERE exerciseId = ? AND lang = ?")
     .bind(exerciseId, lang)
@@ -1141,7 +1140,6 @@ export async function getExerciseTranslation(
 // Batched localized-name lookup by exerciseId — for render-time fallback so a plan that stored an
 // English name still displays in the user's language when a translation exists.
 export async function getExerciseTranslationNames(db: DB, ids: string[], lang: string): Promise<Map<string, string>> {
-  if (lang === "ru") lang = "uk"; // ru borrows uk exercise-name translations (see getExerciseTranslation)
   const out = new Map<string, string>();
   const uniq = [...new Set(ids.filter(Boolean))];
   if (!uniq.length) return out;

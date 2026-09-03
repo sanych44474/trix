@@ -35,7 +35,7 @@ export interface Env {
   BOT_NAME?: string;
 }
 
-export type Lang = "uk" | "en" | "ru";
+export type Lang = "uk" | "en";
 
 export type Role = "solo" | "trainer" | "client";
 
