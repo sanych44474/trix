@@ -31,10 +31,10 @@
     "grammy": "^1.30.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241218.0",
-    "@types/node": "^22.10.2",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
-    "wrangler": "^4.98.0"
+    "@cloudflare/workers-types": "^5.20260831.1",
+    "@types/node": "^26.4.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.127.1"
   }
 }
