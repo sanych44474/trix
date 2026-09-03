@@ -38,6 +38,12 @@ import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientEr
 import { handleOwnerApi } from "./webapp/ownerApi";
 import type { Env, MealEntry, Weekday } from "./types";
 
+// Query strings routinely end up in proxy access logs and browser history, so the operator
+// credential travels as a header instead — never compare env.ADMIN_SECRET against a URL param.
+function isAdmin(req: Request, env: Env): boolean {
+  return !!env.ADMIN_SECRET && req.headers.get("X-Admin-Secret") === env.ADMIN_SECRET;
+}
+
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
@@ -59,10 +65,10 @@ export default {
       }
     }
 
-    // Admin: send a message to a specific user.
-    // POST /admin/send?secret=...&chatId=...&text=...
+    // Admin: send a message to a specific user. Auth via X-Admin-Secret header.
+    // POST /admin/send?chatId=...&text=...
     if (req.method === "POST" && url.pathname === "/admin/send") {
-      if (url.searchParams.get("secret") !== env.ADMIN_SECRET) {
+      if (!isAdmin(req, env)) {
         return new Response("unauthorized", { status: 401 });
       }
       const chatId = url.searchParams.get("chatId");
@@ -80,19 +86,19 @@ export default {
     }
 
     // Admin: ping every non-onboarded reachable user to finish their interview (resumes each
-    // at their current question). POST /admin/ping-stuck?secret=...
+    // at their current question). POST /admin/ping-stuck, X-Admin-Secret header.
     if (req.method === "POST" && url.pathname === "/admin/ping-stuck") {
-      if (url.searchParams.get("secret") !== env.ADMIN_SECRET) {
+      if (!isAdmin(req, env)) {
         return new Response("unauthorized", { status: 401 });
       }
       const res = await pingIncompleteOnboarding(env, env.DB);
       return Response.json(res);
     }
 
-    // Admin: replan a single user immediately.
-    // POST /admin/replan-user?secret=...&chatId=...
+    // Admin: replan a single user immediately. Auth via X-Admin-Secret header.
+    // POST /admin/replan-user?chatId=...
     if (req.method === "POST" && url.pathname === "/admin/replan-user") {
-      if (url.searchParams.get("secret") !== env.ADMIN_SECRET) {
+      if (!isAdmin(req, env)) {
         return new Response("unauthorized", { status: 401 });
       }
       const chatId = Number(url.searchParams.get("chatId"));
@@ -115,9 +121,9 @@ export default {
     }
 
     // Admin: schedule a one-time mass replan for all users after N hours (default 10).
-    // POST /admin/replan?secret=...&hours=10
+    // POST /admin/replan?hours=10, X-Admin-Secret header.
     if (req.method === "POST" && url.pathname === "/admin/replan") {
-      if (url.searchParams.get("secret") !== env.ADMIN_SECRET) {
+      if (!isAdmin(req, env)) {
         return new Response("unauthorized", { status: 401 });
       }
       const hours = Math.max(0, Math.min(48, Number(url.searchParams.get("hours") ?? "10")));
@@ -128,7 +134,7 @@ export default {
 
     // Admin: cancel a pending scheduled replan.
     if (req.method === "DELETE" && url.pathname === "/admin/replan") {
-      if (url.searchParams.get("secret") !== env.ADMIN_SECRET) {
+      if (!isAdmin(req, env)) {
         return new Response("unauthorized", { status: 401 });
       }
       const existing = await getSetting(env.DB, "scheduled_replan_after");

@@ -12,7 +12,7 @@ import { obProgress, onboardingStep } from "./onboarding";
 import { onPlanRegenAi } from "./plan";
 import { showCardioMenu, showEveningSurvey } from "./survey";
 import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerFinance, cmdTrainerQuestions, goalToTag, handleAnswerQuestion, handleBillingPaid, handleBillingSessions, handleTemplateName, onTrainerLimitCycle, openFindTrainer, openTrainerEdit, shareAssignToClients, showCatalog, showLangPicker, showTagPicker, startShareMyPlan, toggleShareAll, trainerMenuActionFor, trainerSteps, twAdvance } from "./trainer";
-import { addProgressPhoto, awardAchievement, bumpEvent, deleteUserData, getActivePlan, getFoodTranslations, getMealPlan, getOrCreateUser, getTrainer, getUser, getWorkoutLog, recordAdjustment, recordDailyCheckin, recordPlanSource, saveMealPlan, setActivePlan, setLastSeen, updateTrainer, updateUser, upsertFoodTranslations, upsertWorkoutLog, userStatCounts } from "../db/repos";
+import { addProgressPhoto, awardAchievement, bumpEvent, deleteUserData, getActivePlan, getFoodTranslations, getMealPlan, getOrCreateUser, getTrainer, getUser, getWorkoutLog, recordAdjustment, recordDailyCheckin, recordError, recordPlanSource, saveMealPlan, setActivePlan, setLastSeen, updateTrainer, updateUser, upsertFoodTranslations, upsertWorkoutLog, userStatCounts } from "../db/repos";
 import { computeXp, levelFromXp } from "../domain/gamification";
 import { buildTemplateMealDay, dishName, expandExclusions } from "../domain/mealTemplate";
 import { computeTargets, isPlausiblePer100g, solvePortions, splitMeals, sumItems } from "../domain/mealplan";
@@ -323,6 +323,11 @@ export async function onError(ctx: MyContext, err: unknown, where: string) {
     return;
   }
   console.error(`${where} handler error`, err);
+  // Every interactive AI-driven flow (plan gen, exercise lookup, warmup suggestion, coach, …)
+  // funnels through here on failure — persisting it is what makes /ownerreport → Errors reflect
+  // what users actually hit, instead of only the two chart-render call sites that used to be the
+  // sole source of that dashboard.
+  await recordError(ctx.db, { userId: ctx.user._id, kind: where, errorType: "exception", message: String(err).slice(0, 200) }).catch(() => {});
   // For any AI-related failure show a retry hint instead of a scary generic error.
   await reply(ctx, t(ctx.user.lang, "ai_retry"));
 }

@@ -8,7 +8,7 @@ import type { AiPlan, MyContext } from "../bot";
 import { HTML, MIN_EXERCISES_PER_DAY, localizePlanNames, reply, saveBaselineBody, videosForDays } from "../bot";
 import { mainMenu, menuBtn, planActionsKb } from "./keyboards";
 import { botDeepLink, shareUrl } from "./links";
-import { countExercises, getActivePlan, getCatalogExercise, getExerciseTranslation, getTrainer, getUser, listCandidatesByMuscles, listPlanBank, listStrength, recordPlanSource, saveDraftPlan, setActivePlan, updateUser } from "../db/repos";
+import { countExercises, getActivePlan, getCatalogExercise, getExerciseTranslation, getTrainer, getUser, listCandidatesByMuscles, listPlanBank, listStrength, recordError, recordPlanSource, saveDraftPlan, setActivePlan, updateUser } from "../db/repos";
 import { sanitizeBodyMetrics } from "./onboarding";
 import { trainerStyleBlock } from "./trainer";
 import { adaptPlan } from "../domain/planAdapt";
@@ -179,6 +179,9 @@ export async function finalizeOnboardingPlan(
     return true;
   } catch (e) {
     console.error("finalizeOnboardingPlan failed", user._id, e);
+    // Persisted, not just logged: this is a user who finished the interview and is stuck
+    // without a plan, which is exactly what /ownerreport → Errors exists to surface.
+    await recordError(db, { userId: user._id, kind: "plan_finalize", errorType: "exception", message: String(e).slice(0, 200) }).catch(() => {});
     // Park for the plan-pending sweep to retry (don't leave them stuck).
     await updateUser(db, user._id, { session: { mode: "plan_pending" } }).catch(() => {});
     return false;

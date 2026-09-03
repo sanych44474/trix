@@ -39,9 +39,9 @@ These are properties of the deployment, not bugs, but they decide how safe your 
   `/admin` command that claims the owner chat. Use a long random value. Anyone who learns it can
   broadcast to your users and read your operational reports. The owner chat locks to the first
   claimer, so claim it immediately after your first deploy.
-- **`/admin/*` currently takes the secret as a query parameter** (`src/index.ts`). Query strings
-  are commonly written to intermediary and browser logs — avoid calling these routes from a
-  browser address bar, and treat any URL containing the secret as compromised.
+- **`/admin/*` takes the secret as an `X-Admin-Secret` header**, never as a query parameter —
+  query strings are commonly written to intermediary and browser logs. Call these routes with
+  `curl -H "X-Admin-Secret: ..."` or similar; never from a browser address bar.
 - **`TELEGRAM_WEBHOOK_SECRET` is what keeps `/webhook` from accepting forged updates.** It is
   verified as the `X-Telegram-Bot-Api-Secret-Token` header. Set it, and make it random.
 - **Mini App requests are authenticated by Telegram `initData` HMAC** on every `/api/*` call.

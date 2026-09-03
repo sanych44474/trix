@@ -13,6 +13,7 @@ import {
   getOwnerChatId,
   getAlertState,
   setAlertState,
+  recordError,
   errorStatsSince,
   aiUsageSince,
   stepLogsSince,
@@ -89,6 +90,21 @@ import { APP_VERSION } from "./webapp/appVersion";
 import { advanceMesocycle, phaseGuidance, phaseKey } from "./domain/mesocycle";
 
 const HTML = { parse_mode: "HTML" as const, link_preview_options: { is_disabled: true } };
+
+/**
+ * Persist a scheduler-internal failure to error_logs, where /ownerreport → Errors actually reads
+ * from — console.error alone only reaches whoever happens to be running `wrangler tail` live.
+ *
+ * Deliberately NOT used for individual bot.api.sendMessage failures (blocked bot, deleted chat):
+ * those are routine at any real user count and would drown the signal that matters — the
+ * recovery sweeps and report generation breaking — under noise. This covers exactly the sites
+ * that were already being console.error'd as "this needed someone's attention," so nothing about
+ * the error taxonomy is invented here, only where each one goes.
+ */
+function logSchedulerError(db: D1Database, kind: string, e: unknown, userId?: number): void {
+  console.error(kind, userId, e);
+  recordError(db, { userId, kind, errorType: "exception", message: String(e).slice(0, 200) }).catch(() => {});
+}
 const CHECKIN_HOUR = 20;
 const EVENING_HOUR = 21; // one combined evening survey (water / steps / food / check-in) — 9pm local
 const QUALITY_EVERY_DAYS = 14; // recurring "rate trix + what's missing" quality/feedback ask
@@ -273,7 +289,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   // Auto-retry failed onboarding AI calls — fires every cron tick.
   const retryUsers = await listRetryUsers(db, new Date().toISOString()).catch(() => []);
   for (const u of retryUsers) {
-    retryInterviewStep(env, db, u).catch((e) => console.error("retry interview error", u._id, e));
+    retryInterviewStep(env, db, u).catch((e) => logSchedulerError(db, "retry_interview", e, u._id));
   }
 
   // SAFETY NET: recover onboarding users the bot owes a reply but never sent one — the
@@ -287,7 +303,7 @@ async function runScheduleInner(env: Env): Promise<void> {
     if (transcript[transcript.length - 1]?.role === "user") {
       // Awaited so the cron isolate (kept alive by waitUntil) doesn't get torn down before
       // the AI call + send finish. Sequential is fine — owed users are rare.
-      await retryInterviewStep(env, db, u).catch((e) => console.error("owed onboarding recover error", u._id, e));
+      await retryInterviewStep(env, db, u).catch((e) => logSchedulerError(db, "owed_onboarding_recover", e, u._id));
     }
   }
 
@@ -299,7 +315,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   if (pendingPlan.length > 0) {
     // Recover with the zero-AI bank plan first: a slow AI chain here blocks the whole cron
     // invocation (and can exceed its CPU limit) before the reminder/check-in section runs.
-    await finalizeOnboardingPlan(env, db, pendingPlan[0], { preferBank: true }).catch((e) => console.error("plan_pending recover error", pendingPlan[0]._id, e));
+    await finalizeOnboardingPlan(env, db, pendingPlan[0], { preferBank: true }).catch((e) => logSchedulerError(db, "plan_pending_recover", e, pendingPlan[0]._id));
   }
   } // end pendingRecoveryCount gate
 
@@ -324,7 +340,7 @@ async function runScheduleInner(env: Env): Promise<void> {
         // user-facing session write can't wipe it).
         await updateUser(db, u._id, { reminders: { ...u.reminders, lastNudge: today } });
       } catch (e) {
-        console.error("stuck onboarding nudge error", u._id, e);
+        logSchedulerError(db, "stuck_onboarding_nudge", e, u._id);
       }
     }
   }
@@ -344,7 +360,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   await pruneSeenUpdates(db, new Date(Date.now() - 3_600_000).toISOString()).catch(() => {});
 
   // Proactive owner alerts — error spikes / AI provider outages, deduped to once per hour each.
-  await checkOwnerAlerts(db, bot).catch((e) => console.error("owner alerts error", e));
+  await checkOwnerAlerts(db, bot).catch((e) => logSchedulerError(db, "owner_alerts", e));
 
   // Leaderboards cache — computed once per hourly pass so /api/boards serves a stored JSON
   // instead of re-scanning every competitor's logs on each Mini App open (D1 rows-read grows
@@ -353,7 +369,7 @@ async function runScheduleInner(env: Env): Promise<void> {
     const boards = await computeBoards(db, "Europe/Kyiv");
     await setSetting(db, "boards_cache", JSON.stringify({ computedAt: new Date().toISOString(), boards }));
   } catch (e) {
-    console.error("boards cache error", e);
+    logSchedulerError(db, "boards_cache", e);
   }
 
   // AI-error stats are no longer auto-pushed (the every-minute cron + minute<5 window sent the
@@ -364,7 +380,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   if (!lastPrune || Date.parse(lastPrune) < Date.now() - 7 * 86_400_000) {
     const cutoff = new Date(Date.now() - 90 * 86_400_000);
     await pruneOldLogs(db, cutoff.toISOString(), cutoff.toISOString().slice(0, 10)).catch((e) =>
-      console.error("log prune error", e),
+      logSchedulerError(db, "log_prune", e),
     );
     await pruneAiCache(db).catch(() => {});
     await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
@@ -393,7 +409,7 @@ async function runScheduleInner(env: Env): Promise<void> {
     try {
       await processUser(env, bot, user, pass);
     } catch (err) {
-      console.error("schedule user error", user._id, err);
+      logSchedulerError(db, "schedule_user", err, user._id);
     }
   }
 
@@ -434,7 +450,7 @@ async function runScheduleInner(env: Env): Promise<void> {
       await markComebackDone(db, u._id, nowIso);
       await bot.api.sendMessage(u.chatId, `${t(u.lang, "vacation_ended")}\n\n${t(u.lang, "comeback_q_feel")}`, HTML);
     } catch (err) {
-      console.error("comeback opener error", u._id, err);
+      logSchedulerError(db, "comeback_opener", err, u._id);
     }
   }
 }
@@ -1030,7 +1046,7 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
         });
         await send(`${t(lang, "weekly_narrative_header")}\n\n${escapeHtml(text)}`);
       } catch (err) {
-        console.error("weekly narrative error", user._id, err);
+        logSchedulerError(db, "weekly_narrative", err, user._id);
       }
     }
   }
@@ -1057,7 +1073,7 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
           await bot.api.sendMessage(user.chatId, chunk, HTML);
         }
       } catch (err) {
-        console.error("owner report error", err);
+        logSchedulerError(db, "owner_report", err);
       }
     }
     if (user.role === "trainer") {

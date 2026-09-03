@@ -11,25 +11,49 @@ import { dirname, join } from "node:path";
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
+// D1 lets a query reuse a numbered placeholder (?1) multiple times bound to a single value —
+// several repos.ts queries do this deliberately (e.g. userStatCounts: one userId, five
+// sub-selects). node:sqlite's positional binding instead expects one argument PER OCCURRENCE
+// and throws "column index out of range" otherwise. Rewrite ?N to plain ? and duplicate the
+// bound value at each occurrence, so real production queries don't need a test-only variant.
+function expandNumberedPlaceholders(sql: string): { sql: string; refs: number[] } | null {
+  if (!/\?\d/.test(sql)) return null;
+  const refs: number[] = [];
+  const rewritten = sql.replace(/\?(\d+)/g, (_m, n: string) => {
+    refs.push(Number(n) - 1);
+    return "?";
+  });
+  return { sql: rewritten, refs };
+}
+
 // One bound statement. node:sqlite is synchronous; D1 callers await the results (awaiting a
 // non-promise is fine), so we can return plain values.
 class Stmt {
+  private expanded: { sql: string; refs: number[] } | null;
   constructor(
     private raw: DatabaseSync,
     private sql: string,
     private args: unknown[] = [],
-  ) {}
+  ) {
+    this.expanded = expandNumberedPlaceholders(sql);
+  }
+  private bound(): unknown[] {
+    return this.expanded ? this.expanded.refs.map((i) => this.args[i]) : this.args;
+  }
+  private text(): string {
+    return this.expanded ? this.expanded.sql : this.sql;
+  }
   bind(...args: unknown[]) {
     return new Stmt(this.raw, this.sql, args);
   }
   first<T = unknown>(): T | null {
-    return (this.raw.prepare(this.sql).get(...(this.args as never[])) as T) ?? null;
+    return (this.raw.prepare(this.text()).get(...(this.bound() as never[])) as T) ?? null;
   }
   all<T = unknown>(): { results: T[] } {
-    return { results: this.raw.prepare(this.sql).all(...(this.args as never[])) as T[] };
+    return { results: this.raw.prepare(this.text()).all(...(this.bound() as never[])) as T[] };
   }
   run() {
-    const info = this.raw.prepare(this.sql).run(...(this.args as never[]));
+    const info = this.raw.prepare(this.text()).run(...(this.bound() as never[]));
     return { meta: { changes: info.changes, last_row_id: Number(info.lastInsertRowid), rows_written: info.changes } };
   }
 }
