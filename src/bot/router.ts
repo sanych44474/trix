@@ -13,7 +13,7 @@ import { onPlanRegenAi } from "./plan";
 import { showCardioMenu, showEveningSurvey } from "./survey";
 import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerQuestions, handleAnswerQuestion, handleTemplateName, onTrainerLimitCycle, openFindTrainer, openTrainerEdit, shareAssignToClients, startShareMyPlan, toggleShareAll, trainerMenuActionFor, trainerSteps, twAdvance } from "./trainer";
 import { addProgressPhoto, awardAchievement, bumpEvent, deleteUserData, getActivePlan, getFoodTranslations, getMealPlan, getOrCreateUser, getTrainer, getUser, getWorkoutLog, recordAdjustment, recordDailyCheckin, recordError, recordPlanSource, saveMealPlan, setActivePlan, setLastSeen, updateTrainer, updateUser, upsertFoodTranslations, upsertWorkoutLog, userStatCounts } from "../db/repos";
-import { computeXp, levelFromXp } from "../domain/gamification";
+import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
 import { buildTemplateMealDay, dishName, expandExclusions } from "../domain/mealTemplate";
 import { computeTargets, isPlausiblePer100g, solvePortions, splitMeals, sumItems } from "../domain/mealplan";
 import { phaseKey } from "../domain/mesocycle";
@@ -337,15 +337,14 @@ export async function maybeCelebrateLevel(ctx: MyContext) {
   try {
     const counts = await userStatCounts(ctx.db, ctx.user._id);
     const lv = levelFromXp(computeXp(counts));
-    const last = ctx.user.reminders?.lastLevel;
-    if (last === lv.level) return;
-    const reminders = { ...ctx.user.reminders, lastLevel: lv.level };
+    const transition = levelTransition(lv.level, ctx.user.reminders?.lastLevel);
+    if (!transition.changed) return;
+    const reminders = { ...ctx.user.reminders, lastLevel: transition.level };
     await updateUser(ctx.db, ctx.user._id, { reminders });
     ctx.user.reminders = reminders;
-    if (last !== undefined && lv.level > last) {
+    if (transition.leveledUp) {
       await reply(ctx, t(ctx.user.lang, "levelup_msg", { level: lv.level, xp: lv.xp }));
-      const badge = lv.level >= 10 ? "level_10" : lv.level >= 5 ? "level_5" : null;
-      if (badge) await awardAchievement(ctx.db, ctx.user._id, badge).catch(() => {});
+      if (transition.badge) await awardAchievement(ctx.db, ctx.user._id, transition.badge).catch(() => {});
     }
   } catch {
     /* celebration is best-effort */

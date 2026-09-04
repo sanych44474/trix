@@ -1670,23 +1670,36 @@ export async function cmdLeaveTrainer(ctx: MyContext) {
   if (formerTrainerId) ctx.waitUntil(notifyWaitlistSlot(ctx, formerTrainerId));
 }
 
-// When a spot frees (client left / limit raised): if the trainer is now under capacity and
-// has pending requests, nudge them toward the waitlist. Best-effort, deduped by nature
-// (fires only on the freeing event itself).
+export interface WaitlistNudge {
+  chatId: number;
+  lang: Lang;
+  text: string;
+}
+
+/** When a trainer's roster spot frees (client left / limit raised): the nudge toward their
+ * waitlist if they're now under capacity and have pending requests, or null if there's nothing
+ * to send. Ctx-free and DB-only so both the chat leave-trainer flow and the Mini App's leave-
+ * trainer action can trigger the identical notification instead of one of them silently
+ * skipping it. */
+export async function resolveWaitlistNudge(db: D1Database, trainerId: number): Promise<WaitlistNudge | null> {
+  const [tr, trainerUser, n, pending] = await Promise.all([
+    getTrainer(db, trainerId),
+    getUser(db, trainerId),
+    countClientsOf(db, trainerId),
+    pendingRequestsForTrainer(db, trainerId),
+  ]);
+  if (!tr || !trainerUser || !pending.length) return null;
+  if (tr.maxClients !== undefined && n >= tr.maxClients) return null; // still full
+  return { chatId: trainerUser.chatId, lang: trainerUser.lang, text: t(trainerUser.lang, "waitlist_slot_free", { n: pending.length }) };
+}
+
+// Best-effort, deduped by nature (fires only on the freeing event itself).
 async function notifyWaitlistSlot(ctx: MyContext, trainerId: number) {
   try {
-    const [tr, trainerUser, n, pending] = await Promise.all([
-      getTrainer(ctx.db, trainerId),
-      getUser(ctx.db, trainerId),
-      countClientsOf(ctx.db, trainerId),
-      pendingRequestsForTrainer(ctx.db, trainerId),
-    ]);
-    if (!tr || !trainerUser || !pending.length) return;
-    if (tr.maxClients !== undefined && n >= tr.maxClients) return; // still full
-    const kb = new InlineKeyboard().text(t(trainerUser.lang, "menu_requests"), "menu:requests");
-    await ctx.api
-      .sendMessage(trainerUser.chatId, t(trainerUser.lang, "waitlist_slot_free", { n: pending.length }), { ...HTML, reply_markup: kb })
-      .catch(() => {});
+    const nudge = await resolveWaitlistNudge(ctx.db, trainerId);
+    if (!nudge) return;
+    const kb = new InlineKeyboard().text(t(nudge.lang, "menu_requests"), "menu:requests");
+    await ctx.api.sendMessage(nudge.chatId, nudge.text, { ...HTML, reply_markup: kb }).catch(() => {});
   } catch {
     /* best-effort */
   }

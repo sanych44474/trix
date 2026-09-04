@@ -3,6 +3,7 @@
 // opt-in + alias, feedback, data export (pushed as a document to the chat), leave-trainer and
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
 import { buildExportMd } from "../bot";
+import { resolveWaitlistNudge } from "../bot/trainer";
 import {
   clearVacation,
   deleteUserData,
@@ -27,11 +28,11 @@ const REM_KEYS: [string, string][] = [
   ["checkin", "rem_checkin"], ["wellbeing", "rem_wellbeing"], ["tomorrow", "rem_tomorrow"], ["measure", "rem_measure"],
 ];
 
-async function tgSend(env: Env, chatId: number, text: string): Promise<void> {
+async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
   await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
   }).catch(() => {});
 }
 
@@ -154,6 +155,12 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
         if (trainer) {
           const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
           await tgSend(env, trainer.chatId, t(trainer.lang, "client_left_trainer", { name: who }));
+        }
+        // A roster spot just freed up — same waitlist nudge the chat leave-trainer flow sends,
+        // so leaving via the Mini App doesn't silently skip it.
+        const nudge = await resolveWaitlistNudge(env.DB, formerTrainerId).catch(() => null);
+        if (nudge) {
+          await tgSend(env, nudge.chatId, nudge.text, { inline_keyboard: [[{ text: t(nudge.lang, "menu_requests"), callback_data: "menu:requests" }]] });
         }
       }
     } else if (action === "deleteAccount") {

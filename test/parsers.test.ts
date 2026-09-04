@@ -29,7 +29,7 @@ import {
   weeksSincePlan,
 } from "../src/domain/progression";
 import type { DailyCheckinDoc, PlanDoc, PlanExercise, WorkoutLogDoc } from "../src/types";
-import { computeTargets, splitMeals, solvePortions, isPlausiblePer100g } from "../src/domain/mealplan";
+import { computeTargets, splitMeals, solvePortions, isPlausiblePer100g, per100gCorrectionFrom, scaleMealEntry } from "../src/domain/mealplan";
 import { curatedPer100g } from "../src/ai/nutritionDb";
 import { cleanAi, t } from "../src/locales/i18n";
 import { chunkReport } from "../src/render";
@@ -546,6 +546,24 @@ test("isPlausiblePer100g: rejects garbage OFF matches", () => {
   assert.ok(!isPlausiblePer100g({ kcal: 50, protein: 0, fats: 0, carbs: 0 })); // no macros
   assert.ok(!isPlausiblePer100g({ kcal: 100, protein: 80, fats: 80, carbs: 80 })); // >100g/100g
   assert.ok(!isPlausiblePer100g({ kcal: 0, protein: 10, fats: 5, carbs: 10 })); // no kcal
+});
+
+test("per100gCorrectionFrom: derives the per-100g rate from a corrected total + known grams", () => {
+  assert.deepEqual(per100gCorrectionFrom(400, 30, 10, 40, 200), { kcal: 200, protein: 15, fats: 5, carbs: 20 });
+});
+
+test("scaleMealEntry: scales macros and grams by a factor, keeping other fields", () => {
+  const half = scaleMealEntry({ desc: "Rice", kcal: 200, protein: 4, fats: 1, carbs: 44, grams: 150, query: "rice" }, 0.5);
+  assert.deepEqual(half, { desc: "Rice", kcal: 100, protein: 2, fats: 1, carbs: 22, grams: 75, query: "rice" });
+});
+
+test("scaleMealEntry: grams floors at 1 rather than rounding to 0", () => {
+  assert.equal(scaleMealEntry({ kcal: 10, protein: 1, fats: 0, carbs: 2, grams: 1 }, 0.1).grams, 1);
+});
+
+test("scaleMealEntry: leaves grams unset when the entry never had one", () => {
+  const scaled = scaleMealEntry({ kcal: 100, protein: 5, fats: 2, carbs: 10 }, 2);
+  assert.equal(scaled.grams, undefined);
 });
 
 test("localParts: UTC fixed date", () => {

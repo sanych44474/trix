@@ -2,6 +2,7 @@
 // (½ / 1.5× / 2× / grams) and item delete, plus the meal-plan display. AI photo/voice logging
 // stays in the bot (media). Same initData auth as every webapp API.
 import { getActivePlan, getDayMeals, getMealPlan, getRecentFoods, setDayMeals, putUserFoodCorrection } from "../db/repos";
+import { per100gCorrectionFrom, scaleMealEntry } from "../domain/mealplan";
 import { localParts } from "../domain/progression";
 import { miniAppUser } from "./auth";
 import { aiText } from "../ai/index";
@@ -15,15 +16,6 @@ function totals(meals: MealEntry[]) {
     { kcal: 0, protein: 0, fats: 0, carbs: 0 },
   );
 }
-const round = (m: MealEntry): MealEntry => ({
-  ...m,
-  kcal: Math.round(m.kcal || 0),
-  protein: Math.round(m.protein || 0),
-  fats: Math.round(m.fats || 0),
-  carbs: Math.round(m.carbs || 0),
-  ...(m.grams != null ? { grams: Math.round(m.grams) } : {}),
-});
-
 async function dayTargets(env: Env, user: UserDoc): Promise<NutritionTargets | null> {
   const { weekday } = localParts(user.profile.timezone);
   const plan = await getActivePlan(env.DB, user._id).catch(() => null);
@@ -216,12 +208,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       let cached = false;
       const grams = item.grams ?? 0;
       if (item.query && grams > 0) {
-        await putUserFoodCorrection(env.DB, user._id, item.query, {
-          kcal: Math.round((kcal / grams) * 100),
-          protein: Math.round((protein / grams) * 100),
-          fats: Math.round((fats / grams) * 100),
-          carbs: Math.round((carbs / grams) * 100),
-        }).catch(() => {});
+        await putUserFoodCorrection(env.DB, user._id, item.query, per100gCorrectionFrom(kcal, protein, fats, carbs, grams)).catch(() => {});
         cached = true;
       }
       return Response.json({
@@ -235,13 +222,12 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       const f = Number(body.factor);
       if (![0.5, 1.5, 2].includes(f)) return Response.json({ error: "bad request" }, { status: 400 });
       const m = meals[index];
-      meals[index] = round({ ...m, kcal: (m.kcal || 0) * f, protein: (m.protein || 0) * f, fats: (m.fats || 0) * f, carbs: (m.carbs || 0) * f, ...(m.grams != null ? { grams: m.grams * f } : {}) });
+      meals[index] = scaleMealEntry(m, f);
     } else if (action === "grams") {
       const g = Number(body.grams);
       const m = meals[index];
       if (!Number.isFinite(g) || g <= 0 || g > 5000 || m.grams == null || m.grams <= 0) return Response.json({ error: "bad request" }, { status: 400 });
-      const f = g / m.grams;
-      meals[index] = round({ ...m, kcal: (m.kcal || 0) * f, protein: (m.protein || 0) * f, fats: (m.fats || 0) * f, carbs: (m.carbs || 0) * f, grams: g });
+      meals[index] = scaleMealEntry(m, g / m.grams);
     } else {
       return Response.json({ error: "bad request" }, { status: 400 });
     }

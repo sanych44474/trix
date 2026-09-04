@@ -2,13 +2,11 @@
 // ctx-free save that mirrors the bot's finalizeWorkoutLog (log + strength records + badges +
 // level bookkeeping + trainer notify) so both surfaces stay in parity. Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
-import { muscleGroupToEnum, planRepsMid, planSetsCount, planWeight } from "../bot";
-import { computeXp, levelFromXp } from "../domain/gamification";
-import { bestSetForMetric, exerciseMetric, formatSetEntry, getPlanDay, localParts, metricOfSets, resolveWeightMode } from "../domain/progression";
-import { prMilestones, workoutMilestones } from "../domain/records";
+import { applyWorkoutSave, muscleGroupToEnum, planRepsMid, planSetsCount, planWeight, type WorkoutSaveEntry } from "../bot";
+import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
+import { exerciseMetric, formatSetEntry, getPlanDay, localParts, resolveWeightMode } from "../domain/progression";
 import {
   awardAchievement,
-  countCompletedWorkouts,
   getActivePlan,
   getCatalogExercise,
   getExerciseTranslation,
@@ -20,8 +18,6 @@ import {
   listCandidatesByMuscles,
   searchExercisesByName,
   updateUser,
-  upsertStrengthRecord,
-  upsertWorkoutLog,
   userStatCounts,
   workoutLogsSince,
 } from "../db/repos";
@@ -278,71 +274,36 @@ export interface SaveResult {
 
 const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
 
-/** Ctx-free mirror of finalizeWorkoutLog. Idempotent by construction: the log upserts on
- * (userId, date), records only ever improve, badges are INSERT OR IGNORE, lastLevel is
- * monotonic — so a network retry after a 401/timeout is safe. Celebrations are returned to
- * the app instead of being sent to chat; the trainer notification still goes out. */
+/** Ctx-free mirror of finalizeWorkoutLog, sharing its record-keeping via applyWorkoutSave.
+ * Idempotent by construction: the log upserts on (userId, date), records only ever improve,
+ * badges are INSERT OR IGNORE, lastLevel is monotonic — so a network retry after a 401/timeout
+ * is safe. Celebrations are returned to the app instead of being sent to chat; the trainer
+ * notification still goes out. */
 export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[], dateOverride?: string): Promise<SaveResult> {
   const local = localParts(user.profile.timezone);
   const date = dateOverride ?? local.date;
-  const weekday = dateOverride ? isoWeekdayOfDate(dateOverride) : local.weekday;
+  const weekday = (dateOverride ? isoWeekdayOfDate(dateOverride) : local.weekday) as Weekday;
   const isPastEdit = date !== local.date;
-  const exercises: LoggedExercise[] = entries.map((e) => ({
-    name: e.name,
-    setsDone: e.sets,
-    skipped: false,
-    ...(e.rpe !== undefined ? { rpe: e.rpe } : {}),
-  }));
-  await upsertWorkoutLog(env.DB, user._id, date, weekday as Weekday, exercises, true, buildRawText(entries));
 
-  const prExercises: string[] = [];
-  for (const e of entries) {
-    const metric = metricOfSets(e.sets);
-    const best = bestSetForMetric(e.sets, metric);
-    if (!best) continue;
-    const pr = await upsertStrengthRecord(
-      env.DB,
-      user._id,
-      e.name,
-      { metric, weight: best.weight, reps: best.reps, seconds: best.seconds, meters: best.meters },
-      date,
-      e.rpe,
-    );
-    if (pr.isPR) prExercises.push(e.name);
-  }
+  const saveEntries: WorkoutSaveEntry[] = entries.map((e) => ({ name: e.name, sets: e.sets, rpe: e.rpe }));
+  const outcome = await applyWorkoutSave(env.DB, user, saveEntries, date, weekday, buildRawText(entries));
+  const fresh = [...outcome.freshBadges];
 
-  const fresh: string[] = [];
-  const total = await countCompletedWorkouts(env.DB, user._id);
-  for (const code of workoutMilestones(total)) {
-    if (await awardAchievement(env.DB, user._id, code)) fresh.push(code);
-  }
-  if (prExercises.length && (await awardAchievement(env.DB, user._id, "first_pr"))) fresh.push("first_pr");
-  // PR-milestone badges from the running lifetime PR count (persisted in reminders).
-  if (prExercises.length) {
-    const prCount = (user.reminders?.prCount ?? 0) + prExercises.length;
-    const reminders = { ...user.reminders, prCount };
-    await updateUser(env.DB, user._id, { reminders }).catch(() => {});
-    user.reminders = reminders;
-    for (const code of prMilestones(prCount)) if (await awardAchievement(env.DB, user._id, code)) fresh.push(code);
-  }
-
-  // Level bookkeeping — maybeCelebrateLevel minus the chat message (the app shows it).
+  // Level bookkeeping — same decision as maybeCelebrateLevel, minus the chat message (the app
+  // shows it in the response instead).
   let level = 1;
   let leveledUp = false;
   try {
     const counts = await userStatCounts(env.DB, user._id);
     const lv = levelFromXp(computeXp(counts));
-    level = lv.level;
-    const last = user.reminders?.lastLevel;
-    if (last !== lv.level) {
-      const reminders = { ...user.reminders, lastLevel: lv.level };
+    const transition = levelTransition(lv.level, user.reminders?.lastLevel);
+    level = transition.level;
+    leveledUp = transition.leveledUp;
+    if (transition.changed) {
+      const reminders = { ...user.reminders, lastLevel: transition.level };
       await updateUser(env.DB, user._id, { reminders });
       user.reminders = reminders;
-      if (last !== undefined && lv.level > last) {
-        leveledUp = true;
-        const badge = lv.level >= 10 ? "level_10" : lv.level >= 5 ? "level_5" : null;
-        if (badge && (await awardAchievement(env.DB, user._id, badge).catch(() => false))) fresh.push(badge);
-      }
+      if (transition.badge && (await awardAchievement(env.DB, user._id, transition.badge).catch(() => false))) fresh.push(transition.badge);
     }
   } catch {
     /* level display is best-effort */
@@ -359,7 +320,7 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: trainer.chatId,
-            text: t(trainer.lang, "trainer_notify_done", { name: user.profile.name ?? `id ${user._id}`, n: exercises.length }),
+            text: t(trainer.lang, "trainer_notify_done", { name: user.profile.name ?? `id ${user._id}`, n: outcome.exercises.length }),
             parse_mode: "HTML",
           }),
         });
@@ -371,11 +332,11 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
 
   return {
     ok: true,
-    prExercises,
+    prExercises: outcome.prExercises,
     newBadges: fresh.map((c) => t(user.lang, badgeKey(c))),
     level,
     leveledUp,
-    totalWorkouts: total,
+    totalWorkouts: outcome.totalWorkouts,
   };
 }
 

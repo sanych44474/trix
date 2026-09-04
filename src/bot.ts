@@ -1,10 +1,10 @@
 import { GrammyError, InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
-import type { BodyLogDoc, CatalogExercise, Env, ExerciseMetric, ExerciseVideo, InjurySwap, Lang, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, StrengthRecordDoc, Supplement, UserDoc, Weekday } from "./types";
+import type { BodyLogDoc, CatalogExercise, Env, ExerciseMetric, ExerciseVideo, InjurySwap, Lang, LoggedExercise, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, StrengthRecordDoc, Supplement, UserDoc, Weekday } from "./types";
 import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, setVacation, clearVacation, listInactive, clearInactiveAsk, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordAudit, recordError, getCatalogExercise, findHarderExercise, findEasierExercise, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, deleteUserData, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, unlinkClient, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, stepLogsSince, addWater, setWater, getWater, waterLogsSince, joinChallenge, activeChallenges, activeChallengeCodes, markChallengeDone, countCompletedChallenges, setRestTimer, userStatCounts, createInjury, getInjury, listActiveInjuries, appendInjuryCheckin, getActiveInjuryByArea, updateInjury, resolveInjury, extendInjury, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText, aiVisionJSON, type InlineImage } from "./ai";
 import { lookupPer100gCached } from "./ai/nutritionDb";
-import { computeTargets } from "./domain/mealplan";
+import { computeTargets, per100gCorrectionFrom, scaleMealEntry } from "./domain/mealplan";
 import { pickGymSwaps, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "./domain/gymSwap";
 import * as P from "./ai/prompts";
 import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, nextLevel, getPlanDay, localParts, normalizeExercise, parseMeasurements, parseHeightWeight, parseSteps, parseWorkoutText, shouldDeload, weeksSincePlan, exerciseMetric, metricOfSets, bestSetForMetric, formatSetEntry, formatRecordBest, fmtDuration, fmtDistance, parseDuration, parseDistance } from "./domain/progression";
@@ -370,13 +370,7 @@ export async function handleMealMacroEdit(ctx: MyContext, text: string) {
   const grams = num(item.grams);
   const query = item.query;
   if (query && grams > 0) {
-    const per100g = {
-      kcal: Math.round((kcal / grams) * 100),
-      protein: Math.round((protein / grams) * 100),
-      fats: Math.round((fats / grams) * 100),
-      carbs: Math.round((carbs / grams) * 100),
-    };
-    await putUserFoodCorrection(ctx.db, ctx.user._id, query, per100g).catch(() => {});
+    await putUserFoodCorrection(ctx.db, ctx.user._id, query, per100gCorrectionFrom(kcal, protein, fats, carbs, grams)).catch(() => {});
     cached = true;
   }
 
@@ -4866,14 +4860,7 @@ export async function handleMealItemFix(ctx: MyContext, text: string) {
 export async function onMealPortion(ctx: MyContext, factor: number) {
   const items = ctx.user.session.pendingMeal;
   if (!items?.length || !(factor > 0)) return;
-  const scaled = items.map((i) => ({
-    ...i,
-    grams: Math.max(1, Math.round((i.grams ?? 0) * factor)),
-    kcal: Math.round(i.kcal * factor),
-    protein: Math.round(i.protein * factor),
-    fats: Math.round(i.fats * factor),
-    carbs: Math.round(i.carbs * factor),
-  }));
+  const scaled = items.map((i) => scaleMealEntry(i, factor));
   await showMealConfirm(ctx, scaled);
 }
 
@@ -5138,6 +5125,89 @@ export async function handleWorkoutLog(ctx: MyContext, text: string) {
   await finalizeWorkoutLog(ctx, date, weekday as Weekday, byExercise, rpeByExercise, text);
 }
 
+export interface WorkoutSaveEntry {
+  name: string;
+  sets: SetEntry[];
+  rpe?: number;
+}
+
+export interface PrHit {
+  name: string;
+  metric: ExerciseMetric;
+  weight: number;
+  reps: number;
+  seconds?: number;
+  meters?: number;
+}
+
+export interface WorkoutSaveOutcome {
+  exercises: LoggedExercise[];
+  prExercises: string[];
+  prHit: PrHit | null; // first PR this save, for the single-message chat celebration
+  freshBadges: string[]; // badge codes: workout-count milestones, first_pr, PR-count milestones
+  totalWorkouts: number;
+}
+
+/** Persist a completed workout and run the record-keeping every save needs regardless of
+ * surface: the log row, strength-record/PR detection, and workout-count + PR-count badges.
+ * Ctx-free and mutates `user.reminders` in place (mirrors the DB write) so a caller chaining
+ * more bookkeeping off the same UserDoc — e.g. level transition — sees the updated prCount.
+ * Shared by the chat path (finalizeWorkoutLog) and the Mini App save route. */
+export async function applyWorkoutSave(
+  db: D1Database,
+  user: UserDoc,
+  entries: WorkoutSaveEntry[],
+  date: string,
+  weekday: Weekday,
+  rawText: string,
+): Promise<WorkoutSaveOutcome> {
+  const exercises: LoggedExercise[] = entries.map((e) => ({
+    name: e.name,
+    setsDone: e.sets,
+    skipped: false,
+    ...(e.rpe !== undefined ? { rpe: e.rpe } : {}),
+  }));
+  await upsertWorkoutLog(db, user._id, date, weekday, exercises, true, rawText);
+
+  const prExercises: string[] = [];
+  let prHit: PrHit | null = null;
+  for (const e of entries) {
+    const metric = metricOfSets(e.sets);
+    const best = bestSetForMetric(e.sets, metric);
+    if (!best) continue;
+    const pr = await upsertStrengthRecord(
+      db,
+      user._id,
+      e.name,
+      { metric, weight: best.weight, reps: best.reps, seconds: best.seconds, meters: best.meters },
+      date,
+      e.rpe,
+    );
+    if (pr.isPR) {
+      prExercises.push(e.name);
+      if (!prHit) prHit = { name: e.name, metric, weight: best.weight, reps: best.reps, seconds: best.seconds, meters: best.meters };
+    }
+  }
+
+  const fresh: string[] = [];
+  const total = await countCompletedWorkouts(db, user._id);
+  for (const code of workoutMilestones(total)) {
+    if (await awardAchievement(db, user._id, code)) fresh.push(code);
+  }
+  if (prExercises.length && (await awardAchievement(db, user._id, "first_pr"))) fresh.push("first_pr");
+
+  // Lifetime PR counter → milestone badges (prs_10 / prs_25).
+  if (prExercises.length) {
+    const prCount = (user.reminders?.prCount ?? 0) + prExercises.length;
+    const reminders = { ...user.reminders, prCount };
+    await updateUser(db, user._id, { reminders }).catch(() => {});
+    user.reminders = reminders;
+    for (const code of prMilestones(prCount)) if (await awardAchievement(db, user._id, code)) fresh.push(code);
+  }
+
+  return { exercises, prExercises, prHit, freshBadges: fresh, totalWorkouts: total };
+}
+
 /** Persist a completed workout (text- or button-built), update strength records, and run the
  * shared post-save UX: celebration, trainer notification, next-session preview. Clears any
  * in-progress button-logging draft and returns the user to idle. */
@@ -5150,30 +5220,12 @@ export async function finalizeWorkoutLog(
   rawText: string,
 ) {
   const lang = ctx.user.lang;
-  const exercises = [...byExercise.entries()].map(([name, setsDone]) => ({
+  const entries: WorkoutSaveEntry[] = [...byExercise.entries()].map(([name, sets]) => ({
     name,
-    setsDone,
-    skipped: false,
+    sets,
     ...(rpeByExercise.has(name) ? { rpe: rpeByExercise.get(name)! } : {}),
   }));
-
-  await upsertWorkoutLog(ctx.db, ctx.user._id, date, weekday, exercises, true, rawText);
-
-  let prHit: PrHit | null = null;
-  for (const [name, setsDone] of byExercise) {
-    const metric = metricOfSets(setsDone);
-    const best = bestSetForMetric(setsDone, metric);
-    if (!best) continue;
-    const pr = await upsertStrengthRecord(
-      ctx.db,
-      ctx.user._id,
-      name,
-      { metric, weight: best.weight, reps: best.reps, seconds: best.seconds, meters: best.meters },
-      date,
-      rpeByExercise.get(name),
-    );
-    if (pr.isPR && !prHit) prHit = { name, metric, weight: best.weight, reps: best.reps, seconds: best.seconds, meters: best.meters };
-  }
+  const outcome = await applyWorkoutSave(ctx.db, ctx.user, entries, date, weekday, rawText);
 
   await setMode(ctx, "idle"); // resets session to {mode} — also clears any logDraft
   // Momentum recap: this week's count + streak, and flag a bonus (off-plan) session.
@@ -5194,18 +5246,9 @@ export async function finalizeWorkoutLog(
     /* recap is optional */
   }
   await reply(ctx, saved, menuBtn(lang));
-  await celebrateRecords(ctx, prHit);
-  await notifyTrainerWorkout(ctx, true, exercises.length);
+  await celebrateRecords(ctx, outcome);
+  await notifyTrainerWorkout(ctx, true, outcome.exercises.length);
   await showNextSession(ctx);
-}
-
-interface PrHit {
-  name: string;
-  metric: ExerciseMetric;
-  weight: number;
-  reps: number;
-  seconds?: number;
-  meters?: number;
 }
 
 // Celebrate a new PR (with a global rank if opted in) and any freshly-earned badges.
@@ -5216,25 +5259,9 @@ function celebrationShareKb(lang: Lang): InlineKeyboard {
     .text(t(lang, "menu_invite"), "invite");
 }
 
-export async function celebrateRecords(ctx: MyContext, prHit: PrHit | null) {
+export async function celebrateRecords(ctx: MyContext, outcome: WorkoutSaveOutcome) {
   const lang = ctx.user.lang;
-  const you = ctx.user._id;
-  const fresh: string[] = [];
-  const total = await countCompletedWorkouts(ctx.db, you);
-  for (const code of workoutMilestones(total)) {
-    if (await awardAchievement(ctx.db, you, code)) fresh.push(code);
-  }
-  if (prHit && (await awardAchievement(ctx.db, you, "first_pr"))) fresh.push("first_pr");
-
-  // Lifetime PR counter → milestone badges (prs_10 / prs_25).
-  let prCount = ctx.user.reminders?.prCount ?? 0;
-  if (prHit) {
-    prCount += 1;
-    const reminders = { ...ctx.user.reminders, prCount };
-    await updateUser(ctx.db, you, { reminders }).catch(() => {});
-    ctx.user.reminders = reminders;
-    for (const code of prMilestones(prCount)) if (await awardAchievement(ctx.db, you, code)) fresh.push(code);
-  }
+  const { prHit, freshBadges: fresh } = outcome;
 
   if (prHit) {
     let msg: string;
@@ -5247,10 +5274,12 @@ export async function celebrateRecords(ctx: MyContext, prHit: PrHit | null) {
     }
     // Global ranking is strength-only (relative e1RM); time/distance PRs aren't ranked yet.
     if (prHit.metric === "reps" && ctx.user.competeOptIn) {
-      const r = rankOf((await computeBoards(ctx.db)).relative, you);
+      const r = rankOf((await computeBoards(ctx.db)).relative, ctx.user._id);
       if (r) msg += " " + t(lang, "pr_rank", { n: r });
     }
-    // Extra praise — a rotating, celebratory line (plus the running PR count).
+    // Extra praise — a rotating, celebratory line (plus the running PR count, already bumped
+    // on ctx.user by applyWorkoutSave).
+    const prCount = ctx.user.reminders?.prCount ?? 0;
     msg += "\n" + t(lang, `pr_praise${(prCount % 3) + 1}` as TKey, { n: prCount });
     // A personal record is the moment someone actually wants to tell people. Offering the share
     // and invite here is the whole reason the referral machinery exists — buried in a settings

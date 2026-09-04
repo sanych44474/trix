@@ -21,3 +21,9 @@ export function suggestReminderHour(logLocalHours: number[], currentHour: number
   if (Math.abs(suggested - currentHour) < MIN_SHIFT_H) return null;
   return suggested;
 }
+
+/** Days between two ISO dates, or Infinity when `fromIso` is unset (never sent → always due). */
+export function daysBetween(fromIso: string | undefined, toIso: string): number {
+  if (!fromIso) return Infinity;
+  return (Date.parse(toIso) - Date.parse(fromIso)) / 86_400_000;
+}

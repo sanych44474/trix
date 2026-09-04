@@ -147,6 +147,40 @@ export function solvePortions(
 }
 
 /** Sum a meal's items into meal-level macros. */
+/** Per-100g macros implied by a corrected total for a known portion weight — the value cached
+ * so later lookups of the same food use the correction automatically. Shared by the chat macro
+ * editor and the Mini App's macro-edit action; previously reimplemented identically in both. */
+export function per100gCorrectionFrom(kcal: number, protein: number, fats: number, carbs: number, grams: number): Per100g {
+  return {
+    kcal: Math.round((kcal / grams) * 100),
+    protein: Math.round((protein / grams) * 100),
+    fats: Math.round((fats / grams) * 100),
+    carbs: Math.round((carbs / grams) * 100),
+  };
+}
+
+export interface ScalableMeal {
+  kcal: number;
+  protein: number;
+  fats: number;
+  carbs: number;
+  grams?: number;
+}
+
+/** Scale a logged meal entry's macros (and grams, if known) by a factor — portion buttons
+ * (½ / 1.5× / 2×) and the grams-based re-weigh both reduce to "pick a factor, scale everything."
+ * Grams floors at 1 rather than rounding to 0 on an aggressive down-scale. */
+export function scaleMealEntry<T extends ScalableMeal>(entry: T, factor: number): T {
+  return {
+    ...entry,
+    kcal: Math.round((entry.kcal || 0) * factor),
+    protein: Math.round((entry.protein || 0) * factor),
+    fats: Math.round((entry.fats || 0) * factor),
+    carbs: Math.round((entry.carbs || 0) * factor),
+    ...(entry.grams != null ? { grams: Math.max(1, Math.round(entry.grams * factor)) } : {}),
+  };
+}
+
 export function sumItems(items: MealItem[]): { kcal: number; protein: number; fats: number; carbs: number } {
   return items.reduce(
     (a, it) => ({

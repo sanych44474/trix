@@ -71,7 +71,7 @@ import {
 import { rankOf, streakMilestones, weekStartStr, weekStreak } from "./domain/records";
 import { stalledLifts } from "./domain/analysis";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
-import { suggestReminderHour } from "./domain/reminderTiming";
+import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
 import { missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
 import { cleanAi, escapeHtml, t } from "./locales/i18n";
 import { chunkReport, renderDay } from "./render";
@@ -103,11 +103,6 @@ const QUALITY_EVERY_DAYS = 14; // recurring "rate trix + what's missing" quality
 
 function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
-}
-
-function daysBetween(fromIso: string | undefined, toIso: string): number {
-  if (!fromIso) return Infinity;
-  return (Date.parse(toIso) - Date.parse(fromIso)) / 86_400_000;
 }
 
 /** Drop a "60 kg" load by ~10% (rounded to 2.5 kg) to restart progression on a plateau swap. */
@@ -671,8 +666,7 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
   // Not a one-off campaign: keeps a rating + "what's missing" channel open for onboarded users.
   // Dedup reuses reminders.sent["quality"] but with a multi-day cadence (not the daily === check).
   if (!pinged && user.onboarded && !remOff("quality") && hour >= reminderHour) {
-    const lastQ = sent["quality"];
-    const dueQ = !lastQ || (Date.parse(date) - Date.parse(lastQ)) / 86_400_000 >= QUALITY_EVERY_DAYS;
+    const dueQ = daysBetween(sent["quality"], date) >= QUALITY_EVERY_DAYS;
     if (dueQ) {
       const kb = new InlineKeyboard()
         .text("⭐", "qr:1").text("⭐⭐", "qr:2").text("⭐⭐⭐", "qr:3")
