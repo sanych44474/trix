@@ -685,6 +685,21 @@ async function randomExerciseAt(
   return toCatalogExercise(rows[Math.floor(Math.random() * rows.length)]);
 }
 
+/** Every catalog exercise for the given muscles, any difficulty — one round-trip so a caller
+ * that needs to consider ALL difficulty tiers at once (e.g. picking same-muscle swaps at a
+ * specific tier in JS) doesn't run a separate RANDOM()-ordered query per tier per exercise.
+ * Capped generously (not per-tier like listCandidatesByMuscles, which would under-represent
+ * higher tiers since it caps before the difficulty-ordered rows reach them). */
+export async function listExercisesByMusclesAnyLevel(db: DB, muscles: string[]): Promise<CatalogExercise[]> {
+  if (!muscles.length) return [];
+  const placeholders = muscles.map(() => "?").join(",");
+  const r = await db
+    .prepare(`SELECT * FROM exercises WHERE muscle IN (${placeholders}) AND name NOT LIKE '%Russian%' LIMIT 300`)
+    .bind(...muscles)
+    .all<ExerciseRow>();
+  return (r.results ?? []).map(toCatalogExercise);
+}
+
 // Returns a random exercise of lower difficulty for the given muscle, excluding excluded ids.
 export async function findEasierExercise(
   db: DB,

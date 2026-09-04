@@ -1,11 +1,12 @@
 import { GrammyError, InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
 import type { BodyLogDoc, CatalogExercise, Env, ExerciseMetric, ExerciseVideo, InjurySwap, Lang, LoggedExercise, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, StrengthRecordDoc, Supplement, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, setVacation, clearVacation, listInactive, clearInactiveAsk, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordAudit, recordError, getCatalogExercise, findHarderExercise, findEasierExercise, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, deleteUserData, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, unlinkClient, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, stepLogsSince, addWater, setWater, getWater, waterLogsSince, joinChallenge, activeChallenges, activeChallengeCodes, markChallengeDone, countCompletedChallenges, setRestTimer, userStatCounts, createInjury, getInjury, listActiveInjuries, appendInjuryCheckin, getActiveInjuryByArea, updateInjury, resolveInjury, extendInjury, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, setVacation, clearVacation, listInactive, clearInactiveAsk, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordAudit, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, deleteUserData, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, unlinkClient, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, stepLogsSince, addWater, setWater, getWater, waterLogsSince, joinChallenge, activeChallenges, activeChallengeCodes, markChallengeDone, countCompletedChallenges, setRestTimer, userStatCounts, createInjury, getInjury, listActiveInjuries, appendInjuryCheckin, getActiveInjuryByArea, updateInjury, resolveInjury, extendInjury, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText, aiVisionJSON, type InlineImage } from "./ai";
 import { lookupPer100gCached } from "./ai/nutritionDb";
 import { computeTargets, per100gCorrectionFrom, scaleMealEntry } from "./domain/mealplan";
 import { pickGymSwaps, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "./domain/gymSwap";
+import { pickDifficultySwaps } from "./domain/difficultySwap";
 import * as P from "./ai/prompts";
 import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, nextLevel, getPlanDay, localParts, normalizeExercise, parseMeasurements, parseHeightWeight, parseSteps, parseWorkoutText, shouldDeload, weeksSincePlan, exerciseMetric, metricOfSets, bestSetForMetric, formatSetEntry, formatRecordBest, fmtDuration, fmtDistance, parseDuration, parseDistance } from "./domain/progression";
 import { e1rm, prMilestones, rankOf, weekStartStr, weekStreak, workoutMilestones } from "./domain/records";
@@ -2185,30 +2186,32 @@ export async function adjustDifficulty(ctx: MyContext, direction: "ok" | "up" | 
   if (!targetDay) { await reply(ctx, t(lang, "no_plan"), menuBtn(lang)); return; }
 
   const usedIds = (targetDay.exercises ?? []).map((e) => e.exerciseId).filter(Boolean) as string[];
-  let swappedCount = 0;
 
-  const updatedExercises: typeof targetDay.exercises = [];
+  // One catalog lookup per exercise (cheap PK reads) to know each one's own muscle/tier, then
+  // ONE bulk candidate fetch across every distinct muscle in the day — replacing what used to be
+  // up to 4 sequential RANDOM()-ordered bucket scans PER exercise (one per difficulty tier tried).
+  const catalogByExerciseId = new Map<string, CatalogExercise>();
   for (const ex of targetDay.exercises ?? []) {
-    if (!ex.exerciseId) { updatedExercises.push(ex); continue; }
+    if (!ex.exerciseId) continue;
     const catalog = await getCatalogExercise(ctx.db, ex.exerciseId);
-    if (!catalog) { updatedExercises.push(ex); continue; }
-    const currentLevel = catalog.difficulty ?? "beginner";
-    const swap =
-      direction === "up"
-        ? await findHarderExercise(ctx.db, catalog.muscle, currentLevel, usedIds)
-        : await findEasierExercise(ctx.db, catalog.muscle, currentLevel, usedIds);
-    if (!swap) { updatedExercises.push(ex); continue; }
-    usedIds.push(swap.id);
-    swappedCount++;
-    updatedExercises.push({
-      ...ex,
-      exerciseId: swap.id,
-      canonicalName: swap.name,
-      name: swap.name,
-      technique: swap.instructions ?? ex.technique,
-      muscles: swap.muscle,
-    });
+    if (catalog) catalogByExerciseId.set(ex.exerciseId, catalog);
   }
+  const muscles = [...new Set([...catalogByExerciseId.values()].map((c) => c.muscle))];
+  const pool = await listExercisesByMusclesAnyLevel(ctx.db, muscles);
+  const candidatesByMuscle = new Map<string, CatalogExercise[]>();
+  for (const c of pool) {
+    const bucket = candidatesByMuscle.get(c.muscle) ?? [];
+    bucket.push(c);
+    candidatesByMuscle.set(c.muscle, bucket);
+  }
+
+  const { exercises: updatedExercises, swappedCount } = pickDifficultySwaps(
+    targetDay.exercises ?? [],
+    direction,
+    catalogByExerciseId,
+    candidatesByMuscle,
+    usedIds,
+  );
 
   const newSplit = plan.split.map((day) =>
     day.weekday === wd ? { ...day, exercises: updatedExercises } : day
