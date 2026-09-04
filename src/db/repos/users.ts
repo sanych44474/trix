@@ -303,3 +303,64 @@ export async function listChurnedUsers(db: DB, priorFromIso: string, thisWeekIso
     return { id: x.id, name };
   });
 }
+
+// ---------- vacation / pause mode ----------
+
+export async function setVacation(db: DB, userId: number, untilIso: string): Promise<void> {
+  await db.prepare("UPDATE users SET vacationUntil = ?, updatedAt = ? WHERE id = ?").bind(untilIso, nowIso(), userId).run();
+}
+
+export async function clearVacation(db: DB, userId: number): Promise<void> {
+  await db.prepare("UPDATE users SET vacationUntil = NULL, updatedAt = ? WHERE id = ?").bind(nowIso(), userId).run();
+}
+
+export async function markComebackDone(db: DB, userId: number, iso: string): Promise<void> {
+  await db.prepare("UPDATE users SET comebackDone = ? WHERE id = ?").bind(iso, userId).run();
+}
+
+// Users whose vacation just ended and who haven't been welcomed back yet.
+export async function listVacationEnded(db: DB, nowIsoStr: string): Promise<UserDoc[]> {
+  const r = await db
+    .prepare(
+      `SELECT * FROM users
+       WHERE vacationUntil IS NOT NULL AND vacationUntil <= ?
+         AND (comebackDone IS NULL OR comebackDone < vacationUntil)
+         AND blocked = 0`,
+    )
+    .bind(nowIsoStr)
+    .all<UserRow>();
+  return (r.results ?? []).map(toUser);
+}
+
+// ---------- inactivity (owner-confirmed cleanup ONLY — never auto) ----------
+
+// Cleanup candidates: ANY user (no role/vacation/owner exclusions) who is either inactive
+// (lastSeenAt — falling back to createdAt — older than the cutoff) OR has explicitly replied
+// "leaving" (shown even if they just tapped, since any tap bumps lastSeenAt). Blocked (owner-banned)
+// users are handled by their own ban flow and stay out. (_now kept for signature stability.)
+export async function listInactive(db: DB, cutoffIso: string, _now: string, limit = 50): Promise<UserDoc[]> {
+  const r = await db
+    .prepare(
+      `SELECT * FROM users
+       WHERE blocked = 0
+         AND (COALESCE(lastSeenAt, createdAt) < ? OR inactiveReply = 'leaving')
+       ORDER BY (inactiveReply = 'leaving') DESC, COALESCE(lastSeenAt, createdAt) ASC
+       LIMIT ?`,
+    )
+    .bind(cutoffIso, limit)
+    .all<UserRow>();
+  return (r.results ?? []).map(toUser);
+}
+
+export async function countInactive(db: DB, cutoffIso: string, _now: string): Promise<number> {
+  const r = await db
+    .prepare("SELECT COUNT(*) AS c FROM users WHERE blocked = 0 AND COALESCE(lastSeenAt, createdAt) < ?")
+    .bind(cutoffIso)
+    .first<{ c: number }>();
+  return r?.c ?? 0;
+}
+
+// Reset the inactivity-ask state (user tapped "I'm still here") so a future lull can re-ask.
+export async function clearInactiveAsk(db: DB, userId: number): Promise<void> {
+  await db.prepare("UPDATE users SET inactiveAskedAt = NULL, inactiveReply = NULL WHERE id = ?").bind(userId).run();
+}
