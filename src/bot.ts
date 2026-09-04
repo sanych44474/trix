@@ -1,6 +1,6 @@
 import { GrammyError, InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
 import type { BodyLogDoc, CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, LoggedExercise, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, StrengthRecordDoc, Supplement, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, listInactive, clearInactiveAsk, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordAudit, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, deleteUserData, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, unlinkClient, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, addWater, setWater, getWater, setRestTimer, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, addWater, setWater, getWater, setRestTimer, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText, aiVisionJSON, type InlineImage } from "./ai";
 import { lookupPer100gCached } from "./ai/nutritionDb";
@@ -35,6 +35,9 @@ export * from "./bot/router";
 export * from "./bot/challenges";
 export * from "./bot/vacation";
 export * from "./bot/injury";
+export * from "./bot/cleanup";
+export * from "./bot/cycle";
+export * from "./bot/shareConsent";
 
 import { computeXp, levelFromXp } from "./domain/gamification";
 import { parseSetLine, parseSetEdit } from "./domain/setLine";
@@ -3552,152 +3555,8 @@ export async function onReminderToggle(ctx: MyContext, key: string) {
 // below so existing `from "./bot"` imports (router.ts) keep working.
 
 // ===================== Owner-confirmed cleanup (NEVER auto) =====================
-
-export const INACTIVE_DAYS = 7;
-
-export async function cmdCleanup(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  if (!(await isOwner(ctx))) { await reply(ctx, t(lang, "admin_only")); return; }
-  const nowIso = new Date().toISOString();
-  const cutoff = new Date(Date.now() - INACTIVE_DAYS * 86_400_000).toISOString();
-  const ownerId = ctx.user._id;
-  const candidates = (await listInactive(ctx.db, cutoff, nowIso)).filter((u) => u._id !== ownerId);
-  if (!candidates.length) { await reply(ctx, t(lang, "cleanup_none"), menuBtn(lang)); return; }
-  const kb = new InlineKeyboard();
-  for (const u of candidates.slice(0, 25)) {
-    const idle = Math.floor((Date.now() - (u.lastSeenAt ?? u.createdAt).getTime()) / 86_400_000);
-    const name = u.profile.name ?? `id ${u._id}`;
-    // Response badge: 🔴 wants out · ⏳ asked, silent · 💤 inactive, not asked.
-    const badge = u.inactiveReply === "leaving" ? "🔴" : u.inactiveAskedAt ? "⏳" : "💤";
-    kb.text(`🗑 ${badge} ${name} · ${idle}d`.slice(0, 60), `clean:del:${u._id}`).row();
-  }
-  const notAsked = candidates.filter((u) => !u.inactiveAskedAt).length;
-  if (notAsked > 0) kb.text(t(lang, "cleanup_ask_btn", { n: notAsked }), "clean:ask").row();
-  kb.text(t(lang, "cleanup_all_btn"), "clean:all");
-  await reply(ctx, t(lang, "cleanup_title", { n: candidates.length, days: INACTIVE_DAYS }), kb);
-}
-
-// Owner-triggered: send the "still here?" ask to inactive candidates who haven't been asked yet
-// (ask once). Replies feed the badges above. Never auto — only on the owner's tap/command.
-export async function cmdAskInactive(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  if (!(await isOwner(ctx))) { await reply(ctx, t(lang, "admin_only")); return; }
-  const nowIso = new Date().toISOString();
-  const cutoff = new Date(Date.now() - INACTIVE_DAYS * 86_400_000).toISOString();
-  const targets = (await listInactive(ctx.db, cutoff, nowIso, 200))
-    .filter((u) => u._id !== ctx.user._id && !u.inactiveAskedAt && !u.botBlocked);
-  let sent = 0;
-  for (const u of targets) {
-    const kb = new InlineKeyboard()
-      .text(t(u.lang, "inact_stay_btn"), "inact:stay")
-      .text(t(u.lang, "inact_leave_btn"), "inact:leave");
-    try {
-      await ctx.api.sendMessage(u.chatId, t(u.lang, "inact_ask"), { ...HTML, reply_markup: kb });
-      await updateUser(ctx.db, u._id, { inactiveAskedAt: new Date() });
-      sent++;
-    } catch (err) {
-      if (err instanceof GrammyError && err.error_code === 403) {
-        await updateUser(ctx.db, u._id, { botBlocked: true }).catch(() => {});
-      } else {
-        console.error("inactive ask send", u._id, err);
-      }
-    }
-  }
-  await reply(ctx, t(lang, "inact_sent", { n: sent }), menuBtn(lang));
-}
-
-// User reply to the inactivity ask → record stay/leave, then ask for feedback (forwarded to owner).
-export async function onInactiveReply(ctx: MyContext, decision: "stay" | "leave") {
-  const lang = ctx.user.lang;
-  if (decision === "stay") {
-    await clearInactiveAsk(ctx.db, ctx.user._id); // lastSeenAt already bumped by ingress → active again
-  } else {
-    await updateUser(ctx.db, ctx.user._id, { inactiveReply: "leaving" });
-  }
-  ctx.user.session = { mode: "inact_feedback", awaitText: decision };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  const ack = decision === "stay" ? t(lang, "inact_stay_ack") : t(lang, "inact_leave_ack");
-  const kb = new InlineKeyboard().text(t(lang, "inact_fb_skip"), "inact:fbskip");
-  await reply(ctx, `${ack}\n\n${t(lang, "inact_fb_q")}`, kb);
-}
-
-export async function handleInactiveFeedback(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const decision = ctx.user.session.awaitText ?? "";
-  const fb = text.trim().slice(0, 600);
-  await insertFeedback(ctx.db, {
-    userId: ctx.user._id,
-    username: ctx.user.username,
-    text: fb,
-    date: localParts(ctx.user.profile.timezone).date,
-  }).catch(() => {});
-  await forwardInactiveFeedbackToOwner(ctx, decision, fb);
-  await setMode(ctx, "idle");
-  await reply(ctx, t(lang, "inact_fb_thanks"), menuBtn(lang));
-}
-
-export async function forwardInactiveFeedbackToOwner(ctx: MyContext, decision: string, fb: string) {
-  const ownerChatId = await getOwnerChatId(ctx.db);
-  if (!ownerChatId) return;
-  const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`) + (ctx.user.username ? ` (@${ctx.user.username})` : "");
-  const tag = decision === "leave" ? "🔴 leaving" : "🟢 staying";
-  await ctx.api
-    .sendMessage(ownerChatId, `💬 <b>Inactive-user feedback</b> · ${tag}\n${who}: ${escapeHtml(fb)}`, HTML)
-    .catch(() => {});
-}
-
-// Re-verify a candidate is still deletable at the moment of the owner's tap (defense in depth).
-// Only the owner is excluded; trainers, clients and on-vacation users are all deletable.
-export function cleanupEligible(u: UserDoc | null, ownerId: number): boolean {
-  if (!u) return false;
-  if (u._id === ownerId) return false; // owner is the only exception
-  if (u.inactiveReply === "leaving") return true; // explicitly asked to be removed
-  const cutoff = Date.now() - INACTIVE_DAYS * 86_400_000;
-  return (u.lastSeenAt ?? u.createdAt).getTime() < cutoff;
-}
-
-// Delete a user and, if they were a trainer, unlink their clients back to solo so none are orphaned.
-export async function deleteUserFully(ctx: MyContext, u: UserDoc) {
-  if (u.role === "trainer") {
-    for (const c of await listClients(ctx.db, u._id)) await unlinkClient(ctx.db, c._id).catch(() => {});
-  }
-  await deleteUserData(ctx.db, u._id);
-}
-
-export async function onCleanupDelete(ctx: MyContext, userId: number) {
-  const lang = ctx.user.lang;
-  if (!(await isOwner(ctx))) { await reply(ctx, t(lang, "admin_only")); return; }
-  const u = await getUser(ctx.db, userId);
-  if (!cleanupEligible(u, ctx.user._id)) { await reply(ctx, t(lang, "cleanup_skip")); return; }
-  await deleteUserFully(ctx, u!);
-  await recordAudit(ctx.db, ctx.user._id, "delete_user", userId, u?.profile.name ?? undefined);
-  await reply(ctx, t(lang, "cleanup_deleted", { name: escapeHtml(u?.profile.name ?? `id ${userId}`) }));
-  await cmdCleanup(ctx); // refresh the list
-}
-
-export async function onCleanupAll(ctx: MyContext, confirmed: boolean) {
-  const lang = ctx.user.lang;
-  if (!(await isOwner(ctx))) { await reply(ctx, t(lang, "admin_only")); return; }
-  const nowIso = new Date().toISOString();
-  const cutoff = new Date(Date.now() - INACTIVE_DAYS * 86_400_000).toISOString();
-  const candidates = (await listInactive(ctx.db, cutoff, nowIso)).filter((u) => u._id !== ctx.user._id);
-  if (!confirmed) {
-    const kb = new InlineKeyboard()
-      .text(t(lang, "cleanup_yes"), "clean:allyes")
-      .text(t(lang, "cleanup_no"), "menu:open");
-    await reply(ctx, t(lang, "cleanup_all_confirm", { n: candidates.length }), kb);
-    return;
-  }
-  let n = 0;
-  for (const u of candidates) {
-    if (!cleanupEligible(u, ctx.user._id)) continue;
-    await deleteUserFully(ctx, u);
-    await recordAudit(ctx.db, ctx.user._id, "delete_user", u._id, u.profile.name ?? undefined);
-    n++;
-  }
-  await reply(ctx, t(lang, "cleanup_deleted_all", { n }), menuBtn(lang));
-}
-
+// Moved to bot/cleanup.ts (god-file split); re-exported below so existing `from "./bot"`
+// imports (router.ts) keep working.
 
 export function daysMenu(lang: Lang, selected: Weekday[]): InlineKeyboard {
   const kb = new InlineKeyboard();
@@ -3847,135 +3706,11 @@ export async function handleGoalWeight(ctx: MyContext, text: string) {
 // imports (router.ts) keep working.
 
 // ============ Menstrual-cycle tracking (opt-in, female profiles) ============
-// The Coach and the plan don't force this — but if a user turns it on and logs a period start,
-// the coach context includes the current phase so advice can adapt (deload around menstruation,
-// heavier lifts late follicular, extra carbs in luteal, etc.). Nothing is inferred from age or
-// silence: opt-in is explicit and reversible.
-export async function showCycleSettings(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  if (ctx.user.profile.sex !== "female") { await reply(ctx, t(lang, "cycle_female_only")); return; }
-  const p = ctx.user.profile;
-  const { date } = localParts(p.timezone);
-  const info = computeCyclePhase(p, date);
-  const on = !!p.cycleTracking;
-  const cycleLen = p.cycleLengthDays ?? 28;
-  let body = t(lang, "cycle_title") + "\n\n";
-  if (!on) {
-    body += t(lang, "cycle_off_hint");
-  } else if (!p.lastPeriodStart) {
-    body += t(lang, "cycle_no_date");
-  } else if (info) {
-    const label = t(lang, `cycle_phase_${info.phase}` as Parameters<typeof t>[1]);
-    body += t(lang, "cycle_now", { phase: label, day: info.day, len: info.cycleLength, start: p.lastPeriodStart });
-  }
-  const kb = new InlineKeyboard()
-    .text(t(lang, on ? "cycle_disable_btn" : "cycle_enable_btn"), "cycle:toggle");
-  if (on) {
-    kb.row().text(t(lang, "cycle_log_start_btn"), "cycle:logstart");
-    kb.text(t(lang, "cycle_length_btn", { len: cycleLen }), "cycle:len");
-  }
-  kb.row().text(t(lang, "back"), "menu:settings");
-  await reply(ctx, body, kb);
-}
-
-export async function toggleCycleTracking(ctx: MyContext) {
-  if (ctx.user.profile.sex !== "female") return;
-  const next = !ctx.user.profile.cycleTracking;
-  const profile = { ...ctx.user.profile, cycleTracking: next };
-  await updateUser(ctx.db, ctx.user._id, { profile });
-  ctx.user.profile = profile;
-  // Turning tracking ON immediately asks for the anchor date — a calendar, not "today only",
-  // because the period usually started a few days before the user reaches this screen.
-  if (next) await showCycleCalendar(ctx);
-  else await showCycleSettings(ctx);
-}
-
-// Month calendar for picking the last-period start date (future days are inert dots).
-function cycleCalendarKb(ctx: MyContext, ym: string): InlineKeyboard {
-  const p = ctx.user.profile;
-  const { date: today } = localParts(p.timezone);
-  const kb = calendarKeyboard(
-    ctx.user.lang,
-    ym,
-    (d) => (d === p.lastPeriodStart ? `[${Number(d.slice(8))}]` : d > today ? "·" : String(Number(d.slice(8)))),
-    (d) => `cyd:pick:${d}`,
-    (m) => `cyd:m:${m}`,
-  );
-  kb.row().text(t(ctx.user.lang, "back"), "set:cycle");
-  return kb;
-}
-
-export async function showCycleCalendar(ctx: MyContext) {
-  if (ctx.user.profile.sex !== "female" || !ctx.user.profile.cycleTracking) {
-    await showCycleSettings(ctx);
-    return;
-  }
-  const { date } = localParts(ctx.user.profile.timezone);
-  await reply(ctx, t(ctx.user.lang, "cycle_pick_date"), cycleCalendarKb(ctx, ymOf(date)));
-}
-
-export async function onCycleCalNav(ctx: MyContext, ym: string) {
-  if (ctx.user.profile.sex !== "female" || !ctx.user.profile.cycleTracking) return;
-  await ctx.editMessageReplyMarkup({ reply_markup: cycleCalendarKb(ctx, ym) }).catch(() => {});
-}
-
-// A calendar day was tapped — anchor the cycle there. Future dates are ignored (inert dots).
-export async function pickCycleDate(ctx: MyContext, iso: string) {
-  const lang = ctx.user.lang;
-  const p = ctx.user.profile;
-  if (p.sex !== "female" || !p.cycleTracking) return;
-  const { date: today } = localParts(p.timezone);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || iso > today) return;
-  const profile = { ...p, lastPeriodStart: iso };
-  await updateUser(ctx.db, ctx.user._id, { profile });
-  ctx.user.profile = profile;
-  await reply(ctx, t(lang, "cycle_logged", { date: iso }));
-  await showCycleSettings(ctx);
-}
-
-// Cycle length picker — 4 common presets keeps the flow tap-only. Anything unusual can be set
-// via /coach or by editing the profile with a trainer.
-export async function pickCycleLength(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const kb = new InlineKeyboard();
-  for (const len of [24, 26, 28, 30, 32]) kb.text(`${len}`, `cycle:setlen:${len}`);
-  kb.row().text(t(lang, "back"), "set:cycle");
-  await reply(ctx, t(lang, "cycle_length_prompt"), kb);
-}
-
-export async function setCycleLength(ctx: MyContext, len: number) {
-  if (ctx.user.profile.sex !== "female") return;
-  const clamped = Math.max(20, Math.min(45, Math.round(len)));
-  const profile = { ...ctx.user.profile, cycleLengthDays: clamped };
-  await updateUser(ctx.db, ctx.user._id, { profile });
-  ctx.user.profile = profile;
-  await showCycleSettings(ctx);
-}
+// Moved to bot/cycle.ts (god-file split); re-exported below so existing `from "./bot"` imports
+// (router.ts) keep working.
 
 // ============ Sharing with trainer (client-owned consent toggles) ============
-// Workouts, plan and logs are always trainer-visible; body data and health details are strict
-// opt-in — the client card only shows them once the client flips these on (see trainerCanSee).
-export async function showShareSettings(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const share = ctx.user.profile.shareWithTrainer;
-  const kb = new InlineKeyboard()
-    .text(`${share?.body ? "✅" : "🔒"} ${t(lang, "share_body_btn")}`, "share:tog:body")
-    .row()
-    .text(`${share?.health ? "✅" : "🔒"} ${t(lang, "share_health_btn")}`, "share:tog:health")
-    .row()
-    .text(t(lang, "back"), "menu:settings");
-  await reply(ctx, t(lang, "share_title"), kb);
-}
-
-export async function toggleShare(ctx: MyContext, key: "body" | "health") {
-  const profile = {
-    ...ctx.user.profile,
-    shareWithTrainer: { ...ctx.user.profile.shareWithTrainer, [key]: !ctx.user.profile.shareWithTrainer?.[key] },
-  };
-  await updateUser(ctx.db, ctx.user._id, { profile });
-  ctx.user.profile = profile;
-  await showShareSettings(ctx);
-}
+// Moved to bot/shareConsent.ts (god-file split); re-exported below.
 
 // ===================== Calendar & session booking =====================
 
