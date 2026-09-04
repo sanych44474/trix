@@ -1,26 +1,27 @@
 import { GrammyError, InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
-import type { CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, LoggedExercise, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, Supplement, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, setRestTimer, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, putUserFoodCorrection } from "./db/repos";
+import type { CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, Supplement, UserDoc, Weekday } from "./types";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, dailyCheckinsSince, getActivePlan, getWorkoutLog, getTrainer, getUser, listClients, listStrength, pendingRequestForClient, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, setRestTimer, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, putUserFoodCorrection } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText } from "./ai";
 import { computeTargets, per100gCorrectionFrom } from "./domain/mealplan";
 import { pickGymSwaps, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "./domain/gymSwap";
 import { pickDifficultySwaps } from "./domain/difficultySwap";
 import * as P from "./ai/prompts";
-import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, getPlanDay, localParts, normalizeExercise, parseMeasurements, parseHeightWeight, parseSteps, parseWorkoutText, shouldDeload, weeksSincePlan, exerciseMetric, metricOfSets, bestSetForMetric, formatSetEntry, formatRecordBest, fmtDuration, fmtDistance, parseDuration, parseDistance } from "./domain/progression";
-import { e1rm, prMilestones, rankOf, weekStartStr, weekStreak, workoutMilestones } from "./domain/records";
+import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, getPlanDay, localParts, normalizeExercise, parseMeasurements, parseHeightWeight, parseSteps, parseWorkoutText, shouldDeload, weeksSincePlan, exerciseMetric, metricOfSets, bestSetForMetric, formatSetEntry, formatRecordBest, fmtDuration, parseDuration, parseDistance } from "./domain/progression";
+import { e1rm, weekStartStr, weekStreak } from "./domain/records";
 import { exerciseVideoKey, renderActivityGrid, renderBoard, renderPlan, renderSchedule, renderStrength, exerciseChart, wellbeingChart, renderToday, upcomingSessions, weekdayName } from "./render";
 import { strengthStandard, type StrengthLevel } from "./domain/standards";
 import { cmdReport, localCutoff } from "./bot/report";
 import { cmdReplan, prDate } from "./bot/exportData";
 import { resumePendingPlan } from "./bot/planGen";
 import { num, verifyItems } from "./bot/nutritionLog";
+import { finalizeWorkoutLog, renderDayInline } from "./bot/workoutSave";
 import { interviewProgress, isOwner } from "./bot/owner";
-import { joinByCode, requireTrainer, showSharedProgram, showPlanEditDay, trainerMenu, trainerMenuActionFor, trainerStyleBlock } from "./bot/trainer";
+import { joinByCode, requireTrainer, showSharedProgram, showPlanEditDay, trainerMenu, trainerMenuActionFor } from "./bot/trainer";
 export { buildOwnerReport, buildErrorReport } from "./bot/owner";
 // Extracted modules — imported for internal use AND re-exported so every existing consumer
 // (scheduler, webapp, tests) keeps importing from "./bot" unchanged.
-import { badgeLabel, computeBoards, isoDateMinus, recordsTabs, renderBadges } from "./bot/boards";
+import { computeBoards, isoDateMinus, recordsTabs, renderBadges } from "./bot/boards";
 import { buildWeekCard } from "./bot/weekCard";
 import { showEveningSurvey } from "./bot/survey";
 import { OB_WEEKDAY_KEYS, onboardingStep, renderObStep } from "./bot/onboarding";
@@ -33,7 +34,7 @@ export * from "./bot/keyboards";
 import { botDeepLink } from "./bot/links";
 import { translatePlanExercises, healPlanIfDegenerate } from "./bot/plan";
 export * from "./bot/plan";
-import { MENU_MAP, deferAi, maybeCelebrateLevel, onError } from "./bot/router";
+import { MENU_MAP, deferAi, onError } from "./bot/router";
 export * from "./bot/router";
 export * from "./bot/challenges";
 export * from "./bot/vacation";
@@ -47,10 +48,12 @@ export * from "./bot/report";
 export * from "./bot/exportData";
 export * from "./bot/planGen";
 export * from "./bot/nutritionLog";
+export * from "./bot/coach";
+export * from "./bot/workoutSave";
+export * from "./bot/feedbackIntake";
 
 import { computeXp, levelFromXp } from "./domain/gamification";
 import { parseSetLine, parseSetEdit } from "./domain/setLine";
-import { computeCyclePhase, phaseHint, phaseLabel } from "./domain/cycle";
 import { switchMode, unsavedLogCount } from "./domain/session";
 import { weeklyVolume, projectWeight, stalledLifts, type MuscleVolume } from "./domain/analysis";
 import { platePlan, warmupRamp } from "./domain/calc";
@@ -3681,433 +3684,9 @@ export type TKey = Parameters<typeof t>[1]; // keyof the locale dictionary
 // imports (router.ts) keep working.
 
 // ---------------- coach / logging / measurements / feedback ----------------
-
-export async function coachContext(ctx: MyContext): Promise<string> {
-  // Plan and recent logs are independent reads — fetch them together.
-  const [plan, recent] = await Promise.all([
-    getActivePlan(ctx.db, ctx.user._id),
-    // Last 14 days of real logs so the coach grounds advice in actual numbers (not generic tips).
-    getRecentContext(ctx.db, ctx.user._id, 14),
-  ]);
-  const { date } = localParts(ctx.user.profile.timezone);
-  // Full plan with ISO weekday + 0-based exercise indices, so the coach can target any exercise.
-  const planText = plan?.split.length
-    ? plan.split
-        .map(
-          (d) =>
-            `${weekdayName("en", d.weekday)}(${d.weekday}): ` +
-            d.exercises.map((e, i) => `${i}:${e.name} ${e.sets} ${e.startWeight}`).join(" | "),
-        )
-        .join("\n")
-    : "no active plan";
-  const { workouts, nutrition } = recent;
-  const workoutText = workouts.length
-    ? workouts
-        .map((w) => {
-          const lifts = w.exercises
-            .filter((e) => !e.skipped && e.setsDone.length)
-            .map((e) => {
-              const top = e.setsDone.reduce((a, b) => (b.weight >= a.weight ? b : a), e.setsDone[0]);
-              return `${e.name} ${top.weight || "BW"}×${top.reps}${e.rpe ? `@${e.rpe}` : ""}`;
-            })
-            .join(", ");
-          return `${w.date}(${w.completed ? "done" : "skip"}${lifts ? `: ${lifts}` : ""})`;
-        })
-        .join(" | ")
-    : "none";
-  const nutDays = nutrition.length;
-  const avgKcal = nutDays
-    ? Math.round(
-        nutrition.reduce((s, n) => s + n.meals.reduce((m, x) => m + (x.kcal || 0), 0), 0) / nutDays,
-      )
-    : 0;
-  const target = ctx.user.nutrition ? `${ctx.user.nutrition.calories}kcal` : "n/a";
-  const injuries = ctx.user.profile.limitations?.trim();
-  // Cycle-phase awareness (opt-in only). Injected as a compact English hint so the coach can
-  // adjust load / carbs advice around the phase without needing a separate prompt.
-  const cy = computeCyclePhase(ctx.user.profile, date);
-  const cycleLine = cy ? `Cycle phase: ${phaseLabel(cy.phase)} (day ${cy.day}/${cy.cycleLength}) — ${phaseHint(cy.phase)}.\n` : "";
-  return (
-    `PLAN (weekday in parens, exercise index before colon):\n${planText}\n` +
-    `Nutrition target: ${target}. Last 14d nutrition: ${nutDays} day(s) logged${nutDays ? `, avg ${avgKcal}kcal` : ""}.\n` +
-    `Last 14d workouts (top set per lift): ${workoutText}.\n` +
-    `${injuries ? `Injuries/limitations: ${injuries}.\n` : ""}` +
-    cycleLine +
-    `Training pace: ${ctx.user.progressionRate ?? "normal"}. Today: ${date}.`
-  );
-}
-
-export async function handleCoach(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  // A client's question goes to their human trainer (with an AI-suggested reply).
-  if (ctx.user.role === "client" && ctx.user.trainerId) {
-    await routeClientQuestion(ctx, text);
-    return;
-  }
-  await ctx.replyWithChatAction("typing").catch(() => {});
-  // The coach can also propose plan edits (add/cardio, harder/easier, swap) as buttons.
-  // Deferred past the webhook response — the AI chain must not block the update.
-  deferAi(ctx, "coach", async () => {
-    const result = await aiJSON<P.CoachEditResult>(ctx.env, {
-      system: P.coachEditSystem(lang, ctx.user.profile, await coachContext(ctx)),
-      user: text,
-      temperature: 0.7,
-      kind: "coach",
-      db: ctx.db,
-      userId: ctx.user._id,
-    });
-    const actions = (result.actions ?? []).filter((a) => a.kind !== "none").slice(0, 4);
-    let kb = menuBtn(lang);
-    if (actions.length) {
-      kb = new InlineKeyboard();
-      actions.forEach((a, i) => {
-        // Stash the arg in the session (callback data is length-limited); button carries the index.
-        kb.text(a.label.slice(0, 60), `cact:${a.kind}:${i}`).row();
-      });
-      // This runs up to ~26 s after the webhook — re-read the CURRENT session so we don't
-      // clobber a mode/draft the user started while the AI was thinking.
-      const fresh = await getUser(ctx.db, ctx.user._id).catch(() => null);
-      const session = { ...(fresh?.session ?? ctx.user.session), coachActions: actions };
-      await updateUser(ctx.db, ctx.user._id, { session });
-      ctx.user.session = session;
-    }
-    await reply(ctx, escapeHtml(cleanAi(result.reply)), kb);
-  });
-}
-
-// The plan day a coach edit targets: today's session if it's a training day, else the
-// earliest upcoming session, else the first plan day.
-export async function coachEditWeekday(ctx: MyContext): Promise<Weekday | null> {
-  const plan = await getActivePlan(ctx.db, ctx.user._id);
-  if (!plan || !plan.split.length) return null;
-  const tz = ctx.user.profile.timezone;
-  const logs = (await workoutLogsSince(ctx.db, ctx.user._id, localCutoff(tz, 14))).map((l) => ({ date: l.date, completed: l.completed }));
-  const sessions = upcomingSessions(ctx.user.lang, plan, tz, logs, 7);
-  const today = localParts(tz).date;
-  const todays = sessions.find((s) => s.date === today && s.status === "pending");
-  const next = todays ?? sessions.find((s) => s.isNext);
-  return (next?.weekday ?? [...plan.split].sort((a, b) => a.weekday - b.weekday)[0].weekday) as Weekday;
-}
-
-// Apply a coach-proposed plan edit when the user taps one of the action buttons.
-export async function handleCoachAction(ctx: MyContext, kind: string, idx: number) {
-  const lang = ctx.user.lang;
-  const a = (ctx.user.session.coachActions ?? [])[idx];
-  await setMode(ctx, "idle");
-  if (!a) {
-    await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
-    return;
-  }
-  // Use the action's explicit weekday when given, else default to today's/next session.
-  const weekday = (a.weekday as Weekday) || (await coachEditWeekday(ctx));
-  if (!weekday) {
-    await reply(ctx, t(lang, "no_plan"), menuBtn(lang));
-    return;
-  }
-  const index = a.index ?? 0;
-  if (kind === "add" && a.exercise) {
-    await addExerciseByName(ctx, weekday, a.exercise);
-  } else if (kind === "delete") {
-    await deleteExerciseFromToday(ctx, weekday, index);
-  } else if (kind === "swap") {
-    if (a.exercise) await swapExerciseByName(ctx, weekday, index, a.exercise);
-    else await showSwapAlternatives(ctx, weekday, index);
-  } else if (kind === "weight" && a.value) {
-    await setExerciseWeight(ctx, weekday, index, a.value);
-  } else if (kind === "sets" && a.value) {
-    await setExerciseSets(ctx, weekday, index, a.value);
-  } else if (kind === "harder") {
-    await adjustDifficulty(ctx, "up", weekday);
-  } else if (kind === "easier") {
-    await adjustDifficulty(ctx, "down", weekday);
-  }
-}
-
-// Client → trainer question: store it, draft an AI answer, and ask the trainer to
-// send the draft / write their own / ignore.
-export async function routeClientQuestion(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const trainerId = ctx.user.trainerId!;
-  const trainer = await getUser(ctx.db, trainerId);
-  if (!trainer) {
-    await reply(ctx, t(lang, "error_generic"));
-    return;
-  }
-  // Persist the question FIRST (fast DB write) — the client's "sent ✅" must never outrun
-  // the write; a dead isolate mid-AI must not lose the question. Only the optional AI draft
-  // and the trainer notification run past the response.
-  const qid = await createQuestion(ctx.db, ctx.user._id, trainerId, text, undefined);
-  await reply(ctx, t(lang, "client_q_sent"), menuBtn(lang));
-  deferAi(ctx, "coach", async () => {
-    let draft = "";
-    try {
-      // Draft the suggested answer in the TRAINER's voice (their stated style/philosophy).
-      const trainerDoc = await getTrainer(ctx.db, trainerId).catch(() => null);
-      draft = await aiText(ctx.env, {
-        system: P.coachSystem(trainer.lang, ctx.user.profile, await coachContext(ctx), trainerDoc ? trainerStyleBlock(trainerDoc) : undefined),
-        user: text,
-        temperature: 0.7,
-        kind: "coach",
-        db: ctx.db,
-        userId: ctx.user._id,
-      });
-      if (draft) await setQuestionDraft(ctx.db, qid, draft).catch(() => {});
-    } catch {
-      /* AI draft is optional */
-    }
-    const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`);
-    const kb = new InlineKeyboard()
-      .text(t(trainer.lang, "q_send"), `q:send:${qid}`)
-      .text(t(trainer.lang, "q_own"), `q:own:${qid}`)
-      .row()
-      .text(t(trainer.lang, "q_skip"), `q:skip:${qid}`);
-    const body =
-      t(trainer.lang, "trainer_question", { name: who, q: escapeHtml(text) }) +
-      (draft ? `\n\n🤖 <i>${escapeHtml(draft)}</i>` : "");
-    await ctx.api.sendMessage(trainer.chatId, body, { ...HTML, reply_markup: kb }).catch(() => {});
-  });
-}
-
-export async function handleWorkoutLog(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const sets = parseWorkoutText(text);
-  // Couldn't read any sets → ask to rephrase, stay in log mode, don't save an empty log.
-  if (!sets.length) {
-    await reply(ctx, t(lang, "log_unreadable"));
-    return;
-  }
-  const { date, weekday } = localParts(ctx.user.profile.timezone);
-
-  // Canonical names: this weekday's plan exercises + the user's existing records,
-  // so "bench" and "bench press" map to one tracked lift.
-  const plan = await getActivePlan(ctx.db, ctx.user._id);
-  const existing = await listStrength(ctx.db, ctx.user._id);
-  const candidates = [
-    ...(plan?.split.flatMap((d) => d.exercises.map((e) => e.name)) ?? []),
-    // canonical English names so an English-typed log matches a localized plan exercise
-    ...(plan?.split.flatMap((d) => d.exercises.map((e) => e.canonicalName).filter((n): n is string => !!n)) ?? []),
-    ...existing.map((r) => r.exercise),
-  ];
-
-  const byExercise = new Map<string, SetEntry[]>();
-  const rpeByExercise = new Map<string, number>();
-  for (const s of sets) {
-    const name = normalizeExercise(s.exercise, candidates);
-    const arr = byExercise.get(name) ?? [];
-    arr.push({
-      reps: s.reps,
-      weight: s.weight,
-      ...(typeof s.seconds === "number" ? { seconds: s.seconds } : {}),
-      ...(typeof s.meters === "number" ? { meters: s.meters } : {}),
-      // Persist the per-set RPE too — the exercise-level max is a summary, not the ground truth.
-      ...(typeof s.rpe === "number" ? { rpe: s.rpe } : {}),
-    });
-    byExercise.set(name, arr);
-    if (typeof s.rpe === "number") rpeByExercise.set(name, Math.max(rpeByExercise.get(name) ?? 0, s.rpe));
-  }
-  await finalizeWorkoutLog(ctx, date, weekday as Weekday, byExercise, rpeByExercise, text);
-}
-
-export interface WorkoutSaveEntry {
-  name: string;
-  sets: SetEntry[];
-  rpe?: number;
-}
-
-export interface PrHit {
-  name: string;
-  metric: ExerciseMetric;
-  weight: number;
-  reps: number;
-  seconds?: number;
-  meters?: number;
-}
-
-export interface WorkoutSaveOutcome {
-  exercises: LoggedExercise[];
-  prExercises: string[];
-  prHit: PrHit | null; // first PR this save, for the single-message chat celebration
-  freshBadges: string[]; // badge codes: workout-count milestones, first_pr, PR-count milestones
-  totalWorkouts: number;
-}
-
-/** Persist a completed workout and run the record-keeping every save needs regardless of
- * surface: the log row, strength-record/PR detection, and workout-count + PR-count badges.
- * Ctx-free and mutates `user.reminders` in place (mirrors the DB write) so a caller chaining
- * more bookkeeping off the same UserDoc — e.g. level transition — sees the updated prCount.
- * Shared by the chat path (finalizeWorkoutLog) and the Mini App save route. */
-export async function applyWorkoutSave(
-  db: D1Database,
-  user: UserDoc,
-  entries: WorkoutSaveEntry[],
-  date: string,
-  weekday: Weekday,
-  rawText: string,
-): Promise<WorkoutSaveOutcome> {
-  const exercises: LoggedExercise[] = entries.map((e) => ({
-    name: e.name,
-    setsDone: e.sets,
-    skipped: false,
-    ...(e.rpe !== undefined ? { rpe: e.rpe } : {}),
-  }));
-  await upsertWorkoutLog(db, user._id, date, weekday, exercises, true, rawText);
-
-  const prExercises: string[] = [];
-  let prHit: PrHit | null = null;
-  for (const e of entries) {
-    const metric = metricOfSets(e.sets);
-    const best = bestSetForMetric(e.sets, metric);
-    if (!best) continue;
-    const pr = await upsertStrengthRecord(
-      db,
-      user._id,
-      e.name,
-      { metric, weight: best.weight, reps: best.reps, seconds: best.seconds, meters: best.meters },
-      date,
-      e.rpe,
-    );
-    if (pr.isPR) {
-      prExercises.push(e.name);
-      if (!prHit) prHit = { name: e.name, metric, weight: best.weight, reps: best.reps, seconds: best.seconds, meters: best.meters };
-    }
-  }
-
-  const fresh: string[] = [];
-  const total = await countCompletedWorkouts(db, user._id);
-  for (const code of workoutMilestones(total)) {
-    if (await awardAchievement(db, user._id, code)) fresh.push(code);
-  }
-  if (prExercises.length && (await awardAchievement(db, user._id, "first_pr"))) fresh.push("first_pr");
-
-  // Lifetime PR counter → milestone badges (prs_10 / prs_25).
-  if (prExercises.length) {
-    const prCount = (user.reminders?.prCount ?? 0) + prExercises.length;
-    const reminders = { ...user.reminders, prCount };
-    await updateUser(db, user._id, { reminders }).catch(() => {});
-    user.reminders = reminders;
-    for (const code of prMilestones(prCount)) if (await awardAchievement(db, user._id, code)) fresh.push(code);
-  }
-
-  return { exercises, prExercises, prHit, freshBadges: fresh, totalWorkouts: total };
-}
-
-/** Persist a completed workout (text- or button-built), update strength records, and run the
- * shared post-save UX: celebration, trainer notification, next-session preview. Clears any
- * in-progress button-logging draft and returns the user to idle. */
-export async function finalizeWorkoutLog(
-  ctx: MyContext,
-  date: string,
-  weekday: Weekday,
-  byExercise: Map<string, SetEntry[]>,
-  rpeByExercise: Map<string, number>,
-  rawText: string,
-) {
-  const lang = ctx.user.lang;
-  const entries: WorkoutSaveEntry[] = [...byExercise.entries()].map(([name, sets]) => ({
-    name,
-    sets,
-    ...(rpeByExercise.has(name) ? { rpe: rpeByExercise.get(name)! } : {}),
-  }));
-  const outcome = await applyWorkoutSave(ctx.db, ctx.user, entries, date, weekday, rawText);
-
-  await setMode(ctx, "idle"); // resets session to {mode} — also clears any logDraft
-  // Momentum recap: this week's count + streak, and flag a bonus (off-plan) session.
-  let saved = t(lang, "log_saved");
-  try {
-    const tz = ctx.user.profile.timezone;
-    const [recent, plan] = await Promise.all([
-      workoutLogsSince(ctx.db, ctx.user._id, localCutoff(tz, 45)),
-      getActivePlan(ctx.db, ctx.user._id),
-    ]);
-    const doneDates = recent.filter((l) => l.completed).map((l) => l.date);
-    const thisWeek = doneDates.filter((d) => d >= weekStartStr(date)).length;
-    const streak = weekStreak(doneDates, date, ctx.user.reminders?.lastVacation);
-    const planWeekdays = new Set((plan?.split ?? []).map((d) => d.weekday));
-    const bonus = planWeekdays.size > 0 && !planWeekdays.has(weekday);
-    saved += `\n\n${t(lang, "log_saved_summary", { week: thisWeek, streak, bonus: bonus ? t(lang, "log_bonus") : "" })}`;
-  } catch {
-    /* recap is optional */
-  }
-  await reply(ctx, saved, menuBtn(lang));
-  await celebrateRecords(ctx, outcome);
-  await notifyTrainerWorkout(ctx, true, outcome.exercises.length);
-  await showNextSession(ctx);
-}
-
-// Celebrate a new PR (with a global rank if opted in) and any freshly-earned badges.
-/** Share + invite offered at a celebration moment (PR, badge, level-up). */
-function celebrationShareKb(lang: Lang): InlineKeyboard {
-  return new InlineKeyboard()
-    .text(t(lang, "wcard_btn"), "share:week")
-    .text(t(lang, "menu_invite"), "invite");
-}
-
-export async function celebrateRecords(ctx: MyContext, outcome: WorkoutSaveOutcome) {
-  const lang = ctx.user.lang;
-  const { prHit, freshBadges: fresh } = outcome;
-
-  if (prHit) {
-    let msg: string;
-    if (prHit.metric === "time") {
-      msg = t(lang, "pr_hit_time", { ex: cleanAi(prHit.name), value: fmtDuration(prHit.seconds ?? 0) });
-    } else if (prHit.metric === "distance") {
-      msg = t(lang, "pr_hit_distance", { ex: cleanAi(prHit.name), value: fmtDistance(prHit.meters ?? 0) });
-    } else {
-      msg = t(lang, "pr_hit", { ex: cleanAi(prHit.name), weight: prHit.weight, reps: prHit.reps });
-    }
-    // Global ranking is strength-only (relative e1RM); time/distance PRs aren't ranked yet.
-    if (prHit.metric === "reps" && ctx.user.competeOptIn) {
-      const r = rankOf((await computeBoards(ctx.db)).relative, ctx.user._id);
-      if (r) msg += " " + t(lang, "pr_rank", { n: r });
-    }
-    // Extra praise — a rotating, celebratory line (plus the running PR count, already bumped
-    // on ctx.user by applyWorkoutSave).
-    const prCount = ctx.user.reminders?.prCount ?? 0;
-    msg += "\n" + t(lang, `pr_praise${(prCount % 3) + 1}` as TKey, { n: prCount });
-    // A personal record is the moment someone actually wants to tell people. Offering the share
-    // and invite here is the whole reason the referral machinery exists — buried in a settings
-    // menu it never fires, because nobody opens settings feeling proud.
-    await reply(ctx, msg, celebrationShareKb(lang));
-  }
-  if (fresh.length) {
-    await reply(ctx, t(lang, "badge_unlocked", { badges: fresh.map((c) => badgeLabel(lang, c)).join(", ") }), celebrationShareKb(lang));
-  }
-  await maybeCelebrateLevel(ctx);
-}
-
-// After a workout is logged/skipped, surface the next dated session (complete & advance).
-export async function showNextSession(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlan(ctx.db, ctx.user._id);
-  if (!plan) return;
-  const tz = ctx.user.profile.timezone;
-  const logs = (await workoutLogsSince(ctx.db, ctx.user._id, localCutoff(tz, 14))).map((l) => ({
-    date: l.date,
-    completed: l.completed,
-  }));
-  // Next session strictly after today.
-  const next = upcomingSessions(lang, plan, tz, logs, 1, true)[0];
-  if (next) {
-    await reply(
-      ctx,
-      `${t(lang, "next_session")}\n\n🏋️ <b>${escapeHtml(next.label)} — ${escapeHtml(next.day.muscleGroup)}</b>\n` + renderDayInline(next.day),
-    );
-  }
-}
-
-export function renderDayInline(day: PlanDay): string {
-  return day.exercises.map((e, i) => `${i + 1}. ${escapeHtml(e.name)} — ${escapeHtml(e.sets)}`).join("\n");
-}
-
-// Notify the client's trainer that the client logged/skipped today's workout.
-export async function notifyTrainerWorkout(ctx: MyContext, done: boolean, exerciseCount: number) {
-  if (ctx.user.role !== "client" || !ctx.user.trainerId) return;
-  const trainer = await getUser(ctx.db, ctx.user.trainerId);
-  if (!trainer) return;
-  const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`);
-  const key = done ? "trainer_notify_done" : "trainer_notify_skip";
-  await ctx.api.sendMessage(trainer.chatId, t(trainer.lang, key, { name: who, n: exerciseCount }), HTML).catch(() => {});
-}
+// coach* moved to bot/coach.ts, workout-log/save moved to bot/workoutSave.ts, feedback moved
+// to bot/feedbackIntake.ts (god-file split); re-exported below. handleMeasure (the only
+// "measurements" function — too small on its own for a new file) stayed here.
 
 export async function handleMeasure(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;
@@ -4123,44 +3702,6 @@ export async function handleMeasure(ctx: MyContext, text: string) {
   });
   await setMode(ctx, "idle");
   await reply(ctx, t(lang, "measure_saved"), menuBtn(lang));
-}
-
-export async function handleFeedback(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const { date } = localParts(ctx.user.profile.timezone);
-  const username = ctx.from?.username;
-  await insertFeedback(ctx.db, { userId: ctx.user._id, username, text, date });
-  // Forward to the owner if one is registered.
-  const ownerChatId = await getOwnerChatId(ctx.db);
-  if (ownerChatId) {
-    const who = username ? `@${username}` : `id ${ctx.user._id}`;
-    await ctx.api
-      .sendMessage(ownerChatId, `✍️ <b>Feedback</b> from ${escapeHtml(who)}:\n${escapeHtml(text)}`, HTML)
-      .catch(() => {});
-  }
-  await setMode(ctx, "idle");
-  await reply(ctx, t(lang, "feedback_saved"), menuBtn(lang));
-}
-
-// One-tap quality rating from the recurring nudge (qr:1..5). Stored as a feedback row so it
-// shows in the owner report next to written notes; the reply invites a written detail.
-export async function onQualityRating(ctx: MyContext, n: number) {
-  const lang = ctx.user.lang;
-  const stars = Math.max(1, Math.min(5, n));
-  const { date } = localParts(ctx.user.profile.timezone);
-  await insertFeedback(ctx.db, {
-    userId: ctx.user._id,
-    username: ctx.from?.username,
-    text: `⭐ ${stars}/5 (rating)`,
-    date,
-  });
-  const ownerChatId = await getOwnerChatId(ctx.db);
-  if (ownerChatId) {
-    const who = ctx.from?.username ? `@${ctx.from.username}` : `id ${ctx.user._id}`;
-    await ctx.api.sendMessage(ownerChatId, `⭐ <b>Rating ${stars}/5</b> from ${escapeHtml(who)}`, HTML).catch(() => {});
-  }
-  await ctx.answerCallbackQuery({ text: t(lang, "quality_rate_ack") }).catch(() => {});
-  await reply(ctx, t(lang, "quality_rate_thanks", { stars: "⭐".repeat(stars) }), menuBtn(lang));
 }
 
 // ---------------- user report ----------------
