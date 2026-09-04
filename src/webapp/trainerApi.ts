@@ -1,14 +1,12 @@
 // Trainer Mini App APIs:
-//   /api/trainer/client/:id/(card|note|flag|billing)  — per-client ops on the client card
-//   /api/trainer/questions (GET)                       — the trainer's Q&A inbox
-//   /api/trainer/question/:id/answer (POST)            — answer a client question
+//   /api/trainer/client/:id/(card|note|flag)  — per-client ops on the client card
+//   /api/trainer/questions (GET)              — the trainer's Q&A inbox
+//   /api/trainer/question/:id/answer (POST)   — answer a client question
 // Same initData auth as the dashboard, plus a trainer-role gate; per-client ops also run the
 // ownership check (getClientForTrainer — missing and not-yours both 404).
 import {
   assignDraftPlan,
-  createSession,
   deleteTrainerTemplate,
-  getClientBilling,
   getClientCard,
   getClientForTrainer,
   getQuestion,
@@ -20,24 +18,20 @@ import {
   listTrainerTemplates,
   recordAudit,
   saveDraftPlan,
-  setClientBilling,
   setClientCard,
   setClientNote,
   setQuestionStatus,
   setUserFlag,
 } from "../db/repos";
 import { adaptPlan } from "../domain/planAdapt";
-import { localParts } from "../domain/progression";
-import { sessionTimeFor } from "../domain/sessionTz";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { buildClientCardPayload } from "./clientCard";
 import type { Env, UserDoc } from "../types";
 
-const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|billing|session)$/;
+const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
 const MAX_TEXT = 2000;
-const BOOK_HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
 
 async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
   await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -148,7 +142,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   const m = ROUTE.exec(url.pathname);
   if (!m) return Response.json({ error: "not found" }, { status: 404 });
   const clientId = Number(m[1]);
-  const action = m[2] as "card" | "note" | "flag" | "billing" | "session";
+  const action = m[2] as "card" | "note" | "flag";
   const client = await getClientForTrainer(env.DB, user._id, clientId);
   if (!client) return Response.json({ error: "not found" }, { status: 404 });
 
@@ -196,38 +190,6 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       if (note === undefined) return Response.json({ error: "bad request" }, { status: 400 });
       await setClientNote(env.DB, user._id, clientId, note ?? "");
       return Response.json({ note });
-    }
-    if (action === "billing") {
-      const patch: { paidUntil?: string | null; sessionsLeft?: number | null } = {};
-      if (body.paidUntil !== undefined) {
-        const v = body.paidUntil;
-        if (v === null || v === "") patch.paidUntil = null;
-        else if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) patch.paidUntil = v;
-        else return Response.json({ error: "bad request" }, { status: 400 });
-      }
-      if (body.sessionsLeft !== undefined) {
-        const v = body.sessionsLeft;
-        if (v === null || v === "") patch.sessionsLeft = null;
-        else if (typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 999) patch.sessionsLeft = v;
-        else return Response.json({ error: "bad request" }, { status: 400 });
-      }
-      await setClientBilling(env.DB, user._id, clientId, patch);
-      const b = await getClientBilling(env.DB, user._id, clientId);
-      return Response.json({ billing: { paidUntil: b?.paidUntil ?? null, sessionsLeft: b?.sessionsLeft ?? null } });
-    }
-    if (action === "session") {
-      // Propose a session (two-party): booked in the TRAINER's tz; the client gets a chat push
-      // with confirm/decline buttons (the existing sess:ok / sess:no bot callbacks).
-      const date = typeof body.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : null;
-      const hour = Number(body.hour);
-      const today = localParts(user.profile.timezone).date;
-      if (!date || date < today || !BOOK_HOURS.includes(hour)) return Response.json({ error: "bad request" }, { status: 400 });
-      const tz = user.profile.timezone;
-      const id = await createSession(env.DB, { trainerId: user._id, clientId, date, hour, proposedBy: "trainer", tz });
-      const forClient = sessionTimeFor(date, hour, tz, client.profile.timezone);
-      const kb = { inline_keyboard: [[{ text: t(client.lang, "sess_confirm_btn"), callback_data: `sess:ok:${id}` }, { text: t(client.lang, "sess_decline_btn"), callback_data: `sess:no:${id}` }]] };
-      await tgSend(env, client.chatId, t(client.lang, "sess_proposed_trainer", { name: escapeHtml(user.profile.name ?? "trainer"), date: forClient.date, hour: forClient.hour }), kb);
-      return Response.json({ ok: true, date, hour });
     }
     // action === "flag" — mirrors the bot's toggle: setUserFlag + audit trail.
     if (typeof body.flagged !== "boolean") return Response.json({ error: "bad request" }, { status: 400 });

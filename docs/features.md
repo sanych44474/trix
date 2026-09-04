@@ -41,6 +41,10 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
   goal-switch flow, per-set RPE/RIR capture feeding autoregulation.
 - **Injury-aware planning**: report pain by area/severity → conflicting exercises are swapped
   for safe ones; scheduled follow-ups with a 0–10 pain scale; auto-restore when recovered.
+- **"Not my gym today"**: one tap re-fits the whole session to what's actually on hand
+  (bodyweight only / dumbbells only / a resistance band) — every exercise gets a same-muscle
+  substitute for today's log only, the stored plan is untouched so tomorrow's session reverts
+  on its own.
 - **Strength standards**: big-lift classification (beginner→elite) relative to bodyweight,
   with the load needed for the next tier.
 - **Plate & warm-up calculator**: working weight → plates per side + warm-up ramp.
@@ -108,9 +112,11 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
 
 ## 7. Trainer features
 
-- **Client acquisition**: personal invite code/link, public trainer directory with filters
-  (goal/tag/language), client requests inbox (accept/decline), client limit + waitlist,
-  reviews & rating, trainer profile wizard (bio, prices, photo, specializations).
+- **Client acquisition**: personal invite code/link (`t.me/<bot>?start=tr_<code>`), a client can
+  also type the code by hand, client requests inbox (accept/decline), client limit + waitlist,
+  trainer profile wizard (bio, tags, languages, photo, specializations). No public browsable
+  directory — at low trainer counts a catalog with ratings is moderation overhead for no
+  discovery benefit; a trainer's own profile card still renders their tags and languages.
 - **Client card** (bot + Mini App): compliance, charts, private notes, 🩺 health notes,
   🎂 personal notes + birthday reminder, intake answers + "remind to finish" ping,
   ⚡ 6-question mini-interview FOR the client → instant plan draft, progress photos,
@@ -118,10 +124,6 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
 - **Plan management**: full plan editor for each client (same as self-edit incl. supersets
   and day add/remove), reusable program templates (save/assign, weights auto-adapt),
   program sharing (link / public library / direct assign to selected clients).
-- **Sessions**: booking calendar with time zones, propose/confirm/cancel, meeting links,
-  day-before + same-day reminders, completed sessions decrement prepaid packages.
-- **Billing**: paid-until / session packages per client, 💰 finance summary
-  (paying/expiring/expired), expiry nudges.
 - **Communication**: message a client, 📢 broadcast to all clients, ❓ client questions inbox
   (answer/keep/skip), 📸 request a progress photo, forwardable client week card.
 - **Monitoring**: weekly digest (traffic-light per client), at-risk alerts (2 missed planned
@@ -158,9 +160,9 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
 - Workout reminder (with plan preview + "log in the app" button), one combined **evening
   check-in at 21:00** (water/steps/food/wellbeing checklist that re-shows remaining items),
   tomorrow's training preview, pre-workout readiness check, injury follow-ups, weekly records
-  digest + rank-change pushes, Sunday week digest, trainer at-risk alerts and billing nudges,
-  session reminders, plan-generation recovery sweep, hourly leaderboard cache, cron heartbeat
-  (dead-man alert to the owner if the cron stops).
+  digest + rank-change pushes, Sunday week digest, trainer at-risk alerts, plan-generation
+  recovery sweep, hourly leaderboard cache, cron heartbeat (dead-man alert to the owner if the
+  cron stops).
 
 ## 10. Owner / admin
 
@@ -177,7 +179,7 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
 
 ## 11. Engineering safeguards (invisible features)
 
-- 260 unit/integration tests; typecheck-enforced bilingual catalogs; session-mode registry
+- 354 unit/integration tests; typecheck-enforced bilingual catalogs; session-mode registry
   with compile-time exhaustiveness; callback route tables with a prefix-conflict detector;
   D1 migrations tracker (rebaselined, standard tooling); idempotent saves everywhere;
   reminder dedup that survives crashes; scheduler mutex; AI input identical across fallback

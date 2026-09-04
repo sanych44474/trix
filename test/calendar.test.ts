@@ -28,12 +28,10 @@ test("monthTitle: localized", () => {
   assert.equal(monthTitle("2026-07", "uk"), "Липень 2026");
 });
 
-test("dayMarker: priority session > completed > missed > planned > plain", () => {
-  const base = { today: "2026-07-15", plannedWeekdays: new Set([3]), logs: new Map(), sessionDates: new Set<string>() };
+test("dayMarker: priority completed > missed > planned > plain", () => {
+  const base = { today: "2026-07-15", plannedWeekdays: new Set([3]), logs: new Map() };
   // 2026-07-15 is a Wednesday (planned) and today → wrapped, planned marker
   assert.equal(dayMarker("2026-07-15", base), "[•15]");
-  // session wins
-  assert.equal(dayMarker("2026-07-08", { ...base, sessionDates: new Set(["2026-07-08"]) }), "🤝8");
   // completed
   assert.equal(dayMarker("2026-07-08", { ...base, logs: new Map([["2026-07-08", { completed: true }]]) }), "✅8");
   // missed planned past (Wed 2026-07-08 < today, planned, not logged)

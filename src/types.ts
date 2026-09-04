@@ -102,7 +102,6 @@ export type SessionMode =
   | "feedback"
   | "role_pick"
   | "trainer_setup"
-  | "review_text"
   | "comeback"
   | "vacation_custom"
   | "inact_feedback"
@@ -112,7 +111,6 @@ export type SessionMode =
   | "food_prod"
   | "trainer_broadcast"
   | "client_code"
-  | "client_note"
   | "trainer_note"
   | "trainer_health"
   | "trainer_personal"
@@ -147,9 +145,6 @@ export type SessionMode =
   | "announce"
   | "tpl_name"
   | "share_myplan_name"
-  | "billing_paid"
-  | "billing_sessions"
-  | "sess_link"
   | "photo_review";
 
 export interface BodyMeasurements {
@@ -233,7 +228,6 @@ export interface UserSession {
     | undefined;
   trainerDraft?: TrainerProfileInput; // in-progress answers during the trainer profile wizard
   editField?: string; // when editing a single trainer-profile field, which one (else full wizard)
-  reviewRating?: number; // chosen star rating awaiting an optional comment (review_text mode)
   comeback?: { step: number; answers: Record<string, string> }; // post-vacation comeback interview
   // A photo/text meal awaiting the user's confirmation (verify the dish & portion before logging).
   pendingMeal?: { desc: string; query: string; grams: number; kcal: number; protein: number; fats: number; carbs: number }[];
@@ -363,36 +357,8 @@ export interface TrainerDoc {
   languages?: string[];
   photoFileId?: string;
   profileComplete: boolean;
-  ratingAvg?: number; // undefined when no reviews yet
-  ratingCount: number;
   maxClients?: number; // client capacity; undefined = unlimited. Full roster → new requests waitlist.
   isInstructor?: boolean; // owner-granted: can share programs broadly (assign to own clients / link / library)
-}
-
-export interface TrainerReviewDoc {
-  id: number;
-  trainerId: number;
-  clientId: number;
-  rating: number; // 1..5
-  text?: string;
-  createdAt: Date;
-}
-
-export interface SessionDoc {
-  id: number;
-  trainerId: number;
-  clientId: number;
-  date: string; // YYYY-MM-DD local
-  hour: number; // 0..23
-  kind: "offline" | "online";
-  status: "proposed" | "confirmed" | "declined" | "cancelled" | "done";
-  proposedBy: "trainer" | "client";
-  note: string | null;
-  remindedAt: string | null;
-  createdAt: string;
-  tz: string | null; // IANA zone the (date, hour) was booked in; NULL = v1 same-city assumption
-  groupId?: string; // shared id for group/semi-private sessions (one row per participant)
-  meetingLink: string | null; // optional online-session link, set by the trainer on confirm
 }
 
 export interface ClientRequestDoc {

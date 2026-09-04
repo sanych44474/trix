@@ -11,7 +11,7 @@ import { cmdAdmin, cmdAnnounce, cmdOwnerReport, cmdRefreshVideos, cmdSetVideo, c
 import { obProgress, onboardingStep } from "./onboarding";
 import { onPlanRegenAi } from "./plan";
 import { showCardioMenu, showEveningSurvey } from "./survey";
-import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerFinance, cmdTrainerQuestions, goalToTag, handleAnswerQuestion, handleBillingPaid, handleBillingSessions, handleTemplateName, onTrainerLimitCycle, openFindTrainer, openTrainerEdit, shareAssignToClients, showCatalog, showLangPicker, showTagPicker, startShareMyPlan, toggleShareAll, trainerMenuActionFor, trainerSteps, twAdvance } from "./trainer";
+import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerQuestions, handleAnswerQuestion, handleTemplateName, onTrainerLimitCycle, openFindTrainer, openTrainerEdit, shareAssignToClients, startShareMyPlan, toggleShareAll, trainerMenuActionFor, trainerSteps, twAdvance } from "./trainer";
 import { addProgressPhoto, awardAchievement, bumpEvent, deleteUserData, getActivePlan, getFoodTranslations, getMealPlan, getOrCreateUser, getTrainer, getUser, getWorkoutLog, recordAdjustment, recordDailyCheckin, recordError, recordPlanSource, saveMealPlan, setActivePlan, setLastSeen, updateTrainer, updateUser, upsertFoodTranslations, upsertWorkoutLog, userStatCounts } from "../db/repos";
 import { computeXp, levelFromXp } from "../domain/gamification";
 import { buildTemplateMealDay, dishName, expandExclusions } from "../domain/mealTemplate";
@@ -22,7 +22,7 @@ import { localParts, weeksSincePlan } from "../domain/progression";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { renderMealPlan } from "../render";
 import { type Env, type Lang, type Meal, type MealPlanDoc, type NutritionTargets, type SessionMode, type Weekday } from "../types";
-import { setAppUrl, MyContext, TKey, handleAliasInput, handleWeightEdit, handleSetsEdit, handleSwapCustom, handleAddExercise, handleExerciseAltText, handleWarmupEdit, handleSessionLink, menuActionFor, isEditingOther, adjustDifficulty, aiAuthorAndAdd, cmdAskInactive, cmdCalendar, cmdChallenges, cmdCleanup, cmdCoach, cmdDeleteMe, cmdExport, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdLang, cmdLog, cmdLogPast, cmdMeasure, cmdMenu, cmdNutrition, cmdPlan, cmdPlates, cmdProgress, cmdRecords, cmdReplan, cmdReport, cmdSchedule, cmdSettings, cmdStandards, cmdStart, cmdSteps, cmdToday, cmdTrainerBroadcast, cmdTrainerReport, cmdVacation, cmdVolume, cmdWater, cmdWeekCard, cmdWellbeing, coachContext, defaultLang, endVacation, guardLogExit, handleCoach, handleExerciseConfirmation, handleNutrition, handlePhotoMeal, handleWorkoutLog, logBackToPick, logFinish, logSwitchToText, normalizeEvent, notifyTrainerWorkout, onCleanupAll, onGoalMaintain, onInactiveReply, onLevelUp, onLogExit, onMacrosSuggest, onMealConfirm, openSetsEditor, openWeightEditor, pickCycleLength, reply, setAlias, setMode, showAddDayPicker, showAthleteMenu, showChallengePicker, showCycleCalendar, showCycleSettings, showDayManager, showExerciseList, showInjuryAreas, showMealConfirm, showMealItemEditor, showMoreMenu, showMyLogHub, showNextSession, showOwnerHub, showProgressHub, showRecentFoods, showReminderSettings, showShareSettings, showTrainerCalendar, showTrainerClientsMenu, showWorkoutInfo, startAddExercise, startInterview, startSwapCustom, toggleCompete, toggleCycleTracking, undoDelete } from "../bot";
+import { setAppUrl, MyContext, TKey, handleAliasInput, handleWeightEdit, handleSetsEdit, handleSwapCustom, handleAddExercise, handleExerciseAltText, handleWarmupEdit, menuActionFor, isEditingOther, adjustDifficulty, aiAuthorAndAdd, cmdAskInactive, cmdCalendar, cmdChallenges, cmdCleanup, cmdCoach, cmdDeleteMe, cmdExport, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdLang, cmdLog, cmdLogPast, cmdMeasure, cmdMenu, cmdNutrition, cmdPlan, cmdPlates, cmdProgress, cmdRecords, cmdReplan, cmdReport, cmdSchedule, cmdSettings, cmdStandards, cmdStart, cmdSteps, cmdToday, cmdTrainerBroadcast, cmdTrainerReport, cmdVacation, cmdVolume, cmdWater, cmdWeekCard, cmdWellbeing, applyGymSwap, showGymSwapPicker, coachContext, defaultLang, endVacation, guardLogExit, handleCoach, handleExerciseConfirmation, handleNutrition, handlePhotoMeal, handleWorkoutLog, logBackToPick, logFinish, logSwitchToText, normalizeEvent, notifyTrainerWorkout, onCleanupAll, onGoalMaintain, onInactiveReply, onLevelUp, onLogExit, onMacrosSuggest, onMealConfirm, openSetsEditor, openWeightEditor, pickCycleLength, reply, setAlias, setMode, showAddDayPicker, showAthleteMenu, showChallengePicker, showCycleCalendar, showCycleSettings, showDayManager, showExerciseList, showInjuryAreas, showMealConfirm, showMealItemEditor, showMoreMenu, showMyLogHub, showNextSession, showOwnerHub, showProgressHub, showRecentFoods, showReminderSettings, showShareSettings, showTrainerClientsMenu, showWorkoutInfo, startAddExercise, startInterview, startSwapCustom, toggleCompete, toggleCycleTracking, undoDelete } from "../bot";
 
 import { getCatalogExercise, updatePlanMesocycle } from "../db/repos";
 import { INJURY_AREAS, type InjuryArea } from "../domain/injury";
@@ -30,8 +30,8 @@ import { defaultMesocycle, phaseGuidance } from "../domain/mesocycle";
 import { onboardingButton } from "./onboarding";
 import { ownerUserAction, sendOwnerSection, startVideoPick, startVideoSet } from "./owner";
 import { handleCardioLog, onSurveyItem, showCardioPlans, showCardioSession, startCardioLog } from "./survey";
-import { clientCardAction, handleClientLogEdit, handleClientNote, handleClientReply, handleReviewText, handleShareMyPlanName, handleTrainerBirthday, handleTrainerHealth, handleTrainerMessage, handleTrainerNote, handleTrainerPersonal, handleTwText, joinByCode, onMiniInterview, onQuestionOwn, onQuestionSend, onQuestionSkip, onRequestAccept, onRequestCancel, onRequestDecline, onReviewRate, onTemplateDelete, onTrainerApprove, onTrainerReject, requestTrainerStart, shareLink, sharePublish, shareTemplateMenu, showClientLogDay, showSharedProgram, showTrainerProfile, startClientLogEdit, startReview, startShareSelect, takeSharedProgram, toggleShareClient, trainerWizardButton, twEditField } from "./trainer";
-import { applyCatalogExerciseChoice, comebackButton, confirmDeleteDay, createPlanDay, deleteExerciseFromToday, deletePlanDay, endReorder, endSelfEdit, groupPickDone, handleBodyEdit, handleCalcWeight, handleCoachAction, handleComebackText, handleFeedback, handleFoodProduct, handleFoodWeight, handleGoalWeight, handleInactiveFeedback, handleLogDraftInput, handleMealClarify, handleMealItemFix, handleMealMacroEdit, handleMeasure, handleMyLogNutritionEdit, handleMyLogWorkoutEdit, handleSkipReason, handleStepsLog, handleTrainerBroadcast, handleVacationCustom, logPickExercise, logSwapFromCatalog, moveExercise, onBookDate, onBookNav, onCalDay, onCalNav, onChallengeJoin, onCleanupDelete, onClientBookHour, onCycleCalNav, onExerciseChart, onFoodDelete, onFoodEditProduct, onFoodEditWeight, onGroupBookHour, onInjuryExtend, onInjuryRecovered, onInjuryScore, onMealItemDelete, onMealItemMenu, onMealItemReplace, onMealPortion, onQualityRating, onReLog, onReminderToggle, onRestTimer, onSessionAction, onSetHour, onSetTz, onSmartHour, onToggleDay, onTrainerBookHour, onTrainerCalDay, onTrainerCalNav, onWaterAction, openSetting, pickCycleDate, reportInjury, resumePendingPlan, saveWarmup, selectExerciseSets, selectExerciseWeight, sendSessionIcs, setCycleLength, setEntryRpe, setVacationDays, showDayGroupPicker, showDeleteExerciseMenu, showFoodItem, showInjurySeverity, showInjuryTrend, showLogSwapAlternatives, showMyLogNutritionDay, showMyLogWorkoutDay, showReorder, showSwapAlternatives, showWarmupEditor, startClientBooking, startGroupBooking, startMealMacroEdit, startMyLogNutritionEdit, startMyLogWorkoutEdit, startPastLog, startSessionLink, startSetEdit, startTrainerBooking, suggestWarmup, swapFromCatalog, swapMenu, toggleGroupPick, toggleShare } from "../bot";
+import { clientCardAction, handleClientLogEdit, handleClientReply, handleShareMyPlanName, handleTrainerBirthday, handleTrainerHealth, handleTrainerMessage, handleTrainerNote, handleTrainerPersonal, handleTwText, joinByCode, onMiniInterview, onQuestionOwn, onQuestionSend, onQuestionSkip, onRequestAccept, onRequestCancel, onRequestDecline, onTemplateDelete, onTrainerApprove, onTrainerReject, shareLink, sharePublish, shareTemplateMenu, showClientLogDay, showSharedProgram, startClientLogEdit, startShareSelect, takeSharedProgram, toggleShareClient, trainerWizardButton, twEditField } from "./trainer";
+import { applyCatalogExerciseChoice, comebackButton, confirmDeleteDay, createPlanDay, deleteExerciseFromToday, deletePlanDay, endReorder, endSelfEdit, handleBodyEdit, handleCalcWeight, handleCoachAction, handleComebackText, handleFeedback, handleFoodProduct, handleFoodWeight, handleGoalWeight, handleInactiveFeedback, handleLogDraftInput, handleMealClarify, handleMealItemFix, handleMealMacroEdit, handleMeasure, handleMyLogNutritionEdit, handleMyLogWorkoutEdit, handleSkipReason, handleStepsLog, handleTrainerBroadcast, handleVacationCustom, logPickExercise, logSwapFromCatalog, moveExercise, onCalDay, onCalNav, onChallengeJoin, onCleanupDelete, onCycleCalNav, onExerciseChart, onFoodDelete, onFoodEditProduct, onFoodEditWeight, onInjuryExtend, onInjuryRecovered, onInjuryScore, onMealItemDelete, onMealItemMenu, onMealItemReplace, onMealPortion, onQualityRating, onReLog, onReminderToggle, onRestTimer, onSetHour, onSetTz, onSmartHour, onToggleDay, onWaterAction, openSetting, pickCycleDate, reportInjury, resumePendingPlan, saveWarmup, selectExerciseSets, selectExerciseWeight, setCycleLength, setEntryRpe, setVacationDays, showDayGroupPicker, showDeleteExerciseMenu, showFoodItem, showInjurySeverity, showInjuryTrend, showLogSwapAlternatives, showMyLogNutritionDay, showMyLogWorkoutDay, showReorder, showSwapAlternatives, showWarmupEditor, startMealMacroEdit, startMyLogNutritionEdit, startMyLogWorkoutEdit, startPastLog, startSetEdit, suggestWarmup, swapFromCatalog, swapMenu, toggleShare } from "../bot";
 
 export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
   "menu:today": cmdToday,
@@ -45,7 +45,6 @@ export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
   "menu:water": cmdWater,
   "menu:challenges": cmdChallenges,
   "menu:cal": cmdCalendar,
-  "menu:tcal": showTrainerCalendar,
   "menu:report": cmdReport,
   "menu:coach": cmdCoach,
   "menu:feedback": cmdFeedback,
@@ -57,7 +56,6 @@ export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
   "menu:mealplan": cmdMealPlan,
   "menu:clients": cmdClients,
   "menu:requests": cmdRequests,
-  "menu:finance": cmdTrainerFinance,
   "menu:questions": cmdTrainerQuestions,
   "menu:share": cmdShareProgram,
   "menu:library": cmdLibrary,
@@ -139,7 +137,7 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
   bot.command("leavetrainer", cmdLeaveTrainer);
   bot.command("cleanup", cmdCleanup);
   bot.command("askinactive", cmdAskInactive);
-  bot.command("log", cmdLog);
+  bot.command("log", (ctx) => cmdLog(ctx));
   bot.command("progress", cmdProgress);
   bot.command("nutrition", cmdNutrition);
   bot.command("mealplan", cmdMealPlan);
@@ -820,18 +818,14 @@ export const CB_EXACT: Record<string, CbHandler> = {
     await showNextSession(ctx);
   },
   "workout:info": (ctx) => showWorkoutInfo(ctx),
+  "gymswap:open": (ctx) => showGymSwapPicker(ctx),
+  "gymswap:bodyweight": (ctx) => applyGymSwap(ctx, "bodyweight"),
+  "gymswap:dumbbells": (ctx) => applyGymSwap(ctx, "dumbbells"),
+  "gymswap:band": (ctx) => applyGymSwap(ctx, "band"),
   // --- roles / pairing / trainer dashboard ---
   "role:ai": (ctx) => startInterview(ctx), // language already chosen first → AI interview directly
   "role:find": (ctx) => openFindTrainer(ctx),
   "role:trainer": (ctx) => cmdBecomeTrainer(ctx),
-  "find:browse": (ctx) => showCatalog(ctx),
-  "catf:goal": async (ctx) => {
-    const tag = goalToTag(ctx.user.profile.goal);
-    if (tag) await showCatalog(ctx, { tag });
-    else await showTagPicker(ctx);
-  },
-  "catf:tag": (ctx) => showTagPicker(ctx),
-  "catf:lang": (ctx) => showLangPicker(ctx),
   "find:code": async (ctx) => {
     await setMode(ctx, "client_code");
     await reply(ctx, t(ctx.user.lang, "enter_code_prompt"));
@@ -939,7 +933,6 @@ export const CB_EXACT: Record<string, CbHandler> = {
     await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
     await reply(ctx, t(ctx.user.lang, "photo_self_prompt"));
   },
-  "tr:group": (ctx) => startGroupBooking(ctx),
   "meso:open": (ctx) => showMesocycle(ctx),
   "meso:on": (ctx) => setMesocycle(ctx, true),
   "meso:off": (ctx) => setMesocycle(ctx, false),
@@ -966,23 +959,11 @@ export async function setMesocycle(ctx: MyContext, on: boolean) {
   await reply(ctx, t(lang, on ? "meso_started" : "meso_stopped"), menuBtn(lang));
 }
 
-// Booking calendars: bk:*/tb:* share handlers that read the full callback data.
-const bookNav: CbHandler = (ctx, _rest, data) => {
-  const [prefix, , tid, ym] = data.split(":");
-  return onBookNav(ctx, prefix, Number(tid), ym);
-};
-const bookDate: CbHandler = (ctx, _rest, data) => {
-  const [prefix, , tid, date] = data.split(":");
-  return onBookDate(ctx, prefix, Number(tid), date);
-};
-
 export const CB_PREFIX: [string, CbHandler][] = [
   ["orep:", (ctx, rest) => sendOwnerSection(ctx, rest)],
   ["ob:", (ctx, rest) => onboardingButton(ctx, rest)],
   ["tw:", (ctx, _r, data) => trainerWizardButton(ctx, data)],
   ["twf:", (ctx, rest) => twEditField(ctx, rest)],
-  ["rev:start:", (ctx, rest) => startReview(ctx, Number(rest))],
-  ["rev:rate:", (ctx, _r, data) => { const [, , tid, n] = data.split(":"); return onReviewRate(ctx, Number(tid), Number(n)); }],
   ["log:ex:", (ctx, rest) => logPickExercise(ctx, Number(rest))],
   // On-the-fly swap while logging: pick an alternative for slot #i (does not touch the plan).
   ["logsw:", (ctx, rest) => showLogSwapAlternatives(ctx, Number(rest))],
@@ -1005,31 +986,8 @@ export const CB_PREFIX: [string, CbHandler][] = [
     if (parts.length === 3) return showDeleteExerciseMenu(ctx, Number(parts[2]) as Weekday);
     return deleteExerciseFromToday(ctx, Number(parts[2]) as Weekday, Number(parts[3]));
   }],
-  ["catft:", (ctx, rest) => showCatalog(ctx, { tag: rest })],
-  ["catfl:", (ctx, rest) => showCatalog(ctx, { lang: rest })],
-  ["cat:", (ctx, rest) => showTrainerProfile(ctx, Number(rest))],
-  ["catreq:", (ctx, rest) => requestTrainerStart(ctx, Number(rest))],
-  ["book:", (ctx, rest) => startClientBooking(ctx, Number(rest))],
   ["cal:nav:", (ctx, rest) => onCalNav(ctx, rest)],
   ["cal:d:", (ctx, rest) => onCalDay(ctx, rest)],
-  ["tcal:nav:", (ctx, rest) => onTrainerCalNav(ctx, rest)],
-  ["tcal:d:", (ctx, rest) => onTrainerCalDay(ctx, rest)],
-  ["bk:nav:", bookNav],
-  ["tb:nav:", bookNav],
-  ["bk:d:", bookDate],
-  ["tb:d:", bookDate],
-  ["bk:h:", (ctx, _r, data) => { const [, , tid, date, h] = data.split(":"); return onClientBookHour(ctx, Number(tid), date, Number(h)); }],
-  ["tb:h:", (ctx, _r, data) => { const [, , cid, date, h] = data.split(":"); return onTrainerBookHour(ctx, Number(cid), date, Number(h)); }],
-  ["gb:nav:", (ctx, _r, data) => { const [, , , ym] = data.split(":"); return onBookNav(ctx, "gb", 0, ym); }],
-  ["gb:d:", (ctx, _r, data) => { const [, , , date] = data.split(":"); return onBookDate(ctx, "gb", 0, date); }],
-  ["gb:h:", (ctx, _r, data) => { const [, , , date, h] = data.split(":"); return onGroupBookHour(ctx, date, Number(h)); }],
-  ["gb:back:", (ctx) => groupPickDone(ctx)],
-  ["gpick:done", (ctx) => groupPickDone(ctx)],
-  ["gpick:", (ctx, rest) => toggleGroupPick(ctx, Number(rest))],
-  ["bk:back:", (ctx, rest) => startClientBooking(ctx, Number(rest))],
-  ["tb:back:", (ctx, rest) => startTrainerBooking(ctx, Number(rest))],
-  ["sess:ok:", (ctx, rest) => onSessionAction(ctx, "ok", Number(rest))],
-  ["sess:link:", (ctx, rest) => startSessionLink(ctx, Number(rest))],
   ["tpldel:", (ctx, rest) => onTemplateDelete(ctx, Number(rest))],
   ["shr:t:", (ctx, rest) => shareTemplateMenu(ctx, Number(rest))],
   ["shr:sel:", (ctx, rest) => startShareSelect(ctx, Number(rest))],
@@ -1038,9 +996,6 @@ export const CB_PREFIX: [string, CbHandler][] = [
   ["shrc:", (ctx, rest) => toggleShareClient(ctx, Number(rest))],
   ["prog:take:", (ctx, rest) => takeSharedProgram(ctx, rest)],
   ["prog:view:", (ctx, rest) => showSharedProgram(ctx, rest)],
-  ["ics:", (ctx, rest) => sendSessionIcs(ctx, Number(rest))],
-  ["sess:no:", (ctx, rest) => onSessionAction(ctx, "no", Number(rest))],
-  ["sess:cx:", (ctx, rest) => onSessionAction(ctx, "cx", Number(rest))],
   ["req:accept:", (ctx, rest) => onRequestAccept(ctx, Number(rest))],
   ["req:decline:", (ctx, rest) => onRequestDecline(ctx, Number(rest))],
   ["req:cancel:", (ctx, rest) => onRequestCancel(ctx, Number(rest))],
@@ -1181,7 +1136,6 @@ export const MODE_TEXT_HANDLERS = {
   cardio_log: (ctx, text) => handleCardioLog(ctx, text),
   feedback: (ctx, text) => handleFeedback(ctx, text),
   client_code: (ctx, text) => joinByCode(ctx, text),
-  client_note: (ctx, text) => handleClientNote(ctx, text),
   trainer_note: (ctx, text) => handleTrainerNote(ctx, text),
   share_myplan_name: (ctx, text) => handleShareMyPlanName(ctx, text),
   trainer_health: (ctx, text) => handleTrainerHealth(ctx, text),
@@ -1195,7 +1149,6 @@ export const MODE_TEXT_HANDLERS = {
   calc_weight: (ctx, text) => handleCalcWeight(ctx, text),
   trainer_setup: (ctx, text) => handleTwText(ctx, text),
   trainer_broadcast: (ctx, text) => handleTrainerBroadcast(ctx, text),
-  review_text: (ctx, text) => handleReviewText(ctx, text),
   comeback: (ctx, text) => handleComebackText(ctx, text),
   vacation_custom: (ctx, text) => handleVacationCustom(ctx, text),
   inact_feedback: (ctx, text) => handleInactiveFeedback(ctx, text),
@@ -1219,9 +1172,6 @@ export const MODE_TEXT_HANDLERS = {
   mp_likes: (ctx, text) => mealIntakeText(ctx, text),
   mp_dislikes: (ctx, text) => mealIntakeText(ctx, text),
   tpl_name: (ctx, text) => handleTemplateName(ctx, text),
-  billing_paid: (ctx, text) => handleBillingPaid(ctx, text),
-  billing_sessions: (ctx, text) => handleBillingSessions(ctx, text),
-  sess_link: (ctx, text) => handleSessionLink(ctx, text),
 } satisfies Partial<Record<SessionMode, TextHandler>>;
 
 // Modes where typed text DELIBERATELY falls through to the AI coach: either the mode is

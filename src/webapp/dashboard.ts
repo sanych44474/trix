@@ -25,11 +25,8 @@ import {
   listClients,
   listStrength,
   nutritionLogsSince,
-  sessionsBetween,
-  upcomingSessionsFor,
   workoutLogsSince,
 } from "../db/repos";
-import { sessionTimeFor } from "../domain/sessionTz";
 import { t } from "../locales/i18n";
 import { resolveStepsGoal, resolveWaterGoal } from "../domain/challenges";
 import type {
@@ -38,7 +35,6 @@ import type {
   NutritionLogDoc,
   NutritionTargets,
   PlanDoc,
-  SessionDoc,
   StrengthRecordDoc,
   UserDoc,
   Weekday,
@@ -61,7 +57,6 @@ export interface DashboardPayload {
     days: { date: string; s: "done" | "missed" | "rest" }[];
     plannedWeekdays: number[]; // ISO 1..7 — lets the client mark FUTURE training days
     split: { weekday: number; group: string; n: number }[]; // plan day summaries for the day card
-    sessions: { date: string; hour: number; status: string; with?: string }[]; // trainer sessions (clients)
     logs: { date: string; done: boolean; ex: { n: string; s: number }[] }[]; // what was actually done that day
   };
   volume: { group: string; sets: number; mev: number; mav: number; zone: string }[];
@@ -88,7 +83,6 @@ export interface DashboardPayload {
   // Trainer-only portfolio view: one row per client with 7-day compliance + at-risk flag.
   trainer?: {
     clients: { id: number; name: string; workoutPct: number; nutritionPct: number; atRisk: boolean; flagged: boolean }[];
-    sessions: { date: string; hour: number; status: string; with?: string }[];
   };
   // Owner-only analytics: DAU trend, funnel, AI provider stats, plan-source offload.
   owner?: {
@@ -121,8 +115,6 @@ export function assemblePayload(
     records: StrengthRecordDoc[];
     nutrition: NutritionLogDoc[];
     plan: PlanDoc | null;
-    sessions?: SessionDoc[];
-    sessionWith?: string; // the other party's display name (client → trainer name)
   },
 ): DashboardPayload {
   const { bodyLogs, workouts, records, nutrition, plan } = rows;
@@ -228,14 +220,6 @@ export function assemblePayload(
       days,
       plannedWeekdays: [...planned],
       split: (plan?.split ?? []).map((d) => ({ weekday: d.weekday, group: d.muscleGroup, n: d.exercises.length })),
-      sessions: (rows.sessions ?? [])
-        .filter((s) => s.status === "confirmed" || s.status === "proposed")
-        .map((s) => ({
-          date: s.date,
-          hour: s.hour,
-          status: s.status,
-          ...(rows.sessionWith ? { with: rows.sessionWith } : {}),
-        })),
       logs: workouts
         .filter((w) => w.exercises.some((e) => !e.skipped))
         .map((w) => ({
@@ -262,22 +246,20 @@ export function assemblePayload(
 const TRAINER_SECTION_MAX_CLIENTS = 30;
 
 /** Trainer portfolio: per-client 7-day compliance + at-risk (2 consecutive planned misses).
- * Three bulk queries + the sessions list — NOT per-client fan-out (subrequest cap). */
+ * Three bulk queries — NOT per-client fan-out (subrequest cap). */
 async function buildTrainerSection(
   db: D1Database,
   trainerId: number,
   today: string,
-  trainerTz: string | undefined,
 ): Promise<NonNullable<DashboardPayload["trainer"]>> {
   const clients = (await listClients(db, trainerId).catch(() => [] as UserDoc[])).slice(0, TRAINER_SECTION_MAX_CLIENTS);
-  if (!clients.length) return { clients: [], sessions: [] };
+  if (!clients.length) return { clients: [] };
   const ids = new Set(clients.map((c) => c._id));
   const cutoff = isoDaysBefore(today, 6);
-  const [allLogs, allPlans, allNutrition, upcoming] = await Promise.all([
+  const [allLogs, allPlans, allNutrition] = await Promise.all([
     allWorkoutLogsSince(db, isoDaysBefore(today, 20)).catch(() => []),
     listActivePlans(db).catch(() => []),
     allNutritionDatesSince(db, cutoff).catch(() => []),
-    upcomingSessionsFor(db, trainerId, "trainer", today, 10).catch(() => []),
   ]);
   const logsByUser = new Map<number, WorkoutLogDoc[]>();
   for (const l of allLogs) {
@@ -318,14 +300,7 @@ async function buildTrainerSection(
     }
     return { id: c._id, name: c.profile.name ?? `id ${c._id}`, workoutPct: comp.workoutPct, nutritionPct: comp.nutritionPct, atRisk, flagged: !!c.flagged };
   });
-  const names = new Map(clients.map((c) => [c._id, c.profile.name]));
-  const sessions = upcoming.map((s) => {
-    // Stored wall time lives in the booker's zone — show the TRAINER their local time.
-    const local = sessionTimeFor(s.date, s.hour, s.tz, trainerTz);
-    const withName = names.get(s.clientId);
-    return { date: local.date, hour: local.hour, status: s.status, ...(withName ? { with: withName } : {}) };
-  });
-  return { clients: rows, sessions };
+  return { clients: rows };
 }
 
 /** Owner analytics: 28-day DAU, funnel, 7-day AI provider stats, 30-day plan-source offload. */
@@ -351,19 +326,14 @@ async function buildOwnerSection(db: D1Database, today: string): Promise<NonNull
 
 export async function buildDashboardPayload(db: D1Database, user: UserDoc): Promise<DashboardPayload> {
   const today = localParts(user.profile.timezone).date;
-  const isClient = user.role === "client" && !!user.trainerId;
-  const [bodyLogs, workouts, records, nutrition, plan, sessions, trainer, trainerSection, ownerChatId, extras] = await Promise.all([
+  const [bodyLogs, workouts, records, nutrition, plan, trainerSection, ownerChatId, extras] = await Promise.all([
     bodyLogsByUser(db, user._id).catch(() => []),
     workoutLogsSince(db, user._id, isoDaysBefore(today, CALENDAR_DAYS - 1)),
     listStrength(db, user._id, 40),
     nutritionLogsSince(db, user._id, isoDaysBefore(today, MACRO_DAYS - 1)),
     getActivePlan(db, user._id),
-    isClient
-      ? sessionsBetween(db, user._id, "client", isoDaysBefore(today, 30), isoDaysBefore(today, -60)).catch(() => [])
-      : Promise.resolve([]),
-    isClient ? getUser(db, user.trainerId as number).catch(() => null) : Promise.resolve(null),
     user.role === "trainer"
-      ? buildTrainerSection(db, user._id, today, user.profile.timezone).catch(() => undefined)
+      ? buildTrainerSection(db, user._id, today).catch(() => undefined)
       : Promise.resolve(undefined),
     getOwnerChatId(db).catch(() => undefined),
     dashboardExtrasBatch(db, user._id, today).catch(() => null),
@@ -374,16 +344,12 @@ export async function buildDashboardPayload(db: D1Database, user: UserDoc): Prom
     ownerChatId !== undefined && ownerChatId === user.chatId
       ? await buildOwnerSection(db, today).catch(() => undefined)
       : undefined;
-  // Session wall times are stored in the booker's zone — convert to the viewer's before render.
-  const localSessions = sessions.map((s) => ({ ...s, ...sessionTimeFor(s.date, s.hour, s.tz, user.profile.timezone) }));
   const payload = assemblePayload(user, today, {
     bodyLogs,
     workouts,
     records,
     nutrition,
     plan,
-    sessions: localSessions,
-    ...(trainer?.profile.name ? { sessionWith: trainer.profile.name } : {}),
   });
   if (trainerSection) payload.trainer = trainerSection;
   if (ownerSection) payload.owner = ownerSection;

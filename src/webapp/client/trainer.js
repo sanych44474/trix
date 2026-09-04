@@ -353,20 +353,17 @@ el("cc-ops").addEventListener("click", function (e) {
   }
 });
 
-// ---- Trainer ops: requests inbox, upcoming sessions (cancel), finance summary ----
+// ---- Trainer ops: requests inbox ----
 function opsOpen() {
   el("qa").classList.remove("hidden");
   el("qa-title").textContent = WA.wa_ops_title;
   el("qa-body").innerHTML = '<div class="sub">' + WA.wa_loading + "</div>";
   if (TG && TG.BackButton && TG.BackButton.show) { TG.BackButton.show(); if (TG.BackButton.onClick) TG.BackButton.onClick(qaClose); }
-  Promise.all([
-    ccFetch("/api/requests").then(function (r) { return r.ok ? r.json() : null; }),
-    ccFetch("/api/trainer/sessions").then(function (r) { return r.ok ? r.json() : null; }),
-    ccFetch("/api/trainer/finance").then(function (r) { return r.ok ? r.json() : null; }),
-  ]).then(function (res) { opsRender(res[0], res[1], res[2]); })
+  ccFetch("/api/requests").then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (reqs) { opsRender(reqs); })
     .catch(function () { el("qa-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
 }
-function opsRender(reqs, sess, fin) {
+function opsRender(reqs) {
   var h = "<h2>📥 " + WA.wa_requests + "</h2><div class=\"card\">";
   var rl = (reqs && reqs.requests) || [];
   if (rl.length) {
@@ -377,27 +374,6 @@ function opsRender(reqs, sess, fin) {
     });
   } else h += '<div class="sub">' + L.nodata + "</div>";
   h += "</div>";
-  h += "<h2>📅 " + WA.wa_sessions + "</h2><div class=\"card\">";
-  var sl = (sess && sess.sessions) || [];
-  if (sl.length) {
-    sl.forEach(function (s) {
-      h += '<div class="cc-save-row" style="margin:4px 0" id="ops-sess-' + s.id + '"><span style="flex:1">' + s.date + " " + s.hour + ":00 · " + esc(s.client || "") + ' <span class="sub">' + esc(s.status) + "</span></span>";
-      h += '<button class="chipbtn" data-ops="cxl" data-id="' + s.id + '">' + WA.wa_cancel + "</button></div>";
-    });
-  } else h += '<div class="sub">' + L.nodata + "</div>";
-  h += "</div>";
-  if (fin) {
-    h += "<h2>💰 " + WA.wa_finance + "</h2><div class=\"card\">";
-    h += '<div class="sub">' + WA.wa_fin_done_month + ": " + fin.doneThisMonth + "</div>";
-    var finRow = function (label, list) {
-      h += '<div class="sub" style="margin-top:4px"><b>' + label + " (" + list.length + ")</b></div>";
-      list.forEach(function (x) { h += '<div class="sub">• ' + esc(x.name) + (x.paidUntil ? " · " + x.paidUntil : "") + (x.sessionsLeft != null ? " · " + x.sessionsLeft : "") + "</div>"; });
-    };
-    finRow(WA.wa_fin_paying, fin.paying || []);
-    finRow(WA.wa_fin_expiring, fin.expiring || []);
-    finRow(WA.wa_fin_expired, fin.expired || []);
-    h += "</div>";
-  }
   el("qa-body").innerHTML = h;
 }
 el("qa-body").addEventListener("click", function (e) {
@@ -408,10 +384,6 @@ el("qa-body").addEventListener("click", function (e) {
   if (op === "acc" || op === "dec") {
     ccFetch("/api/requests", { method: "POST", body: { id: id, action: op === "acc" ? "accept" : "decline" } })
       .then(function (r) { if (!r.ok) throw new Error("x"); var card = el("ops-req-" + id); if (card) card.innerHTML = '<span class="sub">' + (op === "acc" ? WA.wa_accepted : WA.wa_declined) + "</span>"; })
-      .catch(function () {});
-  } else if (op === "cxl") {
-    ccFetch("/api/trainer/sessions", { method: "POST", body: { id: id, action: "cancel" } })
-      .then(function (r) { if (!r.ok) throw new Error("x"); var row = el("ops-sess-" + id); if (row) row.innerHTML = '<span class="sub">' + WA.wa_cancelled + "</span>"; })
       .catch(function () {});
   }
 });

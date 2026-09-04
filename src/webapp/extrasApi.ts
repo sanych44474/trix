@@ -1,41 +1,33 @@
 // Remaining bot surfaces migrated to the Mini App: personal records, the week card, the trainer
-// requests inbox (accept/decline), session management (list/cancel), the finance summary, the
-// find-a-trainer directory (+ request), the public program library (+ take), what's-new, the
-// plates calculator, and become-a-trainer / trainer-profile editing. Reuses the same repos and
-// domain code as the bot; pushes (confirmations, interview kick-off) go out via the Bot API.
-import { buildWeekCard, isoDateMinus, obKeyboard, obSteps } from "../bot";
+// requests inbox (accept/decline), the find-a-trainer directory (+ request), the public program
+// library (+ take), what's-new, the plates calculator, and become-a-trainer / trainer-profile
+// editing. Reuses the same repos and domain code as the bot; pushes (confirmations, interview
+// kick-off) go out via the Bot API.
+import { buildWeekCard, obKeyboard, obSteps } from "../bot";
 import {
   applyTrainer,
   bumpSharedTaken,
   countClientsOf,
-  countSessionsDoneSince,
   createRequest,
   getOwnerChatId,
   getRequest,
-  getSession,
   getSharedProgram,
   getTrainer,
   getUser,
   linkClient,
   listAchievements,
-  listBillingForTrainer,
-  listClients,
-  listOpenTrainers,
   listPublicPrograms,
   listStrength,
   pendingRequestsForTrainer,
   setActivePlan,
   setRequestStatus,
-  setSessionStatus,
-  sessionsBetween,
   updateTrainer,
   updateUser,
 } from "../db/repos";
 import { adaptPlan } from "../domain/planAdapt";
 import { platePlan, warmupRamp } from "../domain/calc";
 import { BADGES, e1rm } from "../domain/records";
-import { formatRecordBest, localParts } from "../domain/progression";
-import { sessionTimeFor } from "../domain/sessionTz";
+import { formatRecordBest } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { latestRelease, releaseBody } from "../releaseNotes";
 import { miniAppUser } from "./auth";
@@ -156,82 +148,8 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     return Response.json({ ok: true });
   }
 
-  // ---- Trainer session management (upcoming list + cancel) ----
-  if (path === "/api/trainer/sessions") {
-    if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
-    const { date: today } = localParts(user.profile.timezone);
-    if (req.method === "GET") {
-      const list = await sessionsBetween(env.DB, user._id, "trainer", today, isoDateMinus(today, -60)).catch(() => []);
-      const names = new Map<number, string>();
-      const out = [];
-      for (const s of list) {
-        if (s.status === "done") continue;
-        if (!names.has(s.clientId)) {
-          const c = await getUser(env.DB, s.clientId).catch(() => null);
-          names.set(s.clientId, c?.profile.name ?? `id ${s.clientId}`);
-        }
-        const mine = sessionTimeFor(s.date, s.hour, s.tz, user.profile.timezone);
-        out.push({ id: s.id, date: mine.date, hour: mine.hour, status: s.status, client: names.get(s.clientId) });
-      }
-      return Response.json({ sessions: out }, noStore);
-    }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-    const body = (await req.json().catch(() => ({}))) as { id?: unknown; action?: unknown };
-    if (body.action !== "cancel") return bad();
-    const s = await getSession(env.DB, Number(body.id));
-    if (!s || s.trainerId !== user._id) return notFound();
-    if (!(await setSessionStatus(env.DB, s.id, "cancelled", ["proposed", "confirmed"]))) return notFound();
-    const client = await getUser(env.DB, s.clientId).catch(() => null);
-    if (client) {
-      const theirs = sessionTimeFor(s.date, s.hour, s.tz, client.profile.timezone);
-      await tgSend(env, client.chatId, t(client.lang, "sess_cancelled_other", { name: escapeHtml(user.profile.name ?? "trainer"), date: theirs.date, hour: theirs.hour }));
-    }
-    return Response.json({ ok: true });
-  }
-
-  // ---- Trainer finance summary (read) ----
-  if (req.method === "GET" && path === "/api/trainer/finance") {
-    if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
-    const today = localParts(user.profile.timezone).date;
-    const monthStart = `${today.slice(0, 8)}01`;
-    const [billing, doneMonth, clients] = await Promise.all([
-      listBillingForTrainer(env.DB, user._id).catch(() => []),
-      countSessionsDoneSince(env.DB, user._id, monthStart).catch(() => 0),
-      listClients(env.DB, user._id).catch(() => []),
-    ]);
-    const names = new Map(clients.map((c) => [c._id, c.profile.name ?? `id ${c._id}`]));
-    const in7 = isoDateMinus(today, -7);
-    const row = (b: { clientId: number; paidUntil: string | null; sessionsLeft: number | null }) => ({
-      name: names.get(b.clientId) ?? `id ${b.clientId}`, paidUntil: b.paidUntil, sessionsLeft: b.sessionsLeft,
-    });
-    return Response.json(
-      {
-        clients: clients.length,
-        doneThisMonth: doneMonth,
-        paying: billing.filter((b) => (b.paidUntil !== null && b.paidUntil >= today) || (b.sessionsLeft ?? 0) > 0).map(row),
-        expiring: billing.filter((b) => (b.paidUntil !== null && b.paidUntil >= today && b.paidUntil <= in7) || b.sessionsLeft === 1).map(row),
-        expired: billing.filter((b) => (b.paidUntil !== null && b.paidUntil < today) || b.sessionsLeft === 0).map(row),
-      },
-      noStore,
-    );
-  }
-
-  // ---- Find-a-trainer directory (+ send a request) ----
+  // ---- Send a request to a trainer the client already knows (invite link / code) ----
   if (path === "/api/trainers") {
-    if (req.method === "GET") {
-      const trainers = await listOpenTrainers(env.DB, {}).catch(() => []);
-      return Response.json(
-        {
-          role: user.role,
-          trainers: trainers.map((tr) => ({
-            id: tr.trainerId, name: tr.name, specialization: tr.specialization ?? "", bio: tr.bio ?? "",
-            rating: tr.ratingCount && tr.ratingAvg != null ? Math.round(tr.ratingAvg * 10) / 10 : null,
-            price: tr.priceOnline ?? null, currency: tr.currency ?? null,
-          })),
-        },
-        noStore,
-      );
-    }
     if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
     if (user.role !== "solo") return bad();
     const body = (await req.json().catch(() => ({}))) as { trainerId?: unknown; note?: unknown };

@@ -3,15 +3,15 @@
 import { InlineKeyboard } from "grammy";
 import type { BankPlan, Lang, PlanDoc, SetEntry, TrainerDoc, TrainerProfileInput, UserDoc, Weekday } from "../types";
 import {
-  addOrUpdateReview, applyTrainer, approveTrainer, assignDraftPlan, bodyLogsByUser, canReview,
-  countClientsOf, countCompletedWorkouts, countSessionsDoneSince, createRequest, deleteDraftPlan,
-  deleteTrainerTemplate, getActivePlan, getClientBilling, getClientCard, getClientForTrainer, getClientNote,
+  applyTrainer, approveTrainer, assignDraftPlan, bodyLogsByUser,
+  countClientsOf, countCompletedWorkouts, deleteDraftPlan,
+  deleteTrainerTemplate, getActivePlan, getClientCard, getClientForTrainer, getClientNote,
   getDraftPlan, getOwnerChatId, getQuestion, getRequest, getTrainer, getTrainerByCode,
-  getTrainerTemplate, getUser, getUsersByIds, getWorkoutLog, insertMessage, linkClient, listActiveInjuries, listBillingForTrainer,
-  listClients, listOpenTrainers, listQuestionsForTrainer, listReviews, listStrength,
+  getTrainerTemplate, getUser, getUsersByIds, getWorkoutLog, insertMessage, linkClient, listActiveInjuries,
+  listClients, listQuestionsForTrainer, listStrength,
   listTrainerTemplates, nutritionLogsSince, pendingRequestsForTrainer, recordAudit, rejectTrainer,
   createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken,
-  saveDraftPlan, saveTrainerTemplate, setActivePlan, setClientBilling, setClientCard, setClientNote, setQuestionStatus,
+  saveDraftPlan, saveTrainerTemplate, setActivePlan, setClientCard, setClientNote, setQuestionStatus,
   setRequestStatus, setUserFlag, unlinkClient, updateTrainer, updateUser, upsertStrengthRecord,
   upsertWorkoutLog, workoutLogsSince,
 } from "../db/repos";
@@ -28,9 +28,9 @@ import { escapeHtml, t } from "../locales/i18n";
 import { renderPlan, renderSchedule, renderStrength, renderToday, upcomingSessions, weekdayName } from "../render";
 import {
   type MyContext, type TKey, HTML, buildPlanDoc, buildWeekCard, clearEditOwner, deferAi,
-  isoDateMinus, localCutoff, localizePlanNames, healPlanNamesForDisplay, mainMenu, menuBtn,
+  localCutoff, localizePlanNames, healPlanNamesForDisplay, mainMenu, menuBtn,
   obProgress, renderBodyDynamics, renderObStep, reply, roleMenu, sendFirstObStep, sendObStepTo,
-  setEditOwner, setMode, startTrainerBooking, trainerHubMenu, videosForDays, weekdayOf,
+  setEditOwner, setMode, trainerHubMenu, videosForDays, weekdayOf,
 } from "../bot";
 
 
@@ -57,115 +57,13 @@ export function shortCode(): string {
 }
 
 // --- find a trainer (client side) ---
+// A public browsable directory doesn't earn its moderation cost at one trainer — clients find
+// a trainer through a personal invite link (tr_<code>) or by typing that code here directly.
 
 export async function openFindTrainer(ctx: MyContext) {
   const lang = ctx.user.lang;
-  const kb = new InlineKeyboard()
-    .text(t(lang, "find_browse"), "find:browse")
-    .row()
-    .text(t(lang, "find_code"), "find:code");
+  const kb = new InlineKeyboard().text(t(lang, "find_code"), "find:code");
   await reply(ctx, t(lang, "find_intro"), kb);
-}
-
-export async function showCatalog(ctx: MyContext, filter: { tag?: string; lang?: string } = {}) {
-  const lang = ctx.user.lang;
-  const trainers = await listOpenTrainers(ctx.db, filter);
-  const kb = new InlineKeyboard();
-  for (const tr of trainers) {
-    const star = tr.ratingCount && tr.ratingAvg != null ? ` ⭐${tr.ratingAvg.toFixed(1)}` : "";
-    const spec = tr.specialization ? ` — ${tr.specialization}` : "";
-    kb.text(`${tr.name}${spec}${star}`.slice(0, 64), `cat:${tr.trainerId}`).row();
-  }
-  // Filter bar: match my goal · by tag · by language · show all.
-  kb.text(t(lang, "catf_goal"), "catf:goal").text(t(lang, "catf_tag"), "catf:tag").row();
-  kb.text(t(lang, "catf_lang"), "catf:lang").text(t(lang, "catf_all"), "find:browse");
-  await reply(ctx, trainers.length ? t(lang, "catalog_header") : t(lang, "catalog_empty"), kb);
-}
-
-export async function showTagPicker(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const kb = new InlineKeyboard();
-  TRAINER_TAGS.forEach((code, idx) => {
-    kb.text(t(lang, TAG_LABEL[code]), `catft:${code}`);
-    if ((idx + 1) % 2 === 0) kb.row();
-  });
-  kb.row().text(t(lang, "back"), "find:browse");
-  await reply(ctx, t(lang, "catf_pick_tag"), kb);
-}
-
-export async function showLangPicker(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const kb = new InlineKeyboard();
-  TR_LANG_CODES.forEach((code) => kb.text(t(lang, TR_LANG_LABEL[code]), `catfl:${code}`));
-  kb.row().text(t(lang, "back"), "find:browse");
-  await reply(ctx, t(lang, "catf_pick_lang"), kb);
-}
-
-export async function showTrainerProfile(ctx: MyContext, trainerId: number) {
-  const lang = ctx.user.lang;
-  const tr = await getTrainer(ctx.db, trainerId);
-  if (!tr || tr.status !== "approved") {
-    await reply(ctx, t(lang, "catalog_empty"));
-    return;
-  }
-  const trUser = await getUser(ctx.db, trainerId);
-  const reviews = await listReviews(ctx.db, trainerId, 3);
-  let body = trainerCardText(lang, tr, { usernameFallback: trUser?.username ? `@${trUser.username}` : undefined });
-  if (reviews.length) {
-    const lines = reviews.map((r) => `${"⭐".repeat(r.rating)}${r.text ? ` ${escapeHtml(r.text)}` : ""}`);
-    body += `\n\n💬 <b>${t(lang, "tr_reviews_title")}</b>\n${lines.join("\n")}`;
-  }
-  const kb = new InlineKeyboard().text(t(lang, "trainer_request_btn"), `catreq:${trainerId}`);
-  if (tr.priceOffline != null) kb.row().text(t(lang, "book_offline_btn"), `book:${trainerId}`);
-  if (await canReview(ctx.db, trainerId, ctx.user._id)) kb.row().text(t(lang, "review_btn"), `rev:start:${trainerId}`);
-  kb.row().text(t(lang, "back"), "find:browse");
-  // Photo first (no caption — keeps the rich card free of Telegram's 1024-char caption limit).
-  if (tr.photoFileId) await ctx.api.sendPhoto(ctx.user.chatId, tr.photoFileId).catch(() => {});
-  await reply(ctx, body, kb);
-}
-
-// Offline booking: ping the trainer with the prospect's contact, and give the user the trainer's.
-// Client requests a trainer → ask for an optional note (handled in client_note mode).
-export async function requestTrainerStart(ctx: MyContext, trainerId: number) {
-  const lang = ctx.user.lang;
-  await updateUser(ctx.db, ctx.user._id, { session: { mode: "client_note", targetId: trainerId } });
-  await reply(ctx, t(lang, "request_note_prompt"));
-}
-
-export async function handleClientNote(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const trainerId = ctx.user.session.targetId;
-  if (!trainerId) {
-    await setMode(ctx, "idle");
-    return;
-  }
-  const trainer = await getUser(ctx.db, trainerId);
-  if (!trainer) {
-    await setMode(ctx, "idle");
-    await reply(ctx, t(lang, "error_generic"));
-    return;
-  }
-  const note = text.trim() === "-" ? undefined : text.trim();
-  const reqId = await createRequest(ctx.db, ctx.user._id, trainerId, note);
-  await setMode(ctx, "idle");
-  // Capacity check: a full roster keeps the request pending as a WAITLIST — the client is
-  // told honestly, and the trainer sees the waitlist tag on the notification.
-  const [tr, nClients] = await Promise.all([
-    getTrainer(ctx.db, trainerId).catch(() => null),
-    countClientsOf(ctx.db, trainerId).catch(() => 0),
-  ]);
-  const atCapacity = !!tr?.maxClients && nClients >= tr.maxClients;
-  const trainerName = escapeHtml(trainer.profile.name ?? "trainer");
-  await reply(ctx, t(lang, atCapacity ? "request_sent_waitlist" : "request_sent", { name: trainerName }));
-  const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`);
-  const kb = new InlineKeyboard()
-    .text(t(trainer.lang, "req_accept"), `req:accept:${reqId}`)
-    .text(t(trainer.lang, "req_decline"), `req:decline:${reqId}`);
-  const body =
-    t(trainer.lang, "trainer_new_request", { name: who }) +
-    (atCapacity ? `\n${t(trainer.lang, "trainer_request_waitlist")}` : "") +
-    (note ? `\n\n💬 ${escapeHtml(note)}` : "");
-  await ctx.api.sendMessage(trainer.chatId, body, { ...HTML, reply_markup: kb }).catch(() => {});
 }
 
 // Auto-pair via the trainer's own invite link.
@@ -315,19 +213,13 @@ type TrainerCardData = {
   contact?: string;
   languages?: string[];
   bio?: string;
-  ratingAvg?: number;
-  ratingCount?: number;
 };
 
-// Render the client-facing trainer card (only non-empty lines). Used by the directory,
-// the wizard preview, the trainer home, and the owner approval message.
+// Render the client-facing trainer card (only non-empty lines). Used by the wizard preview,
+// the trainer home, and the owner approval message.
 export function trainerCardText(lang: Lang, tr: TrainerCardData, opts: { usernameFallback?: string } = {}): string {
   const lines: string[] = [];
-  const rating =
-    tr.ratingCount && tr.ratingAvg != null
-      ? `  ⭐ ${tr.ratingAvg.toFixed(1)} · ${t(lang, "tr_reviews_n", { n: tr.ratingCount })}`
-      : "";
-  lines.push(`🧑‍🏫 <b>${escapeHtml(tr.name)}</b>${rating}`);
+  lines.push(`🧑‍🏫 <b>${escapeHtml(tr.name)}</b>`);
   if (tr.specialization) lines.push(`🎯 ${escapeHtml(tr.specialization)}`);
   if (tr.tags?.length) lines.push(`🏷 ${tr.tags.map((c) => t(lang, TAG_LABEL[c] ?? (`tag_${c}` as TKey))).join(", ")}`);
   if (tr.experienceYears != null) lines.push(`📅 ${t(lang, "tr_years", { n: tr.experienceYears })}`);
@@ -393,16 +285,6 @@ export function trainerStyleBlock(tr: TrainerDoc): string | undefined {
   if (tr.certifications) parts.push(`Certifications: ${tr.certifications}.`);
   if (tr.approach) parts.push(`Coaching approach / methodology: ${tr.approach}.`);
   return parts.length > 1 ? parts.join(" ") : undefined;
-}
-
-// Map the client's free-text goal to a directory tag for one-tap "find a trainer for my goal".
-export function goalToTag(goal?: string): string | undefined {
-  const g = (goal ?? "").toLowerCase();
-  if (/recomp|реком/.test(g)) return "recomp";
-  if (/fat|loss|похуд|схуд|жир/.test(g)) return "fatloss";
-  if (/muscle|gain|mass|м.?яз|набір|набор/.test(g)) return "muscle";
-  if (/strength|сил/.test(g)) return "strength";
-  return undefined;
 }
 
 export async function startTrainerWizard(ctx: MyContext) {
@@ -649,43 +531,6 @@ export async function finishTrainerWizard(ctx: MyContext) {
   }
 }
 
-// ======================= Trainer reviews (client side) =======================
-
-export async function startReview(ctx: MyContext, trainerId: number) {
-  const lang = ctx.user.lang;
-  if (!(await canReview(ctx.db, trainerId, ctx.user._id))) {
-    await reply(ctx, t(lang, "review_not_allowed"));
-    return;
-  }
-  const kb = new InlineKeyboard();
-  for (let n = 1; n <= 5; n++) kb.text("⭐".repeat(n), `rev:rate:${trainerId}:${n}`);
-  await reply(ctx, t(lang, "review_rate_prompt"), kb);
-}
-
-export async function onReviewRate(ctx: MyContext, trainerId: number, rating: number) {
-  ctx.user.session = { mode: "review_text", targetId: trainerId, reviewRating: rating };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  await reply(ctx, t(ctx.user.lang, "review_comment_prompt"));
-}
-
-export async function handleReviewText(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const trainerId = ctx.user.session.targetId;
-  const rating = ctx.user.session.reviewRating ?? 5;
-  if (!trainerId) {
-    await setMode(ctx, "idle");
-    return;
-  }
-  const comment = text.trim() === "-" ? undefined : text.trim().slice(0, 400);
-  await addOrUpdateReview(ctx.db, trainerId, ctx.user._id, rating, comment);
-  await setMode(ctx, "idle");
-  await reply(ctx, t(lang, "review_thanks"));
-  const trainer = await getUser(ctx.db, trainerId);
-  if (trainer) {
-    await ctx.api.sendMessage(trainer.chatId, t(trainer.lang, "review_received", { n: rating }), HTML).catch(() => {});
-  }
-}
-
 export async function onTrainerApprove(ctx: MyContext, trainerId: number) {
   const ownerChatId = await getOwnerChatId(ctx.db);
   if (ownerChatId !== ctx.user.chatId) return;
@@ -754,7 +599,7 @@ export async function onRequestDecline(ctx: MyContext, reqId: number) {
   await reply(ctx, t(lang, "request_declined_trainer"));
   const client = await getUser(ctx.db, req.clientId);
   if (client) {
-    const kb = new InlineKeyboard().text(t(client.lang, "find_browse"), "find:browse");
+    const kb = new InlineKeyboard().text(t(client.lang, "menu_find_trainer"), "role:find");
     await ctx.api.sendMessage(client.chatId, t(client.lang, "client_declined"), { ...HTML, reply_markup: kb }).catch(() => {});
   }
 }
@@ -1201,11 +1046,8 @@ export function clientCardKb(lang: Lang, id: number): InlineKeyboard {
     .text(t(lang, "cc_note"), `cl:${id}:note`)
     .text(t(lang, "cc_flag"), `cl:${id}:flag`)
     .row()
-    .text(t(lang, "cc_book"), `cl:${id}:book`)
-    .text(t(lang, "cc_logs"), `cl:${id}:logs`)
-    .row()
     .text(t(lang, "cc_templates"), `cl:${id}:tpl`)
-    .text(t(lang, "cc_billing"), `cl:${id}:bill`)
+    .text(t(lang, "cc_logs"), `cl:${id}:logs`)
     .row()
     .text(t(lang, "cc_photo"), `cl:${id}:photo`)
     .text(t(lang, "cc_week"), `cl:${id}:week`)
@@ -1272,36 +1114,6 @@ export async function showPlanEditDay(ctx: MyContext, targetId: number, prefix: 
     `${header}\n\n${renderToday(lang, day, weekdayName(lang, wd), undefined, await videosForDays(ctx, [day]), { noCta: true })}`,
     editDayKb(lang, prefix, targetId, wd),
   );
-}
-
-// 💰 Trainer finance summary — pure bookkeeping over client_billing + done sessions.
-export async function cmdTrainerFinance(ctx: MyContext) {
-  if (!(await requireTrainer(ctx))) return;
-  const lang = ctx.user.lang;
-  const today = localParts(ctx.user.profile.timezone).date;
-  const monthStart = `${today.slice(0, 8)}01`;
-  const [billing, doneMonth, clients] = await Promise.all([
-    listBillingForTrainer(ctx.db, ctx.user._id).catch(() => []),
-    countSessionsDoneSince(ctx.db, ctx.user._id, monthStart).catch(() => 0),
-    listClients(ctx.db, ctx.user._id),
-  ]);
-  const names = new Map(clients.map((c) => [c._id, c.profile.name ?? `id ${c._id}`]));
-  const in7 = isoDateMinus(today, -7);
-  const paying = billing.filter((b) => (b.paidUntil !== null && b.paidUntil >= today) || (b.sessionsLeft ?? 0) > 0);
-  const expiring = billing.filter(
-    (b) => (b.paidUntil !== null && b.paidUntil >= today && b.paidUntil <= in7) || b.sessionsLeft === 1,
-  );
-  const expired = billing.filter((b) => (b.paidUntil !== null && b.paidUntil < today) || b.sessionsLeft === 0);
-  const who = (b: { clientId: number }) => `• ${names.get(b.clientId) ?? `id ${b.clientId}`}`;
-  const lines = [
-    t(lang, "fin_header"),
-    t(lang, "fin_summary", { paying: paying.length, total: clients.length, done: doneMonth }),
-  ];
-  if (expiring.length) lines.push("", t(lang, "fin_expiring"), ...expiring.map(who));
-  if (expired.length) lines.push("", t(lang, "fin_expired"), ...expired.map(who));
-  if (!billing.length) lines.push("", t(lang, "fin_none"));
-  const kb = new InlineKeyboard().text(t(lang, "menu_clients"), "menu:clients").row().text(t(lang, "tr_back_hub"), "menu:open");
-  await reply(ctx, lines.join("\n"), kb);
 }
 
 // ❓ Q&A archive — the trainer's recent client questions with status at a glance.
@@ -1536,8 +1348,6 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
       await sendObStepTo(ctx, client, step, prefix);
     }
     await reply(ctx, t(lang, "cc_intv_reminded", { name: cname }));
-  } else if (action === "book") {
-    await startTrainerBooking(ctx, clientId);
   } else if (action === "logs") {
     await showClientLogDays(ctx, clientId);
   } else if (action === "tpl") {
@@ -1569,27 +1379,6 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
     await recordAudit(ctx.db, ctx.user._id, "template_draft", clientId, tpl.name).catch(() => {});
     await reply(ctx, t(lang, "tpl_draft_ready", { tpl: tpl.name, name: cname }));
     await reply(ctx, renderPlan(lang, draft), clientCardKb(lang, clientId));
-  } else if (action === "bill") {
-    const b = await getClientBilling(ctx.db, ctx.user._id, clientId);
-    const body = t(lang, "bill_card", {
-      name: cname,
-      paid: b?.paidUntil ?? "—",
-      sessions: b?.sessionsLeft === null || b?.sessionsLeft === undefined ? "—" : String(b.sessionsLeft),
-    });
-    const kb = new InlineKeyboard()
-      .text(t(lang, "bill_set_paid"), `cl:${clientId}:billpaid`)
-      .text(t(lang, "bill_set_sessions"), `cl:${clientId}:billsess`)
-      .row()
-      .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
-    await reply(ctx, body, kb);
-  } else if (action === "billpaid") {
-    ctx.user.session = { ...ctx.user.session, mode: "billing_paid", targetId: clientId };
-    await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-    await reply(ctx, t(lang, "bill_paid_prompt"));
-  } else if (action === "billsess") {
-    ctx.user.session = { ...ctx.user.session, mode: "billing_sessions", targetId: clientId };
-    await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-    await reply(ctx, t(lang, "bill_sessions_prompt"));
   } else if (action === "week") {
     // Forwardable weekly report card for THIS client — same card the solo user gets.
     const card = await buildWeekCard(ctx.db, clientId, client.profile.timezone, client.profile.name ?? `id ${clientId}`, lang, client.reminders?.lastVacation);
@@ -1636,39 +1425,6 @@ export async function handleTemplateName(ctx: MyContext, text: string) {
 export async function onTemplateDelete(ctx: MyContext, tplId: number) {
   const ok = await deleteTrainerTemplate(ctx.db, ctx.user._id, tplId);
   await reply(ctx, t(ctx.user.lang, ok ? "tpl_deleted" : "error_generic"), menuBtn(ctx.user.lang));
-}
-
-// Trainer typed a "paid until" value: YYYY-MM-DD, "+N" days from today, or "-" to stop tracking.
-export async function handleBillingPaid(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const clientId = ctx.user.session.targetId;
-  const tt = text.trim();
-  let paidUntil: string | null | undefined;
-  if (tt === "-") paidUntil = null;
-  else if (/^\+\d{1,3}$/.test(tt)) paidUntil = new Date(Date.now() + Number(tt.slice(1)) * 86_400_000).toISOString().slice(0, 10);
-  else if (/^\d{4}-\d{2}-\d{2}$/.test(tt)) paidUntil = tt;
-  if (paidUntil === undefined) { await reply(ctx, t(lang, "bill_paid_invalid")); return; } // stay in mode
-  await setMode(ctx, "idle");
-  if (!clientId) return;
-  await setClientBilling(ctx.db, ctx.user._id, clientId, { paidUntil });
-  await reply(ctx, t(lang, "bill_saved"));
-  await clientCardAction(ctx, clientId, "bill");
-}
-
-// Trainer typed a prepaid-session count ("-" to stop tracking).
-export async function handleBillingSessions(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const clientId = ctx.user.session.targetId;
-  const tt = text.trim();
-  let sessionsLeft: number | null | undefined;
-  if (tt === "-") sessionsLeft = null;
-  else if (/^\d{1,3}$/.test(tt)) sessionsLeft = Number(tt);
-  if (sessionsLeft === undefined) { await reply(ctx, t(lang, "bill_sessions_invalid")); return; } // stay in mode
-  await setMode(ctx, "idle");
-  if (!clientId) return;
-  await setClientBilling(ctx.db, ctx.user._id, clientId, { sessionsLeft });
-  await reply(ctx, t(lang, "bill_saved"));
-  await clientCardAction(ctx, clientId, "bill");
 }
 
 // Trainer typed a private note about a client → save it (or "-" to clear) and reopen the card.

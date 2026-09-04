@@ -142,20 +142,6 @@ test("/api/trainer/profile: rejects an application with no name", async () => {
   assert.equal(res.status, 400);
 });
 
-test("/api/trainer/finance: forbidden for a non-trainer, empty summary for a trainer with no clients", async () => {
-  const db = newDb();
-  await getOrCreateUser(db, 7, 7, "en", "Solo");
-  assert.equal((await asUser(db, 7, "GET", "/api/trainer/finance")).status, 403);
-
-  await getOrCreateUser(db, 8, 8, "en", "Coach2");
-  await updateUser(db, 8, { role: "trainer" });
-  const res = await asUser(db, 8, "GET", "/api/trainer/finance");
-  const body = (await res.json()) as { clients: number; paying: unknown[] };
-  assert.equal(res.status, 200);
-  assert.equal(body.clients, 0);
-  assert.deepEqual(body.paying, []);
-});
-
 test("/api/weekcard and /api/whatsnew respond ok for any authenticated user", async () => {
   const db = newDb();
   await getOrCreateUser(db, 9, 9, "en", "Ann");

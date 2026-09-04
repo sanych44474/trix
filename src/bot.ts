@@ -1,11 +1,11 @@
 import { GrammyError, InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
 import type { BodyLogDoc, CatalogExercise, Env, ExerciseMetric, ExerciseVideo, InjurySwap, Lang, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, StrengthRecordDoc, Supplement, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, setVacation, clearVacation, listInactive, clearInactiveAsk, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordAudit, recordError, getCatalogExercise, findHarderExercise, findEasierExercise, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, deleteUserData, dailyCheckinsSince, getActivePlan, getRecentContext, getClientForTrainer, getOwnerChatId, getWorkoutLog, getTrainer, getUser, getUsersByIds, insertFeedback, listBillingForTrainer, listClients, listStrength, pendingRequestForClient, setQuestionDraft, unlinkClient, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, stepLogsSince, addWater, setWater, getWater, waterLogsSince, joinChallenge, activeChallenges, activeChallengeCodes, markChallengeDone, countCompletedChallenges, setRestTimer, setSessionLink, userStatCounts, createInjury, getInjury, listActiveInjuries, appendInjuryCheckin, getActiveInjuryByArea, updateInjury, resolveInjury, extendInjury, createSession, createGroupSessions, getSession, setSessionStatus, sessionsBetween, sessionsOnDate, upcomingSessionsFor, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, setVacation, clearVacation, listInactive, clearInactiveAsk, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordAudit, recordError, getCatalogExercise, findHarderExercise, findEasierExercise, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, deleteUserData, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, unlinkClient, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, stepLogsSince, addWater, setWater, getWater, waterLogsSince, joinChallenge, activeChallenges, activeChallengeCodes, markChallengeDone, countCompletedChallenges, setRestTimer, userStatCounts, createInjury, getInjury, listActiveInjuries, appendInjuryCheckin, getActiveInjuryByArea, updateInjury, resolveInjury, extendInjury, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText, aiVisionJSON, type InlineImage } from "./ai";
 import { lookupPer100gCached } from "./ai/nutritionDb";
 import { computeTargets } from "./domain/mealplan";
-import { sessionTimeFor } from "./domain/sessionTz";
+import { pickGymSwaps, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "./domain/gymSwap";
 import * as P from "./ai/prompts";
 import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, nextLevel, getPlanDay, localParts, normalizeExercise, parseMeasurements, parseHeightWeight, parseSteps, parseWorkoutText, shouldDeload, weeksSincePlan, exerciseMetric, metricOfSets, bestSetForMetric, formatSetEntry, formatRecordBest, fmtDuration, fmtDistance, parseDuration, parseDistance } from "./domain/progression";
 import { e1rm, prMilestones, rankOf, weekStartStr, weekStreak, workoutMilestones } from "./domain/records";
@@ -397,26 +397,17 @@ export async function cmdTrainerReport(ctx: MyContext) {
     await reply(ctx, t(lang, "tr_report_noclients"), menuBtn(lang));
     return;
   }
-  const [eventCounts, planStatus, billing, trainer] = await Promise.all([
+  const [eventCounts, planStatus] = await Promise.all([
     eventCountsByUser(ctx.db).catch(() => new Map<number, { workouts: number; checkins: number; nutrition: number; steps: number }>()),
     planStatusByUser(ctx.db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
-    listBillingForTrainer(ctx.db, ctx.user._id).catch(() => [] as { clientId: number; paidUntil: string | null; sessionsLeft: number | null }[]),
-    getTrainer(ctx.db, ctx.user._id).catch(() => null),
   ]);
-  // Business snapshot: retention (active 7d / total), paying now, expiring ≤7d, estimated MRR.
+  // Retention snapshot: active in the last 7 days / total clients.
   const todayStr = localParts(ctx.user.profile.timezone).date;
-  const in7 = isoDateMinus(todayStr, -7);
   const active7 = clients.filter((c) => c.lastSeenAt && c.lastSeenAt.toISOString().slice(0, 10) >= isoDateMinus(todayStr, 7)).length;
-  const paying = billing.filter((b) => b.paidUntil && b.paidUntil >= todayStr);
-  const expiring = paying.filter((b) => (b.paidUntil as string) <= in7).length;
-  const rate = trainer?.priceOnline ?? trainer?.priceOffline ?? 0;
-  const cur = trainer?.currency ?? "";
   const retentionPct = clients.length ? Math.round((active7 / clients.length) * 100) : 0;
   const biz = [
     `💰 <b>${t(lang, "tr_biz")}</b>`,
     `• ${t(lang, "tr_biz_clients")}: <b>${clients.length}</b> · ${t(lang, "tr_biz_active")}: <b>${active7}</b> (${retentionPct}%)`,
-    `• ${t(lang, "tr_biz_paying")}: <b>${paying.length}</b> · ${t(lang, "tr_biz_expiring")}: <b>${expiring}</b>`,
-    ...(rate > 0 ? [`• ${t(lang, "tr_biz_mrr")}: ~<b>${paying.length * rate}</b> ${escapeHtml(cur)}`] : []),
     "",
   ].join("\n");
   const zero = { workouts: 0, checkins: 0, nutrition: 0, steps: 0 };
@@ -509,6 +500,8 @@ export function todayWorkoutKeyboard(lang: Lang, weekday: number): InlineKeyboar
     .row()
     .text(t(lang, "swap_btn"), `swap:${weekday}`)
     .text(t(lang, "workout_info_btn"), "workout:info")
+    .row()
+    .text(t(lang, "gym_swap_btn"), "gymswap:open")
     .row()
     .text(t(lang, "workout_add_btn"), `workout:add:${weekday}`)
     .text(t(lang, "workout_delete_btn"), `workout:delete:${weekday}`)
@@ -2018,6 +2011,84 @@ export async function showLogSwapAlternatives(ctx: MyContext, index: number) {
   await reply(ctx, t(lang, "log_swap_pick", { name: draft.swaps?.[index]?.name ?? current.name }), kb);
 }
 
+// ============ "Not my gym today" — one tap re-fits the WHOLE session, not one exercise ============
+// Same non-mutating mechanism as the on-the-fly swap above (logDraft.swaps), just computed for
+// every slot at once from a chosen equipment preset instead of picked one at a time by hand.
+
+export async function showGymSwapPicker(ctx: MyContext) {
+  const lang = ctx.user.lang;
+  const plan = await getActivePlan(ctx.db, ctx.user._id);
+  const { weekday } = localParts(ctx.user.profile.timezone);
+  const day = plan ? getPlanDay(plan, weekday) : undefined;
+  if (!day || !day.exercises.length) { await reply(ctx, t(lang, "gym_swap_none"), menuBtn(lang)); return; }
+  const kb = new InlineKeyboard()
+    .text(t(lang, "gym_swap_bodyweight"), "gymswap:bodyweight")
+    .row()
+    .text(t(lang, "gym_swap_dumbbells"), "gymswap:dumbbells")
+    .row()
+    .text(t(lang, "gym_swap_band"), "gymswap:band")
+    .row()
+    .text(t(lang, "back"), "menu:today");
+  await reply(ctx, t(lang, "gym_swap_prompt"), kb);
+}
+
+export async function applyGymSwap(ctx: MyContext, preset: EquipmentPreset) {
+  const lang = ctx.user.lang;
+  const plan = await getActivePlan(ctx.db, ctx.user._id);
+  const { weekday } = localParts(ctx.user.profile.timezone);
+  const day = plan ? getPlanDay(plan, weekday) : undefined;
+  if (!day || !day.exercises.length) { await cmdToday(ctx); return; }
+
+  // Resolve each exercise's catalog muscle the same way the single-exercise on-the-fly swap
+  // above does: grounded exerciseId first, else a name search, else the day's own muscle group.
+  const slots: GymSwapSlot[] = [];
+  const musclesNeeded = new Set<string>();
+  for (let i = 0; i < day.exercises.length; i++) {
+    const ex = day.exercises[i];
+    let muscle: string | null = null;
+    if (ex.exerciseId) {
+      const cat = await getCatalogExercise(ctx.db, ex.exerciseId);
+      muscle = cat?.muscle ?? null;
+    }
+    if (!muscle) {
+      const nameMatch = await searchExerciseCatalog(ctx, ex.canonicalName ?? ex.name, 1);
+      muscle = nameMatch[0]?.muscle ?? null;
+    }
+    if (!muscle) muscle = muscleGroupToEnum(day.muscleGroup);
+    if (!muscle) continue;
+    musclesNeeded.add(muscle);
+    slots.push({ index: i, exerciseId: ex.exerciseId, muscle });
+  }
+
+  const candidatesByMuscle = new Map<string, GymSwapCandidate[]>();
+  if (musclesNeeded.size) {
+    const pool = await listCandidatesByMuscles(ctx.db, [...musclesNeeded], {
+      level: ctx.user.profile.level, perMuscle: 20, total: 20 * musclesNeeded.size,
+    });
+    for (const c of pool) {
+      const bucket = candidatesByMuscle.get(c.muscle) ?? [];
+      bucket.push({ id: c.id, name: c.name, canonicalName: c.name, equipments: c.equipments });
+      candidatesByMuscle.set(c.muscle, bucket);
+    }
+  }
+
+  const picked = pickGymSwaps(slots, candidatesByMuscle, preset);
+  if (!picked.size) { await reply(ctx, t(lang, "gym_swap_empty"), menuBtn(lang)); return; }
+
+  // Translate the picked names before they land in the swap map, same as a manual single-slot
+  // swap does — logDraft display and prompts read straight from swaps[i].name.
+  const swaps: LogDraft["swaps"] = {};
+  for (const [index, pick] of picked) {
+    let name = pick.name;
+    if (lang !== "en") {
+      try { name = (await exerciseInfoEntry(ctx, pick.id, lang))?.name ?? pick.name; } catch { /* keep English */ }
+    }
+    swaps[index] = { name, canonicalName: pick.name };
+  }
+  await reply(ctx, t(lang, "gym_swap_applied", { n: picked.size }));
+  await cmdLog(ctx, swaps);
+}
+
 export async function logSwapFromCatalog(ctx: MyContext, index: number, catalogId: string) {
   const lang = ctx.user.lang;
   const draft = ctx.user.session.logDraft;
@@ -2497,7 +2568,7 @@ export async function onLogExit(ctx: MyContext, action: "save" | "drop" | "stay"
   ctx.user.session = cleared;
 }
 
-export async function cmdLog(ctx: MyContext) {
+export async function cmdLog(ctx: MyContext, initialSwaps?: LogDraft["swaps"]) {
   const lang = ctx.user.lang;
   await clearEditOwner(ctx); // logging is always about the user's OWN workout — drop any client-edit context
   const plan = await getActivePlan(ctx.db, ctx.user._id);
@@ -2515,10 +2586,8 @@ export async function cmdLog(ctx: MyContext) {
     await reply(ctx, `${t(lang, "log_no_today")}\n\n${t(lang, "log_prompt")}\n\n${tmpl}`, kb);
     return;
   }
-  const draft: LogDraft = { weekday: weekday as Weekday, entries: [] };
-  const session: UserDoc["session"] = { mode: "log", logDraft: draft };
-  await updateUser(ctx.db, ctx.user._id, { session });
-  ctx.user.session = session;
+  const draft: LogDraft = { weekday: weekday as Weekday, entries: [], ...(initialSwaps ? { swaps: initialSwaps } : {}) };
+  await persistLogDraft(ctx, draft);
   const kb = logExerciseKeyboard(lang, day, draft)
     .row()
     .text(t(lang, "cardio_btn"), "cardio:menu")
@@ -4335,8 +4404,6 @@ export const WD_SHORT: Record<Lang, string[]> = {
 export function weekdayOf(date: string): Weekday {
   return (((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7) + 1) as Weekday;
 }
-export const BOOK_HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
-
 // Generic month-grid keyboard. `marker` labels each day; `dayCb`/`navCb` build callback data.
 export function calendarKeyboard(
   lang: Lang,
@@ -4361,18 +4428,15 @@ export function calendarKeyboard(
 export async function userCalendarKb(ctx: MyContext, ym: string): Promise<InlineKeyboard> {
   const uid = ctx.user._id;
   const { date: today } = localParts(ctx.user.profile.timezone);
-  const monthStart = `${ym}-01`;
   const monthEnd = `${ym}-31`;
-  const [plan, wlogs, sessions] = await Promise.all([
+  const [plan, wlogs] = await Promise.all([
     getActivePlan(ctx.db, uid),
-    workoutLogsSince(ctx.db, uid, monthStart),
-    ctx.user.role === "client" ? sessionsBetween(ctx.db, uid, "client", monthStart, monthEnd) : Promise.resolve([]),
+    workoutLogsSince(ctx.db, uid, `${ym}-01`),
   ]);
   const plannedWeekdays = new Set<number>((plan?.split ?? []).map((d) => d.weekday));
   const logs = new Map<string, { completed: boolean }>();
   for (const w of wlogs) if (w.date <= monthEnd) logs.set(w.date, { completed: w.completed });
-  const sessionDates = new Set(sessions.map((s) => s.date));
-  const ctxD = { today, plannedWeekdays, logs, sessionDates };
+  const ctxD = { today, plannedWeekdays, logs };
   return calendarKeyboard(ctx.user.lang, ym, (d) => dayMarker(d, ctxD), (d) => `cal:d:${d}`, (m) => `cal:nav:${m}`);
 }
 
@@ -4392,295 +4456,10 @@ export async function onCalDay(ctx: MyContext, date: string) {
   const plan = await getActivePlan(ctx.db, uid);
   const day = plan ? getPlanDay(plan, weekdayOf(date)) : undefined;
   const log = await getWorkoutLog(ctx.db, uid, date);
-  const sessions = ctx.user.role === "client" ? await sessionsOnDate(ctx.db, uid, "client", date) : [];
   const lines = [t(lang, "cal_day_title", { date })];
   lines.push(day ? t(lang, "cal_day_planned", { group: day.muscleGroup, n: day.exercises.length }) : t(lang, "cal_day_rest"));
   if (log) lines.push(log.completed ? t(lang, "cal_day_done") : t(lang, "cal_day_skipped"));
-  // Stored wall time lives in the booker's zone — a trainer-proposed session converts here.
-  for (const s of sessions) {
-    const local = sessionTimeFor(s.date, s.hour, s.tz, ctx.user.profile.timezone);
-    lines.push(t(lang, "cal_day_session", { hour: local.hour, status: t(lang, `sess_status_${s.status}` as TKey) }));
-  }
-  const kb = new InlineKeyboard();
-  if (ctx.user.role === "client" && ctx.user.trainerId) kb.text(t(lang, "cal_book_btn"), `bk:d:${ctx.user.trainerId}:${date}`).row();
-  kb.text(t(lang, "cal_back"), `cal:nav:${ymOf(date)}`);
-  await reply(ctx, lines.join("\n"), kb);
-}
-
-// --- booking: shared hour picker ---
-
-export function bookingHourKb(lang: Lang, prefix: string, targetId: number, date: string): InlineKeyboard {
-  const kb = new InlineKeyboard();
-  BOOK_HOURS.forEach((h, i) => {
-    kb.text(`${h}:00`, `${prefix}:h:${targetId}:${date}:${h}`);
-    if ((i + 1) % 4 === 0) kb.row();
-  });
-  kb.row().text(t(lang, "cal_back"), `${prefix}:back:${targetId}`);
-  return kb;
-}
-
-// --- client → trainer booking (prefix bk) ---
-
-export async function startClientBooking(ctx: MyContext, trainerId: number) {
-  const lang = ctx.user.lang;
-  const { date } = localParts(ctx.user.profile.timezone);
-  const kb = calendarKeyboard(lang, ymOf(date), (d) => String(Number(d.slice(8, 10))), (d) => `bk:d:${trainerId}:${d}`, (m) => `bk:nav:${trainerId}:${m}`);
-  await reply(ctx, t(lang, "bk_pick_date"), kb);
-}
-
-export async function onBookNav(ctx: MyContext, prefix: string, targetId: number, ym: string) {
-  const kb = calendarKeyboard(ctx.user.lang, ym, (d) => String(Number(d.slice(8, 10))), (d) => `${prefix}:d:${targetId}:${d}`, (m) => `${prefix}:nav:${targetId}:${m}`);
-  await ctx.editMessageReplyMarkup({ reply_markup: kb }).catch(() => {});
-}
-
-export async function onBookDate(ctx: MyContext, prefix: string, targetId: number, date: string) {
-  const lang = ctx.user.lang;
-  const { date: today } = localParts(ctx.user.profile.timezone);
-  if (date < today) { await reply(ctx, t(lang, "bk_past")); return; }
-  await reply(ctx, t(lang, "bk_pick_hour", { date }), bookingHourKb(lang, prefix, targetId, date));
-}
-
-export async function onClientBookHour(ctx: MyContext, trainerId: number, date: string, hour: number) {
-  const lang = ctx.user.lang;
-  const trainer = await getUser(ctx.db, trainerId);
-  if (!trainer) { await reply(ctx, t(lang, "error_generic")); return; }
-  // The wall time is booked in the CLIENT's zone; the trainer sees it converted to theirs.
-  const tz = ctx.user.profile.timezone;
-  const id = await createSession(ctx.db, { trainerId, clientId: ctx.user._id, date, hour, proposedBy: "client", tz });
-  const who = ctx.user.profile.name ?? `id ${ctx.user._id}`;
-  const forTrainer = sessionTimeFor(date, hour, tz, trainer.profile.timezone);
-  const kb = new InlineKeyboard().text(t(trainer.lang, "sess_confirm_btn"), `sess:ok:${id}`).text(t(trainer.lang, "sess_decline_btn"), `sess:no:${id}`);
-  await ctx.api.sendMessage(trainer.chatId, t(trainer.lang, "sess_proposed_client", { name: who, date: forTrainer.date, hour: forTrainer.hour }), { ...HTML, reply_markup: kb }).catch(() => {});
-  await reply(ctx, t(lang, "sess_sent", { date, hour }), menuBtn(lang));
-}
-
-// --- trainer → client booking (prefix tb) ---
-
-export async function startTrainerBooking(ctx: MyContext, clientId: number) {
-  const lang = ctx.user.lang;
-  const client = await getClientForTrainer(ctx.db, ctx.user._id, clientId);
-  if (!client) { await reply(ctx, t(lang, "client_not_found")); return; }
-  const { date } = localParts(ctx.user.profile.timezone);
-  const kb = calendarKeyboard(lang, ymOf(date), (d) => String(Number(d.slice(8, 10))), (d) => `tb:d:${clientId}:${d}`, (m) => `tb:nav:${clientId}:${m}`);
-  await reply(ctx, t(lang, "bk_pick_date"), kb);
-}
-
-export async function onTrainerBookHour(ctx: MyContext, clientId: number, date: string, hour: number) {
-  const lang = ctx.user.lang;
-  const client = await getClientForTrainer(ctx.db, ctx.user._id, clientId);
-  if (!client) { await reply(ctx, t(lang, "client_not_found")); return; }
-  // The wall time is booked in the TRAINER's zone; the client sees it converted to theirs.
-  const tz = ctx.user.profile.timezone;
-  const id = await createSession(ctx.db, { trainerId: ctx.user._id, clientId, date, hour, proposedBy: "trainer", tz });
-  const forClient = sessionTimeFor(date, hour, tz, client.profile.timezone);
-  const kb = new InlineKeyboard().text(t(client.lang, "sess_confirm_btn"), `sess:ok:${id}`).text(t(client.lang, "sess_decline_btn"), `sess:no:${id}`);
-  const trName = ctx.user.profile.name ?? "trainer";
-  await ctx.api.sendMessage(client.chatId, t(client.lang, "sess_proposed_trainer", { name: trName, date: forClient.date, hour: forClient.hour }), { ...HTML, reply_markup: kb }).catch(() => {});
-  await reply(ctx, t(lang, "sess_sent", { date, hour }), menuBtn(lang));
-}
-
-// --- group / semi-private session booking (trainer) ---
-// A group booking = one proposed session per selected client sharing a groupId, so each client
-// confirms independently and the whole 1:1 lifecycle (reminders/ICS/cancel/billing) is reused.
-
-export async function startGroupBooking(ctx: MyContext) {
-  if (!(await requireTrainer(ctx))) return;
-  const lang = ctx.user.lang;
-  const clients = await listClients(ctx.db, ctx.user._id);
-  if (!clients.length) { await reply(ctx, t(lang, "tr_report_noclients"), trainerMenu(lang)); return; }
-  ctx.user.session = { ...ctx.user.session, groupPick: [] };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  await reply(ctx, t(lang, "grp_pick_clients"), groupPickKb(ctx, clients));
-}
-
-function groupPickKb(ctx: MyContext, clients: UserDoc[]): InlineKeyboard {
-  const lang = ctx.user.lang;
-  const sel = new Set(ctx.user.session.groupPick ?? []);
-  const kb = new InlineKeyboard();
-  clients.forEach((c, i) => {
-    kb.text(`${sel.has(c._id) ? "✅ " : ""}${(c.profile.name ?? `id ${c._id}`).slice(0, 20)}`, `gpick:${c._id}`);
-    if (i % 2 === 1) kb.row();
-  });
-  kb.row().text(t(lang, "grp_done_btn"), "gpick:done");
-  return kb;
-}
-
-export async function toggleGroupPick(ctx: MyContext, clientId: number) {
-  const cur = new Set(ctx.user.session.groupPick ?? []);
-  cur.has(clientId) ? cur.delete(clientId) : cur.add(clientId);
-  ctx.user.session = { ...ctx.user.session, groupPick: [...cur] };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  const clients = await listClients(ctx.db, ctx.user._id);
-  await ctx.editMessageReplyMarkup({ reply_markup: groupPickKb(ctx, clients) }).catch(() => {});
-}
-
-export async function groupPickDone(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const picked = ctx.user.session.groupPick ?? [];
-  if (picked.length < 2) { await reply(ctx, t(lang, "grp_min2")); return; }
-  const { date } = localParts(ctx.user.profile.timezone);
-  // Reuse the generic booking calendar with prefix "gb" (targetId 0 = the pending group pick).
-  const kb = calendarKeyboard(lang, ymOf(date), (d) => String(Number(d.slice(8, 10))), (d) => `gb:d:0:${d}`, (m) => `gb:nav:0:${m}`);
-  await reply(ctx, t(lang, "grp_pick_date", { n: picked.length }), kb);
-}
-
-export async function onGroupBookHour(ctx: MyContext, date: string, hour: number) {
-  const lang = ctx.user.lang;
-  const picked = ctx.user.session.groupPick ?? [];
-  if (picked.length < 2) { await reply(ctx, t(lang, "request_gone")); return; }
-  ctx.user.session = { ...ctx.user.session, groupPick: undefined };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  const tz = ctx.user.profile.timezone;
-  const created = await createGroupSessions(ctx.db, ctx.user._id, picked, date, hour, tz);
-  const trName = ctx.user.profile.name ?? "trainer";
-  let sent = 0;
-  for (const { clientId, id } of created) {
-    const client = await getUser(ctx.db, clientId);
-    if (!client) continue;
-    const forClient = sessionTimeFor(date, hour, tz, client.profile.timezone);
-    const kb = new InlineKeyboard().text(t(client.lang, "sess_confirm_btn"), `sess:ok:${id}`).text(t(client.lang, "sess_decline_btn"), `sess:no:${id}`);
-    const ok = await ctx.api.sendMessage(client.chatId, t(client.lang, "grp_proposed", { name: trName, date: forClient.date, hour: forClient.hour }), { ...HTML, reply_markup: kb }).then(() => true).catch(() => false);
-    if (ok) sent++;
-  }
-  await reply(ctx, t(lang, "grp_created", { n: sent, date, hour }), menuBtn(lang));
-}
-
-// --- session confirm / decline / cancel (shared) ---
-
-export async function onSessionAction(ctx: MyContext, action: "ok" | "no" | "cx", id: number) {
-  const lang = ctx.user.lang;
-  const s = await getSession(ctx.db, id);
-  if (!s || (s.trainerId !== ctx.user._id && s.clientId !== ctx.user._id)) { await reply(ctx, t(lang, "request_gone")); return; }
-  const otherId = ctx.user._id === s.trainerId ? s.clientId : s.trainerId;
-  const other = await getUser(ctx.db, otherId);
-  const meName = ctx.user.profile.name ?? `id ${ctx.user._id}`;
-  // The stored wall time lives in the booker's zone — convert per viewer.
-  const mine = sessionTimeFor(s.date, s.hour, s.tz, ctx.user.profile.timezone);
-  const theirs = other ? sessionTimeFor(s.date, s.hour, s.tz, other.profile.timezone) : mine;
-  if (action === "ok") {
-    if (!(await setSessionStatus(ctx.db, id, "confirmed", "proposed"))) { await reply(ctx, t(lang, "request_gone")); return; }
-    // Trainers can attach an online-meeting link right after confirming; both sides get an
-    // "add to calendar" (.ics) button.
-    const kb = new InlineKeyboard();
-    if (ctx.user._id === s.trainerId) kb.text(t(lang, "sess_add_link_btn"), `sess:link:${id}`).row();
-    kb.text(t(lang, "sess_ics_btn"), `ics:${id}`).row().text(t(lang, "menu_open"), "menu:open");
-    await reply(ctx, t(lang, "sess_confirmed", { date: mine.date, hour: mine.hour }), kb);
-    if (other) {
-      const okb = new InlineKeyboard().text(t(other.lang, "sess_ics_btn"), `ics:${id}`);
-      await ctx.api.sendMessage(other.chatId, t(other.lang, "sess_confirmed_other", { name: meName, date: theirs.date, hour: theirs.hour }), { ...HTML, reply_markup: okb }).catch(() => {});
-    }
-  } else if (action === "no") {
-    if (!(await setSessionStatus(ctx.db, id, "declined", "proposed"))) { await reply(ctx, t(lang, "request_gone")); return; }
-    await reply(ctx, t(lang, "sess_declined"), menuBtn(lang));
-    if (other) await ctx.api.sendMessage(other.chatId, t(other.lang, "sess_declined_other", { name: meName, date: theirs.date, hour: theirs.hour }), HTML).catch(() => {});
-  } else {
-    if (!(await setSessionStatus(ctx.db, id, "cancelled", ["proposed", "confirmed"]))) { await reply(ctx, t(lang, "request_gone")); return; }
-    await reply(ctx, t(lang, "sess_cancelled"), menuBtn(lang));
-    if (other) await ctx.api.sendMessage(other.chatId, t(other.lang, "sess_cancelled_other", { name: meName, date: theirs.date, hour: theirs.hour }), HTML).catch(() => {});
-  }
-}
-
-// Send a session as a downloadable .ics so it lands in the user's real calendar. Floating
-// local time (no TZID/Z) — calendars interpret it as the device's local time, which matches
-// how the wall time was booked. One-hour default duration.
-export async function sendSessionIcs(ctx: MyContext, id: number) {
-  const lang = ctx.user.lang;
-  const s = await getSession(ctx.db, id);
-  if (!s || (s.trainerId !== ctx.user._id && s.clientId !== ctx.user._id)) { await reply(ctx, t(lang, "request_gone")); return; }
-  const other = await getUser(ctx.db, ctx.user._id === s.trainerId ? s.clientId : s.trainerId);
-  const local = sessionTimeFor(s.date, s.hour, s.tz, ctx.user.profile.timezone);
-  const dt = `${local.date.replace(/-/g, "")}T${String(local.hour).padStart(2, "0")}0000`;
-  const endH = (local.hour + 1) % 24;
-  const endDate = endH === 0 && local.hour === 23 ? isoDateMinus(local.date, -1).replace(/-/g, "") : local.date.replace(/-/g, "");
-  const dtEnd = `${endDate}T${String(endH).padStart(2, "0")}0000`;
-  const title = t(lang, "sess_ics_title", { name: other?.profile.name ?? "trix" });
-  const esc = (v: string) => v.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\n/g, "\\n");
-  const ics = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//trix//session//EN", "BEGIN:VEVENT",
-    `UID:trix-session-${id}@trix`, `SUMMARY:${esc(title)}`, `DTSTART:${dt}`, `DTEND:${dtEnd}`,
-    "BEGIN:VALARM", "TRIGGER:-PT2H", "ACTION:DISPLAY", `DESCRIPTION:${esc(title)}`, "END:VALARM",
-    "END:VEVENT", "END:VCALENDAR",
-  ].join("\r\n");
-  await ctx.replyWithDocument(new InputFile(new TextEncoder().encode(ics), "trix-session.ics"), {
-    caption: t(lang, "sess_ics_caption"),
-  }).catch(() => {});
-}
-
-// Trainer tapped "add meeting link" after confirming a session.
-export async function startSessionLink(ctx: MyContext, sessionId: number) {
-  const s = await getSession(ctx.db, sessionId);
-  if (!s || s.trainerId !== ctx.user._id) { await reply(ctx, t(ctx.user.lang, "request_gone")); return; }
-  ctx.user.session = { ...ctx.user.session, mode: "sess_link", targetId: sessionId };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  await reply(ctx, t(ctx.user.lang, "sess_link_prompt"));
-}
-
-export async function handleSessionLink(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const sessionId = ctx.user.session.targetId;
-  await setMode(ctx, "idle");
-  if (!sessionId) return;
-  const s = await getSession(ctx.db, sessionId);
-  if (!s || s.trainerId !== ctx.user._id) { await reply(ctx, t(lang, "request_gone")); return; }
-  const link = text.trim().slice(0, 500);
-  if (!/^https?:\/\/\S+$/i.test(link)) { await reply(ctx, t(lang, "sess_link_invalid")); return; }
-  await setSessionLink(ctx.db, sessionId, link);
-  await reply(ctx, t(lang, "sess_link_saved"), menuBtn(lang));
-  const client = await getUser(ctx.db, s.clientId);
-  if (client) {
-    const forClient = sessionTimeFor(s.date, s.hour, s.tz, client.profile.timezone);
-    await ctx.api
-      .sendMessage(client.chatId, t(client.lang, "sess_link_shared", { date: forClient.date, hour: forClient.hour, link }), HTML)
-      .catch(() => {});
-  }
-}
-
-// --- trainer calendar ---
-
-export async function trainerCalendarKb(ctx: MyContext, ym: string): Promise<InlineKeyboard> {
-  const { date: today } = localParts(ctx.user.profile.timezone);
-  const sessions = await sessionsBetween(ctx.db, ctx.user._id, "trainer", `${ym}-01`, `${ym}-31`);
-  const dates = new Set(sessions.map((s) => s.date));
-  const ctxD = { today, plannedWeekdays: new Set<number>(), logs: new Map<string, { completed: boolean }>(), sessionDates: dates };
-  return calendarKeyboard(ctx.user.lang, ym, (d) => dayMarker(d, ctxD), (d) => `tcal:d:${d}`, (m) => `tcal:nav:${m}`);
-}
-
-export async function showTrainerCalendar(ctx: MyContext) {
-  if (!(await requireTrainer(ctx))) return;
-  const lang = ctx.user.lang;
-  const { date } = localParts(ctx.user.profile.timezone);
-  const upcoming = await upcomingSessionsFor(ctx.db, ctx.user._id, "trainer", date, 5);
-  let head = t(lang, "tcal_title");
-  if (upcoming.length) {
-    const clients = await getUsersByIds(ctx.db, upcoming.map((s) => s.clientId));
-    const lines = upcoming.map((s) => {
-      const c = clients.get(s.clientId);
-      const local = sessionTimeFor(s.date, s.hour, s.tz, ctx.user.profile.timezone);
-      return t(lang, "tcal_day_line", { hour: local.hour, name: c?.profile.name ?? `id ${s.clientId}`, date: local.date });
-    });
-    head += "\n\n" + t(lang, "tcal_upcoming") + "\n" + lines.join("\n");
-  } else head += "\n\n" + t(lang, "tcal_empty");
-  await reply(ctx, head, await trainerCalendarKb(ctx, ymOf(date)));
-}
-
-export async function onTrainerCalNav(ctx: MyContext, ym: string) {
-  await ctx.editMessageReplyMarkup({ reply_markup: await trainerCalendarKb(ctx, ym) }).catch(() => {});
-}
-
-export async function onTrainerCalDay(ctx: MyContext, date: string) {
-  const lang = ctx.user.lang;
-  const sessions = await sessionsOnDate(ctx.db, ctx.user._id, "trainer", date);
-  const kb = new InlineKeyboard();
-  const lines = [t(lang, "cal_day_title", { date })];
-  if (!sessions.length) lines.push(t(lang, "tcal_none"));
-  const dayClients = await getUsersByIds(ctx.db, sessions.map((s) => s.clientId));
-  for (const s of sessions) {
-    const c = dayClients.get(s.clientId);
-    const local = sessionTimeFor(s.date, s.hour, s.tz, ctx.user.profile.timezone);
-    lines.push(`${local.hour}:00 · ${escapeHtml(c?.profile.name ?? `id ${s.clientId}`)} · ${t(lang, `sess_status_${s.status}` as TKey)}`);
-    kb.text(t(lang, "sess_cancel_btn", { hour: local.hour }), `sess:cx:${s.id}`).row();
-  }
-  kb.text(t(lang, "cal_back"), `tcal:nav:${ymOf(date)}`);
+  const kb = new InlineKeyboard().text(t(lang, "cal_back"), `cal:nav:${ymOf(date)}`);
   await reply(ctx, lines.join("\n"), kb);
 }
 

@@ -57,11 +57,10 @@ export interface DayCtx {
   today: string;
   plannedWeekdays: Set<number>;
   logs: Map<string, { completed: boolean }>;
-  sessionDates: Set<string>;
 }
 
 /**
- * Button label for a day cell. Priority: 🤝 session > ✅ completed > ✖️ missed planned past >
+ * Button label for a day cell. Priority: ✅ completed > ✖️ missed planned past >
  * • planned future > plain number. Today is wrapped in [brackets] (keeping any marker).
  */
 export function dayMarker(date: string, ctx: DayCtx): string {
@@ -69,8 +68,7 @@ export function dayMarker(date: string, ctx: DayCtx): string {
   let symbol = "";
   const planned = ctx.plannedWeekdays.has(isoWeekday(date));
   const log = ctx.logs.get(date);
-  if (ctx.sessionDates.has(date)) symbol = "🤝";
-  else if (log?.completed) symbol = "✅";
+  if (log?.completed) symbol = "✅";
   else if (planned && date < ctx.today) symbol = "✖️";
   else if (planned) symbol = "•";
   const core = `${symbol}${n}`;

@@ -24,12 +24,10 @@ import type {
   PlanDoc,
   ProgressionRate,
   Role,
-  SessionDoc,
   StepLogDoc,
   StrengthRecordDoc,
   TrainerDoc,
   TrainerProfileInput,
-  TrainerReviewDoc,
   UserDoc,
   UserProfile,
   Weekday,
@@ -1747,119 +1745,6 @@ export async function resolveInjury(db: DB, id: number): Promise<void> {
   await db.prepare("UPDATE injuries SET status = 'recovered', resolvedAt = ? WHERE id = ?").bind(nowIso(), id).run();
 }
 
-// ---------- sessions (trainer↔client bookings) ----------
-
-interface SessionRow {
-  id: number; trainerId: number; clientId: number; date: string; hour: number;
-  kind: string; status: string; proposedBy: string; note: string | null; remindedAt: string | null; createdAt: string;
-  tz: string | null; meetingLink: string | null; groupId: string | null;
-}
-function toSession(r: SessionRow): SessionDoc {
-  return {
-    id: r.id, trainerId: r.trainerId, clientId: r.clientId, date: r.date, hour: r.hour,
-    kind: r.kind === "online" ? "online" : "offline",
-    status: r.status as SessionDoc["status"],
-    proposedBy: r.proposedBy === "trainer" ? "trainer" : "client",
-    note: r.note, remindedAt: r.remindedAt, createdAt: r.createdAt,
-    tz: r.tz ?? null, meetingLink: r.meetingLink ?? null,
-    ...(r.groupId ? { groupId: r.groupId } : {}),
-  };
-}
-
-export async function createSession(
-  db: DB,
-  s: { trainerId: number; clientId: number; date: string; hour: number; kind?: string; proposedBy: "trainer" | "client"; note?: string; tz?: string; groupId?: string },
-): Promise<number> {
-  const r = await db
-    .prepare("INSERT INTO sessions (trainerId, clientId, date, hour, kind, status, proposedBy, note, tz, groupId, createdAt) VALUES (?, ?, ?, ?, ?, 'proposed', ?, ?, ?, ?, ?) RETURNING id")
-    .bind(s.trainerId, s.clientId, s.date, s.hour, s.kind ?? "offline", s.proposedBy, s.note ?? null, s.tz ?? null, s.groupId ?? null, nowIso())
-    .first<{ id: number }>();
-  return r?.id ?? 0;
-}
-
-/** Book the SAME slot for several clients at once (group / semi-private). Creates one proposed
- * session per client sharing a groupId; each client confirms/declines independently. Returns the
- * created session ids paired with their clientId (caller pushes the per-client invites). */
-export async function createGroupSessions(
-  db: DB,
-  trainerId: number,
-  clientIds: number[],
-  date: string,
-  hour: number,
-  tz?: string,
-): Promise<{ clientId: number; id: number }[]> {
-  const groupId = crypto.randomUUID();
-  const out: { clientId: number; id: number }[] = [];
-  for (const clientId of clientIds) {
-    const id = await createSession(db, { trainerId, clientId, date, hour, proposedBy: "trainer", tz, groupId });
-    if (id) out.push({ clientId, id });
-  }
-  return out;
-}
-
-export async function setSessionLink(db: DB, id: number, link: string): Promise<void> {
-  await db.prepare("UPDATE sessions SET meetingLink = ? WHERE id = ?").bind(link, id).run();
-}
-
-export async function getSession(db: DB, id: number): Promise<SessionDoc | null> {
-  const r = await db.prepare("SELECT * FROM sessions WHERE id = ?").bind(id).first<SessionRow>();
-  return r ? toSession(r) : null;
-}
-
-/** Change a session's status, optionally only from an expected status. Returns true if it changed. */
-export async function setSessionStatus(db: DB, id: number, status: string, fromStatus?: string | string[]): Promise<boolean> {
-  let sql = "UPDATE sessions SET status = ? WHERE id = ?";
-  const binds: unknown[] = [status, id];
-  if (fromStatus) {
-    const list = Array.isArray(fromStatus) ? fromStatus : [fromStatus];
-    sql += ` AND status IN (${list.map(() => "?").join(", ")})`;
-    binds.push(...list);
-  }
-  const r = await db.prepare(sql).bind(...binds).run();
-  return (r.meta?.changes ?? 0) > 0;
-}
-
-/** Sessions for a user (role picks the column) within [fromDate, toDate], excluding declined/cancelled. */
-export async function sessionsBetween(db: DB, userId: number, role: "trainer" | "client", fromDate: string, toDate: string): Promise<SessionDoc[]> {
-  const col = role === "trainer" ? "trainerId" : "clientId";
-  const r = await db
-    .prepare(`SELECT * FROM sessions WHERE ${col} = ? AND date >= ? AND date <= ? AND status IN ('proposed','confirmed','done') ORDER BY date ASC, hour ASC`)
-    .bind(userId, fromDate, toDate)
-    .all<SessionRow>();
-  return (r.results ?? []).map(toSession);
-}
-
-/** Next confirmed sessions from today onward. */
-export async function upcomingSessionsFor(db: DB, userId: number, role: "trainer" | "client", today: string, limit = 5): Promise<SessionDoc[]> {
-  const col = role === "trainer" ? "trainerId" : "clientId";
-  const r = await db
-    .prepare(`SELECT * FROM sessions WHERE ${col} = ? AND date >= ? AND status = 'confirmed' ORDER BY date ASC, hour ASC LIMIT ?`)
-    .bind(userId, today, limit)
-    .all<SessionRow>();
-  return (r.results ?? []).map(toSession);
-}
-
-/** Confirmed sessions on a specific date for a user (day card / trainer day list). */
-export async function sessionsOnDate(db: DB, userId: number, role: "trainer" | "client", date: string): Promise<SessionDoc[]> {
-  const col = role === "trainer" ? "trainerId" : "clientId";
-  const r = await db
-    .prepare(`SELECT * FROM sessions WHERE ${col} = ? AND date = ? AND status IN ('proposed','confirmed') ORDER BY hour ASC`)
-    .bind(userId, date)
-    .all<SessionRow>();
-  return (r.results ?? []).map(toSession);
-}
-
-/** Flip past confirmed sessions to done. Returns the affected (trainer, client) pairs so the
- * caller can decrement prepaid session packages (client_billing). */
-export async function markPastSessionsDone(db: DB, today: string): Promise<{ trainerId: number; clientId: number }[]> {
-  const r = await db
-    .prepare("SELECT trainerId, clientId FROM sessions WHERE status = 'confirmed' AND date < ?")
-    .bind(today)
-    .all<{ trainerId: number; clientId: number }>();
-  await db.prepare("UPDATE sessions SET status = 'done' WHERE status = 'confirmed' AND date < ?").bind(today).run();
-  return r.results ?? [];
-}
-
 // ---------- trainer client notes ----------
 
 export async function getClientNote(db: DB, trainerId: number, clientId: number): Promise<string | null> {
@@ -2322,7 +2207,7 @@ function toTrainer(r: {
   experienceYears: number | null; approach: string | null; priceOnline: number | null;
   priceOffline: number | null; currency: string | null; city: string | null;
   contact: string | null; languages: string | null; photoFileId: string | null;
-  profileComplete: number; ratingSum: number; ratingCount: number; maxClients: number | null; isInstructor: number | null;
+  profileComplete: number; maxClients: number | null; isInstructor: number | null;
 }): TrainerDoc {
   return {
     trainerId: r.trainerId,
@@ -2346,23 +2231,8 @@ function toTrainer(r: {
     languages: csvToArr(r.languages),
     photoFileId: r.photoFileId ?? undefined,
     profileComplete: !!r.profileComplete,
-    ratingCount: r.ratingCount ?? 0,
-    ratingAvg: r.ratingCount ? r.ratingSum / r.ratingCount : undefined,
     maxClients: r.maxClients ?? undefined,
     isInstructor: !!r.isInstructor,
-  };
-}
-
-function toReview(r: {
-  id: number; trainerId: number; clientId: number; rating: number; text: string | null; createdAt: string;
-}): TrainerReviewDoc {
-  return {
-    id: r.id,
-    trainerId: r.trainerId,
-    clientId: r.clientId,
-    rating: r.rating,
-    text: r.text ?? undefined,
-    createdAt: new Date(r.createdAt),
   };
 }
 
@@ -2462,85 +2332,6 @@ export async function updateTrainer(
   if (!sets.length) return;
   vals.push(trainerId);
   await db.prepare(`UPDATE trainers SET ${sets.join(", ")} WHERE trainerId = ?`).bind(...vals).run();
-}
-
-export async function listOpenTrainers(
-  db: DB,
-  opts: { tag?: string; lang?: string; limit?: number } = {},
-): Promise<TrainerDoc[]> {
-  const limit = opts.limit ?? 30;
-  const where = ["status='approved'", "accepting=1", "profileComplete=1"];
-  const binds: unknown[] = [];
-  // Bounded LIKE on ",csv," avoids partial-code collisions between tag/language codes.
-  if (opts.tag) {
-    where.push("(',' || tags || ',') LIKE ?");
-    binds.push(`%,${opts.tag},%`);
-  }
-  if (opts.lang) {
-    where.push("(',' || languages || ',') LIKE ?");
-    binds.push(`%,${opts.lang},%`);
-  }
-  binds.push(limit);
-  const r = await db
-    .prepare(
-      `SELECT * FROM trainers WHERE ${where.join(" AND ")}
-       ORDER BY (ratingCount > 0) DESC, (ratingSum * 1.0 / MAX(ratingCount, 1)) DESC, approvedAt DESC
-       LIMIT ?`,
-    )
-    .bind(...binds)
-    .all<Parameters<typeof toTrainer>[0]>();
-  return (r.results ?? []).map(toTrainer);
-}
-
-// ---------- trainer reviews ----------
-
-export async function addOrUpdateReview(
-  db: DB,
-  trainerId: number,
-  clientId: number,
-  rating: number,
-  text?: string,
-): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO trainer_reviews (trainerId, clientId, rating, text, createdAt)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(trainerId, clientId) DO UPDATE SET
-         rating=excluded.rating, text=excluded.text, createdAt=excluded.createdAt`,
-    )
-    .bind(trainerId, clientId, rating, text ?? null, nowIso())
-    .run();
-  // Recompute the denormalized aggregate from source rows (correct even on edits).
-  const agg = await db
-    .prepare("SELECT COALESCE(SUM(rating),0) AS s, COUNT(*) AS c FROM trainer_reviews WHERE trainerId = ?")
-    .bind(trainerId)
-    .first<{ s: number; c: number }>();
-  await db
-    .prepare("UPDATE trainers SET ratingSum = ?, ratingCount = ? WHERE trainerId = ?")
-    .bind(agg?.s ?? 0, agg?.c ?? 0, trainerId)
-    .run();
-}
-
-export async function listReviews(db: DB, trainerId: number, limit = 3): Promise<TrainerReviewDoc[]> {
-  const r = await db
-    .prepare("SELECT * FROM trainer_reviews WHERE trainerId = ? ORDER BY createdAt DESC LIMIT ?")
-    .bind(trainerId, limit)
-    .all<Parameters<typeof toReview>[0]>();
-  return (r.results ?? []).map(toReview);
-}
-
-/** A client may review a trainer only if currently linked or previously accepted by them. */
-export async function canReview(db: DB, trainerId: number, clientId: number): Promise<boolean> {
-  const linked = await db
-    .prepare("SELECT 1 AS x FROM users WHERE id = ? AND trainerId = ? LIMIT 1")
-    .bind(clientId, trainerId)
-    .first<{ x: number }>();
-  if (linked) return true;
-  const past = await db
-    .prepare("SELECT 1 AS x FROM client_requests WHERE clientId = ? AND trainerId = ? AND status = 'accepted' LIMIT 1")
-    .bind(clientId, trainerId)
-    .first<{ x: number }>();
-  return !!past;
 }
 
 export async function linkClient(db: DB, clientId: number, trainerId: number): Promise<void> {
@@ -2744,7 +2535,6 @@ export async function deleteUserData(db: DB, userId: number): Promise<void> {
     db.prepare("DELETE FROM water_logs WHERE userId = ?").bind(userId),
     db.prepare("DELETE FROM challenges WHERE userId = ?").bind(userId),
     db.prepare("DELETE FROM injuries WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM sessions WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
     db.prepare("DELETE FROM client_notes WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
     db.prepare("DELETE FROM client_cards WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
     db.prepare("DELETE FROM daily_checkins WHERE userId = ?").bind(userId),
@@ -2755,7 +2545,6 @@ export async function deleteUserData(db: DB, userId: number): Promise<void> {
     db.prepare("DELETE FROM event_counts WHERE userId = ?").bind(userId),
     db.prepare("DELETE FROM feedback WHERE userId = ?").bind(userId),
     db.prepare("DELETE FROM trainers WHERE trainerId = ?").bind(userId),
-    db.prepare("DELETE FROM trainer_reviews WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
     db.prepare("DELETE FROM client_requests WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
     db.prepare("DELETE FROM client_questions WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
     db.prepare("DELETE FROM messages WHERE fromId = ? OR toId = ?").bind(userId, userId),
@@ -2832,85 +2621,6 @@ export async function listPublicPrograms(db: DB, limit = 20): Promise<{ code: st
 
 export async function bumpSharedTaken(db: DB, code: string): Promise<void> {
   await db.prepare("UPDATE shared_programs SET takenCount = takenCount + 1 WHERE code = ?").bind(code).run();
-}
-
-// ---------- client billing (bookkeeping only — no payment processing) ----------
-
-export interface ClientBilling {
-  trainerId: number;
-  clientId: number;
-  paidUntil: string | null;
-  sessionsLeft: number | null;
-  nudgedAt: string | null;
-}
-
-export async function getClientBilling(db: DB, trainerId: number, clientId: number): Promise<ClientBilling | null> {
-  const r = await db
-    .prepare("SELECT trainerId, clientId, paidUntil, sessionsLeft, nudgedAt FROM client_billing WHERE trainerId = ? AND clientId = ?")
-    .bind(trainerId, clientId)
-    .first<ClientBilling>();
-  return r ?? null;
-}
-
-/** Upsert one billing field; extending/refilling resets the nudge dedup so the next expiry nudges again. */
-export async function setClientBilling(
-  db: DB,
-  trainerId: number,
-  clientId: number,
-  patch: { paidUntil?: string | null; sessionsLeft?: number | null },
-): Promise<void> {
-  const cur = await getClientBilling(db, trainerId, clientId);
-  const paidUntil = patch.paidUntil !== undefined ? patch.paidUntil : (cur?.paidUntil ?? null);
-  const sessionsLeft = patch.sessionsLeft !== undefined ? patch.sessionsLeft : (cur?.sessionsLeft ?? null);
-  await db
-    .prepare(
-      `INSERT INTO client_billing (trainerId, clientId, paidUntil, sessionsLeft, nudgedAt, updatedAt) VALUES (?, ?, ?, ?, NULL, ?)
-       ON CONFLICT(trainerId, clientId) DO UPDATE SET paidUntil = excluded.paidUntil, sessionsLeft = excluded.sessionsLeft, nudgedAt = NULL, updatedAt = excluded.updatedAt`,
-    )
-    .bind(trainerId, clientId, paidUntil, sessionsLeft, nowIso())
-    .run();
-}
-
-/** Decrement the prepaid-session counter when a session is marked done (floors at 0). */
-export async function decrementSessionsLeft(db: DB, trainerId: number, clientId: number): Promise<void> {
-  await db
-    .prepare("UPDATE client_billing SET sessionsLeft = sessionsLeft - 1, updatedAt = ? WHERE trainerId = ? AND clientId = ? AND sessionsLeft > 0")
-    .bind(nowIso(), trainerId, clientId)
-    .run();
-}
-
-/** Billing rows whose paid period expired or session package ran out, not yet nudged. */
-export async function listBillingDue(db: DB, today: string): Promise<ClientBilling[]> {
-  const r = await db
-    .prepare(
-      `SELECT trainerId, clientId, paidUntil, sessionsLeft, nudgedAt FROM client_billing
-       WHERE nudgedAt IS NULL AND ((paidUntil IS NOT NULL AND paidUntil < ?) OR sessionsLeft = 0)`,
-    )
-    .bind(today)
-    .all<ClientBilling>();
-  return r.results ?? [];
-}
-
-export async function markBillingNudged(db: DB, trainerId: number, clientId: number, dateIso: string): Promise<void> {
-  await db.prepare("UPDATE client_billing SET nudgedAt = ? WHERE trainerId = ? AND clientId = ?").bind(dateIso, trainerId, clientId).run();
-}
-
-/** All billing rows of one trainer — the finance summary view. */
-export async function listBillingForTrainer(db: DB, trainerId: number): Promise<ClientBilling[]> {
-  const r = await db
-    .prepare("SELECT trainerId, clientId, paidUntil, sessionsLeft, nudgedAt FROM client_billing WHERE trainerId = ?")
-    .bind(trainerId)
-    .all<ClientBilling>();
-  return r.results ?? [];
-}
-
-/** Sessions of this trainer marked done on/after `sinceDate` (finance summary). */
-export async function countSessionsDoneSince(db: DB, trainerId: number, sinceDate: string): Promise<number> {
-  const r = await db
-    .prepare("SELECT COUNT(*) AS c FROM sessions WHERE trainerId = ? AND status = 'done' AND date >= ?")
-    .bind(trainerId, sinceDate)
-    .first<{ c: number }>();
-  return r?.c ?? 0;
 }
 
 // ---------- AI response cache (identical prompts skip the provider chain) ----------

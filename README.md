@@ -56,7 +56,7 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 | `src/index.ts` | Worker entry: `/webhook`, `/health`, `/api/*`, `/admin/*`, cron `scheduled` |
 | `src/bot.ts` | grammY bot: commands, callbacks, routing, onboarding, plan generation, roles |
 | `src/bot/router.ts` | Command + callback route tables, bot construction |
-| `src/bot/trainer.ts` | Trainer flows: client cards, templates, billing, sessions, program sharing |
+| `src/bot/trainer.ts` | Trainer flows: client cards, templates, program sharing |
 | `src/bot/owner.ts` | Owner admin: user cards, moderation, video overrides |
 | `src/scheduler.ts` | Cron: reminders, check-ins, weekly digests, trainer digests, owner report |
 | `src/webapp/` | Mini App: `client/` static shell fragments + per-screen JSON APIs |

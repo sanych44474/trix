@@ -14,11 +14,10 @@ function ltOpen() {
     ccFetch("/api/records").then(function (r) { return r.ok ? r.json() : null; }),
     ccFetch("/api/weekcard").then(function (r) { return r.ok ? r.json() : null; }),
     ccFetch("/api/library").then(function (r) { return r.ok ? r.json() : null; }),
-    ccFetch("/api/trainers").then(function (r) { return r.ok ? r.json() : null; }),
     ccFetch("/api/whatsnew").then(function (r) { return r.ok ? r.json() : null; }),
   ]).then(function (res) {
     LT.ch = res[0]; LT.inj = res[1]; LT.boards = res[2];
-    LT.rec = res[3]; LT.week = res[4]; LT.lib = res[5]; LT.dir = res[6]; LT.news = res[7];
+    LT.rec = res[3]; LT.week = res[4]; LT.lib = res[5]; LT.news = res[6];
     ltRender();
   }).catch(function () { el("lt-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
 }
@@ -116,15 +115,6 @@ function ltRender() {
     h += '<span class="sub" id="lt-lib-st"></span>';
   } else h += '<div class="sub">' + L.nodata + "</div>";
   h += "</div>";
-  // Find a trainer (solo users)
-  if (LT.dir && LT.dir.role === "solo" && LT.dir.trainers && LT.dir.trainers.length) {
-    h += "<h2>🔍 " + WA.wa_findtrainer + "</h2><div class=\"card\">";
-    LT.dir.trainers.forEach(function (tr) {
-      h += '<div class="cc-save-row" style="margin:4px 0"><span style="flex:1"><b>' + esc(tr.name) + "</b>" + (tr.specialization ? " — " + esc(tr.specialization) : "") + (tr.rating ? " ⭐" + tr.rating : "") + (tr.price ? " · " + tr.price + " " + esc(tr.currency || "") : "") + "</span>";
-      h += '<button class="chipbtn" data-lt="reqtr" data-id="' + tr.id + '">' + WA.wa_request + "</button></div>";
-    });
-    h += '<span class="sub" id="lt-tr-st"></span></div>';
-  }
   // What's new
   if (LT.news && LT.news.html) h += "<h2>📣 " + WA.wa_whatsnew + " · " + esc(LT.news.version) + '</h2><div class="card">' + LT.news.html + "</div>";
   el("lt-body").innerHTML = h;
@@ -176,11 +166,6 @@ el("lt-body") && el("lt-body").addEventListener("click", function (e) {
       .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
       .then(function () { var s = el("lt-lib-st"); if (s) s.textContent = WA.wa_taken; })
       .catch(function () { var s = el("lt-lib-st"); if (s) s.textContent = WA.wa_err; });
-  } else if (a === "reqtr") {
-    ccFetch("/api/trainers", { method: "POST", body: { trainerId: Number(t.getAttribute("data-id")) } })
-      .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
-      .then(function () { var s = el("lt-tr-st"); if (s) s.textContent = WA.wa_requested; })
-      .catch(function () { var s = el("lt-tr-st"); if (s) s.textContent = WA.wa_err; });
   }
 });
 el("lt-back") && (el("lt-back").onclick = ltClose);

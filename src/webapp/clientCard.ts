@@ -1,11 +1,11 @@
 // Client-card payload for the trainer Mini App view: one JSON with the trainer's own notes,
-// consent-gated client data (body/health), billing bookkeeping and the client's full dashboard
-// payload (for the embedded charts). Assembly is pure (assembleClientCardPayload, unit-tested);
+// consent-gated client data (body/health) and the client's full dashboard payload (for the
+// embedded charts). Assembly is pure (assembleClientCardPayload, unit-tested);
 // buildClientCardPayload only fetches rows.
 import { trainerCanSee } from "../domain/clientCard";
 import { computeCyclePhase } from "../domain/cycle";
 import { localParts } from "../domain/progression";
-import { getClientBilling, getClientCard, getClientNote, listActiveInjuries, listProgressPhotos } from "../db/repos";
+import { getClientCard, getClientNote, listActiveInjuries, listProgressPhotos } from "../db/repos";
 import { buildDashboardPayload, type DashboardPayload } from "./dashboard";
 import type { ClientCardDoc, InjuryDoc, UserDoc } from "../types";
 
@@ -29,7 +29,6 @@ export interface ClientCardPayload {
       injuries: Array<{ area: string; severity: string; since: string; lastScore?: number }>;
     };
   };
-  billing: { paidUntil: string | null; sessionsLeft: number | null } | null;
   photos?: { id: number; takenAt: string }[];
   dashboard: DashboardPayload;
 }
@@ -44,7 +43,6 @@ export function assembleClientCardPayload(
     card: ClientCardDoc | null;
     note: string | null;
     injuries: InjuryDoc[];
-    billing: { paidUntil: string | null; sessionsLeft: number | null } | null;
     dashboard: DashboardPayload;
   },
 ): ClientCardPayload {
@@ -98,7 +96,6 @@ export function assembleClientCardPayload(
       ? { healthNotes: rows.card.healthNotes, personalNotes: rows.card.personalNotes, birthday: rows.card.birthday }
       : null,
     shared,
-    billing: rows.billing ? { paidUntil: rows.billing.paidUntil, sessionsLeft: rows.billing.sessionsLeft } : null,
     dashboard: rows.dashboard,
   };
 }
@@ -106,18 +103,17 @@ export function assembleClientCardPayload(
 export async function buildClientCardPayload(db: D1Database, trainer: UserDoc, client: UserDoc): Promise<ClientCardPayload> {
   // The cycle chip runs on the CLIENT's local date (same as the bot's client card).
   const today = localParts(client.profile.timezone).date;
-  const [card, note, injuries, billing, dashboard, photos] = await Promise.all([
+  const [card, note, injuries, dashboard, photos] = await Promise.all([
     getClientCard(db, trainer._id, client._id),
     getClientNote(db, trainer._id, client._id).catch(() => null),
     // Skip the injuries query entirely when health isn't shared (free-tier subrequest budget).
     trainerCanSee(client.profile, "health")
       ? listActiveInjuries(db, client._id).catch(() => [] as InjuryDoc[])
       : Promise.resolve([] as InjuryDoc[]),
-    getClientBilling(db, trainer._id, client._id).catch(() => null),
     buildDashboardPayload(db, client),
     listProgressPhotos(db, client._id, 8).catch(() => []),
   ]);
-  const payload = assembleClientCardPayload(client, today, { card, note, injuries, billing, dashboard });
+  const payload = assembleClientCardPayload(client, today, { card, note, injuries, dashboard });
   payload.photos = photos.map((ph) => ({ id: ph.id, takenAt: ph.takenAt.slice(0, 10) }));
   return payload;
 }

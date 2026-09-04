@@ -53,7 +53,6 @@ const rows = (u: UserDoc, over: Partial<Parameters<typeof assembleClientCardPayl
   card: null,
   note: null,
   injuries: [] as InjuryDoc[],
-  billing: null,
   dashboard: dash(u),
   ...over,
 });
@@ -145,16 +144,11 @@ test("card birthday passthrough (both stored forms), trainer-only fields dropped
   assert.equal(p2.card?.birthday, "05-10");
 });
 
-test("note and billing passthrough; empty note normalizes to null", () => {
+test("note passthrough; empty note normalizes to null", () => {
   const u = client();
-  const p = assembleClientCardPayload(u, TODAY, rows(u, {
-    note: "pays cash",
-    billing: { paidUntil: "2026-08-01", sessionsLeft: 5 },
-  }));
+  const p = assembleClientCardPayload(u, TODAY, rows(u, { note: "pays cash" }));
   assert.equal(p.note, "pays cash");
-  assert.deepEqual(p.billing, { paidUntil: "2026-08-01", sessionsLeft: 5 });
   const p2 = assembleClientCardPayload(u, TODAY, rows(u, { note: "" }));
   assert.equal(p2.note, null);
-  assert.equal(p2.billing, null);
   assert.equal(p.dashboard.today, TODAY); // embedded dashboard payload is carried as-is
 });

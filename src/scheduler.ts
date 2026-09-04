@@ -20,15 +20,11 @@ import {
   listStrength,
   listInjuriesDue,
   markInjuryAsked,
-  sessionsBetween,
-  markPastSessionsDone,
   getUser,
-  getUsersByIds,
   listActivePlans,
   allWorkoutLogsSince,
   listCandidatesByMuscles,
   listClients,
-  listBillingForTrainer,
   listOnboardedUsers,
   listOnboardingOwedReply,
   listPlanPendingUsers,
@@ -41,9 +37,6 @@ import {
   releaseScheduleLock,
   dueRestTimers,
   deleteRestTimers,
-  decrementSessionsLeft,
-  listBillingDue,
-  markBillingNudged,
   nutritionLogsSince,
   pruneSeenUpdates,
   pruneOldLogs,
@@ -80,7 +73,6 @@ import { stalledLifts } from "./domain/analysis";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
 import { suggestReminderHour } from "./domain/reminderTiming";
 import { missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
-import { sessionTimeFor } from "./domain/sessionTz";
 import { cleanAi, escapeHtml, t } from "./locales/i18n";
 import { chunkReport, renderDay } from "./render";
 import { aiText } from "./ai/index";
@@ -413,29 +405,6 @@ async function runScheduleInner(env: Env): Promise<void> {
     }
   }
 
-  // Past confirmed sessions become "done" (single sweep, UTC today — a few hours' slack is fine).
-  // Completed sessions decrement the client's prepaid package; then nudge trainers whose
-  // client's paid period expired or package ran out (deduped per expiry via nudgedAt).
-  const donePairs = await markPastSessionsDone(db, isoDaysAgo(0)).catch(() => [] as { trainerId: number; clientId: number }[]);
-  for (const p of donePairs) await decrementSessionsLeft(db, p.trainerId, p.clientId).catch(() => {});
-  const billingDue = await listBillingDue(db, isoDaysAgo(0)).catch(() => []);
-  // A trainer whose whole roster expires together would be re-fetched per row — memoize.
-  const userCache = new Map<number, UserDoc | null>();
-  const cachedUser = async (id: number) => {
-    if (!userCache.has(id)) userCache.set(id, await getUser(db, id));
-    return userCache.get(id) ?? null;
-  };
-  for (const b of billingDue) {
-    const [trainer, client] = await Promise.all([cachedUser(b.trainerId), cachedUser(b.clientId)]);
-    if (trainer && client && !trainer.botBlocked) {
-      const name = client.profile.name ?? `id ${client._id}`;
-      const key = b.sessionsLeft === 0 ? "bill_nudge_sessions" : "bill_nudge_paid";
-      const kb = new InlineKeyboard().text(t(trainer.lang, "cc_billing"), `cl:${client._id}:bill`);
-      await bot.api.sendMessage(trainer.chatId, t(trainer.lang, key, { name }), { ...HTML, reply_markup: kb }).catch(() => {});
-    }
-    await markBillingNudged(db, b.trainerId, b.clientId, isoDaysAgo(0)).catch(() => {});
-  }
-
   // Vacation ended → run the comeback interview once. Set the session and send the opener + first
   // (free-text) question; the user's replies are then handled by the normal bot flow.
   const nowIso = new Date().toISOString();
@@ -586,40 +555,6 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
           await bot.api.sendMessage(trainer.chatId, t(trainer.lang, "atrisk_nutrition_alert", { name, n: lapse!.gapDays }), { ...HTML, reply_markup: kb }).catch((e) => console.error("atrisk nutrition", e));
           dirty["atrisk_nutrition"] = lapse!.lastLogged;
         }
-      }
-    }
-  }
-
-  // Session reminders (both roles): day-before at 20:00 and same-day ~2h before, per confirmed
-  // booking. Deduped per session id via reminders.sent so each fires once.
-  const sessRole: "trainer" | "client" | null = user.role === "trainer" ? "trainer" : user.role === "client" ? "client" : null;
-  if (sessRole && !remOff("session")) {
-    const tomorrow = new Date(Date.parse(date) + 86_400_000).toISOString().slice(0, 10);
-    // Fetch ±1 day around [today, tomorrow] on the STORED axis: the reminder filter compares
-    // CONVERTED dates, and a cross-timezone session near midnight can live on an adjacent
-    // stored date (fetching narrow silently dropped those reminders).
-    const dayAfter = new Date(Date.parse(date) + 2 * 86_400_000).toISOString().slice(0, 10);
-    const yesterday = new Date(Date.parse(date) - 86_400_000).toISOString().slice(0, 10);
-    const confirmed = (await sessionsBetween(db, user._id, sessRole, yesterday, dayAfter)).filter((s) => s.status === "confirmed");
-    const counterpartId = (s: (typeof confirmed)[number]) => (sessRole === "trainer" ? s.clientId : s.trainerId);
-    const others = await getUsersByIds(db, confirmed.map(counterpartId)); // one query, not one per session
-    for (const s of confirmed) {
-      if (pinged) break;
-      const other = others.get(counterpartId(s));
-      const withName = other?.profile.name ?? "…";
-      // The stored wall time lives in the booker's zone — convert to THIS user's zone.
-      const local = sessionTimeFor(s.date, s.hour, s.tz, tz);
-      // Link goes into a parse_mode:HTML message — escape it or a "<" in a query string
-      // 400s the send and the dedup key still burns, permanently losing the reminder.
-      const linkLine = s.meetingLink ? `\n${escapeHtml(s.meetingLink)}` : "";
-      if (local.date === tomorrow && hour >= 20 && sent[`sess_tomorrow_${s.id}`] !== s.date) {
-        await send(t(lang, "sess_tomorrow", { hour: local.hour, name: withName }) + linkLine);
-        dirty[`sess_tomorrow_${s.id}`] = s.date;
-        pinged = true;
-      } else if (local.date === date && hour >= Math.max(8, local.hour - 2) && sent[`sess_today_${s.id}`] !== s.date) {
-        await send(t(lang, "sess_today", { hour: local.hour, name: withName }) + linkLine);
-        dirty[`sess_today_${s.id}`] = s.date;
-        pinged = true;
       }
     }
   }
@@ -1105,23 +1040,6 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
               offplan: offPlan > 0 ? t(lang, "digest_offplan", { n: offPlan }) : "",
             }),
           );
-        }
-        // 💳 Renewals due — clients whose paid-until is overdue or within 3 days.
-        try {
-          const billing = await listBillingForTrainer(db, user._id);
-          const nameById = new Map(clients.map((c) => [c._id, c.profile.name ?? `id ${c._id}`]));
-          const soon = new Date(Date.parse(date) + 3 * 86_400_000).toISOString().slice(0, 10);
-          const due = billing
-            .filter((b) => b.paidUntil && b.paidUntil <= soon && nameById.has(b.clientId))
-            .sort((a, z) => (a.paidUntil! < z.paidUntil! ? -1 : 1));
-          if (due.length) {
-            lines.push("", t(lang, "digest_renewals"));
-            for (const b of due) {
-              lines.push(t(lang, "digest_renewal_line", { name: escapeHtml(nameById.get(b.clientId)!), date: b.paidUntil!, status: t(lang, b.paidUntil! < date ? "digest_overdue" : "digest_soon") }));
-            }
-          }
-        } catch {
-          /* renewals optional */
         }
         await bot.api.sendMessage(user.chatId, lines.join("\n"), HTML).catch((e) => console.error("digest send", e));
       }

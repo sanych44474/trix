@@ -190,7 +190,6 @@
     <button id="bc-open" class="lbtn" style="width:100%;margin:0 0 10px;background:var(--card);color:var(--fg)"></button>
     <button id="ops-open" class="lbtn" style="width:100%;margin:0 0 10px;background:var(--card);color:var(--fg)"></button>
     <h2 id="h-team"></h2><div class="card" id="c-team"></div>
-    <h2 id="h-tsess"></h2><div class="card" id="c-tsess"></div>
   </div>
   <div id="sec-own" style="display:none">
     <h2 id="h-dau"></h2><div class="card"><div id="c-dau"></div><div class="sub" id="s-funnel"></div></div>
@@ -776,12 +775,6 @@ function render(p) {
     });
     if (tappable) trows = '<div class="sub" style="margin-bottom:4px">' + WA.wa_clients_hint + "</div>" + trows;
     el("c-team").innerHTML = trows || '<div class="sub">' + esc(L.nodata) + "</div>";
-    el("h-tsess").textContent = L.tsess;
-    var srows = "";
-    p.trainer.sessions.forEach(function (s) {
-      srows += "<div>" + s.date + " " + pad2(s.hour) + ":00 · " + esc(s.with || "") + " · " + (L.statusMap[s.status] || s.status) + "</div>";
-    });
-    el("c-tsess").innerHTML = srows || '<div class="sub">' + esc(L.nodata) + "</div>";
   }
 
   // Owner analytics (present only for the owner): DAU trend, funnel, AI stats, no-AI offload.
