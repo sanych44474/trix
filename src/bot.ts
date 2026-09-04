@@ -1,6 +1,6 @@
 import { GrammyError, InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
-import type { BodyLogDoc, CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, LoggedExercise, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, StrengthRecordDoc, Supplement, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, addWater, setWater, getWater, setRestTimer, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
+import type { CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, LoggedExercise, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, Supplement, UserDoc, Weekday } from "./types";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, addWater, setWater, getWater, setRestTimer, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText, aiVisionJSON, type InlineImage } from "./ai";
 import { lookupPer100gCached } from "./ai/nutritionDb";
@@ -12,6 +12,8 @@ import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, nextLevel, g
 import { e1rm, prMilestones, rankOf, weekStartStr, weekStreak, workoutMilestones } from "./domain/records";
 import { exerciseVideoKey, renderActivityGrid, renderBoard, renderPlan, renderSchedule, renderStrength, exerciseChart, wellbeingChart, renderToday, upcomingSessions, weekdayName } from "./render";
 import { strengthStandard, type StrengthLevel } from "./domain/standards";
+import { cmdReport, localCutoff } from "./bot/report";
+import { cmdReplan, prDate } from "./bot/exportData";
 import { interviewProgress, isOwner } from "./bot/owner";
 import { joinByCode, requireTrainer, showSharedProgram, showPlanEditDay, trainerMenu, trainerMenuActionFor, trainerStyleBlock } from "./bot/trainer";
 export { buildOwnerReport, buildErrorReport } from "./bot/owner";
@@ -40,6 +42,8 @@ export * from "./bot/cycle";
 export * from "./bot/shareConsent";
 export * from "./bot/calendar";
 export * from "./bot/planDays";
+export * from "./bot/report";
+export * from "./bot/exportData";
 
 import { computeXp, levelFromXp } from "./domain/gamification";
 import { parseSetLine, parseSetEdit } from "./domain/setLine";
@@ -4499,303 +4503,12 @@ export async function onQualityRating(ctx: MyContext, n: number) {
 }
 
 // ---------------- user report ----------------
-
-export function localCutoff(timezone: string | undefined, days: number): string {
-  const { date } = localParts(timezone);
-  return new Date(Date.parse(date) - days * 86_400_000).toISOString().slice(0, 10);
-}
-
-// Average daily nutrition over the logged days, as a localized report line.
-export function reportNutritionLine(
-  lang: Lang,
-  logs: Awaited<ReturnType<typeof nutritionLogsSince>>,
-  goalKcal: number | string,
-): string {
-  if (!logs.length) return t(lang, "report_no_nutrition");
-  const agg = logs.reduce(
-    (a, log) => {
-      const d = log.meals.reduce(
-        (s, m) => ({ kcal: s.kcal + num(m.kcal), p: s.p + num(m.protein), f: s.f + num(m.fats), c: s.c + num(m.carbs) }),
-        { kcal: 0, p: 0, f: 0, c: 0 },
-      );
-      return { kcal: a.kcal + d.kcal, p: a.p + d.p, f: a.f + d.f, c: a.c + d.c };
-    },
-    { kcal: 0, p: 0, f: 0, c: 0 },
-  );
-  const n = logs.length;
-  return t(lang, "report_nutrition_line", {
-    n,
-    days: REPORT_DAYS,
-    kcal: Math.round(agg.kcal / n),
-    p: Math.round(agg.p / n),
-    f: Math.round(agg.f / n),
-    c: Math.round(agg.c / n),
-    goalkcal: goalKcal,
-  });
-}
-
-export async function cmdReport(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const uid = ctx.user._id;
-  const cutoff = localCutoff(ctx.user.profile.timezone, REPORT_DAYS);
-
-  const { workouts: workoutLogs, nutrition: nutritionLogs, strength, body: bodyAsc, steps: stepLogs, checkins } =
-    await loadActivityWindow(ctx.db, uid, cutoff, { strengthLimit: 4 });
-
-  if (!workoutLogs.length && !nutritionLogs.length && !bodyAsc.length) {
-    await reply(ctx, t(lang, "report_no_data"), menuBtn(lang));
-    return;
-  }
-
-  const done = workoutLogs.filter((w) => w.completed).length;
-  const skipped = workoutLogs.filter((w) => !w.completed).length;
-
-  // average nutrition per logged day
-  const nutritionLine = reportNutritionLine(lang, nutritionLogs, ctx.user.nutrition?.calories ?? "—");
-
-  // body dynamics: earliest vs latest
-  const bodyLine = renderBodyDynamics(lang, bodyAsc);
-
-  // steps: average over logged days vs the plan target
-  let stepsLine = t(lang, "report_no_steps");
-  if (stepLogs.length) {
-    const avg = Math.round(stepLogs.reduce((s, l) => s + l.steps, 0) / stepLogs.length);
-    const plan = await getActivePlan(ctx.db, uid);
-    stepsLine = t(lang, "report_steps_line", {
-      avg,
-      n: stepLogs.length,
-      target: plan?.stepsTarget ?? "—",
-    });
-  }
-
-  const parts = [
-    t(lang, "report_header", { days: REPORT_DAYS }),
-    "",
-    `<b>${t(lang, "report_label_workouts")}:</b> ${t(lang, "report_workouts_line", { done, skipped, days: REPORT_DAYS })}`,
-    `<b>${t(lang, "report_label_nutrition")}:</b> ${nutritionLine}`,
-    `<b>${t(lang, "report_label_steps")}:</b> ${stepsLine}`,
-    `<b>${t(lang, "report_label_body")}:</b> ${bodyLine}`,
-  ];
-  if (strength.length) {
-    const lifts = strength
-      .map((r) => `${escapeHtml(r.exercise)} ${r.bestWeight || "BW"}×${r.bestReps}`)
-      .join(" · ");
-    parts.push(`<b>${t(lang, "report_label_strength")}:</b> ${lifts}`);
-  }
-  if (checkins.length) {
-    const avg = (sel: (c: (typeof checkins)[number]) => number) =>
-      (checkins.reduce((s, c) => s + sel(c), 0) / checkins.length).toFixed(1);
-    parts.push(
-      `<b>${t(lang, "report_label_wellbeing")}:</b> ` +
-        t(lang, "report_wellbeing_line", {
-          n: checkins.length,
-          energy: avg((c) => c.energy),
-          sleep: avg((c) => c.sleep),
-          stress: avg((c) => c.stress),
-        }),
-    );
-  }
-
-  // optional AI narrative
-  try {
-    const summary = {
-      workouts: { done, skipped, days: REPORT_DAYS },
-      nutritionAvg: nutritionLine,
-      steps: stepsLine,
-      strength: strength.map((r) => `${r.exercise} ${r.bestWeight}x${r.bestReps}`),
-      body: bodyLine,
-    };
-    const narrative = await aiText(ctx.env, {
-      system: P.reportSystem(lang),
-      user: JSON.stringify(summary),
-      temperature: 0.6,
-      kind: "report",
-      db: ctx.db,
-      userId: uid,
-    });
-    parts.push("", `💬 <i>${escapeHtml(narrative)}</i>`);
-  } catch {
-    /* narrative optional */
-  }
-
-  await reply(ctx, parts.join("\n"), menuBtn(lang));
-}
-
-export const BODY_FIELDS: { key: keyof NonNullable<BodyLogDoc["measurements"]>; en: string; uk: string }[] = [
-  { key: "waist", en: "waist", uk: "талія" },
-  { key: "chest", en: "chest", uk: "груди" },
-  { key: "arm", en: "arm", uk: "рука" },
-  { key: "hips", en: "hips", uk: "стегна" },
-  { key: "thigh", en: "thigh", uk: "нога" },
-];
-
-// Localized label for a body-measurement field.
-export function bodyFieldLabel(lang: Lang, f: { en: string; uk: string }): string {
-  return lang === "uk" ? f.uk : f.en;
-}
-
-export function renderBodyDynamics(lang: Lang, bodyAsc: BodyLogDoc[]): string {
-  if (!bodyAsc.length) return t(lang, "report_no_body");
-  const first = bodyAsc[0];
-  const last = bodyAsc[bodyAsc.length - 1];
-  const segs: string[] = [];
-  const fmtDelta = (a?: number, b?: number) => {
-    if (a === undefined || b === undefined) return undefined;
-    const d = +(b - a).toFixed(1);
-    const sign = d > 0 ? "+" : "";
-    return `${b}${d !== 0 ? ` (${sign}${d})` : ""}`;
-  };
-  const wLabel = lang === "uk" ? "вага" : "weight";
-  const w = fmtDelta(first.weight, last.weight) ?? (last.weight ? `${last.weight}` : undefined);
-  if (w) segs.push(`${wLabel} ${w}kg`);
-  for (const f of BODY_FIELDS) {
-    const v = fmtDelta(first.measurements?.[f.key], last.measurements?.[f.key]);
-    if (v) segs.push(`${bodyFieldLabel(lang, f)} ${v}cm`);
-  }
-  return segs.length ? segs.join(", ") : t(lang, "report_no_body");
-}
-
+// Moved to bot/report.ts (god-file split); re-exported below so existing `from "./bot"`
+// imports (router.ts, bot/trainer.ts) keep working.
 
 // ---------------- replan / delete / export ----------------
-
-export async function cmdReplan(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  if (!ctx.user.onboarded) {
-    await reply(ctx, t(lang, "not_onboarded"));
-    return;
-  }
-  await reply(ctx, t(lang, "replanning"));
-  const records = await listStrength(ctx.db, ctx.user._id, 8);
-  const prs = records.length
-    ? records.map((r) => `${r.exercise}: ${formatRecordBest(r)}`).join("\n")
-    : undefined;
-  await generatePlan(ctx, ctx.user.profile, prs);
-}
-
-export async function cmdDeleteMe(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const kb = new InlineKeyboard()
-    .text(t(lang, "deleteme_btn"), "del:confirm")
-    .text(t(lang, "deleteme_cancel"), "del:cancel");
-  await reply(ctx, t(lang, "deleteme_confirm"), kb);
-}
-
-// The date a strength PR was set: the most recent history entry that hit the stored best
-// (by reps metric); falls back to the record's updatedAt for time/distance lifts.
-export function prDate(r: StrengthRecordDoc): string {
-  if (r.metric === "reps") {
-    const hit = r.history.filter((h) => h.weight === r.bestWeight && h.reps === r.bestReps);
-    if (hit.length) return hit[hit.length - 1].date;
-  }
-  return r.updatedAt ? new Date(r.updatedAt).toISOString().slice(0, 10) : "—";
-}
-
-// One readable body-log line: weight + only the non-empty measurements, with units.
-export function bodyExportLine(lang: Lang, b: BodyLogDoc): string {
-  const parts: string[] = [];
-  if (b.weight) parts.push(`${b.weight} ${t(lang, "unit_kg")}`);
-  const m = b.measurements ?? {};
-  for (const f of BODY_FIELDS) {
-    const v = m[f.key];
-    if (typeof v === "number" && v > 0) parts.push(`${bodyFieldLabel(lang, f)} ${v} cm`);
-  }
-  return parts.join(" · ");
-}
-
-export async function cmdExport(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const md = await buildExportMd(ctx.db, ctx.user);
-  if (!md) {
-    await reply(ctx, t(lang, "export_none"), menuBtn(lang));
-    return;
-  }
-  await ctx.replyWithDocument(new InputFile(new TextEncoder().encode(md), "trix-export.md"), {
-    caption: t(lang, "export_caption"),
-  });
-}
-
-// Build the full markdown export for a user — ctx-free so both the bot (/export) and the Mini
-// App settings screen can produce it (the app pushes it as a document via the Bot API).
-export async function buildExportMd(db: D1Database, user: UserDoc): Promise<string | null> {
-  const lang = user.lang;
-  const uid = user._id;
-  const { workouts, nutrition, body, strength, steps, water, checkins } =
-    await loadActivityWindow(db, uid, "0000-01-01");
-  if (!workouts.length && !nutrition.length && !body.length && !strength.length && !steps.length && !water.length && !checkins.length) {
-    return null;
-  }
-  const name = user.profile.name ?? `id ${uid}`;
-  const today = localParts(user.profile.timezone).date;
-  const out: string[] = [`# ${t(lang, "export_title", { name, date: today })}`, ""];
-
-  // ---- Summary ----
-  out.push(`## ${t(lang, "export_summary")}`, "");
-  const done = workouts.filter((w) => w.completed).length;
-  const skipped = workouts.length - done;
-  out.push(`- ${t(lang, "report_label_workouts")}: ${done} ✅ · ${skipped} ⏭️`);
-  out.push(`- ${t(lang, "report_label_nutrition")}: ${reportNutritionLine(lang, nutrition, user.nutrition?.calories ?? "—")}`);
-  out.push(`- ${t(lang, "report_label_body")}: ${renderBodyDynamics(lang, body)}`);
-  if (steps.length) out.push(`- ${t(lang, "report_label_steps")}: ${Math.round(steps.reduce((s, l) => s + l.steps, 0) / steps.length)} (avg, ${steps.length}d)`);
-  if (water.length) out.push(`- ${t(lang, "menu_water")}: ${Math.round(water.reduce((s, l) => s + l.ml, 0) / water.length)} ml (avg, ${water.length}d)`);
-  if (checkins.length) {
-    const avg = (sel: (c: (typeof checkins)[number]) => number) => (checkins.reduce((s, c) => s + sel(c), 0) / checkins.length).toFixed(1);
-    out.push(`- ${t(lang, "report_label_wellbeing")}: ${t(lang, "report_wellbeing_line", { n: checkins.length, energy: avg((c) => c.energy), sleep: avg((c) => c.sleep), stress: avg((c) => c.stress) })}`);
-  }
-  out.push("");
-
-  // ---- Personal records (dated) ----
-  if (strength.length) {
-    out.push(`## ${t(lang, "report_label_strength")} (${t(lang, "export_records")})`, "");
-    for (const s of strength) {
-      const e = s.metric === "reps" && s.bestWeight > 0 ? ` · e1RM ${Math.round(e1rm(s.bestWeight, s.bestReps))} ${t(lang, "unit_kg")}` : "";
-      out.push(`- ${s.exercise} — ${formatRecordBest(s)}${e} · ${prDate(s)}`);
-    }
-    out.push("");
-  }
-
-  // ---- Daily log ----
-  out.push(`## ${t(lang, "export_dailylog")}`, "");
-  if (workouts.length) {
-    out.push(`### ${t(lang, "report_label_workouts")}`, "");
-    for (const w of workouts) {
-      const detail = w.completed
-        ? `${w.exercises.map((ex) => `${ex.name} ${ex.setsDone.map(formatSetEntry).join("/")}`).join("; ")}`
-        : t(lang, "export_skipped");
-      out.push(`- ${w.date} — ${detail}`);
-    }
-    out.push("");
-  }
-  if (nutrition.length) {
-    out.push(`### ${t(lang, "report_label_nutrition")}`, "");
-    for (const n of nutrition) {
-      const tot = n.meals.reduce((a, m) => ({ k: a.k + num(m.kcal), p: a.p + num(m.protein), f: a.f + num(m.fats), c: a.c + num(m.carbs) }), { k: 0, p: 0, f: 0, c: 0 });
-      out.push(`- ${n.date} — ${tot.k} ${t(lang, "unit_kcal")} · P${tot.p} F${tot.f} C${tot.c}`);
-    }
-    out.push("");
-  }
-  if (body.length) {
-    out.push(`### ${t(lang, "report_label_body")}`, "");
-    for (const b of body) out.push(`- ${b.date} — ${bodyExportLine(lang, b)}`);
-    out.push("");
-  }
-  if (steps.length) {
-    out.push(`### ${t(lang, "report_label_steps")}`, "");
-    for (const l of steps) out.push(`- ${l.date} — ${l.steps}`);
-    out.push("");
-  }
-  if (water.length) {
-    out.push(`### ${t(lang, "menu_water")}`, "");
-    for (const l of water) out.push(`- ${l.date} — ${l.ml} ml`);
-    out.push("");
-  }
-  if (checkins.length) {
-    out.push(`### ${t(lang, "report_label_wellbeing")}`, "");
-    for (const c of checkins) out.push(`- ${c.date} — energy ${c.energy}/5 · sleep ${c.sleep}/5 · stress ${c.stress}/5`);
-    out.push("");
-  }
-
-  return "﻿" + out.join("\n");
-}
+// Moved to bot/exportData.ts (god-file split); re-exported below so existing `from "./bot"`
+// imports (router.ts, webapp/settingsApi.ts) keep working.
 
 
 // ---------------- bot factory ----------------
