@@ -1,6 +1,6 @@
 import { GrammyError, InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
-import type { BodyLogDoc, CatalogExercise, Env, ExerciseMetric, ExerciseVideo, InjurySwap, Lang, LoggedExercise, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, StrengthRecordDoc, Supplement, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, setVacation, clearVacation, listInactive, clearInactiveAsk, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordAudit, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, deleteUserData, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, unlinkClient, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, stepLogsSince, addWater, setWater, getWater, waterLogsSince, joinChallenge, activeChallenges, activeChallengeCodes, markChallengeDone, countCompletedChallenges, setRestTimer, userStatCounts, createInjury, getInjury, listActiveInjuries, appendInjuryCheckin, getActiveInjuryByArea, updateInjury, resolveInjury, extendInjury, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
+import type { BodyLogDoc, CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, LoggedExercise, MealEntry, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, StrengthRecordDoc, Supplement, UserDoc, Weekday } from "./types";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, listInactive, clearInactiveAsk, awardAchievement, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordAudit, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, recordPlanSource, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, createQuestion, deleteUserData, dailyCheckinsSince, getActivePlan, getRecentContext, getOwnerChatId, getWorkoutLog, getTrainer, getUser, insertFeedback, listClients, listStrength, pendingRequestForClient, setQuestionDraft, unlinkClient, updateActivePlanSplit, nutritionLogsSince, saveBaselineBody as saveBaselineBodyDb, saveDraftPlan, getStepLog, addWater, setWater, getWater, setRestTimer, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, upsertStrengthRecord, upsertWorkoutLog, updateUser, workoutLogsSince, loadActivityWindow, getUserFoodCorrection, putUserFoodCorrection } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText, aiVisionJSON, type InlineImage } from "./ai";
 import { lookupPer100gCached } from "./ai/nutritionDb";
@@ -32,6 +32,9 @@ import { generateClientDraft, translatePlanExercises, healPlanIfDegenerate, gene
 export * from "./bot/plan";
 import { MENU_MAP, deferAi, maybeCelebrateLevel, onError } from "./bot/router";
 export * from "./bot/router";
+export * from "./bot/challenges";
+export * from "./bot/vacation";
+export * from "./bot/injury";
 
 import { computeXp, levelFromXp } from "./domain/gamification";
 import { parseSetLine, parseSetEdit } from "./domain/setLine";
@@ -40,8 +43,8 @@ import { switchMode, unsavedLogCount } from "./domain/session";
 import { weeklyVolume, projectWeight, stalledLifts, type MuscleVolume } from "./domain/analysis";
 import { platePlan, warmupRamp } from "./domain/calc";
 import { monthGrid, prevMonth, nextMonth, monthTitle, dayMarker, ymOf } from "./domain/calendar";
-import { INJURY_AREAS, conflictingSlots, isSafeCandidate, checkAfterDate, restorable, safeMusclesFor, type InjuryArea, type Severity } from "./domain/injury";
-import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindowCounts, progressBar, resolveWaterGoal, type ChallengeData, type ChallengeTemplate } from "./domain/challenges";
+import { showInjuryMenu } from "./bot/injury";
+import { progressBar, resolveWaterGoal } from "./domain/challenges";
 import { lookupExerciseVideoCached } from "./youtube";
 import { APP_VERSION } from "./webapp/appVersion";
 
@@ -3504,84 +3507,9 @@ export async function onWaterAction(ctx: MyContext, action: string) {
 }
 
 // ===================== Challenges =====================
-
-// Gather the raw counts a challenge needs, over its [startDate, endDate] window. Progress is always
-// recomputed live from logs (so editing/deleting a log keeps it honest); only enrollment is stored.
-export async function challengeData(ctx: MyContext, startDate: string, endDate: string): Promise<ChallengeData> {
-  const uid = ctx.user._id;
-  const [wl, nl, sl, water] = await Promise.all([
-    workoutLogsSince(ctx.db, uid, startDate),
-    nutritionLogsSince(ctx.db, uid, startDate),
-    stepLogsSince(ctx.db, uid, startDate),
-    waterLogsSince(ctx.db, uid, startDate),
-  ]);
-  return challengeWindowCounts({ workouts: wl, nutrition: nl, steps: sl, water }, startDate, endDate, waterGoalFor(ctx));
-}
-
-export function challengeTitle(lang: Lang, tpl: ChallengeTemplate): string {
-  return `${tpl.emoji} ${t(lang, `chal_${tpl.code}_title` as TKey)}`;
-}
-
-export async function cmdChallenges(ctx: MyContext) {
-  await clearEditOwner(ctx);
-  const lang = ctx.user.lang;
-  const { date } = localParts(ctx.user.profile.timezone);
-  const active = await activeChallenges(ctx.db, ctx.user._id, date);
-  const blocks: string[] = [];
-  const completedNow: string[] = [];
-  for (const ch of active) {
-    const tpl = challengeByCode(ch.code);
-    if (!tpl) continue;
-    const data = await challengeData(ctx, ch.startDate, ch.endDate);
-    const st = challengeStatus(tpl, challengeCurrent(tpl, data));
-    if (st.done) {
-      // Completion is recorded on the challenge row (completedAt) — counted by countCompletedChallenges.
-      // Not an achievement badge (those are a fixed catalog and would skew the badge counter).
-      await markChallengeDone(ctx.db, ch.id);
-      completedNow.push(challengeTitle(lang, tpl));
-      continue;
-    }
-    const daysLeft = Math.max(0, Math.round((Date.parse(ch.endDate) - Date.parse(date)) / 86_400_000));
-    blocks.push(
-      `<b>${escapeHtml(challengeTitle(lang, tpl))}</b>\n${progressBar(st.pct)} ${st.current}/${st.target} · ${t(lang, "chal_days_left", { n: daysLeft })}`,
-    );
-  }
-  const won = await countCompletedChallenges(ctx.db, ctx.user._id);
-  const parts: string[] = [t(lang, "chal_title")];
-  for (const c of completedNow) parts.push(t(lang, "chal_completed_now", { title: c }));
-  if (blocks.length) parts.push("", blocks.join("\n\n"));
-  else if (!completedNow.length) parts.push("", t(lang, "chal_none"));
-  if (won > 0) parts.push("", t(lang, "chal_won_total", { n: won }));
-  const kb = new InlineKeyboard().text(t(lang, "chal_join_btn"), "chal:new").row().text(t(lang, "menu_open"), "menu:open");
-  await reply(ctx, parts.join("\n"), kb);
-}
-
-export async function showChallengePicker(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const { date } = localParts(ctx.user.profile.timezone);
-  const taken = await activeChallengeCodes(ctx.db, ctx.user._id, date);
-  const available = CHALLENGES.filter((c) => !taken.has(c.code));
-  if (!available.length) { await reply(ctx, t(lang, "chal_all_joined"), menuBtn(lang)); return; }
-  const kb = new InlineKeyboard();
-  for (const tpl of available) {
-    kb.text(`${challengeTitle(lang, tpl)}`.slice(0, 60), `chal:join:${tpl.code}`).row();
-  }
-  kb.text(t(lang, "back"), "menu:challenges");
-  await reply(ctx, t(lang, "chal_pick"), kb);
-}
-
-export async function onChallengeJoin(ctx: MyContext, code: string) {
-  const lang = ctx.user.lang;
-  const tpl = challengeByCode(code);
-  if (!tpl) { await showChallengePicker(ctx); return; }
-  const { date } = localParts(ctx.user.profile.timezone);
-  const taken = await activeChallengeCodes(ctx.db, ctx.user._id, date);
-  if (taken.has(code)) { await reply(ctx, t(lang, "chal_already")); await cmdChallenges(ctx); return; }
-  const endDate = isoDateMinus(date, -(tpl.windowDays - 1)); // start + (windowDays - 1) days, inclusive
-  await joinChallenge(ctx.db, ctx.user._id, code, date, endDate);
-  await reply(ctx, t(lang, "chal_joined", { title: challengeTitle(lang, tpl), days: tpl.windowDays }));
-  await cmdChallenges(ctx);
-}
+// challengeData/challengeTitle/cmdChallenges/showChallengePicker/onChallengeJoin moved to
+// bot/challenges.ts (god-file split); re-exported below so existing `from "./bot"` imports
+// (router.ts) keep working.
 
 export async function cmdFeedback(ctx: MyContext) {
   await setMode(ctx, "feedback");
@@ -3620,150 +3548,8 @@ export async function onReminderToggle(ctx: MyContext, key: string) {
 }
 
 // ===================== Vacation / pause mode =====================
-
-export async function cmdVacation(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  if (ctx.user.vacationUntil && ctx.user.vacationUntil > new Date()) {
-    const kb = new InlineKeyboard().text(t(lang, "vacation_end_btn"), "vac:end");
-    await reply(ctx, t(lang, "vacation_on", { date: ctx.user.vacationUntil.toISOString().slice(0, 10) }), kb);
-    return;
-  }
-  const kb = new InlineKeyboard()
-    .text(t(lang, "vac_1w"), "vac:set:7")
-    .text(t(lang, "vac_2w"), "vac:set:14")
-    .row()
-    .text(t(lang, "vac_4w"), "vac:set:28")
-    .text(t(lang, "vac_custom"), "vac:custom");
-  await reply(ctx, t(lang, "vacation_pick_duration"), kb);
-}
-
-export async function setVacationDays(ctx: MyContext, days: number) {
-  const lang = ctx.user.lang;
-  const until = new Date(Date.now() + days * 86_400_000);
-  await setVacation(ctx.db, ctx.user._id, until.toISOString());
-  ctx.user.vacationUntil = until;
-  await rememberVacationWindow(ctx, until);
-  await setMode(ctx, "idle");
-  await reply(ctx, t(lang, "vacation_set", { date: until.toISOString().slice(0, 10) }), menuBtn(lang));
-}
-
-// Persist the vacation window so the week streak treats those weeks as FROZEN (an agreed
-// pause must not break a streak) — used by /records, the week card and the weekly nudge.
-async function rememberVacationWindow(ctx: MyContext, until: Date) {
-  const reminders = {
-    ...ctx.user.reminders,
-    lastVacation: { from: new Date().toISOString().slice(0, 10), until: until.toISOString().slice(0, 10) },
-  };
-  await updateUser(ctx.db, ctx.user._id, { reminders });
-  ctx.user.reminders = reminders;
-}
-
-export async function handleVacationCustom(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const m = /(\d{4}-\d{2}-\d{2})/.exec(text.trim());
-  const until = m ? new Date(`${m[1]}T00:00:00Z`) : null;
-  if (!until || Number.isNaN(until.getTime()) || until <= new Date()) {
-    await reply(ctx, t(lang, "vacation_custom_prompt"));
-    return;
-  }
-  await setVacation(ctx.db, ctx.user._id, until.toISOString());
-  ctx.user.vacationUntil = until;
-  await rememberVacationWindow(ctx, until);
-  await setMode(ctx, "idle");
-  await reply(ctx, t(lang, "vacation_set", { date: until.toISOString().slice(0, 10) }), menuBtn(lang));
-}
-
-export async function endVacation(ctx: MyContext) {
-  await clearVacation(ctx.db, ctx.user._id);
-  ctx.user.vacationUntil = undefined;
-  await startComeback(ctx);
-}
-
-// ---------- comeback interview (after vacation) ----------
-
-interface ComebackStep { key: string; q: TKey; kind: "text" | "buttons"; buttons?: { label: TKey; value: string }[] }
-export function comebackSteps(): ComebackStep[] {
-  return [
-    { key: "feel", q: "comeback_q_feel", kind: "text" },
-    { key: "goals", q: "comeback_q_goals", kind: "buttons", buttons: [
-      { label: "comeback_goals_same", value: "same" }, { label: "comeback_goals_changed", value: "changed" }] },
-    { key: "weight", q: "comeback_q_weight", kind: "buttons", buttons: [
-      { label: "comeback_wt_up", value: "up" }, { label: "comeback_wt_same", value: "same" }, { label: "comeback_wt_down", value: "down" }] },
-    { key: "changed", q: "comeback_q_changed", kind: "buttons", buttons: [
-      { label: "comeback_yes", value: "yes" }, { label: "comeback_no", value: "no" }] },
-    { key: "decision", q: "comeback_q_decision", kind: "buttons", buttons: [
-      { label: "comeback_keep", value: "keep" }, { label: "comeback_adjust", value: "adjust" }, { label: "comeback_recreate", value: "recreate" }] },
-  ];
-}
-
-export async function startComeback(ctx: MyContext) {
-  ctx.user.session = { mode: "comeback", comeback: { step: 0, answers: {} } };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  await renderComebackStep(ctx, 0);
-}
-
-export async function renderComebackStep(ctx: MyContext, i: number) {
-  const lang = ctx.user.lang;
-  const steps = comebackSteps();
-  const step = steps[i];
-  if (!step) { await finishComeback(ctx); return; }
-  let kb: InlineKeyboard | undefined;
-  if (step.kind === "buttons" && step.buttons) {
-    kb = new InlineKeyboard();
-    step.buttons.forEach((b, idx) => { kb!.text(t(lang, b.label), `cmb:${step.key}:${b.value}`); if ((idx + 1) % 2 === 0) kb!.row(); });
-  }
-  // Match the (N/M) progress convention used by renderObStep so the user always knows how much is left.
-  const progress = `(${i + 1}/${steps.length})`;
-  await reply(ctx, `${progress} ${t(lang, step.q)}`, kb);
-}
-
-export async function comebackButton(ctx: MyContext, data: string) {
-  if (ctx.user.session.mode !== "comeback") return;
-  const [, key, value] = data.split(":");
-  const cb = ctx.user.session.comeback ?? { step: 0, answers: {} };
-  const step = comebackSteps()[cb.step];
-  if (!step || step.key !== key) { await renderComebackStep(ctx, cb.step); return; }
-  cb.answers[key] = value;
-  cb.step += 1;
-  ctx.user.session = { ...ctx.user.session, comeback: cb };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  await renderComebackStep(ctx, cb.step);
-}
-
-export async function handleComebackText(ctx: MyContext, text: string) {
-  const cb = ctx.user.session.comeback ?? { step: 0, answers: {} };
-  const step = comebackSteps()[cb.step];
-  if (!step) { await finishComeback(ctx); return; }
-  if (step.kind !== "text") { await renderComebackStep(ctx, cb.step); return; }
-  cb.answers[step.key] = text.trim().slice(0, 300);
-  cb.step += 1;
-  ctx.user.session = { ...ctx.user.session, comeback: cb };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  await renderComebackStep(ctx, cb.step);
-}
-
-export async function finishComeback(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const decision = ctx.user.session.comeback?.answers.decision ?? "keep";
-  if (decision === "recreate") {
-    ctx.user.session = { mode: "plan_pending" };
-    await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-    await reply(ctx, t(lang, "comeback_done_recreate"));
-    if (ctx.user.role === "client" && ctx.user.trainerId) await generateClientDraft(ctx, ctx.user.profile);
-    else await generatePlan(ctx, ctx.user.profile);
-    return;
-  }
-  if (decision === "adjust") {
-    // Reuse the existing adaptive micro-adjustment flow — the user's next message drives it.
-    ctx.user.session = { mode: "checkin_adaptive" };
-    await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-    await reply(ctx, t(lang, "comeback_done_adjust"));
-    return;
-  }
-  ctx.user.session = { mode: "idle" };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  await reply(ctx, t(lang, "comeback_done_keep"), menuBtn(lang));
-}
+// Moved to bot/vacation.ts (god-file split), including the comeback interview; re-exported
+// below so existing `from "./bot"` imports (router.ts) keep working.
 
 // ===================== Owner-confirmed cleanup (NEVER auto) =====================
 
@@ -4057,209 +3843,8 @@ export async function handleGoalWeight(ctx: MyContext, text: string) {
 }
 
 // ===================== Injury / pain tracking =====================
-
-export const INJURY_AREA_LABEL: Record<string, TKey> = {
-  shoulder: "inj_area_shoulder", elbow: "inj_area_elbow", wrist: "inj_area_wrist",
-  lower_back: "inj_area_lower_back", knee: "inj_area_knee", hip: "inj_area_hip",
-  ankle: "inj_area_ankle", neck: "inj_area_neck",
-};
-export const areaLabelKey = (area: string): TKey => INJURY_AREA_LABEL[area] ?? "inj_area_shoulder";
-
-export async function showInjuryMenu(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const active = await listActiveInjuries(ctx.db, ctx.user._id);
-  const kb = new InlineKeyboard();
-  for (const inj of active) {
-    kb.text(t(lang, "inj_recovered_btn", { area: t(lang, areaLabelKey(inj.area)) }).slice(0, 60), `inj:ok:${inj.id}`).row();
-  }
-  kb.text(t(lang, "inj_report_pain_btn"), "inj:report").row().text(t(lang, "back"), "menu:settings");
-  const body = active.length
-    ? t(lang, "inj_active_title") + "\n" + active.map((i) => `• ${t(lang, areaLabelKey(i.area))} (${t(lang, i.severity === "strong" ? "inj_sev_strong" : "inj_sev_mild")})`).join("\n")
-    : t(lang, "inj_none");
-  await reply(ctx, body, kb);
-}
-
-export async function showInjuryAreas(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const kb = new InlineKeyboard();
-  INJURY_AREAS.forEach((a, i) => {
-    kb.text(t(lang, areaLabelKey(a)), `inj:a:${a}`);
-    if ((i + 1) % 2 === 0) kb.row();
-  });
-  kb.row().text(t(lang, "back"), "set:injury");
-  await reply(ctx, t(lang, "inj_pick_area"), kb);
-}
-
-export async function showInjurySeverity(ctx: MyContext, area: string) {
-  const lang = ctx.user.lang;
-  const kb = new InlineKeyboard()
-    .text(t(lang, "inj_sev_mild"), `inj:s:${area}:mild`)
-    .text(t(lang, "inj_sev_strong"), `inj:s:${area}:strong`);
-  await reply(ctx, t(lang, "inj_pick_sev", { area: t(lang, areaLabelKey(area)) }), kb);
-}
-
-// Insert or update (same-area re-report) the active injury row.
-export async function saveInjury(ctx: MyContext, area: string, severity: string, checkAfter: string, swaps: InjurySwap[]) {
-  const existing = await getActiveInjuryByArea(ctx.db, ctx.user._id, area);
-  if (existing) await updateInjury(ctx.db, existing.id, { area, severity, checkAfter, swaps });
-  else await createInjury(ctx.db, { userId: ctx.user._id, area, severity, checkAfter, swaps });
-}
-
-export async function reportInjury(ctx: MyContext, area: InjuryArea, severity: Severity) {
-  const lang = ctx.user.lang;
-  const uid = ctx.user._id;
-  const { date } = localParts(ctx.user.profile.timezone);
-  const checkAfter = checkAfterDate(date, severity);
-  const areaLabel = t(lang, areaLabelKey(area));
-
-  // A client's plan is trainer-owned — never silently mutate it; record + notify the trainer.
-  if (ctx.user.role === "client") {
-    await saveInjury(ctx, area, severity, checkAfter, []);
-    if (ctx.user.trainerId) {
-      const trainer = await getUser(ctx.db, ctx.user.trainerId);
-      if (trainer) {
-        const who = ctx.user.profile.name ?? `id ${uid}`;
-        const kb = new InlineKeyboard().text(t(trainer.lang, "cc_open_card"), `cl:${uid}:card`);
-        await ctx.api.sendMessage(trainer.chatId, t(trainer.lang, "inj_client_notify", { name: who, area: t(trainer.lang, areaLabelKey(area)), sev: t(trainer.lang, severity === "strong" ? "inj_sev_strong" : "inj_sev_mild") }), { ...HTML, reply_markup: kb }).catch(() => {});
-      }
-    }
-    await reply(ctx, t(lang, "inj_saved_client", { area: areaLabel }), menuBtn(lang));
-    return;
-  }
-
-  const plan = await getActivePlan(ctx.db, uid);
-  if (!plan || !plan.split.length) {
-    await saveInjury(ctx, area, severity, checkAfter, []);
-    await reply(ctx, t(lang, "inj_saved_noplan", { area: areaLabel }), menuBtn(lang));
-    return;
-  }
-  const slots = conflictingSlots(plan.split, area, severity);
-  if (!slots.length) {
-    await saveInjury(ctx, area, severity, checkAfter, []);
-    await reply(ctx, t(lang, "inj_saved_noswap", { area: areaLabel }), menuBtn(lang));
-    return;
-  }
-
-  // Replacement pool: safe-muscle catalog candidates not already in the plan.
-  const used = new Set<string>();
-  for (const d of plan.split) for (const e of d.exercises) used.add((e.canonicalName ?? e.name).toLowerCase());
-  const candidates = (await listCandidatesByMuscles(ctx.db, safeMusclesFor(area), { level: ctx.user.profile.level }))
-    .filter((c) => isSafeCandidate(c, area) && !used.has(c.name.toLowerCase()));
-
-  const swaps: InjurySwap[] = [];
-  const swappedLines: string[] = [];
-  const leftLines: string[] = [];
-  let ci = 0;
-  for (const slot of slots) {
-    const day = plan.split.find((d) => d.weekday === slot.weekday);
-    const original = day?.exercises[slot.index];
-    if (!day || !original) continue;
-    const alt = candidates[ci];
-    if (!alt) { leftLines.push(original.name); continue; }
-    ci++;
-    used.add(alt.name.toLowerCase());
-    let name = alt.name;
-    let technique = cleanAi(alt.instructions || original.technique || "");
-    if (lang !== "en") {
-      const tr = await getExerciseTranslation(ctx.db, alt.id, "uk").catch(() => null);
-      if (tr) { name = tr.name; technique = cleanAi(tr.instructions); }
-    }
-    day.exercises[slot.index] = {
-      name, sets: original.sets, startWeight: "—", technique,
-      exerciseId: alt.id, canonicalName: alt.name, muscles: alt.muscle,
-      role: original.role, rest: original.rest,
-    };
-    swaps.push({ weekday: slot.weekday, index: slot.index, original, replacementCanonical: name });
-    swappedLines.push(t(lang, "inj_swap_line", { from: original.name, to: name }));
-  }
-
-  if (swaps.length) await updateActivePlanSplit(ctx.db, uid, plan.split);
-  await saveInjury(ctx, area, severity, checkAfter, swaps);
-
-  let body = t(lang, "inj_saved_swaps", { area: areaLabel, n: swaps.length });
-  if (swappedLines.length) body += "\n\n" + swappedLines.join("\n");
-  if (leftLines.length) body += "\n\n" + t(lang, "inj_swap_reduce", { list: leftLines.map(escapeHtml).join(", ") });
-  await reply(ctx, body, menuBtn(lang));
-}
-
-export async function onInjuryRecovered(ctx: MyContext, id: number) {
-  const lang = ctx.user.lang;
-  const inj = await getInjury(ctx.db, id);
-  if (!inj || inj.userId !== ctx.user._id) { await reply(ctx, t(lang, "error_generic")); return; }
-  // Restore originals where the slot still holds the replacement we put there.
-  let restored = 0;
-  if (inj.swaps.length && ctx.user.role !== "client") {
-    const plan = await getActivePlan(ctx.db, ctx.user._id);
-    if (plan) {
-      for (const s of inj.swaps) {
-        const day = plan.split.find((d) => d.weekday === s.weekday);
-        const cur = day?.exercises[s.index];
-        if (day && cur && restorable(cur.canonicalName ?? cur.name, s.replacementCanonical)) {
-          day.exercises[s.index] = s.original;
-          restored++;
-        }
-      }
-      if (restored) await updateActivePlanSplit(ctx.db, ctx.user._id, plan.split);
-    }
-  }
-  await resolveInjury(ctx.db, id);
-  await reply(ctx, t(lang, restored ? "inj_restored" : "inj_recovered_done", { n: restored }), menuBtn(lang));
-}
-
-export async function onInjuryExtend(ctx: MyContext, id: number) {
-  const lang = ctx.user.lang;
-  const inj = await getInjury(ctx.db, id);
-  if (!inj || inj.userId !== ctx.user._id) { await reply(ctx, t(lang, "error_generic")); return; }
-  const { date } = localParts(ctx.user.profile.timezone);
-  await extendInjury(ctx.db, id, checkAfterDate(date, "mild")); // +7 days
-  await reply(ctx, t(lang, "inj_extended"), menuBtn(lang));
-}
-
-// Numeric pain check-in — richer than binary OK/more. Score 0..10; the four preset buttons
-// map to 0/3/6/8 so the follow-up prompt stays one tap. Extends or resolves based on score,
-// and records a longitudinal `checkinsHistory` row that powers the "🩹 Pain trend" screen.
-export async function onInjuryScore(ctx: MyContext, id: number, score: number) {
-  const lang = ctx.user.lang;
-  const inj = await getInjury(ctx.db, id);
-  if (!inj || inj.userId !== ctx.user._id) { await reply(ctx, t(lang, "error_generic")); return; }
-  const clamped = Math.max(0, Math.min(10, Math.round(score)));
-  const { date } = localParts(ctx.user.profile.timezone);
-  await appendInjuryCheckin(ctx.db, id, { date, score: clamped });
-  if (clamped === 0) {
-    // Score 0 == fully OK: fall through the existing recovered flow so plan swaps get reverted.
-    await onInjuryRecovered(ctx, id);
-    return;
-  }
-  // Severe pain → longer window before re-asking, so we don't nag while it's still bad.
-  const nextCheck = checkAfterDate(date, clamped >= 7 ? "strong" : "mild");
-  await extendInjury(ctx.db, id, nextCheck);
-  const kb = new InlineKeyboard().text(t(lang, "inj_trend_btn"), `inj:trend:${id}`);
-  await reply(ctx, t(lang, clamped >= 7 ? "inj_score_severe" : "inj_score_ack", { score: clamped }), kb);
-}
-
-// Recent pain scores for one injury — the "how has my knee trended?" answer. Renders the
-// last 12 check-ins as a compact ledger; no chart libraries needed (Telegram won't render them).
-export async function showInjuryTrend(ctx: MyContext, id: number) {
-  const lang = ctx.user.lang;
-  const inj = await getInjury(ctx.db, id);
-  if (!inj || inj.userId !== ctx.user._id) { await reply(ctx, t(lang, "error_generic")); return; }
-  const areaLabel = t(lang, `inj_area_${inj.area}` as Parameters<typeof t>[1]);
-  const history = [...inj.checkinsHistory].slice(-12);
-  const body =
-    history.length === 0
-      ? t(lang, "inj_trend_empty", { area: areaLabel })
-      : `${t(lang, "inj_trend_title", { area: areaLabel })}\n` +
-        history.map((h) => `• ${h.date}: ${h.score}/10 ${scoreEmoji(h.score)}`).join("\n");
-  await reply(ctx, body, menuBtn(lang));
-}
-
-// Small helper — 4-bucket emoji for a pain score, so the trend line reads at a glance.
-function scoreEmoji(score: number): string {
-  if (score === 0) return "🟢";
-  if (score <= 3) return "🟡";
-  if (score <= 6) return "🟠";
-  return "🔴";
-}
+// Moved to bot/injury.ts (god-file split); re-exported below so existing `from "./bot"`
+// imports (router.ts) keep working.
 
 // ============ Menstrual-cycle tracking (opt-in, female profiles) ============
 // The Coach and the plan don't force this — but if a user turns it on and logs a period start,
