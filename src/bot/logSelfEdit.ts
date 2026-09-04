@@ -8,7 +8,8 @@ import { InlineKeyboard } from "grammy";
 import type { MealEntry, SetEntry } from "../types";
 import * as P from "../ai/prompts";
 import { aiJSON } from "../ai";
-import { getActivePlan, getDayMeals, getWorkoutLog, listStrength, nutritionLogsSince, setDayMeals, updateUser, upsertStrengthRecord, upsertWorkoutLog, workoutLogsSince } from "../db/repos";
+import { getActivePlan, getDayMeals, getWorkoutLog, listStrength, nutritionLogsSince, putUserFoodCorrection, setDayMeals, updateUser, upsertStrengthRecord, upsertWorkoutLog, workoutLogsSince } from "../db/repos";
+import { per100gCorrectionFrom } from "../domain/mealplan";
 import { bestSetForMetric, getPlanDay, metricOfSets, normalizeExercise, parseWorkoutText, formatSetEntry } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { num } from "./nutritionLog";
@@ -196,5 +197,57 @@ export async function handleMyLogNutritionEdit(ctx: MyContext, text: string) {
   await setDayMeals(ctx.db, ctx.user._id, date, meals);
   const totKcal = meals.reduce((s, m) => s + num(m.kcal), 0);
   await reply(ctx, t(lang, "mylog_nutrition_saved", { date, n: meals.length, kcal: totKcal }));
+  await showMyLogNutritionDay(ctx, date);
+}
+
+// ---- per-item macro editor (correct one already-saved meal's macros) ----
+
+/** Callback: nlog:medit:<date>:<idx> — prompt user to send corrected macros for one item. */
+export async function startMealMacroEdit(ctx: MyContext, date: string, idx: number) {
+  const lang = ctx.user.lang;
+  const meals = await getDayMeals(ctx.db, ctx.user._id, date);
+  const item = meals[idx];
+  if (!item) { await reply(ctx, t(lang, "back")); return; }
+  ctx.user.session = { mode: "meal_edit_macros", awaitText: `${date}:${idx}` };
+  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
+  await reply(ctx, t(lang, "meal_macros_edit_prompt", { desc: cleanFoodName(item.desc) }));
+}
+
+/** Text handler for meal_edit_macros mode: parse "kcal p f c", update log + cache. */
+export async function handleMealMacroEdit(ctx: MyContext, text: string) {
+  const lang = ctx.user.lang;
+  const raw = ctx.user.session.awaitText ?? "";
+  const colonIdx = raw.lastIndexOf(":");
+  const date = raw.slice(0, colonIdx);
+  const idx = Number(raw.slice(colonIdx + 1));
+  if (!date || !Number.isFinite(idx)) { await setMode(ctx, "idle"); return; }
+
+  // Parse 4 non-negative integers from the message (order: kcal protein fats carbs).
+  const nums = [...text.matchAll(/\d+/g)].map((m) => Number(m[0]));
+  if (nums.length < 4) {
+    await reply(ctx, t(lang, "meal_macros_invalid"));
+    return; // stay in mode so user can retry
+  }
+  const [kcal, protein, fats, carbs] = nums;
+
+  const meals = await getDayMeals(ctx.db, ctx.user._id, date);
+  if (!meals[idx]) { await setMode(ctx, "idle"); return; }
+
+  const item = meals[idx];
+  meals[idx] = { ...item, kcal, protein, fats, carbs };
+  await setDayMeals(ctx.db, ctx.user._id, date, meals);
+  await setMode(ctx, "idle");
+
+  // Cache per-100g correction when we know the portion weight and the canonical query key.
+  let cached = false;
+  const grams = num(item.grams);
+  const query = item.query;
+  if (query && grams > 0) {
+    await putUserFoodCorrection(ctx.db, ctx.user._id, query, per100gCorrectionFrom(kcal, protein, fats, carbs, grams)).catch(() => {});
+    cached = true;
+  }
+
+  const suffix = cached ? t(lang, "meal_macros_cached") : "";
+  await reply(ctx, t(lang, "meal_macros_saved", { kcal, protein, fats, carbs }) + suffix);
   await showMyLogNutritionDay(ctx, date);
 }

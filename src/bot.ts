@@ -1,9 +1,9 @@
 import { GrammyError, InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
 import type { CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, NutritionTargets, PlanDay, PlanDoc, PlanExercise, SetEntry, Supplement, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, dailyCheckinsSince, getActivePlan, getWorkoutLog, getTrainer, getUser, listClients, listStrength, pendingRequestForClient, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, setRestTimer, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, upsertWorkoutLog, updateUser, workoutLogsSince, putUserFoodCorrection } from "./db/repos";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, bodyLogsByUser, countClientsOf, countCompletedWorkouts, eventCountsByUser, planStatusByUser, recordError, getCatalogExercise, listExercisesByMusclesAnyLevel, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, listCandidatesByMuscles, searchExercisesByName, dailyCheckinsSince, getActivePlan, getWorkoutLog, getTrainer, getUser, listClients, listStrength, pendingRequestForClient, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, setRestTimer, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, upsertWorkoutLog, updateUser, workoutLogsSince } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText } from "./ai";
-import { computeTargets, per100gCorrectionFrom } from "./domain/mealplan";
+import { computeTargets } from "./domain/mealplan";
 import { pickGymSwaps, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "./domain/gymSwap";
 import { pickDifficultySwaps } from "./domain/difficultySwap";
 import * as P from "./ai/prompts";
@@ -15,7 +15,6 @@ import { cmdReport, localCutoff } from "./bot/report";
 import { cmdReplan, prDate } from "./bot/exportData";
 import { resumePendingPlan } from "./bot/planGen";
 import { num, verifyItems } from "./bot/nutritionLog";
-import { showMyLogNutritionDay } from "./bot/logSelfEdit";
 import { finalizeWorkoutLog, renderDayInline } from "./bot/workoutSave";
 import { interviewProgress, isOwner } from "./bot/owner";
 import { joinByCode, requireTrainer, showSharedProgram, showPlanEditDay, trainerMenu, trainerMenuActionFor } from "./bot/trainer";
@@ -167,59 +166,8 @@ export async function showProgressHub(ctx: MyContext) {
 // Moved to bot/logSelfEdit.ts (god-file split); re-exported below so existing from "./bot"
 // imports (router.ts) keep working.
 
-// ---- per-item macro editor ----
-
-/** Callback: nlog:medit:<date>:<idx> — prompt user to send corrected macros for one item. */
-export async function startMealMacroEdit(ctx: MyContext, date: string, idx: number) {
-  const lang = ctx.user.lang;
-  const meals = await getDayMeals(ctx.db, ctx.user._id, date);
-  const item = meals[idx];
-  if (!item) { await reply(ctx, t(lang, "back")); return; }
-  ctx.user.session = { mode: "meal_edit_macros", awaitText: `${date}:${idx}` };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  await reply(ctx, t(lang, "meal_macros_edit_prompt", { desc: cleanFoodName(item.desc) }));
-}
-
-/** Text handler for meal_edit_macros mode: parse "kcal p f c", update log + cache. */
-export async function handleMealMacroEdit(ctx: MyContext, text: string) {
-  const lang = ctx.user.lang;
-  const raw = ctx.user.session.awaitText ?? "";
-  const colonIdx = raw.lastIndexOf(":");
-  const date = raw.slice(0, colonIdx);
-  const idx = Number(raw.slice(colonIdx + 1));
-  if (!date || !Number.isFinite(idx)) { await setMode(ctx, "idle"); return; }
-
-  // Parse 4 non-negative integers from the message (order: kcal protein fats carbs).
-  const nums = [...text.matchAll(/\d+/g)].map((m) => Number(m[0]));
-  if (nums.length < 4) {
-    await reply(ctx, t(lang, "meal_macros_invalid"));
-    return; // stay in mode so user can retry
-  }
-  const [kcal, protein, fats, carbs] = nums;
-
-  const meals = await getDayMeals(ctx.db, ctx.user._id, date);
-  if (!meals[idx]) { await setMode(ctx, "idle"); return; }
-
-  const item = meals[idx];
-  meals[idx] = { ...item, kcal, protein, fats, carbs };
-  await setDayMeals(ctx.db, ctx.user._id, date, meals);
-  await setMode(ctx, "idle");
-
-  // Cache per-100g correction when we know the portion weight and the canonical query key.
-  let cached = false;
-  const grams = num(item.grams);
-  const query = item.query;
-  if (query && grams > 0) {
-    await putUserFoodCorrection(ctx.db, ctx.user._id, query, per100gCorrectionFrom(kcal, protein, fats, carbs, grams)).catch(() => {});
-    cached = true;
-  }
-
-  const suffix = cached ? t(lang, "meal_macros_cached") : "";
-  await reply(ctx, t(lang, "meal_macros_saved", { kcal, protein, fats, carbs }) + suffix);
-  await showMyLogNutritionDay(ctx, date);
-}
-
-
+// startMealMacroEdit/handleMealMacroEdit moved to bot/logSelfEdit.ts (they end by calling
+// showMyLogNutritionDay, defined there) — re-exported via the barrel below.
 
 // On-demand trainer report — the owner's /users table scoped to this trainer's clients
 // (same columns minus trainer/ban), plus one-tap "finish the interview" nudges below.
