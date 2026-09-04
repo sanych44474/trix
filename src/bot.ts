@@ -38,6 +38,8 @@ export * from "./bot/injury";
 export * from "./bot/cleanup";
 export * from "./bot/cycle";
 export * from "./bot/shareConsent";
+export * from "./bot/calendar";
+export * from "./bot/planDays";
 
 import { computeXp, levelFromXp } from "./domain/gamification";
 import { parseSetLine, parseSetEdit } from "./domain/setLine";
@@ -45,7 +47,7 @@ import { computeCyclePhase, phaseHint, phaseLabel } from "./domain/cycle";
 import { switchMode, unsavedLogCount } from "./domain/session";
 import { weeklyVolume, projectWeight, stalledLifts, type MuscleVolume } from "./domain/analysis";
 import { platePlan, warmupRamp } from "./domain/calc";
-import { monthGrid, prevMonth, nextMonth, monthTitle, dayMarker, ymOf } from "./domain/calendar";
+import { weekdayOf } from "./bot/calendar";
 import { showInjuryMenu } from "./bot/injury";
 import { progressBar, resolveWaterGoal } from "./domain/challenges";
 import { lookupExerciseVideoCached } from "./youtube";
@@ -1702,152 +1704,9 @@ export function muscleGroupToEnum(group: string): string | null {
 }
 
 // ============ Plan-day management: add / delete whole days ============
-// Shared by self-edits and trainer/owner edits (planOwnerId / isEditingOther context, like the
-// exercise-level editors above). A new day is auto-filled from the exercise catalog by muscle
-// group so it's immediately usable; exercises are then tweaked with the existing day editor.
-
-const DAY_GROUPS: { id: string; muscles: string[] }[] = [
-  { id: "chest", muscles: ["chest", "triceps"] },
-  { id: "back", muscles: ["middle back", "lats", "biceps"] },
-  { id: "legs", muscles: ["quadriceps", "hamstrings", "glutes", "calves"] },
-  { id: "shoulders", muscles: ["shoulders", "traps"] },
-  { id: "arms", muscles: ["biceps", "triceps"] },
-  { id: "full", muscles: ["chest", "middle back", "quadriceps", "shoulders"] },
-  { id: "core", muscles: ["abdominals"] },
-];
-
-// Keep the owner's reminder/calendar weekdays in step with the plan's actual days.
-async function syncOwnerTrainingDays(ctx: MyContext, split: PlanDay[]) {
-  const ownerId = planOwnerId(ctx);
-  const owner = ownerId === ctx.user._id ? ctx.user : await getUser(ctx.db, ownerId);
-  if (!owner) return;
-  const weekdays = [...new Set(split.map((d) => d.weekday))].sort((a, b) => a - b) as Weekday[];
-  const profile = { ...owner.profile, trainingWeekdays: weekdays, daysPerWeek: weekdays.length };
-  await updateUser(ctx.db, ownerId, { profile });
-  if (ownerId === ctx.user._id) ctx.user.profile = profile;
-}
-
-export async function showDayManager(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlanOrReply(ctx);
-  if (!plan) return;
-  const kb = new InlineKeyboard();
-  const other = isEditingOther(ctx);
-  const prefix = ctx.user.session.editPlanPrefix ?? "cl";
-  const ownerId = planOwnerId(ctx);
-  for (const d of [...plan.split].sort((a, b) => a.weekday - b.weekday)) {
-    const label = `${weekdayName(lang, d.weekday)} — ${d.muscleGroup} (${d.exercises.length})`.slice(0, 56);
-    kb.text(label, other ? `${prefix}:${ownerId}:eday:${d.weekday}` : `eds:done:${d.weekday}`)
-      .text("🗑", `pday:del:${d.weekday}`)
-      .row();
-  }
-  if (plan.split.length < 7) kb.text(t(lang, "pday_add_btn"), "pday:add").row();
-  kb.text(t(lang, "back"), other ? `${prefix}:${ownerId}:edit` : "menu:plan");
-  await reply(ctx, t(lang, "pday_title"), kb);
-}
-
-export async function showAddDayPicker(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlanOrReply(ctx);
-  if (!plan) return;
-  const taken = new Set(plan.split.map((d) => d.weekday));
-  const free = ([1, 2, 3, 4, 5, 6, 7] as Weekday[]).filter((w) => !taken.has(w));
-  if (!free.length) {
-    await reply(ctx, t(lang, "pday_full"));
-    await showDayManager(ctx);
-    return;
-  }
-  const kb = new InlineKeyboard();
-  free.forEach((w, i) => {
-    kb.text(weekdayName(lang, w), `pday:wd:${w}`);
-    if (i % 4 === 3) kb.row();
-  });
-  kb.row().text(t(lang, "back"), "pday:open");
-  await reply(ctx, t(lang, "pday_pick_weekday"), kb);
-}
-
-export async function showDayGroupPicker(ctx: MyContext, weekday: Weekday) {
-  const lang = ctx.user.lang;
-  const kb = new InlineKeyboard();
-  DAY_GROUPS.forEach((g, i) => {
-    kb.text(t(lang, `pday_g_${g.id}` as Parameters<typeof t>[1]), `pday:new:${weekday}:${g.id}`);
-    if (i % 2 === 1) kb.row();
-  });
-  kb.row().text(t(lang, "back"), "pday:add");
-  await reply(ctx, t(lang, "pday_pick_group"), kb);
-}
-
-export async function createPlanDay(ctx: MyContext, weekday: Weekday, groupId: string) {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlanOrReply(ctx);
-  if (!plan) return;
-  const group = DAY_GROUPS.find((g) => g.id === groupId);
-  if (!group || plan.split.some((d) => d.weekday === weekday)) {
-    await showDayManager(ctx);
-    return;
-  }
-  const ownerId = planOwnerId(ctx);
-  const owner = ownerId === ctx.user._id ? ctx.user : await getUser(ctx.db, ownerId);
-  const candidates = await listCandidatesByMuscles(ctx.db, group.muscles, {
-    level: owner?.profile.level,
-    perMuscle: 2,
-    total: 5,
-  });
-  const oLang = await planOwnerLang(ctx);
-  const groupLabel = t(oLang, `pday_g_${groupId}` as Parameters<typeof t>[1]);
-  const exercises: PlanExercise[] = candidates.map((c) => ({
-    name: c.name,
-    canonicalName: c.name,
-    exerciseId: c.id,
-    sets: "3 × 8–12",
-    startWeight: "—",
-    technique: c.instructions ?? "",
-    muscles: c.muscle,
-  }));
-  let split = [...plan.split, { weekday, muscleGroup: groupLabel, exercises }];
-  if (oLang !== "en") split = await translatePlanExercises(ctx.env, oLang, split, ctx.db, ownerId);
-  split.sort((a, b) => a.weekday - b.weekday);
-  await updateActivePlanSplit(ctx.db, ownerId, split);
-  await syncOwnerTrainingDays(ctx, split);
-  await reply(ctx, t(lang, "pday_added", { day: weekdayName(lang, weekday), group: groupLabel, n: exercises.length }));
-  await showDayManager(ctx);
-}
-
-export async function confirmDeleteDay(ctx: MyContext, weekday: Weekday) {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlanOrReply(ctx);
-  if (!plan) return;
-  const day = plan.split.find((d) => d.weekday === weekday);
-  if (!day) {
-    await showDayManager(ctx);
-    return;
-  }
-  if (plan.split.length <= 1) {
-    await reply(ctx, t(lang, "pday_last"));
-    await showDayManager(ctx);
-    return;
-  }
-  const kb = new InlineKeyboard()
-    .text(t(lang, "pday_del_yes"), `pday:delok:${weekday}`)
-    .text(t(lang, "back"), "pday:open");
-  await reply(ctx, t(lang, "pday_del_confirm", { day: weekdayName(lang, weekday), group: day.muscleGroup }), kb);
-}
-
-export async function deletePlanDay(ctx: MyContext, weekday: Weekday) {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlanOrReply(ctx);
-  if (!plan) return;
-  if (plan.split.length <= 1) {
-    await reply(ctx, t(lang, "pday_last"));
-    await showDayManager(ctx);
-    return;
-  }
-  const split = plan.split.filter((d) => d.weekday !== weekday);
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), split);
-  await syncOwnerTrainingDays(ctx, split);
-  await reply(ctx, t(lang, "pday_deleted"));
-  await showDayManager(ctx);
-}
+// Moved to bot/planDays.ts (god-file split); re-exported below so existing `from "./bot"`
+// imports (router.ts) keep working. See that file's header comment for why the rest of this
+// region (swap variants, weight/sets direct-edit, difficulty-adjust, reorder) stayed put.
 
 // Show exercises of a day as buttons to pick one to replace.
 export async function swapMenu(ctx: MyContext, weekday: Weekday) {
@@ -3713,72 +3572,8 @@ export async function handleGoalWeight(ctx: MyContext, text: string) {
 // Moved to bot/shareConsent.ts (god-file split); re-exported below.
 
 // ===================== Calendar & session booking =====================
-
-export const WD_SHORT: Record<Lang, string[]> = {
-  uk: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"],
-  en: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
-};
-export function weekdayOf(date: string): Weekday {
-  return (((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7) + 1) as Weekday;
-}
-// Generic month-grid keyboard. `marker` labels each day; `dayCb`/`navCb` build callback data.
-export function calendarKeyboard(
-  lang: Lang,
-  ym: string,
-  marker: (date: string) => string,
-  dayCb: (date: string) => string,
-  navCb: (ym: string) => string,
-): InlineKeyboard {
-  const kb = new InlineKeyboard();
-  for (const d of WD_SHORT[lang]) kb.text(d, "cal:noop");
-  kb.row();
-  for (const week of monthGrid(ym)) {
-    for (const cell of week) kb.text(cell ? marker(cell) : " ", cell ? dayCb(cell) : "cal:noop");
-    kb.row();
-  }
-  kb.text("◀️", navCb(prevMonth(ym))).text(monthTitle(ym, lang), "cal:noop").text("▶️", navCb(nextMonth(ym)));
-  return kb;
-}
-
-// --- user (athlete) calendar ---
-
-export async function userCalendarKb(ctx: MyContext, ym: string): Promise<InlineKeyboard> {
-  const uid = ctx.user._id;
-  const { date: today } = localParts(ctx.user.profile.timezone);
-  const monthEnd = `${ym}-31`;
-  const [plan, wlogs] = await Promise.all([
-    getActivePlan(ctx.db, uid),
-    workoutLogsSince(ctx.db, uid, `${ym}-01`),
-  ]);
-  const plannedWeekdays = new Set<number>((plan?.split ?? []).map((d) => d.weekday));
-  const logs = new Map<string, { completed: boolean }>();
-  for (const w of wlogs) if (w.date <= monthEnd) logs.set(w.date, { completed: w.completed });
-  const ctxD = { today, plannedWeekdays, logs };
-  return calendarKeyboard(ctx.user.lang, ym, (d) => dayMarker(d, ctxD), (d) => `cal:d:${d}`, (m) => `cal:nav:${m}`);
-}
-
-export async function cmdCalendar(ctx: MyContext) {
-  await clearEditOwner(ctx);
-  const { date } = localParts(ctx.user.profile.timezone);
-  await reply(ctx, t(ctx.user.lang, "cal_today_hint"), await userCalendarKb(ctx, ymOf(date)));
-}
-
-export async function onCalNav(ctx: MyContext, ym: string) {
-  await ctx.editMessageReplyMarkup({ reply_markup: await userCalendarKb(ctx, ym) }).catch(() => {});
-}
-
-export async function onCalDay(ctx: MyContext, date: string) {
-  const lang = ctx.user.lang;
-  const uid = ctx.user._id;
-  const plan = await getActivePlan(ctx.db, uid);
-  const day = plan ? getPlanDay(plan, weekdayOf(date)) : undefined;
-  const log = await getWorkoutLog(ctx.db, uid, date);
-  const lines = [t(lang, "cal_day_title", { date })];
-  lines.push(day ? t(lang, "cal_day_planned", { group: day.muscleGroup, n: day.exercises.length }) : t(lang, "cal_day_rest"));
-  if (log) lines.push(log.completed ? t(lang, "cal_day_done") : t(lang, "cal_day_skipped"));
-  const kb = new InlineKeyboard().text(t(lang, "cal_back"), `cal:nav:${ymOf(date)}`);
-  await reply(ctx, lines.join("\n"), kb);
-}
+// Moved to bot/calendar.ts (god-file split); re-exported below so existing `from "./bot"`
+// imports (router.ts, bot/trainer.ts) keep working.
 
 // Edit body height+weight from settings. Reuses the onboarding realism check + auto-swap.
 export async function handleBodyEdit(ctx: MyContext, text: string) {
