@@ -6,12 +6,15 @@ var CC = { id: null, flagged: false, labeled: false };
 function ccFetch(path, opts) {
   opts = opts || {};
   var headers = {};
-  if (opts.body) headers["Content-Type"] = "application/json";
+  // FormData (e.g. a canvas-rendered PNG) goes through as-is — the browser sets its own
+  // multipart Content-Type (with boundary); everything else keeps the existing JSON behavior.
+  var isForm = (typeof FormData !== "undefined") && opts.body instanceof FormData;
+  if (opts.body && !isForm) headers["Content-Type"] = "application/json";
   if (initData) headers.Authorization = "tma " + initData;
   return fetch(path + (initData ? "" : location.search), {
     method: opts.method || "GET",
     headers: headers,
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    body: opts.body ? (isForm ? opts.body : JSON.stringify(opts.body)) : undefined,
   });
 }
 
@@ -127,6 +130,9 @@ function ccRender(p) {
   // Booking (cc-book-b) disabled — see trainer.html.
   var tplBtn = el("cc-tpl-b");
   if (tplBtn) { tplBtn.textContent = WA.wa_templates; tplBtn.onclick = ccTemplates; }
+  var wcBtn = el("cc-wcard-b");
+  if (wcBtn) { wcBtn.textContent = WA.wa_wcard_gen_btn; wcBtn.onclick = ccWeekCardImage; }
+  var wcOut = el("cc-wcard-out"); if (wcOut) wcOut.innerHTML = "";
   el("cc-ops").innerHTML = "";
   if (p.cycle) {
     el("cc-cycle").style.display = "";
@@ -142,6 +148,42 @@ function ccRender(p) {
   // Billing (cc-billing / ccBillingHtml / ccSaveBilling) disabled — see trainer.html.
   ccCharts(p.dashboard);
   el("cc-charts").innerHTML = ccPhotosHtml(p.photos) + el("cc-charts").innerHTML;
+}
+
+// Week-card PNG for this client — same /api/weekcard endpoint and wcDraw canvas renderer the
+// athlete's own long-tail view uses (longtail.js), just scoped via ?clientId= and rendered into
+// the client-card overlay instead. Sent to the TRAINER's own chat (see extrasApi.ts), not
+// auto-pushed to the client — a trainer reviews/forwards it themselves.
+function ccWeekCardImage() {
+  var out = el("cc-wcard-out");
+  if (!out) return;
+  out.innerHTML = '<div class="sub">' + WA.wa_loading + "</div>";
+  ccFetch("/api/weekcard?clientId=" + CC.id)
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (res) {
+      if (!res || !res.stats) { out.innerHTML = '<div class="sub">' + WA.wa_err + "</div>"; return; }
+      var canvas = wcDraw(res.stats, res.name || "");
+      canvas.style.width = "100%"; canvas.style.borderRadius = "10px";
+      out.innerHTML = "";
+      out.appendChild(canvas);
+      canvas.toBlob(function (blob) {
+        out.insertAdjacentHTML(
+          "beforeend",
+          '<div class="cc-save-row" style="margin-top:8px"><button class="chipbtn" data-act="wcsend">' + WA.wa_wcard_send_btn + '</button><span class="sub" id="cc-wcard-st"></span></div>',
+        );
+        var sendBtn = out.querySelector('[data-act="wcsend"]');
+        if (sendBtn) sendBtn.onclick = function () {
+          var st = el("cc-wcard-st"); if (st) st.textContent = WA.wa_loading;
+          var fd = new FormData();
+          fd.append("photo", blob, "weekcard.png");
+          ccFetch("/api/weekcard?clientId=" + CC.id, { method: "POST", body: fd })
+            .then(function (rr) { return rr.json(); })
+            .then(function (rres) { if (st) st.textContent = rres.ok ? WA.wa_export_sent : WA.wa_err; })
+            .catch(function () { if (st) st.textContent = WA.wa_err; });
+        };
+      });
+    })
+    .catch(function () { out.innerHTML = '<div class="sub">' + WA.wa_err + "</div>"; });
 }
 
 function ccSaveBilling() {

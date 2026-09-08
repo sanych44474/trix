@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { weekStats } from "../src/domain/weekCard";
+import { buildWeekCard, computeWeekCardStats, formatWeekCardText } from "../src/bot/weekCard";
+import { newDb } from "./harness";
+import { getOrCreateUser, upsertWorkoutLog } from "../src/db/repos";
 import type { WorkoutLogDoc } from "../src/types";
 
 function log(date: string, completed: boolean, sets: { weight: number; reps: number }[][]): WorkoutLogDoc {
@@ -38,4 +41,30 @@ test("weekStats: skipped exercises inside a completed log are excluded", () => {
 
 test("weekStats: empty input", () => {
   assert.deepEqual(weekStats([]), { done: 0, skipped: 0, totalSets: 0, volumeKg: 0 });
+});
+
+// Regression coverage for the computeWeekCardStats/formatWeekCardText split (Phase 5 item 6,
+// week-card PNG export) — buildWeekCard must still produce the same shape it always did, built
+// on top of the two new pieces instead of one monolithic function.
+test("computeWeekCardStats: null when the week has no activity", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  assert.equal(await computeWeekCardStats(db, 1, "UTC"), null);
+});
+
+test("buildWeekCard + computeWeekCardStats/formatWeekCardText agree on the same numbers", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const today = new Date().toISOString().slice(0, 10);
+  await upsertWorkoutLog(db, 1, today, 2, [{ name: "Squat", setsDone: [{ weight: 100, reps: 5 }], skipped: false }], true);
+
+  const stats = await computeWeekCardStats(db, 1, "UTC");
+  assert.ok(stats);
+  assert.equal(stats?.done, 1);
+  assert.equal(stats?.volumeKg, 500);
+
+  const text = formatWeekCardText(stats!, "Ann", "en");
+  const full = await buildWeekCard(db, 1, "UTC", "Ann", "en");
+  assert.equal(full, text); // same computation, same formatting, no drift between the two paths
+  assert.match(text, /500/);
 });

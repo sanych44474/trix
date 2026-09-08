@@ -99,8 +99,13 @@ function ltRender() {
     bds.forEach(function (bd) { h += '<span class="chipbtn" style="display:inline-block;margin:2px 4px 2px 0;opacity:' + (bd.earned ? "1" : ".45") + '">' + (bd.earned ? "✅ " : "🔒 ") + esc(bd.label) + "</span>"; });
     h += "</div>";
   }
-  // Week card
-  if (LT.week && LT.week.card) h += "<h2>📤 " + WA.wa_weekcard + '</h2><div class="card">' + LT.week.card + "</div>";
+  // Week card — text (as before) + an optional canvas-rendered PNG a trainer can actually show
+  // a client / attach somewhere, since the Mini App can't offer a file download directly (CSP).
+  if (LT.week && LT.week.card) {
+    h += "<h2>📤 " + WA.wa_weekcard + '</h2><div class="card">' + LT.week.card;
+    if (LT.week.stats) h += '<div class="cc-save-row" style="margin-top:8px"><button class="chipbtn" data-lt="wcgen">' + WA.wa_wcard_gen_btn + "</button></div>";
+    h += '<div id="lt-wc-out" style="margin-top:8px"></div></div>';
+  }
   // Plates calculator
   h += "<h2>🏋️ " + WA.wa_plates + '</h2><div class="card"><div class="lrow"><input id="lt-pl-kg" type="number" inputmode="decimal" placeholder="' + esc(WA.wa_plates_ph) + '"><button class="chipbtn" data-lt="plates">' + WA.wa_calc + '</button></div><div id="lt-pl-out"></div></div>';
   // Program library
@@ -144,6 +149,10 @@ el("lt-body") && el("lt-body").addEventListener("click", function (e) {
     ccFetch("/api/injuries", { method: "POST", body: { area: area, severity: sev } })
       .then(function (r) { if (!r.ok) throw new Error("x"); return ccFetch("/api/injuries").then(function (rr) { return rr.json(); }); })
       .then(function (res) { LT.inj = res; ltRender(); }).catch(function () { var s = el("lt-inj-st"); if (s) s.textContent = WA.wa_err; });
+  } else if (a === "wcgen") {
+    wcGenerate();
+  } else if (a === "wcsend") {
+    wcSend();
   } else if (a === "plates") {
     var kg = Number(el("lt-pl-kg").value);
     if (!kg) return;
@@ -169,3 +178,77 @@ el("lt-body") && el("lt-body").addEventListener("click", function (e) {
   }
 });
 el("lt-back") && (el("lt-back").onclick = ltClose);
+
+// --- week card PNG: canvas-drawn client-side (Workers has no server-side image rendering),
+// then uploaded as a photo the Bot API pushes to the viewer's own chat (the Mini App can't
+// offer a file download directly — same CSP constraint every other export in this app hits). ---
+var WC_BLOB = null;
+function wcDraw(stats, name) {
+  var W = 900, H = 1180;
+  var c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  var g = c.getContext("2d");
+  var grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, "#173029"); grad.addColorStop(1, "#0b1917");
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  g.fillStyle = "#eaf6f0";
+  g.font = "700 52px system-ui, -apple-system, sans-serif";
+  g.fillText("🏋️ " + (name || ""), 56, 130);
+  g.fillStyle = "#7fb9a3";
+  g.font = "400 30px system-ui, -apple-system, sans-serif";
+  g.fillText((stats.since || "").slice(5) + " → " + (stats.until || "").slice(5), 56, 178);
+  g.strokeStyle = "rgba(127,185,163,.35)"; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(56, 210); g.lineTo(W - 56, 210); g.stroke();
+  var rows = [
+    [WA.wa_wcard_workouts, stats.planned ? (stats.done + "/" + stats.planned) : String(stats.done)],
+    [WA.wa_wcard_sets, String(stats.totalSets)],
+    [WA.wa_wcard_volume, stats.volumeKg + " " + WA.wa_kg],
+  ];
+  if (stats.prs > 0) rows.push([WA.wa_wcard_prs, stats.prs + " 🏆"]);
+  rows.push([WA.wa_wcard_streak, stats.streak + " 🔥"]);
+  rows.push([WA.wa_wcard_level, stats.level + " ⭐ (" + stats.xp + " XP)"]);
+  var y = 300;
+  rows.forEach(function (r) {
+    g.fillStyle = "#7fb9a3";
+    g.font = "400 32px system-ui, -apple-system, sans-serif";
+    g.fillText(r[0], 56, y);
+    g.fillStyle = "#ffffff";
+    g.font = "700 46px system-ui, -apple-system, sans-serif";
+    g.textAlign = "right";
+    g.fillText(r[1], W - 56, y);
+    g.textAlign = "left";
+    y += 120;
+  });
+  g.fillStyle = "#4d7568";
+  g.font = "400 24px system-ui, -apple-system, sans-serif";
+  g.fillText("trix", 56, H - 36);
+  return c;
+}
+function wcGenerate() {
+  var stats = LT.week && LT.week.stats;
+  var box = el("lt-wc-out");
+  if (!stats || !box) return;
+  var canvas = wcDraw(stats, LT.week.name || "");
+  canvas.style.width = "100%"; canvas.style.borderRadius = "10px";
+  box.innerHTML = "";
+  box.appendChild(canvas);
+  WC_BLOB = null;
+  canvas.toBlob(function (blob) {
+    WC_BLOB = blob;
+    box.insertAdjacentHTML(
+      "beforeend",
+      '<div class="cc-save-row" style="margin-top:8px"><button class="chipbtn" data-lt="wcsend">' + WA.wa_wcard_send_btn + '</button><span class="sub" id="lt-wc-st"></span></div>',
+    );
+  });
+}
+function wcSend() {
+  if (!WC_BLOB) return;
+  var st = el("lt-wc-st");
+  if (st) st.textContent = WA.wa_loading;
+  var fd = new FormData();
+  fd.append("photo", WC_BLOB, "weekcard.png");
+  ccFetch("/api/weekcard", { method: "POST", body: fd })
+    .then(function (r) { return r.json(); })
+    .then(function (res) { if (st) st.textContent = res.ok ? WA.wa_export_sent : WA.wa_err; })
+    .catch(function () { if (st) st.textContent = WA.wa_err; });
+}

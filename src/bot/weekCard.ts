@@ -10,15 +10,28 @@ import { escapeHtml, t } from "../locales/i18n";
 import { isoDateMinus } from "./boards";
 import type { Lang } from "../types";
 
-// Returns null when the week has no activity to show.
-export async function buildWeekCard(
+export interface WeekCardStats {
+  since: string;
+  until: string;
+  done: number;
+  planned: number;
+  totalSets: number;
+  volumeKg: number;
+  prs: number;
+  streak: number;
+  level: number;
+  xp: number;
+}
+
+// Shared by buildWeekCard (the <pre> text card) and the Mini App's canvas-rendered PNG version
+// (webapp/weekCardApi.ts) — same numbers, two presentations. Returns null when the week has no
+// activity to show, same rule both callers already relied on.
+export async function computeWeekCardStats(
   db: D1Database,
   userId: number,
   tz: string | undefined,
-  displayName: string,
-  lang: Lang,
   frozen?: { from: string; until: string },
-): Promise<string | null> {
+): Promise<WeekCardStats | null> {
   const today = localParts(tz).date;
   const since = isoDateMinus(today, 6);
   const [allLogs, plan, statCounts, records] = await Promise.all([
@@ -33,20 +46,40 @@ export async function buildWeekCard(
   const planned = plan?.split.length ?? 0;
   const lv = levelFromXp(computeXp(statCounts));
   const prs = recentPrCount(records, since);
+  return { since, until: today, done: stats.done, planned, totalSets: stats.totalSets, volumeKg: stats.volumeKg, prs, streak, level: lv.level, xp: lv.xp };
+}
+
+// Text formatting split out from the stats computation so a caller that needs BOTH (the Mini
+// App's /api/weekcard, which returns the text card AND the raw stats for canvas rendering)
+// doesn't pay for the underlying queries twice.
+export function formatWeekCardText(s: WeekCardStats, displayName: string, lang: Lang): string {
   const rows: [string, string][] = [
-    [t(lang, "wcard_workouts"), planned ? `${stats.done}/${planned}` : `${stats.done}`],
-    [t(lang, "wcard_sets"), `${stats.totalSets}`],
-    [t(lang, "wcard_volume"), `${stats.volumeKg} ${t(lang, "unit_kg")}`],
-    ...(prs > 0 ? ([[t(lang, "wcard_prs"), `${prs} 🏆`]] as [string, string][]) : []),
-    [t(lang, "wcard_streak"), `${streak} 🔥`],
-    [t(lang, "wcard_level"), `${lv.level} ⭐ (${lv.xp} XP)`],
+    [t(lang, "wcard_workouts"), s.planned ? `${s.done}/${s.planned}` : `${s.done}`],
+    [t(lang, "wcard_sets"), `${s.totalSets}`],
+    [t(lang, "wcard_volume"), `${s.volumeKg} ${t(lang, "unit_kg")}`],
+    ...(s.prs > 0 ? ([[t(lang, "wcard_prs"), `${s.prs} 🏆`]] as [string, string][]) : []),
+    [t(lang, "wcard_streak"), `${s.streak} 🔥`],
+    [t(lang, "wcard_level"), `${s.level} ⭐ (${s.xp} XP)`],
   ];
   const w = Math.max(...rows.map(([l]) => l.length));
   const card = [
     `🏋️ ${displayName}`.trim(),
-    `${since.slice(5)} → ${today.slice(5)}`,
+    `${s.since.slice(5)} → ${s.until.slice(5)}`,
     "",
     ...rows.map(([l, v]) => `${l.padEnd(w)}  ${v}`),
   ].join("\n");
   return `<pre>${escapeHtml(card)}</pre>`;
+}
+
+// Returns null when the week has no activity to show.
+export async function buildWeekCard(
+  db: D1Database,
+  userId: number,
+  tz: string | undefined,
+  displayName: string,
+  lang: Lang,
+  frozen?: { from: string; until: string },
+): Promise<string | null> {
+  const s = await computeWeekCardStats(db, userId, tz, frozen);
+  return s ? formatWeekCardText(s, displayName, lang) : null;
 }

@@ -3,12 +3,13 @@
 // library (+ take), what's-new, the plates calculator, and become-a-trainer / trainer-profile
 // editing. Reuses the same repos and domain code as the bot; pushes (confirmations, interview
 // kick-off) go out via the Bot API.
-import { buildWeekCard, obKeyboard, obSteps } from "../bot";
+import { computeWeekCardStats, formatWeekCardText, obKeyboard, obSteps } from "../bot";
 import {
   applyTrainer,
   bumpSharedTaken,
   countClientsOf,
   createRequest,
+  getClientForTrainer,
   getOwnerChatId,
   getRequest,
   getSharedProgram,
@@ -76,10 +77,38 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     );
   }
 
-  // ---- Week card (shareable 7-day summary) ----
-  if (req.method === "GET" && path === "/api/weekcard") {
-    const card = await buildWeekCard(env.DB, user._id, user.profile.timezone, user.profile.name ?? "", lang, user.reminders?.lastVacation);
-    return Response.json({ card }, noStore);
+  // ---- Week card (shareable 7-day summary; ?clientId= lets a trainer pull a client's own) ----
+  if (path === "/api/weekcard") {
+    let target = user;
+    const clientIdParam = url.searchParams.get("clientId");
+    if (clientIdParam) {
+      if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
+      const client = await getClientForTrainer(env.DB, user._id, Number(clientIdParam));
+      if (!client) return Response.json({ error: "not found" }, { status: 404 });
+      target = client;
+    }
+    if (req.method === "GET") {
+      const stats = await computeWeekCardStats(env.DB, target._id, target.profile.timezone, target.reminders?.lastVacation);
+      const name = target.profile.name ?? `id ${target._id}`;
+      const card = stats ? formatWeekCardText(stats, name, target.lang) : null;
+      return Response.json({ card, stats, name }, noStore);
+    }
+    if (req.method === "POST") {
+      // The canvas-rendered PNG (built client-side from the "stats" above) — pushed to the
+      // VIEWER's own chat via the Bot API, same as every other Mini-App-can't-download-files
+      // export in this app (settingsApi.ts's tgSendDocument, e.g.). A trainer viewing a client's
+      // card gets it in THEIR chat to review/forward, not auto-sent to the client.
+      const form = await req.formData().catch(() => null);
+      const file = form?.get("photo");
+      if (!(file instanceof Blob)) return Response.json({ error: "bad request" }, { status: 400 });
+      const tgForm = new FormData();
+      tgForm.append("chat_id", String(user.chatId));
+      tgForm.append("caption", t(lang, "wcard_image_caption", { name: target.profile.name ?? `id ${target._id}` }));
+      tgForm.append("photo", file, "weekcard.png");
+      const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: "POST", body: tgForm }).catch(() => null);
+      return Response.json({ ok: !!res?.ok });
+    }
+    return Response.json({ error: "method not allowed" }, { status: 405 });
   }
 
   // ---- What's new ----
