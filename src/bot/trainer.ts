@@ -780,6 +780,7 @@ export async function shareAssignToClients(ctx: MyContext) {
   const clients = (await listClients(ctx.db, ctx.user._id)).filter((c) => ids.has(c._id));
   await reply(ctx, t(lang, "share_running", { n: clients.length }));
   let ok = 0;
+  const assigned: UserDoc[] = [];
   for (const c of clients) {
     try {
       const records = await listStrength(ctx.db, c._id, 8).catch(() => []);
@@ -790,6 +791,7 @@ export async function shareAssignToClients(ctx: MyContext) {
       await updateUser(ctx.db, c._id, { nutrition: draft.nutrition });
       await ctx.api.sendMessage(c.chatId, t(c.lang, "share_client_got", { name: escapeHtml(tpl.name) }), { ...HTML, reply_markup: mainMenu(c.lang) }).catch(() => {});
       ok++;
+      assigned.push(c);
     } catch (err) {
       console.error("shareAssignToClients", c._id, err);
     }
@@ -801,6 +803,14 @@ export async function shareAssignToClients(ctx: MyContext) {
   ctx.user.session = cleared;
   await recordAudit(ctx.db, ctx.user._id, "share_program", undefined, `${tpl.name} → ${ok}/${clients.length}`).catch(() => {});
   await reply(ctx, t(lang, "share_done", { name: tpl.name, ok, total: clients.length }), menuBtn(lang));
+  // The template was auto-adapted the same way for everyone — a specific client's plan (an
+  // injury, a piece of missing equipment) still needs a look. One tap into their existing plan
+  // editor instead of separately navigating to /clients for each one.
+  if (assigned.length) {
+    const kb = new InlineKeyboard();
+    for (const c of assigned) kb.text(`✏️ ${c.profile.name ?? `id ${c._id}`}`.slice(0, 60), `cl:${c._id}:edit`).row();
+    await reply(ctx, t(lang, "share_adjust_hint"), kb);
+  }
 }
 
 // --- Mode 2: share by link. --- Mode 3: publish to the public library. ---

@@ -449,6 +449,7 @@ export const en = {
   share_cancel_btn: "↩️ Cancel",
   share_running: "📤 Assigning to {n} clients…",
   share_done: "✅ *{name}* assigned to {ok}/{total} clients.",
+  share_adjust_hint: "Every plan was auto-adapted the same way — tap a client to adjust theirs (injury, missing equipment, etc.):",
   share_client_got: "🎁 Your coach assigned you a new program: *{name}*. Open 📋 Plan to see it.",
   share_link_ready: "🔗 Share link for *{name}*:\n{link}\nAnyone who opens it can take the program.",
   share_published: "📚 *{name}* published to the program library — any user can now find and take it.",
