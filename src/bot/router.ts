@@ -773,7 +773,6 @@ const voiceRoute: CbHandler = async (ctx, _rest, data) => {
 
 export const CB_EXACT: Record<string, CbHandler> = {
   "lang:uk": pickLang,
-  "lang:ru": pickLang,
   "lang:en": pickLang,
   "menu:open": (ctx) => cmdMenu(ctx),
   "log:back": (ctx) => logBackToPick(ctx),
@@ -1009,7 +1008,7 @@ export const CB_PREFIX: [string, CbHandler][] = [
   ["nlog:medit:", (ctx, _r, data) => { const parts = data.split(":"); const date = parts.slice(2, parts.length - 1).join(":"); const idx = Number(parts[parts.length - 1]); return startMealMacroEdit(ctx, date, idx); }],
   ["cl:", (ctx, _r, data) => { const [, id, action, arg] = data.split(":"); return clientCardAction(ctx, Number(id), action, arg); }],
   ["ou:", (ctx, _r, data) => { const [, id, action, arg] = data.split(":"); return ownerUserAction(ctx, Number(id), action, arg); }],
-  ["cact:", (ctx, _r, data) => { const [, kind, idx] = data.split(":"); return handleCoachAction(ctx, kind, Number(idx)); }],
+  ["cact:", (ctx, _r, data) => { const [, kind, turn, idx] = data.split(":"); return handleCoachAction(ctx, kind, Number(turn), Number(idx)); }],
   ["q:send:", (ctx, rest) => onQuestionSend(ctx, Number(rest))],
   ["q:own:", (ctx, rest) => onQuestionOwn(ctx, Number(rest))],
   ["q:skip:", (ctx, rest) => onQuestionSkip(ctx, Number(rest))],

@@ -100,15 +100,18 @@ export async function handleCoach(ctx: MyContext, text: string) {
     const actions = (result.actions ?? []).filter((a) => a.kind !== "none").slice(0, 4);
     let kb = menuBtn(lang);
     if (actions.length) {
+      // Each coach turn gets its own token so a button from an older turn can't fire against
+      // whatever coachActions a newer, still-pending AI reply has since overwritten.
+      const turnId = Date.now() % 100000;
       kb = new InlineKeyboard();
       actions.forEach((a, i) => {
         // Stash the arg in the session (callback data is length-limited); button carries the index.
-        kb.text(a.label.slice(0, 60), `cact:${a.kind}:${i}`).row();
+        kb.text(a.label.slice(0, 60), `cact:${a.kind}:${turnId}:${i}`).row();
       });
       // This runs up to ~26 s after the webhook — re-read the CURRENT session so we don't
       // clobber a mode/draft the user started while the AI was thinking.
       const fresh = await getUser(ctx.db, ctx.user._id).catch(() => null);
-      const session = { ...(fresh?.session ?? ctx.user.session), coachActions: actions };
+      const session = { ...(fresh?.session ?? ctx.user.session), coachActions: actions, coachTurnId: turnId };
       await updateUser(ctx.db, ctx.user._id, { session });
       ctx.user.session = session;
     }
@@ -131,9 +134,12 @@ export async function coachEditWeekday(ctx: MyContext): Promise<Weekday | null> 
 }
 
 // Apply a coach-proposed plan edit when the user taps one of the action buttons.
-export async function handleCoachAction(ctx: MyContext, kind: string, idx: number) {
+export async function handleCoachAction(ctx: MyContext, kind: string, turnId: number, idx: number) {
   const lang = ctx.user.lang;
-  const a = (ctx.user.session.coachActions ?? [])[idx];
+  // Reject a button from a coach turn the session has since moved past (see handleCoach) —
+  // without this, a stale button could apply a newer, unrelated action at the same index.
+  const stale = ctx.user.session.coachTurnId !== turnId;
+  const a = stale ? undefined : (ctx.user.session.coachActions ?? [])[idx];
   await setMode(ctx, "idle");
   if (!a) {
     await reply(ctx, t(lang, "error_generic"), menuBtn(lang));

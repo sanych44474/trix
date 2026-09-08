@@ -182,6 +182,7 @@ export interface UserSession {
     exercise?: string;
     value?: string;
   }[];
+  coachTurnId?: number; // ties coachActions to the coach reply that proposed them (see handleCoachAction)
   checkin?: { energy?: number; sleep?: number }; // partial answers during the /checkin flow
   // Button-guided workout logging (/log): one exercise at a time. "entries" are finished
   // exercises; "cur" is the exercise mid-entry, asking sets → weight → reps as text. Weight

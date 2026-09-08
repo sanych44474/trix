@@ -543,12 +543,20 @@ export async function deleteSetting(db: DB, key: string): Promise<void> {
 // outlive its minute and the next cron starts a SECOND concurrent run → both read the same
 // un-flushed reminder dedup and send the SAME message twice (the "identical messages" spam).
 // A fresh lock (< ttl) means another run is active → skip this tick. Stale lock (crashed run) expires.
+// Atomic check-and-set in one statement — the previous version read the lock then wrote it in
+// two separate round-trips, so two overlapping invocations could both see the lock as free and
+// both proceed. The WHERE clause on the conflict branch makes D1 only apply the update (and
+// report a changed row) when the existing lock has actually expired.
 export async function acquireScheduleLock(db: DB, nowMs: number, ttlMs: number): Promise<boolean> {
-  const cur = await getSetting(db, "schedule_lock");
-  const ts = cur ? Number(cur) : 0;
-  if (ts && nowMs - ts < ttlMs) return false;
-  await setSetting(db, "schedule_lock", String(nowMs));
-  return true;
+  const cutoff = nowMs - ttlMs;
+  const res = await db
+    .prepare(
+      "INSERT INTO settings (key, value) VALUES ('schedule_lock', ?) " +
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE CAST(settings.value AS INTEGER) < ?",
+    )
+    .bind(String(nowMs), cutoff)
+    .run();
+  return (res.meta.changes ?? 0) > 0;
 }
 
 export async function releaseScheduleLock(db: DB): Promise<void> {

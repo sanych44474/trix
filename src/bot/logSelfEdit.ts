@@ -82,6 +82,7 @@ export async function showMyLogNutritionDay(ctx: MyContext, date: string) {
   );
   let body = t(lang, "mylog_nutrition_day", { date });
   const kb = new InlineKeyboard();
+  const macros = (p: number, f: number, c: number) => (lang === "uk" ? `Б${p}/Ж${f}/В${c}` : `P${p}/F${f}/C${c}`);
   if (meals.length) {
     body += "\n" + meals
       .map((m, i) => {
@@ -89,10 +90,10 @@ export async function showMyLogNutritionDay(ctx: MyContext, date: string) {
         const wt = g ? ` · ${g} ${t(lang, "unit_g")}` : "";
         const alc = alcoholKcalOf(m);
         const alcTag = alc > 0 ? ` · 🍷 ${alc} ${t(lang, "unit_kcal")}` : "";
-        return `${i + 1}. ${escapeHtml(cleanFoodName(m.desc))}${wt} — ${num(m.kcal)} ${t(lang, "unit_kcal")} (Б${num(m.protein)}/Ж${num(m.fats)}/В${num(m.carbs)})${alcTag}`;
+        return `${i + 1}. ${escapeHtml(cleanFoodName(m.desc))}${wt} — ${num(m.kcal)} ${t(lang, "unit_kcal")} (${macros(num(m.protein), num(m.fats), num(m.carbs))})${alcTag}`;
       })
       .join("\n");
-    body += `\n\n<b>Σ</b> ${tot.kcal} ${t(lang, "unit_kcal")} (Б${tot.p}/Ж${tot.f}/В${tot.c})`;
+    body += `\n\n<b>Σ</b> ${tot.kcal} ${t(lang, "unit_kcal")} (${macros(tot.p, tot.f, tot.c)})`;
     const dayAlc = meals.reduce((s, m) => s + alcoholKcalOf(m), 0);
     if (dayAlc > 0) body += `\n${t(lang, "foodlog_alcohol_line", { kcal: dayAlc })}`;
     // One ✏️ button per item so user can correct macros inline.

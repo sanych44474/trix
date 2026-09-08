@@ -140,7 +140,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
   const ex = day.exercises[index];
   // Optimistic target check for ops that reference an existing exercise (avoid editing the wrong
   // one if the plan shifted between load and tap).
-  if (["weight", "sets", "del", "move", "swap", "video"].includes(action)) {
+  if (["weight", "sets", "del", "move", "swap", "video", "wmode", "link"].includes(action)) {
     if (!ex) return Response.json({ error: "bad request" }, { status: 400 });
     if (typeof body.expectName === "string" && body.expectName !== ex.name) {
       return Response.json({ error: "stale" }, { status: 409 });

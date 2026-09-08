@@ -15,11 +15,13 @@ interface BodyRow {
 }
 
 function toBody(r: BodyRow): BodyLogDoc {
+  let measurements: BodyMeasurements | undefined;
+  if (r.measurements) { try { measurements = JSON.parse(r.measurements); } catch { measurements = undefined; } }
   return {
     userId: r.userId,
     date: r.date,
     weight: r.weight ?? undefined,
-    measurements: r.measurements ? JSON.parse(r.measurements) : undefined,
+    measurements,
     createdAt: new Date(r.createdAt),
   };
 }

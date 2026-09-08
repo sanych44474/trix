@@ -158,7 +158,7 @@ function pfRender() {
     }
     h += "</div></div>";
 
-    h += "<h2>" + WA.wa_set_lang + '</h2><div class="card"><div class="pf-chips" id="pf-lang">' + pfChip("lang", "uk", "🇺🇦 Українська", st.lang === "uk") + pfChip("lang", "ru", "🇷🇺 Русский", st.lang === "ru") + pfChip("lang", "en", "🇬🇧 English", st.lang === "en") + "</div></div>";
+    h += "<h2>" + WA.wa_set_lang + '</h2><div class="card"><div class="pf-chips" id="pf-lang">' + pfChip("lang", "uk", "🇺🇦 Українська", st.lang === "uk") + pfChip("lang", "en", "🇬🇧 English", st.lang === "en") + "</div></div>";
 
     if (st.cycle) {
       h += "<h2>" + WA.wa_set_cycle + '</h2><div class="card"><div class="pf-chips">' + pfChip("cyc", "toggle", WA.wa_cycle_on, st.cycle.on) + "</div>";

@@ -118,8 +118,9 @@ export async function logMeal(ctx: MyContext, items: P.NutritionItem[]) {
   if (verified > 0) advice += t(lang, "verified_suffix", { n: verified, total: final.length, src: source });
 
   // List every recognised item so the user sees all foods (USDA-verified or AI-estimated).
+  const macros = (p: number, f: number, c: number) => (lang === "uk" ? `Б${p}/Ж${f}/В${c}` : `P${p}/F${f}/C${c}`);
   const itemsStr = final
-    .map((i) => `• ${escapeHtml(i.desc)} — ${i.kcal} ккал (Б${i.protein}/Ж${i.fats}/В${i.carbs})`)
+    .map((i) => `• ${escapeHtml(i.desc)} — ${i.kcal} ${t(lang, "unit_kcal")} (${macros(i.protein, i.fats, i.carbs)})`)
     .join("\n");
 
   await reply(

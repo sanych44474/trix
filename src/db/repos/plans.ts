@@ -39,15 +39,22 @@ function planMetaJson(plan: PlanDoc): string | null {
 }
 
 function toPlan(r: PlanRow): PlanDoc {
-  const meta: PlanMeta = r.meta ? JSON.parse(r.meta) : {};
+  let meta: PlanMeta = {};
+  if (r.meta) { try { meta = JSON.parse(r.meta); } catch { meta = {}; } }
+  let split: PlanDoc["split"] = [];
+  try { split = JSON.parse(r.split); } catch { split = []; }
+  let nutrition: PlanDoc["nutrition"] = { calories: 0, protein: 0, fats: 0, carbs: 0 };
+  try { nutrition = JSON.parse(r.nutrition); } catch { /* keep default */ }
+  let supplements: PlanDoc["supplements"] = [];
+  try { supplements = JSON.parse(r.supplements); } catch { supplements = []; }
   return {
     userId: r.userId,
     active: !!r.active,
     status: (r.status as "draft" | "active") ?? "active",
     authoredBy: r.authoredBy ?? undefined,
-    split: JSON.parse(r.split),
-    nutrition: JSON.parse(r.nutrition),
-    supplements: JSON.parse(r.supplements),
+    split,
+    nutrition,
+    supplements,
     methodology: r.methodology,
     generatedAt: new Date(r.generatedAt),
     ...(typeof meta.stepsTarget === "number" ? { stepsTarget: meta.stepsTarget } : {}),

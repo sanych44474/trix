@@ -16,6 +16,10 @@ export interface DifficultySwapOutcome {
  * matching the DB-backed findEasierExercise this replaces, which had the same fallback. */
 function candidateTiers(currentLevel: string, direction: "up" | "down"): string[] {
   const idx = LEVEL_ORDER.indexOf(currentLevel);
+  // Unrecognized/missing difficulty (e.g. "" from a catalog entry with no difficulty on file) —
+  // we can't tell which tiers are actually harder or easier than it, so offer none rather than
+  // defaulting to LEVEL_ORDER's start (which "up" used to do via slice(-1 + 1) = slice(0)).
+  if (idx < 0) return [];
   if (direction === "up") return LEVEL_ORDER.slice(idx + 1);
   const start = Math.max(idx - 1, 0);
   return LEVEL_ORDER.slice(0, start + 1).reverse();

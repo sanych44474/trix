@@ -194,7 +194,15 @@ export async function cmdSetVideo(ctx: MyContext, arg: string) {
     return;
   }
   const key = normalizeVideoKey(name);
-  await setManualVideo(ctx.db, key, name, { videoId: id, url: `https://www.youtube.com/shorts/${id}` }, ctx.user.chatId);
+  const shortUrl = `https://www.youtube.com/shorts/${id}`;
+  // Same scope rule as the button flow (startVideoSet/handleVideoUrl): only the OWNER can set the
+  // shared GLOBAL video; a trainer's /setvideo writes a per-CLIENT override on their current edit
+  // target instead, so it never overwrites what every other user sees.
+  if (await isOwner(ctx)) {
+    await setManualVideo(ctx.db, key, name, { videoId: id, url: shortUrl }, ctx.user.chatId);
+  } else {
+    await setUserVideo(ctx.db, planOwnerId(ctx), key, name, { videoId: id, url: shortUrl });
+  }
   await reply(ctx, t(lang, "setvideo_done", { name }));
 }
 

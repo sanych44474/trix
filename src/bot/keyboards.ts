@@ -134,10 +134,11 @@ export function planViewKb(lang: Lang): InlineKeyboard {
     .text(t(lang, "menu_open"), "menu:open");
 }
 
+// Only uk/en are real locales (see types.ts Lang) — a third option here would silently
+// map to English on tap (router.ts pickLang), so don't add one without a real ru.ts catalog.
 export function langMenu(): InlineKeyboard {
   return new InlineKeyboard()
     .text("🇺🇦 Українська", "lang:uk")
-    .text("🇷🇺 Русский", "lang:ru")
     .text("🇬🇧 English", "lang:en");
 }
 

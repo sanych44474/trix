@@ -17,7 +17,9 @@ export async function appendMeals(
     .prepare("SELECT meals FROM nutrition_logs WHERE userId = ? AND date = ?")
     .bind(userId, date)
     .first<{ meals: string }>();
-  const all: MealEntry[] = row ? [...(JSON.parse(row.meals) as MealEntry[]), ...meals] : [...meals];
+  let existing: MealEntry[] = [];
+  if (row) { try { existing = JSON.parse(row.meals) as MealEntry[]; } catch { existing = []; } }
+  const all: MealEntry[] = [...existing, ...meals];
   if (row) {
     await db
       .prepare("UPDATE nutrition_logs SET meals = ?, updatedAt = ? WHERE userId = ? AND date = ?")
@@ -74,7 +76,8 @@ export async function getDayMeals(db: DB, userId: number, date: string): Promise
     .prepare("SELECT meals FROM nutrition_logs WHERE userId = ? AND date = ?")
     .bind(userId, date)
     .first<{ meals: string }>();
-  return row ? (JSON.parse(row.meals) as MealEntry[]) : [];
+  if (!row) return [];
+  try { return JSON.parse(row.meals) as MealEntry[]; } catch { return []; }
 }
 
 // Remove one logged item by index from a day; deletes the row if it becomes empty. Returns the rest.

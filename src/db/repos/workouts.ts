@@ -20,6 +20,8 @@ interface StrengthRow {
 }
 
 function toStrength(r: StrengthRow): StrengthRecordDoc {
+  let history: StrengthRecordDoc["history"] = [];
+  try { history = JSON.parse(r.history); } catch { history = []; }
   return {
     userId: r.userId,
     exercise: r.exercise,
@@ -28,7 +30,7 @@ function toStrength(r: StrengthRow): StrengthRecordDoc {
     bestSeconds: r.bestSeconds ?? 0,
     bestMeters: r.bestMeters ?? 0,
     metric: (r.metric as StrengthRecordDoc["metric"]) ?? "reps",
-    history: JSON.parse(r.history),
+    history,
     updatedAt: new Date(r.updatedAt),
   };
 }
@@ -134,11 +136,13 @@ interface WorkoutRow {
 }
 
 function toWorkout(r: WorkoutRow): WorkoutLogDoc {
+  let exercises: WorkoutLogDoc["exercises"] = [];
+  try { exercises = JSON.parse(r.exercises); } catch { exercises = []; }
   return {
     userId: r.userId,
     date: r.date,
     weekday: (r.weekday ?? 1) as Weekday,
-    exercises: JSON.parse(r.exercises),
+    exercises,
     completed: !!r.completed,
     notes: r.notes ?? undefined,
     createdAt: new Date(r.createdAt),

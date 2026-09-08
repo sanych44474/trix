@@ -1601,6 +1601,9 @@ export async function handleClientReply(ctx: MyContext, text: string) {
   const trainerId = ctx.user.session.targetId;
   await setMode(ctx, "idle");
   if (!trainerId) return;
+  // The "↩ Reply" button is left in chat history indefinitely — re-verify the pairing is still
+  // current before delivering, so a message can't reach a trainer the client has since left.
+  if (ctx.user.trainerId !== trainerId) { await reply(ctx, t(lang, "client_not_found")); return; }
   const trainer = await getUser(ctx.db, trainerId);
   if (!trainer) { await reply(ctx, t(lang, "error_generic")); return; }
   await insertMessage(ctx.db, ctx.user._id, trainerId, text);
@@ -1633,8 +1636,11 @@ export async function onQuestionOwn(ctx: MyContext, qid: number) {
 }
 
 export async function onQuestionSkip(ctx: MyContext, qid: number) {
+  const lang = ctx.user.lang;
+  const q = await getQuestion(ctx.db, qid);
+  if (!q || q.trainerId !== ctx.user._id || q.status !== "pending") { await reply(ctx, t(lang, "request_gone")); return; }
   await setQuestionStatus(ctx.db, qid, "dismissed");
-  await reply(ctx, t(ctx.user.lang, "q_dismissed"));
+  await reply(ctx, t(lang, "q_dismissed"));
 }
 
 export async function handleAnswerQuestion(ctx: MyContext, text: string) {
