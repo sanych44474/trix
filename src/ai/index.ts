@@ -89,12 +89,14 @@ interface Provider {
 // responseSchema = the most reliable structured JSON), with Groq as a strong fallback.
 function providers(env: Env, hasImages: boolean, geminiModel: string, groqFirst = false): Provider[] {
   const gemini: Provider = { name: "gemini", model: geminiModel, fn: geminiGenerate };
-  const groq: Provider | null = env.GROQ_API_KEY
+  // Groq deprecated every vision-capable model it offered (llama-4-scout on 2026-07-17,
+  // llama-4-maverick on 2026-02-20, both in favor of the text-only openai/gpt-oss-120b) with no
+  // replacement vision model — so for image calls Groq is skipped entirely rather than default
+  // to a model id that no longer exists on their platform.
+  const groq: Provider | null = env.GROQ_API_KEY && !hasImages
     ? {
         name: "groq",
-        model: hasImages
-          ? env.GROQ_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct"
-          : env.GROQ_MODEL || "llama-3.3-70b-versatile",
+        model: env.GROQ_MODEL || "openai/gpt-oss-120b",
         fn: groqGenerate,
       }
     : null;
@@ -129,7 +131,7 @@ function providers(env: Env, hasImages: boolean, geminiModel: string, groqFirst 
 function translateProviders(env: Env, geminiModel: string): Provider[] {
   const list: Provider[] = [{ name: "gemini", model: geminiModel, fn: geminiGenerate }];
   if (env.GROQ_API_KEY) {
-    list.push({ name: "groq", model: env.GROQ_MODEL || "llama-3.3-70b-versatile", fn: groqGenerate });
+    list.push({ name: "groq", model: env.GROQ_MODEL || "openai/gpt-oss-120b", fn: groqGenerate });
   }
   if (env.OPENROUTER_API_KEY) {
     const model = env.OPENROUTER_TRANSLATE_MODEL || "qwen/qwen-2.5-72b-instruct:free";

@@ -39,13 +39,18 @@ export async function groqGenerate(env: Env, input: GenInput): Promise<string> {
   const hasImages = !!(input.images && input.images.length);
 
   if (hasImages) {
-    // Vision path: single model, no fallback.
-    const model = env.GROQ_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
+    // Vision path: Groq has no vision-capable model left as of 2026 (llama-4-scout and
+    // llama-4-maverick were both deprecated in favor of the text-only gpt-oss-120b) — the
+    // orchestrator (ai/index.ts providers()) skips Groq entirely for image calls, so this
+    // branch shouldn't be reached in practice. GROQ_VISION_MODEL is honored if explicitly set
+    // (e.g. a future Groq vision model), otherwise this fails fast rather than guessing an id.
+    const model = env.GROQ_VISION_MODEL;
+    if (!model) throw new Error("no vision-capable Groq model configured (GROQ_VISION_MODEL)");
     return groqCall(env, input, model);
   }
 
   // Text path: try primary model (per-call override wins), then fallback list.
-  const primary = input.groqModel || env.GROQ_MODEL || "llama-3.3-70b-versatile";
+  const primary = input.groqModel || env.GROQ_MODEL || "openai/gpt-oss-120b";
   const fallbacks = (env.GROQ_FALLBACK_MODELS ?? "")
     .split(",")
     .map((m) => m.trim())
