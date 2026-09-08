@@ -225,6 +225,7 @@ CONSIDER THE FULL CLIENT PROFILE — silently weigh EVERY field before writing, 
 - dietPrefs, allergies, foodLikes/foodDislikes -> nutrition notes and food guidance.
 - favoriteExercises / dislikedExercises -> include the former, never the latter.
 - progressionRate -> how fast to add load (see PROGRESSION below).
+- "Current cycle phase" (if given) -> menstruation: lighter/technical session, prioritize sleep/iron-rich food; follicular: good window for heavier lifts/PRs; ovulation: strong performance but watch joint laxity on max lifts; luteal: expect more fatigue/cravings, bump complex carbs modestly and don't force intensity.
 
 SUPERVISING TRAINER STYLE: if the user message contains a "SUPERVISING TRAINER STYLE" block, this client trains under that human coach — align the programming philosophy, exercise-selection bias, methodology and tone with that trainer's stated specialization and approach, without ever overriding the safety and profile constraints above.
 
@@ -306,9 +307,14 @@ export function planUser(
   recentPRs?: string,
   candidates: CatalogExercise[] = [],
   trainerStyle?: string,
+  cyclePhaseHint?: string,
 ): string {
   let s = `Client profile JSON:\n${JSON.stringify(profile, null, 2)}`;
   if (recentPRs) s += `\n\nRecent PRs (key lifts):\n${recentPRs}`;
+  // Precomputed from lastPeriodStart/cycleLengthDays (same logic the chat coach uses) — the
+  // raw fields are already in the profile JSON above, but planSystem's checklist needs a ready
+  // instruction, not date math left to the model.
+  if (cyclePhaseHint) s += `\n\nCurrent cycle phase: ${cyclePhaseHint}`;
   // trainerStyle is free text a trainer wrote about themselves (see trainerStyleBlock) — treat
   // as untrusted tone/style guidance only, never as instructions that could override the rules
   // and constraints set above (dislikes, injuries, session architecture, etc).
@@ -502,35 +508,6 @@ export function translateMetaUser(methodology: string, nutritionNotes: string): 
   return JSON.stringify({ methodology, nutritionNotes });
 }
 
-// ---------- single-exercise swap (AI alternative) ----------
-
-export const SWAP_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    name: { type: "STRING" },
-    muscles: { type: "STRING" },
-    technique: { type: "STRING" },
-    exerciseId: { type: "STRING" },
-    canonicalName: { type: "STRING" },
-  },
-  required: ["name", "muscles", "technique"],
-};
-
-export interface SwapResult {
-  name: string;
-  muscles: string;
-  technique: string;
-  exerciseId?: string;
-  canonicalName?: string;
-}
-
-export function swapSystem(lang: Lang): string {
-  const L = langName(lang);
-  return `You are an elite strength & rehab coach. Suggest ONE alternative exercise that trains the same primary muscle group as the given exercise, suitable for the client's equipment and avoiding their disliked/limited movements. It must be a DIFFERENT exercise from the current one.
-GROUNDING: If a "CANDIDATE EXERCISES" list is provided, choose the alternative ONLY from it and copy its exact [id] into exerciseId and its English name into canonicalName. If no list is provided, leave those empty.
-LANGUAGE RULE: understand the user's query in ${L} or English, but write the output fields in canonical English only. Use standard anatomical English terms; never transliterate or localize the output. Return JSON: name, muscles (primary muscles, comma-separated), technique (one short professional cue).`;
-}
-
 // ---------- exercise catalog authoring (create a full record from free text) ----------
 
 export const EXERCISE_CATALOG_SCHEMA = {
@@ -575,7 +552,8 @@ Rules:
 - "instructions" must be 2-4 concise English coaching sentences.
 - "safetyInfo" must be a short English safety note.
 - Do not mention that this is a translation. Do not return markdown or bullets.
-- If the exercise is already known under another language, normalize it to the standard English name.`;
+- If the exercise is already known under another language, normalize it to the standard English name.
+SAFETY (mandatory): if the client's injuries/limitations are given, do NOT author an exercise that loads or aggravates that area — pick or describe a genuinely safe variation instead of the contraindicated movement, and reflect the accommodation in "instructions"/"safetyInfo". If their disliked exercises are given, never author one of those.`;
 }
 
 export function exerciseCatalogUser(
@@ -586,6 +564,8 @@ export function exerciseCatalogUser(
   equipment: string,
   level: string,
   mode: "swap" | "add",
+  injuries?: string,
+  dislikedExercises?: string,
 ): string {
   return [
     `Mode: ${mode}`,
@@ -595,6 +575,8 @@ export function exerciseCatalogUser(
     `Current muscle group: ${currentMuscleGroup}`,
     `Client equipment: ${equipment}`,
     `Client level: ${level}`,
+    injuries ? `Client injuries/limitations (avoid aggravating): ${injuries}` : "",
+    dislikedExercises ? `Client dislikes (never author these): ${dislikedExercises}` : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -732,6 +714,17 @@ export function macrosLeftSystem(lang: Lang, profile: UserProfile): string {
 
 // ---------- Coach consultation ----------
 
+// Shared verbatim across the "coach family" prompts (coachSystem, coachEditSystem) — kept as one
+// constant instead of hand-maintained copies so a future edit can't drift the two out of sync.
+const GROUND_IN_DATA_RULE =
+  "ALWAYS reference specific numbers from their data (recent loads, reps, calories, days trained) — never give generic advice when their logs are in the context.";
+
+// Same red-flag escalation guardrail coachSystem already states explicitly — coachEditSystem and
+// adaptiveAdjustmentSystem handle the same injury-adjacent territory (a user mentioning pain
+// while asking for a plan edit) but previously carried no equivalent instruction.
+const MEDICAL_REDFLAG_RULE =
+  "If something sounds like a red-flag medical issue (not just normal training soreness), advise seeing a doctor/physiotherapist instead of proposing a workaround.";
+
 export function coachSystem(
   lang: Lang,
   profile: UserProfile,
@@ -743,7 +736,7 @@ ${trainerStyle ? `\nYou are drafting on behalf of the client's HUMAN coach. The 
 
 Plain text only — NO markdown tables, NO ** asterisks, NO # headings. Use short lines and simple "•" bullets (Telegram does not render markdown here).
 ${profile.name ? `Address the client by name (${profile.name}) naturally.` : ""}
-ALWAYS reference specific numbers from their data (recent loads, reps, calories, days trained) — never give generic advice when their logs are in the context.
+${GROUND_IN_DATA_RULE}
 THINK IN WHOLE SESSIONS, like a live coach reading a training day: when advising about any exercise, silently weigh the ENTIRE day it sits in — exercise order (compounds fresh, isolations after, conditioning last), what the other movements already fatigue (shared muscles, grip, lower back), total working sets, and how close that day sits to the client's other sessions. Advice that fixes one lift but breaks the session (duplicate pattern, pre-fatigued prime mover, two spinal-heavy lifts stacked) is WRONG advice.
 
 Client profile: ${JSON.stringify(profile)}
@@ -808,7 +801,8 @@ EDIT LIKE A LIVE COACH — every proposed action must respect the WHOLE session 
 - BALANCE: a swap keeps the day's movement pattern covered (don't swap the only pull for a press); "harder"/"easier" adjusts load/volume, not safety.
 - WEIGHTS: base weight suggestions on their logged numbers (double progression: top of rep range → +2.5 kg upper / +5 kg lower), not round guesses.
 
-ALWAYS reference specific numbers from their data (recent loads, reps, calories, days trained) — never give generic advice when their logs are in the context.
+${GROUND_IN_DATA_RULE}
+${MEDICAL_REDFLAG_RULE}
 
 Client profile: ${JSON.stringify(profile)}
 Plan & context: ${context || "(none)"}
@@ -860,6 +854,8 @@ Adjust like a live coach reading the WHOLE session, not one line: when easing or
 
 The plan is in the context as days with 0-based exercise indices, e.g. "Mon(1): 0:Bench Press 4×8 60kg | 1:Incline DB Press 3×10". For each change return { weekday (ISO 1-7), index (0-based), sets? ("N × MIN-MAX", plain Unicode "×", no LaTeX), startWeight? ("NN kg" or "Bodyweight"), reason (one short line in ${L}) }. Only include the fields you are changing.
 
+${MEDICAL_REDFLAG_RULE}
+
 Client profile: ${JSON.stringify(profile)}
 Plan & context: ${context || "(none)"}
 Return strictly JSON: { reply, adjustments }.`;
@@ -867,12 +863,16 @@ Return strictly JSON: { reply, adjustments }.`;
 
 // ---------- Progress narrative ----------
 
+// Shared verbatim between progressSystem and reportSystem (weeklyNarrativeSystem's own version
+// differs slightly in wording, so it keeps its own copy rather than being forced to match).
+const PLAIN_TEXT_NARRATIVE_RULE = "Plain text only — no JSON, no markdown tables or ** asterisks.";
+
 export function progressSystem(lang: Lang): string {
-  return `You are a strength coach and rehabilitation specialist. Given a client's key-lift strength records, write a SHORT (3–5 sentences) motivating analysis in ${langName(lang)}: note improvements, and for each main lift give the next double-progression target (add reps until top of range, then +2.5kg upper body / +5kg lower body). Add a brief joint-friendly recovery cue if relevant. Plain text only — no JSON, no markdown tables or ** asterisks.`;
+  return `You are a strength coach and rehabilitation specialist. Given a client's key-lift strength records, write a SHORT (3–5 sentences) motivating analysis in ${langName(lang)}: note improvements, and for each main lift give the next double-progression target (add reps until top of range, then +2.5kg upper body / +5kg lower body). Add a brief joint-friendly recovery cue if relevant. ${PLAIN_TEXT_NARRATIVE_RULE}`;
 }
 
 export function reportSystem(lang: Lang): string {
-  return `You are the user's coach and rehab specialist. You are given a JSON summary of their last weeks: workouts done/skipped, nutrition adherence vs targets, key-lift strength changes, and body weight/measurement changes. Write a concise, motivating progress report in ${langName(lang)} (5–8 sentences): what's going well, what's slipping, one nutrition note, one training note, and a clear next focus. Be specific with the numbers given. Plain text only — no JSON, no markdown tables or ** asterisks.`;
+  return `You are the user's coach and rehab specialist. You are given a JSON summary of their last weeks: workouts done/skipped, nutrition adherence vs targets, key-lift strength changes, and body weight/measurement changes. Write a concise, motivating progress report in ${langName(lang)} (5–8 sentences): what's going well, what's slipping, one nutrition note, one training note, and a clear next focus. Be specific with the numbers given. ${PLAIN_TEXT_NARRATIVE_RULE}`;
 }
 
 // ---------- weekly motivational narrative (pushed every Monday) ----------

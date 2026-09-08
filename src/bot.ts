@@ -1007,6 +1007,8 @@ export async function createExerciseCatalogEntry(
       ctx.user.profile.equipment ?? "n/a",
       ctx.user.profile.level ?? "beginner",
       mode,
+      ctx.user.profile.limitations,
+      ctx.user.profile.dislikedExercises,
     ),
     schema: P.EXERCISE_CATALOG_SCHEMA,
     temperature: 0.3,

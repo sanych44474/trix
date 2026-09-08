@@ -13,7 +13,8 @@ import { sanitizeBodyMetrics } from "./onboarding";
 import { trainerStyleBlock } from "./trainer";
 import { adaptPlan } from "../domain/planAdapt";
 import { MATCH_THRESHOLD, selectBest } from "../domain/planBank";
-import { API_MUSCLES, formatRecordBest, reconcileGrounding } from "../domain/progression";
+import { API_MUSCLES, formatRecordBest, localParts, reconcileGrounding } from "../domain/progression";
+import { computeCyclePhase, phaseHint, phaseLabel } from "../domain/cycle";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { renderPlan } from "../render";
 import { RateLimitError, aiJSON } from "../ai/index";
@@ -443,9 +444,16 @@ export async function buildPlanDocRaw(
     ? await listCandidatesByMuscles(db, [...API_MUSCLES], { level: profile.level, perMuscle: 20, total: 320 })
     : [];
   const candidateIds = new Set(candidates.map((c) => c.id));
+  // Same phase computation coachContext() already uses for the chat coach — give the initial
+  // plan generation the same ready-made instruction instead of just the raw JSON fields, which
+  // planSystem's checklist never actually told the model what to do with.
+  const cyclePhase = computeCyclePhase(profile, localParts(profile.timezone).date);
+  const cycleHint = cyclePhase
+    ? `${phaseLabel(cyclePhase.phase)} (day ${cyclePhase.day}/${cyclePhase.cycleLength}) — ${phaseHint(cyclePhase.phase)}`
+    : undefined;
   const ai = await aiJSON<AiPlan>(env, {
     system: P.planSystem(lang),
-    user: P.planUser(profile, opts.prs, candidates, opts.trainerStyle),
+    user: P.planUser(profile, opts.prs, candidates, opts.trainerStyle, cycleHint),
     schema: P.PLAN_SCHEMA,
     temperature: 0.7,
     kind: "plan",
