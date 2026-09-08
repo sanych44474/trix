@@ -42,8 +42,10 @@ export const INTERVIEW_SCHEMA = {
           enum: ["beginner", "intermediate", "advanced"],
         },
         trainingHistory: { type: "STRING" },
+        baselineLifts: { type: "STRING" },
         daysPerWeek: { type: "NUMBER" },
         trainingWeekdays: { type: "ARRAY", items: { type: "INTEGER" } },
+        sessionMinutes: { type: "NUMBER" },
         equipment: { type: "STRING" },
         limitations: { type: "STRING" },
         dietPrefs: { type: "STRING" },
@@ -88,7 +90,9 @@ You must collect these essentials before finishing:
 - baseline body measurements in cm -> measurements.waist (always ask) and at least one of chest/arm/hips/thigh; explain you'll track weight and these volumes over time to measure progress
 - goal (e.g. fat loss, muscle gain, recomposition, strength)
 - training history (summarize into trainingHistory) and inferred level
+- if they have training history: current/starting working weights on their key lifts -> baselineLifts (free text, e.g. "bench 60kg, squat 80kg, deadlift 100kg"); if new to lifting, record "none"
 - daysPerWeek and which specific weekdays they can train -> trainingWeekdays as ISO numbers (1=Mon … 7=Sun)
+- how long a session can realistically run, in minutes -> sessionMinutes (integer, e.g. 45)
 - equipment / gym access
 - sleep schedule: right AFTER equipment, ask roughly what time they go to bed. If usually before ~23:00 set sleepSchedule="morning"; if usually after ~23:00 set sleepSchedule="evening". This tunes when reminders fire and morning-vs-evening training.
 - daily lifestyle / activity outside training: ask about their typical day / job. Map to lifestyle="sedentary" (desk/office, mostly sitting), "moderate" (some walking/standing through the day), or "active" (physical job, on their feet most of the day). Explain it lets you set the right calories, daily steps target and training volume.
@@ -218,7 +222,9 @@ CONSIDER THE FULL CLIENT PROFILE — silently weigh EVERY field before writing, 
 - heightCm, weightKg & measurements -> starting loads, body-composition focus, nutrition math.
 - goal & level -> split design, intensity, progression aggressiveness.
 - trainingHistory -> exercise complexity and starting point (don't over-prescribe to novices).
+- baselineLifts (if given and not "none") -> calibrate startWeight directly from their own stated numbers instead of a generic per-level guess; if absent or "none", estimate conservatively from level/sex/bodyweight as before.
 - daysPerWeek & trainingWeekdays -> number of sessions and weekly distribution.
+- sessionMinutes (if given) -> THIS is the client's real time budget, not a target you invent — see TIME BUDGET below.
 - equipment -> never prescribe exercises the client cannot perform with what they have.
 - limitations/injuries -> screen out contraindicated movements (see SAFETY below).
 - lifestyle & sleepSchedule -> recovery capacity, NEAT/steps target, session timing & duration.
@@ -272,7 +278,7 @@ SESSION ARCHITECTURE — assemble each day the way a live professional coach wou
 - ORDER (non-negotiable): explosive/skill work first (if any) → the day's heaviest compound (role "primary", freshest state) → secondary compound → isolation accessories → core/carry → conditioning LAST. Never place an isolation that pre-fatigues the prime movers or grip BEFORE a compound that needs them (no biceps curls before rows, no heavy core before squats, no calf raises before deadlifts).
 - NO REDUNDANCY: within one day every exercise must add a DISTINCT movement pattern or muscle emphasis. Never program two near-identical movements in the same session (two horizontal barbell presses, two cable curl variations, leg press + hack squat). Pick the better one and spend the slot on something the session lacks.
 - FATIGUE BUDGET: (a) axial/spinal load — at most ONE maximal-effort spinal loader per day (heavy back squat OR heavy deadlift, not both; the other goes lighter or on another day); (b) grip — when deadlifts, heavy rows and carries share a day, sequence them apart and note "straps ok" in the cue of the later one; (c) session RPE — only 1-2 slots at RPE 8-9, the rest at 6-8, so the session averages ~7-8 and the client finishes able to move well.
-- TIME BUDGET: working sets × rest must FIT "durationMin". Estimate ~3-4 min per compound working set (incl. rest) and ~2 min per accessory set; if the total overshoots, cut accessory sets or superset non-competing accessories — do not silently prescribe a 90-minute session as 60.
+- TIME BUDGET: if the client profile gives "sessionMinutes", that IS the ceiling for "durationMin" on every training day — never exceed it. Without it, pick a reasonable durationMin yourself. Either way: working sets × rest must FIT durationMin. Estimate ~3-4 min per compound working set (incl. rest) and ~2 min per accessory set; if the total overshoots, cut accessory sets or superset non-competing accessories — do not silently prescribe a 90-minute session as 60.
 - WITHIN-WEEK RECOVERY: look at the ACTUAL trainingWeekdays adjacency. Consecutive days must not hammer the same muscle group or both be CNS-heavy — alternate upper/lower or push/pull on back-to-back days, give a muscle 48-72h before its next hard session, hardest session earliest in the week.
 - WEEKLY PER-MUSCLE VOLUME: distribute roughly 10-20 hard working sets per priority muscle per week (minimum-effective ~10, ceiling ~20-22), spread over ≥2 sessions when frequency allows; muscles secondary to the goal may sit lower. Count sets across ALL days before finalizing — no muscle silently at 2 sets/week or 30 sets/week.
 

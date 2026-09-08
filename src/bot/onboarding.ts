@@ -10,7 +10,7 @@ import { HTML, generateClientDraft, generatePlan, reply, type MyContext, type TK
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
 
 export interface ObStep {
-  field: "sex" | "age" | "hw" | "goal" | "level" | "daysPerWeek" | "trainingWeekdays" | "equipment" | "lifestyle" | "sleepSchedule" | "dietPrefs" | "limitations";
+  field: "sex" | "age" | "hw" | "goal" | "level" | "baselineLifts" | "daysPerWeek" | "trainingWeekdays" | "sessionMinutes" | "equipment" | "lifestyle" | "sleepSchedule" | "dietPrefs" | "limitations";
   q: TKey; // i18n question key
   buttons?: { label: string; value: string }[];
   input?: "number" | "number2" | "text";
@@ -27,9 +27,11 @@ export function obSteps(lang: Lang): ObStep[] {
     { field: "hw", q: "ob_q_hw", input: "number2" },
     { field: "goal", q: "ob_q_goal", buttons: [b("ob_goal_fatloss", "fat loss"), b("ob_goal_muscle", "muscle gain"), b("ob_goal_recomp", "recomposition"), b("ob_goal_strength", "strength"), b("ob_goal_endurance", "endurance")] },
     { field: "level", q: "ob_q_level", buttons: [b("ob_level_beginner", "beginner"), b("ob_level_intermediate", "intermediate"), b("ob_level_advanced", "advanced")] },
+    { field: "baselineLifts", q: "ob_q_baseline", input: "text", noneKey: "ob_baseline_none" },
     // Single source of truth for training frequency: the day picker. daysPerWeek is derived
     // from the count (no separate "how many days" question → no contradictions).
     { field: "trainingWeekdays", q: "ob_q_weekdays", multiselect: true },
+    { field: "sessionMinutes", q: "ob_q_duration", buttons: [b("ob_dur_30", "30"), b("ob_dur_45", "45"), b("ob_dur_60", "60"), b("ob_dur_90", "90")] },
     { field: "equipment", q: "ob_q_equipment", buttons: [b("ob_eq_gym", "full gym"), b("ob_eq_home", "home basics (dumbbells, bands)"), b("ob_eq_dumbbells", "dumbbells only"), b("ob_eq_bodyweight", "bodyweight only")] },
     { field: "lifestyle", q: "ob_q_lifestyle", buttons: [b("ob_life_sedentary", "sedentary"), b("ob_life_moderate", "moderate"), b("ob_life_active", "active")] },
     { field: "sleepSchedule", q: "ob_q_sleep", buttons: [b("ob_sleep_morning", "morning"), b("ob_sleep_evening", "evening")] },
@@ -84,7 +86,9 @@ export function obProgress(profile: UserProfile): { answered: number; total: num
     profile.heightCm !== undefined && profile.weightKg !== undefined,
     !!profile.goal,
     !!profile.level,
+    profile.baselineLifts !== undefined,
     (profile.trainingWeekdays ?? []).length > 0,
+    profile.sessionMinutes !== undefined,
     !!profile.equipment,
     !!profile.lifestyle,
     !!profile.sleepSchedule,
@@ -172,6 +176,8 @@ export async function obApplyAndAdvance(ctx: MyContext, step: ObStep, raw: strin
   else if (step.field === "equipment") profile.equipment = String(raw);
   else if (step.field === "dietPrefs") profile.dietPrefs = String(raw);
   else if (step.field === "limitations") profile.limitations = String(raw);
+  else if (step.field === "baselineLifts") profile.baselineLifts = String(raw);
+  else if (step.field === "sessionMinutes") profile.sessionMinutes = Number(raw);
   const next = (ctx.user.session.step ?? 0) + 1;
   ctx.user.profile = profile;
   ctx.user.session = { ...ctx.user.session, step: next, awaitText: undefined };

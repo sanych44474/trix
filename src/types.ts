@@ -56,6 +56,8 @@ export interface UserProfile {
   daysPerWeek?: number;
   trainingWeekdays?: Weekday[];
   equipment?: string;
+  sessionMinutes?: number; // how long a training session can realistically run, in minutes
+  baselineLifts?: string; // free-text starting numbers ("bench 60kg, squat 80kg") or "none" if new to lifting
   limitations?: string;
   dietPrefs?: string;
   favoriteExercises?: string; // exercises the user enjoys / wants included
