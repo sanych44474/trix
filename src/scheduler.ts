@@ -560,6 +560,20 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
     const plan = activePlan;
     const day = plan ? getPlanDay(plan, weekday) : undefined;
     if (day && !loggedToday) {
+      // Adaptive TONE (never frequency — cutting touchpoints is exactly wrong when someone's
+      // lapsing). If the previous workout reminder went unanswered (nothing completed since),
+      // extend the streak; a completed workout since then resets it. After 3 in a row, switch to
+      // a softer, no-pressure variant instead of repeating the identical nag indefinitely.
+      const prevSent = sent["workout"];
+      let ignoredStreak = user.reminders?.workoutIgnoredStreak ?? 0;
+      if (prevSent && prevSent !== date) {
+        const sinceLogs = await workoutLogsSince(db, user._id, prevSent).catch(() => []);
+        const actedOn = sinceLogs.some((l) => l.completed);
+        ignoredStreak = actedOn ? 0 : ignoredStreak + 1;
+        if (ignoredStreak !== (user.reminders?.workoutIgnoredStreak ?? 0)) {
+          await updateUser(db, user._id, { reminders: { ...user.reminders, workoutIgnoredStreak: ignoredStreak } }).catch(() => {});
+        }
+      }
       const wd = weekday;
       const kb = new InlineKeyboard()
         .text(t(lang, "log_done"), "log:done")
@@ -569,8 +583,9 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
         .text(t(lang, "plan_diff_edit_weight"), `wt:open:${wd}`);
       const logUrl = appView("log");
       if (logUrl) kb.row().webApp(t(lang, "app_log_btn"), logUrl);
+      const reminderKey = ignoredStreak >= 3 ? "reminder_workout_soft" : "reminder_workout";
       const text =
-        t(lang, "reminder_workout", { group: day.muscleGroup }) + "\n\n" + renderDay(lang, day, undefined, "none");
+        t(lang, reminderKey, { group: day.muscleGroup }) + "\n\n" + renderDay(lang, day, undefined, "none");
       await send(text, { ...HTML, reply_markup: kb });
       markSent("workout");
       pinged = true;

@@ -523,6 +523,8 @@ export const en = {
 
   reminder_workout:
     "🏋️ *Time to train — {group}!*\nHere's today's session. Smash it, then */log* your results.",
+  reminder_workout_soft:
+    "👋 No pressure — today's *{group}* session is here whenever you're ready. Even a short version counts.",
   reminder_checkin:
     "👋 How did today go? Use */log* to record your workout, or */nutrition* to log your meals.",
   reminder_wellbeing:

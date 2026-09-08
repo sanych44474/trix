@@ -268,6 +268,7 @@ export interface UserReminders {
   prCount?: number; // lifetime count of personal records set — drives PR-milestone badges
   lastVacation?: { from: string; until: string }; // most recent vacation window (freezes the week streak)
   lastRank?: number; // last weekly consistency-board rank — rank-change pushes compare against it
+  workoutIgnoredStreak?: number; // consecutive workout reminders with nothing logged since — softens the tone, never the frequency
 }
 
 export interface UserDoc {
