@@ -1,22 +1,23 @@
 // Trainers & clients section — extracted verbatim from src/bot.ts (mechanical split).
 
-import { InlineKeyboard } from "grammy";
+import { GrammyError, InlineKeyboard } from "grammy";
 import type { BankPlan, Lang, PlanDoc, SetEntry, TrainerDoc, TrainerProfileInput, UserDoc, Weekday } from "../types";
 import {
   applyTrainer, approveTrainer, assignDraftPlan, bodyLogsByUser,
   countClientsOf, countCompletedWorkouts, deleteDraftPlan,
-  deleteTrainerTemplate, getActivePlan, getClientCard, getClientForTrainer, getClientNote,
+  deleteTrainerTemplate, eventCountsByUser, getActivePlan, getClientCard, getClientForTrainer, getClientNote,
   getDraftPlan, getOwnerChatId, getQuestion, getRequest, getTrainer, getTrainerByCode,
   getTrainerTemplate, getUser, getUsersByIds, getWorkoutLog, insertMessage, linkClient, listActiveInjuries,
   listClients, listQuestionsForTrainer, listStrength,
-  listTrainerTemplates, nutritionLogsSince, pendingRequestsForTrainer, recordAudit, rejectTrainer,
+  listTrainerTemplates, nutritionLogsSince, pendingRequestsForTrainer, planStatusByUser, recordAudit, rejectTrainer,
   createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken,
   saveDraftPlan, saveTrainerTemplate, setActivePlan, setClientCard, setClientNote, setQuestionStatus,
   setRequestStatus, setUserFlag, unlinkClient, updateTrainer, updateUser, upsertStrengthRecord,
   upsertWorkoutLog, workoutLogsSince,
 } from "../db/repos";
+import { isoDateMinus } from "./boards";
 import { botDeepLink } from "./links";
-import { isOwner } from "./owner";
+import { interviewProgress, isOwner } from "./owner";
 import { adaptPlan } from "../domain/planAdapt";
 import { anthroLines, birthdayInfo, parseBirthdayInput, trainerCanSee } from "../domain/clientCard";
 import { computeCyclePhase } from "../domain/cycle";
@@ -1703,4 +1704,92 @@ async function notifyWaitlistSlot(ctx: MyContext, trainerId: number) {
   } catch {
     /* best-effort */
   }
+}
+
+// On-demand trainer report — the owner's /users table scoped to this trainer's clients
+// (same columns minus trainer/ban), plus one-tap "finish the interview" nudges below.
+export async function cmdTrainerReport(ctx: MyContext) {
+  const lang = ctx.user.lang;
+  if (ctx.user.role !== "trainer") return;
+  const clients = await listClients(ctx.db, ctx.user._id);
+  if (!clients.length) {
+    await reply(ctx, t(lang, "tr_report_noclients"), menuBtn(lang));
+    return;
+  }
+  const [eventCounts, planStatus] = await Promise.all([
+    eventCountsByUser(ctx.db).catch(() => new Map<number, { workouts: number; checkins: number; nutrition: number; steps: number }>()),
+    planStatusByUser(ctx.db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
+  ]);
+  // Retention snapshot: active in the last 7 days / total clients.
+  const todayStr = localParts(ctx.user.profile.timezone).date;
+  const active7 = clients.filter((c) => c.lastSeenAt && c.lastSeenAt.toISOString().slice(0, 10) >= isoDateMinus(todayStr, 7)).length;
+  const retentionPct = clients.length ? Math.round((active7 / clients.length) * 100) : 0;
+  const biz = [
+    `💰 <b>${t(lang, "tr_biz")}</b>`,
+    `• ${t(lang, "tr_biz_clients")}: <b>${clients.length}</b> · ${t(lang, "tr_biz_active")}: <b>${active7}</b> (${retentionPct}%)`,
+    "",
+  ].join("\n");
+  const zero = { workouts: 0, checkins: 0, nutrition: 0, steps: 0 };
+  // Most-active first, same ranking as the owner table.
+  const ranked = [...clients]
+    .map((u) => ({ u, ev: eventCounts.get(u._id) ?? zero }))
+    .sort((a, b) => {
+      const sum = (e: typeof zero) => e.workouts + e.checkins + e.nutrition + e.steps;
+      return sum(b.ev) - sum(a.ev);
+    });
+  const header = ["name", "nick", "stat", "pln", "drf", "W", "C", "N", "S", "last", "blk"];
+  const cells = [
+    header,
+    ...ranked.map(({ u, ev }) => {
+      const prog = interviewProgress(u.profile);
+      const ps = planStatus.get(u._id);
+      return [
+        (u.profile.name || `id ${u._id}`).slice(0, 16),
+        u.username ? `@${u.username}` : "-",
+        u.onboarded ? "ok" : `${prog.filled}/${prog.total}`,
+        ps?.active ? "y" : "-",
+        ps?.draft ? "y" : "-",
+        String(ev.workouts), String(ev.checkins), String(ev.nutrition), String(ev.steps),
+        u.lastSeenAt ? u.lastSeenAt.toISOString().slice(5, 10) : "—",
+        u.botBlocked ? "x" : "-",
+      ];
+    }),
+  ];
+  const widths = header.map((_, i) => Math.max(...cells.map((r) => r[i].length)));
+  const rightAlign = new Set([5, 6, 7, 8]); // numeric columns W/C/N/S
+  const tbl = cells.map((r) =>
+    r.map((cell, i) => (rightAlign.has(i) ? cell.padStart(widths[i]) : cell.padEnd(widths[i]))).join(" "),
+  );
+  const kb = new InlineKeyboard();
+  for (const c of clients) {
+    if (!c.onboarded) kb.text(`🔔 ${(c.profile.name ?? String(c._id)).slice(0, 24)}`, `cl:${c._id}:intvping`).row();
+  }
+  kb.text(t(lang, "menu_open"), "menu:open");
+  await reply(ctx, `${biz}${t(lang, "tr_report_legend")}\n<pre>${escapeHtml(tbl.join("\n"))}</pre>`, kb);
+}
+
+export async function cmdTrainerBroadcast(ctx: MyContext) {
+  if (!(await requireTrainer(ctx))) return;
+  const n = await countClientsOf(ctx.db, ctx.user._id);
+  if (!n) { await reply(ctx, t(ctx.user.lang, "tr_broadcast_noclients"), trainerMenu(ctx.user.lang)); return; }
+  await setMode(ctx, "trainer_broadcast");
+  await reply(ctx, t(ctx.user.lang, "tr_broadcast_prompt", { n }));
+}
+
+export async function handleTrainerBroadcast(ctx: MyContext, text: string) {
+  const lang = ctx.user.lang;
+  await setMode(ctx, "idle");
+  const clients = await listClients(ctx.db, ctx.user._id);
+  const who = escapeHtml(ctx.user.profile.name ?? "trainer");
+  let sent = 0;
+  for (const c of clients) {
+    try {
+      await ctx.api.sendMessage(c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + `\n\n${escapeHtml(text.slice(0, 1500))}`, HTML);
+      sent++;
+    } catch (err) {
+      if (err instanceof GrammyError && err.error_code === 403) await updateUser(ctx.db, c._id, { botBlocked: true }).catch(() => {});
+      else console.error("trainer broadcast", c._id, err);
+    }
+  }
+  await reply(ctx, t(lang, "tr_broadcast_sent", { n: sent }), trainerMenu(lang));
 }

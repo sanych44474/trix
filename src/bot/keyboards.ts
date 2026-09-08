@@ -220,3 +220,40 @@ export function checkinScale(step: "energy" | "sleep" | "stress"): InlineKeyboar
 export function mealActionsKb(lang: Lang): InlineKeyboard {
   return new InlineKeyboard().text(t(lang, "meal_regen_ai"), "meal:ai").row().text(t(lang, "menu_open"), "menu:open");
 }
+
+export function difficultyKeyboard(lang: Lang, weekday: number): InlineKeyboard {
+  const wd = weekday;
+  return new InlineKeyboard()
+    .text(t(lang, "swap_btn"), `swap:${wd}`)
+    .text(t(lang, "workout_info_btn"), "workout:info").row()
+    .text(t(lang, "plan_diff_edit_weight"), `wt:open:${wd}`)
+    .text(t(lang, "plan_diff_edit_sets"), `st:open:${wd}`);
+}
+
+export function todayWorkoutKeyboard(lang: Lang, weekday: number): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(t(lang, "log_done"), "log:done")
+    .text(t(lang, "log_skip"), "log:skip")
+    .row()
+    .text(t(lang, "swap_btn"), `swap:${weekday}`)
+    .text(t(lang, "workout_info_btn"), "workout:info")
+    .row()
+    .text(t(lang, "gym_swap_btn"), "gymswap:open")
+    .row()
+    .text(t(lang, "workout_add_btn"), `workout:add:${weekday}`)
+    .text(t(lang, "workout_delete_btn"), `workout:delete:${weekday}`)
+    .row()
+    .text(t(lang, "plan_diff_edit_weight"), `wt:open:${weekday}`)
+    .text(t(lang, "plan_diff_edit_sets"), `st:open:${weekday}`)
+    .row()
+    .text(t(lang, "warmup_edit_btn"), `wu:open:${weekday}`);
+}
+
+export function difficultyLabel(lang: Lang, difficulty?: string): string {
+  if (!difficulty) return "";
+  const map: Record<string, string> =
+    lang === "uk"
+      ? { beginner: "початковий", intermediate: "середній", expert: "просунутий" }
+      : { beginner: "beginner", intermediate: "intermediate", expert: "expert" };
+  return map[difficulty] ?? difficulty;
+}

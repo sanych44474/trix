@@ -24,6 +24,7 @@ import { splitKeys } from "../ai/errors";
 import { aiJSON } from "../ai/index";
 import * as P from "../ai/prompts";
 import { YouTubeQuotaError, normalizeVideoKey, parseYouTubeId, searchExerciseVideo } from "../youtube";
+import { ownerHubMenu } from "./keyboards";
 import {
   type MyContext, HTML, buildPlanDoc, clearEditOwner, deferAi, mainMenu, menuBtn,
   obSteps, planOwnerId, reply, setMode,
@@ -1041,4 +1042,9 @@ export async function buildErrorReport(db: D1Database): Promise<string | null> {
     lines.push(`  ${e.ts.slice(11, 16)} ${escapeHtml(e.kind)}/${escapeHtml(e.errorType)}: ${escapeHtml((e.message ?? "").slice(0, 80))}`);
   }
   return lines.join("\n");
+}
+
+export async function showOwnerHub(ctx: MyContext) {
+  if (!(await isOwner(ctx))) return;
+  await reply(ctx, t(ctx.user.lang, "owner_hub_title"), ownerHubMenu(ctx.user.lang));
 }
