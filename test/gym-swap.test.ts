@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fitsEquipmentPreset, pickGymSwaps } from "../src/domain/gymSwap";
+import { fitsEquipmentPreset, pickGymSwaps, profileEquipmentToPreset } from "../src/domain/gymSwap";
 
 test("fitsEquipmentPreset: no equipment fits every preset", () => {
   assert.equal(fitsEquipmentPreset([], "bodyweight"), true);
@@ -45,6 +45,14 @@ test("pickGymSwaps: picks one fitting candidate per slot, by muscle", () => {
   const out = pickGymSwaps(slots, byMuscle, "bodyweight");
   assert.equal(out.get(0)?.name, "Push-Up");
   assert.equal(out.get(1)?.name, "Inverted Row");
+});
+
+test("profileEquipmentToPreset: maps the four onboarding answers, full gym/unset filter nothing", () => {
+  assert.equal(profileEquipmentToPreset("bodyweight only"), "bodyweight");
+  assert.equal(profileEquipmentToPreset("dumbbells only"), "dumbbells");
+  assert.equal(profileEquipmentToPreset("home basics (dumbbells, bands)"), "dumbbells");
+  assert.equal(profileEquipmentToPreset("full gym"), null);
+  assert.equal(profileEquipmentToPreset(undefined), null);
 });
 
 test("pickGymSwaps: a slot with no fitting candidate is omitted, not force-filled", () => {

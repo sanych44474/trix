@@ -27,6 +27,18 @@ export function fitsEquipmentPreset(equipments: string[], preset: EquipmentPrese
   return nonTrivial.every((e) => PRESET_MATCH[preset].test(e));
 }
 
+// Onboarding stores one of these four English strings verbatim as profile.equipment (see
+// bot/onboarding.ts's equipment step) — map it to the closest preset so the EVERYDAY swap
+// picker (webapp/workout.ts, bot/planExerciseEdit.ts) can filter by it, the same way the
+// explicit "not my gym today" picker above already filters by a preset the user chose in the
+// moment. "full gym" (and unset) return null — no equipment ceiling to filter on.
+export function profileEquipmentToPreset(equipment?: string): EquipmentPreset | null {
+  const e = (equipment ?? "").toLowerCase();
+  if (e.includes("bodyweight")) return "bodyweight";
+  if (e.includes("dumbbell")) return "dumbbells"; // covers "home basics (dumbbells, bands)" too
+  return null;
+}
+
 export interface GymSwapSlot {
   index: number;
   exerciseId?: string;

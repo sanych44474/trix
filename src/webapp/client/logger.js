@@ -71,7 +71,8 @@ function lgInit(p) {
     for (var i = 0; i < n; i++) sets.push({ w: 0, r: 0, sec: 0, m: 0 });
     return { index: x.index, name: x.name, metric: x.metric, planSets: x.planSets, planWeight: x.planWeight,
       pn: Math.max(1, x.sets), pr: x.reps, pw: x.weightKg, sets: sets, rpe: 0,
-      tech: x.technique || "", vid: x.videoUrl || "", vidT: x.videoTitle || "", last: x.last || null, ss: x.ssGroup || "", wm: x.wmode || "total" };
+      tech: x.technique || "", vid: x.videoUrl || "", vidT: x.videoTitle || "", last: x.last || null, ss: x.ssGroup || "", wm: x.wmode || "total",
+      restSec: x.restSec || 0 };
   });
   // Edit mode: the day already has a saved log — prefill it so the user fixes, not re-types.
   var restored = false;
@@ -624,6 +625,20 @@ function lgCelebrate(res) {
     x.sets[Number(s)][f] = parseFloat(t2.value) || 0;
     lgDraftSave();
     lgProg();
+  });
+  // Auto-start the rest timer when the LAST field of a set is filled in ("r" for reps-metric,
+  // "sec" for time/distance) — "change" (not "input") so it fires once on blur, not per keystroke.
+  // Uses the exercise's own planned rest (PlanExercise.rest, e.g. "90s") when set, else the
+  // user's last manually-picked duration — previously this never auto-started at all.
+  body.addEventListener("change", function (ev) {
+    var t2 = ev.target;
+    if (!t2 || !t2.getAttribute) return;
+    var f = t2.getAttribute("data-f");
+    if (f !== "r" && f !== "sec") return;
+    if ((parseFloat(t2.value) || 0) <= 0) return;
+    var x = LG.ex[Number(t2.getAttribute("data-e"))];
+    if (!x) return;
+    lgRest(x.restSec > 0 ? x.restSec : lgRestPref());
   });
   body.addEventListener("keydown", function (ev) {
     var t2 = ev.target;

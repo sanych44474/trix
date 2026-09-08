@@ -4,6 +4,7 @@
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
 import { applyWorkoutSave, muscleGroupToEnum, planRepsMid, planSetsCount, planWeight, type WorkoutSaveEntry } from "../bot";
 import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
+import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { exerciseMetric, formatSetEntry, getPlanDay, localParts, resolveWeightMode } from "../domain/progression";
 import {
   awardAchievement,
@@ -45,6 +46,7 @@ export interface WorkoutTodayExercise {
   last?: { w: number; r: number; sec: number; m: number }[];
   ssGroup?: string; // superset/circuit group letter (shared with adjacent exercises)
   wmode?: "total" | "perSide" | "perHand"; // how the weight is entered (label only; number as-is)
+  restSec?: number; // planned rest between sets in seconds, parsed from PlanExercise.rest ("90s")
 }
 
 export interface WorkoutTodayPayload {
@@ -71,6 +73,7 @@ export function assembleWorkoutToday(
   const exercises = (day?.exercises ?? []).map((ex, i) => {
     const video = videos?.get(exerciseVideoKey(ex));
     const technique = ex.technique ? cleanAi(ex.technique).trim() : "";
+    const restSec = ex.rest ? parseInt(ex.rest, 10) : NaN;
     return {
       index: i,
       name: ex.name,
@@ -85,6 +88,7 @@ export function assembleWorkoutToday(
       ...(technique ? { technique } : {}),
       ...(video?.url ? { videoUrl: video.url } : {}),
       ...(video?.title ? { videoTitle: video.title } : {}),
+      ...(restSec > 0 ? { restSec } : {}),
     };
   });
   return {
@@ -432,6 +436,11 @@ export async function workoutSwapAlternatives(
     const muscle = muscleGroupToEnum(day.muscleGroup);
     if (muscle) candidates = await listCandidatesByMuscles(db, [muscle], { level, perMuscle: 20, total: 20 });
   }
+  // Respect the equipment the user actually has (onboarding profile.equipment) — without this,
+  // a bodyweight-only/dumbbells-only user could be offered a barbell/machine exercise as one of
+  // their 3 swap options mid-set.
+  const preset = profileEquipmentToPreset(user.profile.equipment);
+  if (preset) candidates = candidates.filter((c) => fitsEquipmentPreset(c.equipments, preset));
   const picked = candidates.sort(() => Math.random() - 0.5).slice(0, 3);
   const out: { id: string; name: string }[] = [];
   for (const c of picked) {

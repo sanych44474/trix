@@ -13,7 +13,7 @@ import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Lang, Weekday } from "../types";
 import { getActivePlan, getCatalogExercise, listCandidatesByMuscles, listExercisesByMusclesAnyLevel, updateActivePlanSplit, updateUser } from "../db/repos";
 import { pickDifficultySwaps } from "../domain/difficultySwap";
-import { pickGymSwaps, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "../domain/gymSwap";
+import { fitsEquipmentPreset, pickGymSwaps, profileEquipmentToPreset, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "../domain/gymSwap";
 import { getPlanDay, localParts } from "../domain/progression";
 import { switchMode } from "../domain/session";
 import { cleanAi, t } from "../locales/i18n";
@@ -83,6 +83,10 @@ export async function showSwapAlternatives(ctx: MyContext, weekday: Weekday, ind
       candidates = await listCandidatesByMuscles(ctx.db, [muscle], { level: ctx.user.profile.level, perMuscle: 20, total: 20 });
     }
   }
+
+  // Respect the equipment the user actually has (onboarding profile.equipment) — see gymSwap.ts.
+  const preset = profileEquipmentToPreset(ctx.user.profile.equipment);
+  if (preset) candidates = candidates.filter((c) => fitsEquipmentPreset(c.equipments, preset));
 
   // Pick 3 random alternatives from candidates.
   const shuffled = candidates.sort(() => Math.random() - 0.5).slice(0, 3);
@@ -174,6 +178,10 @@ export async function showLogSwapAlternatives(ctx: MyContext, index: number) {
       candidates = await listCandidatesByMuscles(ctx.db, [muscle], { level: ctx.user.profile.level, perMuscle: 20, total: 20 });
     }
   }
+
+  // Respect the equipment the user actually has (onboarding profile.equipment) — see gymSwap.ts.
+  const preset = profileEquipmentToPreset(ctx.user.profile.equipment);
+  if (preset) candidates = candidates.filter((c) => fitsEquipmentPreset(c.equipments, preset));
 
   const shuffled = candidates.sort(() => Math.random() - 0.5).slice(0, 3);
   const kb = new InlineKeyboard();

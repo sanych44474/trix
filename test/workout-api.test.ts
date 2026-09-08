@@ -60,6 +60,13 @@ test("assembleWorkoutToday: technique and video ride into the payload when avail
   assert.equal(p2.exercises[0].videoUrl, undefined);
 });
 
+test("assembleWorkoutToday: restSec parsed from the plan's rest string, absent when unset", () => {
+  const withRest = { ...BENCH, rest: "90s" };
+  const p = assembleWorkoutToday(planWith([withRest, BENCH]), TODAY, 5, null);
+  assert.equal(p.exercises[0].restSec, 90);
+  assert.equal(p.exercises[1].restSec, undefined);
+});
+
 test("assembleWorkoutToday: alreadyLogged only for a completed log, not a skip placeholder", () => {
   const done = { completed: true } as WorkoutLogDoc;
   const skip = { completed: false } as WorkoutLogDoc;
