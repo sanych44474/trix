@@ -26,7 +26,48 @@ export async function getClientNote(db: DB, trainerId: number, clientId: number)
   return r ? r.note : null;
 }
 
+/** Append `value` to the note-history journal — call BEFORE overwriting a field, so the value
+ * about to be replaced isn't lost. try/catch protects the deploy-before-migrate window. */
+async function archiveNoteField(db: DB, trainerId: number, clientId: number, field: string, value: string): Promise<void> {
+  if (!value) return; // nothing to preserve
+  try {
+    await db
+      .prepare("INSERT INTO client_note_history (trainerId, clientId, field, value, savedAt) VALUES (?, ?, ?, ?, ?)")
+      .bind(trainerId, clientId, field, value, nowIso())
+      .run();
+  } catch {
+    /* table not migrated yet — don't block the actual note save over it */
+  }
+}
+
+export interface ClientNoteHistoryEntry {
+  field: string;
+  value: string;
+  savedAt: string;
+}
+
+/** Past values of a note field, most recent first — the CURRENT value lives in client_notes/
+ * client_cards as usual; this is only what it used to be before each overwrite. */
+export async function listClientNoteHistory(db: DB, trainerId: number, clientId: number, field?: string): Promise<ClientNoteHistoryEntry[]> {
+  try {
+    const r = field
+      ? await db
+          .prepare("SELECT field, value, savedAt FROM client_note_history WHERE trainerId = ? AND clientId = ? AND field = ? ORDER BY savedAt DESC")
+          .bind(trainerId, clientId, field)
+          .all<ClientNoteHistoryEntry>()
+      : await db
+          .prepare("SELECT field, value, savedAt FROM client_note_history WHERE trainerId = ? AND clientId = ? ORDER BY savedAt DESC")
+          .bind(trainerId, clientId)
+          .all<ClientNoteHistoryEntry>();
+    return r.results ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function setClientNote(db: DB, trainerId: number, clientId: number, note: string): Promise<void> {
+  const prev = await getClientNote(db, trainerId, clientId);
+  if (prev) await archiveNoteField(db, trainerId, clientId, "note", prev);
   await db
     .prepare(
       `INSERT INTO client_notes (trainerId, clientId, note, updatedAt) VALUES (?, ?, ?, ?)
@@ -59,6 +100,8 @@ export async function setClientCard(
   patch: { healthNotes?: string | null; personalNotes?: string | null; birthday?: string | null },
 ): Promise<void> {
   const cur = await getClientCard(db, trainerId, clientId);
+  if (patch.healthNotes !== undefined && cur?.healthNotes) await archiveNoteField(db, trainerId, clientId, "healthNotes", cur.healthNotes);
+  if (patch.personalNotes !== undefined && cur?.personalNotes) await archiveNoteField(db, trainerId, clientId, "personalNotes", cur.personalNotes);
   const healthNotes = patch.healthNotes !== undefined ? patch.healthNotes : (cur?.healthNotes ?? null);
   const personalNotes = patch.personalNotes !== undefined ? patch.personalNotes : (cur?.personalNotes ?? null);
   const birthday = patch.birthday !== undefined ? patch.birthday : (cur?.birthday ?? null);
@@ -368,6 +411,27 @@ export async function listQuestionsForTrainer(db: DB, trainerId: number, limit =
 export async function insertMessage(db: DB, fromId: number, toId: number, text: string): Promise<void> {
   await db.prepare("INSERT INTO messages (fromId, toId, text, createdAt) VALUES (?, ?, ?, ?)")
     .bind(fromId, toId, text, nowIso()).run();
+}
+
+export interface MessageEntry {
+  fromId: number;
+  toId: number;
+  text: string;
+  createdAt: string;
+}
+
+/** The trainer<->client message thread, oldest first — messages are otherwise write-only (sent
+ * once as a Telegram push and never readable again). limit caps how far back a single fetch goes. */
+export async function listMessages(db: DB, trainerId: number, clientId: number, limit = 100): Promise<MessageEntry[]> {
+  const r = await db
+    .prepare(
+      `SELECT fromId, toId, text, createdAt FROM messages
+       WHERE (fromId = ?1 AND toId = ?2) OR (fromId = ?2 AND toId = ?1)
+       ORDER BY createdAt DESC, id DESC LIMIT ?3`,
+    )
+    .bind(trainerId, clientId, limit)
+    .all<MessageEntry>();
+  return (r.results ?? []).reverse();
 }
 
 // ---------- trainer program templates ----------

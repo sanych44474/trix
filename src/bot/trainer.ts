@@ -8,7 +8,7 @@ import {
   deleteTrainerTemplate, eventCountsByUser, getActivePlan, getClientCard, getClientForTrainer, getClientNote,
   getDraftPlan, getOwnerChatId, getQuestion, getRequest, getTrainer, getTrainerByCode,
   getTrainerTemplate, getUser, getUsersByIds, getWorkoutLog, insertMessage, linkClient, listActiveInjuries,
-  listClients, listQuestionsForTrainer, listStrength,
+  listClientNoteHistory, listClients, listMessages, listQuestionsForTrainer, listStrength,
   listTrainerTemplates, nutritionLogsSince, pendingRequestsForTrainer, planStatusByUser, recordAudit, rejectTrainer,
   createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken,
   saveDraftPlan, saveTrainerTemplate, setActivePlan, setClientCard, setClientNote, setQuestionStatus,
@@ -903,9 +903,12 @@ export async function cmdClients(ctx: MyContext) {
     await reply(ctx, t(lang, "clients_none"), menuBtn(lang));
     return;
   }
+  // Attention first: flagged clients, then pending-onboarding — listClients has no ORDER BY, so
+  // without this a trainer with many clients has to scan the whole roster to find who needs them.
+  const sorted = [...clients].sort((a, b) => Number(b.flagged) - Number(a.flagged) || Number(!a.onboarded) - Number(!b.onboarded));
   const kb = new InlineKeyboard();
-  for (const c of clients) {
-    const flag = c.onboarded ? "" : " ⏳";
+  for (const c of sorted) {
+    const flag = (c.flagged ? " 🚩" : "") + (c.onboarded ? "" : " ⏳");
     kb.text(`${c.profile.name ?? `id ${c._id}`}${flag}`.slice(0, 60), `cl:${c._id}:card`).row();
   }
   await reply(ctx, t(lang, "clients_header"), kb);
@@ -1043,6 +1046,8 @@ export function clientCardKb(lang: Lang, id: number): InlineKeyboard {
     .row()
     .text(t(lang, "cc_edit"), `cl:${id}:edit`)
     .text(t(lang, "cc_message"), `cl:${id}:msg`)
+    .row()
+    .text(t(lang, "cc_thread"), `cl:${id}:thread`)
     .row()
     .text(t(lang, "cc_note"), `cl:${id}:note`)
     .text(t(lang, "cc_flag"), `cl:${id}:flag`)
@@ -1229,12 +1234,30 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
   } else if (action === "msg") {
     await updateUser(ctx.db, ctx.user._id, { session: { mode: "msg_client", targetId: clientId } });
     await reply(ctx, t(lang, "msg_prompt", { name: cname }));
+  } else if (action === "thread") {
+    // Messages were previously write-only (sent once as a Telegram push, never readable again).
+    const msgs = await listMessages(ctx.db, ctx.user._id, clientId, 20);
+    const kb = new InlineKeyboard()
+      .text(t(lang, "cc_message"), `cl:${clientId}:msg`)
+      .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
+    if (!msgs.length) {
+      await reply(ctx, t(lang, "cc_thread_empty", { name: cname }), kb);
+    } else {
+      const lines = msgs.map((m) => `${m.createdAt.slice(0, 16).replace("T", " ")} ${m.fromId === ctx.user._id ? "→" : "←"} ${escapeHtml(m.text)}`);
+      await reply(ctx, `${t(lang, "cc_thread_title", { name: cname })}\n\n${lines.join("\n")}`, kb);
+    }
   } else if (action === "note") {
     const note = await getClientNote(ctx.db, ctx.user._id, clientId);
+    const history = await listClientNoteHistory(ctx.db, ctx.user._id, clientId, "note");
+    let body = note ? `📝 ${cname}\n\n${escapeHtml(note)}` : t(lang, "cc_note_empty", { name: cname });
+    if (history.length) {
+      body += `\n\n<i>${t(lang, "cc_note_history_hdr")}</i>\n` +
+        history.slice(0, 5).map((h) => `• ${h.savedAt.slice(0, 10)}: ${escapeHtml(h.value)}`).join("\n");
+    }
     const kb = new InlineKeyboard()
       .text(t(lang, "cc_note_edit"), `cl:${clientId}:noteedit`)
       .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
-    await reply(ctx, note ? `📝 ${cname}\n\n${escapeHtml(note)}` : t(lang, "cc_note_empty", { name: cname }), kb);
+    await reply(ctx, body, kb);
   } else if (action === "noteedit") {
     await updateUser(ctx.db, ctx.user._id, { session: { mode: "trainer_note", targetId: clientId } });
     await reply(ctx, t(lang, "cc_note_prompt", { name: cname }));
@@ -1261,6 +1284,11 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
       }
     } else {
       lines.push("", t(lang, "cc_share_locked", { name: cname }));
+    }
+    const healthHistory = await listClientNoteHistory(ctx.db, ctx.user._id, clientId, "healthNotes");
+    if (healthHistory.length) {
+      lines.push("", `<i>${t(lang, "cc_health_history_hdr")}</i>`);
+      for (const h of healthHistory.slice(0, 5)) lines.push(`• ${h.savedAt.slice(0, 10)}: ${escapeHtml(h.value)}`);
     }
     const kb = new InlineKeyboard()
       .text(t(lang, "cc_health_edit"), `cl:${clientId}:healthedit`)

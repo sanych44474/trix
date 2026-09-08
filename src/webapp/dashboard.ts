@@ -252,7 +252,13 @@ async function buildTrainerSection(
   trainerId: number,
   today: string,
 ): Promise<NonNullable<DashboardPayload["trainer"]>> {
-  const clients = (await listClients(db, trainerId).catch(() => [] as UserDoc[])).slice(0, TRAINER_SECTION_MAX_CLIENTS);
+  // Flagged-first BEFORE the cap so a flagged client past position 30 still survives the
+  // O(1) truncation below. atRisk needs the bulk queries below, so it can only reorder AFTER
+  // they run (see the final sort on `rows`) — this pre-slice pass only uses the free `flagged`
+  // column already loaded on every UserDoc row.
+  const allClients = (await listClients(db, trainerId).catch(() => [] as UserDoc[]))
+    .sort((a, b) => Number(b.flagged) - Number(a.flagged));
+  const clients = allClients.slice(0, TRAINER_SECTION_MAX_CLIENTS);
   if (!clients.length) return { clients: [] };
   const ids = new Set(clients.map((c) => c._id));
   const cutoff = isoDaysBefore(today, 6);
@@ -300,6 +306,8 @@ async function buildTrainerSection(
     }
     return { id: c._id, name: c.profile.name ?? `id ${c._id}`, workoutPct: comp.workoutPct, nutritionPct: comp.nutritionPct, atRisk, flagged: !!c.flagged };
   });
+  // Attention first in the actual displayed order: flagged, then at-risk, then everyone else.
+  rows.sort((a, b) => Number(b.flagged) - Number(a.flagged) || Number(b.atRisk) - Number(a.atRisk));
   return { clients: rows };
 }
 
