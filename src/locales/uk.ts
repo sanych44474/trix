@@ -702,6 +702,8 @@ export const uk: Dict = {
 
   export_caption: "📦 Експорт твоїх даних trix. Відкрий у будь-якому переглядачі тексту/Markdown.",
   export_none: "Поки нема чого експортувати.",
+  export_json_btn: "📄 Ще й JSON",
+  export_json_caption: "📄 Експорт твоїх даних trix у JSON — для таблиць чи іншого застосунку.",
   export_title: "trix — експорт даних · {name} · {date}",
   export_summary: "Підсумок",
   export_records: "рекорди всіх часів",
@@ -1540,6 +1542,7 @@ export const uk: Dict = {
   wa_feedback_ph: "Чого не вистачає? Що додати?",
   wa_send: "Надіслати",
   wa_export: "📦 Експорт моїх даних",
+  wa_export_json: "📄 Експорт у JSON",
   wa_export_sent: "Надіслано в чат ✓",
   wa_leave_trainer: "🚪 Піти від тренера",
   wa_leave_confirm: "Відключитися від тренера? Твій план буде деактивовано.",

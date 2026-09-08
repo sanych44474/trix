@@ -697,6 +697,8 @@ export const en = {
 
   export_caption: "📦 Your trix data export. Open with any text/Markdown viewer.",
   export_none: "Nothing to export yet.",
+  export_json_btn: "📄 Also get JSON",
+  export_json_caption: "📄 Your trix data export as JSON — for spreadsheets or another app.",
   export_title: "trix — data export · {name} · {date}",
   export_summary: "Summary",
   export_records: "all-time bests",
@@ -1536,6 +1538,7 @@ export const en = {
   wa_feedback_ph: "What's missing? What should we add?",
   wa_send: "Send",
   wa_export: "📦 Export my data",
+  wa_export_json: "📄 Export as JSON",
   wa_export_sent: "Sent to your chat ✓",
   wa_leave_trainer: "🚪 Leave trainer",
   wa_leave_confirm: "Leave your trainer? Your plan will be deactivated.",

@@ -62,8 +62,23 @@ export async function cmdExport(ctx: MyContext) {
     await reply(ctx, t(lang, "export_none"), menuBtn(lang));
     return;
   }
+  const kb = new InlineKeyboard().text(t(lang, "export_json_btn"), "export:json");
   await ctx.replyWithDocument(new InputFile(new TextEncoder().encode(md), "trix-export.md"), {
     caption: t(lang, "export_caption"),
+    reply_markup: kb,
+  });
+}
+
+// "📦 Also get JSON" button on the Markdown export — same underlying data, portable format.
+export async function cmdExportJson(ctx: MyContext) {
+  const lang = ctx.user.lang;
+  const json = await buildExportJson(ctx.db, ctx.user);
+  if (!json) {
+    await reply(ctx, t(lang, "export_none"), menuBtn(lang));
+    return;
+  }
+  await ctx.replyWithDocument(new InputFile(new TextEncoder().encode(json), "trix-export.json"), {
+    caption: t(lang, "export_json_caption"),
   });
 }
 
@@ -148,4 +163,24 @@ export async function buildExportMd(db: D1Database, user: UserDoc): Promise<stri
   }
 
   return "﻿" + out.join("\n");
+}
+
+// Same underlying data as buildExportMd, serialized as portable JSON instead of prose — for a
+// user who wants to move their history into a spreadsheet or another app rather than just read
+// it. Offered alongside the Markdown export, not instead of it.
+export async function buildExportJson(db: D1Database, user: UserDoc): Promise<string | null> {
+  const snapshot = await loadActivityWindow(db, user._id, "0000-01-01");
+  const { workouts, nutrition, body, strength, steps, water, checkins } = snapshot;
+  if (!workouts.length && !nutrition.length && !body.length && !strength.length && !steps.length && !water.length && !checkins.length) {
+    return null;
+  }
+  return JSON.stringify(
+    {
+      exportedAt: new Date().toISOString(),
+      profile: { name: user.profile.name, timezone: user.profile.timezone, goal: user.profile.goal, level: user.profile.level },
+      ...snapshot,
+    },
+    null,
+    2,
+  );
 }

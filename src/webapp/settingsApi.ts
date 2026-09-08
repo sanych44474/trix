@@ -2,7 +2,7 @@
 // /api/profile yet — reminder toggles, vacation mode, language, cycle tracking, leaderboard
 // opt-in + alias, feedback, data export (pushed as a document to the chat), leave-trainer and
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
-import { buildExportMd } from "../bot";
+import { buildExportJson, buildExportMd } from "../bot";
 import { resolveWaitlistNudge } from "../bot/trainer";
 import {
   clearVacation,
@@ -38,11 +38,11 @@ async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unkn
 
 // Push the markdown export as a document (multipart) — the app can't download files (CSP), so
 // delivery goes to the user's Telegram chat, same as /export in the bot.
-async function tgSendDocument(env: Env, chatId: number, filename: string, content: string, caption: string): Promise<boolean> {
+async function tgSendDocument(env: Env, chatId: number, filename: string, content: string, caption: string, mime = "text/markdown"): Promise<boolean> {
   const form = new FormData();
   form.append("chat_id", String(chatId));
   form.append("caption", caption);
-  form.append("document", new Blob([new TextEncoder().encode(content)], { type: "text/markdown" }), filename);
+  form.append("document", new Blob([new TextEncoder().encode(content)], { type: mime }), filename);
   const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`, { method: "POST", body: form }).catch(() => null);
   return !!res?.ok;
 }
@@ -143,6 +143,11 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
       const md = await buildExportMd(env.DB, user);
       if (!md) return Response.json({ ok: false, reason: "empty" });
       const ok = await tgSendDocument(env, user.chatId, "trix-export.md", md, t(lang, "export_caption"));
+      return Response.json({ ok });
+    } else if (action === "export_json") {
+      const json = await buildExportJson(env.DB, user);
+      if (!json) return Response.json({ ok: false, reason: "empty" });
+      const ok = await tgSendDocument(env, user.chatId, "trix-export.json", json, t(lang, "export_json_caption"), "application/json");
       return Response.json({ ok });
     } else if (action === "leaveTrainer") {
       if (user.role !== "client") return Response.json({ error: "bad request" }, { status: 400 });

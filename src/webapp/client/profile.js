@@ -181,6 +181,7 @@ function pfRender() {
 
     h += '<div class="card" style="margin-top:10px"><div class="pf-chips">';
     h += '<button class="chipbtn" data-act2="export">' + WA.wa_export + "</button>";
+    h += '<button class="chipbtn" data-act2="export_json">' + WA.wa_export_json + "</button>";
     if (st.role === "client") h += '<button class="chipbtn pf-danger" data-act2="leave">' + WA.wa_leave_trainer + "</button>";
     h += '<button class="chipbtn pf-danger" data-act2="delete">' + WA.wa_delete_acc + "</button>";
     h += '</div><span class="sub" id="pf-misc-st"></span></div>';
@@ -300,6 +301,7 @@ function pfSave() {
       return;
     }
     if (a2 === "export") { pfSetAction({ action: "export" }, function (res) { el("pf-misc-st").textContent = res.ok ? WA.wa_export_sent : WA.wa_err; }); return; }
+    if (a2 === "export_json") { pfSetAction({ action: "export_json" }, function (res) { el("pf-misc-st").textContent = res.ok ? WA.wa_export_sent : WA.wa_err; }); return; }
     if (a2 === "leave") {
       var doLeave = function () { pfSetAction({ action: "leaveTrainer" }, function () { pfOpen(); }); };
       if (TG && TG.showConfirm) TG.showConfirm(WA.wa_leave_confirm, function (ok) { if (ok) doLeave(); }); else doLeave();
