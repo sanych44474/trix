@@ -798,6 +798,10 @@ export const uk: Dict = {
   trainer_status_listed: "🟢 Профіль у каталозі тренерів.",
   trainer_status_hidden: "🔴 Ще не в каталозі — заповни профіль, щоб з'явитися.",
   trainer_invite_link: "🔗 Твоє посилання-запрошення: {link}",
+  trainer_invite_prospect_btn: "➕ Особисте запрошення",
+  trainer_prospects_pending: "⏳ Очікують приєднання: {names}",
+  trainer_prospect_name_prompt: "Як звати цю людину? (вона отримає особисте посилання)",
+  trainer_prospect_link: "🔗 Особисте запрошення для *{name}*:\n{link}\n\nНадішли напряму — воно само прив'яже до тебе і підставить це ім'я, коли вона відкриє.",
   // --- trainer reviews ---
   req_waiting: "⏳ Очікуємо, поки {name} прийме твою заявку.",
   req_cancel: "Скасувати заявку",

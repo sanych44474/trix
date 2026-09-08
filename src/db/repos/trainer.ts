@@ -257,6 +257,35 @@ export async function updateTrainer(
   await db.prepare(`UPDATE trainers SET ${sets.join(", ")} WHERE trainerId = ?`).bind(...vals).run();
 }
 
+// ---------- personal prospect invites (minimal "add a client before they've joined") ----------
+
+export interface ProspectDoc {
+  code: string;
+  trainerId: number;
+  name: string;
+  createdAt: string;
+}
+
+export async function createProspect(db: DB, code: string, trainerId: number, name: string): Promise<void> {
+  await db.prepare("INSERT INTO trainer_prospects (code, trainerId, name, createdAt) VALUES (?, ?, ?, ?)")
+    .bind(code, trainerId, name, nowIso()).run();
+}
+
+export async function getProspect(db: DB, code: string): Promise<ProspectDoc | null> {
+  const r = await db.prepare("SELECT code, trainerId, name, createdAt FROM trainer_prospects WHERE code = ?").bind(code).first<ProspectDoc>();
+  return r ?? null;
+}
+
+export async function deleteProspect(db: DB, code: string): Promise<void> {
+  await db.prepare("DELETE FROM trainer_prospects WHERE code = ?").bind(code).run();
+}
+
+/** Prospects still waiting to join, most recent first — for the trainer's own visibility. */
+export async function listProspects(db: DB, trainerId: number): Promise<ProspectDoc[]> {
+  const r = await db.prepare("SELECT code, trainerId, name, createdAt FROM trainer_prospects WHERE trainerId = ? ORDER BY createdAt DESC").bind(trainerId).all<ProspectDoc>();
+  return r.results ?? [];
+}
+
 export async function linkClient(db: DB, clientId: number, trainerId: number): Promise<void> {
   await db.prepare("UPDATE users SET role='client', trainerId=?, updatedAt=? WHERE id=?")
     .bind(trainerId, nowIso(), clientId).run();

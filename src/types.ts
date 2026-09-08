@@ -115,6 +115,7 @@ export type SessionMode =
   | "client_code"
   | "trainer_note"
   | "trainer_health"
+  | "trainer_prospect_name"
   | "trainer_personal"
   | "trainer_bday"
   | "edit_client_log"

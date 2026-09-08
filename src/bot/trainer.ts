@@ -10,6 +10,7 @@ import {
   getTrainerTemplate, getUser, getUsersByIds, getWorkoutLog, insertMessage, linkClient, listActiveInjuries,
   listClientNoteHistory, listClients, listMessages, listQuestionsForTrainer, listStrength,
   listTrainerTemplates, nutritionLogsSince, pendingRequestsForTrainer, planStatusByUser, recordAudit, rejectTrainer,
+  createProspect, deleteProspect, getProspect, listProspects,
   createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken,
   saveDraftPlan, saveTrainerTemplate, setActivePlan, setClientCard, setClientNote, setQuestionStatus,
   setRequestStatus, setUserFlag, unlinkClient, updateTrainer, updateUser, upsertStrengthRecord,
@@ -93,6 +94,33 @@ export function sharePromptKb(lang: Lang): InlineKeyboard {
     .text(t(lang, "share_skip_btn"), "share:skip");
 }
 
+// Shared by joinByCode (generic tr_<code> link) and joinByProspectCode (personal trp_<code>
+// link) — everything after the trainer has been resolved is identical either way.
+async function pairWithTrainer(ctx: MyContext, trainerId: number, trainerName: string) {
+  const lang = ctx.user.lang;
+  await linkClient(ctx.db, ctx.user._id, trainerId);
+  ctx.user.role = "client";
+  ctx.user.trainerId = trainerId;
+  const trainer = await getUser(ctx.db, trainerId);
+  // Already-onboarded athlete → transfer WITHOUT re-onboarding. linkClient keeps all their data
+  // (logs, body, records, plan); the trainer sees it all on the client card for analytics.
+  if (ctx.user.onboarded) {
+    ctx.user.session = { mode: "idle" };
+    await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
+    await reply(ctx, t(lang, "client_transferred", { name: escapeHtml(trainerName) }), menuBtn(lang));
+    if (trainer) await notifyTrainerOfClient(ctx, trainer, ctx.user, true);
+    await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
+    return;
+  }
+  // Brand-new user → run the athlete intake first (we are in the client's context).
+  await reply(ctx, t(lang, "client_paired", { name: escapeHtml(trainerName) }));
+  if (trainer) await notifyTrainerOfClient(ctx, trainer, ctx.user, false);
+  await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
+  ctx.user.session = { mode: "onboarding", step: 0 };
+  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
+  await renderObStep(ctx, 0);
+}
+
 export async function joinByCode(ctx: MyContext, code: string) {
   const lang = ctx.user.lang;
   if (ctx.user.role === "trainer") {
@@ -104,27 +132,7 @@ export async function joinByCode(ctx: MyContext, code: string) {
     await reply(ctx, t(lang, "code_invalid"));
     return;
   }
-  await linkClient(ctx.db, ctx.user._id, tr.trainerId);
-  ctx.user.role = "client";
-  ctx.user.trainerId = tr.trainerId;
-  const trainer = await getUser(ctx.db, tr.trainerId);
-  // Already-onboarded athlete → transfer WITHOUT re-onboarding. linkClient keeps all their data
-  // (logs, body, records, plan); the trainer sees it all on the client card for analytics.
-  if (ctx.user.onboarded) {
-    ctx.user.session = { mode: "idle" };
-    await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-    await reply(ctx, t(lang, "client_transferred", { name: escapeHtml(tr.name) }), menuBtn(lang));
-    if (trainer) await notifyTrainerOfClient(ctx, trainer, ctx.user, true);
-    await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
-    return;
-  }
-  // Brand-new user → run the athlete intake first (we are in the client's context).
-  await reply(ctx, t(lang, "client_paired", { name: escapeHtml(tr.name) }));
-  if (trainer) await notifyTrainerOfClient(ctx, trainer, ctx.user, false);
-  await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
-  ctx.user.session = { mode: "onboarding", step: 0 };
-  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-  await renderObStep(ctx, 0);
+  await pairWithTrainer(ctx, tr.trainerId, tr.name);
 }
 
 // --- trainer application + owner approval ---
@@ -658,15 +666,61 @@ export async function cmdTrainer(ctx: MyContext) {
     .row()
     .text(t(lang, "trainer_limit_btn", { limit: limitLabel }), "tr:limit")
     .row()
-    .text(t(lang, "trainer_edit_profile"), "tr:edit");
+    .text(t(lang, "trainer_edit_profile"), "tr:edit")
+    .row()
+    .text(t(lang, "trainer_invite_prospect_btn"), "tr:prospect");
   const card = trainerCardText(lang, tr, { usernameFallback: ctx.user.username ? `@${ctx.user.username}` : undefined });
   const statusLine = tr.profileComplete ? t(lang, "trainer_status_listed") : t(lang, "trainer_status_hidden");
   const full = tr.maxClients !== undefined && nClients >= tr.maxClients;
+  const prospects = await listProspects(ctx.db, ctx.user._id);
+  const pendingLine = prospects.length
+    ? `\n\n${t(lang, "trainer_prospects_pending", { names: prospects.map((p) => escapeHtml(p.name)).join(", ") })}`
+    : "";
   const body =
     `${card}\n\n${statusLine}\n${t(lang, "trainer_invite_link", { link })}` +
-    (full ? `\n${t(lang, "trainer_at_capacity")}` : "");
+    (full ? `\n${t(lang, "trainer_at_capacity")}` : "") +
+    pendingLine;
   if (tr.photoFileId) await ctx.api.sendPhoto(ctx.user.chatId, tr.photoFileId).catch(() => {});
   await reply(ctx, body, kb);
+}
+
+// "➕ Personal invite" — trainer names someone who hasn't joined Telegram yet; the resulting
+// deep link auto-pairs AND pre-fills the client's name when they eventually open it (Telegram
+// gives no way to reach someone before they press Start, so this is the closest to "add a
+// client" that's actually possible — a single-use, named invite instead of the generic shared one).
+export async function startProspectInvite(ctx: MyContext) {
+  if (!(await requireTrainer(ctx))) return;
+  const lang = ctx.user.lang;
+  ctx.user.session = { ...ctx.user.session, mode: "trainer_prospect_name" };
+  await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
+  await reply(ctx, t(lang, "trainer_prospect_name_prompt"));
+}
+
+export async function handleProspectName(ctx: MyContext, text: string) {
+  const lang = ctx.user.lang;
+  await setMode(ctx, "idle");
+  const name = text.trim().slice(0, 60);
+  if (name.length < 2) { await reply(ctx, t(lang, "trainer_prospect_name_prompt")); return; }
+  const code = shortCode();
+  await createProspect(ctx.db, code, ctx.user._id, name);
+  const link = botDeepLink(ctx.env, `trp_${code}`);
+  await reply(ctx, t(lang, "trainer_prospect_link", { name: escapeHtml(name), link: escapeHtml(link) }), menuBtn(lang));
+}
+
+// /start trp_<code> — the personal-invite counterpart to joinByCode's tr_<code>. Same pairing
+// (and the same already-onboarded-vs-fresh branches), plus: the trainer's own name for this
+// person wins over whatever Telegram happens to show, and the prospect record is consumed.
+export async function joinByProspectCode(ctx: MyContext, code: string) {
+  const lang = ctx.user.lang;
+  if (ctx.user.role === "trainer") { await reply(ctx, t(lang, "trainer_home"), trainerMenu(lang)); return; }
+  const prospect = await getProspect(ctx.db, code.trim());
+  if (!prospect) { await reply(ctx, t(lang, "code_invalid")); return; }
+  const tr = await getTrainer(ctx.db, prospect.trainerId);
+  if (!tr) { await reply(ctx, t(lang, "code_invalid")); return; }
+  ctx.user.profile = { ...ctx.user.profile, name: prospect.name };
+  await updateUser(ctx.db, ctx.user._id, { profile: ctx.user.profile });
+  await deleteProspect(ctx.db, prospect.code);
+  await pairWithTrainer(ctx, prospect.trainerId, tr.name);
 }
 
 // Cycle the capacity: 5 → 10 → 15 → 20 → ∞ → 5 …

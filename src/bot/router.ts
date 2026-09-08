@@ -30,7 +30,7 @@ import { defaultMesocycle, phaseGuidance } from "../domain/mesocycle";
 import { onboardingButton } from "./onboarding";
 import { ownerUserAction, sendOwnerSection, startVideoPick, startVideoSet } from "./owner";
 import { handleCardioLog, onSurveyItem, showCardioPlans, showCardioSession, startCardioLog } from "./survey";
-import { clientCardAction, handleClientLogEdit, handleClientReply, handleShareMyPlanName, handleTrainerBirthday, handleTrainerHealth, handleTrainerMessage, handleTrainerNote, handleTrainerPersonal, handleTwText, joinByCode, onMiniInterview, onQuestionOwn, onQuestionSend, onQuestionSkip, onRequestAccept, onRequestCancel, onRequestDecline, onTemplateDelete, onTrainerApprove, onTrainerReject, shareLink, sharePublish, shareTemplateMenu, showClientLogDay, showSharedProgram, startClientLogEdit, startShareSelect, takeSharedProgram, toggleShareClient, trainerWizardButton, twEditField } from "./trainer";
+import { clientCardAction, handleClientLogEdit, handleClientReply, handleProspectName, handleShareMyPlanName, handleTrainerBirthday, handleTrainerHealth, handleTrainerMessage, handleTrainerNote, handleTrainerPersonal, handleTwText, joinByCode, onMiniInterview, onQuestionOwn, onQuestionSend, onQuestionSkip, onRequestAccept, onRequestCancel, onRequestDecline, onTemplateDelete, onTrainerApprove, onTrainerReject, shareLink, sharePublish, shareTemplateMenu, showClientLogDay, showSharedProgram, startClientLogEdit, startProspectInvite, startShareSelect, takeSharedProgram, toggleShareClient, trainerWizardButton, twEditField } from "./trainer";
 import { applyCatalogExerciseChoice, comebackButton, confirmDeleteDay, createPlanDay, deleteExerciseFromToday, deletePlanDay, endReorder, endSelfEdit, handleBodyEdit, handleCalcWeight, handleCoachAction, handleComebackText, handleFeedback, handleFoodProduct, handleFoodWeight, handleGoalWeight, handleInactiveFeedback, handleLogDraftInput, handleMealClarify, handleMealItemFix, handleMealMacroEdit, handleMeasure, handleMyLogNutritionEdit, handleMyLogWorkoutEdit, handleSkipReason, handleStepsLog, handleVacationCustom, logPickExercise, logSwapFromCatalog, moveExercise, onCalDay, onCalNav, onChallengeJoin, onCleanupDelete, onCycleCalNav, onExerciseChart, onFoodDelete, onFoodEditProduct, onFoodEditWeight, onInjuryExtend, onInjuryRecovered, onInjuryScore, onMealItemDelete, onMealItemMenu, onMealItemReplace, onMealPortion, onQualityRating, onReLog, onReminderToggle, onRestTimer, onSetHour, onSetTz, onSmartHour, onToggleDay, onWaterAction, openSetting, pickCycleDate, reportInjury, resumePendingPlan, saveWarmup, selectExerciseSets, selectExerciseWeight, setCycleLength, setEntryRpe, setVacationDays, showDayGroupPicker, showDeleteExerciseMenu, showFoodItem, showInjurySeverity, showInjuryTrend, showLogSwapAlternatives, showMyLogNutritionDay, showMyLogWorkoutDay, showReorder, showSwapAlternatives, showWarmupEditor, startMealMacroEdit, startMyLogNutritionEdit, startMyLogWorkoutEdit, startPastLog, startSetEdit, suggestWarmup, swapFromCatalog, swapMenu, toggleShare } from "../bot";
 
 export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
@@ -846,6 +846,7 @@ export const CB_EXACT: Record<string, CbHandler> = {
   "tr:bio": (ctx) => openTrainerEdit(ctx),
   "tr:edit": (ctx) => openTrainerEdit(ctx),
   "tr:broadcast": (ctx) => cmdTrainerBroadcast(ctx),
+  "tr:prospect": (ctx) => startProspectInvite(ctx),
   // Solo self-correct: browse own past days and rewrite a workout/nutrition day.
   "mylog:open": (ctx) => showMyLogHub(ctx, "workout"),
   "mylog:tab:w": (ctx) => showMyLogHub(ctx, "workout"),
@@ -1133,6 +1134,7 @@ export const MODE_TEXT_HANDLERS = {
   feedback: (ctx, text) => handleFeedback(ctx, text),
   client_code: (ctx, text) => joinByCode(ctx, text),
   trainer_note: (ctx, text) => handleTrainerNote(ctx, text),
+  trainer_prospect_name: (ctx, text) => handleProspectName(ctx, text),
   share_myplan_name: (ctx, text) => handleShareMyPlanName(ctx, text),
   trainer_health: (ctx, text) => handleTrainerHealth(ctx, text),
   trainer_personal: (ctx, text) => handleTrainerPersonal(ctx, text),

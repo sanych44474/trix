@@ -15,7 +15,7 @@ import { resumePendingPlan } from "./bot/planGen";
 import { num, verifyItems } from "./bot/nutritionLog";
 import { renderDayInline } from "./bot/workoutSave";
 import { isOwner } from "./bot/owner";
-import { joinByCode, showSharedProgram, showPlanEditDay, trainerMenu } from "./bot/trainer";
+import { joinByCode, joinByProspectCode, showSharedProgram, showPlanEditDay, trainerMenu } from "./bot/trainer";
 export { buildOwnerReport, buildErrorReport } from "./bot/owner";
 // Extracted modules — imported for internal use AND re-exported so every existing consumer
 // (scheduler, webapp, tests) keeps importing from "./bot" unchanged.
@@ -390,6 +390,11 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
   // Deep link from a trainer's invite → auto-pair.
   if (payload?.startsWith("tr_")) {
     await joinByCode(ctx, payload.slice(3));
+    return;
+  }
+  // Personal invite for one named prospect ("add a client" — see trainer.ts joinByProspectCode).
+  if (payload?.startsWith("trp_")) {
+    await joinByProspectCode(ctx, payload.slice(4));
     return;
   }
   // Referral link: remember who invited (once, and only before onboarding — no retro-claims).

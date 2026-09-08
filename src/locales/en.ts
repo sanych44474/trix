@@ -793,6 +793,10 @@ export const en = {
   trainer_status_listed: "🟢 Listed in the trainer directory.",
   trainer_status_hidden: "🔴 Not listed yet — complete your profile to appear in the directory.",
   trainer_invite_link: "🔗 Your invite link: {link}",
+  trainer_invite_prospect_btn: "➕ Personal invite",
+  trainer_prospects_pending: "⏳ Waiting to join: {names}",
+  trainer_prospect_name_prompt: "What's this person's name? (they'll get a personal invite link)",
+  trainer_prospect_link: "🔗 Personal invite for *{name}*:\n{link}\n\nSend it to them directly — it auto-pairs and uses this name when they open it.",
   // --- trainer reviews ---
   req_waiting: "⏳ Waiting for {name} to accept your request.",
   req_cancel: "Cancel request",
