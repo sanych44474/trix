@@ -11,6 +11,7 @@ import { aiJSON, aiText } from "../ai";
 import * as P from "../ai/prompts";
 import { createQuestion, getActivePlan, getRecentContext, getTrainer, getUser, setQuestionDraft, updateUser, workoutLogsSince } from "../db/repos";
 import { computeCyclePhase, phaseHint, phaseLabel } from "../domain/cycle";
+import { phaseGuidance } from "../domain/mesocycle";
 import { localParts } from "../domain/progression";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { upcomingSessions, weekdayName } from "../render";
@@ -68,12 +69,20 @@ export async function coachContext(ctx: MyContext): Promise<string> {
   // adjust load / carbs advice around the phase without needing a separate prompt.
   const cy = computeCyclePhase(ctx.user.profile, date);
   const cycleLine = cy ? `Cycle phase: ${phaseLabel(cy.phase)} (day ${cy.day}/${cy.cycleLength}) — ${phaseHint(cy.phase)}.\n` : "";
+  // Same block-periodization state the scheduler advances weekly (domain/mesocycle.ts) — lets
+  // the coach explain "why is my plan built this way" grounded in the actual phase driving it,
+  // instead of guessing a rationale disconnected from what the plan generator actually did.
+  const meso = plan?.mesocycle;
+  const mesoLine = meso
+    ? `Mesocycle: ${meso.phase} phase, week ${meso.weekInBlock}/${meso.blockLength} (target ${phaseGuidance(meso.phase).reps} reps @ ${phaseGuidance(meso.phase).intensity}).\n`
+    : "";
   return (
     `PLAN (weekday in parens, exercise index before colon):\n${planText}\n` +
     `Nutrition target: ${target}. Last 14d nutrition: ${nutDays} day(s) logged${nutDays ? `, avg ${avgKcal}kcal` : ""}.\n` +
     `Last 14d workouts (top set per lift): ${workoutText}.\n` +
     `${injuries ? `Injuries/limitations: ${injuries}.\n` : ""}` +
     cycleLine +
+    mesoLine +
     `Training pace: ${ctx.user.progressionRate ?? "normal"}. Today: ${date}.`
   );
 }
