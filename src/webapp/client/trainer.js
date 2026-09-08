@@ -124,8 +124,7 @@ function ccRender(p) {
   // Open the plan editor for this client (P5 overlay). plOpen is defined in PLAN_JS.
   var planBtn = el("cc-plan");
   if (planBtn) { planBtn.textContent = WA.wa_edit_plan; planBtn.onclick = function () { plOpen(CC.id); }; }
-  var bookBtn = el("cc-book-b");
-  if (bookBtn) { bookBtn.textContent = WA.wa_book; bookBtn.onclick = ccBookForm; }
+  // Booking (cc-book-b) disabled — see trainer.html.
   var tplBtn = el("cc-tpl-b");
   if (tplBtn) { tplBtn.textContent = WA.wa_templates; tplBtn.onclick = ccTemplates; }
   el("cc-ops").innerHTML = "";
@@ -140,9 +139,7 @@ function ccRender(p) {
   }
   el("cc-note").value = p.note || "";
   el("cc-shared").innerHTML = ccSharedHtml(p);
-  el("cc-billing").innerHTML = ccBillingHtml(p.billing);
-  var bs = el("cc-bill-save");
-  if (bs) bs.onclick = ccSaveBilling;
+  // Billing (cc-billing / ccBillingHtml / ccSaveBilling) disabled — see trainer.html.
   ccCharts(p.dashboard);
   el("cc-charts").innerHTML = ccPhotosHtml(p.photos) + el("cc-charts").innerHTML;
 }
@@ -168,7 +165,7 @@ function ccOpen(id, name, w, n) {
   el("cc-comp").style.display = "none";
   el("cc-cycle").style.display = "none";
   el("cc-shared").innerHTML = "";
-  el("cc-billing").innerHTML = "";
+  // cc-billing disabled (see trainer.html) — no backend endpoint yet.
   el("cc-charts").innerHTML = '<div class="sub">' + WA.wa_loading + "</div>";
   el("cc-health").value = ""; el("cc-pers").value = ""; el("cc-bday").value = ""; el("cc-note").value = "";
   ccStatus("cc-save-st", ""); ccStatus("cc-note-st", "");

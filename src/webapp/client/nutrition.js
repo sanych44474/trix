@@ -104,6 +104,12 @@ function nuRecipe(action) {
     .catch(function () { box.innerHTML = '<div class="sub">' + WA.wa_err + "</div>"; });
 }
 function nuAct(action, i, extra) {
+  // Every mutation here is a full read-modify-write of the day's meal list keyed by array
+  // index (see nutritionApi.ts) — two in flight at once can silently clobber each other
+  // (one delete + one scale landing close together, or a fast double-tap). Serialize instead
+  // of racing: drop a new mutation while one is still saving rather than lose either edit.
+  if (NU.busy) return;
+  NU.busy = true;
   var body = { action: action, index: i };
   if (extra) for (var k in extra) body[k] = extra[k];
   ccFetch("/api/nutrition", { method: "POST", body: body })
@@ -114,7 +120,8 @@ function nuAct(action, i, extra) {
         if (TG && TG.showPopup) TG.showPopup({ message: WA.wa_macros_cached, buttons: [{ type: "close" }] }).catch(function(){});
       }
     })
-    .catch(function () {});
+    .catch(function () {})
+    .then(function () { NU.busy = false; });
 }
 // Not in any food database (common for Ukrainian products) → let the AI estimate it from a
 // free-text description. Reuses the dashboard's /api/log food path, then reloads the meals.

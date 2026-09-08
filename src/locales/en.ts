@@ -1691,7 +1691,6 @@ export const en = {
   tr_biz: "Business (snapshot)",
   tr_biz_clients: "Clients",
   tr_biz_active: "Active 7d",
-  tr_menu_group: "👥 Group session",
   menu_meso: "📐 Periodization",
   meso_noplan: "You need an active plan first. Generate one, then start a training block.",
   meso_intro: "📐 *Block periodization* runs your training in phases — *hypertrophy → strength → peak → deload* — advancing one week at a time. Each phase targets a different rep range and intensity so you keep progressing instead of grinding the same sets.\n\nStart a block?",

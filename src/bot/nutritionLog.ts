@@ -27,7 +27,9 @@ export async function verifyItems(ctx: MyContext, items: P.NutritionItem[]) {
   let verified = 0;
   let source = "";
   const final = [] as { desc: string; kcal: number; protein: number; fats: number; carbs: number; grams?: number; query?: string }[];
-  for (const it of items) {
+  // A weak/free fallback model in the AI chain only guarantees valid JSON *syntax*, not that
+  // `items` is present — degrade to "nothing recognized" (logMeal below) instead of throwing.
+  for (const it of items ?? []) {
     const grams = num(it.grams);
     let kcal = num(it.kcal), p = num(it.protein), f = num(it.fats), c = num(it.carbs);
     if (grams > 0 && it.query) {

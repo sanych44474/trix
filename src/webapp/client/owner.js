@@ -44,8 +44,8 @@ function owLoad(sec) {
   if (sec === "users") { owUsersTable(); return; }
   ccFetch("/api/owner/report?section=" + sec)
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
-    .then(function (res) { el("ow-body").innerHTML = res.html; })
-    .catch(function () { el("ow-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
+    .then(function (res) { if (OW.sec === sec) el("ow-body").innerHTML = res.html; })
+    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
 }
 
 // --- owner users: sortable + groupable table ---
@@ -61,10 +61,11 @@ function owStatusGlyph(s) {
   return s === "banned" ? "⛔" : s === "blocked" ? "🚫" : s === "onboarding" ? "🟡" : s === "active" ? "🟢" : s === "draft" ? "🟠" : "⚪";
 }
 function owUsersTable() {
+  var sec = OW.sec;
   ccFetch("/api/owner/users")
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
-    .then(function (d) { OWU = { rows: d.rows || [], feedback: d.feedback || [], sort: { col: "total", dir: -1 }, group: "none" }; owUsersRender(); })
-    .catch(function () { el("ow-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
+    .then(function (d) { if (OW.sec !== sec) return; OWU = { rows: d.rows || [], feedback: d.feedback || [], sort: { col: "total", dir: -1 }, group: "none" }; owUsersRender(); })
+    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
 }
 function owUsersRender() {
   var s = OWU.sort;

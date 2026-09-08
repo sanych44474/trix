@@ -867,9 +867,6 @@ export const CB_EXACT: Record<string, CbHandler> = {
     if (!pending) { await reply(ctx, t(ctx.user.lang, "error_generic"), menuBtn(ctx.user.lang)); return; }
     await aiAuthorAndAdd(ctx, pending);
   },
-  "diff:ok": (ctx, _r, data) => adjustDifficulty(ctx, data.slice(5) as "ok" | "up" | "down"),
-  "diff:up": (ctx, _r, data) => adjustDifficulty(ctx, data.slice(5) as "ok" | "up" | "down"),
-  "diff:down": (ctx, _r, data) => adjustDifficulty(ctx, data.slice(5) as "ok" | "up" | "down"),
   "ord:noop": (ctx) => ctx.answerCallbackQuery().catch(() => {}),
   // Plan-day management (add/delete whole days).
   "pday:open": (ctx) => showDayManager(ctx),

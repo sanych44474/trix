@@ -273,10 +273,11 @@ async function runScheduleInner(env: Env): Promise<void> {
   // The three onboarding-recovery sweeps below run every tick; a single cheap COUNT gates them
   // so an idle system (no one mid-onboarding / plan-pending) does 1 query instead of 3.
   if ((await pendingRecoveryCount(db).catch(() => 1)) > 0) {
-  // Auto-retry failed onboarding AI calls — fires every cron tick.
+  // Auto-retry failed onboarding AI calls — fires every cron tick. Awaited (like the "owed"
+  // sweep below) so the cron isolate isn't torn down mid AI-call/send before it lands.
   const retryUsers = await listRetryUsers(db, new Date().toISOString()).catch(() => []);
   for (const u of retryUsers) {
-    retryInterviewStep(env, db, u).catch((e) => logSchedulerError(db, "retry_interview", e, u._id));
+    await retryInterviewStep(env, db, u).catch((e) => logSchedulerError(db, "retry_interview", e, u._id));
   }
 
   // SAFETY NET: recover onboarding users the bot owes a reply but never sent one — the
@@ -1005,6 +1006,11 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
         logSchedulerError(db, "owner_report", err);
       }
     }
+    // Each of these two blocks is independently try/catch'd (like the owner report above) so a
+    // transient D1/send failure in one doesn't stop markSent below — without it, the whole
+    // weekly_report block (including the non-idempotent mesocycle advance above) re-runs on
+    // every later tick this same Monday.
+    try {
     if (user.role === "trainer") {
       const clients = await listClients(db, user._id);
       if (clients.length) {
@@ -1038,6 +1044,10 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
         await bot.api.sendMessage(user.chatId, lines.join("\n"), HTML).catch((e) => console.error("digest send", e));
       }
     }
+    } catch (err) {
+      logSchedulerError(db, "trainer_digest", err, user._id);
+    }
+    try {
     if (user.competeOptIn) {
       let boardsP = pass.boardsByDay.get(date);
       if (!boardsP) {
@@ -1076,6 +1086,9 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
       await bot.api
         .sendMessage(user.chatId, t(lang, "weekly_nudge", { rank: rank || "—", streak }) + rankLine, HTML)
         .catch((e) => console.error("nudge send", e));
+    }
+    } catch (err) {
+      logSchedulerError(db, "weekly_nudge", err, user._id);
     }
     markSent("weekly_report");
   }

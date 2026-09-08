@@ -10,7 +10,8 @@
     <span class="chip" id="cc-cycle" style="display:none"></span>
   </div>
   <button id="cc-plan" class="lbtn" style="width:100%;margin:0 0 8px"></button>
-  <div class="cc-save-row" style="margin-bottom:6px"><button id="cc-book-b" class="chipbtn"></button><button id="cc-tpl-b" class="chipbtn"></button></div>
+  <!-- cc-book-b (session booking) disabled: no backend endpoint yet (/api/trainer/client/:id/session 404s) -->
+  <div class="cc-save-row" style="margin-bottom:6px"><button id="cc-tpl-b" class="chipbtn"></button></div>
   <div id="cc-ops" style="margin-bottom:8px"></div>
   <div class="card">
     <label id="cc-health-l" for="cc-health"></label>
@@ -27,7 +28,7 @@
     <div class="cc-save-row"><button id="cc-note-save" class="lbtn"></button><span class="sub" id="cc-note-st"></span></div>
   </div>
   <div id="cc-shared"></div>
-  <div id="cc-billing"></div>
+  <!-- cc-billing disabled: no backend endpoint yet (/api/trainer/client/:id/billing 404s) -->
   <div id="cc-charts"></div>
 </div>
 <div id="qa" class="cc hidden">

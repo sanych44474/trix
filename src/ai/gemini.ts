@@ -6,7 +6,6 @@ const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
-  "gemini-3.5-flash",
 ];
 
 function geminiModels(env: Env, preferred?: string): string[] {
@@ -21,7 +20,6 @@ function geminiModels(env: Env, preferred?: string): string[] {
     ...configured,
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-3.5-flash",
   ];
 
   const deduped = [...new Set(models.filter((m): m is string => !!m && m.trim().length > 0))];

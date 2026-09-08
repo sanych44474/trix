@@ -88,7 +88,6 @@ export function trainerHubMenu(lang: Lang): InlineKeyboard {
     .text(t(lang, "tr_menu_questions"), "menu:questions")
     .row()
     .text(t(lang, "tr_menu_report"), "menu:trreport")
-    .text(t(lang, "tr_menu_group"), "tr:group")
     .row()
     .text(t(lang, "menu_whatsnew"), "menu:whatsnew");
 }

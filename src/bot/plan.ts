@@ -472,9 +472,14 @@ export async function buildPlanDocRaw(
     },
   });
   // Guard against a parseable-but-wrong-shape AI response (e.g. a weak fallback model):
-  // fail clearly here so the caller shows a retry instead of crashing on undefined.
+  // fail clearly here so the caller shows a retry instead of crashing on undefined. PLAN_SCHEMA
+  // requires both `split` and `nutrition`, but that's only Gemini-enforced — a fallback provider
+  // (Groq/OpenRouter) only guarantees valid JSON syntax, not these keys being present.
   if (!Array.isArray(ai.split) || ai.split.length === 0) {
     throw new Error("AI plan missing split");
+  }
+  if (!ai.nutrition || typeof ai.nutrition.calories !== "number") {
+    throw new Error("AI plan missing nutrition");
   }
   const split = aiSplitToPlanDays(ai.split, candidates, candidateIds);
   // Translate exercise fields (name/technique/muscles/muscleGroup) from English to the
