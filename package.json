@@ -24,7 +24,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --experimental-sqlite --test \"test/**/*.test.ts\"",
     "smoke": "node scripts/smoke.mjs",
-    "verify-schema": "node scripts/verify-schema.mjs"
+    "verify-schema": "node scripts/verify-schema.mjs",
+    "check:ai-models": "node --import tsx scripts/check-ai-models.mjs"
   },
   "dependencies": {
     "grammy": "^1.46.0"

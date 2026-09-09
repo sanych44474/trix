@@ -1,6 +1,12 @@
 import type { Env } from "../types";
 import { RateLimitError, type GenInput } from "./errors";
 
+// Exported (not just local literals) so scripts/check-ai-models.mjs can smoke-test the actual
+// defaults instead of hand-maintained copies that can drift out of sync — index.ts used to
+// duplicate WORKERSAI_DEFAULT_MODEL verbatim.
+export const WORKERSAI_DEFAULT_TRANSCRIBE_MODEL = "@cf/openai/whisper-large-v3-turbo";
+export const WORKERSAI_DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+
 // Chunked base64 of an ArrayBuffer (avoids call-stack blowups on large audio).
 function abToB64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -17,7 +23,7 @@ function abToB64(buf: ArrayBuffer): string {
 // can fall through to Groq.
 export async function workersaiTranscribe(env: Env, audio: ArrayBuffer, lang?: string): Promise<string> {
   if (!env.AI) throw new Error("Workers AI binding not configured");
-  const model = env.WORKERSAI_TRANSCRIBE_MODEL || "@cf/openai/whisper-large-v3-turbo";
+  const model = env.WORKERSAI_TRANSCRIBE_MODEL || WORKERSAI_DEFAULT_TRANSCRIBE_MODEL;
   // Loose cast: model-specific run() overloads; call on the binding so `this` is preserved.
   const ai = env.AI as unknown as { run: (m: string, o: unknown) => Promise<{ text?: string }> };
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -47,7 +53,7 @@ export async function workersaiGenerate(env: Env, input: GenInput): Promise<stri
   if (input.images && input.images.length) {
     throw new Error("Workers AI provider is text-only here");
   }
-  const model = env.WORKERSAI_MODEL || "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+  const model = env.WORKERSAI_MODEL || WORKERSAI_DEFAULT_MODEL;
 
   // Loose cast: the typed `run` overloads are model-specific; we pass a dynamic model id.
   // NOTE: call on `ai` (not a detached method) so `this` is preserved.

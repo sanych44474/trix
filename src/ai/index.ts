@@ -1,10 +1,10 @@
 import type { AiKind, AiProvider, Env } from "../types";
 import { aiCacheStmt, aiCallStmt, aiUsageStmt, getAiCache, recordError } from "../db/repos";
 import { geminiGenerate } from "./gemini";
-import { groqGenerate } from "./groq";
-import { ollamaGenerate } from "./ollama";
-import { openrouterGenerate } from "./openrouter";
-import { workersaiGenerate, workersaiTranscribe } from "./workersai";
+import { GROQ_DEFAULT_MODEL, groqGenerate } from "./groq";
+import { OLLAMA_DEFAULT_MODEL, ollamaGenerate } from "./ollama";
+import { OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_TRANSLATE_MODEL, OPENROUTER_DEFAULT_VISION_MODEL, openrouterGenerate } from "./openrouter";
+import { WORKERSAI_DEFAULT_MODEL, workersaiGenerate, workersaiTranscribe } from "./workersai";
 import { groqTranscribe } from "./groq";
 import { RateLimitError, type GenInput, type InlineImage } from "./errors";
 
@@ -122,7 +122,7 @@ function providers(env: Env, hasImages: boolean, geminiModel: string, groqFirst 
   const groq: Provider | null = env.GROQ_API_KEY && !hasImages
     ? {
         name: "groq",
-        model: env.GROQ_MODEL || "openai/gpt-oss-120b",
+        model: env.GROQ_MODEL || GROQ_DEFAULT_MODEL,
         fn: groqGenerate,
       }
     : null;
@@ -133,19 +133,19 @@ function providers(env: Env, hasImages: boolean, geminiModel: string, groqFirst 
   }
   if (env.OPENROUTER_API_KEY) {
     const model = hasImages
-      ? env.OPENROUTER_VISION_MODEL || "meta-llama/llama-3.2-11b-vision-instruct:free"
-      : env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
+      ? env.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL
+      : env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL;
     list.push({ name: "openrouter", model, fn: openrouterGenerate });
   }
   if (env.AI && !hasImages) {
     list.push({
       name: "workersai",
-      model: env.WORKERSAI_MODEL || "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      model: env.WORKERSAI_MODEL || WORKERSAI_DEFAULT_MODEL,
       fn: workersaiGenerate,
     });
   }
   if (env.OLLAMA_API_KEY && !hasImages) {
-    list.push({ name: "ollama", model: env.OLLAMA_MODEL || "gpt-oss:120b", fn: ollamaGenerate });
+    list.push({ name: "ollama", model: env.OLLAMA_MODEL || OLLAMA_DEFAULT_MODEL, fn: ollamaGenerate });
   }
   return list;
 }
@@ -157,16 +157,16 @@ function providers(env: Env, hasImages: boolean, geminiModel: string, groqFirst 
 function translateProviders(env: Env, geminiModel: string): Provider[] {
   const list: Provider[] = [{ name: "gemini", model: geminiModel, fn: geminiGenerate }];
   if (env.GROQ_API_KEY) {
-    list.push({ name: "groq", model: env.GROQ_MODEL || "openai/gpt-oss-120b", fn: groqGenerate });
+    list.push({ name: "groq", model: env.GROQ_MODEL || GROQ_DEFAULT_MODEL, fn: groqGenerate });
   }
   if (env.OPENROUTER_API_KEY) {
-    const model = env.OPENROUTER_TRANSLATE_MODEL || "qwen/qwen-2.5-72b-instruct:free";
+    const model = env.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL;
     list.push({ name: "openrouter", model, fn: openrouterGenerate });
   }
   if (env.AI) {
     list.push({
       name: "workersai",
-      model: env.WORKERSAI_MODEL || "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      model: env.WORKERSAI_MODEL || WORKERSAI_DEFAULT_MODEL,
       fn: workersaiGenerate,
     });
   }

@@ -5,6 +5,10 @@ import { openaiCompatChat, throwForResponse } from "./http";
 const URL = "https://api.groq.com/openai/v1/chat/completions";
 const TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 
+// Exported (not just a local literal) so scripts/check-ai-models.mjs can smoke-test the actual
+// default instead of a hand-maintained copy that can drift out of sync.
+export const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
+
 // Transcribe a voice/audio clip via Groq Whisper (free, fast). Returns the recognized text.
 // `lang` is an ISO-639-1 hint ("uk"/"en") to improve accuracy; Whisper still autodetects.
 export async function groqTranscribe(
@@ -50,7 +54,7 @@ export async function groqGenerate(env: Env, input: GenInput): Promise<string> {
   }
 
   // Text path: try primary model (per-call override wins), then fallback list.
-  const primary = input.groqModel || env.GROQ_MODEL || "openai/gpt-oss-120b";
+  const primary = input.groqModel || env.GROQ_MODEL || GROQ_DEFAULT_MODEL;
   const fallbacks = (env.GROQ_FALLBACK_MODELS ?? "")
     .split(",")
     .map((m) => m.trim())
