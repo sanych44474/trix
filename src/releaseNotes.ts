@@ -14,6 +14,35 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "2026-09-09",
+    en: `🎉 *What's new in trix*
+
+🏅 *Two new leaderboards* — 🧊 longest active streak and 🏆 most PRs this month, alongside the existing four.
+
+🥊 *Buddy duels* — a running weekly win/loss tally against your accountability buddy, plus new badges for a first duel win and a 4-week win streak.
+
+🎯 *More challenges* — 4 new goals to join, including an easy *2 workouts a week* for getting back into it, plus 2 new badges for winning a challenge.
+
+🧹 *Tidier profile* — settings are now collapsible sections instead of one long wall of cards.
+
+👆 *Snappier taps* — buttons give a little press feedback everywhere in the app now.
+
+Tap *Menu → 📱 Dashboard*! 💪`,
+    uk: `🎉 *Що нового в trix*
+
+🏅 *Два нових лідерборди* — 🧊 найдовший активний streak і 🏆 найбільше рекордів за місяць, поруч із чотирма попередніми.
+
+🥊 *Баддi-дуелі* — постійний тижневий рахунок перемог/поразок із твоїм напарником, а ще нові бейджі за першу перемогу в дуелі та серію з 4 перемог поспіль.
+
+🎯 *Більше челленджів* — 4 нові цілі, серед них легкий *2 тренування на тиждень* для повернення в ритм, і 2 нових бейджі за перемогу в челленджі.
+
+🧹 *Охайніший профіль* — налаштування тепер згортаються в секції замість суцільної стіни карток.
+
+👆 *Чіткіші тапи* — кнопки тепер дають легкий відгук при натисканні по всьому застосунку.
+
+Тисни *Меню → 📱 Дашборд*! 💪`,
+  },
+  {
     version: "2026-08-01",
     en: `🎉 *What's new in trix*
 
@@ -45,51 +74,6 @@ Tap *Menu → 📱 Dashboard*! 💪`,
 🩹 *Розумніше визначення плато* — додавання ваги зі скиданням повторів тепер правильно читається як прогрес, а не плато — жодних хибних «ти застопорився».
 
 Тисни *Меню → 📱 Дашборд*! 💪`,
-  },
-  {
-    version: "2026-07-27",
-    en: `🎉 *What's new in trix*
-
-🎯 *Daily quests* — three goals a day (log a workout · hit your water & protein targets) with live progress right on your dashboard. Complete all three for a "perfect day".
-
-🎖 *Achievements* — a full showcase of every badge (earned & locked) in your profile.
-
-🧠 *Weekly AI insight* — tap it on the dashboard: the coach analyses your last 45 days (what's progressing, what stalled) and gives specific fixes for your real lifts.
-
-🍳 *Smart food tools* — a recipe for your day's *remaining* macros, one-tap re-add of *recent foods*, and an *"ate too much?"* recovery plan for tomorrow.
-
-🤝 *Accountability buddy* — pair up with a friend (⚙️ Profile → Invite a buddy) and see each other's weekly workouts on the dashboard.
-
-💧 *Scheduled water reminders* — optional pings every 2/3/4h until you hit your goal (⚙️ Profile).
-
-🎨 *Theme* — force Light/Dark or follow Telegram (⚙️ Profile).
-
-📣 *Share your progress* — post your level, streak & badges from your profile.
-
-🎤 *Voice logging* — send a voice note and log a workout, food, or ask the coach.
-
-Tap *Menu → 📱 Dashboard* and enjoy! 💪`,
-    uk: `🎉 *Що нового в trix*
-
-🎯 *Щоденні квести* — три цілі на день (запиши тренування · досягни цілей по воді та білку) з живим прогресом прямо на дашборді. Виконай усі три — «ідеальний день».
-
-🎖 *Досягнення* — повна вітрина всіх бейджів (отримані й заблоковані) у профілі.
-
-🧠 *AI-інсайт тижня* — тисни на дашборді: тренер аналізує останні 45 днів (що прогресує, що застопорилось) і дає конкретні поради по твоїх реальних вправах.
-
-🍳 *Розумні харчові інструменти* — рецепт під *залишок* КБЖУ на сьогодні, ре-ввод *нещодавніх страв* у один тап і план відновлення *«переїв?»* на завтра.
-
-🤝 *Напарник* — об'єднайся з другом (⚙️ Профіль → Запросити напарника) і бачте тренування одне одного на дашборді.
-
-💧 *Нагадування про воду за розкладом* — опційні пінги кожні 2/3/4 год, доки не досягнеш цілі (⚙️ Профіль).
-
-🎨 *Тема* — примусово Світла/Темна або за Telegram (⚙️ Профіль).
-
-📣 *Поділись прогресом* — опублікуй рівень, серію та бейджі з профілю.
-
-🎤 *Голосовий запис* — надішли голосове й запиши тренування, їжу або спитай тренера.
-
-Тисни *Меню → 📱 Дашборд* і користуйся! 💪`,
   },
 ];
 
