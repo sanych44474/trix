@@ -5,7 +5,7 @@ var LT = { ch: null, inj: null, boards: null };
 function ltOpen() {
   el("lt").classList.remove("hidden");
   el("lt-title").textContent = WA.wa_lt_title;
-  el("lt-body").innerHTML = '<div class="sub">' + WA.wa_loading + "</div>";
+  el("lt-body").innerHTML = uiSub(WA.wa_loading);
   if (TG && TG.BackButton && TG.BackButton.show) { TG.BackButton.show(); if (TG.BackButton.onClick) TG.BackButton.onClick(ltClose); }
   Promise.all([
     ccFetch("/api/challenges").then(function (r) { return r.ok ? r.json() : null; }),
@@ -19,7 +19,7 @@ function ltOpen() {
     LT.ch = res[0]; LT.inj = res[1]; LT.boards = res[2];
     LT.rec = res[3]; LT.week = res[4]; LT.lib = res[5]; LT.news = res[6];
     ltRender();
-  }).catch(function () { el("lt-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
+  }).catch(function () { el("lt-body").innerHTML = uiSub(L.loaderr, true); });
 }
 function ltClose() {
   setTab("home"); // tab bar back to Home when an overlay closes
@@ -29,8 +29,16 @@ function ltClose() {
 function ltBar(pct) { return '<div class="lt-bar"><span style="width:' + Math.max(0, Math.min(100, pct)) + '%"></span></div>'; }
 function ltRender() {
   var h = "";
+  // Jump-nav: only link sections that will actually render below (a badge/week-card/news
+  // section is conditional on data being present) — a dead anchor is harmless but sloppy.
+  var nav = [["lt-s-ch", "🏆 " + WA.wa_lt_challenges], ["lt-s-inj", "🩹 " + WA.wa_lt_injuries], ["lt-s-brd", "🏅 " + WA.wa_lt_boards], ["lt-s-rec", "🏆 " + WA.wa_records]];
+  if ((LT.rec && LT.rec.badges || []).length) nav.push(["lt-s-bdg", "🎖 " + WA.wa_badges]);
+  if (LT.week && LT.week.card) nav.push(["lt-s-wk", "📤 " + WA.wa_weekcard]);
+  nav.push(["lt-s-pl", "🏋️ " + WA.wa_plates], ["lt-s-lib", "📚 " + WA.wa_library]);
+  if (LT.news && LT.news.html) nav.push(["lt-s-news", "📣 " + WA.wa_whatsnew]);
+  h += '<div class="lt-nav">' + nav.map(function (n) { return '<a href="#' + n[0] + '" class="chipbtn">' + n[1] + "</a>"; }).join("") + "</div>";
   // Challenges
-  h += "<h2>🏆 " + WA.wa_lt_challenges + "</h2>";
+  h += "<h2 id=\"lt-s-ch\">🏆 " + WA.wa_lt_challenges + "</h2>";
   var ch = LT.ch || { active: [], available: [], won: 0 };
   h += '<div class="card">';
   if (ch.active.length) {
@@ -45,7 +53,7 @@ function ltRender() {
   }
   h += '<div class="sub" style="margin-top:6px">' + WA.wa_lt_won + ": " + ch.won + "</div></div>";
   // Injuries
-  h += "<h2>🩹 " + WA.wa_lt_injuries + "</h2><div class=\"card\">";
+  h += "<h2 id=\"lt-s-inj\">🩹 " + WA.wa_lt_injuries + "</h2><div class=\"card\">";
   var inj = LT.inj || { injuries: [], areas: [], severities: [] };
   if (inj.injuries.length) {
     inj.injuries.forEach(function (i) { h += '<div class="sub">• ' + esc(i.area + " — " + i.severity + " · " + i.since) + (i.lastScore != null ? " · " + i.lastScore + "/10" : "") + "</div>"; });
@@ -55,7 +63,7 @@ function ltRender() {
   h += '<select id="lt-inj-sev">'; (inj.severities || []).forEach(function (s) { h += '<option value="' + esc(s.value) + '">' + esc(s.label) + "</option>"; }); h += "</select>";
   h += '<div class="cc-save-row"><button class="lbtn" data-lt="injreport">' + WA.wa_lt_inj_report_btn + '</button><span class="sub" id="lt-inj-st"></span></div></div>';
   // Leaderboards (global + friends circle)
-  h += "<h2>🏅 " + WA.wa_lt_boards + "</h2>";
+  h += "<h2 id=\"lt-s-brd\">🏅 " + WA.wa_lt_boards + "</h2>";
   var b = LT.boards;
   var boardBlock = function (src) {
     var hh = "";
@@ -82,7 +90,7 @@ function ltRender() {
     h += '<div class="card">' + boardBlock(b) + "</div>";
   }
   // Personal records
-  h += "<h2>🏆 " + WA.wa_records + "</h2><div class=\"card\">";
+  h += "<h2 id=\"lt-s-rec\">🏆 " + WA.wa_records + "</h2><div class=\"card\">";
   var recs = (LT.rec && LT.rec.records) || [];
   if (recs.length) recs.slice(0, 20).forEach(function (r, ri) {
     var hasChart = r.points && r.points.length >= 2;
@@ -95,21 +103,21 @@ function ltRender() {
   // Badges (earned + locked catalog)
   var bds = (LT.rec && LT.rec.badges) || [];
   if (bds.length) {
-    h += "<h2>🎖 " + WA.wa_badges + "</h2><div class=\"card\">";
+    h += "<h2 id=\"lt-s-bdg\">🎖 " + WA.wa_badges + "</h2><div class=\"card\">";
     bds.forEach(function (bd) { h += '<span class="chipbtn" style="display:inline-block;margin:2px 4px 2px 0;opacity:' + (bd.earned ? "1" : ".45") + '">' + (bd.earned ? "✅ " : "🔒 ") + esc(bd.label) + "</span>"; });
     h += "</div>";
   }
   // Week card — text (as before) + an optional canvas-rendered PNG a trainer can actually show
   // a client / attach somewhere, since the Mini App can't offer a file download directly (CSP).
   if (LT.week && LT.week.card) {
-    h += "<h2>📤 " + WA.wa_weekcard + '</h2><div class="card">' + LT.week.card;
+    h += "<h2 id=\"lt-s-wk\">📤 " + WA.wa_weekcard + '</h2><div class="card">' + LT.week.card;
     if (LT.week.stats) h += '<div class="cc-save-row" style="margin-top:8px"><button class="chipbtn" data-lt="wcgen">' + WA.wa_wcard_gen_btn + "</button></div>";
     h += '<div id="lt-wc-out" style="margin-top:8px"></div></div>';
   }
   // Plates calculator
-  h += "<h2>🏋️ " + WA.wa_plates + '</h2><div class="card"><div class="lrow"><input id="lt-pl-kg" type="number" inputmode="decimal" placeholder="' + esc(WA.wa_plates_ph) + '"><button class="chipbtn" data-lt="plates">' + WA.wa_calc + '</button></div><div id="lt-pl-out"></div></div>';
+  h += "<h2 id=\"lt-s-pl\">🏋️ " + WA.wa_plates + '</h2><div class="card"><div class="lrow"><input id="lt-pl-kg" type="number" inputmode="decimal" placeholder="' + esc(WA.wa_plates_ph) + '"><button class="chipbtn" data-lt="plates">' + WA.wa_calc + '</button></div><div id="lt-pl-out"></div></div>';
   // Program library
-  h += "<h2>📚 " + WA.wa_library + "</h2><div class=\"card\">";
+  h += "<h2 id=\"lt-s-lib\">📚 " + WA.wa_library + "</h2><div class=\"card\">";
   var lib = (LT.lib && LT.lib.programs) || [];
   if (lib.length) {
     lib.forEach(function (pgm) {
@@ -121,7 +129,7 @@ function ltRender() {
   } else h += '<div class="sub">' + L.nodata + "</div>";
   h += "</div>";
   // What's new
-  if (LT.news && LT.news.html) h += "<h2>📣 " + WA.wa_whatsnew + " · " + esc(LT.news.version) + '</h2><div class="card">' + LT.news.html + "</div>";
+  if (LT.news && LT.news.html) h += "<h2 id=\"lt-s-news\">📣 " + WA.wa_whatsnew + " · " + esc(LT.news.version) + '</h2><div class="card">' + LT.news.html + "</div>";
   el("lt-body").innerHTML = h;
 }
 el("lt-body") && el("lt-body").addEventListener("click", function (e) {
