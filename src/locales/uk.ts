@@ -1662,6 +1662,7 @@ export const uk: Dict = {
   wa_share_head: "Мій прогрес у trix",
   wa_share_tail: "Тренуйся зі мною 👇",
   wa_buddy_week: "тренувань цього тижня",
+  wa_retry: "повторити",
   wa_buddy_invite: "Запросити напарника",
   wa_buddy_invite_text: "Будь моїм напарником у trix 💪",
   wa_buddy_you_lead: "Ти лідируєш!",

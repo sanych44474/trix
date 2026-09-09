@@ -1658,6 +1658,7 @@ export const en = {
   wa_share_head: "My trix progress",
   wa_share_tail: "Train with me 👇",
   wa_buddy_week: "workouts this week",
+  wa_retry: "retry",
   wa_buddy_invite: "Invite an accountability buddy",
   wa_buddy_invite_text: "Be my accountability buddy on trix 💪",
   wa_buddy_you_lead: "You lead!",
