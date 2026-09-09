@@ -15,7 +15,7 @@ function pfOpen() {
     PF.days = (PF.data.profile.trainingWeekdays || []).slice();
     PF.share = PF.data.profile.share;
     pfRender();
-  }).catch(function (e) { el("pf-body").innerHTML = uiSub(e.message === "auth" ? L.autherr : L.loaderr, true); });
+  }).catch(function (e) { el("pf-body").innerHTML = uiCard(e.message === "auth" ? L.autherr : L.loaderr); });
 }
 function pfClose() {
   setTab("home"); // tab bar back to Home when an overlay closes
@@ -82,6 +82,15 @@ function pfShareProgress() {
 }
 function pfRender() {
   var p = PF.data.profile, o = PF.data.options, st = PF.st;
+  // Settings accordions stay open across a re-render triggered by an action inside one of them
+  // (e.g. saving the cycle form) — otherwise every save silently closes the section the user is
+  // looking at, with no other feedback that anything happened.
+  var openAcc = {};
+  var oldBody = el("pf-body");
+  if (oldBody) {
+    var openEls = oldBody.querySelectorAll("details.ui-acc[open]");
+    for (var oi = 0; oi < openEls.length; oi++) { if (openEls[oi].id) openAcc[openEls[oi].id] = true; }
+  }
   var h = pfGamification();
   // 🎨 Theme override + 📣 share progress.
   var ct = pfCurTheme();
@@ -150,7 +159,7 @@ function pfRender() {
     var remBody = '<div class="pf-chips" id="pf-rems">';
     st.reminders.forEach(function (r) { remBody += pfChip("rem", r.key, r.label, r.on); });
     remBody += "</div>";
-    h += uiAccordion(WA.wa_set_reminders, remBody, ' style="margin-top:16px"');
+    h += uiAccordion(WA.wa_set_reminders, remBody, ' id="pf-acc-rem" style="margin-top:16px"');
 
     var vacBody = '<div class="pf-chips" id="pf-vac">';
     if (st.vacationUntil) {
@@ -159,29 +168,29 @@ function pfRender() {
       vacBody += pfChip("vac", "7", WA.wa_vac_7, false) + pfChip("vac", "14", WA.wa_vac_14, false) + pfChip("vac", "28", WA.wa_vac_28, false);
     }
     vacBody += "</div>";
-    h += uiAccordion(WA.wa_set_vacation, vacBody);
+    h += uiAccordion(WA.wa_set_vacation, vacBody, ' id="pf-acc-vac"');
 
-    h += uiAccordion(WA.wa_set_lang, '<div class="pf-chips" id="pf-lang">' + pfChip("lang", "uk", "🇺🇦 Українська", st.lang === "uk") + pfChip("lang", "en", "🇬🇧 English", st.lang === "en") + "</div>");
+    h += uiAccordion(WA.wa_set_lang, '<div class="pf-chips" id="pf-lang">' + pfChip("lang", "uk", "🇺🇦 Українська", st.lang === "uk") + pfChip("lang", "en", "🇬🇧 English", st.lang === "en") + "</div>", ' id="pf-acc-lang"');
 
     if (st.cycle) {
       var cycBody = '<div class="pf-chips">' + pfChip("cyc", "toggle", WA.wa_cycle_on, st.cycle.on) + "</div>";
       if (st.cycle.on) {
         cycBody += "<label>" + WA.wa_cycle_last + '</label><input id="pf-cyc-date" type="date" value="' + (st.cycle.lastStart || "") + '">';
         cycBody += "<label>" + WA.wa_cycle_len + '</label><input id="pf-cyc-len" type="number" inputmode="numeric" min="20" max="45" value="' + st.cycle.len + '">';
-        cycBody += '<div class="cc-save-row">' + uiChip(WA.wa_save, ' data-cyc="save"') + "</div>";
+        cycBody += '<div class="cc-save-row">' + uiChip(WA.wa_save, ' data-cyc="save"') + '<span class="sub" id="pf-cyc-st"></span></div>';
       }
-      h += uiAccordion(WA.wa_set_cycle, cycBody);
+      h += uiAccordion(WA.wa_set_cycle, cycBody, ' id="pf-acc-cyc"');
     }
 
     var cmpBody = '<div class="pf-chips">' + pfChip("cmp", "toggle", WA.wa_compete_on, st.compete.on) + "</div>";
     if (st.compete.on) {
-      cmpBody += "<label>" + WA.wa_alias_ph + '</label><div class="lrow"><input id="pf-alias" value="' + esc(st.compete.alias) + '">' + uiChip(WA.wa_save, ' data-cmp="alias"') + "</div>";
+      cmpBody += "<label>" + WA.wa_alias_ph + '</label><div class="lrow"><input id="pf-alias" value="' + esc(st.compete.alias) + '">' + uiChip(WA.wa_save, ' data-cmp="alias"') + "</div><span class=\"sub\" id=\"pf-cmp-st\"></span>";
     }
-    h += uiAccordion(WA.wa_set_compete, cmpBody);
+    h += uiAccordion(WA.wa_set_compete, cmpBody, ' id="pf-acc-cmp"');
 
     var fbBody = '<textarea id="pf-fb" rows="2" placeholder="' + esc(WA.wa_feedback_ph) + '"></textarea>'
       + '<div class="cc-save-row">' + uiChip(WA.wa_send, ' data-act2="fb"') + '<span class="sub" id="pf-fb-st"></span></div>';
-    h += uiAccordion(WA.wa_set_feedback, fbBody);
+    h += uiAccordion(WA.wa_set_feedback, fbBody, ' id="pf-acc-fb"');
 
     var accBody = '<div class="pf-chips">'
       + uiChip(WA.wa_export, ' data-act2="export"')
@@ -189,10 +198,11 @@ function pfRender() {
       + (st.role === "client" ? uiChip(WA.wa_leave_trainer, ' data-act2="leave"', { danger: true }) : "")
       + uiChip(WA.wa_delete_acc, ' data-act2="delete"', { danger: true })
       + '</div><span class="sub" id="pf-misc-st"></span>';
-    h += uiAccordion(WA.wa_set_account, accBody);
+    h += uiAccordion(WA.wa_set_account, accBody, ' id="pf-acc-account"');
   }
 
   el("pf-body").innerHTML = h;
+  for (var accId in openAcc) { var accEl = el(accId); if (accEl) accEl.open = true; }
   var save = el("pf-save"); if (save) save.onclick = pfSave;
   var obGo = el("pf-ob-go"); if (obGo) obGo.onclick = pfObSubmit;
 }
@@ -201,7 +211,7 @@ function pfSetAction(body, cb) {
   ccFetch("/api/settings", { method: "POST", body: body })
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
     .then(function (res) {
-      if (res.deleted) { el("pf-body").innerHTML = uiSub(WA.wa_deleted, true); return; }
+      if (res.deleted) { el("pf-body").innerHTML = uiCard(WA.wa_deleted); return; }
       if (res.state) PF.st = res.state;
       if (cb) cb(res); else pfRender();
     })
@@ -221,7 +231,7 @@ function pfObSubmit() {
   var st = el("pf-ob-st"); var b = el("pf-ob-go"); b.disabled = true;
   ccFetch("/api/onboarding", { method: "POST", body: body })
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
-    .then(function () { el("pf-body").innerHTML = uiSub(WA.wa_ob_pending, true); })
+    .then(function () { el("pf-body").innerHTML = uiCard(WA.wa_ob_pending); })
     .catch(function () { if (st) st.textContent = WA.wa_ob_incomplete; b.disabled = false; });
 }
 
@@ -276,12 +286,21 @@ function pfSave() {
     var cyc = t.getAttribute("data-cyc");
     if (cyc === "toggle") { pfSetAction({ action: "cycle", on: !(PF.st.cycle && PF.st.cycle.on) }); return; }
     if (cyc === "save") {
-      pfSetAction({ action: "cycle", lastStart: el("pf-cyc-date").value, len: Number(el("pf-cyc-len").value) });
+      pfSetAction({ action: "cycle", lastStart: el("pf-cyc-date").value, len: Number(el("pf-cyc-len").value) }, function () {
+        pfRender();
+        var s = el("pf-cyc-st"); if (s) s.textContent = WA.wa_saved;
+      });
       return;
     }
     var cmp = t.getAttribute("data-cmp");
     if (cmp === "toggle") { pfSetAction({ action: "compete", on: !(PF.st.compete && PF.st.compete.on) }); return; }
-    if (cmp === "alias") { pfSetAction({ action: "compete", alias: el("pf-alias").value }); return; }
+    if (cmp === "alias") {
+      pfSetAction({ action: "compete", alias: el("pf-alias").value }, function () {
+        pfRender();
+        var s = el("pf-cmp-st"); if (s) s.textContent = WA.wa_saved;
+      });
+      return;
+    }
     var thm = t.getAttribute("data-theme");
     if (thm) {
       applyTheme(thm);

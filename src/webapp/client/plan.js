@@ -22,7 +22,7 @@ function plOpen(clientId) {
       plRender();
     })
     .catch(function (e) {
-      el("pl-body").innerHTML = uiSub(e.message === "auth" ? L.autherr : e.message === "noplan" ? WA.wa_plan_empty : L.loaderr, true);
+      el("pl-body").innerHTML = uiCard(e.message === "auth" ? L.autherr : e.message === "noplan" ? WA.wa_plan_empty : L.loaderr);
     });
 }
 

@@ -45,7 +45,7 @@ function owLoad(sec) {
   ccFetch("/api/owner/report?section=" + sec)
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
     .then(function (res) { if (OW.sec === sec) el("ow-body").innerHTML = res.html; })
-    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = uiSub(L.loaderr, true); });
+    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = uiCard(L.loaderr); });
 }
 
 // --- owner users: sortable + groupable table ---
@@ -65,7 +65,7 @@ function owUsersTable() {
   ccFetch("/api/owner/users")
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
     .then(function (d) { if (OW.sec !== sec) return; OWU = { rows: d.rows || [], feedback: d.feedback || [], sort: { col: "total", dir: -1 }, group: "none" }; owUsersRender(); })
-    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = uiSub(L.loaderr, true); });
+    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = uiCard(L.loaderr); });
 }
 function owUsersRender() {
   var s = OWU.sort;

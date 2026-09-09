@@ -62,7 +62,7 @@ function lgInit(p) {
     LG.editMode = false;
     lgRestBar();
     lgRender();
-    el("lg-body").insertAdjacentHTML("afterbegin", uiSub(WA.wa_log_restday, true));
+    el("lg-body").insertAdjacentHTML("afterbegin", uiCard(WA.wa_log_restday));
     return;
   }
   LG.ex = p.exercises.map(function (x) {

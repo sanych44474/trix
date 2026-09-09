@@ -11,7 +11,7 @@ function nuOpen() {
   ccFetch("/api/nutrition")
     .then(function (r) { if (r.status === 401) throw new Error("auth"); if (!r.ok) throw new Error("load"); return r.json(); })
     .then(function (d) { NU.data = d; nuRender(); })
-    .catch(function (e) { el("nu-body").innerHTML = uiSub(e.message === "auth" ? L.autherr : L.loaderr, true); });
+    .catch(function (e) { el("nu-body").innerHTML = uiCard(e.message === "auth" ? L.autherr : L.loaderr); });
 }
 function nuClose() {
   setTab("home"); // tab bar back to Home when an overlay closes

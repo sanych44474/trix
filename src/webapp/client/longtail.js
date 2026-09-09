@@ -19,7 +19,7 @@ function ltOpen() {
     LT.ch = res[0]; LT.inj = res[1]; LT.boards = res[2];
     LT.rec = res[3]; LT.week = res[4]; LT.lib = res[5]; LT.news = res[6];
     ltRender();
-  }).catch(function () { el("lt-body").innerHTML = uiSub(L.loaderr, true); });
+  }).catch(function () { el("lt-body").innerHTML = uiCard(L.loaderr); });
 }
 function ltClose() {
   setTab("home"); // tab bar back to Home when an overlay closes

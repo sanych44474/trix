@@ -300,7 +300,7 @@ function qaOpen() {
   ccFetch("/api/trainer/questions")
     .then(function (r) { if (r.status === 401) throw new Error("auth"); if (!r.ok) throw new Error("load"); return r.json(); })
     .then(function (res) { qaRender(res.questions || []); })
-    .catch(function (e) { el("qa-body").innerHTML = uiSub(e.message === "auth" ? L.autherr : L.loaderr, true); });
+    .catch(function (e) { el("qa-body").innerHTML = uiCard(e.message === "auth" ? L.autherr : L.loaderr); });
 }
 function qaClose() {
   setTab("home"); // tab bar back to Home when an overlay closes
@@ -309,7 +309,7 @@ function qaClose() {
 }
 function qaRender(list) {
   var open = list.filter(function (q) { return q.status === "pending"; });
-  if (!open.length) { el("qa-body").innerHTML = uiSub(WA.wa_qa_empty, true); return; }
+  if (!open.length) { el("qa-body").innerHTML = uiCard(WA.wa_qa_empty); return; }
   var h = "";
   open.forEach(function (q) {
     h += '<div class="card" style="margin-bottom:10px" id="qa-q-' + q.id + '">';
@@ -400,7 +400,7 @@ function opsOpen() {
   if (TG && TG.BackButton && TG.BackButton.show) { TG.BackButton.show(); if (TG.BackButton.onClick) TG.BackButton.onClick(qaClose); }
   ccFetch("/api/requests").then(function (r) { return r.ok ? r.json() : null; })
     .then(function (reqs) { opsRender(reqs); })
-    .catch(function () { el("qa-body").innerHTML = uiSub(L.loaderr, true); });
+    .catch(function () { el("qa-body").innerHTML = uiCard(L.loaderr); });
 }
 function opsRender(reqs) {
   var h = "<h2>📥 " + WA.wa_requests + "</h2><div class=\"card\">";
