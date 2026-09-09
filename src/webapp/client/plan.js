@@ -48,36 +48,36 @@ function plRender() {
       }
       h += '<div class="card pl-ex"' + (joined ? ' style="margin-top:-6px;border-top:2px dashed var(--accent)"' : "") + ">";
       h += '<div class="pl-exh"><b class="pl-exname">' + ssLabel + esc(x.name) + '</b><span class="pl-exbtns">';
-      if (x.index > 0) h += '<button class="chipbtn" data-act="up" data-wd="' + d.weekday + '" data-i="' + x.index + '">⬆️</button>';
-      if (x.index < d.exercises.length - 1) h += '<button class="chipbtn" data-act="down" data-wd="' + d.weekday + '" data-i="' + x.index + '">⬇️</button>';
+      if (x.index > 0) h += uiChip("⬆️", ' data-act="up" data-wd="' + d.weekday + '" data-i="' + x.index + '"');
+      if (x.index < d.exercises.length - 1) h += uiChip("⬇️", ' data-act="down" data-wd="' + d.weekday + '" data-i="' + x.index + '"');
       h += "</span></div>";
       var wmLbl = x.wmode && x.wmode !== "total" ? " · " + (x.wmode === "perside" || x.wmode === "perSide" ? WA.wa_wmode_perside : WA.wa_wmode_perhand) : "";
       h += '<div class="sub">' + esc(x.sets) + " · " + esc(x.startWeight) + esc(wmLbl) + "</div>";
       if (x.technique || x.videoUrl) {
         h += '<details class="lg-info"><summary>' + WA.wa_ex_info + "</summary>";
         if (x.technique) h += '<div class="sub lg-tech">' + esc(x.technique) + "</div>";
-        if (x.videoUrl) h += '<button class="chipbtn" data-act="vid" data-u="' + esc(x.videoUrl) + '">' + WA.wa_watch_video + (x.videoTitle ? " · " + esc(x.videoTitle).slice(0, 32) : "") + "</button>";
+        if (x.videoUrl) h += uiChip(WA.wa_watch_video + (x.videoTitle ? " · " + esc(x.videoTitle).slice(0, 32) : ""), ' data-act="vid" data-u="' + esc(x.videoUrl) + '"');
         h += "</details>";
       }
       h += '<div class="pl-edit" id="pl-ed-' + d.weekday + "-" + x.index + '"></div>';
       h += '<div class="pl-acts">';
-      h += '<button class="chipbtn" data-act="w" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '">' + WA.wa_ex_weight + "</button>";
-      h += '<button class="chipbtn" data-act="s" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '">' + WA.wa_ex_sets + "</button>";
-      h += '<button class="chipbtn" data-act="sw" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '">' + WA.wa_swap + "</button>";
-      if (x.index < d.exercises.length - 1) h += '<button class="chipbtn' + (x.ssGroup && d.exercises[x.index + 1].ssGroup === x.ssGroup ? " on" : "") + '" data-act="link" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '">🔗</button>';
-      h += '<button class="chipbtn' + (x.wmode && x.wmode !== "total" ? " on" : "") + '" data-act="wmode" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '">⚖️</button>';
-      h += '<button class="chipbtn" data-act="del" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '">🗑</button>';
+      h += uiChip(WA.wa_ex_weight, ' data-act="w" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '"');
+      h += uiChip(WA.wa_ex_sets, ' data-act="s" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '"');
+      h += uiChip(WA.wa_swap, ' data-act="sw" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '"');
+      if (x.index < d.exercises.length - 1) h += uiChip("🔗", ' data-act="link" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '"', { on: x.ssGroup && d.exercises[x.index + 1].ssGroup === x.ssGroup });
+      h += uiChip("⚖️", ' data-act="wmode" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '"', { on: x.wmode && x.wmode !== "total" });
+      h += uiChip("🗑", ' data-act="del" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '"');
       h += "</div>";
       if (PL.wmOpen === d.weekday + ":" + x.index) {
         h += '<div class="pl-wmmenu">';
         [["total", WA.wa_wmode_total], ["perSide", WA.wa_wmode_perside], ["perHand", WA.wa_wmode_perhand]].forEach(function (o) {
-          h += '<button class="chipbtn' + ((x.wmode || "total") === o[0] ? " on" : "") + '" data-act="wmset" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '" data-m="' + o[0] + '">' + o[1] + "</button>";
+          h += uiChip(o[1], ' data-act="wmset" data-wd="' + d.weekday + '" data-i="' + x.index + '" data-n="' + esc(x.name) + '" data-m="' + o[0] + '"', { on: (x.wmode || "total") === o[0] });
         });
         h += "</div>";
       }
       h += "</div>";
     });
-    h += '<button class="chipbtn" data-act="add" data-wd="' + d.weekday + '" style="margin-bottom:8px">' + WA.wa_add_ex + "</button>";
+    h += uiChip(WA.wa_add_ex, ' data-act="add" data-wd="' + d.weekday + '"', { style: "margin-bottom:8px" });
   });
   el("pl-body").innerHTML = h;
 }
@@ -102,7 +102,7 @@ function plInlineForm(wd, i, kind) {
   if (!box) return;
   var ph = kind === "w" ? WA.wa_weight_ph : WA.wa_sets_ph;
   box.innerHTML = '<div class="lrow"><input id="pl-inp-' + wd + "-" + i + '" placeholder="' + esc(ph)
-    + '"><button class="chipbtn" data-act="save' + kind + '" data-wd="' + wd + '" data-i="' + i + '">' + WA.wa_save + "</button></div>";
+    + '">' + uiChip(WA.wa_save, ' data-act="save' + kind + '" data-wd="' + wd + '" data-i="' + i + '"') + "</div>";
   var inp = el("pl-inp-" + wd + "-" + i); if (inp) inp.focus();
 }
 
@@ -110,7 +110,7 @@ function plSwapForm(wd, i) {
   var box = el("pl-ed-" + wd + "-" + i);
   if (!box) return;
   box.innerHTML = '<div class="lrow"><input id="pl-sq-' + wd + "-" + i + '" placeholder="' + esc(WA.wa_swap_ph)
-    + '"><button class="chipbtn" data-act="sqrun" data-wd="' + wd + '" data-i="' + i + '">' + WA.wa_search + "</button></div>"
+    + '">' + uiChip(WA.wa_search, ' data-act="sqrun" data-wd="' + wd + '" data-i="' + i + '"') + "</div>"
     + '<div id="pl-sr-' + wd + "-" + i + '"></div>';
   var inp = el("pl-sq-" + wd + "-" + i); if (inp) inp.focus();
 }
@@ -127,10 +127,10 @@ function plSearch(wd, i, forAdd) {
     .then(function (res) {
       var ms = res.matches || [], h = "";
       ms.forEach(function (a) {
-        h += '<button class="chipbtn" data-act="' + (forAdd ? "addpick" : "swpick") + '" data-wd="' + wd + '" data-i="' + i + '" data-id="' + esc(a.id) + '" data-n="' + esc(a.name) + '" style="margin:2px 4px 2px 0">' + esc(a.name) + "</button>";
+        h += uiChip(esc(a.name), ' data-act="' + (forAdd ? "addpick" : "swpick") + '" data-wd="' + wd + '" data-i="' + i + '" data-id="' + esc(a.id) + '" data-n="' + esc(a.name) + '"', { style: "margin:2px 4px 2px 0" });
       });
       // Also allow using the typed text as-is (custom exercise, no catalog id).
-      h += '<button class="chipbtn" data-act="' + (forAdd ? "addpick" : "swpick") + '" data-wd="' + wd + '" data-i="' + i + '" data-n="' + esc(q) + '" style="margin:2px 4px 2px 0">➕ «' + esc(q) + "»</button>";
+      h += uiChip("➕ «" + esc(q) + "»", ' data-act="' + (forAdd ? "addpick" : "swpick") + '" data-wd="' + wd + '" data-i="' + i + '" data-n="' + esc(q) + '"', { style: "margin:2px 4px 2px 0" });
       box.innerHTML = h;
     })
     .catch(function () { box.innerHTML = '<span class="sub">' + WA.wa_err + "</span>"; });
@@ -138,7 +138,7 @@ function plSearch(wd, i, forAdd) {
 
 function plAddInner(wd) {
   return '<div class="lrow" style="margin:4px 0"><input id="pl-aq-' + wd + '" placeholder="' + esc(WA.wa_add_ex_ph)
-    + '"><button class="chipbtn" data-act="aqrun" data-wd="' + wd + '">' + WA.wa_search + "</button></div>"
+    + '">' + uiChip(WA.wa_search, ' data-act="aqrun" data-wd="' + wd + '"') + "</div>"
     + '<div id="pl-ar-' + wd + '"></div>';
 }
 

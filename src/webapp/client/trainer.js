@@ -169,7 +169,7 @@ function ccWeekCardImage() {
       canvas.toBlob(function (blob) {
         out.insertAdjacentHTML(
           "beforeend",
-          '<div class="cc-save-row" style="margin-top:8px"><button class="chipbtn" data-act="wcsend">' + WA.wa_wcard_send_btn + '</button><span class="sub" id="cc-wcard-st"></span></div>',
+          '<div class="cc-save-row" style="margin-top:8px">' + uiChip(WA.wa_wcard_send_btn, ' data-act="wcsend"') + '<span class="sub" id="cc-wcard-st"></span></div>',
         );
         var sendBtn = out.querySelector('[data-act="wcsend"]');
         if (sendBtn) sendBtn.onclick = function () {
@@ -369,8 +369,8 @@ function ccTemplates() {
       var h = '<div class="card">';
       list.forEach(function (tp) {
         h += '<div class="cc-save-row" style="margin:4px 0"><span style="flex:1">' + esc(tp.name) + "</span>";
-        h += '<button class="chipbtn" data-tpl="assign" data-id="' + tp.id + '">' + WA.wa_tpl_assign + "</button>";
-        h += '<button class="chipbtn" data-tpl="del" data-id="' + tp.id + '">🗑</button></div>';
+        h += uiChip(WA.wa_tpl_assign, ' data-tpl="assign" data-id="' + tp.id + '"');
+        h += uiChip("🗑", ' data-tpl="del" data-id="' + tp.id + '"') + "</div>";
       });
       h += '<span class="sub" id="cc-tpl-st"></span></div>';
       box.innerHTML = h;
@@ -408,8 +408,8 @@ function opsRender(reqs) {
   if (rl.length) {
     rl.forEach(function (r) {
       h += '<div class="cc-save-row" style="margin:4px 0" id="ops-req-' + r.id + '"><span style="flex:1"><b>' + esc(r.name) + "</b>" + (r.note ? ' <span class="sub">' + esc(r.note) + "</span>" : "") + "</span>";
-      h += '<button class="chipbtn" data-ops="acc" data-id="' + r.id + '">' + WA.wa_accept + "</button>";
-      h += '<button class="chipbtn" data-ops="dec" data-id="' + r.id + '">' + WA.wa_decline + "</button></div>";
+      h += uiChip(WA.wa_accept, ' data-ops="acc" data-id="' + r.id + '"');
+      h += uiChip(WA.wa_decline, ' data-ops="dec" data-id="' + r.id + '"') + "</div>";
     });
   } else h += '<div class="sub">' + L.nodata + "</div>";
   h += "</div>";

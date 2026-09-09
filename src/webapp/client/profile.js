@@ -85,7 +85,7 @@ function pfRender() {
   var h = pfGamification();
   // 🎨 Theme override + 📣 share progress.
   var ct = pfCurTheme();
-  var tchip = function (m, l) { return '<button class="chipbtn' + (ct === m ? " on" : "") + '" data-theme="' + m + '">' + esc(l) + "</button>"; };
+  var tchip = function (m, l) { return uiChip(esc(l), ' data-theme="' + m + '"', { on: ct === m }); };
   h += '<div class="card" style="margin-bottom:10px"><b>🎨 ' + (WA.wa_theme || "Theme") + '</b><div class="pf-chips" style="margin-top:8px">'
     + tchip("auto", WA.wa_theme_auto || "Auto") + tchip("light", WA.wa_theme_light || "Light") + tchip("dark", WA.wa_theme_dark || "Dark") + "</div></div>";
   h += '<div class="card" style="margin-bottom:10px;display:flex;flex-direction:column;gap:6px">'
@@ -94,7 +94,7 @@ function pfRender() {
   // 💧 Scheduled water reminders (0/2/3/4h), saved with the profile.
   var we = typeof PF.waterEvery === "number" ? PF.waterEvery : (p.waterEvery || 0);
   PF.waterEvery = we;
-  var wchip = function (n, l) { return '<button class="chipbtn' + (we === n ? " on" : "") + '" data-water="' + n + '">' + esc(l) + "</button>"; };
+  var wchip = function (n, l) { return uiChip(esc(l), ' data-water="' + n + '"', { on: we === n }); };
   h += '<div class="card" style="margin-bottom:10px"><b>💧 ' + (WA.wa_water_sched || "Water reminders") + '</b><div class="pf-chips" style="margin-top:8px">'
     + wchip(0, WA.wa_off || "Off") + wchip(2, "2h") + wchip(3, "3h") + wchip(4, "4h") + "</div></div>";
 
@@ -165,25 +165,25 @@ function pfRender() {
       if (st.cycle.on) {
         h += "<label>" + WA.wa_cycle_last + '</label><input id="pf-cyc-date" type="date" value="' + (st.cycle.lastStart || "") + '">';
         h += "<label>" + WA.wa_cycle_len + '</label><input id="pf-cyc-len" type="number" inputmode="numeric" min="20" max="45" value="' + st.cycle.len + '">';
-        h += '<div class="cc-save-row"><button class="chipbtn" data-cyc="save">' + WA.wa_save + "</button></div>";
+        h += '<div class="cc-save-row">' + uiChip(WA.wa_save, ' data-cyc="save"') + "</div>";
       }
       h += "</div>";
     }
 
     h += "<h2>" + WA.wa_set_compete + '</h2><div class="card"><div class="pf-chips">' + pfChip("cmp", "toggle", WA.wa_compete_on, st.compete.on) + "</div>";
     if (st.compete.on) {
-      h += "<label>" + WA.wa_alias_ph + '</label><div class="lrow"><input id="pf-alias" value="' + esc(st.compete.alias) + '"><button class="chipbtn" data-cmp="alias">' + WA.wa_save + "</button></div>";
+      h += "<label>" + WA.wa_alias_ph + '</label><div class="lrow"><input id="pf-alias" value="' + esc(st.compete.alias) + '">' + uiChip(WA.wa_save, ' data-cmp="alias"') + "</div>";
     }
     h += "</div>";
 
     h += "<h2>" + WA.wa_set_feedback + '</h2><div class="card"><textarea id="pf-fb" rows="2" placeholder="' + esc(WA.wa_feedback_ph) + '"></textarea>';
-    h += '<div class="cc-save-row"><button class="chipbtn" data-act2="fb">' + WA.wa_send + '</button><span class="sub" id="pf-fb-st"></span></div></div>';
+    h += '<div class="cc-save-row">' + uiChip(WA.wa_send, ' data-act2="fb"') + '<span class="sub" id="pf-fb-st"></span></div></div>';
 
     h += '<div class="card" style="margin-top:10px"><div class="pf-chips">';
-    h += '<button class="chipbtn" data-act2="export">' + WA.wa_export + "</button>";
-    h += '<button class="chipbtn" data-act2="export_json">' + WA.wa_export_json + "</button>";
-    if (st.role === "client") h += '<button class="chipbtn pf-danger" data-act2="leave">' + WA.wa_leave_trainer + "</button>";
-    h += '<button class="chipbtn pf-danger" data-act2="delete">' + WA.wa_delete_acc + "</button>";
+    h += uiChip(WA.wa_export, ' data-act2="export"');
+    h += uiChip(WA.wa_export_json, ' data-act2="export_json"');
+    if (st.role === "client") h += uiChip(WA.wa_leave_trainer, ' data-act2="leave"', { danger: true });
+    h += uiChip(WA.wa_delete_acc, ' data-act2="delete"', { danger: true });
     h += '</div><span class="sub" id="pf-misc-st"></span></div>';
   }
 

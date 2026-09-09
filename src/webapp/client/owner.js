@@ -32,7 +32,7 @@ function owClose() {
 function owTabs() {
   var h = "";
   OW_SECTIONS.forEach(function (s) {
-    h += '<button class="chipbtn' + (OW.sec === s[0] ? " on" : "") + '" data-ow="' + s[0] + '">' + WA[s[1]] + "</button>";
+    h += uiChip(WA[s[1]], ' data-ow="' + s[0] + '"', { on: OW.sec === s[0] });
   });
   el("ow-tabs").innerHTML = h;
 }
@@ -76,7 +76,7 @@ function owUsersRender() {
   };
   var groups = [["none", "All " + OWU.rows.length], ["trainer", "🧑‍🏫 Trainer"], ["status", "● Status"]];
   var ctl = '<div class="owu-ctl">';
-  groups.forEach(function (g) { ctl += '<button class="chipbtn' + (OWU.group === g[0] ? " on" : "") + '" data-owg="' + g[0] + '">' + g[1] + "</button>"; });
+  groups.forEach(function (g) { ctl += uiChip(g[1], ' data-owg="' + g[0] + '"', { on: OWU.group === g[0] }); });
   ctl += '<span class="sub owu-hint">tap a column to sort</span></div>';
   var thead = "<tr>";
   OWU_COLS.forEach(function (c) { thead += '<th data-ows="' + c.k + '"' + (c.txt ? "" : ' class="num"') + '>' + c.label + (s.col === c.k ? (s.dir < 0 ? " ▾" : " ▴") : "") + "</th>"; });

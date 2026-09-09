@@ -37,12 +37,12 @@ function nuRender() {
         + (m.grams != null ? " · " + m.grams + " " + WA.wa_g : "")
         + '<div class="sub">Б' + m.protein + " Ж" + m.fats + " В" + m.carbs + "</div></div>";
       h += '<div class="nu-acts">';
-      h += '<button class="chipbtn" data-nu="scale" data-i="' + m.index + '" data-f="0.5">½×</button>';
-      h += '<button class="chipbtn" data-nu="scale" data-i="' + m.index + '" data-f="1.5">1.5×</button>';
-      h += '<button class="chipbtn" data-nu="scale" data-i="' + m.index + '" data-f="2">2×</button>';
-      if (m.grams != null) h += '<input type="number" inputmode="numeric" id="nu-g-' + m.index + '" placeholder="' + m.grams + '"><button class="chipbtn" data-nu="grams" data-i="' + m.index + '">' + WA.wa_g + "</button>";
-      h += '<button class="chipbtn" data-nu="macros-open" data-i="' + m.index + '">✏️</button>';
-      h += '<button class="chipbtn" data-nu="del" data-i="' + m.index + '">🗑</button>';
+      h += uiChip("½×", ' data-nu="scale" data-i="' + m.index + '" data-f="0.5"');
+      h += uiChip("1.5×", ' data-nu="scale" data-i="' + m.index + '" data-f="1.5"');
+      h += uiChip("2×", ' data-nu="scale" data-i="' + m.index + '" data-f="2"');
+      if (m.grams != null) h += '<input type="number" inputmode="numeric" id="nu-g-' + m.index + '" placeholder="' + m.grams + '">' + uiChip(WA.wa_g, ' data-nu="grams" data-i="' + m.index + '"');
+      h += uiChip("✏️", ' data-nu="macros-open" data-i="' + m.index + '"');
+      h += uiChip("🗑", ' data-nu="del" data-i="' + m.index + '"');
       h += "</div>";
       // Hidden inline macro-edit form, shown when ✏️ is tapped. A header labels the four fields
       // (they'd otherwise read as bare unlabeled numbers once filled).
@@ -53,8 +53,8 @@ function nuRender() {
       h += '<input type="number" inputmode="numeric" id="nu-mp-' + m.index + '" placeholder="Б" value="' + m.protein + '" style="width:50px">';
       h += '<input type="number" inputmode="numeric" id="nu-mf2-' + m.index + '" placeholder="Ж" value="' + m.fats + '" style="width:50px">';
       h += '<input type="number" inputmode="numeric" id="nu-mc-' + m.index + '" placeholder="В" value="' + m.carbs + '" style="width:50px">';
-      h += '<button class="chipbtn" data-nu="macros-save" data-i="' + m.index + '">' + WA.wa_macros_saved + '</button>';
-      h += '<button class="chipbtn" data-nu="macros-cancel" data-i="' + m.index + '">' + WA.wa_macros_cancel + '</button>';
+      h += uiChip(WA.wa_macros_saved, ' data-nu="macros-save" data-i="' + m.index + '"');
+      h += uiChip(WA.wa_macros_cancel, ' data-nu="macros-cancel" data-i="' + m.index + '"');
       h += '</div></div>';
       h += "</div>";
     });
@@ -67,7 +67,7 @@ function nuRender() {
     + '<div id="nu-recipe" style="margin-top:2px"></div></div>';
   // Food-DB search: exact per-100g macros from Open Food Facts (server-proxied).
   h += "<h2>🔍 " + WA.wa_food_db + '</h2><div class="card">';
-  h += '<div class="lrow"><input id="nu-dbq" placeholder="' + esc(WA.wa_food_db_ph) + '"><button class="chipbtn" data-nu="dbsearch">' + WA.wa_search + "</button></div>";
+  h += '<div class="lrow"><input id="nu-dbq" placeholder="' + esc(WA.wa_food_db_ph) + '">' + uiChip(WA.wa_search, ' data-nu="dbsearch"') + "</div>";
   h += '<div id="nu-dbr" style="margin-top:6px"></div></div>';
   if (d.mealPlan && d.mealPlan.days && d.mealPlan.days.length) {
     h += "<h2>" + WA.wa_nu_plan + "</h2>";
@@ -84,7 +84,7 @@ function nuRender() {
   if (d.recent && d.recent.length) {
     h += "<h2>⭐ " + (WA.wa_recent || "Recent") + '</h2><div class="card"><div style="display:flex;flex-wrap:wrap;gap:6px">';
     d.recent.forEach(function (r) {
-      h += '<button class="chipbtn" data-nu="readd" data-ri="' + r.ri + '">' + esc(r.desc) + " · " + r.kcal + " " + WA.wa_kcal + "</button>";
+      h += uiChip(esc(r.desc) + " · " + r.kcal + " " + WA.wa_kcal, ' data-nu="readd" data-ri="' + r.ri + '"');
     });
     h += "</div></div>";
   }
@@ -127,7 +127,7 @@ function nuAct(action, i, extra) {
 // free-text description. Reuses the dashboard's /api/log food path, then reloads the meals.
 function nuAiFallbackHtml(seed) {
   return '<div class="sub" style="margin:4px 0">' + WA.wa_food_db_none + "</div>"
-    + '<div class="lrow"><input id="nu-ai" placeholder="' + esc(WA.wa_food_ai_ph) + '" value="' + esc(seed || "") + '"><button class="chipbtn" data-nu="aiest">' + WA.wa_food_ai_btn + "</button></div>"
+    + '<div class="lrow"><input id="nu-ai" placeholder="' + esc(WA.wa_food_ai_ph) + '" value="' + esc(seed || "") + '">' + uiChip(WA.wa_food_ai_btn, ' data-nu="aiest"') + "</div>"
     + '<div class="sub" id="nu-ai-st" style="min-height:1em"></div>';
 }
 function nuAiEstimate() {
@@ -160,8 +160,9 @@ function nuDbSearch() {
       if (!NU.db.length) { box.innerHTML = nuAiFallbackHtml(q); return; }
       var hh = "";
       NU.db.forEach(function (it, k) {
-        hh += '<button class="chipbtn" data-nu="dbpick" data-k="' + k + '" style="margin:2px 4px 2px 0">' + esc(it.name)
-          + (it.brand ? " · " + esc(it.brand) : "") + (it.ai ? " " + WA.wa_food_ai_tag : "") + " — " + ((it.per100 && it.per100.kcal) || 0) + " " + WA.wa_kcal + "/100" + WA.wa_g + "</button>";
+        hh += uiChip(esc(it.name)
+          + (it.brand ? " · " + esc(it.brand) : "") + (it.ai ? " " + WA.wa_food_ai_tag : "") + " — " + ((it.per100 && it.per100.kcal) || 0) + " " + WA.wa_kcal + "/100" + WA.wa_g,
+          ' data-nu="dbpick" data-k="' + k + '"', { style: "margin:2px 4px 2px 0" });
       });
       box.innerHTML = hh;
     })
@@ -187,7 +188,7 @@ function nuDbSearch() {
       if (!it) return;
       var box = el("nu-dbr");
       var p100p = it.per100 || {}; box.innerHTML = '<div class="sub" style="margin:4px 0"><b>' + esc(it.name) + "</b>" + (it.ai ? " " + WA.wa_food_ai_tag : "") + " · " + (p100p.kcal || 0) + " " + WA.wa_kcal + "/100" + WA.wa_g + "</div>"
-        + '<div class="lrow"><input id="nu-dbg" type="number" inputmode="numeric" placeholder="' + esc(WA.wa_food_db_g) + '"><button class="chipbtn" data-nu="dbadd" data-k="' + t.getAttribute("data-k") + '">' + WA.wa_add + "</button></div>";
+        + '<div class="lrow"><input id="nu-dbg" type="number" inputmode="numeric" placeholder="' + esc(WA.wa_food_db_g) + '">' + uiChip(WA.wa_add, ' data-nu="dbadd" data-k="' + t.getAttribute("data-k") + '"') + "</div>";
       var gi = el("nu-dbg"); if (gi) gi.focus();
       return;
     }

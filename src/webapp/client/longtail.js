@@ -49,7 +49,7 @@ function ltRender() {
   } else h += '<div class="sub">—</div>';
   if (ch.available.length) {
     h += '<div class="sub" style="margin-top:6px">' + WA.wa_lt_available + "</div>";
-    ch.available.forEach(function (c) { h += '<button class="chipbtn" data-lt="join" data-c="' + esc(c.code) + '" style="margin:2px 4px 2px 0">' + esc(c.emoji + " " + c.title) + "</button>"; });
+    ch.available.forEach(function (c) { h += uiChip(esc(c.emoji + " " + c.title), ' data-lt="join" data-c="' + esc(c.code) + '"', { style: "margin:2px 4px 2px 0" }); });
   }
   h += '<div class="sub" style="margin-top:6px">' + WA.wa_lt_won + ": " + ch.won + "</div></div>";
   // Injuries
@@ -111,18 +111,18 @@ function ltRender() {
   // a client / attach somewhere, since the Mini App can't offer a file download directly (CSP).
   if (LT.week && LT.week.card) {
     h += "<h2 id=\"lt-s-wk\">📤 " + WA.wa_weekcard + '</h2><div class="card">' + LT.week.card;
-    if (LT.week.stats) h += '<div class="cc-save-row" style="margin-top:8px"><button class="chipbtn" data-lt="wcgen">' + WA.wa_wcard_gen_btn + "</button></div>";
+    if (LT.week.stats) h += '<div class="cc-save-row" style="margin-top:8px">' + uiChip(WA.wa_wcard_gen_btn, ' data-lt="wcgen"') + "</div>";
     h += '<div id="lt-wc-out" style="margin-top:8px"></div></div>';
   }
   // Plates calculator
-  h += "<h2 id=\"lt-s-pl\">🏋️ " + WA.wa_plates + '</h2><div class="card"><div class="lrow"><input id="lt-pl-kg" type="number" inputmode="decimal" placeholder="' + esc(WA.wa_plates_ph) + '"><button class="chipbtn" data-lt="plates">' + WA.wa_calc + '</button></div><div id="lt-pl-out"></div></div>';
+  h += "<h2 id=\"lt-s-pl\">🏋️ " + WA.wa_plates + '</h2><div class="card"><div class="lrow"><input id="lt-pl-kg" type="number" inputmode="decimal" placeholder="' + esc(WA.wa_plates_ph) + '">' + uiChip(WA.wa_calc, ' data-lt="plates"') + '</div><div id="lt-pl-out"></div></div>';
   // Program library
   h += "<h2 id=\"lt-s-lib\">📚 " + WA.wa_library + "</h2><div class=\"card\">";
   var lib = (LT.lib && LT.lib.programs) || [];
   if (lib.length) {
     lib.forEach(function (pgm) {
       h += '<div class="cc-save-row" style="margin:4px 0"><span style="flex:1">📋 ' + esc(pgm.name) + " · " + pgm.takenCount + "👤</span>";
-      if (LT.lib.role !== "client") h += '<button class="chipbtn" data-lt="take" data-c="' + esc(pgm.code) + '">' + WA.wa_take + "</button>";
+      if (LT.lib.role !== "client") h += uiChip(WA.wa_take, ' data-lt="take" data-c="' + esc(pgm.code) + '"');
       h += "</div>";
     });
     h += '<span class="sub" id="lt-lib-st"></span>';
@@ -245,7 +245,7 @@ function wcGenerate() {
     WC_BLOB = blob;
     box.insertAdjacentHTML(
       "beforeend",
-      '<div class="cc-save-row" style="margin-top:8px"><button class="chipbtn" data-lt="wcsend">' + WA.wa_wcard_send_btn + '</button><span class="sub" id="lt-wc-st"></span></div>',
+      '<div class="cc-save-row" style="margin-top:8px">' + uiChip(WA.wa_wcard_send_btn, ' data-lt="wcsend"') + '<span class="sub" id="lt-wc-st"></span></div>',
     );
   });
 }

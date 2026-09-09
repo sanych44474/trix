@@ -102,7 +102,7 @@ function lgInit(p) {
   // "Fix a past day" chips (only in the normal today view).
   if (p.recentDates && p.recentDates.length) {
     var eh = '<div class="sub" style="margin:8px 0 2px">' + WA.wa_edit_past + "</div><div>";
-    p.recentDates.forEach(function (d) { eh += '<button class="chipbtn" data-editday="' + d + '" style="margin:2px 4px 2px 0">' + d.slice(5) + "</button>"; });
+    p.recentDates.forEach(function (d) { eh += uiChip(d.slice(5), ' data-editday="' + d + '"', { style: "margin:2px 4px 2px 0" }); });
     el("lg-body").insertAdjacentHTML("beforeend", eh + "</div>");
   }
   if (restored) {
@@ -149,9 +149,9 @@ function lgIn(e, si, f, v, ph) {
 function lgRender() {
   var h = "";
   var anyLast = LG.ex.some(function (x) { return x.last && x.last.length; });
-  if (anyLast) h += '<button class="chipbtn" data-act="prevall" style="width:100%;margin-bottom:8px">' + WA.wa_repeat_last + "</button>";
+  if (anyLast) h += uiChip(WA.wa_repeat_last, ' data-act="prevall"', { style: "width:100%;margin-bottom:8px" });
   // Copy any past workout into today's session (not in edit-a-saved-day mode).
-  if (!LG.editMode) h += '<button class="chipbtn" data-act="copypast" style="width:100%;margin-bottom:8px">' + WA.wa_copy_past + "</button>";
+  if (!LG.editMode) h += uiChip(WA.wa_copy_past, ' data-act="copypast"', { style: "width:100%;margin-bottom:8px" });
   LG.ex.forEach(function (x, e) {
     var joined = e > 0 && x.ss && LG.ex[e - 1].ss === x.ss;
     var ssLabel = "";
@@ -162,17 +162,17 @@ function lgRender() {
     }
     h += '<div class="card lg-ex" id="lg-exc-' + e + '"' + (joined ? ' style="margin-top:-6px;border-top:2px dashed var(--accent)"' : "") + ">";
     h += '<div class="lg-exh"><b class="lg-exname">' + (lgFilled(x) ? "✅ " : "") + ssLabel + esc(x.name) + '</b><span class="lg-exbtns">';
-    if (e > 0) h += '<button class="chipbtn" data-act="mvup" data-e="' + e + '">⬆️</button>';
-    if (e < LG.ex.length - 1) h += '<button class="chipbtn" data-act="mvdn" data-e="' + e + '">⬇️</button>';
-    h += '<button class="chipbtn" data-act="swap" data-e="' + e + '">' + WA.wa_swap + "</button>";
-    if (e < LG.ex.length - 1) h += '<button class="chipbtn' + (x.ss && LG.ex[e + 1].ss === x.ss ? " on" : "") + '" data-act="lgss" data-e="' + e + '">🔗</button>';
-    h += '<button class="chipbtn' + (x.wm && x.wm !== "total" ? " on" : "") + '" data-act="lgwm" data-e="' + e + '">⚖️</button>';
-    h += '<button class="chipbtn" data-act="rmex" data-e="' + e + '">🗑</button></span></div>';
+    if (e > 0) h += uiChip("⬆️", ' data-act="mvup" data-e="' + e + '"');
+    if (e < LG.ex.length - 1) h += uiChip("⬇️", ' data-act="mvdn" data-e="' + e + '"');
+    h += uiChip(WA.wa_swap, ' data-act="swap" data-e="' + e + '"');
+    if (e < LG.ex.length - 1) h += uiChip("🔗", ' data-act="lgss" data-e="' + e + '"', { on: x.ss && LG.ex[e + 1].ss === x.ss });
+    h += uiChip("⚖️", ' data-act="lgwm" data-e="' + e + '"', { on: x.wm && x.wm !== "total" });
+    h += uiChip("🗑", ' data-act="rmex" data-e="' + e + '"') + "</span></div>";
     // Inline weight-mode picker (explicit choice, no confusing cycle).
     if (LG.wmOpen === e) {
       h += '<div class="lg-wmmenu">';
       [["total", WA.wa_wmode_total], ["perSide", WA.wa_wmode_perside], ["perHand", WA.wa_wmode_perhand]].forEach(function (o) {
-        h += '<button class="chipbtn' + ((x.wm || "total") === o[0] ? " on" : "") + '" data-act="wmset" data-e="' + e + '" data-m="' + o[0] + '">' + o[1] + "</button>";
+        h += uiChip(o[1], ' data-act="wmset" data-e="' + e + '" data-m="' + o[0] + '"', { on: (x.wm || "total") === o[0] });
       });
       h += "</div>";
     }
@@ -183,8 +183,7 @@ function lgRender() {
     h += '<div id="lg-info-' + e + '">';
     if (x.tech) h += '<div class="sub lg-tech">' + esc(x.tech) + "</div>";
     if (x.vid) {
-      h += '<button class="chipbtn" data-act="video" data-e="' + e + '" data-u="' + esc(x.vid) + '">' + WA.wa_watch_video
-        + (x.vidT ? " · " + esc(x.vidT).slice(0, 40) : "") + "</button>";
+      h += uiChip(WA.wa_watch_video + (x.vidT ? " · " + esc(x.vidT).slice(0, 40) : ""), ' data-act="video" data-e="' + e + '" data-u="' + esc(x.vid) + '"');
     }
     if (!x.tech && !x.vid) h += '<div class="sub">' + WA.wa_loading + "</div>";
     h += "</div></details>";
@@ -203,23 +202,23 @@ function lgRender() {
       }
       h += '<button class="del" data-act="del" data-e="' + e + '" data-s="' + si + '">–</button></div>';
     });
-    h += '<div class="lg-rpe"><button class="chipbtn" data-act="add" data-e="' + e + '">' + WA.wa_add_set + "</button>";
+    h += '<div class="lg-rpe">' + uiChip(WA.wa_add_set, ' data-act="add" data-e="' + e + '"');
     if (lgLastSummary(x)) {
-      h += '<button class="chipbtn" data-act="prev" data-e="' + e + '">↺ ' + WA.wa_last_time + ": " + esc(lgLastSummary(x)) + "</button>";
+      h += uiChip("↺ " + WA.wa_last_time + ": " + esc(lgLastSummary(x)), ' data-act="prev" data-e="' + e + '"');
     }
     if (x.metric === "reps" && !x.added) {
-      h += '<button class="chipbtn" data-act="fill" data-e="' + e + '">✓ ' + x.pn + "×" + x.pr + (x.pw ? " · " + x.pw + " " + WA.wa_kg : "") + "</button>";
+      h += uiChip("✓ " + x.pn + "×" + x.pr + (x.pw ? " · " + x.pw + " " + WA.wa_kg : ""), ' data-act="fill" data-e="' + e + '"');
     }
     h += "</div>";
     h += '<div class="sub" style="margin-top:8px">' + WA.wa_rpe_q + "</div>";
     h += '<div class="lg-rpe">';
     [[5.5, WA.wa_rpe_easy], [7, WA.wa_rpe_mod], [8.5, WA.wa_rpe_hard], [10, WA.wa_rpe_max]].forEach(function (rv) {
-      h += '<button class="chipbtn' + (x.rpe === rv[0] ? " on" : "") + '" data-act="rpe" data-e="' + e + '" data-v="' + rv[0] + '">' + rv[1] + "</button>";
+      h += uiChip(rv[1], ' data-act="rpe" data-e="' + e + '" data-v="' + rv[0] + '"', { on: x.rpe === rv[0] });
     });
     h += "</div></div>";
   });
   // Ad-hoc "add an exercise to today's session" (not in the plan) — search the catalog or create one.
-  h += '<div class="card"><button class="chipbtn" data-act="addex" style="width:100%">' + WA.wa_add_ex + '</button><div id="lg-addbox" style="margin-top:6px"></div></div>';
+  h += '<div class="card">' + uiChip(WA.wa_add_ex, ' data-act="addex"', { style: "width:100%" }) + '<div id="lg-addbox" style="margin-top:6px"></div></div>';
   el("lg-body").innerHTML = h;
   lgProg();
 }
@@ -236,10 +235,9 @@ function lgCopyPastList() {
       if (!d.logs || !d.logs.length) { el("lg-st").textContent = WA.wa_copy_none; return; }
       var h = '<div class="card"><b>' + WA.wa_copy_past + "</b>";
       d.logs.forEach(function (l) {
-        h += '<button class="chipbtn" data-copyday="' + l.date + '" style="display:block;width:100%;text-align:left;margin:4px 0">'
-          + l.date.slice(5) + " · " + esc(l.title) + " (" + l.n + ")</button>";
+        h += uiChip(l.date.slice(5) + " · " + esc(l.title) + " (" + l.n + ")", ' data-copyday="' + l.date + '"', { style: "display:block;width:100%;text-align:left;margin:4px 0" });
       });
-      h += '<button class="chipbtn" data-act="copycancel" style="margin-top:4px">' + WA.wa_close + "</button></div>";
+      h += uiChip(WA.wa_close, ' data-act="copycancel"', { style: "margin-top:4px" }) + "</div>";
       var body = el("lg-body");
       var pick = document.createElement("div");
       pick.id = "lg-copypick";
@@ -277,7 +275,7 @@ function lgAddForm() {
   var box = el("lg-addbox");
   if (!box) return;
   box.innerHTML = '<div class="lrow"><input id="lg-addq" placeholder="' + esc(WA.wa_add_ex_ph)
-    + '"><button class="chipbtn" data-act="addsearch">' + WA.wa_search + "</button></div>" + '<div id="lg-addr"></div>';
+    + '">' + uiChip(WA.wa_search, ' data-act="addsearch"') + "</div>" + '<div id="lg-addr"></div>';
   var inp = el("lg-addq"); if (inp) inp.focus();
 }
 
@@ -292,9 +290,9 @@ function lgAddSearch() {
     .then(function (res) {
       var ms = res.matches || [], h = "";
       ms.forEach(function (a) {
-        h += '<button class="chipbtn" data-act="addpick" data-n="' + esc(a.name) + '" style="margin:2px 4px 2px 0">' + esc(a.name) + "</button>";
+        h += uiChip(esc(a.name), ' data-act="addpick" data-n="' + esc(a.name) + '"', { style: "margin:2px 4px 2px 0" });
       });
-      h += '<div style="margin-top:4px"><button class="chipbtn" data-act="addcreate" data-q="' + esc(q) + '">' + WA.wa_swap_create + " «" + esc(q) + "»</button></div>";
+      h += '<div style="margin-top:4px">' + uiChip(WA.wa_swap_create + " «" + esc(q) + "»", ' data-act="addcreate" data-q="' + esc(q) + '"') + "</div>";
       box.innerHTML = h;
     })
     .catch(function () { box.innerHTML = '<span class="sub">' + WA.wa_err + "</span>"; });
@@ -372,8 +370,8 @@ function lgRestPopToggle() {
   if (!pop) return;
   if (!pop.classList.contains("hidden")) { pop.classList.add("hidden"); return; }
   var h = "";
-  REST_OPTS.forEach(function (s) { h += '<button class="chipbtn' + (s === lgRestPref() ? " on" : "") + '" data-rest="' + s + '">' + lgFmt(s) + "</button>"; });
-  if (LG.timer) h += '<button class="chipbtn" data-rest="0">✖ ' + WA.wa_rest_stop + "</button>";
+  REST_OPTS.forEach(function (s) { h += uiChip(lgFmt(s), ' data-rest="' + s + '"', { on: s === lgRestPref() }); });
+  if (LG.timer) h += uiChip("✖ " + WA.wa_rest_stop, ' data-rest="0"');
   pop.innerHTML = h;
   pop.classList.remove("hidden");
 }
@@ -406,7 +404,7 @@ function lgRest(sec) {
 
 function lgSwapForm(e) {
   return '<div class="lrow" style="margin-top:6px"><input id="lg-swq-' + e + '" placeholder="' + esc(WA.wa_swap_ph)
-    + '"><button class="chipbtn" data-act="swsearch" data-e="' + e + '">' + WA.wa_search + "</button></div>"
+    + '">' + uiChip(WA.wa_search, ' data-act="swsearch" data-e="' + e + '"') + "</div>"
     + '<div id="lg-swr-' + e + '"></div>';
 }
 
@@ -423,7 +421,7 @@ function lgSwap(e) {
       if (alts.length) {
         h += '<div class="sub">' + WA.wa_swap_pick + "</div>";
         alts.forEach(function (a) {
-          h += '<button class="chipbtn" data-act="swpick" data-e="' + e + '" data-n="' + esc(a.name) + '" style="margin:2px 4px 2px 0">' + esc(a.name) + "</button>";
+          h += uiChip(esc(a.name), ' data-act="swpick" data-e="' + e + '" data-n="' + esc(a.name) + '"', { style: "margin:2px 4px 2px 0" });
         });
       }
       box.innerHTML = h + lgSwapForm(e);
@@ -445,12 +443,11 @@ function lgSwSearch(e) {
       var h = "";
       if (ms.length) {
         ms.forEach(function (a) {
-          h += '<button class="chipbtn" data-act="swpick" data-e="' + e + '" data-n="' + esc(a.name) + '" style="margin:2px 4px 2px 0">' + esc(a.name) + "</button>";
+          h += uiChip(esc(a.name), ' data-act="swpick" data-e="' + e + '" data-n="' + esc(a.name) + '"', { style: "margin:2px 4px 2px 0" });
         });
       } else {
         h += '<div class="sub">' + WA.wa_swap_none + "</div>";
-        h += '<button class="chipbtn" data-act="swcreate" data-e="' + e + '" data-q="' + esc(q) + '" style="margin-top:4px">'
-          + WA.wa_swap_create + " «" + esc(q) + "»</button>";
+        h += uiChip(WA.wa_swap_create + " «" + esc(q) + "»", ' data-act="swcreate" data-e="' + e + '" data-q="' + esc(q) + '"', { style: "margin-top:4px" });
       }
       box.innerHTML = h;
     })
@@ -610,7 +607,7 @@ function lgCelebrate(res) {
         if (!box) return;
         var hh = "";
         if (x.tech) hh += '<div class="sub lg-tech">' + esc(x.tech) + "</div>";
-        if (x.vid) hh += '<button class="chipbtn" data-act="video" data-e="' + e + '" data-u="' + esc(x.vid) + '">' + WA.wa_watch_video + (x.vidT ? " · " + esc(x.vidT).slice(0, 40) : "") + "</button>";
+        if (x.vid) hh += uiChip(WA.wa_watch_video + (x.vidT ? " · " + esc(x.vidT).slice(0, 40) : ""), ' data-act="video" data-e="' + e + '" data-u="' + esc(x.vid) + '"');
         box.innerHTML = hh || '<div class="sub">' + WA.wa_ex_info_none + "</div>";
       })
       .catch(function () { x.infoLoaded = false; });

@@ -588,7 +588,7 @@ function initLog(p) {
 var CHK = { energy: 0, sleep: 0, stress: 0 };
 function chkRow(kind, label) {
   var h = '<div class="sub" style="margin-top:4px">' + label + '</div><div class="lg-rpe">';
-  for (var i = 1; i <= 5; i++) h += '<button class="chipbtn" data-chk="' + kind + '" data-v="' + i + '">' + i + "</button>";
+  for (var i = 1; i <= 5; i++) h += uiChip(String(i), ' data-chk="' + kind + '" data-v="' + i + '"');
   return h + "</div>";
 }
 function initMore(p) {
@@ -985,7 +985,7 @@ function initRecap(p) {
   var g = p.gamification || {};
   box.innerHTML = '<div class="card" style="display:flex;align-items:center;gap:10px"><span style="font-size:20px">📅</span>'
     + '<div style="flex:1"><b>' + (WA.wa_recap_title || "This week") + "</b><div class=\"sub\">🏋️ " + wk + (g.streak ? " · 🔥 " + g.streak : "") + (g.level ? " · ⭐ " + (L.levelWord || "Lvl") + " " + g.level : "") + "</div></div>"
-    + '<button class="chipbtn" data-act="recap-share">📣</button></div>';
+    + uiChip("📣", ' data-act="recap-share"') + "</div>";
   box.style.display = "block";
   var sb = box.querySelector("[data-act=recap-share]");
   if (sb) sb.onclick = function () { if (typeof pfShareProgress === "function") pfShareProgress(); };
