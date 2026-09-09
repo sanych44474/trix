@@ -982,16 +982,19 @@ export function translateFoodsSystem(lang: Lang): string {
 
 // ---- per-100g AI lookup ----
 
+// Gemini's Schema proto uses an uppercase type enum (OBJECT/STRING/NUMBER/...), not lowercase
+// JSON-Schema types, and has no additionalProperties field — both were wrong here (every other
+// schema in this file already uses the correct casing/shape). Harmless whenever Groq answers
+// first (the normal case), but a live Gemini call with this schema would likely 400.
 export const PER100G_SCHEMA = {
-  type: "object",
+  type: "OBJECT",
   properties: {
-    kcal:    { type: "number", description: "kilocalories per 100g" },
-    protein: { type: "number", description: "protein in grams per 100g" },
-    fats:    { type: "number", description: "total fat in grams per 100g" },
-    carbs:   { type: "number", description: "total carbohydrates in grams per 100g" },
+    kcal:    { type: "NUMBER", description: "kilocalories per 100g" },
+    protein: { type: "NUMBER", description: "protein in grams per 100g" },
+    fats:    { type: "NUMBER", description: "total fat in grams per 100g" },
+    carbs:   { type: "NUMBER", description: "total carbohydrates in grams per 100g" },
   },
   required: ["kcal", "protein", "fats", "carbs"],
-  additionalProperties: false,
 };
 
 export interface Per100gResult {

@@ -235,7 +235,11 @@ async function run(
   }
 
   let lastErr: unknown;
-  let hadRateLimit = false;
+  // Starts true (vacuously, before any attempt) and flips to false the moment a NON-rate-limit
+  // failure happens — so it only stays true if literally every attempt was rate-limited. Used to
+  // decide whether to surface the friendlier "you've hit your limit" error below; a chain that
+  // failed on a mix of causes (or ended on a genuine bug) should get the generic error instead.
+  let allRateLimit = true;
   let attempt = 0;
   const telemetry: D1PreparedStatement[] = [];
   const date = utcDate();
@@ -257,7 +261,7 @@ async function run(
     } catch (err) {
       telemetry.push(aiUsageStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, model: p.model, ok: false, date }));
       telemetry.push(aiCallStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, latencyMs: Date.now() - startMs, wasFallback }));
-      if (err instanceof RateLimitError) hadRateLimit = true;
+      if (!(err instanceof RateLimitError)) allRateLimit = false;
       lastErr = err;
       // always try the next provider — even on rate-limit
     }
@@ -275,7 +279,7 @@ async function run(
     /* error logging is best-effort */
   }
   // Surface RateLimitError only if every failure was a rate-limit.
-  if (hadRateLimit && lastErr instanceof RateLimitError) throw lastErr;
+  if (allRateLimit && lastErr instanceof RateLimitError) throw lastErr;
   throw lastErr ?? new Error("no AI provider available");
 }
 
@@ -295,7 +299,12 @@ function parseJson<T>(raw: string): T {
       const lastArr = cleaned.lastIndexOf("]");
       const last = Math.max(lastObj, lastArr);
       if (first !== -1 && last > first) {
-        return JSON.parse(cleaned.slice(first, last + 1)) as T;
+        try {
+          return JSON.parse(cleaned.slice(first, last + 1)) as T;
+        } catch {
+          // fall through — an unbalanced slice throws its own SyntaxError, which would
+          // otherwise misclassify this failure as errorType "ai" instead of "json" below.
+        }
       }
       throw new Error("AI returned unparseable JSON");
     }

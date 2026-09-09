@@ -15,7 +15,8 @@ import { getPlanDay } from "../domain/progression";
 import { switchMode } from "../domain/session";
 import { cleanAi, t } from "../locales/i18n";
 import { renderToday } from "../render";
-import { type MyContext, menuBtn, onError, planOwnerId, planOwnerLang, reply, setMode, videosForDays } from "../bot";
+import { type MyContext, menuBtn, planOwnerId, planOwnerLang, reply, setMode, videosForDays } from "../bot";
+import { deferAi } from "./router";
 
 // Show the current warm-up for `weekday` and enter "warmup_edit" mode (typed reply = new steps).
 export async function showWarmupEditor(ctx: MyContext, weekday: Weekday) {
@@ -64,22 +65,24 @@ export async function suggestWarmup(ctx: MyContext, weekday: Weekday) {
     await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
     return;
   }
-  try {
-    await ctx.replyWithChatAction("typing").catch(() => {});
+  await ctx.replyWithChatAction("typing").catch(() => {});
+  // Deferred past the webhook response (same reason as every other conversational AI call —
+  // see deferAi's comment), using the fast "coach" kind/budget instead of "plan": a warm-up
+  // suggestion is a small ask that doesn't need plan's heaviest model ladder and 28s deadline,
+  // and blocking the webhook that long risked Telegram's retry/duplicate-delivery behavior.
+  deferAi(ctx, "warmup_ai", async () => {
     const oLang = await planOwnerLang(ctx);
     const result = await aiJSON<P.WarmupResult>(ctx.env, {
       system: P.warmupSystem(oLang),
       user: P.warmupUser(day.muscleGroup, day.exercises.map((e) => e.name), ctx.user.profile.level ?? "beginner"),
       schema: P.WARMUP_SCHEMA,
       temperature: 0.4,
-      kind: "plan",
+      kind: "coach",
       db: ctx.db,
       userId: ctx.user._id,
     });
     await saveWarmup(ctx, weekday, result.steps ?? []);
-  } catch (err) {
-    await onError(ctx, err, "warmup_ai");
-  }
+  });
 }
 
 // Text handler for "warmup_edit": split the reply into one warm-up step per line / "·" / ";".
