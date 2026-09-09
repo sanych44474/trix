@@ -1,6 +1,7 @@
 // Free-text feedback and one-tap quality ratings — both land in the `feedback` table and
 // forward to the owner if one is registered. Extracted from bot.ts (god-file split; same
 // barrel seam via bot.ts's `export * from "./bot/feedbackIntake"`).
+import { InlineKeyboard } from "grammy";
 import { getOwnerChatId, insertFeedback } from "../db/repos";
 import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
@@ -41,5 +42,18 @@ export async function onQualityRating(ctx: MyContext, n: number) {
     await ctx.api.sendMessage(ownerChatId, `⭐ <b>Rating ${stars}/5</b> from ${escapeHtml(who)}`, HTML).catch(() => {});
   }
   await ctx.answerCallbackQuery({ text: t(lang, "quality_rate_ack") }).catch(() => {});
-  await reply(ctx, t(lang, "quality_rate_thanks", { stars: "⭐".repeat(stars) }), menuBtn(lang));
+  // A low rating is a clear "something's wrong" signal — ask directly instead of hoping they
+  // remember to type /feedback on their own later. 4-5 stars just gets a thank-you.
+  if (stars <= 3) {
+    await setMode(ctx, "feedback");
+    const kb = new InlineKeyboard().text(t(lang, "inact_fb_skip"), "qr:skip");
+    await reply(ctx, t(lang, "quality_rate_followup", { stars: "⭐".repeat(stars) }), kb);
+  } else {
+    await reply(ctx, t(lang, "quality_rate_thanks", { stars: "⭐".repeat(stars) }), menuBtn(lang));
+  }
+}
+
+export async function onQualityFollowupSkip(ctx: MyContext) {
+  await setMode(ctx, "idle");
+  await reply(ctx, t(ctx.user.lang, "quality_rate_ack"), menuBtn(ctx.user.lang));
 }

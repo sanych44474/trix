@@ -976,6 +976,7 @@ export const en = {
   reminder_quality: "How's trix working for you? Rate it 👇\nAnd tell me what's *missing* or what you'd like added — just send /feedback. Your input shapes what I build next. 🙌",
   quality_rate_ack: "Thanks! 🙌",
   quality_rate_thanks: "Thanks for the {stars}! What would make it better? Tell me with /feedback ✍️",
+  quality_rate_followup: "Thanks for the honest {stars}. What's not working, or what should I improve? Just type it below 👇",
   survey_prompt: "🌙 Evening check-in — anything left to log today? Tap what you want to add 👇",
   survey_food: "🍽 Food",
   survey_water: "💧 Water",
