@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  challengeMilestones,
   consistencyBoard,
   e1rm,
   isoWeekKey,
@@ -120,4 +121,10 @@ test("workoutMilestones: cumulative thresholds", () => {
   assert.deepEqual(workoutMilestones(1), ["first_workout"]);
   assert.deepEqual(workoutMilestones(10), ["first_workout", "workouts_10"]);
   assert.deepEqual(workoutMilestones(0), []);
+});
+
+test("challengeMilestones: cumulative thresholds, separate from workout/PR counters", () => {
+  assert.deepEqual(challengeMilestones(0), []);
+  assert.deepEqual(challengeMilestones(1), ["first_challenge"]);
+  assert.deepEqual(challengeMilestones(5), ["first_challenge", "challenges_5"]);
 });

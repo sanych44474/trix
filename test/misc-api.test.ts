@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, updateUser, addProgressPhoto, recentErrors } from "../src/db/repos";
+import { getOrCreateUser, updateUser, addProgressPhoto, listAchievements, recentErrors, upsertWorkoutLog } from "../src/db/repos";
 import { handleChallengesApi, handleInjuriesApi, handleClientErrorApi, handlePhotoApi, handleBoardsApi } from "../src/webapp/miscApi";
-import type { UserDoc } from "../src/types";
+import type { UserDoc, WorkoutLogDoc } from "../src/types";
 
 function req(method: string, path: string, body?: unknown) {
   return new Request(`https://x${path}`, {
@@ -66,6 +66,27 @@ test("handleChallengesApi: rejects an unknown challenge code", async () => {
   await getOrCreateUser(db, 1, 1, "en", "Ann");
   const res = await call(handleChallengesApi, db, 1, "POST", "/api/challenges", { code: "not-a-real-code" });
   assert.equal(res.status, 400);
+});
+
+test("handleChallengesApi: completing a challenge marks it done and awards the first_challenge badge", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await call(handleChallengesApi, db, 1, "POST", "/api/challenges", { code: "w2" }); // 2 workouts in 7 days
+
+  const today = new Date();
+  const d1 = today.toISOString().slice(0, 10);
+  const d2 = new Date(today.getTime() + 86_400_000).toISOString().slice(0, 10); // still inside the 7-day window
+  const ex = [{ name: "Bench", setsDone: [{ reps: 8, weight: 50 }], skipped: false }] as unknown as WorkoutLogDoc["exercises"];
+  await upsertWorkoutLog(db, 1, d1, 1, ex, true);
+  await upsertWorkoutLog(db, 1, d2, 2, ex, true);
+
+  const res = await call(handleChallengesApi, db, 1, "GET", "/api/challenges");
+  const body = (await res.json()) as { active: { code: string; done: boolean }[]; won: number };
+  const w2 = body.active.find((c) => c.code === "w2");
+  assert.equal(w2?.done, true);
+  assert.equal(body.won, 1);
+
+  assert.ok((await listAchievements(db, 1)).includes("first_challenge"));
 });
 
 // ---------------- injuries ----------------

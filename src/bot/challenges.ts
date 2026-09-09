@@ -6,13 +6,14 @@
 import { InlineKeyboard } from "grammy";
 import type { Lang } from "../types";
 import {
-  activeChallengeCodes, activeChallenges, countCompletedChallenges, joinChallenge, markChallengeDone,
+  activeChallengeCodes, activeChallenges, awardAchievement, countCompletedChallenges, joinChallenge, markChallengeDone,
   nutritionLogsSince, stepLogsSince, waterLogsSince, workoutLogsSince,
 } from "../db/repos";
 import {
   CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindowCounts, progressBar,
   type ChallengeData, type ChallengeTemplate,
 } from "../domain/challenges";
+import { challengeMilestones } from "../domain/records";
 import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { isoDateMinus } from "./boards";
@@ -49,7 +50,9 @@ export async function cmdChallenges(ctx: MyContext) {
     const st = challengeStatus(tpl, challengeCurrent(tpl, data));
     if (st.done) {
       // Completion is recorded on the challenge row (completedAt) — counted by countCompletedChallenges.
-      // Not an achievement badge (those are a fixed catalog and would skew the badge counter).
+      // ALSO now feeds its own badge tier (first_challenge/challenges_5, see records.ts) — a
+      // separate counter from workoutMilestones/prMilestones on purpose, so it doesn't skew
+      // those (a challenge win is its own kind of achievement, not just more workouts/PRs).
       await markChallengeDone(ctx.db, ch.id);
       completedNow.push(challengeTitle(lang, tpl));
       continue;
@@ -60,6 +63,9 @@ export async function cmdChallenges(ctx: MyContext) {
     );
   }
   const won = await countCompletedChallenges(ctx.db, ctx.user._id);
+  if (completedNow.length) {
+    for (const code of challengeMilestones(won)) await awardAchievement(ctx.db, ctx.user._id, code);
+  }
   const parts: string[] = [t(lang, "chal_title")];
   for (const c of completedNow) parts.push(t(lang, "chal_completed_now", { title: c }));
   if (blocks.length) parts.push("", blocks.join("\n\n"));

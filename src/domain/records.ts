@@ -307,6 +307,8 @@ export const BADGES = [
   "referral",
   "buddy_first_win",
   "buddy_duel_streak_4",
+  "first_challenge",
+  "challenges_5",
 ] as const;
 export type BadgeCode = (typeof BADGES)[number];
 
@@ -333,5 +335,15 @@ export function streakMilestones(streak: number): BadgeCode[] {
   const out: BadgeCode[] = [];
   if (streak >= 4) out.push("streak_4");
   if (streak >= 12) out.push("streak_12");
+  return out;
+}
+
+/** Challenge-completion badges at a given lifetime completed-challenge total. A separate
+ * counter from workoutMilestones/prMilestones on purpose — completing a challenge is its own
+ * kind of win (consistency over a fixed window), not just more of the same workout/PR count. */
+export function challengeMilestones(completedCount: number): BadgeCode[] {
+  const out: BadgeCode[] = [];
+  if (completedCount >= 1) out.push("first_challenge");
+  if (completedCount >= 5) out.push("challenges_5");
   return out;
 }

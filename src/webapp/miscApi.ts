@@ -3,6 +3,7 @@
 // auth. Routed at /api/challenges, /api/injuries, /api/boards.
 import {
   activeChallenges,
+  awardAchievement,
   createInjury,
   countCompletedChallenges,
   friendIds,
@@ -10,6 +11,7 @@ import {
   getSetting,
   getUser,
   joinChallenge,
+  markChallengeDone,
   recordError,
   listActiveInjuries,
   nutritionLogsSince,
@@ -21,7 +23,7 @@ import { computeBoards } from "../bot";
 import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindowCounts, resolveWaterGoal } from "../domain/challenges";
 import { checkAfterDate } from "../domain/injury";
 import { localParts } from "../domain/progression";
-import { rankOf } from "../domain/records";
+import { challengeMilestones, rankOf } from "../domain/records";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import type { Env, UserDoc } from "../types";
@@ -55,12 +57,22 @@ export async function handleChallengesApi(req: Request, url: URL, env: Env): Pro
     const active = await activeChallenges(env.DB, user._id, date).catch(() => []);
     const joinedCodes = new Set(active.map((c) => c.code));
     const activeOut = [];
+    let completedNow = 0;
     for (const ch of active) {
       const tpl = challengeByCode(ch.code);
       if (!tpl) continue;
       const st = challengeStatus(tpl, challengeCurrent(tpl, await windowData(env, user, ch.startDate, ch.endDate)));
       const daysLeft = Math.max(0, Math.round((Date.parse(ch.endDate) - Date.parse(date)) / 86_400_000));
       activeOut.push({ code: ch.code, emoji: tpl.emoji, title: t(lang, `chal_${ch.code}_title` as TKey), current: st.current, target: st.target, pct: st.pct, done: st.done, daysLeft });
+      // Same completion bookkeeping the bot's /challenges already does — previously missing here
+      // entirely, so a Mini-App-only user's completed challenge never got its completedAt set
+      // (and never counted toward countCompletedChallenges/badges) unless they also opened the
+      // bot command at least once.
+      if (st.done) { await markChallengeDone(env.DB, ch.id); completedNow++; }
+    }
+    if (completedNow) {
+      const won = await countCompletedChallenges(env.DB, user._id).catch(() => 0);
+      for (const code of challengeMilestones(won)) await awardAchievement(env.DB, user._id, code).catch(() => {});
     }
     const available = CHALLENGES.filter((c) => !joinedCodes.has(c.code)).map((c) => ({ code: c.code, emoji: c.emoji, title: t(lang, `chal_${c.code}_title` as TKey), target: c.target, windowDays: c.windowDays }));
     const won = await countCompletedChallenges(env.DB, user._id).catch(() => 0);

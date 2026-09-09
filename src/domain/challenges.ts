@@ -12,13 +12,18 @@ export interface ChallengeTemplate {
   emoji: string;
 }
 
-// Order = display order in the "join" list.
+// Order = display order in the "join" list. w2 leads on purpose — an easy first win for
+// someone new or coming back off a lapse, before the harder/longer ones.
 export const CHALLENGES: ChallengeTemplate[] = [
+  { code: "w2", metric: "workouts", target: 2, windowDays: 7, emoji: "🌱" },
   { code: "w4", metric: "workouts", target: 4, windowDays: 7, emoji: "💪" },
   { code: "nut7", metric: "nutrition_days", target: 7, windowDays: 7, emoji: "🍎" },
   { code: "steps70", metric: "steps_sum", target: 70000, windowDays: 7, emoji: "👟" },
   { code: "water5", metric: "water_days", target: 5, windowDays: 7, emoji: "💧" },
   { code: "consist12", metric: "workouts", target: 12, windowDays: 30, emoji: "🔥" },
+  { code: "nut21", metric: "nutrition_days", target: 21, windowDays: 30, emoji: "🥗" },
+  { code: "steps150", metric: "steps_sum", target: 150000, windowDays: 14, emoji: "🚶" },
+  { code: "water20", metric: "water_days", target: 20, windowDays: 30, emoji: "🌊" },
 ];
 
 export function challengeByCode(code: string): ChallengeTemplate | undefined {
