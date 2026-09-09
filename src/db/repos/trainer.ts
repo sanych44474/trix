@@ -276,8 +276,14 @@ export async function getProspect(db: DB, code: string): Promise<ProspectDoc | n
   return r ?? null;
 }
 
-export async function deleteProspect(db: DB, code: string): Promise<void> {
-  await db.prepare("DELETE FROM trainer_prospects WHERE code = ?").bind(code).run();
+/** Returns true only if THIS call actually deleted the row — the single-use claim gate.
+ * DELETE is one atomic statement, so if the same code is consumed twice concurrently (a
+ * duplicate Telegram webhook delivery, or two people racing the same link), exactly one caller
+ * sees true and the other sees false, even though both may have read the row first via
+ * getProspect(). Callers MUST check this before acting on the prospect's data. */
+export async function deleteProspect(db: DB, code: string): Promise<boolean> {
+  const r = await db.prepare("DELETE FROM trainer_prospects WHERE code = ?").bind(code).run();
+  return (r.meta?.changes ?? 0) > 0;
 }
 
 /** Prospects still waiting to join, most recent first — for the trainer's own visibility. */

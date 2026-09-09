@@ -719,9 +719,14 @@ export async function joinByProspectCode(ctx: MyContext, code: string) {
   if (!prospect) { await reply(ctx, t(lang, "code_invalid")); return; }
   const tr = await getTrainer(ctx.db, prospect.trainerId);
   if (!tr) { await reply(ctx, t(lang, "code_invalid")); return; }
+  // Single-use claim, done BEFORE any pairing side effect: DELETE is one atomic statement, so
+  // under a race (a duplicate Telegram webhook delivery, or two people opening the same link)
+  // only one caller's delete actually removes the row — the other sees `claimed=false` and
+  // bails here instead of pairing off a prospect record that just got consumed elsewhere.
+  const claimed = await deleteProspect(ctx.db, prospect.code);
+  if (!claimed) { await reply(ctx, t(lang, "code_invalid")); return; }
   ctx.user.profile = { ...ctx.user.profile, name: prospect.name };
   await updateUser(ctx.db, ctx.user._id, { profile: ctx.user.profile });
-  await deleteProspect(ctx.db, prospect.code);
   await pairWithTrainer(ctx, prospect.trainerId, tr.name);
 }
 
