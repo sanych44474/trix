@@ -229,9 +229,13 @@ export async function recordError(
   db: DB,
   e: { userId?: number; kind: string; errorType: string; message?: string },
 ): Promise<void> {
+  // 500 (was 200) to leave room for the AI orchestrator's per-attempt trail (provider:reason for
+  // every provider tried, not just the last one) — the owner report's own display already
+  // slices this down to 80 chars, so a longer stored message only helps someone querying
+  // error_logs directly to debug a "why did the whole chain fail" incident.
   await db
     .prepare("INSERT INTO error_logs (userId, kind, errorType, message, ts) VALUES (?, ?, ?, ?, ?)")
-    .bind(e.userId ?? null, e.kind, e.errorType, e.message?.slice(0, 200) ?? null, nowIso())
+    .bind(e.userId ?? null, e.kind, e.errorType, e.message?.slice(0, 500) ?? null, nowIso())
     .run();
 }
 

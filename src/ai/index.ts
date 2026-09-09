@@ -241,6 +241,11 @@ async function run(
   // failed on a mix of causes (or ended on a genuine bug) should get the generic error instead.
   let allRateLimit = true;
   let attempt = 0;
+  // Per-attempt trail (provider:short-reason for every provider tried, not just the last one) —
+  // aiCallStmt/aiUsageStmt already record provider+ok per attempt for the usage/latency reports,
+  // but recordError below only ever saw the FINAL error, discarding why every earlier provider
+  // in the chain also failed. Kept short per-entry so a long chain still fits recordError's cap.
+  const attemptTrail: string[] = [];
   const telemetry: D1PreparedStatement[] = [];
   const date = utcDate();
   const deadline = Date.now() + totalDeadlineMs;
@@ -261,6 +266,8 @@ async function run(
     } catch (err) {
       telemetry.push(aiUsageStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, model: p.model, ok: false, date }));
       telemetry.push(aiCallStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, latencyMs: Date.now() - startMs, wasFallback }));
+      const shortMsg = err instanceof Error ? err.message : String(err);
+      attemptTrail.push(`${p.name}:${shortMsg.slice(0, 60)}`);
       if (!(err instanceof RateLimitError)) allRateLimit = false;
       lastErr = err;
       // always try the next provider — even on rate-limit
@@ -274,7 +281,8 @@ async function run(
   if (lastErr instanceof RateLimitError) errorType = "rate_limit";
   else if (/unparseable JSON/i.test(msg)) errorType = "json";
   try {
-    await recordError(o.db, { userId: o.userId, kind: o.kind, errorType, message: msg });
+    const trail = attemptTrail.length > 1 ? ` | trail: ${attemptTrail.join(" -> ")}` : "";
+    await recordError(o.db, { userId: o.userId, kind: o.kind, errorType, message: msg + trail });
   } catch {
     /* error logging is best-effort */
   }
