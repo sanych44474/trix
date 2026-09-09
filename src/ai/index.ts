@@ -11,6 +11,32 @@ import { RateLimitError, type GenInput, type InlineImage } from "./errors";
 export { RateLimitError } from "./errors";
 export type { InlineImage } from "./errors";
 
+// A network-level blip (dropped connection, DNS hiccup) is worth one immediate retry on the
+// SAME provider before giving up on it — often cheaper/faster than escalating to the next
+// provider in the chain, which may be lower quality. A real HTTP error status, a rate limit, or
+// a validation/schema failure means retrying the exact same request would just fail the same
+// way again, so those are excluded. `fetch` throws a plain TypeError for connection-level
+// failures (see MDN / undici), which is the one signal reliable across all provider modules
+// without each of them needing to classify their own errors.
+function isTransientNetworkError(err: unknown): boolean {
+  if (err instanceof RateLimitError) return false;
+  if (err instanceof TypeError) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /network|ECONNRESET|ETIMEDOUT|fetch failed/i.test(msg);
+}
+
+/** Run `fn` once; on a transient network error (and only if there's still time left), retry it
+ * exactly once with no backoff delay — the chain's overall budget is tight enough that a sleep
+ * would cost more than it's worth. */
+async function withQuickRetry<T>(fn: () => Promise<T>, deadline: number): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isTransientNetworkError(err) || Date.now() >= deadline) throw err;
+    return await fn();
+  }
+}
+
 // Transcribe a voice/audio clip. Prefers Workers AI Whisper (keyless, on-platform); falls back to
 // Groq Whisper when a key is set. Rethrows the last error if every backend fails.
 export async function aiTranscribe(env: Env, audio: ArrayBuffer, mimeType: string, lang?: string): Promise<string> {
@@ -256,7 +282,7 @@ async function run(
     const startMs = Date.now();
     try {
       lastTokens = undefined;
-      const text = await p.fn(env, p.name === "gemini" ? geminiInput : baseInput);
+      const text = await withQuickRetry(() => p.fn(env, p.name === "gemini" ? geminiInput : baseInput), deadline);
       if (validate) validate(text); // throws if the output is unusable → next provider
       telemetry.push(aiUsageStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, model: p.model, ok: true, date }));
       telemetry.push(aiCallStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, latencyMs: Date.now() - startMs, tokens: lastTokens, wasFallback }));
