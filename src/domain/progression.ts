@@ -638,6 +638,35 @@ function progressTimedExercise(
   }
 }
 
+/** Low energy, poor sleep, or high stress across the given check-ins. The single definition of
+ * "not a day/week to push", shared by the weekly progression hold below and the same-day
+ * readiness advice (readinessAdvice) — two different thresholds for the same idea would let the
+ * bot tell you to back off today while still ratcheting the plan up for the week. */
+export function poorWellbeing(checkins: DailyCheckinDoc[]): boolean {
+  const avg = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+  const energy = avg(checkins.map((c) => c.energy).filter((n) => n > 0));
+  const sleep = avg(checkins.map((c) => c.sleep).filter((n) => n > 0));
+  const stress = avg(checkins.map((c) => c.stress).filter((n) => n > 0));
+  return (energy > 0 && energy <= 2) || (sleep > 0 && sleep <= 2) || stress >= 4;
+}
+
+export type Readiness = "ok" | "easy" | "light";
+
+/** How hard to go TODAY, from today's check-in alone. `light` (≈-15% or drop a set) needs two
+ * bad signals or a rock-bottom one; `easy` (≈-10%) is the single-bad-signal case, which is also
+ * exactly what poorWellbeing() holds the weekly progression for. No check-in → "ok": absence of
+ * data is not evidence of a bad day, and nagging someone who simply didn't log would train them
+ * to ignore the line. */
+export function readinessAdvice(checkin: DailyCheckinDoc | null | undefined): Readiness {
+  if (!checkin) return "ok";
+  const { energy, sleep, stress } = checkin;
+  const bad = [energy > 0 && energy <= 2, sleep > 0 && sleep <= 2, stress >= 4].filter(Boolean).length;
+  const rockBottom = energy === 1 || sleep === 1 || stress === 5;
+  if (bad >= 2 || (bad >= 1 && rockBottom)) return "light";
+  if (bad >= 1) return "easy";
+  return "ok";
+}
+
 /** Decide the week's silent micro-progression for an active plan from recent training data.
  * Pure: returns the proposed changes; the caller clones+applies via {@link applyProgression}.
  *
@@ -655,11 +684,7 @@ export function computePlanProgression(
   const result: ProgressionResult = { changes: [], plateau: [], maxedBodyweight: [], heldForWellbeing: false };
   if (logs.filter((l) => l.completed).length < 2) return result;
 
-  const avg = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-  const energy = avg(checkins.map((c) => c.energy).filter((n) => n > 0));
-  const sleep = avg(checkins.map((c) => c.sleep).filter((n) => n > 0));
-  const stress = avg(checkins.map((c) => c.stress).filter((n) => n > 0));
-  if ((energy > 0 && energy <= 2) || (sleep > 0 && sleep <= 2) || stress >= 4) {
+  if (poorWellbeing(checkins)) {
     result.heldForWellbeing = true;
     return result;
   }

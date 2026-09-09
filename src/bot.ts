@@ -1,11 +1,11 @@
 import { InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
 import type { CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, NutritionTargets, PlanDay, PlanDoc, PlanExercise, Supplement, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, bodyLogsByUser, countCompletedWorkouts, recordError, getCatalogExercise, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, searchExercisesByName, dailyCheckinsSince, getActivePlan, getTrainer, getUser, listStrength, pendingRequestForClient, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, updateUser, workoutLogsSince } from "./db/repos";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, bodyLogsByUser, countCompletedWorkouts, recordError, getCatalogExercise, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, searchExercisesByName, dailyCheckinsSince, getDailyCheckin, getActivePlan, getTrainer, getUser, listStrength, pendingRequestForClient, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, updateUser, workoutLogsSince } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText } from "./ai";
 import { computeTargets } from "./domain/mealplan";
 import * as P from "./ai/prompts";
-import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, getPlanDay, localParts, parseMeasurements, parseHeightWeight, parseSteps, parseWorkoutText, shouldDeload, weeksSincePlan, exerciseMetric, formatRecordBest } from "./domain/progression";
+import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, getPlanDay, localParts, parseMeasurements, parseHeightWeight, parseSteps, parseWorkoutText, readinessAdvice, shouldDeload, weeksSincePlan, exerciseMetric, formatRecordBest } from "./domain/progression";
 import { e1rm, weekStartStr, weekStreak } from "./domain/records";
 import { exerciseVideoKey, renderActivityGrid, renderBoard, renderPlan, renderSchedule, renderStrength, exerciseChart, wellbeingChart, renderToday, upcomingSessions, weekdayName } from "./render";
 import { strengthStandard, type StrengthLevel } from "./domain/standards";
@@ -1093,7 +1093,17 @@ export async function cmdToday(ctx: MyContext) {
         ? t(lang, "periodization_line", { phase: t(lang, phaseKey[meso.phase]), week: meso.weekInBlock }) + "\n\n"
         : "";
     const notice = deload ? t(lang, "deload_today") + "\n\n" : "";
-    await reply(ctx, phaseLine + notice + renderToday(lang, day, todays.label, undefined, await videosForDays(ctx, [day])), todayWorkoutKeyboard(lang, todays.weekday));
+    // Same-day autoregulation: today's check-in (energy/sleep/stress) has always gated the
+    // WEEKLY progression (computePlanProgression's heldForWellbeing) but never said anything
+    // about today's session. On a bad-readiness day, say so up front — on a deload week the
+    // load is already cut, so don't stack a second "go easier" message on top of it.
+    let readinessLine = "";
+    if (!deload) {
+      const checkin = await getDailyCheckin(ctx.db, ctx.user._id, today).catch(() => null);
+      const readiness = readinessAdvice(checkin);
+      if (readiness !== "ok") readinessLine = t(lang, readiness === "light" ? "readiness_light" : "readiness_easy") + "\n\n";
+    }
+    await reply(ctx, phaseLine + notice + readinessLine + renderToday(lang, day, todays.label, undefined, await videosForDays(ctx, [day])), todayWorkoutKeyboard(lang, todays.weekday));
     return;
   } else {
     // Rest day or already logged → show the dated schedule then next session with action buttons.

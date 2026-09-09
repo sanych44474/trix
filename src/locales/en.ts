@@ -523,6 +523,10 @@ export const en = {
     "🌙 *Deload week.* You've trained hard for ~7 weeks — time to recover so you keep progressing. This week: cut working sets by ~1–2 and drop loads to ~60–70%, keep the movements but stop well shy of failure (RPE ≤ 7). Sleep and eat well. Next week you'll come back stronger. Tap 💬 Coach if you want me to adjust anything.",
   deload_today:
     "🌙 *Deload week* — same moves, ~40% fewer sets. Keep loads light and stop shy of failure (RPE ≤ 7). Recover well; volume ramps back next week.",
+  readiness_easy:
+    "😐 *Today's check-in says you're a bit under.* Take ~10% off your working weights, or stop each set 1 rep earlier. Same session — just don't chase records today.",
+  readiness_light:
+    "😴 *Rough check-in today* (low energy/sleep or high stress). Go ~15% lighter or drop the last set of each exercise — a controlled easy session beats a grind you'll pay for tomorrow. Skipping entirely is a fine call too.",
   kbju_training_day: "🏋️ Training day:",
   kbju_rest_day: "😴 Rest day:",
 
