@@ -571,7 +571,11 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
         const actedOn = sinceLogs.some((l) => l.completed);
         ignoredStreak = actedOn ? 0 : ignoredStreak + 1;
         if (ignoredStreak !== (user.reminders?.workoutIgnoredStreak ?? 0)) {
-          await updateUser(db, user._id, { reminders: { ...user.reminders, workoutIgnoredStreak: ignoredStreak } }).catch(() => {});
+          // Mutate the in-memory object (not just the DB row) — flushReminders() below rebuilds
+          // `reminders` from this same object at the end of processUser, and would otherwise
+          // clobber this write back to its stale value (same pattern as `lastRank` further down).
+          user.reminders = { ...user.reminders, workoutIgnoredStreak: ignoredStreak };
+          await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
         }
       }
       const wd = weekday;

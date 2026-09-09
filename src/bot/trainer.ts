@@ -698,9 +698,11 @@ export async function startProspectInvite(ctx: MyContext) {
 
 export async function handleProspectName(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;
-  await setMode(ctx, "idle");
   const name = text.trim().slice(0, 60);
+  // Stay in this mode on a too-short name so the next message retries here instead of falling
+  // through to idle-mode handling (e.g. the AI coach chat) — only leave the mode on success.
   if (name.length < 2) { await reply(ctx, t(lang, "trainer_prospect_name_prompt")); return; }
+  await setMode(ctx, "idle");
   const code = shortCode();
   await createProspect(ctx.db, code, ctx.user._id, name);
   const link = botDeepLink(ctx.env, `trp_${code}`);
