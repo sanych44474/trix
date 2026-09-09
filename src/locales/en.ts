@@ -1553,6 +1553,8 @@ export const en = {
   wa_leave_confirm: "Leave your trainer? Your plan will be deactivated.",
   wa_delete_acc: "🗑 Delete account",
   wa_delete_confirm: "Delete ALL your data permanently? This cannot be undone.",
+  wa_pl_del_confirm: "Remove this exercise from the plan?",
+  wa_nu_del_confirm: "Remove this meal from today's log?",
   wa_deleted: "Your data has been deleted. Send /start in the bot to begin again.",
   wa_ob_title: "🚀 Finish registration",
   wa_ob_male: "Male",

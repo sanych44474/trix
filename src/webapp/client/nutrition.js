@@ -198,7 +198,7 @@ function nuDbSearch() {
       nuAct("dbadd", undefined, { name: it2.name + (it2.brand ? " (" + it2.brand + ")" : ""), grams: g2, per100: it2.per100 });
       return;
     }
-    if (a === "del") nuAct("del", i);
+    if (a === "del") { if (TG && TG.showConfirm) TG.showConfirm(WA.wa_nu_del_confirm, function (ok) { if (ok) nuAct("del", i); }); else nuAct("del", i); }
     else if (a === "scale") nuAct("scale", i, { factor: Number(t.getAttribute("data-f")) });
     else if (a === "grams") { var g = el("nu-g-" + i); var v = g ? Number(g.value) : 0; if (v > 0) nuAct("grams", i, { grams: v }); }
     else if (a === "macros-open") { var mf = el("nu-mf-" + i); if (mf) mf.classList.toggle("hidden"); }

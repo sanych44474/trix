@@ -159,7 +159,11 @@ function plAddInner(wd) {
     if (act === "vid") { var u = t.getAttribute("data-u"); if (u) { if (TG && TG.openLink) TG.openLink(u); else window.open(u, "_blank"); } return; }
     if (act === "up") { plEdit({ weekday: wd, index: i, action: "move", dir: "up", expectName: n }); return; }
     if (act === "down") { plEdit({ weekday: wd, index: i, action: "move", dir: "down", expectName: n }); return; }
-    if (act === "del") { plEdit({ weekday: wd, index: i, action: "del", expectName: n }); return; }
+    if (act === "del") {
+      var doDelEx = function () { plEdit({ weekday: wd, index: i, action: "del", expectName: n }); };
+      if (TG && TG.showConfirm) TG.showConfirm(WA.wa_pl_del_confirm, function (ok) { if (ok) doDelEx(); }); else doDelEx();
+      return;
+    }
     if (act === "link") { plEdit({ weekday: wd, index: i, action: "link", expectName: n }); return; }
     if (act === "wmode") { PL.wmOpen = PL.wmOpen === wd + ":" + i ? null : wd + ":" + i; plRender(); return; }
     if (act === "wmset") { PL.wmOpen = null; plEdit({ weekday: wd, index: i, action: "wmode", value: t.getAttribute("data-m"), expectName: n }); return; }
