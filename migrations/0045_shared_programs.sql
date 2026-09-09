@@ -2,7 +2,6 @@
 -- library). An instructor publishes a BankPlan-shaped snapshot under a short code; a link
 -- (isPublic 0) is opened via t.me/bot?start=prog_<code>, a library entry (isPublic 1) is
 -- browsable by anyone. Taking one adapts it per user (adaptPlan) and activates it.
--- Apply manually: npx wrangler d1 execute trix --remote --file migrations/0045_shared_programs.sql
 
 CREATE TABLE IF NOT EXISTS shared_programs (
   code TEXT PRIMARY KEY,

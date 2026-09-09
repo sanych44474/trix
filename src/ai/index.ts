@@ -154,9 +154,13 @@ function providers(env: Env, hasImages: boolean, geminiModel: string, groqFirst 
 // translations are cached one-time per exercise so the quota cost is negligible. Weaker
 // free models (Qwen/Groq) tend to bleed Russian words or transliterate, so they're only
 // fallbacks for when Gemini's daily quota is exhausted.
-function translateProviders(env: Env, geminiModel: string): Provider[] {
+function translateProviders(env: Env, geminiModel: string, hasImages: boolean): Provider[] {
   const list: Provider[] = [{ name: "gemini", model: geminiModel, fn: geminiGenerate }];
-  if (env.GROQ_API_KEY) {
+  // Same guard providers() applies below — Groq has no vision-capable model left (see the
+  // comment on that guard), so skip it for image calls rather than default to a model id that
+  // no longer exists on their platform. Currently unreachable (no caller passes images with
+  // kind:"translate") — kept so this doesn't quietly become wrong if one ever does.
+  if (env.GROQ_API_KEY && !hasImages) {
     list.push({ name: "groq", model: env.GROQ_MODEL || GROQ_DEFAULT_MODEL, fn: groqGenerate });
   }
   if (env.OPENROUTER_API_KEY) {
@@ -262,10 +266,11 @@ async function run(
   const geminiInput: GenInput = { ...baseInput, user: input.user };
   // Fast conversational kinds lead with Groq (sub-300 ms, reliable); plan/translate keep
   // Gemini first for native-schema structured output. (translate has its own chain.)
+  const hasImages = !!(input.images && input.images.length);
   const chain =
     o.kind === "translate"
-      ? translateProviders(env, geminiModel)
-      : providers(env, !!(input.images && input.images.length), geminiModel, !isPlanLike);
+      ? translateProviders(env, geminiModel, hasImages)
+      : providers(env, hasImages, geminiModel, !isPlanLike);
   // Cache lookup — a hit returns instantly with zero provider calls. The stored text
   // passed validation when written; re-validate anyway (cheap) so a stale-schema entry
   // falls through to a live generation instead of crashing downstream.
