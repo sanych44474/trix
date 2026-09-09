@@ -360,12 +360,22 @@ export async function pruneSeenUpdates(db: DB, beforeIso: string): Promise<void>
 
 // Telemetry tables grow unbounded (every AI call / error / button tap writes a row); D1 free
 // tier caps the DB at 5 GB. Weekly sweep drops rows older than the retention window.
+// messages/admin_audit/feedback/plan_source_logs/client_note_history were added over time and
+// never joined this sweep despite growing the same way — same 90-day window as everything else
+// here, for consistency rather than inventing a per-table policy. client_note_history in
+// particular is an append-only journal of SUPERSEDED values (the current note lives in
+// client_notes/client_cards, untouched by this) so pruning old entries loses history, not state.
 export async function pruneOldLogs(db: DB, beforeIso: string, beforeDay: string): Promise<void> {
   await db.batch([
     db.prepare("DELETE FROM ai_call_logs WHERE ts < ?").bind(beforeIso),
     db.prepare("DELETE FROM error_logs WHERE ts < ?").bind(beforeIso),
     db.prepare("DELETE FROM ai_usage WHERE ts < ?").bind(beforeIso),
     db.prepare("DELETE FROM event_counts WHERE day < ?").bind(beforeDay),
+    db.prepare("DELETE FROM messages WHERE createdAt < ?").bind(beforeIso),
+    db.prepare("DELETE FROM admin_audit WHERE ts < ?").bind(beforeIso),
+    db.prepare("DELETE FROM feedback WHERE createdAt < ?").bind(beforeIso),
+    db.prepare("DELETE FROM plan_source_logs WHERE ts < ?").bind(beforeIso),
+    db.prepare("DELETE FROM client_note_history WHERE savedAt < ?").bind(beforeIso),
   ]);
 }
 
