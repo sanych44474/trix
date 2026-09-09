@@ -15,7 +15,7 @@ function lgOpen(dateOverride) {
   var editDate = typeof dateOverride === "string" ? dateOverride : null;
   el("lg").classList.remove("hidden");
   el("lg-title").textContent = editDate ? WA.wa_edit_day + " " + editDate : WA.wa_log_title;
-  el("lg-body").innerHTML = '<div class="sub">' + WA.wa_loading + "</div>";
+  el("lg-body").innerHTML = uiSub(WA.wa_loading);
   el("lg-sub").textContent = "";
   el("lg-prog").textContent = "";
   el("lg-st").textContent = "";
@@ -36,7 +36,7 @@ function lgOpen(dateOverride) {
     })
     .then(lgInit)
     .catch(function (e2) {
-      el("lg-body").innerHTML = '<div class="sub">' + (e2.message === "auth" ? L.autherr : L.loaderr) + "</div>";
+      el("lg-body").innerHTML = uiSub(e2.message === "auth" ? L.autherr : L.loaderr);
       lgTabsOff();
     });
 }
@@ -62,7 +62,7 @@ function lgInit(p) {
     LG.editMode = false;
     lgRestBar();
     lgRender();
-    el("lg-body").insertAdjacentHTML("afterbegin", '<div class="card">' + WA.wa_log_restday + "</div>");
+    el("lg-body").insertAdjacentHTML("afterbegin", uiSub(WA.wa_log_restday, true));
     return;
   }
   LG.ex = p.exercises.map(function (x) {

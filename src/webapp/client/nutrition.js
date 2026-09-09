@@ -6,12 +6,12 @@ function nuOpen() {
   el("nu").classList.remove("hidden");
   el("nu-title").textContent = WA.wa_nu_title;
   el("nu-sub").textContent = "";
-  el("nu-body").innerHTML = '<div class="sub">' + WA.wa_loading + "</div>";
+  el("nu-body").innerHTML = uiSub(WA.wa_loading);
   if (TG && TG.BackButton && TG.BackButton.show) { TG.BackButton.show(); if (TG.BackButton.onClick) TG.BackButton.onClick(nuClose); }
   ccFetch("/api/nutrition")
     .then(function (r) { if (r.status === 401) throw new Error("auth"); if (!r.ok) throw new Error("load"); return r.json(); })
     .then(function (d) { NU.data = d; nuRender(); })
-    .catch(function (e) { el("nu-body").innerHTML = '<div class="card">' + (e.message === "auth" ? L.autherr : L.loaderr) + "</div>"; });
+    .catch(function (e) { el("nu-body").innerHTML = uiSub(e.message === "auth" ? L.autherr : L.loaderr, true); });
 }
 function nuClose() {
   setTab("home"); // tab bar back to Home when an overlay closes
@@ -29,7 +29,7 @@ function nuRender() {
   el("nu-sub").textContent = d.date;
   var h = "<h2>" + WA.wa_nu_today + "</h2>";
   if (!d.meals.length) {
-    h += '<div class="card"><div class="sub">' + WA.wa_nu_empty + "</div></div>";
+    h += uiSub(WA.wa_nu_empty, true);
   } else {
     h += '<div class="card">' + nuTotals();
     d.meals.forEach(function (m) {

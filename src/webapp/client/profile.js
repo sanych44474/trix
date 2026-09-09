@@ -5,7 +5,7 @@ var PF = { data: null, st: null, days: [], share: null, ob: { sex: "" } };
 function pfOpen() {
   el("pf").classList.remove("hidden");
   el("pf-title").textContent = WA.wa_profile_title;
-  el("pf-body").innerHTML = '<div class="sub">' + WA.wa_loading + "</div>";
+  el("pf-body").innerHTML = uiSub(WA.wa_loading);
   if (TG && TG.BackButton && TG.BackButton.show) { TG.BackButton.show(); if (TG.BackButton.onClick) TG.BackButton.onClick(pfClose); }
   Promise.all([
     ccFetch("/api/profile").then(function (r) { if (r.status === 401) throw new Error("auth"); return r.json(); }),
@@ -15,7 +15,7 @@ function pfOpen() {
     PF.days = (PF.data.profile.trainingWeekdays || []).slice();
     PF.share = PF.data.profile.share;
     pfRender();
-  }).catch(function (e) { el("pf-body").innerHTML = '<div class="card">' + (e.message === "auth" ? L.autherr : L.loaderr) + "</div>"; });
+  }).catch(function (e) { el("pf-body").innerHTML = uiSub(e.message === "auth" ? L.autherr : L.loaderr, true); });
 }
 function pfClose() {
   setTab("home"); // tab bar back to Home when an overlay closes
@@ -28,7 +28,7 @@ function pfSelect(id, options, current) {
   return h + "</select>";
 }
 function pfChip(attr, val, label, on) {
-  return '<button class="chipbtn' + (on ? " on" : "") + '" data-' + attr + '="' + esc(String(val)) + '">' + esc(label) + "</button>";
+  return uiChip(esc(label), ' data-' + attr + '="' + esc(String(val)) + '"', { on: on });
 }
 
 // Gamification cards for the profile: level/XP hero + earned badges, reusing the freshly-loaded
@@ -196,7 +196,7 @@ function pfSetAction(body, cb) {
   ccFetch("/api/settings", { method: "POST", body: body })
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
     .then(function (res) {
-      if (res.deleted) { el("pf-body").innerHTML = '<div class="card">' + WA.wa_deleted + "</div>"; return; }
+      if (res.deleted) { el("pf-body").innerHTML = uiSub(WA.wa_deleted, true); return; }
       if (res.state) PF.st = res.state;
       if (cb) cb(res); else pfRender();
     })
@@ -216,7 +216,7 @@ function pfObSubmit() {
   var st = el("pf-ob-st"); var b = el("pf-ob-go"); b.disabled = true;
   ccFetch("/api/onboarding", { method: "POST", body: body })
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
-    .then(function () { el("pf-body").innerHTML = '<div class="card">' + WA.wa_ob_pending + "</div>"; })
+    .then(function () { el("pf-body").innerHTML = uiSub(WA.wa_ob_pending, true); })
     .catch(function () { if (st) st.textContent = WA.wa_ob_incomplete; b.disabled = false; });
 }
 

@@ -157,7 +157,7 @@ function ccRender(p) {
 function ccWeekCardImage() {
   var out = el("cc-wcard-out");
   if (!out) return;
-  out.innerHTML = '<div class="sub">' + WA.wa_loading + "</div>";
+  out.innerHTML = uiSub(WA.wa_loading);
   ccFetch("/api/weekcard?clientId=" + CC.id)
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (res) {
@@ -300,7 +300,7 @@ function qaOpen() {
   ccFetch("/api/trainer/questions")
     .then(function (r) { if (r.status === 401) throw new Error("auth"); if (!r.ok) throw new Error("load"); return r.json(); })
     .then(function (res) { qaRender(res.questions || []); })
-    .catch(function (e) { el("qa-body").innerHTML = '<div class="card">' + (e.message === "auth" ? L.autherr : L.loaderr) + "</div>"; });
+    .catch(function (e) { el("qa-body").innerHTML = uiSub(e.message === "auth" ? L.autherr : L.loaderr, true); });
 }
 function qaClose() {
   setTab("home"); // tab bar back to Home when an overlay closes
@@ -309,7 +309,7 @@ function qaClose() {
 }
 function qaRender(list) {
   var open = list.filter(function (q) { return q.status === "pending"; });
-  if (!open.length) { el("qa-body").innerHTML = '<div class="card">' + WA.wa_qa_empty + "</div>"; return; }
+  if (!open.length) { el("qa-body").innerHTML = uiSub(WA.wa_qa_empty, true); return; }
   var h = "";
   open.forEach(function (q) {
     h += '<div class="card" style="margin-bottom:10px" id="qa-q-' + q.id + '">';
@@ -365,7 +365,7 @@ function ccTemplates() {
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
     .then(function (res) {
       var list = res.templates || [];
-      if (!list.length) { box.innerHTML = '<div class="card"><div class="sub">' + WA.wa_tpl_empty + "</div></div>"; return; }
+      if (!list.length) { box.innerHTML = uiSub(WA.wa_tpl_empty, true); return; }
       var h = '<div class="card">';
       list.forEach(function (tp) {
         h += '<div class="cc-save-row" style="margin:4px 0"><span style="flex:1">' + esc(tp.name) + "</span>";
@@ -400,7 +400,7 @@ function opsOpen() {
   if (TG && TG.BackButton && TG.BackButton.show) { TG.BackButton.show(); if (TG.BackButton.onClick) TG.BackButton.onClick(qaClose); }
   ccFetch("/api/requests").then(function (r) { return r.ok ? r.json() : null; })
     .then(function (reqs) { opsRender(reqs); })
-    .catch(function () { el("qa-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
+    .catch(function () { el("qa-body").innerHTML = uiSub(L.loaderr, true); });
 }
 function opsRender(reqs) {
   var h = "<h2>📥 " + WA.wa_requests + "</h2><div class=\"card\">";
