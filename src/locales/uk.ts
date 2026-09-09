@@ -1550,6 +1550,7 @@ export const uk: Dict = {
   wa_set_feedback: "✍️ Відгук",
   wa_feedback_ph: "Чого не вистачає? Що додати?",
   wa_send: "Надіслати",
+  wa_set_account: "⚙️ Обліковий запис",
   wa_export: "📦 Експорт моїх даних",
   wa_export_json: "📄 Експорт у JSON",
   wa_export_sent: "Надіслано в чат ✓",

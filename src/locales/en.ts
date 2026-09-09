@@ -1546,6 +1546,7 @@ export const en = {
   wa_set_feedback: "✍️ Feedback",
   wa_feedback_ph: "What's missing? What should we add?",
   wa_send: "Send",
+  wa_set_account: "⚙️ Account",
   wa_export: "📦 Export my data",
   wa_export_json: "📄 Export as JSON",
   wa_export_sent: "Sent to your chat ✓",

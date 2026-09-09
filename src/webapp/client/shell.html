@@ -45,6 +45,14 @@
   /* Eyebrow section labels: an accent tick signposts each block of the ledger. */
   h2 { font-size: 11px; font-weight: 700; margin: 20px 0 7px; color: var(--hint); text-transform: uppercase; letter-spacing: .12em; display: flex; align-items: center; gap: 7px; }
   h2::before { content: ""; width: 3px; height: 12px; border-radius: 2px; background: var(--grad); flex: none; }
+  /* Collapsed-by-default settings section (uiAccordion): summary reuses the h2 eyebrow look, plus
+     a chevron that flips on open. De-clutters screens that used to stack many open cards. */
+  details.ui-acc { margin: 20px 0 0; }
+  details.ui-acc > summary { font-size: 11px; font-weight: 700; margin: 0 0 7px; color: var(--hint); text-transform: uppercase; letter-spacing: .12em; display: flex; align-items: center; gap: 7px; cursor: pointer; list-style: none; }
+  details.ui-acc > summary::-webkit-details-marker { display: none; }
+  details.ui-acc > summary::before { content: ""; width: 3px; height: 12px; border-radius: 2px; background: var(--grad); flex: none; }
+  details.ui-acc > summary::after { content: "›"; margin-left: auto; font-size: 15px; transform: rotate(90deg); transition: transform .15s ease; }
+  details.ui-acc[open] > summary::after { transform: rotate(-90deg); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 11px 13px; }
   .sub { color: var(--hint); font-size: 13px; margin-top: 4px; }
   svg { display: block; width: 100%; height: auto; }

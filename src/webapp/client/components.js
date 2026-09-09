@@ -42,3 +42,11 @@ function uiSectionHeader(id, title) {
 function uiRow(innerHtml) {
   return '<div class="lrow">' + innerHtml + "</div>";
 }
+
+// A collapsed-by-default settings section: <h2>-style eyebrow as the <summary>, body in a card.
+// Used to de-clutter screens that stack many always-open settings blocks (profile) — first
+// real visual/UX change of the redesign pass, not just a markup dedup like the helpers above.
+// `attrs` is a raw string of extra attributes on the <details> itself (e.g. ' style="..."').
+function uiAccordion(title, bodyHtml, attrs) {
+  return '<details class="ui-acc"' + (attrs || "") + "><summary>" + title + '</summary><div class="card">' + bodyHtml + "</div></details>";
+}

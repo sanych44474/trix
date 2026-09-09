@@ -144,47 +144,52 @@ function pfRender() {
   }
   h += '<div class="cc-save-row" style="margin-top:12px"><button id="pf-save" class="lbtn">' + WA.wa_save + '</button><span class="sub" id="pf-st"></span></div>';
 
-  // --- Consolidated settings ---
+  // --- Consolidated settings: collapsed by default (a wall of always-open cards read as
+  // cluttered) — each stays a plain <details>, so nothing about how it's filled in changes. ---
   if (st) {
-    h += '<h2 style="margin-top:16px">' + WA.wa_set_reminders + '</h2><div class="card"><div class="pf-chips" id="pf-rems">';
-    st.reminders.forEach(function (r) { h += pfChip("rem", r.key, r.label, r.on); });
-    h += "</div></div>";
+    var remBody = '<div class="pf-chips" id="pf-rems">';
+    st.reminders.forEach(function (r) { remBody += pfChip("rem", r.key, r.label, r.on); });
+    remBody += "</div>";
+    h += uiAccordion(WA.wa_set_reminders, remBody, ' style="margin-top:16px"');
 
-    h += "<h2>" + WA.wa_set_vacation + '</h2><div class="card"><div class="pf-chips" id="pf-vac">';
+    var vacBody = '<div class="pf-chips" id="pf-vac">';
     if (st.vacationUntil) {
-      h += '<span class="sub">' + WA.wa_vac_until.replace("{d}", st.vacationUntil) + "</span>" + pfChip("vac", "off", WA.wa_vac_off, false);
+      vacBody += '<span class="sub">' + WA.wa_vac_until.replace("{d}", st.vacationUntil) + "</span>" + pfChip("vac", "off", WA.wa_vac_off, false);
     } else {
-      h += pfChip("vac", "7", WA.wa_vac_7, false) + pfChip("vac", "14", WA.wa_vac_14, false) + pfChip("vac", "28", WA.wa_vac_28, false);
+      vacBody += pfChip("vac", "7", WA.wa_vac_7, false) + pfChip("vac", "14", WA.wa_vac_14, false) + pfChip("vac", "28", WA.wa_vac_28, false);
     }
-    h += "</div></div>";
+    vacBody += "</div>";
+    h += uiAccordion(WA.wa_set_vacation, vacBody);
 
-    h += "<h2>" + WA.wa_set_lang + '</h2><div class="card"><div class="pf-chips" id="pf-lang">' + pfChip("lang", "uk", "🇺🇦 Українська", st.lang === "uk") + pfChip("lang", "en", "🇬🇧 English", st.lang === "en") + "</div></div>";
+    h += uiAccordion(WA.wa_set_lang, '<div class="pf-chips" id="pf-lang">' + pfChip("lang", "uk", "🇺🇦 Українська", st.lang === "uk") + pfChip("lang", "en", "🇬🇧 English", st.lang === "en") + "</div>");
 
     if (st.cycle) {
-      h += "<h2>" + WA.wa_set_cycle + '</h2><div class="card"><div class="pf-chips">' + pfChip("cyc", "toggle", WA.wa_cycle_on, st.cycle.on) + "</div>";
+      var cycBody = '<div class="pf-chips">' + pfChip("cyc", "toggle", WA.wa_cycle_on, st.cycle.on) + "</div>";
       if (st.cycle.on) {
-        h += "<label>" + WA.wa_cycle_last + '</label><input id="pf-cyc-date" type="date" value="' + (st.cycle.lastStart || "") + '">';
-        h += "<label>" + WA.wa_cycle_len + '</label><input id="pf-cyc-len" type="number" inputmode="numeric" min="20" max="45" value="' + st.cycle.len + '">';
-        h += '<div class="cc-save-row">' + uiChip(WA.wa_save, ' data-cyc="save"') + "</div>";
+        cycBody += "<label>" + WA.wa_cycle_last + '</label><input id="pf-cyc-date" type="date" value="' + (st.cycle.lastStart || "") + '">';
+        cycBody += "<label>" + WA.wa_cycle_len + '</label><input id="pf-cyc-len" type="number" inputmode="numeric" min="20" max="45" value="' + st.cycle.len + '">';
+        cycBody += '<div class="cc-save-row">' + uiChip(WA.wa_save, ' data-cyc="save"') + "</div>";
       }
-      h += "</div>";
+      h += uiAccordion(WA.wa_set_cycle, cycBody);
     }
 
-    h += "<h2>" + WA.wa_set_compete + '</h2><div class="card"><div class="pf-chips">' + pfChip("cmp", "toggle", WA.wa_compete_on, st.compete.on) + "</div>";
+    var cmpBody = '<div class="pf-chips">' + pfChip("cmp", "toggle", WA.wa_compete_on, st.compete.on) + "</div>";
     if (st.compete.on) {
-      h += "<label>" + WA.wa_alias_ph + '</label><div class="lrow"><input id="pf-alias" value="' + esc(st.compete.alias) + '">' + uiChip(WA.wa_save, ' data-cmp="alias"') + "</div>";
+      cmpBody += "<label>" + WA.wa_alias_ph + '</label><div class="lrow"><input id="pf-alias" value="' + esc(st.compete.alias) + '">' + uiChip(WA.wa_save, ' data-cmp="alias"') + "</div>";
     }
-    h += "</div>";
+    h += uiAccordion(WA.wa_set_compete, cmpBody);
 
-    h += "<h2>" + WA.wa_set_feedback + '</h2><div class="card"><textarea id="pf-fb" rows="2" placeholder="' + esc(WA.wa_feedback_ph) + '"></textarea>';
-    h += '<div class="cc-save-row">' + uiChip(WA.wa_send, ' data-act2="fb"') + '<span class="sub" id="pf-fb-st"></span></div></div>';
+    var fbBody = '<textarea id="pf-fb" rows="2" placeholder="' + esc(WA.wa_feedback_ph) + '"></textarea>'
+      + '<div class="cc-save-row">' + uiChip(WA.wa_send, ' data-act2="fb"') + '<span class="sub" id="pf-fb-st"></span></div>';
+    h += uiAccordion(WA.wa_set_feedback, fbBody);
 
-    h += '<div class="card" style="margin-top:10px"><div class="pf-chips">';
-    h += uiChip(WA.wa_export, ' data-act2="export"');
-    h += uiChip(WA.wa_export_json, ' data-act2="export_json"');
-    if (st.role === "client") h += uiChip(WA.wa_leave_trainer, ' data-act2="leave"', { danger: true });
-    h += uiChip(WA.wa_delete_acc, ' data-act2="delete"', { danger: true });
-    h += '</div><span class="sub" id="pf-misc-st"></span></div>';
+    var accBody = '<div class="pf-chips">'
+      + uiChip(WA.wa_export, ' data-act2="export"')
+      + uiChip(WA.wa_export_json, ' data-act2="export_json"')
+      + (st.role === "client" ? uiChip(WA.wa_leave_trainer, ' data-act2="leave"', { danger: true }) : "")
+      + uiChip(WA.wa_delete_acc, ' data-act2="delete"', { danger: true })
+      + '</div><span class="sub" id="pf-misc-st"></span>';
+    h += uiAccordion(WA.wa_set_account, accBody);
   }
 
   el("pf-body").innerHTML = h;
