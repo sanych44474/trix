@@ -135,10 +135,11 @@ export async function updateUser(
     vals.push(patch.session.mode, patch.session.retryAfter ?? null);
   }
   // Same fix, same reason, for profile.referredBy — friendIds() filtered on it with
-  // json_extract, which can't use an index (see 0056).
+  // json_extract, which can't use an index (see 0056). buddyId gets the same treatment for the
+  // weekly buddy-duel sweep, which enumerates every paired user (see 0057).
   if (patch.profile !== undefined) {
-    sets.push("referredBy = ?");
-    vals.push(patch.profile.referredBy ?? null);
+    sets.push("referredBy = ?", "buddyId = ?");
+    vals.push(patch.profile.referredBy ?? null, patch.profile.buddyId ?? null);
   }
   sets.push("updatedAt = ?");
   vals.push(nowIso(), userId);

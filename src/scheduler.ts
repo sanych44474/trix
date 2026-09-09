@@ -1,9 +1,13 @@
 import { Bot, GrammyError, InlineKeyboard } from "grammy";
 import type { BodyLogDoc, Env, PlanDoc, PlanExercise, UserDoc, Weekday, WorkoutLogDoc } from "./types";
 import {
+  allBuddyPairs,
   awardAchievement,
   bodyLogsByUser,
+  buddyDuelHistory,
+  buddyWinCount,
   competitorWorkoutDates,
+  recordBuddyDuel,
   countAdjustmentWeeksSince,
   dailyCheckinsSince,
   findHarderExercise,
@@ -68,7 +72,8 @@ import {
   shouldLevelUp,
   weeksSincePlan,
 } from "./domain/progression";
-import { rankOf, streakMilestones, weekStartStr, weekStreak } from "./domain/records";
+import { isoWeekKey, rankOf, streakMilestones, weekRangeOffset, weekStartStr, weekStreak } from "./domain/records";
+import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
 import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
@@ -374,6 +379,17 @@ async function runScheduleInner(env: Env): Promise<void> {
     await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
   }
 
+  // Weekly buddy duels — compare last week's completed-workout counts for every paired buddy,
+  // record the winner, and nudge both sides. Gated by ISO week (not a rolling N-day timer like
+  // log pruning above) so it always processes the week that just ended, exactly once, on the
+  // first hourly tick after the week rolls over.
+  const thisWeekKey = isoWeekKey(utcNow.date);
+  const lastDuelWeek = await getSetting(db, "last_buddy_duel_week").catch(() => null);
+  if (lastDuelWeek !== thisWeekKey) {
+    await processBuddyDuels(db, bot, utcNow.date).catch((e) => logSchedulerError(db, "buddy_duels", e));
+    await setSetting(db, "last_buddy_duel_week", thisWeekKey).catch(() => {});
+  }
+
   // Weekly reports moved into processUser (per-user local timezone at 17:00).
 
   const users = await listOnboardedUsers(db);
@@ -416,6 +432,54 @@ async function runScheduleInner(env: Env): Promise<void> {
       await bot.api.sendMessage(u.chatId, `${t(u.lang, "vacation_ended")}\n\n${t(u.lang, "comeback_q_feel")}`, HTML);
     } catch (err) {
       logSchedulerError(db, "comeback_opener", err, u._id);
+    }
+  }
+}
+
+// Weekly buddy-duel sweep — see the call site's comment for the gating rule. Runs once for the
+// whole system per week, not per user: buddy PAIRS, not individual users, are the unit of work.
+async function processBuddyDuels(db: D1Database, bot: Bot, todayStr: string): Promise<void> {
+  const pairs = await allBuddyPairs(db);
+  if (!pairs.length) return;
+  const { from, to } = weekRangeOffset(todayStr, 1); // the week that just ended
+  const weekKey = isoWeekKey(from);
+  const logs = await allWorkoutLogsSince(db, from);
+  const completedByUser = new Map<number, number>();
+  for (const l of logs) {
+    if (!l.completed || l.date > to) continue;
+    completedByUser.set(l.userId, (completedByUser.get(l.userId) ?? 0) + 1);
+  }
+  for (const { userA, userB } of pairs) {
+    const aCount = completedByUser.get(userA) ?? 0;
+    const bCount = completedByUser.get(userB) ?? 0;
+    const result = decideDuel(userA, userB, weekKey, aCount, bCount);
+    await recordBuddyDuel(db, userA, userB, weekKey, aCount, bCount, result.winnerId);
+    if (result.winnerId == null) continue; // tie (incl. 0-0) — recorded, but no message/badge spam
+    const loserId = result.winnerId === userA ? userB : userA;
+    const [winner, loser] = await Promise.all([getUser(db, result.winnerId), getUser(db, loserId)]);
+    if (!winner || !loser) continue;
+    const winnerCount = result.winnerId === userA ? aCount : bCount;
+    const loserCount = result.winnerId === userA ? bCount : aCount;
+    await bot.api
+      .sendMessage(
+        winner.chatId,
+        t(winner.lang, "duel_won", { name: escapeHtml(loser.profile.name ?? `id ${loser._id}`), mine: winnerCount, theirs: loserCount }),
+        HTML,
+      )
+      .catch(() => {});
+    await bot.api
+      .sendMessage(
+        loser.chatId,
+        t(loser.lang, "duel_lost", { name: escapeHtml(winner.profile.name ?? `id ${winner._id}`), mine: loserCount, theirs: winnerCount }),
+        HTML,
+      )
+      .catch(() => {});
+    // Badges: first-ever win, and a 4-in-a-row win streak against this same buddy.
+    const wins = await buddyWinCount(db, result.winnerId).catch(() => 0);
+    if (wins === 1) await awardAchievement(db, result.winnerId, "buddy_first_win").catch(() => {});
+    const history = await buddyDuelHistory(db, userA, userB, 4).catch(() => []);
+    if (currentWinStreak(result.winnerId, history) >= 4) {
+      await awardAchievement(db, result.winnerId, "buddy_duel_streak_4").catch(() => {});
     }
   }
 }

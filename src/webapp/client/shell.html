@@ -1046,6 +1046,10 @@ function loadBuddyDetail() {
       var h = '<div class="card" style="margin-top:8px">';
       h += '<div class="xp" style="margin:0 0 10px;border:none;padding:0"><div class="xp-lvl"><b>' + b.level + "</b><span>" + esc(L.levelWord || "Lvl") + '</span></div><div class="xp-body"><div class="xp-top"><span>' + b.xp + " XP</span>" + (b.streak ? '<span class="streak">🔥 ' + b.streak + "</span>" : "") + '</div><div class="xp-bar"><span style="width:' + pct + '%"></span></div></div></div>';
       h += '<div style="text-align:center;font-weight:700">' + crown + '<div class="sub" style="font-weight:400;margin-top:2px">' + (WA.wa_buddy_this_week || "This week") + ": 🏋️ " + (WA.wa_you || "you") + " " + you + " · " + esc(b.name) + " " + them + "</div></div>";
+      if (b.duel && (b.duel.myWins || b.duel.theirWins)) {
+        h += '<div class="sub" style="text-align:center;margin-top:4px">' + (WA.wa_buddy_wins || "Duel wins") + ": " + (WA.wa_you || "you") + " " + b.duel.myWins + " · " + esc(b.name) + " " + b.duel.theirWins
+          + (b.duel.myStreak >= 2 ? " · 🔥×" + b.duel.myStreak : "") + "</div>";
+      }
       if (b.week && b.week.length) {
         h += '<div class="sub" style="margin:9px 0 2px">' + (WA.wa_buddy_sessions || "Workouts this week") + "</div>";
         b.week.forEach(function (w) { h += '<div style="padding:3px 0">🏋️ ' + w.date.slice(5) + (w.ex && w.ex.length ? " · " + esc(w.ex.join(", ")) : "") + "</div>"; });

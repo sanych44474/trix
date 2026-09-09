@@ -59,7 +59,7 @@ export function weekKeyOffset(todayStr: string, weeksBack: number): string {
 }
 
 /** [Monday, Sunday] (YYYY-MM-DD) of the ISO week N weeks before the given date. */
-function weekRangeOffset(todayStr: string, weeksBack: number): { from: string; to: string } {
+export function weekRangeOffset(todayStr: string, weeksBack: number): { from: string; to: string } {
   const d = new Date(`${todayStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - weeksBack * 7);
   const from = weekStartStr(d.toISOString().slice(0, 10));
@@ -305,6 +305,8 @@ export const BADGES = [
   "level_5",
   "level_10",
   "referral",
+  "buddy_first_win",
+  "buddy_duel_streak_4",
 ] as const;
 export type BadgeCode = (typeof BADGES)[number];
 

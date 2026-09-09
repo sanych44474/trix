@@ -269,6 +269,54 @@ export async function friendIds(db: DB, userId: number): Promise<number[]> {
   return [...ids];
 }
 
+/** Every mutually-paired accountability-buddy pair, each returned exactly once (userA is always
+ * the smaller id) — feeds the weekly buddy-duel sweep. buddyId is dual-written into an indexed
+ * column (see 0057) for the same reason referredBy was (0056): a json_extract scan here would be
+ * a full users-table scan, same class of problem fixed twice already. */
+export async function allBuddyPairs(db: DB): Promise<{ userA: number; userB: number }[]> {
+  const r = await db.prepare("SELECT id, buddyId FROM users WHERE buddyId IS NOT NULL").all<{ id: number; buddyId: number }>();
+  const pairs: { userA: number; userB: number }[] = [];
+  for (const row of r.results ?? []) {
+    if (row.id < row.buddyId) pairs.push({ userA: row.id, userB: row.buddyId });
+  }
+  return pairs;
+}
+
+/** Persist one week's buddy-duel result. Idempotent — the weekly sweep re-running for a week
+ * it already processed (e.g. a retried cron tick) leaves the original result untouched rather
+ * than double-counting or overwriting it. */
+export async function recordBuddyDuel(db: DB, userA: number, userB: number, weekKey: string, aCount: number, bCount: number, winnerId: number | null): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO buddy_duels (userA, userB, weekKey, aCount, bCount, winnerId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(userA, userB, weekKey) DO NOTHING`,
+    )
+    .bind(userA, userB, weekKey, aCount, bCount, winnerId, nowIso())
+    .run();
+}
+
+/** Total duel weeks `userId` has won (all buddies, all-time — a user only ever has one buddy at
+ * a time today, but this doesn't assume that). */
+export async function buddyWinCount(db: DB, userId: number): Promise<number> {
+  const r = await db.prepare("SELECT COUNT(*) AS c FROM buddy_duels WHERE winnerId = ?").bind(userId).first<{ c: number }>();
+  return r?.c ?? 0;
+}
+
+/** A specific pair's duel history, most-recent week first — feeds currentWinStreak() and the
+ * Mini App's buddy card. */
+export async function buddyDuelHistory(
+  db: DB,
+  userA: number,
+  userB: number,
+  limit = 12,
+): Promise<{ weekKey: string; aCount: number; bCount: number; winnerId: number | null }[]> {
+  const r = await db
+    .prepare("SELECT weekKey, aCount, bCount, winnerId FROM buddy_duels WHERE userA = ? AND userB = ? ORDER BY weekKey DESC LIMIT ?")
+    .bind(Math.min(userA, userB), Math.max(userA, userB), limit)
+    .all<{ weekKey: string; aCount: number; bCount: number; winnerId: number | null }>();
+  return r.results ?? [];
+}
+
 /** All opted-in users with the fields needed to build/notify leaderboards. */
 export async function listCompetitors(db: DB): Promise<CompetitorRow[]> {
   const r = await db

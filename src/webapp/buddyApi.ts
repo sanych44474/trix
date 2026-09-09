@@ -1,6 +1,7 @@
 // Accountability buddy detail: the paired partner's progress (level/XP/streak), this week's
 // workouts, and their active plan. Both users opted in by pairing, so sharing is consented.
-import { getActivePlan, getUser, userStatCounts, workoutLogsSince } from "../db/repos";
+import { buddyDuelHistory, buddyWinCount, getActivePlan, getUser, userStatCounts, workoutLogsSince } from "../db/repos";
+import { currentWinStreak } from "../domain/buddyDuel";
 import { computeXp, levelFromXp } from "../domain/gamification";
 import { weekStartStr, weekStreak } from "../domain/records";
 import { localParts } from "../domain/progression";
@@ -18,11 +19,14 @@ export async function handleBuddyApi(req: Request, url: URL, env: Env): Promise<
   const today = localParts(user.profile.timezone).date;
   const wkStart = weekStartStr(today);
   const cutoff = new Date(Date.parse(today) - 120 * 86_400_000).toISOString().slice(0, 10);
-  const [counts, plan, buddyLogs, myLogs] = await Promise.all([
+  const [counts, plan, buddyLogs, myLogs, myWins, theirWins, history] = await Promise.all([
     userStatCounts(env.DB, mate._id),
     getActivePlan(env.DB, mate._id).catch(() => null),
     workoutLogsSince(env.DB, mate._id, cutoff).catch(() => []),
     workoutLogsSince(env.DB, user._id, wkStart).catch(() => []),
+    buddyWinCount(env.DB, user._id).catch(() => 0),
+    buddyWinCount(env.DB, mate._id).catch(() => 0),
+    buddyDuelHistory(env.DB, user._id, mate._id).catch(() => []),
   ]);
 
   const buddyDone = buddyLogs.filter((l) => l.completed);
@@ -48,6 +52,7 @@ export async function handleBuddyApi(req: Request, url: URL, env: Env): Promise<
         myWeekWorkouts: myLogs.filter((l) => l.completed).length,
         week,
         plan: planDays,
+        duel: { myWins, theirWins, myStreak: currentWinStreak(user._id, history) },
       },
     },
     { headers: { "cache-control": "no-store" } },
