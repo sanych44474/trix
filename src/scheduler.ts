@@ -449,37 +449,46 @@ async function processBuddyDuels(db: D1Database, bot: Bot, todayStr: string): Pr
     if (!l.completed || l.date > to) continue;
     completedByUser.set(l.userId, (completedByUser.get(l.userId) ?? 0) + 1);
   }
+  // Each pair is fully independent — wrapped in its own try/catch so one pair's failure (a
+  // transient DB error, a missing user) can't abort the rest. Without this, a mid-loop throw
+  // would skip every pair after it for the WHOLE week: the call site marks the week processed
+  // regardless of outcome (see its comment), so anything not reached here wouldn't get a second
+  // chance until the following week's comparison.
   for (const { userA, userB } of pairs) {
-    const aCount = completedByUser.get(userA) ?? 0;
-    const bCount = completedByUser.get(userB) ?? 0;
-    const result = decideDuel(userA, userB, weekKey, aCount, bCount);
-    await recordBuddyDuel(db, userA, userB, weekKey, aCount, bCount, result.winnerId);
-    if (result.winnerId == null) continue; // tie (incl. 0-0) — recorded, but no message/badge spam
-    const loserId = result.winnerId === userA ? userB : userA;
-    const [winner, loser] = await Promise.all([getUser(db, result.winnerId), getUser(db, loserId)]);
-    if (!winner || !loser) continue;
-    const winnerCount = result.winnerId === userA ? aCount : bCount;
-    const loserCount = result.winnerId === userA ? bCount : aCount;
-    await bot.api
-      .sendMessage(
-        winner.chatId,
-        t(winner.lang, "duel_won", { name: escapeHtml(loser.profile.name ?? `id ${loser._id}`), mine: winnerCount, theirs: loserCount }),
-        HTML,
-      )
-      .catch(() => {});
-    await bot.api
-      .sendMessage(
-        loser.chatId,
-        t(loser.lang, "duel_lost", { name: escapeHtml(winner.profile.name ?? `id ${winner._id}`), mine: loserCount, theirs: winnerCount }),
-        HTML,
-      )
-      .catch(() => {});
-    // Badges: first-ever win, and a 4-in-a-row win streak against this same buddy.
-    const wins = await buddyWinCount(db, result.winnerId).catch(() => 0);
-    if (wins === 1) await awardAchievement(db, result.winnerId, "buddy_first_win").catch(() => {});
-    const history = await buddyDuelHistory(db, userA, userB, 4).catch(() => []);
-    if (currentWinStreak(result.winnerId, history) >= 4) {
-      await awardAchievement(db, result.winnerId, "buddy_duel_streak_4").catch(() => {});
+    try {
+      const aCount = completedByUser.get(userA) ?? 0;
+      const bCount = completedByUser.get(userB) ?? 0;
+      const result = decideDuel(userA, userB, weekKey, aCount, bCount);
+      await recordBuddyDuel(db, userA, userB, weekKey, aCount, bCount, result.winnerId);
+      if (result.winnerId == null) continue; // tie (incl. 0-0) — recorded, but no message/badge spam
+      const loserId = result.winnerId === userA ? userB : userA;
+      const [winner, loser] = await Promise.all([getUser(db, result.winnerId), getUser(db, loserId)]);
+      if (!winner || !loser) continue;
+      const winnerCount = result.winnerId === userA ? aCount : bCount;
+      const loserCount = result.winnerId === userA ? bCount : aCount;
+      await bot.api
+        .sendMessage(
+          winner.chatId,
+          t(winner.lang, "duel_won", { name: escapeHtml(loser.profile.name ?? `id ${loser._id}`), mine: winnerCount, theirs: loserCount }),
+          HTML,
+        )
+        .catch(() => {});
+      await bot.api
+        .sendMessage(
+          loser.chatId,
+          t(loser.lang, "duel_lost", { name: escapeHtml(winner.profile.name ?? `id ${winner._id}`), mine: loserCount, theirs: winnerCount }),
+          HTML,
+        )
+        .catch(() => {});
+      // Badges: first-ever win, and a 4-in-a-row win streak against this same buddy.
+      const wins = await buddyWinCount(db, result.winnerId).catch(() => 0);
+      if (wins === 1) await awardAchievement(db, result.winnerId, "buddy_first_win").catch(() => {});
+      const history = await buddyDuelHistory(db, userA, userB, 4).catch(() => []);
+      if (currentWinStreak(result.winnerId, history) >= 4) {
+        await awardAchievement(db, result.winnerId, "buddy_duel_streak_4").catch(() => {});
+      }
+    } catch (e) {
+      logSchedulerError(db, "buddy_duel_pair", e, userA);
     }
   }
 }

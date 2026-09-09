@@ -273,13 +273,21 @@ export async function friendIds(db: DB, userId: number): Promise<number[]> {
  * the smaller id) — feeds the weekly buddy-duel sweep. buddyId is dual-written into an indexed
  * column (see 0057) for the same reason referredBy was (0056): a json_extract scan here would be
  * a full users-table scan, same class of problem fixed twice already. */
+// Requires TRUE mutuality (u1.buddyId = u2.id AND u2.buddyId = u1.id), not just "someone has a
+// buddyId" — the pairing flow (bot.ts's /start buddy_<id> handler) has no guard against a user
+// re-pairing with someone new while already paired, which leaves their OLD buddy's buddyId
+// still pointing back at them (stale, one-sided). A naive `WHERE buddyId IS NOT NULL` scan would
+// surface that stale half as if it were still a real pair; the self-join here only returns pairs
+// where both sides currently agree.
 export async function allBuddyPairs(db: DB): Promise<{ userA: number; userB: number }[]> {
-  const r = await db.prepare("SELECT id, buddyId FROM users WHERE buddyId IS NOT NULL").all<{ id: number; buddyId: number }>();
-  const pairs: { userA: number; userB: number }[] = [];
-  for (const row of r.results ?? []) {
-    if (row.id < row.buddyId) pairs.push({ userA: row.id, userB: row.buddyId });
-  }
-  return pairs;
+  const r = await db
+    .prepare(
+      `SELECT u1.id AS userA, u2.id AS userB FROM users u1
+       JOIN users u2 ON u1.buddyId = u2.id AND u2.buddyId = u1.id
+       WHERE u1.id < u2.id`,
+    )
+    .all<{ userA: number; userB: number }>();
+  return r.results ?? [];
 }
 
 /** Persist one week's buddy-duel result. Idempotent — the weekly sweep re-running for a week

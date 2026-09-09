@@ -43,7 +43,23 @@ test("allBuddyPairs: returns each mutual pair exactly once, userA < userB", asyn
   await updateUser(db, 1, { profile: { ...a.profile, buddyId: 2 } });
   await updateUser(db, 2, { profile: { ...b.profile, buddyId: 1 } });
 
-  assert.deepEqual(await allBuddyPairs(db), [{ userA: 1, userB: 2 }]);
+  assert.deepEqual((await allBuddyPairs(db)).map((p) => [p.userA, p.userB]), [[1, 2]]);
+});
+
+test("allBuddyPairs: excludes a stale one-sided link left behind by re-pairing", async () => {
+  // bot.ts's /start buddy_<id> handler has no guard against re-pairing with someone new while
+  // already paired — user 1 re-pairs with user 3, leaving user 2's buddyId still pointing at 1
+  // (stale, one-sided). Only the now-mutual (1,3) pair should come back, not the stale (1,2).
+  const db = newDb();
+  const a = (await getOrCreateUser(db, 1, 1, "uk", "A")) as unknown as UserDoc;
+  const b = (await getOrCreateUser(db, 2, 2, "uk", "B")) as unknown as UserDoc;
+  const c = (await getOrCreateUser(db, 3, 3, "uk", "C")) as unknown as UserDoc;
+  await updateUser(db, 1, { profile: { ...a.profile, buddyId: 2 } });
+  await updateUser(db, 2, { profile: { ...b.profile, buddyId: 1 } });
+  await updateUser(db, 1, { profile: { ...a.profile, buddyId: 3 } }); // 1 re-pairs with 3
+  await updateUser(db, 3, { profile: { ...c.profile, buddyId: 1 } });
+
+  assert.deepEqual((await allBuddyPairs(db)).map((p) => [p.userA, p.userB]), [[1, 3]]);
 });
 
 test("recordBuddyDuel + buddyWinCount + buddyDuelHistory: round-trip and idempotent re-run", async () => {
