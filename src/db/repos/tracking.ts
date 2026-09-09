@@ -2,7 +2,7 @@
 // wellbeing check-ins, and progress photos. Split out of repos.ts (god-file split, same barrel
 // seam); behavior unchanged.
 import type { BodyLogDoc, BodyMeasurements, DailyCheckinDoc, InjuryDoc, StepLogDoc } from "../../types";
-import { nowIso, type DB } from "./shared";
+import { nowIso, safeJsonParse, type DB } from "./shared";
 
 // ---------- body logs ----------
 
@@ -51,7 +51,7 @@ export async function upsertBodyLog(
     .first<{ weight: number | null; measurements: string | null }>();
   if (row) {
     const newWeight = patch.weight !== undefined ? patch.weight : row.weight;
-    const existing = row.measurements ? (JSON.parse(row.measurements) as BodyMeasurements) : {};
+    const existing = row.measurements ? safeJsonParse<BodyMeasurements>(row.measurements, {}) : {};
     const newMeas = patch.measurements ? { ...existing, ...patch.measurements } : existing;
     await db
       .prepare("UPDATE body_logs SET weight = ?, measurements = ? WHERE userId = ? AND date = ?")

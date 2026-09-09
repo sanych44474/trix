@@ -24,3 +24,11 @@ export function buildUpdate<T extends Record<string, unknown>>(
   }
   return { sets, vals };
 }
+
+/** Parse a JSON-as-TEXT column, falling back instead of throwing on a malformed row. A crash
+ * here previously took out the whole batch a row mapper was called from (e.g. every user in a
+ * cron sweep), not just the one bad row — this is the one place that decision gets made. */
+export function safeJsonParse<T>(text: string | null | undefined, fallback: T): T {
+  if (!text) return fallback;
+  try { return JSON.parse(text) as T; } catch { return fallback; }
+}

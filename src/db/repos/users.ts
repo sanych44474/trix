@@ -1,9 +1,9 @@
 // User identity: row mapping, lookup, profile/session updates, and the onboarding-recovery
 // sweeps the every-minute cron runs. Split out of repos.ts (god-file split, same barrel seam —
 // `../db/repos` still re-exports everything here); behavior unchanged.
-import type { Lang, NutritionTargets, ProgressionRate, Role, UserDoc, UserProfile } from "../../types";
+import type { Lang, NutritionTargets, ProgressionRate, Role, UserDoc, UserProfile, UserReminders } from "../../types";
 import { normalizeLang } from "../../locales/i18n";
-import { buildUpdate, nowIso, type DB } from "./shared";
+import { buildUpdate, nowIso, safeJsonParse, type DB } from "./shared";
 
 export interface UserRow {
   id: number;
@@ -44,10 +44,13 @@ export function toUser(r: UserRow): UserDoc {
     trainerId: r.trainerId ?? undefined,
     competeOptIn: !!r.competeOptIn,
     alias: r.alias ?? undefined,
-    profile: JSON.parse(r.profile),
-    nutrition: r.nutrition ? (JSON.parse(r.nutrition) as NutritionTargets) : undefined,
-    session: JSON.parse(r.session),
-    reminders: r.reminders ? JSON.parse(r.reminders) : undefined,
+    // toUser() is the row mapper for every cron sweep's listXxx() (onboarded, retry, plan-pending,
+    // vacation-ended, inactive, ...) as well as getUser() — an unguarded JSON.parse throwing on
+    // one malformed row used to abort .map(toUser) for the WHOLE batch, not just that row.
+    profile: safeJsonParse(r.profile, {} as UserProfile),
+    nutrition: r.nutrition ? safeJsonParse<NutritionTargets | undefined>(r.nutrition, undefined) : undefined,
+    session: safeJsonParse(r.session, { mode: "idle" as const }),
+    reminders: r.reminders ? safeJsonParse<UserReminders | undefined>(r.reminders, undefined) : undefined,
     progressionRate: (r.progression_rate as ProgressionRate) ?? "normal",
     blocked: !!r.blocked,
     botBlocked: !!r.botBlocked,

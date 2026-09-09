@@ -2,7 +2,7 @@
 // + per-user overrides). Split out of repos.ts (god-file split, same barrel seam — `../db/repos`
 // still re-exports everything here); behavior unchanged.
 import type { CatalogExercise, ExerciseTranslation, ExerciseVideo } from "../../types";
-import { nowIso, type DB } from "./shared";
+import { nowIso, safeJsonParse, type DB } from "./shared";
 
 interface ExerciseRow {
   id: string;
@@ -22,7 +22,7 @@ function toCatalogExercise(r: ExerciseRow): CatalogExercise {
     type: r.type ?? undefined,
     muscle: r.muscle,
     difficulty: r.difficulty ?? undefined,
-    equipments: r.equipments ? JSON.parse(r.equipments) : [],
+    equipments: r.equipments ? safeJsonParse<string[]>(r.equipments, []) : [],
     instructions: r.instructions,
     safetyInfo: r.safety_info,
   };

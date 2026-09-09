@@ -2,7 +2,7 @@
 // name translations, and per-user macro corrections. Split out of repos.ts (god-file split,
 // same barrel seam); behavior unchanged.
 import type { MealEntry, MealPlanDoc, NutritionLogDoc } from "../../types";
-import { nowIso, type DB } from "./shared";
+import { nowIso, safeJsonParse, type DB } from "./shared";
 
 // ---------- nutrition logs ----------
 
@@ -102,7 +102,7 @@ export async function nutritionLogsSince(db: DB, userId: number, cutoff: string)
   return (r.results ?? []).map((row) => ({
     userId: row.userId,
     date: row.date,
-    meals: JSON.parse(row.meals),
+    meals: safeJsonParse<MealEntry[]>(row.meals, []),
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
   }));
@@ -167,14 +167,15 @@ export async function getMealPlan(db: DB, userId: number, week = 0): Promise<Mea
     .prepare("SELECT * FROM meal_plans WHERE userId = ? AND week = ?")
     .bind(userId, week)
     .first<{ userId: number; week: number; days: string; targets: string; generatedAt: string }>();
-  return r
-    ? { userId: r.userId, week: r.week, days: JSON.parse(r.days), targets: JSON.parse(r.targets), generatedAt: new Date(r.generatedAt) }
-    : null;
+  if (!r) return null;
+  const days = safeJsonParse<MealPlanDoc["days"] | null>(r.days, null);
+  const targets = safeJsonParse<MealPlanDoc["targets"] | null>(r.targets, null);
+  return days && targets ? { userId: r.userId, week: r.week, days, targets, generatedAt: new Date(r.generatedAt) } : null;
 }
 
 export async function getFoodCache(db: DB, query: string): Promise<unknown | null> {
   const r = await db.prepare("SELECT per100g FROM food_cache WHERE query = ?").bind(query.toLowerCase()).first<{ per100g: string }>();
-  return r ? JSON.parse(r.per100g) : null;
+  return r ? safeJsonParse<unknown>(r.per100g, null) : null;
 }
 
 export async function putFoodCache(db: DB, query: string, per100g: unknown): Promise<void> {
@@ -191,7 +192,7 @@ export async function getUserFoodCorrection(db: DB, userId: number, query: strin
     .prepare("SELECT per100g FROM food_corrections WHERE userId = ? AND query = ?")
     .bind(userId, query.trim().toLowerCase())
     .first<{ per100g: string }>();
-  return r ? (JSON.parse(r.per100g) as { kcal: number; protein: number; fats: number; carbs: number }) : null;
+  return r ? safeJsonParse<{ kcal: number; protein: number; fats: number; carbs: number } | null>(r.per100g, null) : null;
 }
 
 export async function putUserFoodCorrection(db: DB, userId: number, query: string, per100g: { kcal: number; protein: number; fats: number; carbs: number }): Promise<void> {

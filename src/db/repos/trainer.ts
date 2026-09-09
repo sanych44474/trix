@@ -13,7 +13,7 @@ import type {
   TrainerProfileInput,
   UserDoc,
 } from "../../types";
-import { buildUpdate, nowIso, type DB } from "./shared";
+import { buildUpdate, nowIso, safeJsonParse, type DB } from "./shared";
 import { getUser, toUser, type UserRow } from "./users";
 
 // ---------- trainer client notes ----------
@@ -492,7 +492,9 @@ export async function getTrainerTemplate(db: DB, trainerId: number, id: number):
     .prepare("SELECT name, plan FROM trainer_templates WHERE id = ? AND trainerId = ?")
     .bind(id, trainerId)
     .first<{ name: string; plan: string }>();
-  return r ? { name: r.name, plan: JSON.parse(r.plan) as BankPlan } : null;
+  if (!r) return null;
+  const plan = safeJsonParse<BankPlan | null>(r.plan, null);
+  return plan ? { name: r.name, plan } : null;
 }
 
 export async function deleteTrainerTemplate(db: DB, trainerId: number, id: number): Promise<boolean> {
@@ -514,7 +516,9 @@ export async function getSharedProgram(db: DB, code: string): Promise<{ code: st
     .prepare("SELECT code, ownerId, name, plan FROM shared_programs WHERE code = ?")
     .bind(code)
     .first<{ code: string; ownerId: number; name: string; plan: string }>();
-  return r ? { code: r.code, ownerId: r.ownerId, name: r.name, plan: JSON.parse(r.plan) as BankPlan } : null;
+  if (!r) return null;
+  const plan = safeJsonParse<BankPlan | null>(r.plan, null);
+  return plan ? { code: r.code, ownerId: r.ownerId, name: r.name, plan } : null;
 }
 
 export async function listPublicPrograms(db: DB, limit = 20): Promise<{ code: string; name: string; takenCount: number }[]> {
