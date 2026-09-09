@@ -130,6 +130,8 @@ export function planViewKb(lang: Lang): InlineKeyboard {
     .text(t(lang, "video_change_btn"), "vid:pick:0")
     .text(t(lang, "pday_manage_btn"), "pday:open")
     .row()
+    .text(t(lang, "plan_changes_btn"), "plan:changes")
+    .row()
     .text(t(lang, "menu_open"), "menu:open");
 }
 

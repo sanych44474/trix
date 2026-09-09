@@ -8,7 +8,7 @@ import type { AiPlan, MyContext } from "../bot";
 import { HTML, MIN_EXERCISES_PER_DAY, localizePlanNames, reply, saveBaselineBody, videosForDays } from "../bot";
 import { mainMenu, menuBtn, planActionsKb } from "./keyboards";
 import { botDeepLink, shareUrl } from "./links";
-import { countExercises, getActivePlan, getCatalogExercise, getExerciseTranslation, getTrainer, getUser, listCandidatesByMuscles, listPlanBank, listStrength, recordError, recordPlanSource, saveDraftPlan, setActivePlan, updateUser } from "../db/repos";
+import { countExercises, getActivePlan, getCatalogExercise, getExerciseTranslation, getTrainer, getUser, listCandidatesByMuscles, listPlanBank, listStrength, recentAdjustments, recordError, recordPlanSource, saveDraftPlan, setActivePlan, updateUser } from "../db/repos";
 import { sanitizeBodyMetrics } from "./onboarding";
 import { trainerStyleBlock } from "./trainer";
 import { adaptPlan } from "../domain/planAdapt";
@@ -760,4 +760,45 @@ export async function regenBankPlan(ctx: MyContext, profile: UserDoc["profile"],
     console.error("regenBankPlan failed", ctx.user._id, err);
     await reply(ctx, t(lang, "error_generic"), menuBtn(lang)).catch(() => {});
   }
+}
+
+// "What changed in my plan, and why" — the bi-weekly adaptive check-in (router.ts's
+// handleAdaptiveCheckin) has always RECORDED every micro-adjustment it makes, reason field and
+// all, but recentAdjustments() had zero callers: the automation was invisible to the person it
+// was adapting for. docs/feature-audit.md flags exactly this silent-automation problem as a
+// likely churn cause, so this surfaces the trail the bot was already keeping.
+export async function cmdPlanChanges(ctx: MyContext) {
+  const lang = ctx.user.lang;
+  const rows = await recentAdjustments(ctx.db, ctx.user._id, 10).catch(() => []);
+  if (!rows.length) {
+    await reply(ctx, t(lang, "plan_changes_none"), menuBtn(lang));
+    return;
+  }
+  const lines: string[] = [t(lang, "plan_changes_title")];
+  for (const row of rows) {
+    // Stored as the raw AdaptiveResult["adjustments"] array. A row written by an older/odd
+    // shape must not break the whole history — skip what doesn't parse into entries.
+    let adjustments: { weekday?: number; index?: number; sets?: string; startWeight?: string; reason?: string }[] = [];
+    try {
+      const parsed = JSON.parse(row.changes) as unknown;
+      if (Array.isArray(parsed)) adjustments = parsed;
+    } catch {
+      continue;
+    }
+    if (!adjustments.length) continue;
+    const date = row.ts.toISOString().slice(0, 10);
+    lines.push("", `<b>${date}</b> · ${t(lang, "plan_changes_week", { n: row.week })}`);
+    for (const a of adjustments.slice(0, 6)) {
+      const what = [a.sets, a.startWeight].filter(Boolean).join(" · ");
+      const why = a.reason ? ` — <i>${escapeHtml(cleanAi(a.reason))}</i>` : "";
+      if (what) lines.push(`• ${escapeHtml(cleanAi(what))}${why}`);
+      else if (a.reason) lines.push(`• ${escapeHtml(cleanAi(a.reason))}`);
+    }
+  }
+  // Every row was unparseable/empty → same as having no history at all.
+  if (lines.length === 1) {
+    await reply(ctx, t(lang, "plan_changes_none"), menuBtn(lang));
+    return;
+  }
+  await reply(ctx, lines.join("\n"), menuBtn(lang));
 }
