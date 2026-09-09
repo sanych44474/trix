@@ -1,6 +1,6 @@
 import type { AiKind, AiProvider, Env } from "../types";
 import { aiAttemptCountForUserSince, aiCacheStmt, aiCallStmt, aiUsageStmt, getAiCache, recordError } from "../db/repos";
-import { geminiGenerate } from "./gemini";
+import { GEMINI_DEFAULT_LIGHT_MODEL, geminiGenerate } from "./gemini";
 import { GROQ_DEFAULT_MODEL, groqGenerate } from "./groq";
 import { OLLAMA_DEFAULT_MODEL, ollamaGenerate } from "./ollama";
 import { OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_TRANSLATE_MODEL, OPENROUTER_DEFAULT_VISION_MODEL, openrouterGenerate } from "./openrouter";
@@ -215,7 +215,7 @@ async function run(
   const geminiModel =
     o.kind === "plan" || o.kind === "translate" || o.kind === "meal_plan"
       ? env.GEMINI_MODEL
-      : env.GEMINI_LIGHT_MODEL || "gemini-2.5-flash-lite";
+      : env.GEMINI_LIGHT_MODEL || GEMINI_DEFAULT_LIGHT_MODEL;
   // Gemini enforces responseSchema natively, so it gets the ORIGINAL prompt (the textual
   // schema would only inflate input tokens). The others can't, so spell out the exact
   // JSON shape in the prompt for them.
