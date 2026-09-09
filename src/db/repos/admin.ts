@@ -372,7 +372,13 @@ export async function pruneOldLogs(db: DB, beforeIso: string, beforeDay: string)
 // ---------- delete / health ----------
 
 export async function deleteUserData(db: DB, userId: number): Promise<void> {
-  await db.batch([
+  // If this account is a trainer, its remaining clients would otherwise be left forever pointing
+  // at a now-nonexistent trainerId (role='client', nothing to route through) — unlink them first,
+  // same as unlinkClient() does when a client leaves on their own.
+  const clientRows = await db.prepare("SELECT id FROM users WHERE trainerId = ?").bind(userId).all<{ id: number }>();
+  const clientIds = (clientRows.results ?? []).map((r) => r.id);
+
+  const statements = [
     db.prepare("DELETE FROM users WHERE id = ?").bind(userId),
     db.prepare("DELETE FROM plans WHERE userId = ?").bind(userId),
     db.prepare("DELETE FROM workout_logs WHERE userId = ?").bind(userId),
@@ -403,7 +409,24 @@ export async function deleteUserData(db: DB, userId: number): Promise<void> {
     db.prepare("DELETE FROM ai_call_logs WHERE userId = ?").bind(userId),
     db.prepare("DELETE FROM error_logs WHERE userId = ?").bind(userId),
     db.prepare("DELETE FROM plan_source_logs WHERE userId = ?").bind(userId),
-  ]);
+    // Tables added after this function was first written — each of these has been found missing
+    // here at least once in review. When a new table gets a userId/trainerId/ownerId column, add
+    // its delete here too.
+    db.prepare("DELETE FROM rest_timers WHERE userId = ?").bind(userId),
+    db.prepare("DELETE FROM trainer_templates WHERE trainerId = ?").bind(userId),
+    db.prepare("DELETE FROM shared_programs WHERE ownerId = ?").bind(userId),
+    db.prepare("DELETE FROM trainer_prospects WHERE trainerId = ?").bind(userId),
+    db.prepare("DELETE FROM food_corrections WHERE userId = ?").bind(userId),
+    db.prepare("DELETE FROM client_note_history WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
+    // Attribution only (nullable, no code treats it as a live FK) — a deleted trainer's
+    // previously-authored plans just stop being credited to them instead of pointing at a ghost.
+    db.prepare("UPDATE plans SET authoredBy = NULL WHERE authoredBy = ?").bind(userId),
+  ];
+  for (const clientId of clientIds) {
+    statements.push(db.prepare("UPDATE users SET role='solo', trainerId=NULL, updatedAt=? WHERE id=?").bind(nowIso(), clientId));
+    statements.push(db.prepare("UPDATE plans SET active=0 WHERE userId=? AND active=1").bind(clientId));
+  }
+  await db.batch(statements);
 }
 
 export async function pingDb(db: DB): Promise<boolean> {
