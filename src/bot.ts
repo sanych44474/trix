@@ -412,6 +412,20 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
     if (Number.isFinite(mate) && mate > 0 && mate !== u._id) {
       const other = await getUser(ctx.db, mate).catch(() => null);
       if (other) {
+        // Re-pairing with someone new must not leave a stale, one-sided link behind: if either
+        // side already has a DIFFERENT buddy, unlink that old buddy first (only if the old
+        // buddy's own link still points back — don't clobber a third party's unrelated state).
+        // Otherwise the old buddy's buddyId keeps pointing at someone who's moved on, which the
+        // weekly duel sweep (allBuddyPairs) would otherwise have to defend against on its own.
+        const unlinkOldBuddyOf = async (person: UserDoc) => {
+          const oldId = person.profile.buddyId;
+          if (!oldId || oldId === mate || oldId === u._id) return;
+          const old = await getUser(ctx.db, oldId).catch(() => null);
+          if (old && old.profile.buddyId === person._id) {
+            await updateUser(ctx.db, old._id, { profile: { ...old.profile, buddyId: undefined } }).catch(() => {});
+          }
+        };
+        await Promise.all([unlinkOldBuddyOf(u), unlinkOldBuddyOf(other)]);
         u.profile = { ...u.profile, buddyId: mate };
         await updateUser(ctx.db, u._id, { profile: u.profile }).catch(() => {});
         await updateUser(ctx.db, mate, { profile: { ...other.profile, buddyId: u._id } }).catch(() => {});
