@@ -206,6 +206,19 @@ export async function aiCallStatsSince(
   }));
 }
 
+/** Count of provider ATTEMPTS (not logical calls — a single fallback chain writes one row per
+ * provider tried) by one user since `sinceIso`. Used for the per-user AI rate limit — counting
+ * attempts rather than top-level calls is deliberate: a user's request that falls back through
+ * 3 providers really did burn 3 providers' worth of shared quota, which is exactly what the
+ * limit exists to protect. */
+export async function aiAttemptCountForUserSince(db: DB, userId: number, sinceIso: string): Promise<number> {
+  const r = await db
+    .prepare("SELECT COUNT(*) AS c FROM ai_call_logs WHERE userId = ? AND ts >= ?")
+    .bind(userId, sinceIso)
+    .first<{ c: number }>();
+  return r?.c ?? 0;
+}
+
 /** Same rollup as aiCallStatsSince, grouped by task (AiKind) instead of provider — surfaces
  * which KIND of call is actually driving token spend (e.g. a runaway prompt in one flow),
  * which the provider-only breakdown above can't show. */

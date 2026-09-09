@@ -1,5 +1,5 @@
 import type { AiKind, AiProvider, Env } from "../types";
-import { aiCacheStmt, aiCallStmt, aiUsageStmt, getAiCache, recordError } from "../db/repos";
+import { aiAttemptCountForUserSince, aiCacheStmt, aiCallStmt, aiUsageStmt, getAiCache, recordError } from "../db/repos";
 import { geminiGenerate } from "./gemini";
 import { GROQ_DEFAULT_MODEL, groqGenerate } from "./groq";
 import { OLLAMA_DEFAULT_MODEL, ollamaGenerate } from "./ollama";
@@ -177,12 +177,35 @@ function translateProviders(env: Env, geminiModel: string): Provider[] {
 // calls it parses the result, so a provider that returns unparseable/garbage JSON is
 // treated as a failure and the chain falls through to the next provider (instead of
 // returning junk that blows up downstream). A provider counts as "ok" only if usable.
+// Per-user rate limit (improvement #1 from the production-readiness list) — nothing previously
+// stopped a single user from firing repeated AI calls and burning through shared free-tier
+// quota (a client-side retry loop, a spammed callback button, a compromised account). Generous
+// on purpose: a real multi-turn coach conversation easily fires a handful of calls in 5 minutes;
+// this is sized to catch a runaway loop or deliberate spam, not normal back-and-forth use.
+const RATE_LIMIT_WINDOW_MS = 5 * 60_000;
+const RATE_LIMIT_MAX_ATTEMPTS = 20;
+
 async function run(
   env: Env,
   input: GenInput,
   o: CallOpts,
   validate?: (text: string) => void,
 ): Promise<string> {
+  // Checked first, before any model selection or provider work — a rate-limited caller should
+  // never even spend the CPU time. Fails OPEN on a DB error: the limiter itself must never
+  // become a new reason a legitimate call fails.
+  if (o.userId != null) {
+    try {
+      const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+      const recent = await aiAttemptCountForUserSince(o.db, o.userId, windowStart);
+      if (recent >= RATE_LIMIT_MAX_ATTEMPTS) {
+        throw new RateLimitError(429, `user ${o.userId} exceeded ${RATE_LIMIT_MAX_ATTEMPTS} AI attempts/${RATE_LIMIT_WINDOW_MS / 60_000}min`);
+      }
+    } catch (err) {
+      if (err instanceof RateLimitError) throw err; // the limit itself — must propagate
+      // Any other error here is the limiter's own DB read failing — proceed rather than block.
+    }
+  }
   // Plan + translate + meal_plan use the full Gemini model for quality (meal_plan needs
   // fluent Ukrainian food names + reliable native-schema JSON); everything else uses flash-lite.
   const geminiModel =
