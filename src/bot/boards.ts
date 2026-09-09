@@ -6,7 +6,9 @@ import {
   BADGES,
   consistencyBoard,
   mostImprovedBoard,
+  recentPrBoard,
   relativeStrengthBoard,
+  streakBoard,
   totalWorkoutsBoard,
   weekStartStr,
   type BoardEntry,
@@ -40,6 +42,8 @@ export interface BoardsResult {
   improved: BoardEntry[];
   relative: BoardEntry[];
   total: BoardEntry[];
+  streak: BoardEntry[];
+  recentPrs: BoardEntry[];
 }
 
 // Build all leaderboards in a handful of aggregate queries (no per-user fan-out).
@@ -50,6 +54,7 @@ export async function computeBoards(db: D1Database, tz?: string): Promise<Boards
   const today = localParts(tz ?? "UTC").date;
   const weekStart = weekStartStr(today);
   const cutoff7 = isoDateMinus(today, 7);
+  const cutoff30 = isoDateMinus(today, 30);
   const [rows, bw, dates, strength] = await Promise.all([
     listCompetitors(db),
     competitorBodyweights(db),
@@ -72,6 +77,8 @@ export async function computeBoards(db: D1Database, tz?: string): Promise<Boards
     improved: mostImprovedBoard(competitors, strength, cutoff7),
     relative: relativeStrengthBoard(competitors, strength),
     total: totalWorkoutsBoard(competitors, dates),
+    streak: streakBoard(competitors, dates, today),
+    recentPrs: recentPrBoard(competitors, strength, cutoff30),
   };
 }
 

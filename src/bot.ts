@@ -1984,6 +1984,8 @@ export async function cmdRecords(ctx: MyContext, tab: "weekly" | "hall" | "badge
       renderBoard(lang, t(lang, "board_relative"), b.relative, you, (v) => `${v.toFixed(2)}× ${t(lang, "unit_bw")}`, true),
       "",
       renderBoard(lang, t(lang, "board_total"), b.total, you, (v) => `${v} 🏋️`),
+      "",
+      renderBoard(lang, t(lang, "board_recentprs"), b.recentPrs, you, (v) => `${v} 🏆`),
     ].join("\n");
   } else {
     const b = await computeBoards(ctx.db, ctx.user.profile.timezone);
@@ -1996,6 +1998,8 @@ export async function cmdRecords(ctx: MyContext, tab: "weekly" | "hall" | "badge
       renderBoard(lang, t(lang, "board_consistency"), b.consistency, you, (v) => `${v} 🏋️`),
       "",
       renderBoard(lang, t(lang, "board_improved"), b.improved, you, (v) => `+${v.toFixed(1)}%`, true),
+      "",
+      renderBoard(lang, t(lang, "board_streak"), b.streak, you, (v) => `${v} 🧊`),
       "",
       t(lang, "your_streak", { weeks: streak }),
     ].join("\n");

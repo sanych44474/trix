@@ -165,6 +165,11 @@ export async function handleBoardsApi(req: Request, url: URL, env: Env): Promise
     } catch { /* fall through to live compute */ }
   }
   if (!boards) boards = await computeBoards(env.DB, user.profile.timezone);
+  // A cached blob written by an older deploy (before streak/recentPrs existed) won't have these
+  // keys — fall back to empty rather than crash on `undefined.slice(...)` until the next hourly
+  // scheduler refresh replaces it.
+  boards.streak ??= [];
+  boards.recentPrs ??= [];
   type BE = { userId: number; name: string; value: number; detail?: string };
   // Full top-5 (names already alias/anonymity-resolved by computeBoards) + the viewer's own rank.
   const one = (b: BE[]) => ({
@@ -178,10 +183,27 @@ export async function handleBoardsApi(req: Request, url: URL, env: Env): Promise
   const circle = new Set([user._id, ...friends]);
   const scope = (b: BE[]) => b.filter((e) => circle.has(e.userId));
   const friendsBlock = friends.length
-    ? { count: friends.length, consistency: one(scope(boards.consistency)), improved: one(scope(boards.improved)), relative: one(scope(boards.relative)), total: one(scope(boards.total)) }
+    ? {
+        count: friends.length,
+        consistency: one(scope(boards.consistency)),
+        improved: one(scope(boards.improved)),
+        relative: one(scope(boards.relative)),
+        total: one(scope(boards.total)),
+        streak: one(scope(boards.streak)),
+        recentPrs: one(scope(boards.recentPrs)),
+      }
     : { count: 0 };
   return Response.json(
-    { optedIn: true, consistency: one(boards.consistency), improved: one(boards.improved), relative: one(boards.relative), total: one(boards.total), friends: friendsBlock },
+    {
+      optedIn: true,
+      consistency: one(boards.consistency),
+      improved: one(boards.improved),
+      relative: one(boards.relative),
+      total: one(boards.total),
+      streak: one(boards.streak),
+      recentPrs: one(boards.recentPrs),
+      friends: friendsBlock,
+    },
     { headers: { "cache-control": "no-store" } },
   );
 }

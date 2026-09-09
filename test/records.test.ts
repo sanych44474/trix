@@ -5,7 +5,9 @@ import {
   e1rm,
   isoWeekKey,
   mostImprovedBoard,
+  recentPrBoard,
   relativeStrengthBoard,
+  streakBoard,
   weekStartStr,
   weekStreak,
   workoutMilestones,
@@ -82,6 +84,36 @@ test("mostImprovedBoard: needs a prior baseline before the cutoff", () => {
   const board = mostImprovedBoard(competitors, strength, "2026-06-03");
   assert.equal(board.length, 1);
   assert.ok(board[0].value > 0);
+});
+
+test("streakBoard: ranks by each competitor's own current weekly streak", () => {
+  const competitors = new Map<number, Competitor>([
+    [1, { userId: 1, name: "A" }],
+    [2, { userId: 2, name: "B" }],
+    [3, { userId: 3, name: "C" }], // no workouts at all → streak 0, dropped by rank()
+  ]);
+  const today = "2026-06-10"; // Wednesday
+  const dates = [
+    { userId: 1, date: "2026-06-02" }, // last week only
+    { userId: 2, date: "2026-06-02" },
+    { userId: 2, date: "2026-05-27" }, // and the week before → longer streak
+  ];
+  const board = streakBoard(competitors, dates, today);
+  assert.deepEqual(board.map((e) => [e.userId, e.value]), [[2, 2], [1, 1]]);
+});
+
+test("recentPrBoard: counts all-time-best lifts set on/after the cutoff, ranked", () => {
+  const competitors = new Map<number, Competitor>([
+    [1, { userId: 1, name: "A" }],
+    [2, { userId: 2, name: "B" }],
+  ]);
+  const strength = [
+    { userId: 1, exercise: "Squat", bestWeight: 100, bestReps: 5, history: [{ date: "2026-06-05", weight: 100, reps: 5 }] },
+    { userId: 1, exercise: "Bench", bestWeight: 60, bestReps: 8, history: [{ date: "2026-06-06", weight: 60, reps: 8 }] },
+    { userId: 2, exercise: "Deadlift", bestWeight: 120, bestReps: 3, history: [{ date: "2026-04-01", weight: 120, reps: 3 }] }, // before cutoff
+  ];
+  const board = recentPrBoard(competitors, strength, "2026-06-01");
+  assert.deepEqual(board.map((e) => [e.userId, e.value]), [[1, 2]]); // user 2 has none in-window
 });
 
 test("workoutMilestones: cumulative thresholds", () => {

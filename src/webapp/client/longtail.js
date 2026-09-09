@@ -67,9 +67,10 @@ function ltRender() {
   var b = LT.boards;
   var boardBlock = function (src) {
     var hh = "";
-    var rows = [["wa_board_consistency", src.consistency], ["wa_board_improved", src.improved], ["wa_board_relative", src.relative], ["wa_board_total", src.total]];
+    var rows = [["wa_board_consistency", src.consistency], ["wa_board_improved", src.improved], ["wa_board_relative", src.relative], ["wa_board_total", src.total], ["wa_board_streak", src.streak], ["wa_board_recentprs", src.recentPrs]];
     rows.forEach(function (r) {
       var v = r[1];
+      if (!v) return; // an older cached API shape may lack a newer board key
       hh += '<div style="margin-bottom:8px"><b>' + WA[r[0]] + "</b>" + (v.rank ? ' <span class="sub">#' + v.rank + " / " + v.total + "</span>" : ' <span class="sub">—</span>');
       (v.top || []).forEach(function (e2) {
         var medal = e2.pos === 1 ? "🥇" : e2.pos === 2 ? "🥈" : e2.pos === 3 ? "🥉" : e2.pos + ".";

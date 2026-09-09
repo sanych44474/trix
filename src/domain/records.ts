@@ -230,6 +230,46 @@ export function mostImprovedBoard(
   return entries.sort((a, b) => b.value - a.value);
 }
 
+/** 🔥 Current weekly streak, ranked. A simplification of the personal-dashboard streak: this
+ * does not apply a per-user vacation freeze (fetching every opted-in competitor's vacation
+ * window just for the leaderboard wasn't worth the extra query) — someone on an agreed pause
+ * may rank a little lower here than their own dashboard shows, same trade-off the other boards
+ * already make by not modeling every personal nuance. */
+export function streakBoard(
+  competitors: Map<number, Competitor>,
+  workoutDates: { userId: number; date: string }[],
+  todayStr: string,
+): BoardEntry[] {
+  const byUser = new Map<number, string[]>();
+  for (const w of workoutDates) {
+    if (!competitors.has(w.userId)) continue;
+    const arr = byUser.get(w.userId);
+    if (arr) arr.push(w.date);
+    else byUser.set(w.userId, [w.date]);
+  }
+  const counts = new Map<number, number>();
+  for (const [userId, dates] of byUser) counts.set(userId, weekStreak(dates, todayStr));
+  return rank(competitors, counts);
+}
+
+/** 🏆 New personal records in the last 30 days, ranked. */
+export function recentPrBoard(
+  competitors: Map<number, Competitor>,
+  strength: StrengthRow[],
+  sinceDate: string,
+): BoardEntry[] {
+  const byUser = new Map<number, StrengthRow[]>();
+  for (const s of strength) {
+    if (!competitors.has(s.userId)) continue;
+    const arr = byUser.get(s.userId);
+    if (arr) arr.push(s);
+    else byUser.set(s.userId, [s]);
+  }
+  const counts = new Map<number, number>();
+  for (const [userId, rows] of byUser) counts.set(userId, recentPrCount(rows, sinceDate));
+  return rank(competitors, counts);
+}
+
 function rank(competitors: Map<number, Competitor>, counts: Map<number, number>): BoardEntry[] {
   const entries: BoardEntry[] = [];
   for (const [userId, value] of counts) {
