@@ -37,5 +37,8 @@
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "wrangler": "^4.129.0"
+  },
+  "overrides": {
+    "sharp": "0.35.4"
   }
 }
