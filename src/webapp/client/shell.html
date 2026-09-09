@@ -448,7 +448,7 @@ function renderMonth() {
     else if (date >= p.today && CAL.planned[isoWd(date)]) cls += " planned";
     if (date === p.today) cls += " today";
     if (date === CAL.sel) cls += " sel";
-    html += '<div class="' + cls + '" data-d="' + date + '">' + d + (CAL.sess[date] ? '<span class="sd"></span>' : "") + "</div>";
+    html += '<div class="' + cls + '" data-d="' + date + '">' + d + "</div>";
   }
   el("m-grid").innerHTML = html;
 }
@@ -474,24 +474,21 @@ function renderDayCard(date) {
   // Nutrition summary (available for the last 7 days — the macros window).
   var m = CAL.mac[date];
   if (m && m.kcal > 0) lines.push("🍽 " + m.kcal + " " + L.kcal + " · " + m.p + " g " + L.proteinShort);
-  var s = CAL.sess[date];
-  if (s) lines.push("🤝 " + pad2(s.hour) + ":00 · " + L.session + " " + esc(s.with || "") + " · " + (L.statusMap[s.status] || s.status));
   var card = el("day-card");
   card.innerHTML = "<b>" + date + "</b><br>" + (lines.length ? lines.join("<br>") : "—");
   card.style.display = "block";
 }
 function initMonth(p) {
   el("h-month").textContent = L.month;
-  var status = {}, sess = {}, planned = {}, split = {}, logs = {}, weights = {}, mac = {};
+  var status = {}, planned = {}, split = {}, logs = {}, weights = {}, mac = {};
   p.calendar.days.forEach(function (d) { status[d.date] = d.s; });
-  p.calendar.sessions.forEach(function (s) { sess[s.date] = s; });
   p.calendar.plannedWeekdays.forEach(function (w) { planned[w] = true; });
   p.calendar.split.forEach(function (d) { split[d.weekday] = d; });
   (p.calendar.logs || []).forEach(function (l) { logs[l.date] = l; });
   p.weight.points.forEach(function (q) { weights[q.date] = q.kg; });
   p.macros.days.forEach(function (d) { mac[d.date] = d; });
   CAL = {
-    p: p, status: status, sess: sess, planned: planned, split: split, logs: logs, weights: weights, mac: mac,
+    p: p, status: status, planned: planned, split: split, logs: logs, weights: weights, mac: mac,
     ym: p.today.slice(0, 7), sel: p.today,
     minYm: p.calendar.days[0].date.slice(0, 7), maxYm: shiftYm(p.today.slice(0, 7), 2),
   };
