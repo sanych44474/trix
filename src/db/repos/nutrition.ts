@@ -6,6 +6,13 @@ import { nowIso, safeJsonParse, type DB } from "./shared";
 
 // ---------- nutrition logs ----------
 
+// Single atomic UPSERT instead of a SELECT-then-UPDATE/INSERT pair (improvement #10 from the
+// production-readiness list) — the old version had a real race: two concurrent appends for the
+// same (userId, date) — e.g. a bot text-log and a Mini App request landing at once — could both
+// read the same "existing" array, and the second write would drop whatever the first appended.
+// Each new meal is spliced onto the END of the stored array via a chained json_set('$[#]', ...)
+// expression (one call per new meal, built at call time since meals.length varies) — verified
+// against a real SQLite build to append in order without disturbing existing elements.
 export async function appendMeals(
   db: DB,
   userId: number,
@@ -13,40 +20,39 @@ export async function appendMeals(
   meals: MealEntry[],
 ): Promise<MealEntry[]> {
   const now = nowIso();
-  const row = await db
-    .prepare("SELECT meals FROM nutrition_logs WHERE userId = ? AND date = ?")
-    .bind(userId, date)
-    .first<{ meals: string }>();
-  let existing: MealEntry[] = [];
-  if (row) { try { existing = JSON.parse(row.meals) as MealEntry[]; } catch { existing = []; } }
-  const all: MealEntry[] = [...existing, ...meals];
-  if (row) {
-    await db
-      .prepare("UPDATE nutrition_logs SET meals = ?, updatedAt = ? WHERE userId = ? AND date = ?")
-      .bind(JSON.stringify(all), now, userId, date)
-      .run();
-  } else {
-    await db
-      .prepare("INSERT INTO nutrition_logs (userId, date, meals, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)")
-      .bind(userId, date, JSON.stringify(all), now, now)
-      .run();
-  }
-  return all;
+  const appendExpr = meals.reduce((expr) => `json_set(${expr}, '$[#]', json(?))`, "meals");
+  await db
+    .prepare(
+      `INSERT INTO nutrition_logs (userId, date, meals, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(userId, date) DO UPDATE SET meals = ${appendExpr}, updatedAt = excluded.updatedAt`,
+    )
+    .bind(userId, date, JSON.stringify(meals), now, now, ...meals.map((m) => JSON.stringify(m)))
+    .run();
+  // Re-read for the caller's convenience (several callers need the full day's list right after,
+  // e.g. to total up macros) — this read happens AFTER the atomic write above, so it can't lose
+  // data the way the old pre-write read could; at worst it also reflects a concurrent write that
+  // landed a moment later, which is fine (both appends already safely persisted either way).
+  const row = await db.prepare("SELECT meals FROM nutrition_logs WHERE userId = ? AND date = ?").bind(userId, date).first<{ meals: string }>();
+  return safeJsonParse<MealEntry[]>(row?.meals, meals);
 }
 
 // Overwrite a day's meals (used by in-place edits). Deletes the row if the list is empty.
+// Single atomic UPSERT (improvement #10) instead of "UPDATE, then INSERT if nothing changed" —
+// that pattern has its own narrow race (two concurrent calls for a brand-new day could both see
+// zero rows updated and both attempt the INSERT, and the second would fail on the primary key).
 export async function setDayMeals(db: DB, userId: number, date: string, meals: MealEntry[]): Promise<void> {
   if (!meals.length) {
     await db.prepare("DELETE FROM nutrition_logs WHERE userId = ? AND date = ?").bind(userId, date).run();
     return;
   }
   const now = nowIso();
-  const res = await db.prepare("UPDATE nutrition_logs SET meals = ?, updatedAt = ? WHERE userId = ? AND date = ?")
-    .bind(JSON.stringify(meals), now, userId, date).run();
-  if (!res.meta.changes) {
-    await db.prepare("INSERT INTO nutrition_logs (userId, date, meals, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)")
-      .bind(userId, date, JSON.stringify(meals), now, now).run();
-  }
+  await db
+    .prepare(
+      `INSERT INTO nutrition_logs (userId, date, meals, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(userId, date) DO UPDATE SET meals = excluded.meals, updatedAt = excluded.updatedAt`,
+    )
+    .bind(userId, date, JSON.stringify(meals), now, now)
+    .run();
 }
 
 // Recent distinct foods (for one-tap re-log), most-recent first, deduped by name.

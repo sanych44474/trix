@@ -22,6 +22,9 @@ public/app.html
 *.sqlite3
 *.db
 
+# scripts/backup-d1.mjs output — real user data, never commit.
+backups/
+
 # One-off data patches and temp dumps — these touch real user rows, never publish them.
 scripts/patch_*.sql
 scripts/.*-tmp.sql

@@ -237,14 +237,22 @@ export async function updateActivePlanSplit(db: DB, userId: number, split: unkno
 }
 
 /** Set/clear the mesocycle in the active plan's meta JSON (null clears it). */
+// Single atomic UPDATE via json_set/json_remove instead of SELECT-then-UPDATE (improvement #10
+// from the production-readiness list) — no read needed at all: json_set/json_remove touch only
+// the `mesocycle` key of `meta`, leaving any sibling keys untouched, and a WHERE clause that
+// matches no row is naturally a no-op (same as the old `if (!row) return;` guard). This also
+// closes the old race where a concurrent write to another `meta` key between the read and the
+// write here would have been silently lost.
 export async function updatePlanMesocycle(db: DB, userId: number, mesocycle: PlanDoc["mesocycle"] | null): Promise<void> {
-  const row = await db.prepare("SELECT meta FROM plans WHERE userId = ? AND active = 1").bind(userId).first<{ meta: string | null }>();
-  if (!row) return;
-  const meta = (row.meta ? JSON.parse(row.meta) : {}) as PlanMeta;
-  if (mesocycle) meta.mesocycle = mesocycle;
-  else delete meta.mesocycle;
-  await db
-    .prepare("UPDATE plans SET meta = ? WHERE userId = ? AND active = 1")
-    .bind(Object.keys(meta).length ? JSON.stringify(meta) : null, userId)
-    .run();
+  if (mesocycle) {
+    await db
+      .prepare("UPDATE plans SET meta = json_set(COALESCE(meta, '{}'), '$.mesocycle', json(?)) WHERE userId = ? AND active = 1")
+      .bind(JSON.stringify(mesocycle), userId)
+      .run();
+  } else {
+    await db
+      .prepare("UPDATE plans SET meta = json_remove(COALESCE(meta, '{}'), '$.mesocycle') WHERE userId = ? AND active = 1")
+      .bind(userId)
+      .run();
+  }
 }

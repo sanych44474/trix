@@ -362,13 +362,17 @@ function toRequest(r: {
 }
 
 export async function createRequest(db: DB, clientId: number, trainerId: number, note?: string): Promise<number> {
-  // Cancel any prior pending request from this client first.
-  await db.prepare("UPDATE client_requests SET status='cancelled' WHERE clientId=? AND status='pending'").bind(clientId).run();
-  const r = await db
-    .prepare("INSERT INTO client_requests (clientId, trainerId, note, status, createdAt) VALUES (?, ?, ?, 'pending', ?)")
-    .bind(clientId, trainerId, note ?? null, nowIso())
-    .run();
-  return Number(r.meta?.last_row_id ?? 0);
+  // db.batch() runs both statements atomically (improvement #10 from the production-readiness
+  // list) — as two separate awaited calls, a transient failure or worker eviction between them
+  // could cancel the client's old pending request without the new one ever getting created,
+  // leaving them with none at all instead of the intended exactly-one.
+  const [, insertResult] = await db.batch([
+    db.prepare("UPDATE client_requests SET status='cancelled' WHERE clientId=? AND status='pending'").bind(clientId),
+    db
+      .prepare("INSERT INTO client_requests (clientId, trainerId, note, status, createdAt) VALUES (?, ?, ?, 'pending', ?)")
+      .bind(clientId, trainerId, note ?? null, nowIso()),
+  ]);
+  return Number(insertResult.meta?.last_row_id ?? 0);
 }
 
 export async function getRequest(db: DB, id: number): Promise<ClientRequestDoc | null> {

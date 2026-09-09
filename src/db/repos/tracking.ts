@@ -2,7 +2,7 @@
 // wellbeing check-ins, and progress photos. Split out of repos.ts (god-file split, same barrel
 // seam); behavior unchanged.
 import type { BodyLogDoc, BodyMeasurements, DailyCheckinDoc, InjuryDoc, StepLogDoc } from "../../types";
-import { nowIso, safeJsonParse, type DB } from "./shared";
+import { nowIso, type DB } from "./shared";
 
 // ---------- body logs ----------
 
@@ -39,30 +39,33 @@ export async function saveBaselineBody(
     .run();
 }
 
+// Single atomic UPSERT instead of a SELECT-then-UPDATE/INSERT pair (improvement #10 from the
+// production-readiness list) — the old version had a real race: two concurrent calls for the
+// same (userId, date) — e.g. the bot webhook and a Mini App request landing at once — could both
+// read the same "existing" row, then the second write would silently clobber whatever the first
+// one added. json_patch() does the same shallow merge as the old `{...existing, ...patch}`
+// spread (RFC 7396 merge-patch semantics — verified against a real SQLite build), so a NULL/unset
+// patch.measurements leaves the stored value untouched via the CASE, and COALESCE keeps the old
+// weight when patch.weight is undefined — same fallback rules as before, just evaluated by
+// SQLite itself instead of read back into JS first.
 export async function upsertBodyLog(
   db: DB,
   userId: number,
   date: string,
   patch: { weight?: number; measurements?: BodyMeasurements },
 ): Promise<void> {
-  const row = await db
-    .prepare("SELECT weight, measurements FROM body_logs WHERE userId = ? AND date = ?")
-    .bind(userId, date)
-    .first<{ weight: number | null; measurements: string | null }>();
-  if (row) {
-    const newWeight = patch.weight !== undefined ? patch.weight : row.weight;
-    const existing = row.measurements ? safeJsonParse<BodyMeasurements>(row.measurements, {}) : {};
-    const newMeas = patch.measurements ? { ...existing, ...patch.measurements } : existing;
-    await db
-      .prepare("UPDATE body_logs SET weight = ?, measurements = ? WHERE userId = ? AND date = ?")
-      .bind(newWeight ?? null, Object.keys(newMeas).length ? JSON.stringify(newMeas) : null, userId, date)
-      .run();
-  } else {
-    await db
-      .prepare("INSERT INTO body_logs (userId, date, weight, measurements, createdAt) VALUES (?, ?, ?, ?, ?)")
-      .bind(userId, date, patch.weight ?? null, patch.measurements ? JSON.stringify(patch.measurements) : null, nowIso())
-      .run();
-  }
+  await db
+    .prepare(
+      `INSERT INTO body_logs (userId, date, weight, measurements, createdAt) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(userId, date) DO UPDATE SET
+         weight = COALESCE(excluded.weight, body_logs.weight),
+         measurements = CASE
+           WHEN excluded.measurements IS NULL THEN body_logs.measurements
+           ELSE json_patch(COALESCE(body_logs.measurements, '{}'), excluded.measurements)
+         END`,
+    )
+    .bind(userId, date, patch.weight ?? null, patch.measurements ? JSON.stringify(patch.measurements) : null, nowIso())
+    .run();
 }
 
 export async function bodyLogsByUser(db: DB, userId: number): Promise<BodyLogDoc[]> {
