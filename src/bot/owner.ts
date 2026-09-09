@@ -3,7 +3,7 @@
 import { GrammyError, InlineKeyboard } from "grammy";
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
 import {
-  aiCallStatsSince, aiUsageSince, assignDraftPlan, countActiveSince, countAdjustmentsSince,
+  aiCallStatsSince, aiTokensByKindSince, aiUsageSince, assignDraftPlan, countActiveSince, countAdjustmentsSince,
   countByRole, countClientsOf, countCompletedWorkoutsBetween, countInactive, countModeration,
   countOnboarded, countPendingClientRequests, countPlanSourcesSince, countUsers,
   countUsersCreatedSince, dailyActiveUsers, deleteUserData, deleteUserVideo, engagementSince, errorStatsSince,
@@ -686,18 +686,18 @@ export async function orEngagement(db: D1Database): Promise<string> {
 // 🤖 AI: provider usage, calls by task, latency/fallback, and plan-source offload.
 export async function orAI(db: D1Database, env?: Env): Promise<string> {
   const { since7Iso } = ownerReportWindows();
-  const [usage7, callStats, planSources] = await Promise.all([
+  const [usage7, callStats, kindStats7, planSources] = await Promise.all([
     aiUsageSince(db, since7Iso),
     aiCallStatsSince(db, since7Iso),
+    aiTokensByKindSince(db, since7Iso),
     countPlanSourcesSince(db, since7Iso),
   ]);
+  const kTok = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
   const okBy = new Map<string, number>();
   const failBy = new Map<string, number>();
-  const byKind: Record<string, number> = {};
   for (const u of usage7) {
     const m = u.ok ? okBy : failBy;
     m.set(u.provider, (m.get(u.provider) ?? 0) + 1);
-    byKind[u.kind] = (byKind[u.kind] ?? 0) + 1;
   }
   // Provider lines in fallback order; new providers appear automatically.
   const PROVIDERS: [string, string, string][] = [
@@ -711,7 +711,9 @@ export async function orAI(db: D1Database, env?: Env): Promise<string> {
   const usageRows: (string | number)[][] = PROVIDERS.filter(([p, , k]) => okBy.has(p) || failBy.has(p) || keyCount(k) > 0).map(
     ([p, label, k]) => [label.replace(" (fallback)", "*"), okBy.get(p) ?? 0, failBy.get(p) ?? 0, k ? keyCount(k) : env ? "bind" : "-"],
   );
-  const taskRows: (string | number)[][] = Object.entries(byKind).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v]);
+  // Tokens-by-task (not just tokens-by-provider, below) — pinpoints which KIND of call is
+  // actually driving spend, e.g. a runaway prompt in one flow the provider-only view can't show.
+  const taskRows: (string | number)[][] = kindStats7.map((k) => [k.kind, k.calls, kTok(k.tokens)]);
   // One-glance health verdict, derived from the 7d call stats (details in the tables below).
   const totalCalls0 = callStats.reduce((s, c) => s + c.calls, 0);
   const fbPct0 = totalCalls0 ? Math.round((callStats.reduce((s, c) => s + c.fallbacks, 0) / totalCalls0) * 100) : 0;
@@ -729,14 +731,13 @@ export async function orAI(db: D1Database, env?: Env): Promise<string> {
     "<i>* = fallback provider · Gemini “fail” = rate-limited</i>",
     "",
     "📋 <b>AI calls by task (7d)</b>",
-    monoTable(["Task", "calls"], taskRows.length ? taskRows : [["—", 0]]),
+    monoTable(["Task", "calls", "tok"], taskRows.length ? taskRows : [["—", 0, "0"]]),
   ];
   if (callStats.length) {
     const totalCalls = callStats.reduce((s, c) => s + c.calls, 0);
     const totalFallbacks = callStats.reduce((s, c) => s + c.fallbacks, 0);
     const totalTokens = callStats.reduce((s, c) => s + c.tokens, 0);
     const fallbackPct = totalCalls ? Math.round((totalFallbacks / totalCalls) * 100) : 0;
-    const kTok = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
     lines.push(
       "",
       "⚙️ <b>AI calls (7d): latency & fallback</b>",

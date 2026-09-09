@@ -206,6 +206,23 @@ export async function aiCallStatsSince(
   }));
 }
 
+/** Same rollup as aiCallStatsSince, grouped by task (AiKind) instead of provider — surfaces
+ * which KIND of call is actually driving token spend (e.g. a runaway prompt in one flow),
+ * which the provider-only breakdown above can't show. */
+export async function aiTokensByKindSince(
+  db: DB,
+  sinceIso: string,
+): Promise<{ kind: string; calls: number; tokens: number }[]> {
+  const r = await db
+    .prepare(
+      `SELECT kind, COUNT(*) AS calls, COALESCE(SUM(tokens), 0) AS tokens
+       FROM ai_call_logs WHERE ts >= ? GROUP BY kind ORDER BY tokens DESC`,
+    )
+    .bind(sinceIso)
+    .all<{ kind: string; calls: number; tokens: number }>();
+  return (r.results ?? []).map((x) => ({ kind: x.kind, calls: x.calls, tokens: x.tokens ?? 0 }));
+}
+
 // ---------- error logs (AI failures for the owner report) ----------
 
 export async function recordError(
