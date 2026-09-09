@@ -9,6 +9,7 @@ import {
   recentPrBoard,
   relativeStrengthBoard,
   streakBoard,
+  streakRisk,
   weekStartStr,
   weekStreak,
   workoutMilestones,
@@ -127,4 +128,35 @@ test("challengeMilestones: cumulative thresholds, separate from workout/PR count
   assert.deepEqual(challengeMilestones(0), []);
   assert.deepEqual(challengeMilestones(1), ["first_challenge"]);
   assert.deepEqual(challengeMilestones(5), ["first_challenge", "challenges_5"]);
+});
+
+test("streakRisk: an untrained current week puts an established streak at risk", () => {
+  // 2026-06-01 is a Monday; weeks are Jun1-7, Jun8-14, Jun15-21. Friday of week 3, nothing
+  // logged in it yet, two trained weeks behind it.
+  const trained = ["2026-06-02", "2026-06-09"];
+  assert.deepEqual(streakRisk(trained, "2026-06-19"), { current: 2, projected: 0, atRisk: true });
+});
+
+test("streakRisk: training this week clears the risk", () => {
+  const trained = ["2026-06-02", "2026-06-09", "2026-06-16"];
+  const r = streakRisk(trained, "2026-06-19");
+  assert.equal(r.atRisk, false);
+  assert.equal(r.projected, r.current);
+});
+
+test("streakRisk: no streak to lose is never 'at risk'", () => {
+  assert.equal(streakRisk([], "2026-06-19").atRisk, false);
+  // A single trained week that's already over: the grace week keeps current at 1, and losing it
+  // is not something to send a rescue message about (the scheduler also requires >= 2).
+  assert.equal(streakRisk(["2026-06-09"], "2026-06-19").current, 1);
+});
+
+test("streakRisk: a TRAILING miss is at risk even on a long streak (auto-freeze bridges gaps, not slides)", () => {
+  // weekStreak's auto-freeze forgives one gap INSIDE a streak, explicitly not a trailing slide
+  // with nothing trained after it — so a 6-week streak with nothing logged this week really is
+  // on the line. Pinned here because it's exactly the rule a hand-written risk check gets wrong.
+  const sixWeeks = ["2026-05-05", "2026-05-12", "2026-05-19", "2026-05-26", "2026-06-02", "2026-06-09"];
+  const r = streakRisk(sixWeeks, "2026-06-19");
+  assert.equal(r.current, 6);
+  assert.equal(r.atRisk, true);
 });

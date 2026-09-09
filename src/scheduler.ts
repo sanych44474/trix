@@ -72,7 +72,7 @@ import {
   shouldLevelUp,
   weeksSincePlan,
 } from "./domain/progression";
-import { isoWeekKey, rankOf, streakMilestones, weekRangeOffset, weekStartStr, weekStreak } from "./domain/records";
+import { isoWeekKey, rankOf, streakMilestones, streakRisk, weekRangeOffset, weekStartStr, weekStreak } from "./domain/records";
 import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
@@ -678,6 +678,31 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
     if (ml < goal) {
       const kb = new InlineKeyboard().text("💧 +250", "water:add:250").text("💧 +500", "water:add:500");
       await send(t(lang, "water_reminder", { ml, goal }), { ...HTML, reply_markup: kb });
+      pinged = true;
+    }
+  }
+
+  // 🔥 Streak rescue — the streak is shown everywhere (level card, /progress, week card, its own
+  // leaderboard and two badges) but nothing ever warned you it was about to end. Fires late in
+  // the week, once per week, only when a real streak is genuinely on the line: streakRisk()
+  // simulates next Monday through the SAME weekStreak rules the user is shown, so this can't
+  // contradict the number on their card or cry wolf on a week the auto-freeze would absorb.
+  // Gated on the "workout" reminder preference — someone who muted training nudges muted this too.
+  // NB: deduped by ISO WEEK, not by date (`already()` is date-based) — the Fri/Sat/Sun window
+  // would otherwise re-send it three times in the same week it's trying to rescue.
+  const rescueWeek = isoWeekKey(date);
+  if (!pinged && user.onboarded && !remOff("workout") && weekday >= 5 && hour >= reminderHour && sent["streak_rescue"] !== rescueWeek) {
+    const streakDates = (await workoutLogsSince(db, user._id, isoDaysAgo(120)).catch(() => []))
+      .filter((l) => l.completed)
+      .map((l) => l.date);
+    const risk = streakRisk(streakDates, date, user.reminders?.lastVacation);
+    // ≥2 weeks: a 1-week "streak" isn't worth a rescue message, it's just last week.
+    if (risk.atRisk && risk.current >= 2) {
+      const kb = new InlineKeyboard().text(t(lang, "log_done"), "log:done");
+      const logUrl = appView("log");
+      if (logUrl) kb.row().webApp(t(lang, "app_log_btn"), logUrl);
+      await send(t(lang, "streak_rescue", { weeks: risk.current }), { ...HTML, reply_markup: kb });
+      dirty["streak_rescue"] = rescueWeek;
       pinged = true;
     }
   }

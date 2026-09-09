@@ -1300,6 +1300,8 @@ export const en = {
   anon: "Anonymous",
   unit_bw: "bw",
   your_streak: "🔥 Your streak: {weeks} week(s) in a row.",
+  streak_rescue:
+    "🔥 <b>Your {weeks}-week streak ends this Sunday.</b>\n\nOne logged session this week keeps it alive — even a short one counts.",
   badges_header: "🎖 <b>Badges</b> — {n}/{total} earned:",
   badge_first_workout: "🥇 First workout",
   badge_workouts_10: "🔟 10 workouts",

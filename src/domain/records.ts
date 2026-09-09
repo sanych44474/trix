@@ -121,6 +121,27 @@ export function weekStreak(
   return streak;
 }
 
+/** Would the streak survive a week that ends with nothing logged?
+ *
+ * Deliberately answered by running weekStreak() itself from NEXT Monday's point of view rather
+ * than re-deriving "what breaks a streak" — the rules there (in-progress-week grace, vacation
+ * freeze, the one-gap auto-freeze earned by 4+ weeks) are subtle enough that a second
+ * implementation would eventually contradict the number the user is actually shown, and a
+ * retention nudge that cries wolf is worse than no nudge. `projected < current` therefore covers
+ * the auto-freeze case for free: if the freeze absorbs this week, the projection doesn't drop
+ * and nothing is at risk. */
+export function streakRisk(
+  workoutDates: string[],
+  todayStr: string,
+  frozen?: { from: string; until: string },
+): { current: number; projected: number; atRisk: boolean } {
+  const current = weekStreak(workoutDates, todayStr, frozen);
+  const nextMonday = new Date(`${weekStartStr(todayStr)}T00:00:00Z`);
+  nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
+  const projected = weekStreak(workoutDates, nextMonday.toISOString().slice(0, 10), frozen);
+  return { current, projected, atRisk: current > 0 && projected < current };
+}
+
 /** How many tracked lifts hit their ALL-TIME best (by e1RM) on/after `sinceDate` —
  * "N new PRs this week" for the shareable card. Weighted rep lifts only. */
 export function recentPrCount(
