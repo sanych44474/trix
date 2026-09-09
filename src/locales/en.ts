@@ -899,6 +899,7 @@ export const en = {
   wcard_prs: "New PRs",
   wcard_empty: "Nothing logged in the last 7 days yet — log a workout and come back. 💪",
   wcard_image_caption: "📤 Week card — {name}",
+  photocompare_caption: "📸 Progress: {from} → {to}",
   wcard_share_hint: "Forward this card to a friend or your chat — let them see the week. 😎",
   // Carries the sender's referral link, so a forwarded card is something a reader can act on.
   wcard_ref: "Forward this card to a friend or your chat — let them see the week. 😎\nTraining with me: {link}",
@@ -1327,6 +1328,8 @@ export const en = {
   photo_self_prompt: "📸 Send a photo — I'll save it to your progress gallery (visible in the Mini App profile).",
   photo_self_saved: "✅ Saved to your progress gallery. Compare it in the app: Profile → 📸.",
   wa_photos: "Progress photos",
+  wa_photo_cmp_hint: "Tap two photos to compare them",
+  wa_photo_cmp_btn: "🔀 Compare & send",
   levelup_msg: "⭐ *Level {level}!* You've earned {xp} XP — keep it rolling! 🚀",
   waitlist_slot_free: "📥 A client spot just opened up — you have {n} request(s) on the waitlist.",
   badge_unlocked: "🎖 Badge unlocked: {badges}",

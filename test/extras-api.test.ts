@@ -148,3 +148,46 @@ test("/api/weekcard and /api/whatsnew respond ok for any authenticated user", as
   assert.equal((await asUser(db, 9, "GET", "/api/weekcard")).status, 200);
   assert.equal((await asUser(db, 9, "GET", "/api/whatsnew")).status, 200);
 });
+
+test("/api/photocompare: sends the composed PNG to the user's chat, rejects bad input", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 11, 11, "en", "Ann");
+  const realFetch = globalThis.fetch;
+  let sentTo: string | null = null;
+  let caption: string | null = null;
+  globalThis.fetch = (async (_url: string, init?: { body?: FormData }) => {
+    const fd = init?.body as FormData;
+    sentTo = String(fd.get("chat_id"));
+    caption = String(fd.get("caption"));
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    const fd = new FormData();
+    fd.append("photo", new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" }), "progress.png");
+    fd.append("from", "2026-01-05");
+    fd.append("to", "2026-06-05");
+    const path = "/api/photocompare?debugUser=11";
+    const res = await handleExtrasApi(
+      new Request(`https://x${path}`, { method: "POST", body: fd }),
+      u(path),
+      { DB: db, TELEGRAM_BOT_TOKEN: "t" } as never,
+    );
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { ok: true });
+    assert.equal(sentTo, "11"); // the viewer's own chat, not anyone else's
+    assert.match(caption!, /2026-01-05/);
+    assert.match(caption!, /2026-06-05/);
+
+    // No file part → 400, not a bogus "sent".
+    const bad = await handleExtrasApi(
+      new Request(`https://x${path}`, { method: "POST", body: new FormData() }),
+      u(path),
+      { DB: db, TELEGRAM_BOT_TOKEN: "t" } as never,
+    );
+    assert.equal(bad.status, 400);
+    // GET isn't a thing here.
+    assert.equal((await asUser(db, 11, "GET", "/api/photocompare")).status, 405);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

@@ -111,6 +111,25 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     return Response.json({ error: "method not allowed" }, { status: 405 });
   }
 
+  // ---- Progress photo comparison ----
+  // The Mini App composes the two selected photos onto a canvas client-side (it already has
+  // them: the gallery renders the same authorized /api/photo URLs) and posts the PNG here. Same
+  // "the webview can't hand you a file, so the bot does" route as /api/weekcard above.
+  if (path === "/api/photocompare") {
+    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    const form = await req.formData().catch(() => null);
+    const file = form?.get("photo");
+    if (!(file instanceof Blob)) return Response.json({ error: "bad request" }, { status: 400 });
+    const from = String(form?.get("from") ?? "");
+    const to = String(form?.get("to") ?? "");
+    const tgForm = new FormData();
+    tgForm.append("chat_id", String(user.chatId));
+    tgForm.append("caption", t(lang, "photocompare_caption", { from, to }));
+    tgForm.append("photo", file, "progress.png");
+    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: "POST", body: tgForm }).catch(() => null);
+    return Response.json({ ok: !!res?.ok });
+  }
+
   // ---- What's new ----
   if (req.method === "GET" && path === "/api/whatsnew") {
     const note = latestRelease();

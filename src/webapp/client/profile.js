@@ -1,6 +1,6 @@
 
 // --- profile / settings / onboarding overlay (GET/POST /api/profile, /api/settings, /api/onboarding) ---
-var PF = { data: null, st: null, days: [], share: null, ob: { sex: "" } };
+var PF = { data: null, st: null, days: [], share: null, ob: { sex: "" }, cmp: [] };
 
 function pfOpen() {
   el("pf").classList.remove("hidden");
@@ -69,6 +69,77 @@ function pfInviteBuddy() {
   var url = "https://t.me/share/url?url=" + encodeURIComponent(link) + "&text=" + encodeURIComponent(WA.wa_buddy_invite_text || "Be my accountability buddy on trix 💪");
   if (TG && TG.openTelegramLink) TG.openTelegramLink(url); else window.open(url, "_blank");
 }
+// Before/after composite from the two picked gallery photos. Drawn client-side (the photos are
+// same-origin via /api/photo, so the canvas isn't tainted and toBlob works) and pushed to the
+// user's own chat by the bot — the webview can't hand over a file directly (CSP), same route
+// the week-card PNG already takes.
+function pfPhotoCompare() {
+  var st = el("pf-photocmp-st");
+  var phs = (PF.data && PF.data.photos) || [];
+  var byId = {};
+  phs.forEach(function (p) { byId[p.id] = p; });
+  var a = byId[PF.cmp[0]], b = byId[PF.cmp[1]];
+  if (!a || !b) return;
+  // Oldest on the left regardless of tap order — "before → after" only reads right one way.
+  if (a.takenAt > b.takenAt) { var tmp = a; a = b; b = tmp; }
+  if (st) st.textContent = WA.wa_loading;
+  var load = function (id) {
+    return new Promise(function (res, rej) {
+      var img = new Image();
+      img.onload = function () { res(img); };
+      img.onerror = function () { rej(new Error("img")); };
+      img.src = photoSrc(id);
+    });
+  };
+  Promise.all([load(a.id), load(b.id)])
+    .then(function (imgs) {
+      var W = 1080, pad = 24, label = 56;
+      var half = Math.floor((W - pad * 3) / 2);
+      var H = Math.round(half * 4 / 3) + pad * 2 + label;
+      var c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      var g = c.getContext("2d");
+      var css = getComputedStyle(document.body);
+      g.fillStyle = css.backgroundColor || "#fff";
+      g.fillRect(0, 0, W, H);
+      // object-fit: cover, by hand — keeps both shots the same size without squashing either.
+      var draw = function (img, x) {
+        var boxW = half, boxH = Math.round(half * 4 / 3);
+        var scale = Math.max(boxW / img.width, boxH / img.height);
+        var w = img.width * scale, hh = img.height * scale;
+        g.save();
+        g.beginPath();
+        g.rect(x, pad, boxW, boxH);
+        g.clip();
+        g.drawImage(img, x + (boxW - w) / 2, pad + (boxH - hh) / 2, w, hh);
+        g.restore();
+      };
+      draw(imgs[0], pad);
+      draw(imgs[1], pad * 2 + half);
+      g.fillStyle = css.color || "#000";
+      g.font = "600 26px -apple-system, system-ui, sans-serif";
+      g.textAlign = "center";
+      var ty = H - pad - 8;
+      g.fillText(a.takenAt, pad + half / 2, ty);
+      g.fillText(b.takenAt, pad * 2 + half + half / 2, ty);
+      c.toBlob(function (blob) {
+        if (!blob) { if (st) st.textContent = WA.wa_err; return; }
+        var fd = new FormData();
+        fd.append("photo", blob, "progress.png");
+        fd.append("from", a.takenAt);
+        fd.append("to", b.takenAt);
+        ccFetch("/api/photocompare", { method: "POST", body: fd })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (st) st.textContent = res && res.ok ? WA.wa_export_sent : WA.wa_err;
+            if (res && res.ok && TG && TG.HapticFeedback && TG.HapticFeedback.notificationOccurred) TG.HapticFeedback.notificationOccurred("success");
+          })
+          .catch(function () { if (st) st.textContent = WA.wa_err; });
+      }, "image/png");
+    })
+    .catch(function () { if (st) st.textContent = WA.wa_err; });
+}
+
 function pfShareProgress() {
   if (!WA_BOT) return;
   var d = null; try { d = JSON.parse(localStorage.getItem("trix_dash") || "null"); } catch (e) {}
@@ -123,12 +194,26 @@ function pfRender() {
   var phs = PF.data.photos || [];
   if (phs.length) {
     h += '<div class="card" style="margin-bottom:10px"><b>📸 ' + WA.wa_photos + "</b>";
+    // Tap two photos to build a before/after composite (PF.cmp holds the picked ids, in tap
+    // order, so "before" is whichever was tapped first — same shot can't be picked twice).
+    if (phs.length > 1) h += '<div class="sub" style="margin-top:4px">' + (WA.wa_photo_cmp_hint || "Tap two photos to compare") + "</div>";
     h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">';
     phs.forEach(function (ph) {
-      h += '<a href="' + photoSrc(ph.id) + '" target="_blank"><img loading="lazy" src="' + photoSrc(ph.id)
-        + '" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px"><div class="sub" style="text-align:center">' + esc(ph.takenAt) + "</div></a>";
+      var picked = PF.cmp.indexOf(ph.id) >= 0;
+      var mark = picked ? (PF.cmp.indexOf(ph.id) === 0 ? "1" : "2") : "";
+      h += '<div data-photo="' + esc(ph.id) + '" style="position:relative;cursor:pointer">'
+        + '<img loading="lazy" src="' + photoSrc(ph.id) + '" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px'
+        + (picked ? ";outline:3px solid var(--accent);outline-offset:-3px" : "") + '">'
+        + (picked ? '<span style="position:absolute;top:4px;left:4px;background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">' + mark + "</span>" : "")
+        + '<div class="sub" style="text-align:center">' + esc(ph.takenAt) + "</div></div>";
     });
-    h += "</div></div>";
+    h += "</div>";
+    if (PF.cmp.length === 2) {
+      // NB: id is pf-photocmp-st, not pf-cmp-st — the latter is the compete-alias save status.
+      h += '<div class="cc-save-row" style="margin-top:8px">' + uiChip(WA.wa_photo_cmp_btn || "🔀 Compare & send", ' data-act2="photocmp"')
+        + '<span class="sub" id="pf-photocmp-st"></span></div>';
+    }
+    h += "</div>";
   }
 
   // --- Profile form ---
@@ -315,7 +400,20 @@ function pfSave() {
       for (var wi = 0; wi < wsib.length; wi++) wsib[wi].className = "chipbtn" + (wsib[wi] === t ? " on" : "");
       return;
     }
+    // Photo picker for the before/after composite: tap to select, tap again to deselect, a
+    // third pick replaces the older of the two (so tapping around never dead-ends at "clear first").
+    var photoEl = t.closest ? t.closest("[data-photo]") : null;
+    if (photoEl) {
+      var pid = photoEl.getAttribute("data-photo");
+      var at = PF.cmp.indexOf(pid);
+      if (at >= 0) PF.cmp.splice(at, 1);
+      else if (PF.cmp.length < 2) PF.cmp.push(pid);
+      else PF.cmp = [PF.cmp[1], pid];
+      pfRender();
+      return;
+    }
     var a2 = t.getAttribute("data-act2");
+    if (a2 === "photocmp") { pfPhotoCompare(); return; }
     if (a2 === "shareprog") { pfShareProgress(); return; }
     if (a2 === "buddy") { pfInviteBuddy(); return; }
     if (a2 === "fb") {
