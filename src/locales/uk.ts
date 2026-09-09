@@ -172,6 +172,7 @@ export const uk: Dict = {
   swap_btn: "🔄 Замінити вправу",
   swap_pick: "Яку вправу замінити?",
   swap_pick_alt: "Обери заміну для <b>{name}</b>:",
+  swap_pick_alt_empty: "Немає варіантів під твій інвентар для <b>{name}</b> — введи свій нижче:",
   swap_custom_btn: "✏️ Ввести свою",
   swap_custom_ask: "Введи назву вправи (українською або англійською):",
   swap_done: "🔄 Замінено: {from} → {to}",

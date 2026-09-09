@@ -167,6 +167,7 @@ export const en = {
   swap_btn: "🔄 Swap exercise",
   swap_pick: "Which exercise do you want to swap?",
   swap_pick_alt: "Choose a replacement for <b>{name}</b>:",
+  swap_pick_alt_empty: "No suggestions match your equipment for <b>{name}</b> — type your own below:",
   swap_custom_btn: "✏️ Enter my own",
   swap_custom_ask: "Type an exercise name (in any language):",
   swap_done: "🔄 Swapped: {from} → {to}",

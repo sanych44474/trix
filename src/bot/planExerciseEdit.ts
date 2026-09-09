@@ -106,7 +106,11 @@ export async function showSwapAlternatives(ctx: MyContext, weekday: Weekday, ind
     kb.text(label, `swc:${weekday}:${index}:${c.id}`).row();
   }
   kb.text(t(lang, "swap_custom_btn"), `sw:custom:${weekday}:${index}`);
-  await reply(ctx, t(lang, "swap_pick_alt", { name: current.name }), kb);
+  // The equipment filter above can legitimately zero out an otherwise-nonempty candidate list
+  // (e.g. bodyweight-only for a muscle group the catalog mostly covers with machines) — without
+  // this, the prompt below showed with zero suggested buttons and no explanation, reading as a
+  // bug rather than "nothing matches your equipment, type your own".
+  await reply(ctx, t(lang, shuffled.length ? "swap_pick_alt" : "swap_pick_alt_empty", { name: current.name }), kb);
 }
 
 // User chose a catalog alternative — apply immediately.
