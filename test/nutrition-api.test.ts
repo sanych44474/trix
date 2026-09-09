@@ -141,3 +141,62 @@ test("an unrecognized action is a 400", async () => {
   const res = await call(db, 1, "POST", "/api/nutrition", { action: "doTheThing", index: 0 });
   assert.equal(res.status, 400);
 });
+
+// Barcode lookup IS covered here (unlike dbsearch above) because its one real trap is offline-
+// testable: Open Food Facts answers HTTP 200 with status:0 for an unknown code, so `res.ok`
+// proves nothing and only the payload's own status field distinguishes hit from miss.
+test("nutrition barcode: a hit returns one item in dbsearch's shape", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string) => {
+    assert.match(String(url), /\/api\/v2\/product\/3017624010701\.json/);
+    return new Response(JSON.stringify({
+      status: 1,
+      product: { product_name: "Nutella", brands: "Ferrero,Other", nutriments: { "energy-kcal_100g": 539, proteins_100g: 6.3, fat_100g: 30.9, carbohydrates_100g: 57.5 } },
+    }), { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    const res = await call(db, 1, "POST", "/api/nutrition", { action: "barcode", code: "3017624010701" });
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { items: { name: string; brand: string; per100: { kcal: number; p: number } }[] };
+    assert.equal(body.items.length, 1);
+    assert.equal(body.items[0].name, "Nutella");
+    assert.equal(body.items[0].brand, "Ferrero"); // first brand only
+    assert.equal(body.items[0].per100.kcal, 539);
+    assert.equal(body.items[0].per100.p, 6.3);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("nutrition barcode: OFF's 200-with-status-0 miss is reported as notFound, not a hit", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ status: 0 }), { status: 200 })) as unknown as typeof fetch;
+  try {
+    const res = await call(db, 1, "POST", "/api/nutrition", { action: "barcode", code: "0000000000000" });
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { items: [], source: "off", notFound: true });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("nutrition barcode: rejects anything that isn't 8-14 digits, without calling out", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const realFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = (async () => { called = true; return new Response("{}", { status: 200 }); }) as unknown as typeof fetch;
+  try {
+    for (const code of ["123", "123456789012345", "", "abcdefgh"]) {
+      const res = await call(db, 1, "POST", "/api/nutrition", { action: "barcode", code });
+      assert.equal(res.status, 400, `expected 400 for ${JSON.stringify(code)}`);
+    }
+    assert.equal(called, false, "must not hit Open Food Facts for an obviously invalid code");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

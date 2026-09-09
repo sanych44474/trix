@@ -98,6 +98,31 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     const ai = await aiProductLookup(env, user.lang, { name: q }, user._id).catch(() => null);
     return Response.json({ items: ai ? [ai] : [], source: ai ? "ai" : "off" }, { headers: { "cache-control": "no-store" } });
   }
+  // Barcode → product. Open Food Facts' v2 product endpoint is a different API from the name
+  // search above (and answers HTTP 200 with status:0 for an unknown code, so res.ok proves
+  // nothing — the payload's own status field is the check). Returns the SAME item shape as
+  // dbsearch so the client's existing pick → grams → add flow needs no special case.
+  if (action === "barcode") {
+    const code = typeof body.code === "string" ? body.code.replace(/\D/g, "") : "";
+    // EAN-8 through GTIN-14 covers every retail food barcode; anything else is a misread.
+    if (code.length < 8 || code.length > 14) return Response.json({ error: "bad request" }, { status: 400 });
+    const offUrl = `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`;
+    const res = await fetch(offUrl, { signal: AbortSignal.timeout(6000), headers: { "User-Agent": "trix-bot/1.0" } })
+      .then((r) => (r.ok ? (r.json() as Promise<{ status?: number; product?: { product_name?: string; brands?: string; nutriments?: Record<string, number> } }>) : null))
+      .catch(() => null);
+    const p = res?.status === 1 ? res.product : undefined;
+    const name = decodeEntities(p?.product_name || "").trim().slice(0, 60);
+    const per100 = offPer100(p?.nutriments);
+    if (!name || per100.kcal <= 0) {
+      // Known-good barcode formats still miss (regional products, empty OFF entries) — say so
+      // plainly instead of returning an empty list the UI would render as a silent no-op.
+      return Response.json({ items: [], source: "off", notFound: true }, { headers: { "cache-control": "no-store" } });
+    }
+    return Response.json(
+      { items: [{ name, brand: decodeEntities((p?.brands || "").split(",")[0]).trim().slice(0, 30), per100 }], source: "off" },
+      { headers: { "cache-control": "no-store" } },
+    );
+  }
   if (action === "dbadd") {
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
     const grams = Number(body.grams);

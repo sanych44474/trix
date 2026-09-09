@@ -68,6 +68,14 @@ function nuRender() {
   // Food-DB search: exact per-100g macros from Open Food Facts (server-proxied).
   h += "<h2>🔍 " + WA.wa_food_db + '</h2><div class="card">';
   h += '<div class="lrow"><input id="nu-dbq" placeholder="' + esc(WA.wa_food_db_ph) + '">' + uiChip(WA.wa_search, ' data-nu="dbsearch"') + "</div>";
+  // Barcode → exact macros. The scan button only appears when this Telegram client actually
+  // exposes the scanner API; the digits field is always there, so the feature still works by
+  // hand on clients without it (and when a scan misreads).
+  h += '<div class="lrow" style="margin-top:6px">'
+    + '<input id="nu-bc" inputmode="numeric" placeholder="' + esc(WA.wa_food_barcode_ph || "Barcode digits") + '">'
+    + uiChip(WA.wa_food_barcode_btn || "Find", ' data-nu="bclookup"')
+    + (TG && TG.showScanQrPopup ? uiChip("📷", ' data-nu="bcscan"') : "")
+    + "</div>";
   h += '<div id="nu-dbr" style="margin-top:6px"></div></div>';
   if (d.mealPlan && d.mealPlan.days && d.mealPlan.days.length) {
     h += "<h2>" + WA.wa_nu_plan + "</h2>";
@@ -168,6 +176,47 @@ function nuDbSearch() {
     })
     .catch(function () { box.innerHTML = '<span class="sub">' + WA.wa_err + "</span>"; });
 }
+// Barcode → product, rendered through the SAME NU.db + dbpick path as a name search, so the
+// "pick it, type grams, add" flow below is shared rather than duplicated for scanned items.
+function nuBarcode(raw) {
+  var box = el("nu-dbr");
+  var code = String(raw || "").replace(/\D/g, "");
+  if (!box) return;
+  if (code.length < 8 || code.length > 14) { box.innerHTML = uiSub(WA.wa_food_barcode_bad || WA.wa_err); return; }
+  box.innerHTML = '<span class="sub">' + WA.wa_loading + "</span>";
+  ccFetch("/api/nutrition", { method: "POST", body: { action: "barcode", code: code } })
+    .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
+    .then(function (res) {
+      NU.db = res.items || [];
+      // A valid barcode that OFF simply doesn't have — offer the AI free-text estimate rather
+      // than a dead end (same fallback a fruitless name search gets).
+      if (!NU.db.length) { box.innerHTML = nuAiFallbackHtml(""); return; }
+      var hh = "";
+      NU.db.forEach(function (it, k) {
+        hh += uiChip(esc(it.name) + (it.brand ? " · " + esc(it.brand) : "") + " — " + ((it.per100 && it.per100.kcal) || 0) + " " + WA.wa_kcal + "/100" + WA.wa_g,
+          ' data-nu="dbpick" data-k="' + k + '"', { style: "margin:2px 4px 2px 0" });
+      });
+      box.innerHTML = hh;
+    })
+    .catch(function () { box.innerHTML = '<span class="sub">' + WA.wa_err + "</span>"; });
+}
+// Telegram's scanner is a QR scanner; whether a given client also decodes EAN-13 product
+// barcodes is not something this code can promise, so whatever comes back is treated as
+// untrusted text: digits are extracted and validated, and the manual field stays available.
+function nuBarcodeScan() {
+  if (!(TG && TG.showScanQrPopup)) return;
+  TG.showScanQrPopup({ text: WA.wa_food_barcode_scan || "Point at the barcode" }, function (text) {
+    var code = String(text || "").replace(/\D/g, "");
+    if (code.length >= 8 && code.length <= 14) {
+      var inp = el("nu-bc");
+      if (inp) inp.value = code;
+      nuBarcode(code);
+      if (TG.closeScanQrPopup) TG.closeScanQrPopup();
+      return true; // close the scanner
+    }
+    return false; // keep scanning — not a usable code
+  });
+}
 (function nuWire() {
   var body = el("nu-body");
   if (!body) return;
@@ -179,6 +228,8 @@ function nuDbSearch() {
     if (!a) return;
     var i = Number(t.getAttribute("data-i"));
     if (a === "dbsearch") { nuDbSearch(); return; }
+    if (a === "bclookup") { nuBarcode((el("nu-bc") || {}).value || ""); return; }
+    if (a === "bcscan") { nuBarcodeScan(); return; }
     if (a === "readd") { nuAct("readd", undefined, { ri: Number(t.getAttribute("data-ri")) }); return; }
     if (a === "recipe") { nuRecipe("recipe"); return; }
     if (a === "recover") { nuRecipe("recover"); return; }
