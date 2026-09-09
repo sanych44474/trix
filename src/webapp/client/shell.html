@@ -76,6 +76,14 @@
   .lbtn:hover { filter: brightness(1.06); }
   .lbtn:active { transform: scale(.97); }
   .lbtn:disabled { opacity: .45; }
+  /* Every pill/chip button gets the same tactile press feedback as .lbtn — previously only the
+     big gradient buttons had one, so the far more common chip buttons (hundreds of call sites)
+     felt inert on tap. */
+  .chipbtn { transition: transform .08s ease; }
+  .chipbtn:active { transform: scale(.93); }
+  #tabbar button:active { transform: scale(.92); }
+  .setrow .del { transition: transform .08s ease; }
+  .setrow .del:active { transform: scale(.85); }
   input, textarea, select { transition: border-color .12s ease, box-shadow .12s ease; }
   input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
   input, textarea { width: 100%; padding: 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font-size: 15px; }
@@ -87,7 +95,7 @@
   #tabbar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 70; display: flex; background: var(--card); border-top: 1px solid var(--rest); padding: 4px 0 calc(4px + env(safe-area-inset-bottom)); }
   #tabbar button { flex: 1; background: none; border: none; color: var(--hint); font-size: 10px; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 0; cursor: pointer; }
   #tabbar button > span:first-child { font-size: 20px; line-height: 1.15; }
-  #tabbar button { position: relative; transition: color .12s ease; }
+  #tabbar button { position: relative; transition: color .12s ease, transform .08s ease; }
   #tabbar button.on { color: var(--accent); }
   /* Active-tab indicator: a short accent bar riding the top edge of the bar. */
   #tabbar button.on::before { content: ""; position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 26px; height: 2.5px; border-radius: 0 0 3px 3px; background: var(--grad); }
