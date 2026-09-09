@@ -34,7 +34,9 @@ function botUsername() {
 const VIEWS = ["trainer", "logger", "plan", "profile", "nutrition", "longtail", "owner"];
 const css = VIEWS.map((v) => read(v + ".css")).join("\n");
 const html = VIEWS.map((v) => read(v + ".html")).join("\n");
-const js = VIEWS.map((v) => read(v + ".js")).join("\n");
+// components.js has no matching .css/.html (it's shared string-builder helpers, not a view) —
+// prepended so its uiCard/uiChip/etc. globals exist before any view's own JS runs.
+const js = read("components.js") + "\n" + VIEWS.map((v) => read(v + ".js")).join("\n");
 
 let page = read("shell.html");
 for (const [marker, content] of [

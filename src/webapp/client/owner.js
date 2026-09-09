@@ -39,13 +39,13 @@ function owTabs() {
 function owLoad(sec) {
   OW.sec = sec;
   owTabs();
-  el("ow-body").innerHTML = '<div class="sub">' + WA.wa_loading + "</div>";
+  el("ow-body").innerHTML = uiSub(WA.wa_loading);
   // Users get a real interactive table (sort + group) instead of the flat text report.
   if (sec === "users") { owUsersTable(); return; }
   ccFetch("/api/owner/report?section=" + sec)
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
     .then(function (res) { if (OW.sec === sec) el("ow-body").innerHTML = res.html; })
-    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
+    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = uiSub(L.loaderr, true); });
 }
 
 // --- owner users: sortable + groupable table ---
@@ -65,7 +65,7 @@ function owUsersTable() {
   ccFetch("/api/owner/users")
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
     .then(function (d) { if (OW.sec !== sec) return; OWU = { rows: d.rows || [], feedback: d.feedback || [], sort: { col: "total", dir: -1 }, group: "none" }; owUsersRender(); })
-    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = '<div class="card">' + L.loaderr + "</div>"; });
+    .catch(function () { if (OW.sec === sec) el("ow-body").innerHTML = uiSub(L.loaderr, true); });
 }
 function owUsersRender() {
   var s = OWU.sort;
