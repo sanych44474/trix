@@ -256,9 +256,11 @@ export interface CompetitorRow {
 /** The user's friend graph, derived from referrals (bidirectional): the person who invited
  * them + everyone they invited. Used to scope leaderboards to a friend circle. */
 export async function friendIds(db: DB, userId: number): Promise<number[]> {
+  // referredBy is dual-written into an indexed column (see 0056) precisely so this stays
+  // index-backed instead of a json_extract full-table scan on every dashboard/leaderboard call.
   const [me, invitees] = await Promise.all([
-    db.prepare("SELECT json_extract(profile,'$.referredBy') AS ref FROM users WHERE id = ?").bind(userId).first<{ ref: number | null }>(),
-    db.prepare("SELECT id FROM users WHERE json_extract(profile,'$.referredBy') = ?").bind(userId).all<{ id: number }>(),
+    db.prepare("SELECT referredBy AS ref FROM users WHERE id = ?").bind(userId).first<{ ref: number | null }>(),
+    db.prepare("SELECT id FROM users WHERE referredBy = ?").bind(userId).all<{ id: number }>(),
   ]);
   const ids = new Set<number>();
   if (me?.ref) ids.add(Number(me.ref));

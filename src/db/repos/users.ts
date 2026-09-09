@@ -134,6 +134,12 @@ export async function updateUser(
     sets.push("sessionMode = ?", "sessionRetryAfter = ?");
     vals.push(patch.session.mode, patch.session.retryAfter ?? null);
   }
+  // Same fix, same reason, for profile.referredBy — friendIds() filtered on it with
+  // json_extract, which can't use an index (see 0056).
+  if (patch.profile !== undefined) {
+    sets.push("referredBy = ?");
+    vals.push(patch.profile.referredBy ?? null);
+  }
   sets.push("updatedAt = ?");
   vals.push(nowIso(), userId);
   await db.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).bind(...vals).run();
