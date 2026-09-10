@@ -5,6 +5,15 @@ import type { DailyCheckinDoc, ExerciseVideo, Lang, MealPlanDoc, PlanDay, PlanDo
 import { formatRecordBest, getPlanDay, isLowerBody, localParts, nextTarget, resolveWeightMode, type ActivityCell } from "./domain/progression";
 import { normalizeVideoKey } from "./youtube";
 import { phaseGuidance, phaseKey } from "./domain/mesocycle";
+import type { ConditioningWeek } from "./domain/conditioning";
+
+/** Human-readable weekly conditioning load: "3 cardio sessions - ~180 min", or the session count
+ * alone when nothing carried a duration (a distance-only log has real work the minutes can't see,
+ * and "~0 min" would read as a bug). */
+export function conditioningLoadLabel(lang: Lang, week: ConditioningWeek): string {
+  const vars = { sessions: week.sessions, minutes: week.minutes };
+  return t(lang, week.minutes > 0 ? "cond_load_min" : "cond_load_sessions", vars);
+}
 
 /** Cache key for an exercise's technique video — canonical English name preferred. */
 export function exerciseVideoKey(ex: { name: string; canonicalName?: string }): string {

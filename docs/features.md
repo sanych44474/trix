@@ -39,6 +39,13 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
 - **Progression engine**: weekly difficulty adjustment (ok/up/down), plateau detection with
   suggested fixes, level-up flow (beginner → intermediate → advanced regenerates volume),
   goal-switch flow, per-set RPE/RIR capture feeding autoregulation.
+- **Conditioning load**: cardio is scored as training load, not just logged. Weekly minutes,
+  sessions and distance are read against aerobic landmarks (~150 min/week baseline, ~300
+  min/week where cardio starts competing with strength), shown next to the per-muscle volume
+  bars in `/volume` and the Mini App. A week in the high zone holds the weekly strength
+  progression and says why; a hard session in the last two days softens the same-day
+  readiness advice even when the check-in looks clean. Distance logged without a duration is
+  flagged rather than guessed at.
 - **Injury-aware planning**: report pain by area/severity → conflicting exercises are swapped
   for safe ones; scheduled follow-ups with a 0–10 pain scale; auto-restore when recovered.
 - **"Not my gym today"**: one tap re-fits the whole session to what's actually on hand

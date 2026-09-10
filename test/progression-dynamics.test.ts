@@ -123,6 +123,15 @@ test("computePlanProgression: easy sets (RPE≤7) → double the weight jump", (
   assert.equal(r.changes[0].to, "65 kg"); // upper-body step 2.5 × 2 (easy)
 });
 
+test("computePlanProgression: a cardio-heavy week holds every increase", () => {
+  const ex: PlanExercise = { name: "Bench Press", sets: "3 × 8", startWeight: "60 kg", technique: "", muscles: "chest", role: "primary", isKeyLift: true };
+  const logs = [log("2026-06-01", "Bench Press", 8, 60, 7), log("2026-06-03", "Bench Press", 8, 60, 7)];
+  // Same logs that earn a double jump above — conditioning overload alone stops it.
+  const r = computePlanProgression(plan(ex), logs, [], { conditioningOverload: true });
+  assert.equal(r.heldForConditioning, true);
+  assert.equal(r.changes.length, 0);
+});
+
 test("computePlanProgression: hard sets (RPE 8) → single weight step", () => {
   const ex: PlanExercise = { name: "Bench Press", sets: "3 × 8", startWeight: "60 kg", technique: "", muscles: "chest", role: "primary", isKeyLift: true };
   const logs = [log("2026-06-01", "Bench Press", 8, 60, 8), log("2026-06-03", "Bench Press", 8, 60, 8)];

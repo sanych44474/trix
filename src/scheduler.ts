@@ -75,11 +75,12 @@ import {
 import { isoWeekKey, rankOf, streakMilestones, streakRisk, weekRangeOffset, weekStartStr, weekStreak } from "./domain/records";
 import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
+import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
 import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
 import { missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
 import { cleanAi, escapeHtml, t } from "./locales/i18n";
-import { chunkReport, renderDay } from "./render";
+import { chunkReport, conditioningLoadLabel, renderDay } from "./render";
 import { aiText } from "./ai/index";
 import { weeklyNarrativeSystem } from "./ai/prompts";
 import { buildOwnerReport, computeBoards, finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
@@ -994,7 +995,10 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
         workouts21(),
         dailyCheckinsSince(db, user._id, isoDaysAgo(7)),
       ]);
-      const prog = computePlanProgression(plan, logs, checkins);
+      // Conditioning counts as training load: a week deep past the aerobic high landmark holds
+      // the strength increases, exactly like poor wellbeing does.
+      const cond = conditioningWeek(logs, isoDaysAgo(7));
+      const prog = computePlanProgression(plan, logs, checkins, { conditioningOverload: conditioningOverload(cond) });
       const week = weeksSincePlan(plan.generatedAt.toISOString().slice(0, 10), date);
       const isClient = user.role === "client" && !!user.trainerId;
       const updated = applyProgression(plan, prog.changes);
@@ -1031,6 +1035,12 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
           const text = [t(lang, "progression_solo_header"), ...lineFor(lang), ...swapLines].join("\n");
           await bot.api.sendMessage(user.chatId, text, HTML).catch((e) => console.error("progression notify", e));
         }
+      } else if (prog.heldForConditioning && !isClient) {
+        // Say WHY nothing moved. A silent hold reads as the bot losing interest; naming the
+        // cardio week that caused it is the whole point of tracking conditioning at all.
+        await bot.api
+          .sendMessage(user.chatId, t(lang, "progression_held_conditioning", { load: conditioningLoadLabel(lang, cond) }), HTML)
+          .catch((e) => console.error("conditioning hold notify", e));
       }
 
       // Level-up offer (solo/trainer-own only, ≤ once / 30 days): the trainee has outgrown the

@@ -7,7 +7,7 @@ import { computeTargets } from "./domain/mealplan";
 import * as P from "./ai/prompts";
 import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, getPlanDay, localParts, parseMeasurements, parseHeightWeight, parseSteps, parseWorkoutText, readinessAdvice, shouldDeload, weeksSincePlan, exerciseMetric, formatRecordBest } from "./domain/progression";
 import { e1rm, weekStartStr, weekStreak } from "./domain/records";
-import { exerciseVideoKey, renderActivityGrid, renderBoard, renderPlan, renderSchedule, renderStrength, exerciseChart, wellbeingChart, renderToday, upcomingSessions, weekdayName } from "./render";
+import { conditioningLoadLabel, exerciseVideoKey, renderActivityGrid, renderBoard, renderPlan, renderSchedule, renderStrength, exerciseChart, wellbeingChart, renderToday, upcomingSessions, weekdayName } from "./render";
 import { strengthStandard, type StrengthLevel } from "./domain/standards";
 import { cmdReport, localCutoff } from "./bot/report";
 import { cmdReplan, prDate } from "./bot/exportData";
@@ -59,6 +59,7 @@ import { cmdLog } from "./bot/guidedLog";
 import { computeXp, levelFromXp } from "./domain/gamification";
 import { switchMode } from "./domain/session";
 import { weeklyVolume, projectWeight, stalledLifts, type MuscleVolume } from "./domain/analysis";
+import { conditioningWeek, readinessWithConditioning, recentConditioningStrain } from "./domain/conditioning";
 import { platePlan, warmupRamp } from "./domain/calc";
 import { showInjuryMenu } from "./bot/injury";
 import { progressBar, resolveWaterGoal } from "./domain/challenges";
@@ -1064,10 +1065,8 @@ export async function cmdToday(ctx: MyContext) {
   plan = await healPlanIfDegenerate(ctx, plan);
   plan = await healPlanNamesForDisplay(ctx, plan, lang);
   const tz = ctx.user.profile.timezone;
-  const logs = (await workoutLogsSince(ctx.db, ctx.user._id, localCutoff(tz, 14))).map((l) => ({
-    date: l.date,
-    completed: l.completed,
-  }));
+  const recentLogs = await workoutLogsSince(ctx.db, ctx.user._id, localCutoff(tz, 14));
+  const logs = recentLogs.map((l) => ({ date: l.date, completed: l.completed }));
   const sessions = upcomingSessions(lang, plan, tz, logs, 6);
   const today = localParts(tz).date;
   const todays = sessions.find((s) => s.date === today);
@@ -1100,8 +1099,15 @@ export async function cmdToday(ctx: MyContext) {
     let readinessLine = "";
     if (!deload) {
       const checkin = await getDailyCheckin(ctx.db, ctx.user._id, today).catch(() => null);
-      const readiness = readinessAdvice(checkin);
-      if (readiness !== "ok") readinessLine = t(lang, readiness === "light" ? "readiness_light" : "readiness_easy") + "\n\n";
+      const base = readinessAdvice(checkin);
+      // A long run yesterday is a recovery cost the check-in may not reflect at all — fold recent
+      // conditioning in, and say which of the two is doing the talking.
+      const strained = recentConditioningStrain(recentLogs, today);
+      const readiness = readinessWithConditioning(base, strained);
+      if (readiness !== "ok") {
+        const key = base === "ok" ? "readiness_cardio" : readiness === "light" ? "readiness_light" : "readiness_easy";
+        readinessLine = t(lang, key) + "\n\n";
+      }
     }
     await reply(ctx, phaseLine + notice + readinessLine + renderToday(lang, day, todays.label, undefined, await videosForDays(ctx, [day])), todayWorkoutKeyboard(lang, todays.weekday));
     return;
@@ -1492,11 +1498,19 @@ export async function cmdVolume(ctx: MyContext) {
   const since = localCutoff(ctx.user.profile.timezone, 7);
   const logs = await workoutLogsSince(ctx.db, ctx.user._id, since);
   const vols = weeklyVolume(logs, since).filter((v) => v.group !== "core" || v.sets > 0);
+  // Conditioning sits next to the lifting volume, not in a separate world: the same week that
+  // holds a strength increase is the one the athlete needs to see here.
+  const cond = conditioningWeek(logs, since);
   const totalSets = vols.reduce((s, v) => s + v.sets, 0);
-  if (!totalSets) { await reply(ctx, t(lang, "volume_none"), menuBtn(lang)); return; }
+  if (!totalSets && !cond.sessions) { await reply(ctx, t(lang, "volume_none"), menuBtn(lang)); return; }
   const fmt = (v: MuscleVolume) =>
     `${VOL_ZONE_EMOJI[v.zone]} ${t(lang, VOL_GROUP_LABEL[v.group])}: <b>${v.sets}</b> ${t(lang, "volume_sets")} (MEV ${v.mev} · MAV ${v.mav})`;
-  const body = `${t(lang, "volume_title")}\n\n${vols.map(fmt).join("\n")}\n\n${t(lang, "volume_legend")}`;
+  const condLine =
+    `${VOL_ZONE_EMOJI[cond.zone]} ${t(lang, "volume_cardio")}: <b>${conditioningLoadLabel(lang, cond)}</b>` +
+    (cond.untimedSets ? `\n${t(lang, "volume_cardio_untimed", { n: cond.untimedSets })}` : "");
+  const body =
+    `${t(lang, "volume_title")}\n\n${vols.map(fmt).join("\n")}\n\n${condLine}\n\n` +
+    `${t(lang, "volume_legend")}\n${t(lang, "volume_cardio_legend")}`;
   await reply(ctx, body, menuBtn(lang));
 }
 

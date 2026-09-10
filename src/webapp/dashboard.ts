@@ -1,6 +1,7 @@
 // Dashboard payload for the Mini App: one JSON with everything the five charts need.
 // Assembly is pure (assemblePayload, unit-tested); buildDashboardPayload only fetches rows.
 import { projectWeight, weeklyVolume } from "../domain/analysis";
+import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
 import { localParts, muscleGroupOf } from "../domain/progression";
 import { BADGES, e1rm, weekStartStr, weekStreak } from "../domain/records";
 import { complianceScore, getPlanDay } from "../domain/progression";
@@ -60,6 +61,9 @@ export interface DashboardPayload {
     logs: { date: string; done: boolean; ex: { n: string; s: number }[] }[]; // what was actually done that day
   };
   volume: { group: string; sets: number; mev: number; mav: number; zone: string }[];
+  // Conditioning (cardio) load for the same 7-day window — the other half of training volume,
+  // which the strength bars above have never been able to show.
+  conditioning: { sessions: number; minutes: number; meters: number; untimedSets: number; zone: string; targetMin: number; highMin: number };
   // Body measurements (cm) with >=2 points — waist/chest/hips/arm/thigh trend lines.
   measurements?: { key: string; points: { date: string; v: number }[] }[];
   exercises: { name: string; group: string; points: { date: string; e1rm: number }[] }[];
@@ -155,6 +159,8 @@ export function assemblePayload(
 
   // Weekly volume vs MEV/MAV (last 7 days of completed sets).
   const volume = weeklyVolume(workouts, isoDaysBefore(today, 6)).map((v) => ({ ...v }));
+  const cw = conditioningWeek(workouts, isoDaysBefore(today, 6));
+  const conditioning = { ...cw, targetMin: CONDITIONING_LANDMARK.targetMin, highMin: CONDITIONING_LANDMARK.highMin };
 
   // Per-exercise e1RM history (weighted lifts only, ≥2 usable points), classified into a
   // muscle group so the client can chart a whole group at once instead of one lift at a time.
@@ -232,6 +238,7 @@ export function assemblePayload(
         })),
     },
     volume,
+    conditioning,
     ...(measurements.length ? { measurements } : {}),
     exercises,
     macros: {

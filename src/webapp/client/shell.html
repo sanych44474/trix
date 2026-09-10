@@ -209,7 +209,7 @@
     <div id="day-card"></div>
   </div>
   <h2 id="h-cal"></h2><div class="card"><div id="c-cal"></div><div class="legend" id="l-cal"></div></div>
-  <h2 id="h-vol"></h2><div class="card"><div id="c-vol"></div><div class="legend" id="l-vol"></div></div>
+  <h2 id="h-vol"></h2><div class="card"><div id="c-vol"></div><div id="c-cond"></div><div class="legend" id="l-vol"></div></div>
   <h2 id="h-ex"></h2><div class="card"><select id="ex-pick"></select><div id="c-ex"></div><div class="legend" id="l-ex"></div></div>
   <div id="insight" style="margin:12px 0"></div>
   <h2 id="h-mac"></h2><div class="card"><div id="c-mac"></div><div class="sub" id="s-mac"></div></div>
@@ -284,6 +284,7 @@ function buildL(w) {
     setsPh: w.wa_d_sets_ph, repsPh: w.wa_d_reps_ph, saveSet: w.wa_d_save_set,
     foodPh: w.wa_d_food_ph, saveFood: w.wa_d_save_food, waterOk: w.wa_d_water_ok,
     setOk: w.wa_d_set_ok, foodOk: w.wa_d_food_ok, foodBad: w.wa_d_food_bad, logErr: w.wa_d_log_err,
+    cardio: { cardio: w.wa_d_cardio, min: w.wa_d_min, untimed: w.wa_d_cardio_untimed },
     groups: { chest: w.wa_d_grp_chest, back: w.wa_d_grp_back, legs: w.wa_d_grp_legs, shoulders: w.wa_d_grp_shoulders, arms: w.wa_d_grp_arms, core: w.wa_d_grp_core, other: w.wa_d_grp_other }
   };
 }
@@ -427,6 +428,30 @@ function volumeBars(rows, names) {
     s += '<text x="' + (W - 2) + '" y="' + (yTop + 13) + '" font-size="11" fill="var(--hint)" text-anchor="end">' + r.sets + '</text>';
   });
   return s + "</svg>";
+}
+// Conditioning strip under the strength bars: minutes of cardio against the aerobic band
+// (target..high), same zone colours as the volume rows. Distance logged without a duration can't
+// move the bar, so it's called out underneath rather than silently guessed at.
+function cardioBar(c, lab) {
+  var col = c.zone === "optimal" ? "var(--done)" : c.zone === "above" ? "var(--miss)" : "var(--accent)";
+  var parts = [c.sessions + "×"];
+  if (c.minutes) parts.push("~" + c.minutes + " " + lab.min);
+  if (c.meters) parts.push(Math.round(c.meters / 100) / 10 + " km");
+  var head =
+    '<div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-top:10px">' +
+    '<span class="dot" style="background:' + col + '"></span><b>' + esc(lab.cardio) + "</b>" +
+    '<span style="margin-left:auto;color:var(--hint)">' + esc(parts.join(" · ")) + "</span></div>";
+  var W = 320, H = 14, maxV = Math.max(c.minutes, c.highMin) * 1.15 || 1;
+  var x = function (v) { return (v / maxV) * W; };
+  var bar =
+    svgOpen(W, H) +
+    '<rect x="' + x(c.targetMin) + '" y="0" width="' + Math.max(1, x(c.highMin) - x(c.targetMin)) + '" height="14" rx="3" fill="var(--rest)"/>' +
+    '<rect x="0" y="3" width="' + Math.max(1, x(c.minutes)) + '" height="8" rx="3" fill="' + col + '"/>' +
+    "</svg>";
+  var hint = c.untimedSets
+    ? '<div style="font-size:11px;color:var(--hint)">' + esc(lab.untimed.replace("{n}", c.untimedSets)) + "</div>"
+    : "";
+  return head + bar + hint;
 }
 // Grouped daily bars vs a dashed target line (kcal or grams).
 function dayBars(days, key, target) {
@@ -731,6 +756,7 @@ function render(p) {
 
   // Volume
   el("c-vol").innerHTML = volumeBars(p.volume, L.groups);
+  el("c-cond").innerHTML = p.conditioning ? cardioBar(p.conditioning, L.cardio) : "";
   el("l-vol").innerHTML =
     '<span><span class="dot" style="background:var(--accent)"></span>' + L.below + "</span>" +
     '<span><span class="dot" style="background:var(--done)"></span>' + L.optimal + "</span>" +

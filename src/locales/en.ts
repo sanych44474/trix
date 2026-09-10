@@ -927,6 +927,16 @@ export const en = {
   volume_sets: "sets",
   volume_none: "No completed sessions in the last 7 days. Log a workout to see volume. 💪",
   volume_legend: "_🔻 below MEV · ✅ in range · 🔺 above MAV (per-region weekly set landmarks)._",
+  // --- conditioning (cardio) load ---
+  cond_load_min: "{sessions} cardio session(s) · ~{minutes} min",
+  cond_load_sessions: "{sessions} cardio session(s)",
+  volume_cardio: "Conditioning",
+  volume_cardio_untimed: "_↳ {n} cardio set(s) logged with no duration — add the time and this number gets accurate._",
+  volume_cardio_legend: "_Aerobic landmarks: ~150 min/week is the health baseline; past ~300 min/week cardio starts competing with strength gains._",
+  readiness_cardio:
+    "🫁 *Your cardio is still in your legs.* A hard conditioning session in the last two days is a real recovery cost, even when the check-in looks fine. Take ~10% off the working weights or stop each set a rep early — today is about quality, not records.",
+  progression_held_conditioning:
+    "🫁 *Weights stay put this week — on purpose.* Last week: {load}. That is already a full recovery cost, and stacking heavier lifts on top of a big cardio block is exactly how progress stalls. Hold these loads, keep the sessions clean, and the plan ramps again once the conditioning settles.",
   mg_legs: "Legs",
   mg_back: "Back",
   mg_chest: "Chest",
@@ -1615,6 +1625,9 @@ export const en = {
   wa_d_done: "done",
   wa_d_missed: "missed",
   wa_d_rest: "rest",
+  wa_d_cardio: "Conditioning",
+  wa_d_min: "min",
+  wa_d_cardio_untimed: "{n} cardio set(s) logged with no duration",
   wa_d_below: "below MEV",
   wa_d_optimal: "optimal",
   wa_d_above: "above MAV",

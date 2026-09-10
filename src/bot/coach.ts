@@ -12,7 +12,8 @@ import * as P from "../ai/prompts";
 import { createQuestion, getActivePlan, getRecentContext, getTrainer, getUser, setQuestionDraft, updateUser, workoutLogsSince } from "../db/repos";
 import { computeCyclePhase, phaseHint, phaseLabel } from "../domain/cycle";
 import { phaseGuidance } from "../domain/mesocycle";
-import { localParts } from "../domain/progression";
+import { bestSetForMetric, formatSetEntry, localParts, metricOfSets } from "../domain/progression";
+import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { upcomingSessions, weekdayName } from "../render";
 import { deferAi } from "./router";
@@ -49,6 +50,13 @@ export async function coachContext(ctx: MyContext): Promise<string> {
           const lifts = w.exercises
             .filter((e) => !e.skipped && e.setsDone.length)
             .map((e) => {
+              // Cardio has no top *weight* — reduced by weight it printed as "Rowing BW×0", which
+              // told the coach nothing. Render each exercise on the axis it was actually logged on.
+              const metric = metricOfSets(e.setsDone);
+              if (metric !== "reps") {
+                const best = bestSetForMetric(e.setsDone, metric) ?? e.setsDone[0];
+                return `${e.name} ${formatSetEntry(best)}${e.rpe ? `@${e.rpe}` : ""}`;
+              }
               const top = e.setsDone.reduce((a, b) => (b.weight >= a.weight ? b : a), e.setsDone[0]);
               return `${e.name} ${top.weight || "BW"}×${top.reps}${e.rpe ? `@${e.rpe}` : ""}`;
             })
@@ -72,6 +80,10 @@ export async function coachContext(ctx: MyContext): Promise<string> {
   // Same block-periodization state the scheduler advances weekly (domain/mesocycle.ts) — lets
   // the coach explain "why is my plan built this way" grounded in the actual phase driving it,
   // instead of guessing a rationale disconnected from what the plan generator actually did.
+  // Conditioning load for the week — the coach used to see only barbell work and would happily
+  // suggest "add a couple of runs" to someone already 5 sessions deep.
+  const cond = conditioningWeek(workouts, localCutoff(ctx.user.profile.timezone, 7));
+  const condLine = `Conditioning last 7d: ${cond.sessions} session(s)${cond.minutes ? `, ~${cond.minutes} min` : ""}${cond.meters ? `, ${Math.round(cond.meters / 100) / 10} km` : ""} (zone: ${cond.zone}; aerobic baseline ${CONDITIONING_LANDMARK.targetMin} min/wk, high ${CONDITIONING_LANDMARK.highMin} min/wk).\n`;
   const meso = plan?.mesocycle;
   const mesoLine = meso
     ? `Mesocycle: ${meso.phase} phase, week ${meso.weekInBlock}/${meso.blockLength} (target ${phaseGuidance(meso.phase).reps} reps @ ${phaseGuidance(meso.phase).intensity}).\n`
@@ -82,6 +94,7 @@ export async function coachContext(ctx: MyContext): Promise<string> {
     `Last 14d workouts (top set per lift): ${workoutText}.\n` +
     `${injuries ? `Injuries/limitations: ${injuries}.\n` : ""}` +
     cycleLine +
+    condLine +
     mesoLine +
     `Training pace: ${ctx.user.progressionRate ?? "normal"}. Today: ${date}.`
   );

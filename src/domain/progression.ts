@@ -580,6 +580,7 @@ export interface ProgressionResult {
   plateau: string[]; // exercises grinding without reaching the top of the range — held, not pushed
   maxedBodyweight: string[]; // bodyweight lifts that hit the rep cap → need a harder variation/load
   heldForWellbeing: boolean; // poor recent check-ins → all increases skipped this week
+  heldForConditioning: boolean; // a very high cardio week → don't stack strength increases on top
 }
 
 // A bodyweight lift this many reps deep is "too easy" — switch to a harder variation / add load
@@ -680,12 +681,23 @@ export function computePlanProgression(
   plan: PlanDoc,
   logs: WorkoutLogDoc[],
   checkins: DailyCheckinDoc[],
+  opts: { conditioningOverload?: boolean } = {},
 ): ProgressionResult {
-  const result: ProgressionResult = { changes: [], plateau: [], maxedBodyweight: [], heldForWellbeing: false };
+  const result: ProgressionResult = {
+    changes: [], plateau: [], maxedBodyweight: [], heldForWellbeing: false, heldForConditioning: false,
+  };
   if (logs.filter((l) => l.completed).length < 2) return result;
 
   if (poorWellbeing(checkins)) {
     result.heldForWellbeing = true;
+    return result;
+  }
+  // Conditioning is training load too. Computed by the caller (domain/conditioning.ts, which
+  // imports from this file) and passed in rather than imported here, to keep the dependency
+  // one-way. A week deep past the aerobic high landmark is already a full recovery cost — adding
+  // weight on top of it is how the "why am I not progressing anymore" spiral starts.
+  if (opts.conditioningOverload) {
+    result.heldForConditioning = true;
     return result;
   }
 
