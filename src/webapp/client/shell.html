@@ -443,10 +443,18 @@ function cardioBar(c, lab) {
     '<span style="margin-left:auto;color:var(--hint)">' + esc(parts.join(" · ")) + "</span></div>";
   var W = 320, H = 14, maxV = Math.max(c.minutes, c.highMin) * 1.15 || 1;
   var x = function (v) { return (v / maxV) * W; };
+  // Untimed-only week (real sessions/km logged, but no duration to plot against the minutes
+  // landmark): a minutes-scaled fill would render as a near-invisible sliver right next to text
+  // that says "N sessions Â· X km" -- the bar flatly contradicting the numbers beside it. Swap
+  // the solid fill for a dashed outline spanning the full width: "real activity, just not on
+  // this scale" instead of "basically nothing happened."
+  var untimedOnly = c.sessions > 0 && !c.minutes;
   var bar =
     svgOpen(W, H) +
     '<rect x="' + x(c.targetMin) + '" y="0" width="' + Math.max(1, x(c.highMin) - x(c.targetMin)) + '" height="14" rx="3" fill="var(--rest)"/>' +
-    '<rect x="0" y="3" width="' + Math.max(1, x(c.minutes)) + '" height="8" rx="3" fill="' + col + '"/>' +
+    (untimedOnly
+      ? '<rect x="1" y="2" width="' + (W - 2) + '" height="10" rx="3" fill="none" stroke="' + col + '" stroke-width="1.5" stroke-dasharray="4 3"/>'
+      : '<rect x="0" y="3" width="' + Math.max(1, x(c.minutes)) + '" height="8" rx="3" fill="' + col + '"/>') +
     "</svg>";
   var hint = c.untimedSets
     ? '<div style="font-size:11px;color:var(--hint)">' + esc(lab.untimed.replace("{n}", c.untimedSets)) + "</div>"
