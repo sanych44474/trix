@@ -36,7 +36,28 @@ function readDevVars() {
     return {}; // no .dev.vars locally — every provider below gets skipped, not failed
   }
 }
-const vars = readDevVars();
+// Model ids that PRODUCTION actually uses live in wrangler.toml's [vars] block, not in
+// .dev.vars — checking only the latter is why this script happily reported "all good" on
+// 2026-09-09 while prod was pointing at four dead Groq ids and three dead OpenRouter ones.
+// wrangler.toml wins where both define a key, mirroring what the deployed Worker sees.
+function readWranglerVars() {
+  try {
+    const text = readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8");
+    const block = text.split(/^\[vars\]/m)[1];
+    if (!block) return {};
+    const out = {};
+    for (const line of block.split(/\r?\n/)) {
+      if (/^\[/.test(line)) break; // next TOML section — [vars] is over
+      const m = line.match(/^\s*([A-Z_]+)\s*=\s*"([^"]*)"/);
+      if (m && m[2]) out[m[1]] = m[2];
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+const vars = { ...readDevVars(), ...readWranglerVars() };
 const firstKey = (raw) => (raw ?? "").split(",")[0].trim();
 const GEMINI = firstKey(vars.GEMINI_API_KEY);
 const GROQ = firstKey(vars.GROQ_API_KEY);

@@ -50,9 +50,12 @@ BOT_USERNAME = ""
 BOT_ID = ""
 BOT_NAME = ""
 # Gemini leads ONLY for plan/translate (native responseSchema = most reliable structured
-# JSON). gemini-2.5-flash is the strongest WORKING free model: live tests showed the 3.x
-# models 404 (gemini-3-flash), 429/503 (gemini-3.5-flash) or time out (gemini-3.1-flash-lite),
-# while 2.5-flash/2.5-flash-lite respond in <1 s. Pro models are paid-only since Apr 2026.
+# JSON). [2026-09-10] Re-benchmarked live: the 3.x models are NOT broken as the old note here
+# claimed — 3.5-flash answered in ~1 s and 3-flash-preview/3.1-flash-lite/gemma-4-26b all
+# responded fine. Free-tier latency swings hard between days (3.5-flash measured 7.6 s one day
+# and 0.98 s the next), so treat any single benchmark as a snapshot, not a verdict — that
+# volatility is exactly why the ladder below is deep. Only gemma-4-31b-it was reproducibly
+# broken across two days (HTTP 500 / timeout) and has been dropped.
 # Gemini ladder (verified available to this key via ListModels, ordered strongest → most
 # reliable). Each model is a SEPARATE quota/load bucket, so the deep ladder rides out the
 # free-tier 503/429 storms. Plan/translate try the whole ladder (quality first); fast kinds
@@ -68,20 +71,26 @@ BOT_NAME = ""
 # 3-flash-preview / 3.1-flash-lite TIME OUT — so they sit at the tail to not starve the
 # Groq fallback. (Gemini 3 Flash + Gemma 4 31B are both present, per request.)
 GEMINI_MODEL = "gemini-3.5-flash"
-GEMINI_LIGHT_MODEL = "gemini-2.5-flash"
-GEMINI_FALLBACK_MODELS = "gemini-2.5-flash,gemini-2.5-flash-lite,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-3-flash-preview,gemini-3.1-flash-lite"
-# Groq Cloud — fast, reliable JSON, generous free tier (first fallback after Gemini).
-# Primary: llama-3.3-70b-versatile (best quality, json_object mode).
-# Fallbacks: gpt-oss-120b (500 TPS, same model as Ollama, cheaper), qwen3-32b (good reasoning),
-#            llama-3.1-8b-instant (560 TPS, 14,400 RPD free — excellent for high-volume light tasks).
-GROQ_MODEL = "llama-3.3-70b-versatile"
-GROQ_FALLBACK_MODELS = "openai/gpt-oss-120b,qwen/qwen3-32b,llama-3.1-8b-instant"
-GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+GEMINI_LIGHT_MODEL = "gemini-2.5-flash-lite"
+GEMINI_FALLBACK_MODELS = "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3.1-flash-lite,gemini-3-flash-preview,gemma-4-26b-a4b-it"
+# Groq Cloud — fast, reliable JSON, generous free tier; LEADS for fast conversational kinds.
+# [2026-09-10] Re-verified against GET /openai/v1/models. The previous values had rotted: of the
+# five ids configured here, FOUR were gone (llama-3.3-70b-versatile — the primary! — plus
+# qwen3-32b, llama-3.1-8b-instant, and the llama-4-scout vision model), so every fast call was
+# 404ing on its first attempt and only recovering on the fallback. Only gpt-oss-120b survived.
+# GROQ_VISION_MODEL is deliberately EMPTY: Groq has had no vision-capable model since the
+# llama-4 line was retired, and groq.ts fails fast on an unset value rather than guessing a
+# dead id. Re-check with `npm run check:ai-models` — this list rots without warning.
+GROQ_MODEL = "openai/gpt-oss-120b"
+GROQ_FALLBACK_MODELS = "qwen/qwen3.8-27b,qwen/qwen3.6-27b,openai/gpt-oss-20b"
+GROQ_VISION_MODEL = ""
 # Ollama Cloud — text-only fallback after Groq (free tier: gpt-oss:120b).
 OLLAMA_MODEL = "gpt-oss:120b"
-# OpenRouter free models (tertiary fallback). NOTE: model availability changes — verify.
-# gpt-oss-120b:free = strong, fast, same model family as Groq/Ollama fallbacks.
-# Vision: llama-3.2-11b still best free multimodal on OR.
-OPENROUTER_MODEL = "openai/gpt-oss-120b:free"
-OPENROUTER_TRANSLATE_MODEL = "openai/gpt-oss-120b:free"
-OPENROUTER_VISION_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free"
+# OpenRouter free models (tertiary fallback). The :free roster rotates constantly — as of
+# [2026-09-10] all three previously configured ids (openai/gpt-oss-120b:free and
+# meta-llama/llama-3.2-11b-vision-instruct:free) were 404, i.e. this whole fallback tier was
+# dead in production while looking configured. Values below verified live against
+# GET /api/v1/models; vision pick confirmed via architecture.input_modalities.
+OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+OPENROUTER_TRANSLATE_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+OPENROUTER_VISION_MODEL = "google/gemma-4-31b-it:free"
