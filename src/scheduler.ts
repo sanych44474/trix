@@ -1239,10 +1239,19 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         }
       } else if (prog.heldForConditioning && !isClient) {
         // Say WHY nothing moved. A silent hold reads as the bot losing interest; naming the
-        // cardio week that caused it is the whole point of tracking conditioning at all.
-        await bot.api
-          .sendMessage(user.chatId, t(lang, "progression_held_conditioning", { load: conditioningLoadLabel(lang, cond) }), HTML)
-          .catch((e) => console.error("conditioning hold notify", e));
+        // cardio week that caused it is the whole point of tracking conditioning at all. Recorded
+        // to plan_adjustments too (a reason-only entry -- see cmdPlanChanges), in the user's own
+        // language: it's stored for THIS user's later /planchanges read, not a shared audit log.
+        const heldText = t(lang, "progression_held_conditioning", { load: conditioningLoadLabel(lang, cond) });
+        await recordAdjustment(db, user._id, week, JSON.stringify([{ reason: heldText }])).catch(() => {});
+        await bot.api.sendMessage(user.chatId, heldText, HTML).catch((e) => console.error("conditioning hold notify", e));
+      } else if (prog.heldForWellbeing && !isClient) {
+        // Same idea as the conditioning hold above, for the OTHER hold reason -- this one was
+        // computed every week already (poorWellbeing gates all increases) but never surfaced:
+        // a silent week reads as the bot forgetting about you, not as a deliberate call.
+        const heldText = t(lang, "progression_held_wellbeing");
+        await recordAdjustment(db, user._id, week, JSON.stringify([{ reason: heldText }])).catch(() => {});
+        await bot.api.sendMessage(user.chatId, heldText, HTML).catch((e) => console.error("wellbeing hold notify", e));
       }
 
       // Level-up offer (solo/trainer-own only, ≤ once / 30 days): the trainee has outgrown the

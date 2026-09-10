@@ -987,6 +987,8 @@ export const en = {
     "🫁 *Your cardio is still in your legs.* A hard conditioning session in the last two days is a real recovery cost, even when the check-in looks fine. Take ~10% off the working weights or stop each set a rep early — today is about quality, not records.",
   progression_held_conditioning:
     "🫁 *Weights stay put this week — on purpose.* Last week: {load}. That is already a full recovery cost, and stacking heavier lifts on top of a big cardio block is exactly how progress stalls. Hold these loads, keep the sessions clean, and the plan ramps again once the conditioning settles.",
+  progression_held_wellbeing:
+    "😴 *Weights stay put this week — on purpose.* Your recent check-ins (sleep/energy/stress) point to needing recovery more than more load. Pushing harder on top of that is how a rough patch turns into a real setback. Same weights, keep the sessions clean, and progress resumes once those numbers pick back up.",
   mg_legs: "Legs",
   mg_back: "Back",
   mg_chest: "Chest",

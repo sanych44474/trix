@@ -124,6 +124,17 @@ test("computePlanProgression: easy sets (RPE≤7) → double the weight jump", (
   assert.equal(r.changes[0].to, "65 kg"); // upper-body step 2.5 × 2 (easy)
 });
 
+test("computePlanProgression: every change carries a plain-language reason (explainable recommendations)", () => {
+  const ex: PlanExercise = { name: "Bench Press", sets: "3 × 8", startWeight: "60 kg", technique: "", muscles: "chest", role: "primary", isKeyLift: true };
+  const easyLogs = [log("2026-06-01", "Bench Press", 8, 60, 7), log("2026-06-03", "Bench Press", 8, 60, 7)];
+  const easy = computePlanProgression(plan(ex), easyLogs, []);
+  assert.match(easy.changes[0].reason ?? "", /bigger jump/i);
+
+  const hardLogs = [log("2026-06-01", "Bench Press", 8, 60, 8), log("2026-06-03", "Bench Press", 8, 60, 8)];
+  const hard = computePlanProgression(plan(ex), hardLogs, []);
+  assert.match(hard.changes[0].reason ?? "", /smallest plate/i);
+});
+
 test("computePlanProgression: a cardio-heavy week holds every increase", () => {
   const ex: PlanExercise = { name: "Bench Press", sets: "3 × 8", startWeight: "60 kg", technique: "", muscles: "chest", role: "primary", isKeyLift: true };
   const logs = [log("2026-06-01", "Bench Press", 8, 60, 7), log("2026-06-03", "Bench Press", 8, 60, 7)];

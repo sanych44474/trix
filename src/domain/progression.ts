@@ -580,6 +580,7 @@ export interface ExerciseChange {
   field: "weight" | "reps";
   from: string;
   to: string;
+  reason?: string; // plain-language "why" -- shown verbatim by /planchanges (bot/plan.ts)
 }
 
 export interface ProgressionResult {
@@ -747,7 +748,12 @@ export function computePlanProgression(
           const easy = rpes.length ? rpes.every((r) => r <= 7) : top !== undefined && recent.every((s) => s.reps >= top + 2);
           if (range.high < BODYWEIGHT_REP_CAP) {
             const to = bumpReps(range, easy ? 2 : 1);
-            if (to !== ex.sets) result.changes.push({ weekday: day.weekday, index, exercise: ex.name, field: "reps", from: ex.sets, to });
+            if (to !== ex.sets) {
+              const reason = easy
+                ? "topped the rep range comfortably (RPE ≤ 7) two sessions running — added a bigger jump"
+                : "hit the top of the rep range without maxing out — added a rep";
+              result.changes.push({ weekday: day.weekday, index, exercise: ex.name, field: "reps", from: ex.sets, to, reason });
+            }
           } else {
             result.maxedBodyweight.push(ex.name); // rep cap → needs a harder variation / load
           }
@@ -782,7 +788,14 @@ export function computePlanProgression(
 
       if (Math.abs(target - w.kg) >= 0.5) {
         const to = `${fmtNum(target)}${w.suffix || " kg"}`;
-        if (to !== ex.startWeight) result.changes.push({ weekday: day.weekday, index, exercise: ex.name, field: "weight", from: ex.startWeight, to });
+        if (to !== ex.startWeight) {
+          const reason = ready
+            ? (target - demonstrated) >= step * 2
+              ? "topped the rep range comfortably (RPE ≤ 7) two sessions running — added a bigger jump"
+              : "hit the top of the rep range without maxing out — added the smallest plate"
+            : "the logged weight moved since the plan was last set — kept the plan matching what you actually lifted";
+          result.changes.push({ weekday: day.weekday, index, exercise: ex.name, field: "weight", from: ex.startWeight, to, reason });
+        }
       } else if (!ready && top !== undefined) {
         // Weight already matches reality but reps keep falling short while grinding → plateau
         // (the scheduler then offers a fresh same-muscle variation).
