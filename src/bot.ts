@@ -1375,7 +1375,11 @@ export async function cmdProgress(ctx: MyContext) {
   let msg = `${summary}\n\n${renderStrength(lang, records)}`;
   msg += `\n\n${renderActivityGrid(lang, buildActivityCells(date, workoutDates, nutritionDates, 28))}`;
   if (deloadDue(records, date)) msg += `\n\n${t(lang, "deload_due")}`;
+  // No strength records = nothing to analyse. The prompt asks the model to "note improvements
+  // and give the next progression target per lift"; handed an empty array it can only produce
+  // generic filler that reads as praise for training that was never logged.
   try {
+    if (!records.length) throw new Error("no records to narrate");
     const narrative = await aiText(ctx.env, {
       system: P.progressSystem(lang),
       user: JSON.stringify(

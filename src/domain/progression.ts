@@ -408,9 +408,16 @@ export function deloadDue(records: StrengthRecordDoc[], today: string): boolean 
   const todayMs = Date.parse(today);
   return records.some((r) => {
     const first = r.history[0];
-    if (!first) return false;
+    const last = r.history[r.history.length - 1];
+    if (!first || !last) return false;
     const days = (todayMs - Date.parse(first.date)) / 86_400_000;
-    return days >= 42;
+    // A 6-week SPAN is not the same as 6 weeks of training: without this, one lift logged once
+    // 42+ days ago and never touched since was enough to tell the user "you've been progressing
+    // for 6-8 weeks, consider a deload" — asserting a training block that never happened. The
+    // lift also has to be genuinely active (touched within the last two weeks) and to have real
+    // history behind it, not a single ancient data point.
+    const staleDays = (todayMs - Date.parse(last.date)) / 86_400_000;
+    return days >= 42 && staleDays <= 14 && r.history.length >= 3;
   });
 }
 

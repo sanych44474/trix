@@ -1014,9 +1014,17 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     if (plan) {
       const calendarDue = deloadWeekDue(plan.generatedAt.toISOString().slice(0, 10), date);
       const adherenceDue = !calendarDue && adherenceDeloadDue(await workouts21());
+      // deload_week's text asserts "you've trained hard for ~7 weeks" — but the calendar trigger
+      // only knows the PLAN's age, not whether a single session was ever logged against it. Sent
+      // blind, it tells someone who never trained that they earned a recovery week. Check the
+      // logs: with real training behind it, keep the calendar message; without, fall back to the
+      // honest "rough stretch" wording, which is what actually happened.
+      const trainedRecently = calendarDue
+        ? (await workouts21()).some((l) => l.completed)
+        : false;
       if (calendarDue || adherenceDue) {
         const kb = new InlineKeyboard().text(t(lang, "menu_coach"), "menu:coach");
-        await send(t(lang, adherenceDue ? "deload_adherence" : "deload_week"), { ...HTML, reply_markup: kb });
+        await send(t(lang, calendarDue && trainedRecently ? "deload_week" : "deload_adherence"), { ...HTML, reply_markup: kb });
         markSent("deload");
         pinged = true;
       }
@@ -1369,9 +1377,17 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         user.reminders = { ...user.reminders, lastRank: rank };
         await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
       }
-      await bot.api
-        .sendMessage(user.chatId, t(lang, "weekly_nudge", { rank: rank || "—", streak }) + rankLine, HTML)
-        .catch((e) => console.error("nudge send", e));
+      // Only send when there is something real behind it. `rank` exists only if they logged a
+      // session THIS week (the consistency board drops zero-count entries), and `streak > 0`
+      // means they trained recently — with neither, the message would read
+      // "🏆 you're #— · 🔥 0-week streak. One more session keeps it alive!" to somebody who has
+      // not trained at all. Re-engaging those users is the at-risk/activation machinery's job;
+      // a leaderboard nudge congratulating nothing just teaches them to ignore the bot.
+      if (rank || streak > 0) {
+        await bot.api
+          .sendMessage(user.chatId, t(lang, "weekly_nudge", { rank: rank || "—", streak }) + rankLine, HTML)
+          .catch((e) => console.error("nudge send", e));
+      }
     }
     } catch (err) {
       logSchedulerError(db, "weekly_nudge", err, user._id);

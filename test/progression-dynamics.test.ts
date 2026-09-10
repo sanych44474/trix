@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   adherenceDeloadDue,
   buildActivityCells,
+  deloadDue,
   complianceScore,
   computePlanProgression,
   fatLossGoalReached,
@@ -11,7 +12,7 @@ import {
   nextLevel,
   shouldLevelUp,
 } from "../src/domain/progression";
-import type { PlanDoc, PlanExercise, WorkoutLogDoc } from "../src/types";
+import type { PlanDoc, PlanExercise, StrengthRecordDoc, WorkoutLogDoc } from "../src/types";
 
 const wlog = (completed: boolean): WorkoutLogDoc => ({
   userId: 1,
@@ -181,4 +182,35 @@ test("computePlanProgression: caps the increase at demonstrated + 2 steps (never
   const logs = [log("2026-06-01", "Row", 8, 60, 7), log("2026-06-03", "Row", 8, 60, 7)];
   const r = computePlanProgression(plan(ex), logs, []);
   assert.equal(r.changes[0].to, "65 kg"); // 60 + 2.5×2, not more
+});
+
+function rec(exercise: string, history: { date: string; weight: number; reps: number }[]): StrengthRecordDoc {
+  return { userId: 1, exercise, metric: "reps", bestWeight: 0, bestReps: 0, history };
+}
+
+test("deloadDue: an old, stale lift never touched recently does not trigger it", () => {
+  // First logged 50 days ago, last touched 40 days ago -- a real 6-week SPAN, but nobody has
+  // trained this lift in almost 6 weeks. Asserting "you've been progressing for 6-8 weeks" here
+  // would be telling an inactive user they earned a recovery week for training that never happened.
+  const records = [rec("Bench Press", [
+    { date: "2026-04-13", weight: 60, reps: 8 },
+    { date: "2026-04-23", weight: 62.5, reps: 8 },
+    { date: "2026-05-03", weight: 65, reps: 6 },
+  ])];
+  assert.equal(deloadDue(records, "2026-06-02"), false);
+});
+
+test("deloadDue: a single old data point (no real training history) does not trigger it", () => {
+  const records = [rec("Bench Press", [{ date: "2026-04-13", weight: 60, reps: 8 }])];
+  assert.equal(deloadDue(records, "2026-06-02"), false);
+});
+
+test("deloadDue: genuinely active for 6+ weeks, still training this lift now, does trigger it", () => {
+  const records = [rec("Bench Press", [
+    { date: "2026-04-13", weight: 60, reps: 8 },
+    { date: "2026-05-04", weight: 65, reps: 8 },
+    { date: "2026-05-25", weight: 70, reps: 6 },
+    { date: "2026-06-01", weight: 70, reps: 7 },
+  ])];
+  assert.equal(deloadDue(records, "2026-06-02"), true);
 });
