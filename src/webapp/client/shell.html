@@ -209,6 +209,7 @@
     <div id="day-card"></div>
   </div>
   <h2 id="h-cal"></h2><div class="card"><div id="c-cal"></div><div class="legend" id="l-cal"></div></div>
+  <h2 id="h-recovery"></h2><div class="card"><div id="c-recovery"></div></div>
   <h2 id="h-vol"></h2><div class="card"><div id="c-vol"></div><div id="c-cond"></div><div class="legend" id="l-vol"></div></div>
   <h2 id="h-ex"></h2><div class="card"><select id="ex-pick"></select><div id="c-ex"></div><div class="legend" id="l-ex"></div></div>
   <div id="insight" style="margin:12px 0"></div>
@@ -285,6 +286,10 @@ function buildL(w) {
     foodPh: w.wa_d_food_ph, saveFood: w.wa_d_save_food, waterOk: w.wa_d_water_ok,
     setOk: w.wa_d_set_ok, foodOk: w.wa_d_food_ok, foodBad: w.wa_d_food_bad, logErr: w.wa_d_log_err,
     cardio: { cardio: w.wa_d_cardio, min: w.wa_d_min, untimed: w.wa_d_cardio_untimed },
+    recovery: {
+      title: w.wa_d_recovery, great: w.wa_d_rec_great, good: w.wa_d_rec_good, fair: w.wa_d_rec_fair, poor: w.wa_d_rec_poor,
+      clean: w.wa_d_rec_clean,
+    },
     groups: { chest: w.wa_d_grp_chest, back: w.wa_d_grp_back, legs: w.wa_d_grp_legs, shoulders: w.wa_d_grp_shoulders, arms: w.wa_d_grp_arms, core: w.wa_d_grp_core, other: w.wa_d_grp_other }
   };
 }
@@ -445,7 +450,7 @@ function cardioBar(c, lab) {
   var x = function (v) { return (v / maxV) * W; };
   // Untimed-only week (real sessions/km logged, but no duration to plot against the minutes
   // landmark): a minutes-scaled fill would render as a near-invisible sliver right next to text
-  // that says "N sessions Â· X km" -- the bar flatly contradicting the numbers beside it. Swap
+  // that says "N sessions · X km" -- the bar flatly contradicting the numbers beside it. Swap
   // the solid fill for a dashed outline spanning the full width: "real activity, just not on
   // this scale" instead of "basically nothing happened."
   var untimedOnly = c.sessions > 0 && !c.minutes;
@@ -460,6 +465,22 @@ function cardioBar(c, lab) {
     ? '<div style="font-size:11px;color:var(--hint)">' + esc(lab.untimed.replace("{n}", c.untimedSets)) + "</div>"
     : "";
   return head + bar + hint;
+}
+// Recovery score card: a big number + label, and the factors that pulled it down (empty when
+// nothing did). No chart needed -- the score itself, in color, already reads at a glance.
+function recoveryCard(r, lab) {
+  var col = r.score >= 80 ? "var(--done)" : r.score >= 50 ? "var(--accent)" : "var(--miss)";
+  var head =
+    '<div style="display:flex;align-items:baseline;gap:8px">' +
+    '<span class="dot" style="background:' + col + '"></span>' +
+    '<b style="font-size:22px">' + r.score + "</b>" +
+    '<span style="color:var(--hint);font-size:12px">/ 100 · ' + esc(lab[r.label] || r.label) + "</span></div>";
+  var factors = r.factors.length
+    ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--hint)">' +
+      r.factors.map(function (f) { return "<li>" + esc(f) + "</li>"; }).join("") +
+      "</ul>"
+    : '<div style="font-size:12px;color:var(--hint);margin-top:6px">' + esc(lab.clean) + "</div>";
+  return head + factors;
 }
 // Grouped daily bars vs a dashed target line (kcal or grams).
 function dayBars(days, key, target) {
@@ -726,6 +747,7 @@ function render(p) {
   el("h-weight").textContent = L.weight;
   initMonth(p);
   el("h-cal").textContent = L.cal;
+  el("h-recovery").textContent = L.recovery.title;
   el("h-vol").textContent = L.vol;
   el("h-ex").textContent = L.ex;
   el("h-mac").textContent = L.mac;
@@ -765,6 +787,7 @@ function render(p) {
   // Volume
   el("c-vol").innerHTML = volumeBars(p.volume, L.groups);
   el("c-cond").innerHTML = p.conditioning ? cardioBar(p.conditioning, L.cardio) : "";
+  el("c-recovery").innerHTML = p.recovery ? recoveryCard(p.recovery, L.recovery) : "";
   el("l-vol").innerHTML =
     '<span><span class="dot" style="background:var(--accent)"></span>' + L.below + "</span>" +
     '<span><span class="dot" style="background:var(--done)"></span>' + L.optimal + "</span>" +

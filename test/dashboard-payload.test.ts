@@ -54,7 +54,7 @@ const strength = (exercise: string, hist: [string, number, number][]): StrengthR
 
 const body = (date: string, weight: number): BodyLogDoc => ({ userId: 1, date, weight, createdAt: new Date(0) });
 
-const empty = { bodyLogs: [], workouts: [], records: [], nutrition: [], plan: null };
+const empty = { bodyLogs: [], workouts: [], records: [], nutrition: [], plan: null, checkin: null };
 
 test("isoDaysBefore / isoWeekdayOf: date math", () => {
   assert.equal(isoDaysBefore(TODAY, 1), "2026-06-30");
@@ -116,4 +116,20 @@ test("weight: points + goal projection passthrough", () => {
   assert.ok(p.weight.projection);
   assert.ok(p.weight.projection!.onTrack);
   assert.ok(p.weight.projection!.slopePerWeek < 0);
+});
+
+test("recovery: no signals at all -> a clean score, wired through from assemblePayload", () => {
+  const p = assemblePayload(user(), TODAY, { ...empty });
+  assert.equal(p.recovery.score, 100);
+  assert.equal(p.recovery.label, "great");
+  assert.deepEqual(p.recovery.factors, []);
+});
+
+test("recovery: a poor check-in lowers the score and names the factor", () => {
+  const p = assemblePayload(user(), TODAY, {
+    ...empty,
+    checkin: { userId: 1, date: TODAY, energy: 1, sleep: 3, stress: 2, createdAt: new Date() },
+  });
+  assert.ok(p.recovery.score < 100);
+  assert.match(p.recovery.factors[0], /energy/);
 });

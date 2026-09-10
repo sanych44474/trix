@@ -2,6 +2,7 @@
 // Assembly is pure (assemblePayload, unit-tested); buildDashboardPayload only fetches rows.
 import { projectWeight, weeklyVolume } from "../domain/analysis";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
+import { recoveryScore } from "../domain/recovery";
 import { localParts, muscleGroupOf } from "../domain/progression";
 import { BADGES, e1rm, weekStartStr, weekStreak } from "../domain/records";
 import { complianceScore, getPlanDay } from "../domain/progression";
@@ -20,6 +21,7 @@ import {
   dailyActiveUsers,
   dashboardExtrasBatch,
   getActivePlan,
+  getDailyCheckin,
   getOwnerChatId,
   getUser,
   listActivePlans,
@@ -32,6 +34,7 @@ import { t } from "../locales/i18n";
 import { resolveStepsGoal, resolveWaterGoal } from "../domain/challenges";
 import type {
   BodyLogDoc,
+  DailyCheckinDoc,
   Lang,
   NutritionLogDoc,
   NutritionTargets,
@@ -64,6 +67,9 @@ export interface DashboardPayload {
   // Conditioning (cardio) load for the same 7-day window — the other half of training volume,
   // which the strength bars above have never been able to show.
   conditioning: { sessions: number; minutes: number; meters: number; untimedSets: number; zone: string; targetMin: number; highMin: number };
+  // Combines the daily check-in with what the app already knows from logged training -- see
+  // domain/recovery.ts for why HRV/pulse are deliberately not inputs (no wearable integration).
+  recovery: { score: number; label: string; factors: string[] };
   // Body measurements (cm) with >=2 points — waist/chest/hips/arm/thigh trend lines.
   measurements?: { key: string; points: { date: string; v: number }[] }[];
   exercises: { name: string; group: string; points: { date: string; e1rm: number }[] }[];
@@ -119,9 +125,10 @@ export function assemblePayload(
     records: StrengthRecordDoc[];
     nutrition: NutritionLogDoc[];
     plan: PlanDoc | null;
+    checkin: DailyCheckinDoc | null;
   },
 ): DashboardPayload {
-  const { bodyLogs, workouts, records, nutrition, plan } = rows;
+  const { bodyLogs, workouts, records, nutrition, plan, checkin } = rows;
 
   // Weight trend + goal projection.
   const points = bodyLogs
@@ -160,6 +167,20 @@ export function assemblePayload(
   // Weekly volume vs MEV/MAV (last 7 days of completed sets).
   const volume = weeklyVolume(workouts, isoDaysBefore(today, 6)).map((v) => ({ ...v }));
   const cw = conditioningWeek(workouts, isoDaysBefore(today, 6));
+
+  // Recovery score: combines the check-in with what's already been computed above (conditioning
+  // zone, volume-vs-MAV) plus recent RPE -- see domain/recovery.ts for the weighting and why
+  // missing data is never itself a penalty.
+  const recentCompleted = [...workouts].filter((w) => w.completed).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 5);
+  const rpes = recentCompleted.flatMap((w) => w.exercises.map((e) => e.rpe).filter((r): r is number => typeof r === "number"));
+  const avgRpe = rpes.length ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;
+  const groupsAboveMav = volume.filter((v) => v.zone === "above").length;
+  const recovery = recoveryScore({
+    checkin: checkin ? { energy: checkin.energy, sleep: checkin.sleep, stress: checkin.stress } : null,
+    conditioningZone: cw.zone,
+    avgRpe,
+    groupsAboveMav,
+  });
   const conditioning = { ...cw, targetMin: CONDITIONING_LANDMARK.targetMin, highMin: CONDITIONING_LANDMARK.highMin };
 
   // Per-exercise e1RM history (weighted lifts only, ≥2 usable points), classified into a
@@ -239,6 +260,7 @@ export function assemblePayload(
     },
     volume,
     conditioning,
+    recovery,
     ...(measurements.length ? { measurements } : {}),
     exercises,
     macros: {
@@ -341,7 +363,7 @@ async function buildOwnerSection(db: D1Database, today: string): Promise<NonNull
 
 export async function buildDashboardPayload(db: D1Database, user: UserDoc): Promise<DashboardPayload> {
   const today = localParts(user.profile.timezone).date;
-  const [bodyLogs, workouts, records, nutrition, plan, trainerSection, ownerChatId, extras] = await Promise.all([
+  const [bodyLogs, workouts, records, nutrition, plan, trainerSection, ownerChatId, extras, checkin] = await Promise.all([
     bodyLogsByUser(db, user._id).catch(() => []),
     workoutLogsSince(db, user._id, isoDaysBefore(today, CALENDAR_DAYS - 1)),
     listStrength(db, user._id, 40),
@@ -352,6 +374,7 @@ export async function buildDashboardPayload(db: D1Database, user: UserDoc): Prom
       : Promise.resolve(undefined),
     getOwnerChatId(db).catch(() => undefined),
     dashboardExtrasBatch(db, user._id, today).catch(() => null),
+    getDailyCheckin(db, user._id, today).catch(() => null),
   ]);
   // Owner analytics only for the single owner — resolved after the parallel batch so every
   // other user's dashboard doesn't pay a serial "am I the owner" round-trip.
@@ -365,6 +388,7 @@ export async function buildDashboardPayload(db: D1Database, user: UserDoc): Prom
     records,
     nutrition,
     plan,
+    checkin,
   });
   if (trainerSection) payload.trainer = trainerSection;
   if (ownerSection) payload.owner = ownerSection;
