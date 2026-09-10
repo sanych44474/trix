@@ -92,6 +92,24 @@ test("deleteUserData: removes trainer_templates, shared_programs, trainer_prospe
   assert.deepEqual(await listClientNoteHistory(db, 1, 2), []);
 });
 
+test("deleteUserData: removes the deleted user's scheduler_dryrun_log rows, and only those", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "uk", "Ann");
+  await db
+    .prepare("INSERT INTO scheduler_dryrun_log (source, entityId, kind, detail, createdAt) VALUES ('user', 1, 'send', '{}', '2026-01-01')")
+    .run();
+  // A squad row whose entityId (a chat id) collides numerically with this user's id must
+  // survive — source is what disambiguates them, not entityId alone.
+  await db
+    .prepare("INSERT INTO scheduler_dryrun_log (source, entityId, kind, detail, createdAt) VALUES ('squad', 1, 'send', '{}', '2026-01-01')")
+    .run();
+
+  await deleteUserData(db, 1);
+
+  const remaining = await db.prepare("SELECT source, entityId FROM scheduler_dryrun_log").all<{ source: string; entityId: number }>();
+  assert.deepEqual(remaining.results.map((r) => [r.source, r.entityId]), [["squad", 1]]);
+});
+
 test("deleteUserData: removes the deleted user's own food_corrections", async () => {
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "uk", "Ann");

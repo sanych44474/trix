@@ -25,6 +25,7 @@ import {
   listInjuriesDue,
   markInjuryAsked,
   getUser,
+  getActivePlan,
   listActivePlans,
   allWorkoutLogsSince,
   listCandidatesByMuscles,
@@ -77,6 +78,7 @@ import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
 import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
 import { postSquadDigest } from "./bot/squad";
+import { wakeUserScheduler } from "./durable/userScheduler";
 import { deleteSquad, markSquadRecapped, squadsDueForRecap } from "./db/repos";
 import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
@@ -430,6 +432,19 @@ async function runScheduleInner(env: Env): Promise<void> {
     boardsByDay: new Map(),
   };
   for (const user of users) {
+    // Self-limiting bootstrap for the DO dry-run: only a user who has NEVER been woken gets a
+    // wake attempt, so this stays bounded by new users per hour rather than the whole onboarded
+    // population every hour -- important because DO calls, like everything else in this loop,
+    // still share the same per-invocation subrequest budget. doWokenAt is set only after a
+    // successful wake, so a transient failure retries next hour rather than being lost.
+    if (!user.doWokenAt) {
+      try {
+        await wakeUserScheduler(env, user._id);
+        await updateUser(db, user._id, { doWokenAt: new Date() });
+      } catch (err) {
+        logSchedulerError(db, "user_scheduler_wake", err, user._id);
+      }
+    }
     try {
       await processUser(env, bot, user, pass);
     } catch (err) {
@@ -529,7 +544,7 @@ async function processBuddyDuels(db: D1Database, bot: Bot, todayStr: string): Pr
   }
 }
 
-interface SharedPass {
+export interface SharedPass {
   planByUser: Map<number, PlanDoc>;
   logByUserDate: Map<string, import("./types").WorkoutLogDoc>;
   narrativeBudget: number;
@@ -538,7 +553,34 @@ interface SharedPass {
   boardsByDay: Map<string, Promise<import("./bot").BoardsResult>>;
 }
 
-async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) {
+// The only bot surface processUser (and everything it calls) needs. Narrowed from the
+// concrete grammY Bot so a dry-run caller (a DO alarm, logging what it WOULD send) can pass
+// a logging stand-in instead of a real bot, without an `as unknown as Bot` cast.
+/** Single-user equivalent of the bulk SharedPass built in runScheduleInner — for a DO
+ * alarm processing exactly one user, not the whole hourly cron loop. narrativeBudget is
+ * deliberately uncapped (Infinity): the bulk loop's budget of 5/tick exists ONLY because one
+ * invocation used to serve every user's reminders, and this narrative call is one AI-chain
+ * call that a single invocation can afford on its own. boardsByDay starts empty — the
+ * memoization only pays off across many users sharing an invocation, which a per-user DO
+ * alarm never does. */
+export async function buildSinglePass(db: D1Database, userId: number): Promise<SharedPass> {
+  const [plan, logs] = await Promise.all([
+    getActivePlan(db, userId).catch(() => null),
+    workoutLogsSince(db, userId, isoDaysAgo(1)).catch(() => []),
+  ]);
+  return {
+    planByUser: plan ? new Map([[userId, plan]]) : new Map(),
+    logByUserDate: new Map(logs.map((l) => [`${l.userId}:${l.date}`, l])),
+    narrativeBudget: Infinity,
+    boardsByDay: new Map(),
+  };
+}
+
+export interface Sender {
+  api: { sendMessage: Bot["api"]["sendMessage"] };
+}
+
+export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: SharedPass) {
   const db = env.DB;
   const lang = user.lang;
   // Owner-banned or bot-blocked users are skipped entirely — no point sending into a dead chat,

@@ -13,3 +13,4 @@ export * from "./repos/nutrition";
 export * from "./repos/tracking";
 export * from "./repos/admin";
 export * from "./repos/squads";
+export * from "./repos/dryrun";

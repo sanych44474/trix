@@ -24,6 +24,7 @@ export interface UserRow {
   botBlocked: number | null;
   flagged: number | null;
   lastSeenAt: string | null;
+  doWokenAt: string | null;
   vacationUntil: string | null;
   comebackDone: string | null;
   inactiveAskedAt: string | null;
@@ -56,6 +57,7 @@ export function toUser(r: UserRow): UserDoc {
     botBlocked: !!r.botBlocked,
     flagged: !!r.flagged,
     lastSeenAt: r.lastSeenAt ? new Date(r.lastSeenAt) : undefined,
+    doWokenAt: r.doWokenAt ? new Date(r.doWokenAt) : undefined,
     vacationUntil: r.vacationUntil ? new Date(r.vacationUntil) : undefined,
     comebackDone: r.comebackDone ? new Date(r.comebackDone) : undefined,
     inactiveAskedAt: r.inactiveAskedAt ? new Date(r.inactiveAskedAt) : undefined,
@@ -123,6 +125,7 @@ export async function updateUser(
     blocked: ["blocked", (v) => (v ? 1 : 0)],
     botBlocked: ["botBlocked", (v) => (v ? 1 : 0)],
     lastSeenAt: ["lastSeenAt", (v) => (v as Date).toISOString()],
+    doWokenAt: ["doWokenAt", (v) => (v as Date).toISOString()],
     vacationUntil: ["vacationUntil", (v) => (v as Date).toISOString()],
     comebackDone: ["comebackDone", (v) => (v as Date).toISOString()],
     inactiveAskedAt: ["inactiveAskedAt", (v) => (v as Date).toISOString()],

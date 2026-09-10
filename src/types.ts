@@ -275,6 +275,7 @@ export interface UserDoc {
   botBlocked?: boolean; // the user blocked the bot (detected from a 403 on send)
   flagged?: boolean; // trainer marked this client as needing attention (shown in the digest)
   lastSeenAt?: Date; // last GENUINE user interaction (set in ingress, never by cron) — the only inactivity signal
+  doWokenAt?: Date; // this user's scheduler Durable Object has been woken (alarm armed) — see migrations/0061
   vacationUntil?: Date; // while now < this, the scheduler sends nothing (don't disturb)
   comebackDone?: Date; // last handled vacation-end (dedups the comeback interview)
   inactiveAskedAt?: Date; // when the owner-triggered "still here?" ask was sent (ask once)

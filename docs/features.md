@@ -39,6 +39,15 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
 - **Progression engine**: weekly difficulty adjustment (ok/up/down), plateau detection with
   suggested fixes, level-up flow (beginner → intermediate → advanced regenerates volume),
   goal-switch flow, per-set RPE/RIR capture feeding autoregulation.
+- **Scheduler redesign (in progress, dry-run phase)**: per-user Durable Objects
+  (`src/durable/userScheduler.ts`) are being phased in alongside the existing cron-driven
+  scheduler, to decouple each user's reminder delivery into its own invocation with its own
+  Workers-Free subrequest budget (the old design shares one 50-subrequest budget across every
+  user processed in the same hourly pass). Each user's DO alarm runs the SAME processUser
+  decision logic unmodified, against a write-intercepting D1 shadow (`shadowDb.ts`) and a
+  logging sender -- so it decides for real but neither sends nor writes for real yet. Results
+  land in `scheduler_dryrun_log` for comparison against what the still-live cron path actually
+  did. The cron path remains the sole real sender until a deliberate, separate cutover.
 - **Conditioning load**: cardio is scored as training load, not just logged. Weekly minutes,
   sessions and distance are read against aerobic landmarks (~150 min/week baseline, ~300
   min/week where cardio starts competing with strength), shown next to the per-muscle volume

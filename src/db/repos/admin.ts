@@ -463,6 +463,10 @@ export async function deleteUserData(db: DB, userId: number): Promise<void> {
     db.prepare("DELETE FROM food_corrections WHERE userId = ?").bind(userId),
     db.prepare("DELETE FROM client_note_history WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
     db.prepare("DELETE FROM squad_members WHERE userId = ?").bind(userId),
+    // source is checked alongside entityId: entityId is polymorphic (userId for 'user'
+    // rows, a squad chatId for 'squad' rows) and Telegram user ids and group chat ids
+    // occupy overlapping numeric ranges, so entityId alone is not a safe match.
+    db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'user' AND entityId = ?").bind(userId),
     // A squad outlives the person who happened to run /squad first: the group chat and everyone
     // else in it are unaffected, so createdBy is cleared to a tombstone rather than the squad
     // being deleted out from under its remaining members.

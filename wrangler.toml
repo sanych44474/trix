@@ -38,6 +38,18 @@ directory = "public"
 [ai]
 binding = "AI"
 
+# Durable Objects — per-user reminder scheduling (dry-run phase, see src/durable/). SQLite
+# storage backend, available on Workers Free. `exports` is the current declarative way to
+# manage DO class lifecycle (replaces the older [[migrations]] array — both exist, Cloudflare
+# docs, Sep 2026).
+[[durable_objects.bindings]]
+name = "USER_SCHEDULER"
+class_name = "UserSchedulerDO"
+
+[exports.UserSchedulerDO]
+type = "durable-object"
+storage = "sqlite"
+
 # Cloudflare D1 (SQLite) — primary datastore, in-network (no external DB hangs).
 [[d1_databases]]
 binding = "DB"
