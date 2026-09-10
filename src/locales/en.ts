@@ -927,6 +927,21 @@ export const en = {
   volume_sets: "sets",
   volume_none: "No completed sessions in the last 7 days. Log a workout to see volume. 💪",
   volume_legend: "_🔻 below MEV · ✅ in range · 🔺 above MAV (per-region weekly set landmarks)._",
+  // --- activation arc (first 14 days) ---
+  act_first:
+    "👋 *Your plan is still waiting for its first session.* That first one is the whole game — people who get three sessions in during their first two weeks mostly keep going; people who don't, mostly don't.\n\nIt does not have to be the full session. Do the first two exercises and log them — that counts, and the plan starts adapting to your real numbers instead of guesses.",
+  act_win:
+    "🎉 *First session logged.* That's the hardest one done.\n\nFrom here the bot stops guessing: after your second session the progression engine has enough to start tuning weights and reps to what you actually lift. Two more in the next two weeks and you're past the point where most people drop off.",
+  act_week_on:
+    "📈 *One week in — {workouts} session(s) done.* That's on pace.\n\nThe target is {target} in your first two weeks and you are going to clear it. Keep the sessions boring and repeatable — consistency in week two is worth far more than one heroic workout.",
+  act_week_behind:
+    "🤔 *One week in — {workouts} session(s) done.* Not where we want to be, and that is usually a scheduling problem rather than a motivation one.\n\nWhat actually works is a smaller plan you hit, not a bigger one you skip. Drop a training day and the rest gets easier to hold.",
+  act_locked_on:
+    "🏅 *Two weeks in — {workouts} sessions logged.* You are past the point where most people quit.\n\nThis is the part that compounds: the plan now has real data to progress from, and the numbers start moving on their own. Same routine, next week.",
+  act_locked_behind:
+    "🧭 *Two weeks in — {workouts} session(s) logged.* Let's fix the plan rather than pretend it is working.\n\nAlmost always the plan asks for more days than the week actually has. Cut it to the days you can genuinely hold, or run /replan and tell the bot the real constraints — a two-day plan you keep beats a four-day plan you don't.",
+  act_btn_today: "▶️ Today's session",
+  act_btn_fewer: "📆 Fewer days a week",
   // --- conditioning (cardio) load ---
   cond_load_min: "{sessions} cardio session(s) · ~{minutes} min",
   cond_load_sessions: "{sessions} cardio session(s)",

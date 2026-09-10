@@ -76,6 +76,7 @@ import { isoWeekKey, rankOf, streakMilestones, streakRisk, weekRangeOffset, week
 import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
 import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
+import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
 import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
 import { missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
@@ -625,6 +626,38 @@ async function processUser(env: Env, bot: Bot, user: UserDoc, pass: SharedPass) 
           await bot.api.sendMessage(trainer.chatId, t(trainer.lang, "atrisk_nutrition_alert", { name, n: lapse!.gapDays }), { ...HTML, reply_markup: kb }).catch((e) => console.error("atrisk nutrition", e));
           dirty["atrisk_nutrition"] = lapse!.lastLogged;
         }
+      }
+    }
+  }
+
+  // Activation arc — the first 14 days. Fewer than three sessions in that window is the single
+  // strongest churn predictor there is, and every other nudge below is steady-state: it treats a
+  // two-day-old account exactly like a six-month-old one. Placed ABOVE the generic reminders so a
+  // new user's decisive beat wins the one-nudge-per-tick budget. Solo/trainer-own only — a client
+  // has a human driving them, and "train fewer days" is not this bot's call to make for them.
+  if (!pinged && user.onboarded && user.role !== "client" && hour >= reminderHour && !already("activation")) {
+    const joined = user.createdAt.toISOString().slice(0, 10);
+    const dayIndex = activationDay(joined, date);
+    if (dayIndex >= 2 && dayIndex <= ACTIVATION_LAST_DAY) {
+      markSent("activation"); // one evaluation per day, not one per cron minute
+      const done = (await workoutLogsSince(db, user._id, joined)).filter((l) => l.completed).length;
+      const nudge = nextActivationStep({ joinedDate: joined, today: date, workouts: done, sentSteps: Object.keys(sent) });
+      if (nudge) {
+        markSent(nudge.step);
+        pinged = true;
+        const key =
+          nudge.step === "act_first" ? "act_first"
+          : nudge.step === "act_win" ? "act_win"
+          : nudge.step === "act_week" ? (nudge.onTrack ? "act_week_on" : "act_week_behind")
+          : nudge.onTrack ? "act_locked_on" : "act_locked_behind";
+        const kb = new InlineKeyboard();
+        // The behind branches offer a SMALLER commitment, not a louder one: someone missing
+        // sessions in week one has too much plan, not too little willpower.
+        if (nudge.step === "act_first") kb.text(t(lang, "act_btn_today"), "act:today");
+        else if (!nudge.onTrack) kb.text(t(lang, "act_btn_fewer"), "pday:open");
+        const text = t(lang, key, { workouts: nudge.workouts, target: ACTIVATION_TARGET, day: nudge.dayIndex });
+        const extra = kb.inline_keyboard.length ? { ...HTML, reply_markup: kb } : HTML;
+        await bot.api.sendMessage(user.chatId, text, extra).catch((e) => console.error("activation nudge", e));
       }
     }
   }

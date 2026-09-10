@@ -46,6 +46,12 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
   progression and says why; a hard session in the last two days softens the same-day
   readiness advice even when the check-in looks clean. Distance logged without a duration is
   flagged rather than guessed at.
+- **Activation arc (first 14 days)**: a new account gets its own deliberate sequence instead of
+  the steady-state drip -- a low-barrier "just log the first two exercises" nudge if nothing
+  is logged by day 2, a first-win message that explains what the second session unlocks, a
+  week-one checkpoint, and a day-14 beat. Falling behind offers a SMALLER plan (drop a
+  training day / replan with the real constraints), never a louder one. Solo/trainer-own
+  only; each beat fires at most once, ever.
 - **Injury-aware planning**: report pain by area/severity → conflicting exercises are swapped
   for safe ones; scheduled follow-ups with a 0–10 pain scale; auto-restore when recovered.
 - **"Not my gym today"**: one tap re-fits the whole session to what's actually on hand

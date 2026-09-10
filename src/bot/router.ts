@@ -874,6 +874,8 @@ export const CB_EXACT: Record<string, CbHandler> = {
   // "What changed in my plan and why" — the adaptive check-in's own recorded trail.
   "plan:changes": (ctx) => cmdPlanChanges(ctx),
   // Plan-day management (add/delete whole days).
+  // Activation-arc nudge: "start the first session" opens today's session view.
+  "act:today": (ctx) => cmdToday(ctx),
   "pday:open": (ctx) => showDayManager(ctx),
   "pday:add": (ctx) => showAddDayPicker(ctx),
   "wt:open": (ctx) => openWeightEditor(ctx),
