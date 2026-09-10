@@ -1,6 +1,13 @@
 name = "trix"
 main = "src/index.ts"
-compatibility_date = "2025-05-01"
+# [2026-09-10] Bumped from 2025-05-01 (16 months stale). Reviewed every flag that became
+# default in between: the only ones this Worker could touch are Node-compatible global
+# timers (2026-02-10) and require()-returns-default-export (2026-01-22). Neither applies —
+# the only timer use (src/ai/workersai.ts) is typed ReturnType<typeof setTimeout> and passes
+# the handle straight back to clearTimeout, and there is no require() in src/. The rest are
+# WebSocket / Python / Durable Object / stream flags this Worker does not use, or additive
+# node:* modules. Re-check the flags page before the next bump.
+compatibility_date = "2026-09-10"
 compatibility_flags = ["nodejs_compat"]
 # account_id is intentionally NOT committed — wrangler reads CLOUDFLARE_ACCOUNT_ID from the
 # environment (set it in .dev.vars for local work, or as a repo secret for CI deploys).
@@ -11,6 +18,13 @@ compatibility_flags = ["nodejs_compat"]
 crons = ["* * * * *"]
 
 [observability]
+enabled = true
+# Logs alone are not tracing: `observability.enabled` does NOT turn on traces, which need
+# their own flag. Traces are what show WHERE a cron tick spent its subrequest budget — the
+# limit this scheduler is actually designed around (Workers Free: 50 external subrequests
+# per invocation). Instrumentation is automatic; no code change needed. Head sampling is
+# left at the default: ~1.4k cron ticks/day plus webhooks is not a high-traffic workload.
+[observability.traces]
 enabled = true
 
 # Static assets: the Mini App shell (public/app.html, built by scripts/build-webapp.mjs at deploy
