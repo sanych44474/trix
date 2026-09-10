@@ -46,6 +46,11 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
   progression and says why; a hard session in the last two days softens the same-day
   readiness advice even when the check-in looks clean. Distance logged without a duration is
   flagged rather than guessed at.
+- **Shopping list** (`/grocery`, or a button under the menu): turns the meal plan into an
+  aisle-ordered tick-list for 3 / 5 / 7 days -- the stored menu is one day, so it is
+  multiplied out. Same food merged across meals, amounts rounded to buyable sizes, foods
+  sorted into supermarket aisles (produce / meat-fish-eggs / dairy / grains / pantry) from
+  both English and Ukrainian names. Read-only: never touches the stored menu.
 - **Activation arc (first 14 days)**: a new account gets its own deliberate sequence instead of
   the steady-state drip -- a low-barrier "just log the first two exercises" nudge if nothing
   is logged by day 2, a first-win message that explains what the second session unlocks, a

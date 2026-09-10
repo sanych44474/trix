@@ -927,6 +927,19 @@ export const en = {
   volume_sets: "sets",
   volume_none: "No completed sessions in the last 7 days. Log a workout to see volume. 💪",
   volume_legend: "_🔻 below MEV · ✅ in range · 🔺 above MAV (per-region weekly set landmarks)._",
+  // --- shopping list (from the meal plan) ---
+  grocery_btn: "🛒 Shopping list",
+  grocery_pick_days: "🛒 *Shopping list* — how many days should it cover?\n\nYour menu holds one day; it gets multiplied out, which is how meal-prep shopping actually works.",
+  grocery_days_btn: "{n} days",
+  grocery_no_menu: "No menu to shop from yet. Build one with /mealplan and the shopping list writes itself. 🛒",
+  grocery_header: "🛒 *Shopping list* — {days} days of your current menu",
+  grocery_footer: "_Amounts are rounded to buyable sizes. Fresh produce for 7 days may be worth splitting into two trips._",
+  gro_produce: "🥦 Produce",
+  gro_protein: "🍗 Meat, fish & eggs",
+  gro_dairy: "🥛 Dairy",
+  gro_grains: "🌾 Grains & bread",
+  gro_pantry: "🫙 Pantry",
+  gro_other: "📦 Other",
   // --- activation arc (first 14 days) ---
   act_first:
     "👋 *Your plan is still waiting for its first session.* That first one is the whole game — people who get three sessions in during their first two weeks mostly keep going; people who don't, mostly don't.\n\nIt does not have to be the full session. Do the first two exercises and log them — that counts, and the plan starts adapting to your real numbers instead of guesses.",

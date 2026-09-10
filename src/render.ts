@@ -5,6 +5,7 @@ import type { DailyCheckinDoc, ExerciseVideo, Lang, MealPlanDoc, PlanDay, PlanDo
 import { formatRecordBest, getPlanDay, isLowerBody, localParts, nextTarget, resolveWeightMode, type ActivityCell } from "./domain/progression";
 import { normalizeVideoKey } from "./youtube";
 import { phaseGuidance, phaseKey } from "./domain/mesocycle";
+import { GROCERY_ORDER, formatGrams, type GroceryCategory, type GroceryLine } from "./domain/groceryList";
 import type { ConditioningWeek } from "./domain/conditioning";
 
 /** Human-readable weekly conditioning load: "3 cardio sessions - ~180 min", or the session count
@@ -14,6 +15,11 @@ export function conditioningLoadLabel(lang: Lang, week: ConditioningWeek): strin
   const vars = { sessions: week.sessions, minutes: week.minutes };
   return t(lang, week.minutes > 0 ? "cond_load_min" : "cond_load_sessions", vars);
 }
+
+const GROCERY_CATEGORY_KEY: Record<GroceryCategory, "gro_produce" | "gro_protein" | "gro_dairy" | "gro_grains" | "gro_pantry" | "gro_other"> = {
+  produce: "gro_produce", protein: "gro_protein", dairy: "gro_dairy",
+  grains: "gro_grains", pantry: "gro_pantry", other: "gro_other",
+};
 
 /** Cache key for an exercise's technique video — canonical English name preferred. */
 export function exerciseVideoKey(ex: { name: string; canonicalName?: string }): string {
@@ -84,6 +90,23 @@ export function renderActivityGrid(lang: Lang, cells: ActivityCell[]): string {
 }
 
 // AI-nutritionist menu. Telegram-safe (no tables): grouped meals with item lines + a daily Σ.
+/** Aisle-ordered shopping list for `days` days of the current menu. Rendered as a tick-list so
+ * it can be worked through in the shop; amounts are already rounded to buyable sizes. */
+export function renderGroceryList(lang: Lang, lines: GroceryLine[], days: number): string {
+  const g = lang === "en" ? "g" : "г";
+  const amount = (grams: number) => (grams >= 1000 ? formatGrams(grams) : `${grams} ${g}`);
+  const parts: string[] = [t(lang, "grocery_header", { days }), ""];
+  for (const category of GROCERY_ORDER) {
+    const rows = lines.filter((l) => l.category === category);
+    if (!rows.length) continue;
+    parts.push(`<b>${t(lang, GROCERY_CATEGORY_KEY[category])}</b>`);
+    for (const r of rows) parts.push(`☐ ${escapeHtml(cleanAi(r.food))} — ${amount(r.grams)}`);
+    parts.push("");
+  }
+  parts.push(t(lang, "grocery_footer"));
+  return parts.join("\n");
+}
+
 export function renderMealPlan(lang: Lang, plan: MealPlanDoc): string {
   const g = lang === "en" ? "g" : "г";
   const macros = (p: number, f: number, c: number) =>

@@ -20,7 +20,8 @@ import { phaseKey } from "../domain/mesocycle";
 import { goalBucket } from "../domain/planBank";
 import { localParts, weeksSincePlan } from "../domain/progression";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
-import { renderMealPlan } from "../render";
+import { renderGroceryList, renderMealPlan } from "../render";
+import { groceryList } from "../domain/groceryList";
 import { type Env, type Lang, type Meal, type MealPlanDoc, type NutritionTargets, type SessionMode, type Weekday } from "../types";
 import { setAppUrl, MyContext, TKey, handleAliasInput, handleWeightEdit, handleSetsEdit, handleSwapCustom, handleAddExercise, handleExerciseAltText, handleWarmupEdit, menuActionFor, isEditingOther, adjustDifficulty, aiAuthorAndAdd, cmdAskInactive, cmdCalendar, cmdChallenges, cmdCleanup, cmdCoach, cmdDeleteMe, cmdExport, cmdExportJson, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdLang, cmdLog, cmdLogPast, cmdMeasure, cmdMenu, cmdNutrition, cmdPlan, cmdPlanChanges, cmdPlates, cmdProgress, cmdRecords, cmdReplan, cmdReport, cmdSchedule, cmdSettings, cmdStandards, cmdStart, cmdSteps, cmdToday, cmdVacation, cmdVolume, cmdWater, cmdWeekCard, cmdWellbeing, applyGymSwap, showGymSwapPicker, coachContext, defaultLang, endVacation, guardLogExit, handleCoach, handleExerciseConfirmation, handleNutrition, handlePhotoMeal, handleWorkoutLog, logBackToPick, logFinish, logSwitchToText, normalizeEvent, notifyTrainerWorkout, onCleanupAll, onGoalMaintain, onInactiveReply, onLevelUp, onLogExit, onMacrosSuggest, onMealConfirm, openSetsEditor, openWeightEditor, pickCycleLength, reply, setAlias, setMode, showAddDayPicker, showAthleteMenu, showChallengePicker, showCycleCalendar, showCycleSettings, showDayManager, showExerciseList, showInjuryAreas, showMealConfirm, showMealItemEditor, showMoreMenu, showMyLogHub, showNextSession, showProgressHub, showRecentFoods, showReminderSettings, showShareSettings, showTrainerClientsMenu, showWorkoutInfo, startAddExercise, startInterview, startSwapCustom, toggleCompete, toggleCycleTracking, undoDelete } from "../bot";
 
@@ -157,6 +158,7 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
   bot.command("menu", cmdMenu);
   bot.command("hide", cmdHideKeyboard);
   bot.command("replan", cmdReplan);
+  bot.command("grocery", cmdGrocery);
   bot.command("export", cmdExport);
   bot.command("deleteme", cmdDeleteMe);
   bot.command("admin", async (ctx) => {
@@ -508,12 +510,40 @@ export async function cmdMealPlan(ctx: MyContext) {
   if (existing?.days?.length) {
     const kb = new InlineKeyboard()
       .text(t(lang, "mp_regenerate"), "mp:regen")
+      .text(t(lang, "grocery_btn"), "gro:open")
       .row()
       .text(t(lang, "menu_open"), "menu:open");
     await reply(ctx, renderMealPlan(lang, existing), kb);
     return;
   }
   await startMealPlanIntake(ctx);
+}
+
+// Shopping list from the current menu. The meal plan holds ONE day, so the user picks how many
+// days to shop for and that day is multiplied out — which is also how anyone meal-prepping
+// actually shops. Read-only: it never touches the stored menu.
+export async function cmdGrocery(ctx: MyContext) {
+  const lang = ctx.user.lang;
+  const menu = await getMealPlan(ctx.db, ctx.user._id);
+  if (!menu?.days?.length) {
+    await reply(ctx, t(lang, "grocery_no_menu"), menuBtn(lang));
+    return;
+  }
+  const kb = new InlineKeyboard();
+  for (const n of [3, 5, 7]) kb.text(t(lang, "grocery_days_btn", { n }), `gro:n:${n}`);
+  await reply(ctx, t(lang, "grocery_pick_days"), kb);
+}
+
+export async function showGroceryList(ctx: MyContext, days: number) {
+  const lang = ctx.user.lang;
+  const n = Number.isFinite(days) && days > 0 ? Math.min(14, Math.round(days)) : 1;
+  const menu = await getMealPlan(ctx.db, ctx.user._id);
+  const lines = menu?.days?.length ? groceryList(menu.days, n) : [];
+  if (!lines.length) {
+    await reply(ctx, t(lang, "grocery_no_menu"), menuBtn(lang));
+    return;
+  }
+  await reply(ctx, renderGroceryList(lang, lines, n), menuBtn(lang));
 }
 
 // Begin the allergens → likes → dislikes intake that feeds meal-plan generation.
@@ -785,6 +815,7 @@ export const CB_EXACT: Record<string, CbHandler> = {
   "xexit:drop": (ctx) => onLogExit(ctx, "drop"),
   "xexit:stay": (ctx) => onLogExit(ctx, "stay"),
   "share:week": (ctx) => cmdWeekCard(ctx),
+  "gro:open": (ctx) => cmdGrocery(ctx),
   "mp:skip": (ctx) => mealSkip(ctx),
   "mp:regen": (ctx) => startMealPlanIntake(ctx),
   "mp:useprev": (ctx) => startMealGeneration(ctx),
@@ -1033,6 +1064,7 @@ export const CB_PREFIX: [string, CbHandler][] = [
   ["wu:ai:", (ctx, rest) => suggestWarmup(ctx, Number(rest) as Weekday)],
   ["wu:clear:", (ctx, rest) => saveWarmup(ctx, Number(rest) as Weekday, [])],
   ["wu:open:", (ctx, rest) => showWarmupEditor(ctx, Number(rest) as Weekday)],
+  ["gro:n:", (ctx, _r, data) => showGroceryList(ctx, parseInt(data.split(":")[2], 10))],
   ["diff:up:", (ctx, _r, data) => { const parts = data.split(":"); return adjustDifficulty(ctx, parts[1] as "up" | "down", parseInt(parts[2])); }],
   ["diff:down:", (ctx, _r, data) => { const parts = data.split(":"); return adjustDifficulty(ctx, parts[1] as "up" | "down", parseInt(parts[2])); }],
   ["eds:done:", (ctx, rest) => endSelfEdit(ctx, rest)],

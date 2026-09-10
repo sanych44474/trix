@@ -220,7 +220,11 @@ export function checkinScale(step: "energy" | "sleep" | "stress"): InlineKeyboar
 
 // Inline keyboard under a template meal plan: regenerate via Gemini, or open the menu.
 export function mealActionsKb(lang: Lang): InlineKeyboard {
-  return new InlineKeyboard().text(t(lang, "meal_regen_ai"), "meal:ai").row().text(t(lang, "menu_open"), "menu:open");
+  return new InlineKeyboard()
+    .text(t(lang, "meal_regen_ai"), "meal:ai")
+    .text(t(lang, "grocery_btn"), "gro:open")
+    .row()
+    .text(t(lang, "menu_open"), "menu:open");
 }
 
 export function difficultyKeyboard(lang: Lang, weekday: number): InlineKeyboard {
