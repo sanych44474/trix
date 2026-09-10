@@ -9,11 +9,12 @@ import { InlineKeyboard } from "grammy";
 import type { Weekday } from "../types";
 import { aiJSON, aiText } from "../ai";
 import * as P from "../ai/prompts";
-import { createQuestion, getActivePlan, getRecentContext, getTrainer, getUser, setQuestionDraft, updateUser, workoutLogsSince } from "../db/repos";
+import { createQuestion, getActivePlan, getRecentContext, getTrainer, getUser, recentAdjustments, setQuestionDraft, updateUser, workoutLogsSince } from "../db/repos";
 import { computeCyclePhase, phaseHint, phaseLabel } from "../domain/cycle";
 import { phaseGuidance } from "../domain/mesocycle";
 import { bestSetForMetric, formatSetEntry, localParts, metricOfSets } from "../domain/progression";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
+import { recentCoachingReasons } from "../domain/coachMemory";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { upcomingSessions, weekdayName } from "../render";
 import { deferAi } from "./router";
@@ -88,6 +89,13 @@ export async function coachContext(ctx: MyContext): Promise<string> {
   const mesoLine = meso
     ? `Mesocycle: ${meso.phase} phase, week ${meso.weekInBlock}/${meso.blockLength} (target ${phaseGuidance(meso.phase).reps} reps @ ${phaseGuidance(meso.phase).intensity}).\n`
     : "";
+  // Long-term memory: the recent, deduplicated "why" behind past plan adjustments (see
+  // domain/coachMemory.ts) -- lets the coach say "still building back up after that light week"
+  // instead of re-deriving a rationale from scratch on every question, or contradicting a
+  // decision it already made. Capped and deduplicated on purpose: a full adjustment history
+  // dump would bury the actually-relevant recent reasons in noise.
+  const pastReasons = recentCoachingReasons(await recentAdjustments(ctx.db, ctx.user._id, 5).catch(() => []));
+  const memoryLine = pastReasons.length ? `Recent coaching decisions: ${pastReasons.join("; ")}.\n` : "";
   return (
     `PLAN (weekday in parens, exercise index before colon):\n${planText}\n` +
     `Nutrition target: ${target}. Last 14d nutrition: ${nutDays} day(s) logged${nutDays ? `, avg ${avgKcal}kcal` : ""}.\n` +
@@ -96,6 +104,7 @@ export async function coachContext(ctx: MyContext): Promise<string> {
     cycleLine +
     condLine +
     mesoLine +
+    memoryLine +
     `Training pace: ${ctx.user.progressionRate ?? "normal"}. Today: ${date}.`
   );
 }
