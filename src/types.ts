@@ -1,20 +1,55 @@
-// Every binding and var wrangler.toml actually declares (D1, AI, model ids, secrets) comes from
-// `Cloudflare.Env`, generated into worker-configuration.d.ts by `npm run types` (wraps
-// `wrangler types`) — regenerate it after any wrangler.toml change, and re-run it whenever this
-// list of "known to wrangler" fields below stops matching reality. Extending it, instead of
-// hand-copying the field list, is what keeps this type from silently drifting out of sync with
-// the deployed Worker's actual bindings (the AI binding spent a while wrongly marked optional
-// here after being added to wrangler.toml).
+// Every BINDING and [vars] entry wrangler.toml actually declares (D1, AI, the Durable Object
+// classes, model-id vars, WORKER_URL/BOT_*) comes from `Cloudflare.Env`, generated into
+// worker-configuration.d.ts by `npm run types` (wraps `wrangler types`) — regenerate it after
+// any wrangler.toml change. Extending it, instead of hand-copying that list, is what keeps it
+// from silently drifting out of sync with the deployed Worker's actual bindings (the AI binding
+// spent a while wrongly marked optional here after being added to wrangler.toml).
 //
-// The handful of fields below are genuinely NOT declared anywhere in wrangler.toml — they're
-// optional integrations that, if used, are set as ad hoc secrets outside the tracked config
-// (USDA/FatSecret food-DB keys) or override a model id wrangler has no [vars] entry for
-// (GROQ_TRANSCRIBE_MODEL, WORKERSAI_*). `wrangler types` can't discover these from the config, so
-// they stay hand-declared and optional.
-export interface Env extends Cloudflare.Env {
-  GROQ_TRANSCRIBE_MODEL?: string; // Whisper model for voice messages
-  WORKERSAI_MODEL?: string;
+// SECRETS are a different story and CANNOT come from Cloudflare.Env: they're deliberately never
+// written into wrangler.toml (set only via `wrangler secret put`, per its own comment), so
+// `wrangler types` has nothing in the committed config to read them from. Locally it still
+// produces them — by reading .dev.vars, which is gitignored and simply absent in CI — so this
+// half of Env silently type-checked here while failing on every push until caught. Every secret
+// therefore stays hand-declared below, with the SAME required/optional split the app already
+// assumes at every call site (TELEGRAM_BOT_TOKEN etc. required; the rest optional providers).
+// Hand-declared secret keys, `Omit`-ted from Cloudflare.Env below rather than just added
+// alongside it. Reason: locally, `wrangler types` ALSO reads .dev.vars (gitignored, absent in
+// CI) and — for whichever of these happen to be set there — emits them into Cloudflare.Env
+// itself as REQUIRED strings. Without the Omit, that collides with the optional versions here
+// ("incorrectly extends Cloudflare.Env") the moment .dev.vars sets one, which is exactly the
+// kind of local-only failure (or, worse, local-only SILENCE while CI breaks) this file has
+// already caused once. Omitting them first means these declarations always win, regardless of
+// what .dev.vars happens to contain in whatever environment typecheck runs in.
+type SecretKey =
+  | "TELEGRAM_BOT_TOKEN"
+  | "TELEGRAM_WEBHOOK_SECRET"
+  | "GEMINI_API_KEY"
+  | "GROQ_API_KEY"
+  | "GROQ_TRANSCRIBE_MODEL"
+  | "OLLAMA_API_KEY"
+  | "OPENROUTER_API_KEY"
+  | "WORKERSAI_MODEL"
+  | "WORKERSAI_TRANSCRIBE_MODEL"
+  | "ADMIN_SECRET"
+  | "YOUTUBE_API_KEY"
+  | "EXERCISES_API_KEY"
+  | "USDA_FDC_API_KEY"
+  | "FATSECRET_CLIENT_ID"
+  | "FATSECRET_CLIENT_SECRET";
+
+export interface Env extends Omit<Cloudflare.Env, SecretKey> {
+  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_WEBHOOK_SECRET: string;
+  GEMINI_API_KEY: string;
+  GROQ_API_KEY?: string;
+  GROQ_TRANSCRIBE_MODEL?: string; // Whisper model for voice messages — wrangler.toml has no [vars] entry for it
+  OLLAMA_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
+  WORKERSAI_MODEL?: string; // wrangler.toml has no [vars] entry for it
   WORKERSAI_TRANSCRIBE_MODEL?: string; // Whisper model for voice (default @cf/openai/whisper-large-v3-turbo)
+  ADMIN_SECRET?: string;
+  YOUTUBE_API_KEY?: string; // YouTube Data API v3 — exercise technique shorts (cache-first)
+  EXERCISES_API_KEY?: string; // API Ninjas — only scripts/seed-exercises.mjs uses it, not runtime
   USDA_FDC_API_KEY?: string;
   FATSECRET_CLIENT_ID?: string; // FatSecret OAuth2 — food database search (primary, OFF fallback)
   FATSECRET_CLIENT_SECRET?: string;
