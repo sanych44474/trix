@@ -70,7 +70,9 @@ import {
   gainGoalReached,
   inQuietHours,
   localParts,
+  deloadSets,
   getPlanDay,
+  poorWellbeing,
   shouldLevelUp,
   weeksSincePlan,
 } from "./domain/progression";
@@ -78,6 +80,7 @@ import { isoWeekKey, rankOf, streakMilestones, streakRisk, weekRangeOffset, week
 import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
 import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
+import { recentConditioningStrain } from "./domain/conditioning";
 import { postSquadDigest } from "./bot/squad";
 import { wakeUserScheduler } from "./durable/userScheduler";
 import { wakeSquadScheduler } from "./durable/squadScheduler";
@@ -87,7 +90,8 @@ import { deleteSquad, markSquadRecapped, markSquadWoken, squadsDueForRecap, squa
 import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
 import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
-import { missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
+import { isoWeekday, lastPlannedDates, missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
+import { rankMissedDayOptions, recentMissRate } from "./domain/missedDay";
 import { cleanAi, escapeHtml, t } from "./locales/i18n";
 import { chunkReport, conditioningLoadLabel, renderDay } from "./render";
 import { aiText } from "./ai/index";
@@ -882,6 +886,55 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       await send(t(lang, "reminder_wellbeing"), { ...HTML, reply_markup: kb });
       markSent("wellbeing");
       pinged = true;
+    }
+  }
+
+  // Smart reschedule — the day AFTER a single missed planned session (solo/trainer-own only;
+  // a client's misses already surface to their trainer via atrisk.ts's 2-in-a-row alert, and
+  // rescheduling a client's own plan is the trainer's call, not this bot's). Fires once per
+  // day the most recent planned date is still unlogged, offering the option ranked by how busy
+  // the last stretch has been and whether today's own recovery signals are already poor.
+  if (!pinged && user.role !== "client" && hour >= reminderHour && !already("missed_day")) {
+    const plan = activePlan;
+    if (plan && plan.split.length) {
+      const planWeekdays = plan.split.map((d) => d.weekday);
+      const notBefore = plan.generatedAt.toISOString().slice(0, 10);
+      const lastPlanned = lastPlannedDates(planWeekdays, date, 1, notBefore)[0];
+      if (lastPlanned) {
+        // workouts21() (the memoized per-invocation closure) isn't defined until later in this
+        // function -- a direct read here, not the shared cache, since this block only ever runs
+        // once (gated by already("missed_day")).
+        const logs21 = await workoutLogsSince(db, user._id, isoDaysAgo(21));
+        const completedDates = new Set(logs21.filter((l) => l.completed).map((l) => l.date));
+        if (!completedDates.has(lastPlanned)) {
+          markSent("missed_day");
+          const recentPlanned = lastPlannedDates(planWeekdays, date, 5, notBefore);
+          const missRate = recentMissRate(recentPlanned, completedDates);
+          const checkins = await dailyCheckinsSince(db, user._id, isoDaysAgo(7)).catch(() => []);
+          const strained = recentConditioningStrain(logs21, date, 2);
+          const ranked = rankMissedDayOptions({ recentMissRate: missRate, poorRecovery: poorWellbeing(checkins) || strained });
+          const lead = ranked[0];
+          const kb = new InlineKeyboard();
+          let body = t(lang, "missed_day_header", { date: lastPlanned });
+          if (lead === "deload") {
+            body += "\n\n" + t(lang, "missed_day_deload");
+            kb.text(t(lang, "menu_coach"), "menu:coach");
+          } else if (lead === "shorten") {
+            const missedDay = getPlanDay(plan, isoWeekday(lastPlanned) as Weekday);
+            const preview = (missedDay?.exercises ?? [])
+              .slice(0, 6)
+              .map((e) => `${escapeHtml(e.name)}: ${escapeHtml(deloadSets(e.sets))}`)
+              .join("\n");
+            body += "\n\n" + t(lang, "missed_day_shorten") + (preview ? `\n${preview}` : "");
+            kb.text(t(lang, "log_done_btn"), "log:done");
+          } else {
+            body += "\n\n" + t(lang, "missed_day_makeup");
+            kb.text(t(lang, "log_done_btn"), "log:done");
+          }
+          await bot.api.sendMessage(user.chatId, body, { ...HTML, reply_markup: kb }).catch((e) => console.error("missed_day notify", e));
+          pinged = true;
+        }
+      }
     }
   }
 

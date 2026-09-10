@@ -3,7 +3,7 @@
 
 const DAY = 86_400_000;
 
-function isoWeekday(dateStr: string): number {
+export function isoWeekday(dateStr: string): number {
   const d = new Date(`${dateStr}T00:00:00Z`);
   return ((d.getUTCDay() + 6) % 7) + 1; // 1 = Mon … 7 = Sun
 }

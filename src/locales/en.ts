@@ -956,6 +956,12 @@ export const en = {
   gro_grains: "🌾 Grains & bread",
   gro_pantry: "🫙 Pantry",
   gro_other: "📦 Other",
+  // --- smart reschedule (a single missed planned day) ---
+  missed_day_header: "🔄 *You missed {date}'s session.* No lecture — let's just pick the right next move.",
+  missed_day_makeup: "You've been consistent lately, so a full make-up session is realistic. Log it whenever works today.",
+  missed_day_shorten: "The last stretch has had a few gaps, so let's keep this one small and doable — here's a lighter version of that session:",
+  missed_day_deload: "Your recent check-ins/load point to needing recovery more than more volume right now. Take today easy, or skip it guilt-free — the plan will still be there tomorrow.",
+  log_done_btn: "✅ Log it",
   // --- activation arc (first 14 days) ---
   act_first:
     "👋 *Your plan is still waiting for its first session.* That first one is the whole game — people who get three sessions in during their first two weeks mostly keep going; people who don't, mostly don't.\n\nIt does not have to be the full session. Do the first two exercises and log them — that counts, and the plan starts adapting to your real numbers instead of guesses.",
