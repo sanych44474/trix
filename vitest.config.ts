@@ -28,7 +28,10 @@ export default defineConfig({
           // the one binding these tests actually need is declared; compat date/flags below are
           // hand-kept in sync with wrangler.toml instead.
           d1Databases: ["DB"],
-          durableObjects: { USER_SCHEDULER: { className: "UserSchedulerDO", useSQLite: true } },
+          durableObjects: {
+            USER_SCHEDULER: { className: "UserSchedulerDO", useSQLite: true },
+            SQUAD_SCHEDULER: { className: "SquadSchedulerDO", useSQLite: true },
+          },
           compatibilityDate: "2026-09-10", // keep in sync with wrangler.toml's compatibility_date
           compatibilityFlags: ["nodejs_compat"],
           bindings: { TEST_MIGRATIONS: migrations },

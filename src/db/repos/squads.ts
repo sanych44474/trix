@@ -7,6 +7,7 @@ export interface SquadRow {
   chatId: number;
   title: string | null;
   createdBy: number;
+  lastRecapWeek: string | null;
 }
 
 /** Register (or refresh the title of) the squad for a group chat. */
@@ -37,7 +38,7 @@ export async function leaveSquad(db: DB, chatId: number, userId: number): Promis
 
 export async function getSquad(db: DB, chatId: number): Promise<SquadRow | null> {
   const row = await db
-    .prepare("SELECT chatId, title, createdBy FROM squads WHERE chatId = ?")
+    .prepare("SELECT chatId, title, createdBy, lastRecapWeek FROM squads WHERE chatId = ?")
     .bind(chatId)
     .first<SquadRow>();
   return row ?? null;
@@ -120,10 +121,27 @@ export async function squadCompletedDates(
   return res.results ?? [];
 }
 
+/** Squads whose recap DO has never been woken (see migrations/0062) — a catch-up sweep for
+ * any squad that predates the wake-on-creation code path. Bounded by `limit` for the same
+ * reason the user-side wake bootstrap is self-limiting: DO calls share the caller's own
+ * subrequest budget. */
+export async function squadsNeedingWake(db: DB, limit: number): Promise<{ chatId: number }[]> {
+  const res = await db
+    .prepare("SELECT chatId FROM squads WHERE doWokenAt IS NULL ORDER BY chatId LIMIT ?")
+    .bind(limit)
+    .all<{ chatId: number }>();
+  return res.results ?? [];
+}
+
+export async function markSquadWoken(db: DB, chatId: number): Promise<void> {
+  await db.prepare("UPDATE squads SET doWokenAt = ? WHERE chatId = ?").bind(nowIso(), chatId).run();
+}
+
 /** Drop a squad and its membership — used when the bot is removed from the chat. */
 export async function deleteSquad(db: DB, chatId: number): Promise<void> {
   await db.batch([
     db.prepare("DELETE FROM squad_members WHERE chatId = ?").bind(chatId),
     db.prepare("DELETE FROM squads WHERE chatId = ?").bind(chatId),
+    db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'squad' AND entityId = ?").bind(chatId),
   ]);
 }

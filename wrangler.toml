@@ -50,6 +50,14 @@ class_name = "UserSchedulerDO"
 type = "durable-object"
 storage = "sqlite"
 
+[[durable_objects.bindings]]
+name = "SQUAD_SCHEDULER"
+class_name = "SquadSchedulerDO"
+
+[exports.SquadSchedulerDO]
+type = "durable-object"
+storage = "sqlite"
+
 # Cloudflare D1 (SQLite) — primary datastore, in-network (no external DB hangs).
 [[d1_databases]]
 binding = "DB"

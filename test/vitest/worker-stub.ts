@@ -4,6 +4,7 @@
 // those in. Durable Object classes under test ARE re-exported here: Miniflare can only construct
 // instances of a DO class defined in the `main` Worker.
 export { UserSchedulerDO } from "../../src/durable/userScheduler";
+export { SquadSchedulerDO } from "../../src/durable/squadScheduler";
 
 export default {
   async fetch() {

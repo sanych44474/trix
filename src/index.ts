@@ -1,5 +1,6 @@
 import type { Update } from "grammy/types";
 export { UserSchedulerDO } from "./durable/userScheduler";
+export { SquadSchedulerDO } from "./durable/squadScheduler";
 import { createBot, buildPlanDocRaw, pingIncompleteOnboarding } from "./bot";
 import { checkCronHeartbeat, runSchedule } from "./scheduler";
 import {

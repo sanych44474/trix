@@ -25,6 +25,7 @@ import {
 } from "../db/repos";
 import { weekStartStr } from "../domain/records";
 import { squadMedal, squadWeek, type SquadWeek } from "../domain/squad";
+import { wakeSquadScheduler } from "../durable/squadScheduler";
 import { escapeHtml, t } from "../locales/i18n";
 import type { Lang } from "../types";
 
@@ -84,7 +85,14 @@ export function isChatGone(err: unknown): boolean {
 
 /** Build and post a squad board for the given window. Returns false when the chat is gone (the
  * bot was kicked or the group was deleted) — the caller drops the squad. */
-export async function postSquadDigest(db: D1Database, api: Api, chatId: number, win: DigestWindow): Promise<boolean> {
+// Narrowed from the concrete grammY Api so a dry-run caller (SquadSchedulerDO's alarm) can
+// pass a logging stand-in instead of a real api client, without an `as unknown as Api` cast
+// -- same pattern as scheduler.ts's Sender for processUser.
+export interface SquadApi {
+  sendMessage: Api["sendMessage"];
+}
+
+export async function postSquadDigest(db: D1Database, api: SquadApi, chatId: number, win: DigestWindow): Promise<boolean> {
   const [squad, members] = await Promise.all([getSquad(db, chatId), squadMembers(db, chatId)]);
   if (!squad || members.length === 0) return true; // nothing to post, but the squad is still valid
   const lang = squadLang(members);
@@ -148,6 +156,9 @@ export async function handleGroupUpdate(ctx: MyContext, today: string): Promise<
     await upsertSquad(ctx.db, chatId, title, user._id);
     const added = await joinSquad(ctx.db, chatId, user._id);
     const members = await squadMembers(ctx.db, chatId);
+    // Arms the squad's recap DO (dry-run phase — see squadScheduler.ts). Best-effort: a wake
+    // failure must never block the join confirmation the person is waiting on.
+    await wakeSquadScheduler(ctx.env, chatId).catch(() => {});
     await say(added ? "squad_joined" : "squad_already_in", { name: user.alias || user.profile.name || "", n: members.length });
     return;
   }

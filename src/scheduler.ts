@@ -79,7 +79,8 @@ import { stalledLifts } from "./domain/analysis";
 import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
 import { postSquadDigest } from "./bot/squad";
 import { wakeUserScheduler } from "./durable/userScheduler";
-import { deleteSquad, markSquadRecapped, squadsDueForRecap } from "./db/repos";
+import { wakeSquadScheduler } from "./durable/squadScheduler";
+import { deleteSquad, markSquadRecapped, markSquadWoken, squadsDueForRecap, squadsNeedingWake } from "./db/repos";
 import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
 import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
@@ -410,6 +411,18 @@ async function runScheduleInner(env: Env): Promise<void> {
   // 3am post into a group chat is how a bot gets muted.
   if (utcNow.hour >= SQUAD_RECAP_HOUR_UTC) {
     await postSquadRecaps(db, bot, utcNow.date, thisWeekKey).catch((e) => logSchedulerError(db, "squad_recaps", e));
+  }
+
+  // Catch-up wake for any squad that predates the wake-on-creation code path (bot/squad.ts).
+  // Self-limiting the same way the user-side sweep is: bounded batch, only never-woken squads.
+  const unwokenSquads = await squadsNeedingWake(db, SQUAD_RECAP_BATCH).catch(() => []);
+  for (const squad of unwokenSquads) {
+    try {
+      await wakeSquadScheduler(env, squad.chatId);
+      await markSquadWoken(db, squad.chatId);
+    } catch (e) {
+      logSchedulerError(db, "squad_scheduler_wake", e);
+    }
   }
 
   // Weekly reports moved into processUser (per-user local timezone at 17:00).
