@@ -5,14 +5,18 @@
 // this exists for design consistency with the other two DO types, not because it fixes a
 // problem specific to these jobs. Same dry-run posture as the others: runs the real
 // runGlobalJobs (scheduler.ts) against a shadowed D1 and a logging Sender.
+import { Bot } from "grammy";
 import { runGlobalJobs, type Sender } from "../scheduler";
+import { isCutOver } from "./cutover";
 import { logDryRun } from "../db/repos";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000; // hourly, matching the cron path's own cadence
 export const GLOBAL_SCHEDULER_NAME = "global";
-// A fixed, non-zero entityId for the dry-run log — there is no per-entity id for a singleton.
+// A fixed entityId for the dry-run log — there is no real per-entity id for a singleton. 0 is
+// safe: user ids are positive Telegram ids and squad chat ids are negative, so it never collides
+// with either when deleteUserData/deleteSquad scope their cleanup by (source, entityId).
 const GLOBAL_LOG_ENTITY_ID = 0;
 
 /** Wake the singleton GlobalSchedulerDO. Idempotent — safe to call every health-check tick. */
@@ -40,6 +44,14 @@ export class GlobalSchedulerDO {
   async alarm(): Promise<void> {
     // Reschedule first — same reasoning as the other two DOs.
     await this.state.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+
+    // Cut over? (durable/cutover.ts — default off.) Real bot, real db: the exact path
+    // runGlobalJobs used to run in the cron loop (and now skips — see scheduler.ts).
+    if (await isCutOver(this.env.DB, "global")) {
+      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
+      await runGlobalJobs(this.env.DB, bot);
+      return;
+    }
 
     const writes: { sql: string; params: unknown[] }[] = [];
     const shadowEnv: Env = { ...this.env, DB: shadowD1(this.env.DB, (w) => writes.push(w)) };

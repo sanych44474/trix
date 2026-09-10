@@ -81,6 +81,7 @@ import { postSquadDigest } from "./bot/squad";
 import { wakeUserScheduler } from "./durable/userScheduler";
 import { wakeSquadScheduler } from "./durable/squadScheduler";
 import { wakeGlobalScheduler } from "./durable/globalScheduler";
+import { isCutOver } from "./durable/cutover";
 import { deleteSquad, markSquadRecapped, markSquadWoken, squadsDueForRecap, squadsNeedingWake } from "./db/repos";
 import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
@@ -400,7 +401,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   // path into the hourly pass — rows live at most ~2h instead of ~1h, which is harmless.
   await pruneSeenUpdates(db, new Date(Date.now() - 3_600_000).toISOString()).catch(() => {});
 
-  await runGlobalJobs(db, bot);
+  if (!(await isCutOver(db, "global"))) await runGlobalJobs(db, bot);
   await wakeGlobalScheduler(env).catch((e) => logSchedulerError(db, "global_scheduler_wake", e));
 
   // Weekly buddy duels — compare last week's completed-workout counts for every paired buddy,
@@ -419,7 +420,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   // Held to 09:00 UTC: the ISO-week gate alone fires on the first tick after the week rolls
   // over, i.e. Monday 00:00 UTC — the middle of the night for the users this bot has, and a
   // 3am post into a group chat is how a bot gets muted.
-  if (utcNow.hour >= SQUAD_RECAP_HOUR_UTC) {
+  if (utcNow.hour >= SQUAD_RECAP_HOUR_UTC && !(await isCutOver(db, "squad"))) {
     await postSquadRecaps(db, bot, utcNow.date, thisWeekKey).catch((e) => logSchedulerError(db, "squad_recaps", e));
   }
 
@@ -437,6 +438,7 @@ async function runScheduleInner(env: Env): Promise<void> {
 
   // Weekly reports moved into processUser (per-user local timezone at 17:00).
 
+  const userCutOver = await isCutOver(db, "user");
   const users = await listOnboardedUsers(db);
   // Bulk-prefetch the two reads EVERY processUser needs — one query for all active plans and
   // one for recent workout logs (covers each timezone's "today") — instead of 2 queries × N
@@ -468,6 +470,9 @@ async function runScheduleInner(env: Env): Promise<void> {
         logSchedulerError(db, "user_scheduler_wake", err, user._id);
       }
     }
+    // Once user reminders are cut over to UserSchedulerDO (see durable/cutover.ts), the cron
+    // path must stop doing this for real -- both paths acting would double-send everything.
+    if (userCutOver) continue;
     try {
       await processUser(env, bot, user, pass);
     } catch (err) {

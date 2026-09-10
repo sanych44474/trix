@@ -13,7 +13,9 @@
 // exactly like the cron path does, so the two paths can be compared like-for-like. Cutover
 // (making this the real sender, and giving it its own persisted dedup state) is a deliberate
 // later phase, not a flag flip — see the grilling transcript this design came out of.
+import { Bot } from "grammy";
 import { getUser, logDryRun } from "../db/repos";
+import { isCutOver } from "./cutover";
 import { buildSinglePass, processUser, type Sender } from "../scheduler";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
@@ -66,6 +68,17 @@ export class UserSchedulerDO {
 
     const user = await getUser(this.env.DB, userId);
     if (!user) return; // account deleted since the last wake
+
+    // Cut over? (durable/cutover.ts — a single D1 flag, default off.) Real bot, real db, no
+    // logging: this IS the real send/write path now, the exact same one the cron loop used to
+    // run for this user (and now skips — see scheduler.ts's userCutOver check). Not cut over
+    // (the default): shadow everything, exactly as before — see the file header.
+    if (await isCutOver(this.env.DB, "user")) {
+      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
+      const pass = await buildSinglePass(this.env.DB, userId);
+      await processUser(this.env, bot, user, pass);
+      return;
+    }
 
     const writes: { sql: string; params: unknown[] }[] = [];
     const shadowEnv: Env = { ...this.env, DB: shadowD1(this.env.DB, (w) => writes.push(w)) };

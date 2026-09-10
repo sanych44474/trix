@@ -35,7 +35,12 @@ export default defineConfig({
           },
           compatibilityDate: "2026-09-10", // keep in sync with wrangler.toml's compatibility_date
           compatibilityFlags: ["nodejs_compat"],
-          bindings: { TEST_MIGRATIONS: migrations },
+          // A syntactically-plausible but fake token: only the cutover ("real") branch of
+          // each DO constructs a Bot with it, and only to prove the write path runs for
+          // real -- the actual Telegram API call is expected to fail (invalid token), which
+          // processUser/postSquadDigest/checkOwnerAlerts already catch and log, same as any
+          // other delivery failure.
+          bindings: { TEST_MIGRATIONS: migrations, TELEGRAM_BOT_TOKEN: "0:TEST" },
         },
       };
     }),

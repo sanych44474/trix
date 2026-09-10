@@ -4,7 +4,9 @@
 // hourly, same as UserSchedulerDO, for like-for-like comparison against the cron path during
 // this phase; it only actually acts once the recap hour arrives and the week hasn't been
 // recapped yet, exactly the same gate scheduler.ts's own SQUAD_RECAP_HOUR_UTC uses.
-import { getSquad, logDryRun, markSquadRecapped } from "../db/repos";
+import { Bot } from "grammy";
+import { deleteSquad, getSquad, logDryRun, markSquadRecapped } from "../db/repos";
+import { isCutOver } from "./cutover";
 import { postSquadDigest, type DigestWindow, type SquadApi } from "../bot/squad";
 import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
 import type { Env } from "../types";
@@ -56,6 +58,20 @@ export class SquadSchedulerDO {
     const weekKey = isoWeekKey(today);
     if (squad.lastRecapWeek === weekKey) return; // already recapped this week — nothing to log
 
+    const { from } = weekRangeOffset(today, 1); // Monday of the week that just ended
+    const until = weekStartStr(today);
+    const win: DigestWindow = { weekStart: from, until, past: true };
+
+    // Cut over? (durable/cutover.ts — default off.) Real bot.api, real db: the exact path
+    // postSquadRecaps used to run in the cron loop (and now skips — see scheduler.ts).
+    if (await isCutOver(this.env.DB, "squad")) {
+      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
+      const ok = await postSquadDigest(this.env.DB, bot.api, chatId, win);
+      await markSquadRecapped(this.env.DB, chatId, weekKey).catch(() => {});
+      if (!ok) await deleteSquad(this.env.DB, chatId).catch(() => {});
+      return;
+    }
+
     const writes: { sql: string; params: unknown[] }[] = [];
     const shadowDb = shadowD1(this.env.DB, (w) => writes.push(w));
 
@@ -67,9 +83,6 @@ export class SquadSchedulerDO {
       }) as SquadApi["sendMessage"],
     };
 
-    const { from } = weekRangeOffset(today, 1); // Monday of the week that just ended
-    const until = weekStartStr(today);
-    const win: DigestWindow = { weekStart: from, until, past: true };
     await postSquadDigest(shadowDb, api, chatId, win);
     await markSquadRecapped(shadowDb, chatId, weekKey);
 
