@@ -368,3 +368,36 @@ export function challengeMilestones(completedCount: number): BadgeCode[] {
   if (completedCount >= 5) out.push("challenges_5");
   return out;
 }
+
+export interface BadgeProgress {
+  current: number;
+  needed: number;
+}
+
+// codes we can show real "current/needed" progress for -- limited to the badge families backed
+// by a running total the dashboard already loads for free (lifetime workouts, week streak,
+// level). Event-based badges (first_pr, perfect_day, referral, buddy_*, ...) have no cheap
+// "how close am I" number, so they're deliberately left out rather than faked as 0/N.
+const PROGRESS_THRESHOLDS: Partial<Record<BadgeCode, { field: "workouts" | "streak" | "level"; needed: number }>> = {
+  workouts_10: { field: "workouts", needed: 10 },
+  workouts_50: { field: "workouts", needed: 50 },
+  workouts_100: { field: "workouts", needed: 100 },
+  streak_4: { field: "streak", needed: 4 },
+  streak_12: { field: "streak", needed: 12 },
+  level_5: { field: "level", needed: 5 },
+  level_10: { field: "level", needed: 10 },
+};
+
+/** How close a user is to a still-locked badge, for the achievements showcase's progress hint.
+ * Returns null when the badge isn't one of the tracked numeric families, or the matching count
+ * wasn't supplied. */
+export function badgeProgress(
+  code: BadgeCode,
+  counts: { workouts?: number; streak?: number; level?: number },
+): BadgeProgress | null {
+  const t = PROGRESS_THRESHOLDS[code];
+  if (!t) return null;
+  const raw = counts[t.field];
+  if (raw === undefined) return null;
+  return { current: Math.min(raw, t.needed), needed: t.needed };
+}

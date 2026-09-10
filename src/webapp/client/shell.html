@@ -976,13 +976,27 @@ function initTabs(p) {
   if (pf) pf.onclick = function () { closeOverlays(); pfOpen(); setTab(""); };
 }
 // --- activity rings (workouts this week / water today / steps today) ---
+// Rendered fully unfilled (stroke-dashoffset = C) so initRings can animate them filling in on
+// load -- a static "already there" ring reads as flat; watching it sweep in feels earned.
 function ringSvg(pct, color, emoji) {
   var R = 26, C = 2 * Math.PI * R, off = C * (1 - Math.max(0, Math.min(1, pct)));
   return '<svg viewBox="0 0 64 64" width="64" height="64" style="display:inline-block">'
     + '<circle cx="32" cy="32" r="' + R + '" fill="none" stroke="var(--rest)" stroke-width="6"/>'
-    + '<circle cx="32" cy="32" r="' + R + '" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round"'
-    + ' stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 32 32)" style="transition:stroke-dashoffset .6s ease"/>'
+    + '<circle class="ring-fill" cx="32" cy="32" r="' + R + '" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round"'
+    + ' stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + C.toFixed(1) + '" data-off="' + off.toFixed(1) + '"'
+    + ' transform="rotate(-90 32 32)" style="transition:stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1)"/>'
     + '<text x="32" y="38" text-anchor="middle" font-size="18">' + emoji + '</text></svg>';
+}
+// Two rAFs: the first lets the browser paint the "empty" initial state, the second then flips
+// stroke-dashoffset to its real target so the CSS transition actually has something to animate
+// (setting both in the same frame would just show the filled ring with no visible sweep).
+function ringsAnimateIn(box) {
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      var els = box.querySelectorAll(".ring-fill");
+      for (var i = 0; i < els.length; i++) els[i].style.strokeDashoffset = els[i].getAttribute("data-off");
+    });
+  });
 }
 function mondayOf(iso) {
   var d = new Date(iso + "T00:00:00Z");
@@ -1007,6 +1021,7 @@ function initRings(p) {
     + cell(ringSvg(t2.steps / t2.stepsGoal, "#f2a53c", "👟"), t2.steps >= 1000 ? Math.round(t2.steps / 1000) + "k" : t2.steps, WA.wa_ring_steps)
     + "</div>";
   box.style.display = "block";
+  ringsAnimateIn(box);
 }
 // --- daily quests: today's 3 goals (workout / water / protein) with live progress, computed
 // entirely from the dashboard payload. Doing each already earns XP (counts feed computeXp); all

@@ -55,7 +55,11 @@ function pfGamification() {
     var got = cat.filter(function (x) { return earned[x.code]; }).length;
     out += '<div class="card" style="margin-bottom:10px"><b>🎖 ' + (WA.wa_ach_title || "Achievements") + " · " + got + "/" + cat.length + "</b>"
       + '<div class="ach">'
-      + cat.map(function (x) { return '<span class="ach-b ' + (earned[x.code] ? "got" : "lock") + '">' + (earned[x.code] ? "" : "🔒 ") + esc(x.label) + "</span>"; }).join("")
+      + cat.map(function (x) {
+        if (earned[x.code]) return '<span class="ach-b got">' + esc(x.label) + "</span>";
+        var prog = x.progress ? " (" + x.progress.current + "/" + x.progress.needed + ")" : "";
+        return '<span class="ach-b lock">🔒 ' + esc(x.label) + prog + "</span>";
+      }).join("")
       + "</div></div>";
   }
   return out;

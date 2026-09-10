@@ -4,7 +4,7 @@ import { projectWeight, weeklyVolume } from "../domain/analysis";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
 import { recoveryScore } from "../domain/recovery";
 import { localParts, muscleGroupOf } from "../domain/progression";
-import { BADGES, e1rm, weekStartStr, weekStreak } from "../domain/records";
+import { BADGES, badgeProgress, e1rm, weekStartStr, weekStreak } from "../domain/records";
 import { complianceScore, getPlanDay } from "../domain/progression";
 import { missedConsecutiveWorkouts } from "../domain/atrisk";
 import { computeXp, levelFromXp } from "../domain/gamification";
@@ -79,11 +79,13 @@ export interface DashboardPayload {
     days: { date: string; kcal: number; p: number; f: number; c: number; training: boolean }[];
   };
   // XP/level derived from all-time counts (same math as /progress — domain/gamification).
-  gamification?: { level: number; xp: number; intoLevel: number; needed: number; streak?: number };
+  // totalWorkouts powers the "X/threshold" progress hint on locked workout-count badges.
+  gamification?: { level: number; xp: number; intoLevel: number; needed: number; streak?: number; totalWorkouts?: number };
   // Earned badges — client celebrates ones it hasn't shown before (localStorage diff).
   badges?: { code: string; label: string }[];
   // Full badge catalog (all codes + labels) — powers the achievements showcase (earned vs locked).
-  badgeCatalog?: { code: string; label: string }[];
+  // `progress` (locked badges only, where we track a cheap running total) drives the "7/10" hint.
+  badgeCatalog?: { code: string; label: string; progress?: { current: number; needed: number } }[];
   // Today's water/steps vs goals — powers the activity rings (workouts ring derives from calendar).
   todayStats?: { waterMl: number; waterGoal: number; steps: number; stepsGoal: number };
   // Accountability buddy — name + their completed workouts this week (mutual motivation card).
@@ -397,11 +399,17 @@ export async function buildDashboardPayload(db: D1Database, user: UserDoc): Prom
       ...levelFromXp(computeXp(extras.statCounts)),
       // Week streak (vacation-frozen) — the same number the bot's /progress and week card show.
       streak: weekStreak(workouts.filter((w) => w.completed).map((w) => w.date), today, user.reminders?.lastVacation),
+      totalWorkouts: extras.statCounts.workouts,
     };
     // Earned badges (code+label) — the client diffs against its last-seen set and celebrates
     // newly earned ones with a haptic + overlay animation.
     payload.badges = extras.achievements.map((code) => ({ code, label: t(user.lang, `badge_${code}` as Parameters<typeof t>[1]) }));
-    payload.badgeCatalog = BADGES.map((code) => ({ code, label: t(user.lang, `badge_${code}` as Parameters<typeof t>[1]) }));
+    const earnedSet = new Set(extras.achievements);
+    const progressCounts = { workouts: extras.statCounts.workouts, streak: payload.gamification.streak, level: payload.gamification.level };
+    payload.badgeCatalog = BADGES.map((code) => {
+      const progress = earnedSet.has(code) ? undefined : (badgeProgress(code, progressCounts) ?? undefined);
+      return { code, label: t(user.lang, `badge_${code}` as Parameters<typeof t>[1]), ...(progress ? { progress } : {}) };
+    });
     payload.todayStats = {
       waterMl: extras.waterMl,
       waterGoal: resolveWaterGoal(user.profile),

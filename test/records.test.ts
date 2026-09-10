@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  badgeProgress,
   challengeMilestones,
   consistencyBoard,
   e1rm,
@@ -15,6 +16,26 @@ import {
   workoutMilestones,
   type Competitor,
 } from "../src/domain/records";
+
+test("badgeProgress: tracks the nearest numeric-threshold badge family", () => {
+  assert.deepEqual(badgeProgress("workouts_10", { workouts: 7 }), { current: 7, needed: 10 });
+  assert.deepEqual(badgeProgress("streak_4", { streak: 2 }), { current: 2, needed: 4 });
+  assert.deepEqual(badgeProgress("level_10", { level: 6 }), { current: 6, needed: 10 });
+});
+
+test("badgeProgress: clamps current to the threshold (already past it, badge just not synced yet)", () => {
+  assert.deepEqual(badgeProgress("workouts_10", { workouts: 15 }), { current: 10, needed: 10 });
+});
+
+test("badgeProgress: null for event-based badges with no cheap running total", () => {
+  assert.equal(badgeProgress("first_pr", { workouts: 5 }), null);
+  assert.equal(badgeProgress("perfect_day", {}), null);
+  assert.equal(badgeProgress("referral", {}), null);
+});
+
+test("badgeProgress: null when the matching count wasn't supplied", () => {
+  assert.equal(badgeProgress("streak_12", { workouts: 40 }), null);
+});
 
 test("e1rm: Epley, bodyweight sets excluded", () => {
   assert.equal(Math.round(e1rm(100, 5)), 117);
