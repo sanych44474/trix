@@ -26,13 +26,19 @@ describe("UserSchedulerDO alarm (dry-run)", () => {
 
     // Logged: the referral-reward send (to the INVITER's chat) and at least one write (the
     // achievement award + the reminders.sent update processUser makes when it decides to act).
+    // NOT asserting an exact row count here: processUser is the WHOLE reminder engine, and this
+    // minimal fixture (a freshly created user, nothing in reminders.sent) can also legitimately
+    // satisfy OTHER, unrelated gates depending on the wall-clock hour the suite happens to run at
+    // (e.g. the recurring quality/feedback ask, "never sent" reads as "overdue"). Asserting an
+    // exact total made this test pass or fail depending on the time of day — found it the hard
+    // way. Filter for the one send this test is actually about instead.
     const logged = await env.DB
       .prepare("SELECT kind, detail FROM scheduler_dryrun_log WHERE source = 'user' AND entityId = 202")
       .all<{ kind: string; detail: string }>();
     const sends = logged.results.filter((r) => r.kind === "send").map((r) => JSON.parse(r.detail));
     const writes = logged.results.filter((r) => r.kind === "write");
-    expect(sends).toHaveLength(1);
-    expect(sends[0].chatId).toBe(inviter.chatId);
+    const referralSend = sends.find((s) => s.chatId === inviter.chatId);
+    expect(referralSend).toBeDefined();
     expect(writes.length).toBeGreaterThan(0);
 
     // Nothing it decided was actually applied: the invitee's OWN dedup state never recorded

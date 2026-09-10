@@ -48,5 +48,14 @@ export default defineConfig({
   test: {
     include: ["test/vitest/**/*.test.ts"],
     setupFiles: ["./test/vitest/apply-migrations.ts"],
+    // Vitest's defaults (5s test / 10s hook) size for plain JS tests, not this pool: each of the
+    // 8 test files spins up its OWN workerd/Miniflare instance (storage isolation is per file --
+    // see the pool config comment above), and the apply-migrations.ts setup hook has to wait for
+    // that boot before it can run applyD1Migrations. A cold CI runner comfortably clears the
+    // defaults locally but can blow past them under load -- this is the leading suspect for a
+    // deploy.yml run that failed this exact step while the identical commit passed it seconds
+    // earlier in ci.yml. Generous, still bounded: a genuine hang still times out, just later.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });
