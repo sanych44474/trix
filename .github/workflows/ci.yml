@@ -1,6 +1,6 @@
 name: CI
 
-# Typecheck + tests + Mini App build on every push and PR. All three must be green before a
+# Typecheck + both test pools + Mini App build on every push and PR. All must be green before a
 # deploy — the deploy workflow re-runs them behind the production approval gate as well.
 on:
   push:
@@ -37,6 +37,13 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Runs against REAL D1 inside workerd (vitest.config.ts), separate from the
+      # node:test suite above -- covers D1 semantics (meta.changes, batch()) the
+      # node:sqlite-backed harness can't promise. Scoped to a D1-only binding (no
+      # [ai]), so it needs no Cloudflare credentials.
+      - name: Test (Workers runtime)
+        run: npm run test:workers
 
       # Catches a broken shell.html marker or a client fragment that no longer parses —
       # failures that would otherwise only surface at deploy time.

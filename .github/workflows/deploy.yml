@@ -40,13 +40,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Re-run both gates inside the gated job. CI already ran them, but this guarantees a
+      # Re-run every gate inside the gated job. CI already ran them, but this guarantees a
       # deploy can never ship a commit whose checks were skipped, re-run, or raced.
       - name: Typecheck
         run: npm run typecheck
 
       - name: Test
         run: npm test
+
+      - name: Test (Workers runtime)
+        run: npm run test:workers
 
       # wrangler.toml ships with placeholder identity so no deployment is baked into the source
       # tree. Values arrive as env vars (never interpolated straight into the script) and are
