@@ -1,38 +1,23 @@
-export interface Env {
-  TELEGRAM_BOT_TOKEN: string;
-  TELEGRAM_WEBHOOK_SECRET: string;
-  DB: D1Database; // Cloudflare D1 datastore
-  GEMINI_API_KEY: string;
-  GEMINI_MODEL: string;
-  GEMINI_LIGHT_MODEL?: string; // faster model for light tasks (interview/coach/nutrition)
-  GEMINI_FALLBACK_MODELS?: string; // comma-separated Gemini fallback order
-  // Optional / fallback configuration
-  GROQ_API_KEY?: string;
-  GROQ_MODEL?: string;
-  GROQ_FALLBACK_MODELS?: string;
-  GROQ_VISION_MODEL?: string;
+// Every binding and var wrangler.toml actually declares (D1, AI, model ids, secrets) comes from
+// `Cloudflare.Env`, generated into worker-configuration.d.ts by `npm run types` (wraps
+// `wrangler types`) — regenerate it after any wrangler.toml change, and re-run it whenever this
+// list of "known to wrangler" fields below stops matching reality. Extending it, instead of
+// hand-copying the field list, is what keeps this type from silently drifting out of sync with
+// the deployed Worker's actual bindings (the AI binding spent a while wrongly marked optional
+// here after being added to wrangler.toml).
+//
+// The handful of fields below are genuinely NOT declared anywhere in wrangler.toml — they're
+// optional integrations that, if used, are set as ad hoc secrets outside the tracked config
+// (USDA/FatSecret food-DB keys) or override a model id wrangler has no [vars] entry for
+// (GROQ_TRANSCRIBE_MODEL, WORKERSAI_*). `wrangler types` can't discover these from the config, so
+// they stay hand-declared and optional.
+export interface Env extends Cloudflare.Env {
   GROQ_TRANSCRIBE_MODEL?: string; // Whisper model for voice messages
-  OLLAMA_API_KEY?: string;
-  OLLAMA_MODEL?: string;
-  OPENROUTER_API_KEY?: string;
-  OPENROUTER_MODEL?: string;
-  OPENROUTER_TRANSLATE_MODEL?: string;
-  OPENROUTER_VISION_MODEL?: string;
   WORKERSAI_MODEL?: string;
   WORKERSAI_TRANSCRIBE_MODEL?: string; // Whisper model for voice (default @cf/openai/whisper-large-v3-turbo)
-  AI?: Ai; // Cloudflare Workers AI binding (free, on-platform)
   USDA_FDC_API_KEY?: string;
-  EXERCISES_API_KEY?: string; // API Ninjas — only the seed script uses it (runtime reads D1)
   FATSECRET_CLIENT_ID?: string; // FatSecret OAuth2 — food database search (primary, OFF fallback)
   FATSECRET_CLIENT_SECRET?: string;
-  YOUTUBE_API_KEY?: string; // YouTube Data API v3 — exercise technique shorts (cache-first)
-  ADMIN_SECRET?: string;
-  WORKER_URL?: string; // public worker origin — enables the Mini App dashboard buttons when set
-  // Bot identity. BOT_USERNAME builds the t.me invite/share links; BOT_ID + BOT_NAME let the
-  // Worker skip a getMe round-trip on every webhook. Unset BOT_ID falls back to bot.init().
-  BOT_USERNAME?: string;
-  BOT_ID?: string;
-  BOT_NAME?: string;
 }
 
 export type Lang = "uk" | "en";

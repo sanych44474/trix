@@ -11,7 +11,6 @@
 // someone's plan into the group, and would create their user row with the GROUP's chat id as
 // their personal chatId, sending every future reminder to the group.
 import type { Api } from "grammy";
-import type { D1Database } from "@cloudflare/workers-types";
 import { HTML, type MyContext } from "../bot";
 import { getUser } from "../db/repos";
 import {

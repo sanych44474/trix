@@ -316,7 +316,7 @@ export async function lookupPer100g(env: Env, query: string): Promise<Per100g | 
   if (!q) return null;
   const curated = curatedPer100g(q);
   if (curated) return curated;
-  const key = (env as Env & { USDA_FDC_API_KEY?: string }).USDA_FDC_API_KEY || "DEMO_KEY";
+  const key = env.USDA_FDC_API_KEY || "DEMO_KEY";
   try {
     const usda = await usdaLookup(key, q);
     if (usda) return usda;
@@ -336,7 +336,7 @@ export async function lookupPer100gCached(db: D1Database, env: Env, query: strin
   const cached = (await getFoodCache(db, q).catch(() => null)) as Per100g | null;
   if (cached) return cached;
   // Try USDA first.
-  const key = (env as Env & { USDA_FDC_API_KEY?: string }).USDA_FDC_API_KEY || "DEMO_KEY";
+  const key = env.USDA_FDC_API_KEY || "DEMO_KEY";
   let fresh: Per100g | null = null;
   try { fresh = await usdaLookup(key, q); } catch { /* ignore */ }
   // Gemini fallback — fires only when USDA has no match (unknown brand, regional food, etc.)
