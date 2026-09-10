@@ -72,6 +72,17 @@ export interface DigestWindow {
   past?: boolean; // wording: "last week" vs "this week"
 }
 
+// Telegram says "this chat is gone for good" in two ways: 403 (bot kicked, blocked, or removed
+// from the group) and a 400 whose description names the chat. A bare 400 is NOT enough — the
+// same status covers "message is too long" and other request faults, and treating those as
+// fatal would delete a live squad's data because one week's board got big.
+const CHAT_GONE = /chat not found|chat_id is empty|group chat was upgraded|chat was deleted|bot was kicked|bot is not a member|have no rights to send/i;
+export function isChatGone(err: unknown): boolean {
+  const e = err as { error_code?: number; description?: string };
+  if (e?.error_code === 403) return true;
+  return e?.error_code === 400 && CHAT_GONE.test(e.description ?? "");
+}
+
 /** Build and post a squad board for the given window. Returns false when the chat is gone (the
  * bot was kicked or the group was deleted) — the caller drops the squad. */
 export async function postSquadDigest(db: D1Database, api: Api, chatId: number, win: DigestWindow): Promise<boolean> {
@@ -84,10 +95,9 @@ export async function postSquadDigest(db: D1Database, api: Api, chatId: number, 
     await api.sendMessage(chatId, renderSquadBoard(lang, week, squad.title, win.past ?? false), HTML);
     return true;
   } catch (err) {
-    // 403 = kicked / chat deleted / bot blocked there. Anything else is transient: keep the squad
-    // and let the next run try again rather than deleting people's data on a network blip.
-    const status = (err as { error_code?: number })?.error_code;
-    if (status === 403 || status === 400) return false;
+    if (isChatGone(err)) return false;
+    // Everything else is transient — keep the squad and let the next run try again rather
+    // than deleting a group's data over a network blip or an oversized message.
     console.error("squad digest", chatId, err);
     return true;
   }
@@ -127,6 +137,9 @@ export async function handleGroupUpdate(ctx: MyContext, today: string): Promise<
   const say = (key: Parameters<typeof t>[1], vars?: Record<string, string | number>) =>
     ctx.reply(t(lang, key, vars), HTML).catch(() => {});
 
+  // An owner-banned account is ignored entirely in private chats; a group must not be a way
+  // around that. Silent, deliberately — a ban should not announce itself to the group.
+  if (user?.blocked) return;
   if (!user || !user.onboarded) {
     await say("squad_dm_first");
     return;

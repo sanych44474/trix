@@ -55,3 +55,16 @@ test("squadMedal: a tie shares the medal, zero never gets one", () => {
   assert.equal(squadMedal(w.entries, 1), "🥇"); // same count → same place
   assert.equal(squadMedal(w.entries, 2), "·"); // zero sessions
 });
+
+// isChatGone lives in bot/squad.ts rather than the pure module because it classifies a Telegram
+// API error, but it is the one branch that DELETES a group's data — so it gets pinned here.
+test("isChatGone: 403 is fatal, a bare 400 is not", async () => {
+  const { isChatGone } = await import("../src/bot/squad");
+  assert.equal(isChatGone({ error_code: 403, description: "Forbidden: bot was kicked from the group chat" }), true);
+  assert.equal(isChatGone({ error_code: 400, description: "Bad Request: chat not found" }), true);
+  // The regression this guards: an oversized board must not retire a live squad.
+  assert.equal(isChatGone({ error_code: 400, description: "Bad Request: message is too long" }), false);
+  assert.equal(isChatGone({ error_code: 429, description: "Too Many Requests: retry after 30" }), false);
+  assert.equal(isChatGone(new Error("fetch failed")), false);
+  assert.equal(isChatGone(undefined), false);
+});

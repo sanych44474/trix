@@ -77,7 +77,7 @@ import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
 import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
 import { postSquadDigest } from "./bot/squad";
-import { deleteSquad, listSquads } from "./db/repos";
+import { deleteSquad, markSquadRecapped, squadsDueForRecap } from "./db/repos";
 import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
 import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
@@ -109,6 +109,13 @@ function logSchedulerError(db: D1Database, kind: string, e: unknown, userId?: nu
 const CHECKIN_HOUR = 20;
 const EVENING_HOUR = 21; // one combined evening survey (water / steps / food / check-in) — 9pm local
 const QUALITY_EVERY_DAYS = 14; // recurring "rate trix + what's missing" quality/feedback ask
+// Squad recaps go to GROUP chats, which have no timezone of their own — a single sensible UTC
+// hour is the honest answer (09:00 UTC = noon in Kyiv, morning across Europe).
+const SQUAD_RECAP_HOUR_UTC = 9;
+// Each recap post is one EXTERNAL subrequest, and the Workers Free plan allows 50 per
+// invocation — shared with every reminder the per-user loop below sends in the same tick. The
+// sweep therefore runs in small batches on consecutive minutes instead of fanning out at once.
+const SQUAD_RECAP_BATCH = 8;
 
 function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
@@ -396,10 +403,11 @@ async function runScheduleInner(env: Env): Promise<void> {
 
   // Squad recap — one post per group chat, once per ISO week, covering the week that just
   // ended. Squads are chat-scoped, not user-scoped, so this sits outside the per-user loop.
-  const lastSquadWeek = await getSetting(db, "last_squad_digest_week").catch(() => null);
-  if (lastSquadWeek !== thisWeekKey) {
-    await postSquadRecaps(db, bot, utcNow.date).catch((e) => logSchedulerError(db, "squad_recaps", e));
-    await setSetting(db, "last_squad_digest_week", thisWeekKey).catch(() => {});
+  // Held to 09:00 UTC: the ISO-week gate alone fires on the first tick after the week rolls
+  // over, i.e. Monday 00:00 UTC — the middle of the night for the users this bot has, and a
+  // 3am post into a group chat is how a bot gets muted.
+  if (utcNow.hour >= SQUAD_RECAP_HOUR_UTC) {
+    await postSquadRecaps(db, bot, utcNow.date, thisWeekKey).catch((e) => logSchedulerError(db, "squad_recaps", e));
   }
 
   // Weekly reports moved into processUser (per-user local timezone at 17:00).
@@ -452,13 +460,16 @@ async function runScheduleInner(env: Env): Promise<void> {
 // whole system per week, not per user: buddy PAIRS, not individual users, are the unit of work.
 /** Post last week's board into every squad chat. A chat that rejects the message (bot kicked,
  * group deleted) is dropped — that is the only automatic squad deletion there is. */
-async function postSquadRecaps(db: D1Database, bot: Bot, todayUtc: string): Promise<void> {
-  const squads = await listSquads(db);
+async function postSquadRecaps(db: D1Database, bot: Bot, todayUtc: string, weekKey: string): Promise<void> {
+  const squads = await squadsDueForRecap(db, weekKey, SQUAD_RECAP_BATCH);
   if (!squads.length) return;
   const { from } = weekRangeOffset(todayUtc, 1); // Monday of the week that just ended
   const until = weekStartStr(todayUtc); // exclusive: this fresh week is not part of the recap
   for (const squad of squads) {
     const ok = await postSquadDigest(db, bot.api, squad.chatId, { weekStart: from, until, past: true });
+    // Marked either way: a chat that is merely unreachable this minute must not be retried
+    // every minute for the rest of the week.
+    await markSquadRecapped(db, squad.chatId, weekKey).catch(() => {});
     if (!ok) await deleteSquad(db, squad.chatId).catch(() => {});
   }
 }

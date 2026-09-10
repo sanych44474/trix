@@ -13,6 +13,8 @@ import {
   listSquads,
   squadCompletedDates,
   squadMembers,
+  markSquadRecapped,
+  squadsDueForRecap,
   squadsForUser,
   upsertSquad,
   upsertWorkoutLog,
@@ -77,6 +79,22 @@ test("squadCompletedDates: the upper bound keeps a fresh week out of the Monday 
   await upsertWorkoutLog(db, 2, "2026-06-08", 1, [], true); // the new week — must not count
   const recap = await squadCompletedDates(db, CHAT, "2026-06-01", "2026-06-08");
   assert.deepEqual(recap.map((r) => [r.userId, r.date]), [[1, "2026-06-05"]]);
+});
+
+test("squadsDueForRecap: batched, and a recapped squad drops out until the next week", async () => {
+  const db = await seed();
+  await upsertSquad(db, -2002, "Second", 1);
+  await joinSquad(db, -2002, 1);
+
+  // Both are due, but the batch cap is what keeps the weekly fan-out inside the Workers
+  // Free subrequest budget — the rest are picked up on the next cron tick.
+  assert.equal((await squadsDueForRecap(db, "2026-W24", 1)).length, 1);
+  assert.equal((await squadsDueForRecap(db, "2026-W24", 8)).length, 2);
+
+  await markSquadRecapped(db, CHAT, "2026-W24");
+  assert.deepEqual((await squadsDueForRecap(db, "2026-W24", 8)).map((s) => s.chatId), [-2002]);
+  // A new week makes it due again.
+  assert.equal((await squadsDueForRecap(db, "2026-W25", 8)).length, 2);
 });
 
 test("deleting an account leaves the squad standing for everyone else", async () => {

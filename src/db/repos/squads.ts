@@ -48,6 +48,28 @@ export async function listSquads(db: DB): Promise<SquadRow[]> {
   return res.results ?? [];
 }
 
+/** Squads that have not had their recap for `weekKey` yet, oldest first, capped at `limit`.
+ * The cap is the whole point: each recap is one external subrequest, and the Workers Free plan
+ * allows 50 per invocation — the sweep runs in small batches across consecutive cron ticks
+ * instead of trying to fan out to every chat at once and starving the per-user reminders. */
+export async function squadsDueForRecap(db: DB, weekKey: string, limit: number): Promise<SquadRow[]> {
+  const res = await db
+    .prepare(
+      `SELECT chatId, title, createdBy FROM squads
+        WHERE lastRecapWeek IS NULL OR lastRecapWeek <> ?
+        ORDER BY chatId LIMIT ?`,
+    )
+    .bind(weekKey, limit)
+    .all<SquadRow>();
+  return res.results ?? [];
+}
+
+/** Mark a squad as recapped for `weekKey`. Written even when the post itself failed for a
+ * transient reason — a retry storm into a group chat is worse than a missed weekly recap. */
+export async function markSquadRecapped(db: DB, chatId: number, weekKey: string): Promise<void> {
+  await db.prepare("UPDATE squads SET lastRecapWeek = ? WHERE chatId = ?").bind(weekKey, chatId).run();
+}
+
 /** Members of a squad with the display name and language the digest needs. */
 export async function squadMembers(
   db: DB,
