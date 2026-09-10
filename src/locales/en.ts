@@ -17,6 +17,7 @@ export const en = {
     "7️⃣ */coach* — ask me anything: technique, soreness, swaps, motivation.\n\n" +
     "📝 No plan needed — you can */log* a workout anytime (even an unplanned session) and I'll track it.\n" +
     "📊 */report* — progress summary · 📏 */measure* — log weight & volumes · 📦 */export* — your data.\n" +
+    "📥 */import* — bring your history over from Strong or Hevy (CSV export).\n" +
     "💬 You can also just *write to me normally* — by default I answer as your coach.\n" +
     "⚙️ */settings* — reminder time, training days, timezone, regenerate plan, language.",
 
@@ -716,6 +717,19 @@ export const en = {
   export_records: "all-time bests",
   export_dailylog: "Daily log",
   export_skipped: "skipped",
+
+  import_prompt:
+    "📥 Send me the CSV file exported from *Strong* or *Hevy* (as a file, not pasted text) and I'll bring your workout history in.",
+  import_hint: "📥 Want to import your history from Strong or Hevy? Send /import first, then attach the CSV.",
+  import_processing: "📥 Reading your file… this takes a few seconds.",
+  import_wrong_format: "Couldn't recognize that as a Strong or Hevy CSV export. Send /import to try again.",
+  import_too_big: "That file's larger than I can read (3 MB max). Try exporting a shorter date range.",
+  import_failed: "Import failed — nothing was changed. Try again in a bit.",
+  import_done: "✅ Imported *{imported}* day(s). {skipped} already had a log and were left untouched.",
+  import_done_capped:
+    "✅ Imported the most recent *{imported}* day(s) (capped at {cap} — the file had more history). {skipped} already had a log and were left untouched.",
+  import_tag_strong: "Imported from Strong",
+  import_tag_hevy: "Imported from Hevy",
 
   reminder_measure:
     "📏 Weekly check-in: send your current weight & measurements so I can track your dynamics. Tap 📏 Measurements.",

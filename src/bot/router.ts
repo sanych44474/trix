@@ -7,6 +7,7 @@ import { type InlineImage, RateLimitError, aiJSON, aiTranscribe } from "../ai";
 import { type Per100g, lookupPer100gCached } from "../ai/nutritionDb";
 import * as P from "../ai/prompts";
 import { aliasMenu, checkinScale, mealActionsKb, menuBtn, roleMenu } from "./keyboards";
+import { cmdImport, handleImportDocument } from "./importCsv";
 import { cmdAdmin, cmdAnnounce, cmdOwnerReport, cmdRefreshVideos, cmdSetVideo, cmdUsers, cmdWhatsNew, handleAnnounce, handleVideoUrl, onWhatsNewSend, showOwnerHub, showWhatsNewConfirm } from "./owner";
 import { obProgress, onboardingStep } from "./onboarding";
 import { onPlanRegenAi } from "./plan";
@@ -173,6 +174,7 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
   bot.command("hide", cmdHideKeyboard);
   bot.command("replan", cmdReplan);
   bot.command("grocery", cmdGrocery);
+  bot.command("import", cmdImport);
   // Squad mode is a GROUP feature; in a private chat these just explain how to set it up, so a
   // curious /squad here does not fall through to the free-text AI coach.
   bot.command(["squad", "squadboard", "squadleave"], (ctx) =>
@@ -267,6 +269,14 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
       await reply(ctx, t(lang, "voice_confirm", { text }), kb);
     } catch (err) {
       await onError(ctx, err, "voice");
+    }
+  });
+
+  bot.on("message:document", async (ctx) => {
+    try {
+      await handleImportDocument(ctx);
+    } catch (err) {
+      await onError(ctx, err, "import");
     }
   });
 
@@ -1304,6 +1314,9 @@ export const MODE_TEXT_HANDLERS = {
   mp_likes: (ctx, text) => mealIntakeText(ctx, text),
   mp_dislikes: (ctx, text) => mealIntakeText(ctx, text),
   tpl_name: (ctx, text) => handleTemplateName(ctx, text),
+  // Typed text while we're waiting for a CSV file -- remind them what we're actually waiting on,
+  // instead of routing a stray "hi" or an exercise name into the AI coach.
+  awaiting_import: (ctx) => reply(ctx, t(ctx.user.lang, "import_prompt")),
 } satisfies Partial<Record<SessionMode, TextHandler>>;
 
 // Modes where typed text DELIBERATELY falls through to the AI coach: either the mode is

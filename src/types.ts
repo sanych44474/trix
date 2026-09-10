@@ -168,7 +168,8 @@ export type SessionMode =
   | "announce"
   | "tpl_name"
   | "share_myplan_name"
-  | "photo_review";
+  | "photo_review"
+  | "awaiting_import";
 
 export interface BodyMeasurements {
   waist?: number; // cm
