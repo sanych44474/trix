@@ -534,13 +534,19 @@ function lgFinish() {
   if (LG.saving) return;
   LG.saving = true;
   el("lg-st").textContent = WA.wa_saving;
-  ccFetch("/api/workout/save", { method: "POST", body: { entries: entries, date: LG.p ? LG.p.date : undefined } })
+  // Reused across retries of THIS save (a lost-response network error, not a fresh workout) so
+  // the server can recognize a repeat and replay its cached result instead of double-sending the
+  // trainer notification / double-awarding XP. lgDraftClear() (on real success) is what starts a
+  // new logical action next time, clearing the key along with the draft.
+  if (!LG.saveKey) LG.saveKey = ccNewIdemKey();
+  ccFetch("/api/workout/save", { method: "POST", idempotencyKey: LG.saveKey, body: { entries: entries, date: LG.p ? LG.p.date : undefined } })
     .then(function (r) {
       if (r.status === 401) throw new Error("auth");
       if (!r.ok) throw new Error("save");
       return r.json();
     })
     .then(function (res) {
+      LG.saveKey = null;
       lgDraftClear();
       lgCelebrate(res);
     })

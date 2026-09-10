@@ -467,6 +467,7 @@ export async function deleteUserData(db: DB, userId: number): Promise<void> {
     // rows, a squad chatId for 'squad' rows) and Telegram user ids and group chat ids
     // occupy overlapping numeric ranges, so entityId alone is not a safe match.
     db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'user' AND entityId = ?").bind(userId),
+    db.prepare("DELETE FROM idempotency_keys WHERE userId = ?").bind(userId),
     // A squad outlives the person who happened to run /squad first: the group chat and everyone
     // else in it are unaffected, so createdBy is cleared to a tombstone rather than the squad
     // being deleted out from under its remaining members.

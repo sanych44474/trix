@@ -1,6 +1,7 @@
 // Guided-logger Mini App APIs: /api/workout/(today|swap|rest|save). Same initData auth as the
 // dashboard; all routes act on the authenticated user only (no cross-user access).
 import { getActivePlan, getWorkoutLog, listStrength, recentWorkoutLogs, setRestTimer, workoutLogsSince } from "../db/repos";
+import { getIdempotentResponse, recordIdempotentResponse } from "../db/repos/idempotency";
 import { miniAppUser } from "./auth";
 import { stalledLifts } from "../domain/analysis";
 import { aiText } from "../ai/index";
@@ -117,7 +118,19 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       const dateB = body && typeof (body as { date?: unknown }).date === "string" ? (body as { date: string }).date : null;
       const dateErr = dateB ? validateEditDate(dateB, user) : null;
       if (dateErr) return Response.json({ error: dateErr }, { status: 400 });
+
+      // Idempotency: the log row itself is safe to re-save (workout_logs' PK is (userId, date)),
+      // but saveWorkout ALSO sends a trainer notification and awards badges/XP as side effects --
+      // a lost-response retry (flaky connection, not a deliberate re-log) must not repeat those.
+      // Client sends the same key for every retry of one logical save (logger.js); a fresh save
+      // action always gets a fresh key, so this never blocks a genuine second workout that day.
+      const idemKey = req.headers.get("idempotency-key");
+      if (idemKey) {
+        const cached = await getIdempotentResponse(env.DB, user._id, idemKey).catch(() => null);
+        if (cached) return Response.json(cached.response, { status: cached.status });
+      }
       const result = await saveWorkout(env, user, v.entries, dateB ?? undefined);
+      if (idemKey) await recordIdempotentResponse(env.DB, user._id, idemKey, 200, result).catch(() => {});
       return Response.json(result);
     }
     return Response.json({ error: "not found" }, { status: 404 });

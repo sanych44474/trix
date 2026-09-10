@@ -14,3 +14,4 @@ export * from "./repos/tracking";
 export * from "./repos/admin";
 export * from "./repos/squads";
 export * from "./repos/dryrun";
+export * from "./repos/idempotency";

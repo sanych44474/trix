@@ -46,6 +46,7 @@ import {
   pruneSeenUpdates,
   pruneOldLogs,
   pruneAiCache,
+  pruneIdempotencyKeys,
   getSetting,
   setSetting,
   recordAdjustment,
@@ -227,6 +228,9 @@ export async function runGlobalJobs(db: D1Database, bot: Sender): Promise<void> 
       logSchedulerError(db, "log_prune", e),
     );
     await pruneAiCache(db).catch(() => {});
+    // Idempotency keys only ever need to survive their 24h replay window (see
+    // db/repos/idempotency.ts) -- riding the same weekly pass rather than a dedicated one.
+    await pruneIdempotencyKeys(db, cutoff.toISOString()).catch(() => {});
     await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
   }
 }

@@ -11,11 +11,23 @@ function ccFetch(path, opts) {
   var isForm = (typeof FormData !== "undefined") && opts.body instanceof FormData;
   if (opts.body && !isForm) headers["Content-Type"] = "application/json";
   if (initData) headers.Authorization = "tma " + initData;
+  // Opt-in per call (opts.idempotencyKey): a lost-response retry of the SAME logical action
+  // replays the server's cached result instead of repeating its side effects. Callers that care
+  // generate one key per action and reuse it across retries — see lgFinish() for the pattern.
+  if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;
   return fetch(path + (initData ? "" : location.search), {
     method: opts.method || "GET",
     headers: headers,
     body: opts.body ? (isForm ? opts.body : JSON.stringify(opts.body)) : undefined,
   });
+}
+// A key that survives retries of the SAME action but is fresh for every new one: crypto.randomUUID
+// where available (all real Mini App WebViews), a timestamp+random fallback otherwise.
+function ccNewIdemKey() {
+  try {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  } catch (e) {}
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 function ccLabels() {
