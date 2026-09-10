@@ -224,6 +224,7 @@ export function mealActionsKb(lang: Lang): InlineKeyboard {
     .text(t(lang, "meal_regen_ai"), "meal:ai")
     .text(t(lang, "grocery_btn"), "gro:open")
     .row()
+    .text(t(lang, "mp_weekly"), "mp:week")
     .text(t(lang, "menu_open"), "menu:open");
 }
 

@@ -530,6 +530,7 @@ export async function cmdMealPlan(ctx: MyContext) {
       .text(t(lang, "mp_regenerate"), "mp:regen")
       .text(t(lang, "grocery_btn"), "gro:open")
       .row()
+      .text(t(lang, "mp_weekly"), "mp:week")
       .text(t(lang, "menu_open"), "menu:open");
     await reply(ctx, renderMealPlan(lang, existing), kb);
     return;
@@ -545,6 +546,17 @@ export async function cmdGrocery(ctx: MyContext) {
   const menu = await getMealPlan(ctx.db, ctx.user._id);
   if (!menu?.days?.length) {
     await reply(ctx, t(lang, "grocery_no_menu"), menuBtn(lang));
+    return;
+  }
+  if (menu.days.length > 1) {
+    // A weekly plan already specifies every day for real -- sum it as-is (repeat=1), no
+    // day-picker: multiplying it further would double-count the 7 distinct days it already has.
+    const lines = groceryList(menu.days, 1);
+    if (!lines.length) {
+      await reply(ctx, t(lang, "grocery_no_menu"), menuBtn(lang));
+      return;
+    }
+    await reply(ctx, renderGroceryList(lang, lines, menu.days.length), menuBtn(lang));
     return;
   }
   const kb = new InlineKeyboard();
@@ -651,68 +663,90 @@ export async function startMealGeneration(ctx: MyContext) {
   ctx.waitUntil(deliverMealPlan(ctx, targets));
 }
 
+// One realistic day's meals, solved to macro-accurate gram amounts and localized for display.
+// `seedOffset` shifts the template's rotation (buildTemplateMealDay's seed is userId-based) so
+// callers generating several days at once (deliverWeeklyMealPlan) get genuinely distinct days
+// instead of the same menu repeated. Template = deterministic human composition (zero AI); AI = Gemini.
+async function generateMealDay(
+  ctx: MyContext,
+  targets: NutritionTargets,
+  mealsPerDay: number,
+  excluded: string,
+  likes: string,
+  useAi: boolean,
+  seedOffset: number,
+): Promise<Meal[]> {
+  const lang = ctx.user.lang;
+  const p = ctx.user.profile;
+  const mealSplit = splitMeals(targets, mealsPerDay);
+  // Turn a raw day (AI- or template-produced) into solved, macro-accurate meals.
+  const solveDay = async (rawMeals: { name: string; items: { food_name: string; grams: number }[] }[]): Promise<Meal[]> => {
+    // Batch all per-100g lookups for the whole day in parallel (deduped) instead of one-by-one.
+    const names = [...new Set((rawMeals ?? []).flatMap((m) => (m.items ?? []).map((it) => it.food_name)))];
+    const refs = new Map<string, Per100g | null>(
+      await Promise.all(names.map(async (n) => [n, await lookupPer100gCached(ctx.db, ctx.env, n)] as const)),
+    );
+    const meals: Meal[] = [];
+    for (let i = 0; i < (rawMeals ?? []).length; i++) {
+      const m = rawMeals[i];
+      const target = mealSplit[i] ?? mealSplit[mealSplit.length - 1];
+      const cands: { food: string; grams: number; per100g: { kcal: number; protein: number; fats: number; carbs: number } }[] = [];
+      for (const it of m.items ?? []) {
+        const ref = refs.get(it.food_name) ?? null;
+        if (ref && isPlausiblePer100g(ref)) cands.push({ food: it.food_name.trim(), grams: it.grams, per100g: ref });
+      }
+      if (!cands.length) continue;
+      const solved = solvePortions(cands, target);
+      const trimmed = solved.filter((it) => it.grams > 5);
+      const items = trimmed.length ? trimmed : solved;
+      meals.push({ name: m.name.trim(), items, ...sumItems(items) });
+    }
+    return meals;
+  };
+
+  const rawDay = useAi
+    ? (await aiJSON<P.MealDayResult>(ctx.env, {
+        system: P.mealDaySystem({ mealsPerDay, daily: targets, mealSplit, excluded, likes }),
+        user: "Generate the day's meals now as JSON.",
+        schema: P.MEAL_DAY_SCHEMA,
+        kind: "meal_plan",
+        groqModel: "openai/gpt-oss-120b",
+        temperature: 0.5,
+        db: ctx.db,
+        userId: ctx.user._id,
+      })).meals
+    : buildTemplateMealDay(mealsPerDay, { goal: goalBucket(p.goal), excluded: expandExclusions(excluded), seed: ctx.user._id + seedOffset }).meals;
+  const meals = await solveDay(rawDay);
+  if (!meals.length) return [];
+  const localized = await localizeMealNames(ctx.env, ctx.db, lang, ctx.user._id, meals);
+  // Override the plain translation with a human dish name (porridge / boiled rice / cooked
+  // lentils…) for known foods — keyed by the original English food so the lookup stayed exact.
+  return localized.map((m, mi) => ({
+    ...m,
+    items: m.items.map((item, ii) => {
+      const dish = dishName(meals[mi].items[ii]?.food ?? "", lang);
+      return dish ? { ...item, food: dish } : item;
+    }),
+  }));
+}
+
+function mealPlanSharedInputs(ctx: MyContext) {
+  const p = ctx.user.profile;
+  const excluded = [p.allergies, p.dietPrefs, p.foodDislikes]
+    .filter((x) => x && x.toLowerCase() !== "none")
+    .join("; ");
+  return { p, excluded, likes: p.foodLikes ?? "" };
+}
+
 export async function deliverMealPlan(ctx: MyContext, targets: NutritionTargets, useAi = false) {
   const lang = ctx.user.lang;
   try {
     await ctx.replyWithChatAction("typing").catch(() => {});
     const mealsPerDay = 4;
-    const mealSplit = splitMeals(targets, mealsPerDay);
-    const p = ctx.user.profile;
-    const excluded = [p.allergies, p.dietPrefs, p.foodDislikes]
-      .filter((x) => x && x.toLowerCase() !== "none")
-      .join("; ");
-    const likes = p.foodLikes ?? "";
-    // Turn a raw day (AI- or template-produced) into solved, macro-accurate meals.
-    const solveDay = async (rawMeals: { name: string; items: { food_name: string; grams: number }[] }[]): Promise<Meal[]> => {
-      // Batch all per-100g lookups for the whole day in parallel (deduped) instead of one-by-one.
-      const names = [...new Set((rawMeals ?? []).flatMap((m) => (m.items ?? []).map((it) => it.food_name)))];
-      const refs = new Map<string, Per100g | null>(
-        await Promise.all(names.map(async (n) => [n, await lookupPer100gCached(ctx.db, ctx.env, n)] as const)),
-      );
-      const meals: Meal[] = [];
-      for (let i = 0; i < (rawMeals ?? []).length; i++) {
-        const m = rawMeals[i];
-        const target = mealSplit[i] ?? mealSplit[mealSplit.length - 1];
-        const cands: { food: string; grams: number; per100g: { kcal: number; protein: number; fats: number; carbs: number } }[] = [];
-        for (const it of m.items ?? []) {
-          const ref = refs.get(it.food_name) ?? null;
-          if (ref && isPlausiblePer100g(ref)) cands.push({ food: it.food_name.trim(), grams: it.grams, per100g: ref });
-        }
-        if (!cands.length) continue;
-        const solved = solvePortions(cands, target);
-        const trimmed = solved.filter((it) => it.grams > 5);
-        const items = trimmed.length ? trimmed : solved;
-        meals.push({ name: m.name.trim(), items, ...sumItems(items) });
-      }
-      return meals;
-    };
-
+    const { excluded, likes } = mealPlanSharedInputs(ctx);
     const { date } = localParts(ctx.user.profile.timezone);
-    // One realistic day. Template = deterministic human composition (zero AI); AI = Gemini.
-    const rawDay = useAi
-      ? (await aiJSON<P.MealDayResult>(ctx.env, {
-          system: P.mealDaySystem({ mealsPerDay, daily: targets, mealSplit, excluded, likes }),
-          user: "Generate the day's meals now as JSON.",
-          schema: P.MEAL_DAY_SCHEMA,
-          kind: "meal_plan",
-          groqModel: "openai/gpt-oss-120b",
-          temperature: 0.5,
-          db: ctx.db,
-          userId: ctx.user._id,
-        })).meals
-      : buildTemplateMealDay(mealsPerDay, { goal: goalBucket(p.goal), excluded: expandExclusions(excluded), seed: ctx.user._id }).meals;
-    const meals = await solveDay(rawDay);
-    if (!meals.length) throw new Error("no foods matched USDA/OFF");
-    const localized = await localizeMealNames(ctx.env, ctx.db, lang, ctx.user._id, meals);
-    // Override the plain translation with a human dish name (porridge / boiled rice / cooked
-    // lentils…) for known foods — keyed by the original English food so the lookup stayed exact.
-    const display = localized.map((m, mi) => ({
-      ...m,
-      items: m.items.map((item, ii) => {
-        const dish = dishName(meals[mi].items[ii]?.food ?? "", lang);
-        return dish ? { ...item, food: dish } : item;
-      }),
-    }));
+    const display = await generateMealDay(ctx, targets, mealsPerDay, excluded, likes, useAi, 0);
+    if (!display.length) throw new Error("no foods matched USDA/OFF");
     const doc: MealPlanDoc = { userId: ctx.user._id, week: 0, days: [{ label: date, meals: display }], targets, generatedAt: new Date() };
     await saveMealPlan(ctx.db, doc);
     await recordPlanSource(ctx.db, ctx.user._id, "meal", useAi ? "ai" : "template").catch(() => {});
@@ -725,6 +759,50 @@ export async function deliverMealPlan(ctx: MyContext, targets: NutritionTargets,
     const key = err instanceof RateLimitError ? "limit_hit" : "mealplan_failed";
     await reply(ctx, t(lang, key), menuBtn(lang)).catch(() => {});
   }
+}
+
+// A full week: rotate a handful of genuinely distinct template days across 7 calendar dates
+// (round-robin) instead of the single day the default flow builds. Template-only (free, instant)
+// -- generating 7 independent AI days would be 7x the cost for a feature whose whole point is
+// reusing the SAME ingredients across days, which the rotation already gives for free.
+const WEEKLY_TEMPLATE_COUNT = 3;
+const WEEKLY_DAYS = 7;
+
+export async function deliverWeeklyMealPlan(ctx: MyContext, targets: NutritionTargets) {
+  const lang = ctx.user.lang;
+  try {
+    await ctx.replyWithChatAction("typing").catch(() => {});
+    const mealsPerDay = 4;
+    const { excluded, likes } = mealPlanSharedInputs(ctx);
+    const templates = await Promise.all(
+      Array.from({ length: WEEKLY_TEMPLATE_COUNT }, (_, i) => generateMealDay(ctx, targets, mealsPerDay, excluded, likes, false, i)),
+    );
+    const days: MealPlanDoc["days"] = [];
+    for (let i = 0; i < WEEKLY_DAYS; i++) {
+      const meals = templates[i % WEEKLY_TEMPLATE_COUNT];
+      if (!meals.length) continue;
+      const { date } = localParts(ctx.user.profile.timezone, new Date(Date.now() + i * 86400000));
+      days.push({ label: date, meals });
+    }
+    if (!days.length) throw new Error("no foods matched USDA/OFF");
+    const doc: MealPlanDoc = { userId: ctx.user._id, week: 0, days, targets, generatedAt: new Date() };
+    await saveMealPlan(ctx.db, doc);
+    await recordPlanSource(ctx.db, ctx.user._id, "meal", "template").catch(() => {});
+    await reply(ctx, renderMealPlan(lang, doc), mealActionsKb(lang));
+  } catch (err) {
+    console.error("deliverWeeklyMealPlan failed", ctx.user._id, err);
+    const key = err instanceof RateLimitError ? "limit_hit" : "mealplan_failed";
+    await reply(ctx, t(lang, key), menuBtn(lang)).catch(() => {});
+  }
+}
+
+export async function onMealWeekly(ctx: MyContext) {
+  const lang = ctx.user.lang;
+  await ctx.answerCallbackQuery().catch(() => {});
+  const plan = await getActivePlan(ctx.db, ctx.user._id);
+  const targets = computeTargets(ctx.user.profile, plan?.nutrition);
+  await reply(ctx, t(lang, "mealplan_generating"));
+  ctx.waitUntil(deliverWeeklyMealPlan(ctx, targets));
 }
 
 
@@ -838,6 +916,7 @@ export const CB_EXACT: Record<string, CbHandler> = {
   "mp:regen": (ctx) => startMealPlanIntake(ctx),
   "mp:useprev": (ctx) => startMealGeneration(ctx),
   "mp:redo": (ctx) => beginMealPlanIntake(ctx),
+  "mp:week": (ctx) => onMealWeekly(ctx),
   "plan:ai": (ctx) => onPlanRegenAi(ctx),
   "meal:ai": (ctx) => onMealRegenAi(ctx),
   "levelup:yes": (ctx) => onLevelUp(ctx),

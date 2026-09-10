@@ -1202,6 +1202,7 @@ export const en = {
   mp_q_dislikes: "🙅 Foods you'd rather avoid? (type them, or Skip)",
   mp_skip: "⏭ Skip",
   mp_regenerate: "🔄 Build a new menu",
+  mp_weekly: "📅 Plan the whole week",
 
   // Onboarding wizard (button-based intake)
   ob_q_sex: "What's your biological sex? (tailors volume & recovery)",

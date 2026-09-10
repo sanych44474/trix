@@ -1206,6 +1206,7 @@ export const uk: Dict = {
   mp_q_dislikes: "🙅 Що не любиш / краще уникати? (напиши, або Пропустити)",
   mp_skip: "⏭ Пропустити",
   mp_regenerate: "🔄 Скласти нове меню",
+  mp_weekly: "📅 Скласти меню на тиждень",
 
   // Onboarding wizard (button-based intake)
   ob_q_sex: "Яка твоя біологічна стать? (впливає на обсяг і відновлення)",
