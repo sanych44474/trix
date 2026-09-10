@@ -136,6 +136,18 @@
   .ach-b { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 5px 10px; border-radius: 20px; border: 1px solid var(--line); }
   .ach-b.got { background: var(--grad); color: #fff; border-color: transparent; font-weight: 600; }
   .ach-b.lock { color: var(--hint); opacity: .75; }
+  /* Charts draw themselves in on first paint — the dashboard's signature element, and the one
+     place motion carries meaning (the line advances the way the training did). Deliberately no
+     `forwards` fill and no dashoffset in the base rule: when animations are disabled (the
+     reduced-motion block below neutralises durations) the path renders complete from the start
+     instead of being stuck mid-draw. 900 comfortably exceeds any path length in a 320x150 box. */
+  @keyframes ch-draw { from { stroke-dashoffset: 900; } to { stroke-dashoffset: 0; } }
+  .ch-line { stroke-dasharray: 900; animation: ch-draw .9s cubic-bezier(.25,.8,.35,1); }
+  /* Quest rows land in sequence, so completing one reads as progress rather than a redraw. */
+  @keyframes q-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  .qrow { animation: q-in .26s ease-out backwards; }
+  .qrow:nth-of-type(2) { animation-delay: .05s; }
+  .qrow:nth-of-type(3) { animation-delay: .1s; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
   @keyframes cc-in { from { transform: translateX(26px); opacity: 0; } to { transform: none; opacity: 1; } }
   .cc:not(.hidden) { animation: cc-in .18s ease-out; }
@@ -330,7 +342,7 @@ function lineChart(series, dashY, unit) {
   });
   if (dashY != null) s += '<line x1="' + PL + '" y1="' + y(dashY) + '" x2="' + (W - PR) + '" y2="' + y(dashY) + '" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4"/>';
   var d = series.map(function (p, i) { return (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p.v).toFixed(1); }).join(" ");
-  s += '<path d="' + d + '" fill="none" stroke="var(--accent)" stroke-width="2.2"/>';
+  s += '<path class="ch-line" d="' + d + '" fill="none" stroke="var(--accent)" stroke-width="2.2"/>';
   series.forEach(function (p, i) {
     var lastPt = i === series.length - 1;
     s += '<circle cx="' + x(i) + '" cy="' + y(p.v) + '" r="' + (lastPt ? 3.5 : 2.2) + '" fill="var(--accent)"><title>' + fmtDate(p.date) + " · " + p.v + '</title></circle>';
@@ -374,7 +386,7 @@ function multiLineChart(list, unit) {
   list.forEach(function (sr, si) {
     var col = LINE_COLORS[si % LINE_COLORS.length];
     var d = sr.points.map(function (p, i) { return (i ? "L" : "M") + x(Date.parse(p.date)).toFixed(1) + " " + y(p.v).toFixed(1); }).join(" ");
-    s += '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2"/>';
+    s += '<path class="ch-line" d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2"/>';
     sr.points.forEach(function (p) {
       s += '<circle cx="' + x(Date.parse(p.date)).toFixed(1) + '" cy="' + y(p.v).toFixed(1) + '" r="2.4" fill="' + col + '"><title>' + esc(sr.name) + " · " + fmtDate(p.date) + " · " + p.v + '</title></circle>';
     });
