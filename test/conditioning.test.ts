@@ -65,6 +65,25 @@ test("conditioningWeek: untimed distance is counted as a session and flagged, ne
   assert.equal(w.untimedSets, 1);
 });
 
+test("conditioningWeek: a cardio-named exercise logged in reps is not conditioning work", () => {
+  // "Rowing 3x10" under a cardio-sounding name carries neither a duration nor a distance.
+  // Counting it made six such days read as an "above" week and hold the strength
+  // progression over training that never happened.
+  const logs = Array.from({ length: 6 }, (_, i) =>
+    clog(`2026-06-2${i}`, [{ name: "Rowing machine", sets: [{ reps: 10, weight: 40 }] }]),
+  );
+  const w = conditioningWeek(logs, "2026-06-17");
+  assert.deepEqual([w.sessions, w.untimedSets, w.zone], [0, 0, "below"]);
+});
+
+test("conditioningWeek: a mixed session still counts its real cardio sets", () => {
+  const logs = [
+    clog("2026-06-20", [{ name: "Running", sets: [{ reps: 0, weight: 0 }, mins(30)] }]),
+  ];
+  const w = conditioningWeek(logs, "2026-06-17");
+  assert.deepEqual([w.sessions, w.minutes, w.untimedSets], [1, 30, 0]);
+});
+
 test("conditioningWeek: past the high landmark the zone flips to 'above'", () => {
   const logs = [clog("2026-06-20", [{ name: "Cycling", sets: [mins(CONDITIONING_LANDMARK.highMin + 10)] }])];
   const w = conditioningWeek(logs, "2026-06-17");

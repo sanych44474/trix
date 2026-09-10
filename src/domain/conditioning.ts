@@ -42,11 +42,18 @@ export function conditioningWeek(logs: WorkoutLogDoc[], sinceDate: string): Cond
     let any = false;
     for (const ex of w.exercises) {
       if (ex.skipped || !ex.setsDone?.length || !isConditioning(ex.name)) continue;
-      any = true;
       for (const s of ex.setsDone) {
-        if (s.seconds && s.seconds > 0) seconds += s.seconds;
-        else untimedSets++;
-        if (s.meters && s.meters > 0) meters += s.meters;
+        const sec = s.seconds && s.seconds > 0 ? s.seconds : 0;
+        const m = s.meters && s.meters > 0 ? s.meters : 0;
+        // A set with neither a duration nor a distance carries no conditioning work at all —
+        // it is weight x reps that happens to sit under a cardio-sounding name. Counting it
+        // as an untimed set made six such days read as an "above" week, which would hold the
+        // strength progression over training that never happened.
+        if (!sec && !m) continue;
+        any = true;
+        seconds += sec;
+        meters += m;
+        if (!sec) untimedSets++;
       }
     }
     if (any) days.add(w.date);
