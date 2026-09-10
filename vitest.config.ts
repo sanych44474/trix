@@ -31,6 +31,7 @@ export default defineConfig({
           durableObjects: {
             USER_SCHEDULER: { className: "UserSchedulerDO", useSQLite: true },
             SQUAD_SCHEDULER: { className: "SquadSchedulerDO", useSQLite: true },
+            GLOBAL_SCHEDULER: { className: "GlobalSchedulerDO", useSQLite: true },
           },
           compatibilityDate: "2026-09-10", // keep in sync with wrangler.toml's compatibility_date
           compatibilityFlags: ["nodejs_compat"],

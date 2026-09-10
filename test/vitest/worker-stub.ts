@@ -5,6 +5,7 @@
 // instances of a DO class defined in the `main` Worker.
 export { UserSchedulerDO } from "../../src/durable/userScheduler";
 export { SquadSchedulerDO } from "../../src/durable/squadScheduler";
+export { GlobalSchedulerDO } from "../../src/durable/globalScheduler";
 
 export default {
   async fetch() {

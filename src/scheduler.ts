@@ -80,6 +80,7 @@ import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
 import { postSquadDigest } from "./bot/squad";
 import { wakeUserScheduler } from "./durable/userScheduler";
 import { wakeSquadScheduler } from "./durable/squadScheduler";
+import { wakeGlobalScheduler } from "./durable/globalScheduler";
 import { deleteSquad, markSquadRecapped, markSquadWoken, squadsDueForRecap, squadsNeedingWake } from "./db/repos";
 import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
@@ -196,7 +197,40 @@ async function applySwaps(
 
 // Push the owner an alert when something operationally wrong is happening (no need to open /report).
 // Each alert type is throttled to once per hour via config.alertState so it never spams.
-async function checkOwnerAlerts(db: D1Database, bot: Bot): Promise<void> {
+/** The account-wide (not per-user, not per-squad) jobs: owner alerts, the leaderboard cache,
+ * and telemetry pruning. Extracted so the still-live cron path (below) and the dry-run
+ * GlobalSchedulerDO (durable/globalScheduler.ts) run the EXACT same logic, not two copies that
+ * can drift. Each sub-job already catches its own errors — one failing must not skip the rest. */
+export async function runGlobalJobs(db: D1Database, bot: Sender): Promise<void> {
+  // Proactive owner alerts — error spikes / AI provider outages, deduped to once per hour each.
+  await checkOwnerAlerts(db, bot).catch((e) => logSchedulerError(db, "owner_alerts", e));
+
+  // Leaderboards cache — computed once per hourly pass so /api/boards serves a stored JSON
+  // instead of re-scanning every competitor's logs on each Mini App open (D1 rows-read grows
+  // with the competitor count; this caps it at one scan per hour).
+  try {
+    const boards = await computeBoards(db, "Europe/Kyiv");
+    await setSetting(db, "boards_cache", JSON.stringify({ computedAt: new Date().toISOString(), boards }));
+  } catch (e) {
+    logSchedulerError(db, "boards_cache", e);
+  }
+
+  // AI-error stats are no longer auto-pushed (the every-minute cron + minute<5 window sent the
+  // same report ~5× → spam). They are now part of the on-demand owner report (buildOwnerReport).
+
+  // Weekly telemetry pruning (90-day retention) — cheap no-op when already done this week.
+  const lastPrune = await getSetting(db, "last_log_prune").catch(() => null);
+  if (!lastPrune || Date.parse(lastPrune) < Date.now() - 7 * 86_400_000) {
+    const cutoff = new Date(Date.now() - 90 * 86_400_000);
+    await pruneOldLogs(db, cutoff.toISOString(), cutoff.toISOString().slice(0, 10)).catch((e) =>
+      logSchedulerError(db, "log_prune", e),
+    );
+    await pruneAiCache(db).catch(() => {});
+    await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
+  }
+}
+
+async function checkOwnerAlerts(db: D1Database, bot: Sender): Promise<void> {
   const ownerChatId = await getOwnerChatId(db);
   if (ownerChatId === undefined) return;
   const sinceIso = new Date(Date.now() - 3_600_000).toISOString();
@@ -366,32 +400,8 @@ async function runScheduleInner(env: Env): Promise<void> {
   // path into the hourly pass — rows live at most ~2h instead of ~1h, which is harmless.
   await pruneSeenUpdates(db, new Date(Date.now() - 3_600_000).toISOString()).catch(() => {});
 
-  // Proactive owner alerts — error spikes / AI provider outages, deduped to once per hour each.
-  await checkOwnerAlerts(db, bot).catch((e) => logSchedulerError(db, "owner_alerts", e));
-
-  // Leaderboards cache — computed once per hourly pass so /api/boards serves a stored JSON
-  // instead of re-scanning every competitor's logs on each Mini App open (D1 rows-read grows
-  // with the competitor count; this caps it at one scan per hour).
-  try {
-    const boards = await computeBoards(db, "Europe/Kyiv");
-    await setSetting(db, "boards_cache", JSON.stringify({ computedAt: new Date().toISOString(), boards }));
-  } catch (e) {
-    logSchedulerError(db, "boards_cache", e);
-  }
-
-  // AI-error stats are no longer auto-pushed (the every-minute cron + minute<5 window sent the
-  // same report ~5× → spam). They are now part of the on-demand owner report (buildOwnerReport).
-
-  // Weekly telemetry pruning (90-day retention) — cheap no-op when already done this week.
-  const lastPrune = await getSetting(db, "last_log_prune").catch(() => null);
-  if (!lastPrune || Date.parse(lastPrune) < Date.now() - 7 * 86_400_000) {
-    const cutoff = new Date(Date.now() - 90 * 86_400_000);
-    await pruneOldLogs(db, cutoff.toISOString(), cutoff.toISOString().slice(0, 10)).catch((e) =>
-      logSchedulerError(db, "log_prune", e),
-    );
-    await pruneAiCache(db).catch(() => {});
-    await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
-  }
+  await runGlobalJobs(db, bot);
+  await wakeGlobalScheduler(env).catch((e) => logSchedulerError(db, "global_scheduler_wake", e));
 
   // Weekly buddy duels — compare last week's completed-workout counts for every paired buddy,
   // record the winner, and nudge both sides. Gated by ISO week (not a rolling N-day timer like
