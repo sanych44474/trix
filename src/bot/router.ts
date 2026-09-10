@@ -21,6 +21,7 @@ import { goalBucket } from "../domain/planBank";
 import { localParts, weeksSincePlan } from "../domain/progression";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { renderGroceryList, renderMealPlan } from "../render";
+import { handleGroupUpdate } from "./squad";
 import { groceryList } from "../domain/groceryList";
 import { type Env, type Lang, type Meal, type MealPlanDoc, type NutritionTargets, type SessionMode, type Weekday } from "../types";
 import { setAppUrl, MyContext, TKey, handleAliasInput, handleWeightEdit, handleSetsEdit, handleSwapCustom, handleAddExercise, handleExerciseAltText, handleWarmupEdit, menuActionFor, isEditingOther, adjustDifficulty, aiAuthorAndAdd, cmdAskInactive, cmdCalendar, cmdChallenges, cmdCleanup, cmdCoach, cmdDeleteMe, cmdExport, cmdExportJson, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdLang, cmdLog, cmdLogPast, cmdMeasure, cmdMenu, cmdNutrition, cmdPlan, cmdPlanChanges, cmdPlates, cmdProgress, cmdRecords, cmdReplan, cmdReport, cmdSchedule, cmdSettings, cmdStandards, cmdStart, cmdSteps, cmdToday, cmdVacation, cmdVolume, cmdWater, cmdWeekCard, cmdWellbeing, applyGymSwap, showGymSwapPicker, coachContext, defaultLang, endVacation, guardLogExit, handleCoach, handleExerciseConfirmation, handleNutrition, handlePhotoMeal, handleWorkoutLog, logBackToPick, logFinish, logSwitchToText, normalizeEvent, notifyTrainerWorkout, onCleanupAll, onGoalMaintain, onInactiveReply, onLevelUp, onLogExit, onMacrosSuggest, onMealConfirm, openSetsEditor, openWeightEditor, pickCycleLength, reply, setAlias, setMode, showAddDayPicker, showAthleteMenu, showChallengePicker, showCycleCalendar, showCycleSettings, showDayManager, showExerciseList, showInjuryAreas, showMealConfirm, showMealItemEditor, showMoreMenu, showMyLogHub, showNextSession, showProgressHub, showRecentFoods, showReminderSettings, showShareSettings, showTrainerClientsMenu, showWorkoutInfo, startAddExercise, startInterview, startSwapCustom, toggleCompete, toggleCycleTracking, undoDelete } from "../bot";
@@ -98,6 +99,19 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
     supports_join_request_queries: false,
   };
 
+  // Group chats are handled by squad mode and NEVER fall through to the handlers below. Every
+  // one of them assumes a private 1:1 chat: a group update reaching them would print someone's
+  // plan into the group, and getOrCreateUser would stamp the GROUP's chat id onto a brand-new
+  // user row, sending all of that person's future reminders to the group instead of to them.
+  bot.use(async (ctx, next) => {
+    if ((ctx.chat?.type ?? "private") === "private") return next();
+    if (!ctx.from) return;
+    ctx.env = env;
+    ctx.db = env.DB;
+    ctx.waitUntil = exCtx ? (p) => exCtx.waitUntil(p.catch((e) => console.error("waitUntil task error", e))) : (p) => void p.catch(() => {});
+    await handleGroupUpdate(ctx, new Date().toISOString().slice(0, 10));
+  });
+
   bot.use(async (ctx, next) => {
     const from = ctx.from;
     const chatId = ctx.chat?.id ?? from?.id;
@@ -159,6 +173,10 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
   bot.command("hide", cmdHideKeyboard);
   bot.command("replan", cmdReplan);
   bot.command("grocery", cmdGrocery);
+  // Squad mode is a GROUP feature; in a private chat these just explain how to set it up, so a
+  // curious /squad here does not fall through to the free-text AI coach.
+  bot.command(["squad", "squadboard", "squadleave"], (ctx) =>
+    reply(ctx, t(ctx.user.lang, "squad_private_hint"), menuBtn(ctx.user.lang)));
   bot.command("export", cmdExport);
   bot.command("deleteme", cmdDeleteMe);
   bot.command("admin", async (ctx) => {

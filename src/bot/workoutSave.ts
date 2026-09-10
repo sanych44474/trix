@@ -12,6 +12,7 @@ import {
 import { bestSetForMetric, fmtDistance, fmtDuration, localParts, metricOfSets, normalizeExercise, parseWorkoutText } from "../domain/progression";
 import { prMilestones, rankOf, weekStartStr, weekStreak, workoutMilestones } from "../domain/records";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
+import { announceSquadPr } from "./squad";
 import { upcomingSessions } from "../render";
 import { badgeLabel, computeBoards } from "./boards";
 import { maybeCelebrateLevel } from "./router";
@@ -218,6 +219,15 @@ export async function celebrateRecords(ctx: MyContext, outcome: WorkoutSaveOutco
     // and invite here is the whole reason the referral machinery exists — buried in a settings
     // menu it never fires, because nobody opens settings feeling proud.
     await reply(ctx, msg, celebrationShareKb(lang));
+    // …and if they're in a squad, the group hears about it without anyone having to brag. Sent
+    // past the response: a group post must never be able to fail the workout save behind it.
+    const best =
+      prHit.metric === "time"
+        ? fmtDuration(prHit.seconds ?? 0)
+        : prHit.metric === "distance"
+          ? fmtDistance(prHit.meters ?? 0)
+          : `${prHit.weight} kg × ${prHit.reps}`;
+    ctx.waitUntil(announceSquadPr(ctx.db, ctx.api, ctx.user._id, cleanAi(prHit.name), best));
   }
   if (fresh.length) {
     await reply(ctx, t(lang, "badge_unlocked", { badges: fresh.map((c) => badgeLabel(lang, c)).join(", ") }), celebrationShareKb(lang));

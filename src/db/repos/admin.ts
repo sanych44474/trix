@@ -462,6 +462,12 @@ export async function deleteUserData(db: DB, userId: number): Promise<void> {
     db.prepare("DELETE FROM trainer_prospects WHERE trainerId = ?").bind(userId),
     db.prepare("DELETE FROM food_corrections WHERE userId = ?").bind(userId),
     db.prepare("DELETE FROM client_note_history WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
+    db.prepare("DELETE FROM squad_members WHERE userId = ?").bind(userId),
+    // A squad outlives the person who happened to run /squad first: the group chat and everyone
+    // else in it are unaffected, so createdBy is cleared to a tombstone rather than the squad
+    // being deleted out from under its remaining members.
+    db.prepare("UPDATE squads SET createdBy = 0 WHERE createdBy = ?").bind(userId),
+    db.prepare("DELETE FROM squads WHERE chatId NOT IN (SELECT chatId FROM squad_members)").bind(),
     // Attribution only (nullable, no code treats it as a live FK) — a deleted trainer's
     // previously-authored plans just stop being credited to them instead of pointing at a ghost.
     db.prepare("UPDATE plans SET authoredBy = NULL WHERE authoredBy = ?").bind(userId),

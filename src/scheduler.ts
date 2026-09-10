@@ -76,6 +76,8 @@ import { isoWeekKey, rankOf, streakMilestones, streakRisk, weekRangeOffset, week
 import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
 import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
+import { postSquadDigest } from "./bot/squad";
+import { deleteSquad, listSquads } from "./db/repos";
 import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
 import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
@@ -392,6 +394,14 @@ async function runScheduleInner(env: Env): Promise<void> {
     await setSetting(db, "last_buddy_duel_week", thisWeekKey).catch(() => {});
   }
 
+  // Squad recap — one post per group chat, once per ISO week, covering the week that just
+  // ended. Squads are chat-scoped, not user-scoped, so this sits outside the per-user loop.
+  const lastSquadWeek = await getSetting(db, "last_squad_digest_week").catch(() => null);
+  if (lastSquadWeek !== thisWeekKey) {
+    await postSquadRecaps(db, bot, utcNow.date).catch((e) => logSchedulerError(db, "squad_recaps", e));
+    await setSetting(db, "last_squad_digest_week", thisWeekKey).catch(() => {});
+  }
+
   // Weekly reports moved into processUser (per-user local timezone at 17:00).
 
   const users = await listOnboardedUsers(db);
@@ -440,6 +450,19 @@ async function runScheduleInner(env: Env): Promise<void> {
 
 // Weekly buddy-duel sweep — see the call site's comment for the gating rule. Runs once for the
 // whole system per week, not per user: buddy PAIRS, not individual users, are the unit of work.
+/** Post last week's board into every squad chat. A chat that rejects the message (bot kicked,
+ * group deleted) is dropped — that is the only automatic squad deletion there is. */
+async function postSquadRecaps(db: D1Database, bot: Bot, todayUtc: string): Promise<void> {
+  const squads = await listSquads(db);
+  if (!squads.length) return;
+  const { from } = weekRangeOffset(todayUtc, 1); // Monday of the week that just ended
+  const until = weekStartStr(todayUtc); // exclusive: this fresh week is not part of the recap
+  for (const squad of squads) {
+    const ok = await postSquadDigest(db, bot.api, squad.chatId, { weekStart: from, until, past: true });
+    if (!ok) await deleteSquad(db, squad.chatId).catch(() => {});
+  }
+}
+
 async function processBuddyDuels(db: D1Database, bot: Bot, todayStr: string): Promise<void> {
   const pairs = await allBuddyPairs(db);
   if (!pairs.length) return;

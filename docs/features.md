@@ -51,6 +51,14 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
   multiplied out. Same food merged across meals, amounts rounded to buyable sizes, foods
   sorted into supermarket aisles (produce / meat-fish-eggs / dairy / grains / pantry) from
   both English and Ukrainian names. Read-only: never touches the stored menu.
+- **Squad mode** (bot in a group chat): `/squad` in a group with training friends registers a
+  squad and puts the sender on its board. The bot posts last week's sessions every Monday,
+  announces personal records as they happen, and `/squadboard` shows the current week on
+  demand. Members on zero stay ON the board -- unlike the global leaderboard, "nobody has
+  trained yet" is the useful signal in a group of friends. Membership is opt-in per user and
+  independent of the 1:1 buddy pairing; `/squadleave` removes you, and a chat that rejects
+  the post (bot kicked, group deleted) retires the squad. Group chats are handled entirely
+  by this path and never reach the private-chat handlers.
 - **Activation arc (first 14 days)**: a new account gets its own deliberate sequence instead of
   the steady-state drip -- a low-barrier "just log the first two exercises" nudge if nothing
   is logged by day 2, a first-win message that explains what the second session unlocks, a
