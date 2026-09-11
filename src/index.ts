@@ -2,7 +2,7 @@ import type { Update } from "grammy/types";
 export { UserSchedulerDO } from "./durable/userScheduler";
 export { SquadSchedulerDO } from "./durable/squadScheduler";
 export { GlobalSchedulerDO } from "./durable/globalScheduler";
-import { createBot, buildPlanDocRaw, pingIncompleteOnboarding } from "./bot";
+import { createBot, buildOwnerMetrics, buildPlanDocRaw, pingIncompleteOnboarding } from "./bot";
 import { checkCronHeartbeat, runSchedule } from "./scheduler";
 import {
   addWater,
@@ -141,6 +141,16 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
       const existing = await getSetting(env.DB, "scheduled_replan_after");
       await deleteSetting(env.DB, "scheduled_replan_after");
       return Response.json({ cancelled: existing ?? "none" });
+    }
+
+    // Owner-report metrics as JSON, for the Grafana "trix — owner metrics" dashboard (Infinity
+    // datasource). Same auth as the other /admin/* routes; read-only, no query params.
+    // GET /admin/metrics/owner, X-Admin-Secret header.
+    if (req.method === "GET" && url.pathname === "/admin/metrics/owner") {
+      if (!isAdmin(req, env)) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      return Response.json(await buildOwnerMetrics(env.DB));
     }
 
     // Video-open tracking: count the click, then 302 to the real (YouTube-only) target.

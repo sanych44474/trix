@@ -1026,6 +1026,87 @@ export async function buildOwnerReport(db: D1Database, env?: Env): Promise<strin
   return sections.filter(Boolean).join("\n\n────────────\n\n");
 }
 
+// Structured counterpart to buildOwnerReport, for the Grafana "owner metrics" dashboard
+// (GET /admin/metrics/owner in src/index.ts). Calls the same repo functions as
+// orOverview/orAI above rather than re-deriving the numbers, so the two stay in sync by
+// construction instead of by hand-maintained duplication.
+export async function buildOwnerMetrics(db: D1Database) {
+  const { since7Iso, since14Iso, since30Iso } = ownerReportWindows();
+  const since7Date = since7Iso.slice(0, 10);
+  const nowIsoStr = new Date().toISOString();
+  const [
+    trainersCount, clientsCount, pendingApps, pendingReqs, active7, active30, engagement,
+    totalUsers, onboarded, new7, moderation, planStatus, churned, inactive7,
+  ] = await Promise.all([
+    countByRole(db, "trainer"),
+    countByRole(db, "client"),
+    pendingTrainerApplications(db),
+    countPendingClientRequests(db),
+    countActiveSince(db, since7Iso),
+    countActiveSince(db, since30Iso),
+    engagementSince(db, since7Date),
+    countUsers(db),
+    countOnboarded(db),
+    countUsersCreatedSince(db, since7Iso),
+    countModeration(db),
+    planStatusByUser(db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
+    listChurnedUsers(db, since14Iso, since7Iso).catch(() => [] as { id: number; name: string }[]),
+    countInactive(db, since7Iso, nowIsoStr).catch(() => 0),
+  ]);
+  const usersWithPlan = [...planStatus.values()].filter((p) => p.active).length;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const thisWkStart = weekStartStr(todayStr);
+  const lastWkStart = weekStartStr(new Date(Date.parse(todayStr) - 7 * 86_400_000).toISOString().slice(0, 10));
+  const [wkThis, wkLast, usage7, callStats, kindStats7, planSources] = await Promise.all([
+    countCompletedWorkoutsBetween(db, thisWkStart, "9999-12-31"),
+    countCompletedWorkoutsBetween(db, lastWkStart, thisWkStart),
+    aiUsageSince(db, since7Iso),
+    aiCallStatsSince(db, since7Iso),
+    aiTokensByKindSince(db, since7Iso),
+    countPlanSourcesSince(db, since7Iso),
+  ]);
+
+  const okBy = new Map<string, number>();
+  const failBy = new Map<string, number>();
+  for (const u of usage7) {
+    const m = u.ok ? okBy : failBy;
+    m.set(u.provider, (m.get(u.provider) ?? 0) + 1);
+  }
+  const providers = [...new Set([...okBy.keys(), ...failBy.keys()])].map((p) => ({
+    provider: p, ok: okBy.get(p) ?? 0, fail: failBy.get(p) ?? 0,
+  }));
+
+  const totalCalls = callStats.reduce((s, c) => s + c.calls, 0);
+  const totalFallbacks = callStats.reduce((s, c) => s + c.fallbacks, 0);
+  const totalTokens = callStats.reduce((s, c) => s + c.tokens, 0);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    people: {
+      totalUsers, onboarded, trainers: trainersCount, clients: clientsCount,
+      new7d: new7, active7d: active7, active30d: active30,
+      retentionPct: share(active7, onboarded),
+      pendingTrainerApps: pendingApps.length, pendingClientRequests: pendingReqs,
+      churned7to14d: churned.length, inactive7dPlus: inactive7,
+      blockedByOwner: moderation.blocked, blockedBot: moderation.botBlocked,
+    },
+    training7d: {
+      workouts: engagement.workouts, workoutsCompleted: engagement.completed,
+      checkins: engagement.checkins, nutritionLogs: engagement.nutrition,
+      usersWithActivePlan: usersWithPlan,
+      workoutsThisWeek: wkThis, workoutsLastWeek: wkLast,
+    },
+    ai7d: {
+      byProvider: providers,
+      byTask: kindStats7.map((k) => ({ kind: k.kind, calls: k.calls, tokens: k.tokens })),
+      totalCalls, totalFallbacks, totalTokens,
+      fallbackPct: totalCalls ? Math.round((totalFallbacks / totalCalls) * 100) : 0,
+      planSource: planSources.map((s) => ({ kind: s.kind, source: s.source, n: s.c })),
+    },
+  };
+}
+
 // Daily AI-error report for the owner — last 24h only. Returns null when there were no errors
 // (so the owner isn't pinged on clean days). Mirrors the error block that used to live in the
 // weekly owner report, but on a 1-day window sent every day.

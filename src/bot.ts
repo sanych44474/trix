@@ -17,7 +17,7 @@ import { num, verifyItems } from "./bot/nutritionLog";
 import { renderDayInline } from "./bot/workoutSave";
 import { isOwner } from "./bot/owner";
 import { joinByCode, joinByProspectCode, showSharedProgram, showPlanEditDay, trainerMenu } from "./bot/trainer";
-export { buildOwnerReport, buildErrorReport } from "./bot/owner";
+export { buildOwnerReport, buildErrorReport, buildOwnerMetrics } from "./bot/owner";
 // Extracted modules — imported for internal use AND re-exported so every existing consumer
 // (scheduler, webapp, tests) keeps importing from "./bot" unchanged.
 import { computeBoards, isoDateMinus, recordsTabs, renderBadges } from "./bot/boards";
