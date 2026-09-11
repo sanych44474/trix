@@ -53,10 +53,10 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   USDA_FDC_API_KEY?: string;
   FATSECRET_CLIENT_ID?: string; // FatSecret OAuth2 — food database search (primary, OFF fallback)
   FATSECRET_CLIENT_SECRET?: string;
-  // Read-through cache for progress photos (webapp/photoStorage.ts) — optional and undefined
-  // until wrangler.toml declares the binding AND the bucket exists (both live actions, not done
-  // by this code); every call site falls back to the existing Telegram-proxy path until then.
-  R2_PHOTOS?: R2Bucket;
+  // R2_PHOTOS (read-through cache for progress photos, webapp/photoStorage.ts) is NOT hand-
+  // declared here -- wrangler.toml's [[r2_buckets]] binding makes Cloudflare.Env already provide
+  // it, required. photoStorage.ts still treats it defensively (a real binding can still be
+  // missing in a harness/mock Env that doesn't model every production binding).
 }
 
 export type Lang = "uk" | "en";

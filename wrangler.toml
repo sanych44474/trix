@@ -73,6 +73,12 @@ database_name = "trix"
 # Replace with your own D1 id: `npx wrangler d1 create trix` prints it.
 database_id = "00000000-0000-0000-0000-000000000000"
 
+# Read-through cache for progress photos (webapp/photoStorage.ts) -- optional binding, code
+# already falls back to the pre-existing Telegram-file-proxy path when it's absent.
+[[r2_buckets]]
+binding = "R2_PHOTOS"
+bucket_name = "trix-photos"
+
 # Non-secret vars. Secrets (TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, GEMINI_API_KEY,
 # GROQ_API_KEY, OLLAMA_API_KEY, OPENROUTER_API_KEY, ADMIN_SECRET, YOUTUBE_API_KEY) are set
 # with `wrangler secret put`. YOUTUBE_API_KEY (YouTube Data API v3) powers exercise technique
