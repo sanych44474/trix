@@ -1,6 +1,7 @@
 // Trainers & clients section — extracted verbatim from src/bot.ts (mechanical split).
 
 import { GrammyError, InlineKeyboard } from "grammy";
+import { logInfo } from "../log";
 import type { BankPlan, Lang, PlanDoc, SetEntry, TrainerDoc, TrainerProfileInput, UserDoc, Weekday } from "../types";
 import {
   applyTrainer, approveTrainer, assignDraftPlan, bodyLogsByUser,
@@ -911,6 +912,10 @@ export async function takeSharedProgram(ctx: MyContext, code: string) {
   const plan = adaptPlan(sp.plan, ctx.user.profile, ctx.user._id, { prs });
   await localizePlanNames(ctx, plan, ctx.user.lang);
   await setActivePlan(ctx.db, plan);
+  if (!ctx.user.onboarded) {
+    logInfo("onboarding_completed", { role: ctx.user.role });
+    logInfo("first_plan_ready", { source: "template" }); // a taken shared program, not AI/bank
+  }
   await updateUser(ctx.db, ctx.user._id, { onboarded: true, nutrition: plan.nutrition });
   ctx.user.onboarded = true;
   await bumpSharedTaken(ctx.db, code).catch(() => {});

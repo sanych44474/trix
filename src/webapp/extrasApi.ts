@@ -32,6 +32,7 @@ import { formatRecordBest } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { latestRelease, releaseBody } from "../releaseNotes";
 import { miniAppUser } from "./auth";
+import { logInfo } from "../log";
 import { num, object, oneOf, optional, readJsonBody, str, validateBody } from "./validate";
 import type { Env } from "../types";
 
@@ -239,6 +240,10 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     const prs = records.length ? records.map((r) => `${r.exercise}: ${formatRecordBest(r)}`).join("\n") : undefined;
     const plan = adaptPlan(sp.plan, user.profile, user._id, { prs });
     await setActivePlan(env.DB, plan);
+    if (!user.onboarded) {
+      logInfo("onboarding_completed", { role: user.role });
+      logInfo("first_plan_ready", { source: "template" }); // a taken shared program, not AI/bank
+    }
     await updateUser(env.DB, user._id, { onboarded: true, nutrition: plan.nutrition });
     await bumpSharedTaken(env.DB, sp.code).catch(() => {});
     return Response.json({ ok: true, name: sp.name });

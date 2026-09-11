@@ -8,6 +8,7 @@ import type { AiPlan, MyContext } from "../bot";
 import { HTML, MIN_EXERCISES_PER_DAY, localizePlanNames, reply, saveBaselineBody, videosForDays } from "../bot";
 import { mainMenu, menuBtn, planActionsKb } from "./keyboards";
 import { botDeepLink, shareUrl } from "./links";
+import { logInfo } from "../log";
 import { countExercises, getActivePlan, getCatalogExercise, getExerciseTranslation, getTrainer, getUser, listCandidatesByMuscles, listPlanBank, listStrength, recentAdjustments, recordError, recordPlanSource, saveDraftPlan, setActivePlan, updateUser } from "../db/repos";
 import { sanitizeBodyMetrics } from "./onboarding";
 import { trainerStyleBlock } from "./trainer";
@@ -118,25 +119,32 @@ export async function finalizeOnboardingPlan(
 ): Promise<boolean> {
   const lang = user.lang;
   const isTrainerClient = user.role === "client" && !!user.trainerId;
+  const wasOnboarded = user.onboarded; // captured before any mutation below -- see docs/slos.md
   try {
     const authoredBy = isTrainerClient ? user.trainerId ?? undefined : undefined;
     let plan: PlanDoc | null = null;
+    let planSource: "ai" | "bank" = "ai";
     if (opts.preferBank) {
       plan = await bankFallbackPlan(db, lang, user.profile, user._id, authoredBy).catch(() => null);
+      if (plan) planSource = "bank";
     }
     if (!plan) {
       try {
         plan = await buildPlanDocRaw(env, db, lang, user.profile, user._id, isTrainerClient ? { authoredBy } : {});
+        planSource = "ai";
       } catch (aiErr) {
         // AI chain down — serve the best bank archetype rather than stranding a finished interview.
         const fb = await bankFallbackPlan(db, lang, user.profile, user._id, authoredBy);
         if (!fb) throw aiErr; // no archetype → let the outer catch park for a later retry
         console.error("finalizeOnboardingPlan AI failed — served bank archetype", user._id, aiErr);
         plan = fb;
+        planSource = "bank";
       }
     }
+    if (!wasOnboarded) logInfo("onboarding_completed", { role: user.role });
     if (isTrainerClient) {
-      // Save as a draft for the trainer to review, not an active plan.
+      // Save as a draft for the trainer to review, not an active plan -- docs/slos.md's
+      // first_plan_ready is defined as the first setActivePlan, which this branch never calls.
       await saveDraftPlan(db, plan);
       await updateUser(db, user._id, { onboarded: true, nutrition: plan.nutrition, session: { mode: "idle" } });
       await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -163,6 +171,7 @@ export async function finalizeOnboardingPlan(
       }
     } else {
       await setActivePlan(db, plan);
+      if (!wasOnboarded) logInfo("first_plan_ready", { source: planSource });
       await updateUser(db, user._id, { onboarded: true, nutrition: plan.nutrition, session: { mode: "idle" } });
       // Getting the plan is the high point of onboarding — the one moment the user is committed
       // but not yet training alone. An accountability buddy is a two-person feature, so offering
@@ -193,6 +202,7 @@ export async function finalizeOnboardingPlan(
 // (not activated), mark the client onboarded, and notify the trainer.
 export async function generateClientDraft(ctx: MyContext, profile: UserDoc["profile"]) {
   const lang = ctx.user.lang;
+  const wasOnboarded = ctx.user.onboarded; // captured before any mutation below -- see docs/slos.md
   await reply(ctx, t(lang, "client_plan_generating"));
   await ctx.replyWithChatAction("typing").catch(() => {});
   try {
@@ -214,6 +224,9 @@ export async function generateClientDraft(ctx: MyContext, profile: UserDoc["prof
       plan = fb;
     }
     await saveDraftPlan(ctx.db, plan);
+    // Draft only, not activated -- first_plan_ready (docs/slos.md) is defined as the first
+    // setActivePlan, which never happens on this trainer-review path.
+    if (!wasOnboarded) logInfo("onboarding_completed", { role: ctx.user.role });
     await updateUser(ctx.db, ctx.user._id, {
       onboarded: true,
       nutrition: plan.nutrition,
@@ -248,6 +261,9 @@ export async function generateClientDraft(ctx: MyContext, profile: UserDoc["prof
       return;
     }
     console.error("client draft failed", err);
+    // Interview is genuinely done even though plan generation failed entirely (the plan-pending
+    // recovery sweep will retry) -- onboarded flips true here too, so the event fires here too.
+    if (!wasOnboarded) logInfo("onboarding_completed", { role: ctx.user.role });
     await updateUser(ctx.db, ctx.user._id, {
       onboarded: true,
       profile,
@@ -683,11 +699,16 @@ export async function generatePlan(ctx: MyContext, profile: UserDoc["profile"], 
 // flips mode→idle so the sweep won't double-process.
 export async function deliverPlan(ctx: MyContext, profile: UserDoc["profile"], prs?: string) {
   const lang = ctx.user.lang;
+  const wasOnboarded = ctx.user.onboarded; // captured before any mutation below -- see docs/slos.md
   try {
     await ctx.replyWithChatAction("typing").catch(() => {});
     const { plan, source } = await buildPlanForUser(ctx, lang, profile, ctx.user._id, { prs });
     const split = plan.split;
     await setActivePlan(ctx.db, plan);
+    if (!wasOnboarded) {
+      logInfo("onboarding_completed", { role: ctx.user.role });
+      logInfo("first_plan_ready", { source });
+    }
     await updateUser(ctx.db, ctx.user._id, {
       onboarded: true,
       nutrition: plan.nutrition,

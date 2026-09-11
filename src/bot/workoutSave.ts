@@ -102,8 +102,13 @@ export async function applyWorkoutSave(
     skipped: false,
     ...(e.rpe !== undefined ? { rpe: e.rpe } : {}),
   }));
+  // Checked BEFORE the save: if this user already had a completed workout, today's save (new or
+  // an edit of an already-logged day -- upsertWorkoutLog's ON CONFLICT means either is possible)
+  // is never their first. A pre-save count of 0 means it unambiguously is, no further check needed.
+  const isFirstEver = (await countCompletedWorkouts(db, user._id).catch(() => 1)) === 0;
   await upsertWorkoutLog(db, user._id, date, weekday, exercises, true, rawText);
   logInfo("workout_completed", { exerciseCount: entries.length }); // shared by both surfaces on purpose (see this function's own doc comment)
+  if (isFirstEver) logInfo("first_workout_completed", {});
 
   const prExercises: string[] = [];
   let prHit: PrHit | null = null;

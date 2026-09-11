@@ -1,6 +1,7 @@
 // Owner / admin section — extracted verbatim from src/bot.ts (mechanical split).
 
 import { GrammyError, InlineKeyboard } from "grammy";
+import { logInfo } from "../log";
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
 import {
   aiCallStatsSince, aiTokensByKindSince, aiUsageSince, assignDraftPlan, countActiveSince, countAdjustmentsSince,
@@ -488,6 +489,10 @@ export async function ownerUserAction(ctx: MyContext, userId: number, action: st
       const prs = records.length ? records.map((r) => `${r.exercise}: ${formatRecordBest(r)}`).join("\n") : undefined;
       const plan = await buildPlanDoc(ctx, target.lang, target.profile, userId, { prs });
       await setActivePlan(ctx.db, plan);
+      if (!target.onboarded) {
+        logInfo("onboarding_completed", { role: target.role });
+        logInfo("first_plan_ready", { source: "ai" });
+      }
       await updateUser(ctx.db, userId, { onboarded: true, nutrition: plan.nutrition, session: { mode: "idle" } });
       await reply(ctx, t(lang, "owner_regen_done", { name: uname }), ownerUserKb(lang, userId, false, !!target.blocked));
       await ctx.api.sendMessage(target.chatId, t(target.lang, "plan_ready"), { ...HTML, reply_markup: mainMenu(target.lang) }).catch(() => {});

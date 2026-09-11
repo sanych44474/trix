@@ -3,6 +3,7 @@
 // final plan gen, which stays in bot.ts (generatePlan / generateClientDraft — imported back,
 // same value-cycle pattern as bot/trainer.ts; calls happen at request time only).
 import { InlineKeyboard } from "grammy";
+import { logInfo } from "../log";
 import { parseHeightWeight, realisticHeightCm, realisticWeightKg } from "../domain/progression";
 import { listIncompleteOnboarding, updateUser } from "../db/repos";
 import { escapeHtml, t } from "../locales/i18n";
@@ -256,6 +257,10 @@ export async function onboardingStep(ctx: MyContext, userText?: string) {
     return;
   }
   const text = userText.trim();
+  // First step actually answered (not just resumed/re-rendered above). A mistyped retry on this
+  // same step fires it again -- accepted for a funnel counter: a slightly inflated "started" is
+  // far less harmful than silently under-counting it.
+  if (i === 0) logInfo("onboarding_started", { role: ctx.user.role });
   if (step.input === "number") {
     const n = parseInt(text.replace(/[^\d]/g, ""), 10);
     if (!Number.isFinite(n) || n <= 0 || n > 120) {
