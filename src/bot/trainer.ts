@@ -1766,6 +1766,7 @@ export async function deliverTrainerAnswer(ctx: MyContext, clientId: number, tex
   if (!client) return;
   await insertMessage(ctx.db, ctx.user._id, clientId, text);
   await ctx.api.sendMessage(client.chatId, t(client.lang, "answer_from_trainer", { text: escapeHtml(text) }), HTML).catch(() => {});
+  logInfo("trainer_question_answered", {}); // only caller of this function is the question-answer flow (both its callers)
 }
 
 export async function cmdLeaveTrainer(ctx: MyContext) {

@@ -24,6 +24,7 @@ import {
   setUserFlag,
 } from "../db/repos";
 import { runIdempotent } from "../db/repos/idempotency";
+import { logInfo } from "../log";
 import { adaptPlan } from "../domain/planAdapt";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
@@ -148,6 +149,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
         }).catch(() => {});
       }
       await setQuestionStatus(env.DB, qid, "answered");
+      logInfo("trainer_question_answered", {});
       return { status: 200, body: { ok: true } };
     });
     return Response.json(ans.body, { status: ans.status });
