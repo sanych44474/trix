@@ -14,70 +14,77 @@ const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 let failed = 0;
 const results = [];
 
-function ok(name, cond, detail = "") {
-  results.push(`${cond ? "✅" : "❌"} ${name}${detail ? ` — ${detail}` : ""}`);
-  if (!cond) failed++;
+// Retries a check a couple of times before recording it as failed: a request landing right after
+// `wrangler deploy` returns can hit an edge colo that hasn't picked up the new version yet, which
+// looks identical to a real regression until it passes moments later on its own. A check that's
+// genuinely broken still fails every attempt and reports the same either way; this only rescues
+// the transient-propagation case, at the cost of a few seconds on a already-failing run.
+async function check(name, fn, { retries = 2, delayMs = 3000 } = {}) {
+  let lastDetail = "";
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const { cond, detail } = await fn();
+      if (cond) {
+        results.push(`✅ ${name}${detail ? ` — ${detail}` : ""}`);
+        return;
+      }
+      lastDetail = detail;
+    } catch (e) {
+      lastDetail = String(e);
+    }
+    if (attempt < retries) await new Promise((r) => setTimeout(r, delayMs));
+  }
+  results.push(`❌ ${name}${lastDetail ? ` — ${lastDetail}` : ""}`);
+  failed++;
 }
 
 async function main() {
   // 1. health
-  try {
+  await check("GET /health 200", async () => {
     const r = await fetch(`${BASE}/health`);
-    ok("GET /health 200", r.status === 200, `got ${r.status}`);
-  } catch (e) {
-    ok("GET /health 200", false, String(e));
-  }
+    return { cond: r.status === 200, detail: `got ${r.status}` };
+  });
 
   // 2. D1 connectivity
-  try {
+  await check("GET /health/db ok:true", async () => {
     const r = await fetch(`${BASE}/health/db`);
     const body = await r.json().catch(() => ({}));
-    ok("GET /health/db ok:true", r.status === 200 && body.ok === true, JSON.stringify(body));
-  } catch (e) {
-    ok("GET /health/db ok:true", false, String(e));
-  }
+    return { cond: r.status === 200 && body.ok === true, detail: JSON.stringify(body) };
+  });
 
   // 3. Mini App shell
-  try {
+  await check("GET /app 200", async () => {
     const r = await fetch(`${BASE}/app`);
-    ok("GET /app 200", r.status === 200, `got ${r.status}`);
-  } catch (e) {
-    ok("GET /app 200", false, String(e));
-  }
+    return { cond: r.status === 200, detail: `got ${r.status}` };
+  });
 
   // 4. /v redirect: rejects a non-YouTube / non-https target
-  try {
+  await check("GET /v rejects bad target (400)", async () => {
     const r = await fetch(`${BASE}/v?u=${encodeURIComponent("javascript://youtube.com/%0aalert(1)")}&uid=1`, { redirect: "manual" });
-    ok("GET /v rejects bad target (400)", r.status === 400, `got ${r.status}`);
-  } catch (e) {
-    ok("GET /v rejects bad target (400)", false, String(e));
-  }
+    return { cond: r.status === 400, detail: `got ${r.status}` };
+  });
 
   // 5. /v redirect: 302 to a real YouTube URL
-  try {
+  await check("GET /v redirects to YouTube (302)", async () => {
     const target = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
     const r = await fetch(`${BASE}/v?u=${encodeURIComponent(target)}&uid=0`, { redirect: "manual" });
     const loc = r.headers.get("location") || "";
-    ok("GET /v redirects to YouTube (302)", r.status === 302 && loc.includes("youtube.com"), `${r.status} → ${loc}`);
-  } catch (e) {
-    ok("GET /v redirects to YouTube (302)", false, String(e));
-  }
+    return { cond: r.status === 302 && loc.includes("youtube.com"), detail: `${r.status} → ${loc}` };
+  });
 
   // 6. webhook auth: a wrong secret must be rejected
-  try {
+  await check("POST /webhook rejects bad secret (401)", async () => {
     const r = await fetch(`${BASE}/webhook`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": "definitely-wrong" },
       body: "{}",
     });
-    ok("POST /webhook rejects bad secret (401)", r.status === 401, `got ${r.status}`);
-  } catch (e) {
-    ok("POST /webhook rejects bad secret (401)", false, String(e));
-  }
+    return { cond: r.status === 401, detail: `got ${r.status}` };
+  });
 
   // 7. optional: a valid /start update round-trips (only with the real secret)
   if (SECRET) {
-    try {
+    await check("POST /webhook /start 200", async () => {
       const upd = {
         update_id: Date.now(),
         message: {
@@ -93,10 +100,8 @@ async function main() {
         headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": SECRET },
         body: JSON.stringify(upd),
       });
-      ok("POST /webhook /start 200", r.status === 200, `got ${r.status}`);
-    } catch (e) {
-      ok("POST /webhook /start 200", false, String(e));
-    }
+      return { cond: r.status === 200, detail: `got ${r.status}` };
+    });
   }
 
   console.log(`\nSmoke @ ${BASE}\n${results.join("\n")}\n`);
