@@ -1035,13 +1035,14 @@ export async function buildOwnerMetrics(db: D1Database) {
   const since7Date = since7Iso.slice(0, 10);
   const nowIsoStr = new Date().toISOString();
   const [
-    trainersCount, clientsCount, pendingApps, pendingReqs, active7, active30, engagement,
+    trainersCount, clientsCount, pendingApps, pendingReqs, pendingReqRows, active7, active30, engagement,
     totalUsers, onboarded, new7, moderation, planStatus, churned, inactive7,
   ] = await Promise.all([
     countByRole(db, "trainer"),
     countByRole(db, "client"),
     pendingTrainerApplications(db),
     countPendingClientRequests(db),
+    pendingRequestsAll(db, 20),
     countActiveSince(db, since7Iso),
     countActiveSince(db, since30Iso),
     engagementSince(db, since7Date),
@@ -1054,6 +1055,23 @@ export async function buildOwnerMetrics(db: D1Database) {
     countInactive(db, since7Iso, nowIsoStr).catch(() => 0),
   ]);
   const usersWithPlan = [...planStatus.values()].filter((p) => p.active).length;
+  const pendingRequestRows = await Promise.all(
+    pendingReqRows.map(async (r) => {
+      const [cl, tr] = await Promise.all([getUser(db, r.clientId), getUser(db, r.trainerId)]);
+      return {
+        client: cl?.profile.name ?? `id ${r.clientId}`,
+        trainer: tr?.profile.name ?? `id ${r.trainerId}`,
+        note: r.note ?? "",
+      };
+    }),
+  );
+  const trainerRows = await Promise.all(
+    (await listTrainerUsers(db)).map(async (tr) => ({
+      id: tr._id,
+      name: tr.profile.name ?? `id ${tr._id}`,
+      clients: await countClientsOf(db, tr._id),
+    })),
+  );
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const thisWkStart = weekStartStr(todayStr);
@@ -1091,6 +1109,13 @@ export async function buildOwnerMetrics(db: D1Database) {
       churned7to14d: churned.length, inactive7dPlus: inactive7,
       blockedByOwner: moderation.blocked, blockedBot: moderation.botBlocked,
     },
+    // Named detail behind the counts above -- who exactly is churned/pending, not just how many.
+    attention: {
+      churned: churned.map((c) => ({ id: c.id, name: c.name || `id ${c.id}` })),
+      pendingTrainerApps: pendingApps.map((a) => ({ trainerId: a.trainerId, name: a.name })),
+      pendingClientRequests: pendingRequestRows,
+    },
+    trainers: trainerRows,
     training7d: {
       workouts: engagement.workouts, workoutsCompleted: engagement.completed,
       checkins: engagement.checkins, nutritionLogs: engagement.nutrition,

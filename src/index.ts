@@ -2,7 +2,7 @@ import type { Update } from "grammy/types";
 export { UserSchedulerDO } from "./durable/userScheduler";
 export { SquadSchedulerDO } from "./durable/squadScheduler";
 export { GlobalSchedulerDO } from "./durable/globalScheduler";
-import { createBot, buildOwnerMetrics, buildPlanDocRaw, pingIncompleteOnboarding } from "./bot";
+import { createBot, buildOwnerMetrics, buildPlanDocRaw, ownerUsersData, pingIncompleteOnboarding } from "./bot";
 import { checkCronHeartbeat, runSchedule } from "./scheduler";
 import {
   addWater,
@@ -151,6 +151,16 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
         return new Response("unauthorized", { status: 401 });
       }
       return Response.json(await buildOwnerMetrics(env.DB));
+    }
+
+    // Per-user roster (name, trainer, status, activity counts) as JSON, for the same Grafana
+    // dashboard -- the named detail behind /admin/metrics/owner's aggregate counts.
+    // GET /admin/metrics/users, X-Admin-Secret header.
+    if (req.method === "GET" && url.pathname === "/admin/metrics/users") {
+      if (!isAdmin(req, env)) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      return Response.json(await ownerUsersData(env.DB));
     }
 
     // Video-open tracking: count the click, then 302 to the real (YouTube-only) target.
