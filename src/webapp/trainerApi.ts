@@ -23,10 +23,12 @@ import {
   setQuestionStatus,
   setUserFlag,
 } from "../db/repos";
+import { getIdempotentResponse, recordIdempotentResponse } from "../db/repos/idempotency";
 import { adaptPlan } from "../domain/planAdapt";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { buildClientCardPayload } from "./clientCard";
+import { readJsonBody } from "./validate";
 import type { Env, UserDoc } from "../types";
 
 const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag)$/;
@@ -76,8 +78,9 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       return Response.json({ templates: tpls.map((tp) => ({ id: tp.id, name: tp.name })) }, { headers: { "cache-control": "no-store" } });
     }
     if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-    let b: Record<string, unknown>;
-    try { b = (await req.json()) as Record<string, unknown>; } catch { return Response.json({ error: "bad request" }, { status: 400 }); }
+    const parsedTpl = await readJsonBody(req);
+    if (!parsedTpl.ok) return parsedTpl.response;
+    const b = parsedTpl.body as Record<string, unknown>;
     const id = Number(b.id);
     if (b.action === "delete") {
       const ok = await deleteTrainerTemplate(env.DB, user._id, id);
@@ -100,10 +103,17 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
 
   // Broadcast a message to all of the trainer's clients (composed + confirmed in the app).
   if (req.method === "POST" && url.pathname === "/api/trainer/broadcast") {
-    let b: Record<string, unknown>;
-    try { b = (await req.json()) as Record<string, unknown>; } catch { return Response.json({ error: "bad request" }, { status: 400 }); }
+    const parsedBc = await readJsonBody(req);
+    if (!parsedBc.ok) return parsedBc.response;
+    const b = parsedBc.body as Record<string, unknown>;
     const text = textField(b.text);
     if (!text) return Response.json({ error: "bad request" }, { status: 400 });
+    // A lost-response retry must not message every client a second time.
+    const bcKey = req.headers.get("idempotency-key");
+    if (bcKey) {
+      const cached = await getIdempotentResponse(env.DB, user._id, bcKey).catch(() => null);
+      if (cached) return Response.json(cached.response, { status: cached.status });
+    }
     const clients = await listClients(env.DB, user._id).catch(() => [] as UserDoc[]);
     const who = escapeHtml(user.profile.name ?? "trainer");
     let sent = 0;
@@ -112,7 +122,9 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       sent++;
     }
     await recordAudit(env.DB, user._id, "broadcast", undefined, `${sent}/${clients.length}`).catch(() => {});
-    return Response.json({ ok: true, sent });
+    const bcResult = { ok: true, sent };
+    if (bcKey) await recordIdempotentResponse(env.DB, user._id, bcKey, 200, bcResult).catch(() => {});
+    return Response.json(bcResult);
   }
 
   // Answer a client question — deliver to the client (chat push + stored message), mark answered.
@@ -122,10 +134,18 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     const qid = Number(am[1]);
     const q = await getQuestion(env.DB, qid);
     if (!q || q.trainerId !== user._id) return Response.json({ error: "not found" }, { status: 404 });
-    let body: Record<string, unknown>;
-    try { body = (await req.json()) as Record<string, unknown>; } catch { return Response.json({ error: "bad request" }, { status: 400 }); }
+    const parsedAns = await readJsonBody(req);
+    if (!parsedAns.ok) return parsedAns.response;
+    const body = parsedAns.body as Record<string, unknown>;
     const text = textField(body.text);
     if (!text) return Response.json({ error: "bad request" }, { status: 400 });
+    // The question's own status doesn't gate a re-answer (a trainer might legitimately amend),
+    // so a lost-response retry must not double-message the client -- idempotency key only.
+    const ansKey = req.headers.get("idempotency-key");
+    if (ansKey) {
+      const cached = await getIdempotentResponse(env.DB, user._id, ansKey).catch(() => null);
+      if (cached) return Response.json(cached.response, { status: cached.status });
+    }
     const client = await getUser(env.DB, q.clientId).catch(() => null);
     if (client) {
       await insertMessage(env.DB, user._id, q.clientId, text).catch(() => {});
@@ -136,7 +156,9 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       }).catch(() => {});
     }
     await setQuestionStatus(env.DB, qid, "answered");
-    return Response.json({ ok: true });
+    const ansResult = { ok: true };
+    if (ansKey) await recordIdempotentResponse(env.DB, user._id, ansKey, 200, ansResult).catch(() => {});
+    return Response.json(ansResult);
   }
 
   const m = ROUTE.exec(url.pathname);
@@ -152,12 +174,9 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   }
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return Response.json({ error: "bad request" }, { status: 400 });
-  }
+  const parsedCard = await readJsonBody(req);
+  if (!parsedCard.ok) return parsedCard.response;
+  const body = parsedCard.body as Record<string, unknown>;
 
   try {
     if (action === "card") {

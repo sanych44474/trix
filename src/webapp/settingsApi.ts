@@ -14,9 +14,11 @@ import {
   unlinkClient,
   updateUser,
 } from "../db/repos";
+import { getIdempotentResponse, recordIdempotentResponse } from "../db/repos/idempotency";
 import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
+import { readJsonBody } from "./validate";
 import type { Env, Lang, UserDoc } from "../types";
 
 type TKey = Parameters<typeof t>[1];
@@ -72,12 +74,11 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
   }
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return Response.json({ error: "bad request" }, { status: 400 });
-  }
+  // Each action below already validates its own fields; readJsonBody adds the size cap and
+  // uniform malformed-JSON handling this endpoint was missing.
+  const parsedSettings = await readJsonBody(req);
+  if (!parsedSettings.ok) return parsedSettings.response;
+  const body = parsedSettings.body as Record<string, unknown>;
   const action = String(body.action);
 
   try {
@@ -132,6 +133,12 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
     } else if (action === "feedback") {
       const text = String(body.text ?? "").trim().slice(0, 1500);
       if (text.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
+      // A lost-response retry must not double-insert the feedback row or double-ping the owner.
+      const idemKey = req.headers.get("idempotency-key");
+      if (idemKey) {
+        const cached = await getIdempotentResponse(env.DB, user._id, idemKey).catch(() => null);
+        if (cached) return Response.json(cached.response, { status: cached.status });
+      }
       const { date } = localParts(user.profile.timezone);
       await insertFeedback(env.DB, { userId: user._id, username: user.username, text, date });
       const ownerChatId = await getOwnerChatId(env.DB).catch(() => null);
@@ -139,6 +146,9 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
         const who = user.username ? `@${user.username}` : `id ${user._id}`;
         await tgSend(env, ownerChatId, `✍️ <b>Feedback</b> from ${escapeHtml(who)}:\n${escapeHtml(text)}`);
       }
+      const fbResult = { ok: true, state: state(user, user.lang) };
+      if (idemKey) await recordIdempotentResponse(env.DB, user._id, idemKey, 200, fbResult).catch(() => {});
+      return Response.json(fbResult);
     } else if (action === "export") {
       const md = await buildExportMd(env.DB, user);
       if (!md) return Response.json({ ok: false, reason: "empty" });

@@ -1,6 +1,6 @@
 
 // --- profile / settings / onboarding overlay (GET/POST /api/profile, /api/settings, /api/onboarding) ---
-var PF = { data: null, st: null, days: [], share: null, ob: { sex: "" }, cmp: [] };
+var PF = { data: null, st: null, days: [], share: null, ob: { sex: "" }, cmp: [], fbKey: null };
 
 function pfOpen() {
   el("pf").classList.remove("hidden");
@@ -296,8 +296,8 @@ function pfRender() {
   var obGo = el("pf-ob-go"); if (obGo) obGo.onclick = pfObSubmit;
 }
 
-function pfSetAction(body, cb) {
-  ccFetch("/api/settings", { method: "POST", body: body })
+function pfSetAction(body, cb, idemKey) {
+  ccFetch("/api/settings", { method: "POST", body: body, idempotencyKey: idemKey })
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
     .then(function (res) {
       if (res.deleted) { el("pf-body").innerHTML = uiCard(WA.wa_deleted); return; }
@@ -423,7 +423,11 @@ function pfSave() {
     if (a2 === "fb") {
       var txt = (el("pf-fb").value || "").trim();
       if (txt.length < 2) return;
-      pfSetAction({ action: "feedback", text: txt }, function () { el("pf-fb").value = ""; el("pf-fb-st").textContent = WA.wa_saved; });
+      // Reused across retries of THIS submit (a lost-response network error, not a fresh
+      // feedback) so a flaky connection can't double-insert the feedback row or double-ping the
+      // owner; cleared only on real success, same pattern as the logger's save key.
+      if (!PF.fbKey) PF.fbKey = ccNewIdemKey();
+      pfSetAction({ action: "feedback", text: txt }, function () { PF.fbKey = null; el("pf-fb").value = ""; el("pf-fb-st").textContent = WA.wa_saved; }, PF.fbKey);
       return;
     }
     if (a2 === "export") { pfSetAction({ action: "export" }, function (res) { el("pf-misc-st").textContent = res.ok ? WA.wa_export_sent : WA.wa_err; }); return; }

@@ -17,6 +17,7 @@ import { exerciseVideoKey, weekdayName } from "../render";
 import { parseYouTubeId } from "../youtube";
 import { setUserVideo } from "../db/repos";
 import { miniAppUser } from "./auth";
+import { readJsonBody } from "./validate";
 import type { Env, ExerciseVideo, Lang, PlanDay, PlanExercise, UserDoc } from "../types";
 
 interface PlanExerciseView {
@@ -109,12 +110,12 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
 
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return Response.json({ error: "bad request" }, { status: 400 });
-  }
+  // This is a discriminated-union editor (action -> a different op, each with its own
+  // pre-existing field checks and optimistic-concurrency guard below) -- readJsonBody adds the
+  // size cap and uniform malformed-JSON handling; each action's own field validation is unchanged.
+  const parsedPlan = await readJsonBody(req);
+  if (!parsedPlan.ok) return parsedPlan.response;
+  const body = parsedPlan.body as Record<string, unknown>;
 
   // Resolve the target plan owner (self or a trainer's client).
   let owner: UserDoc = user;

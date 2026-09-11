@@ -1,6 +1,6 @@
 
 // --- long-tail overlay (GET/POST /api/challenges, /api/injuries, GET /api/boards) ---
-var LT = { ch: null, inj: null, boards: null };
+var LT = { ch: null, inj: null, boards: null, injKey: null };
 
 function ltOpen() {
   el("lt").classList.remove("hidden");
@@ -155,8 +155,11 @@ el("lt-body") && el("lt-body").addEventListener("click", function (e) {
       .then(function (res) { LT.ch = res; ltRender(); }).catch(function () {});
   } else if (a === "injreport") {
     var area = el("lt-inj-area").value, sev = el("lt-inj-sev").value;
-    ccFetch("/api/injuries", { method: "POST", body: { area: area, severity: sev } })
-      .then(function (r) { if (!r.ok) throw new Error("x"); return ccFetch("/api/injuries").then(function (rr) { return rr.json(); }); })
+    // Reused across retries of THIS report so a lost-response retry can't log the same injury
+    // twice; cleared only on real success.
+    if (!LT.injKey) LT.injKey = ccNewIdemKey();
+    ccFetch("/api/injuries", { method: "POST", body: { area: area, severity: sev }, idempotencyKey: LT.injKey })
+      .then(function (r) { if (!r.ok) throw new Error("x"); LT.injKey = null; return ccFetch("/api/injuries").then(function (rr) { return rr.json(); }); })
       .then(function (res) { LT.inj = res; ltRender(); }).catch(function () { var s = el("lt-inj-st"); if (s) s.textContent = WA.wa_err; });
   } else if (a === "wcgen") {
     wcGenerate();

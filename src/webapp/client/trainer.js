@@ -1,7 +1,7 @@
 
 // --- trainer client card overlay (fetches /api/trainer/client/:id/card) ---
 var WA = WA_ALL.en; // reassigned in render() once the payload language is known
-var CC = { id: null, flagged: false, labeled: false };
+var CC = { id: null, flagged: false, labeled: false, qaKeys: {}, bcKey: null };
 
 function ccFetch(path, opts) {
   opts = opts || {};
@@ -336,9 +336,12 @@ function qaAnswer(id) {
   var text = ta ? (ta.value || "").trim() : "";
   if (!text) return;
   var st = el("qa-st-" + id);
-  ccFetch("/api/trainer/question/" + id + "/answer", { method: "POST", body: { text: text } })
+  // Reused across retries of THIS answer (a lost-response network error) so a flaky connection
+  // can't message the client twice; cleared only on real success.
+  if (!CC.qaKeys[id]) CC.qaKeys[id] = ccNewIdemKey();
+  ccFetch("/api/trainer/question/" + id + "/answer", { method: "POST", body: { text: text }, idempotencyKey: CC.qaKeys[id] })
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
-    .then(function () { var card = el("qa-q-" + id); if (card) card.innerHTML = '<div class="sub">' + WA.wa_qa_sent + "</div>"; })
+    .then(function () { delete CC.qaKeys[id]; var card = el("qa-q-" + id); if (card) card.innerHTML = '<div class="sub">' + WA.wa_qa_sent + "</div>"; })
     .catch(function () { if (st) st.textContent = WA.wa_err; });
 }
 el("qa-body").addEventListener("click", function (e) {
@@ -457,8 +460,11 @@ function bcOpen() {
 function bcSend(text) {
   var b = el("bc-send"); if (b) b.disabled = true;
   ccStatus("bc-st", WA.wa_bc_sending);
-  ccFetch("/api/trainer/broadcast", { method: "POST", body: { text: text } })
+  // Reused across retries of THIS broadcast so a lost-response retry can't message every client
+  // a second time; cleared only on real success.
+  if (!CC.bcKey) CC.bcKey = ccNewIdemKey();
+  ccFetch("/api/trainer/broadcast", { method: "POST", body: { text: text }, idempotencyKey: CC.bcKey })
     .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
-    .then(function (res) { ccStatus("bc-st", WA.wa_bc_done.replace("{n}", res.sent)); })
+    .then(function (res) { CC.bcKey = null; ccStatus("bc-st", WA.wa_bc_done.replace("{n}", res.sent)); })
     .catch(function () { ccStatus("bc-st", WA.wa_err); if (b) b.disabled = false; });
 }

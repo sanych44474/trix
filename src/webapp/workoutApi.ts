@@ -3,6 +3,7 @@
 import { getActivePlan, getWorkoutLog, listStrength, recentWorkoutLogs, setRestTimer, workoutLogsSince } from "../db/repos";
 import { getIdempotentResponse, recordIdempotentResponse } from "../db/repos/idempotency";
 import { miniAppUser } from "./auth";
+import { num, object, readJsonBody, str, validateBody } from "./validate";
 import { stalledLifts } from "../domain/analysis";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
@@ -94,27 +95,34 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       return Response.json({ matches });
     }
     if (req.method === "POST" && path === "/api/workout/custom") {
-      const body = (await req.json().catch(() => null)) as { name?: unknown } | null;
-      const name = typeof body?.name === "string" ? body.name.trim().slice(0, 80) : "";
+      const parsed = await readJsonBody(req);
+      if (!parsed.ok) return parsed.response;
+      const v = validateBody(parsed.body, object({ name: str({ max: 200 }) }));
+      if (!v.ok) return v.response;
+      const name = v.value.name.trim().slice(0, 80);
       if (name.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
       const result = await createCustomExercise(env, user, name);
       return Response.json(result);
     }
     if (req.method === "POST" && path === "/api/workout/rest") {
-      const body = (await req.json().catch(() => null)) as { seconds?: unknown } | null;
-      const seconds = typeof body?.seconds === "number" ? Math.round(body.seconds) : NaN;
+      const parsed = await readJsonBody(req);
+      if (!parsed.ok) return parsed.response;
       // Same bounds as the bot's rest buttons (onRestTimer): 30s..15min.
-      if (!Number.isFinite(seconds) || seconds < 30 || seconds > 900) {
-        return Response.json({ error: "bad request" }, { status: 400 });
-      }
-      const dueAt = new Date(Date.now() + seconds * 1000).toISOString();
+      const v = validateBody(parsed.body, object({ seconds: num({ min: 30, max: 900 }) }));
+      if (!v.ok) return v.response;
+      const dueAt = new Date(Date.now() + Math.round(v.value.seconds) * 1000).toISOString();
       await setRestTimer(env.DB, user._id, user.chatId, dueAt, user.lang);
       return Response.json({ ok: true });
     }
     if (req.method === "POST" && path === "/api/workout/save") {
-      const body = await req.json().catch(() => null);
-      const v = validateSaveBody(body);
+      // validateSaveBody does its own lenient, filtering parse (skips an untouched exercise row
+      // rather than rejecting the whole save) -- that's intentional domain behavior, not a gap;
+      // only the size-capped read is new here.
+      const parsed = await readJsonBody(req);
+      if (!parsed.ok) return parsed.response;
+      const v = validateSaveBody(parsed.body);
       if ("error" in v) return Response.json({ error: v.error }, { status: 400 });
+      const body = parsed.body;
       const dateB = body && typeof (body as { date?: unknown }).date === "string" ? (body as { date: string }).date : null;
       const dateErr = dateB ? validateEditDate(dateB, user) : null;
       if (dateErr) return Response.json({ error: dateErr }, { status: 400 });

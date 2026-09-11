@@ -8,6 +8,7 @@ import { miniAppUser } from "./auth";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
 import { aiProductLookup, decodeEntities, fatSecretSearch } from "./foodDb";
+import { readJsonBody } from "./validate";
 import type { Env, MealEntry, NutritionTargets, UserDoc } from "../types";
 
 function totals(meals: MealEntry[]) {
@@ -52,12 +53,12 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
   }
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return Response.json({ error: "bad request" }, { status: 400 });
-  }
+  // Each action below already bounds-checks its own fields (grams/kcal/macro ranges, factor
+  // whitelist, index bounds) -- that per-action logic stays as-is; readJsonBody just adds the
+  // size cap and consistent malformed-JSON handling this endpoint was missing.
+  const parsedNutrition = await readJsonBody(req);
+  if (!parsedNutrition.ok) return parsedNutrition.response;
+  const body = parsedNutrition.body as Record<string, unknown>;
   const action = String(body.action);
 
   // Robust per-100g extraction across Open Food Facts field variants: kcal may live in

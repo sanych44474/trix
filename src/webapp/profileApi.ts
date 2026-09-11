@@ -5,6 +5,7 @@
 import { listProgressPhotos, updateUser } from "../db/repos";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
+import { readJsonBody } from "./validate";
 import type { Env, Lang, UserProfile, Weekday } from "../types";
 
 // Canonical value → i18n label key. Values MUST match the bot's obSteps() so a plan built from
@@ -53,12 +54,14 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
   }
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return Response.json({ error: "bad request" }, { status: 400 });
-  }
+  // This is a partial-update PATCH -- each field is independently optional and an
+  // invalid/out-of-range value is silently dropped (kept at its previous value) rather than
+  // rejecting the whole request, so a client sending one bad field doesn't lose every other field
+  // in the same save. That's intentional and stays as hand-rolled per-field checks; readJsonBody
+  // only adds the size cap this endpoint was missing.
+  const parsedProfile = await readJsonBody(req);
+  if (!parsedProfile.ok) return parsedProfile.response;
+  const body = parsedProfile.body as Record<string, unknown>;
 
   const patch: Partial<UserProfile> = {};
   const inSet = (v: unknown, list: [string, string][]) => typeof v === "string" && list.some(([val]) => val === v);
@@ -112,12 +115,9 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env): Pro
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
   if (user.onboarded) return Response.json({ error: "already onboarded" }, { status: 400 });
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return Response.json({ error: "bad request" }, { status: 400 });
-  }
+  const parsedOb = await readJsonBody(req);
+  if (!parsedOb.ok) return parsedOb.response;
+  const body = parsedOb.body as Record<string, unknown>;
 
   const patch: Partial<UserProfile> = {};
   if (body.sex === "male" || body.sex === "female") patch.sex = body.sex;

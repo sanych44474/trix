@@ -24,8 +24,10 @@ import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challen
 import { checkAfterDate } from "../domain/injury";
 import { localParts } from "../domain/progression";
 import { challengeMilestones, rankOf } from "../domain/records";
+import { getIdempotentResponse, recordIdempotentResponse } from "../db/repos/idempotency";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
+import { object, oneOf, readJsonBody, str, validateBody } from "./validate";
 import type { Env, UserDoc } from "../types";
 
 type TKey = Parameters<typeof t>[1];
@@ -79,8 +81,11 @@ export async function handleChallengesApi(req: Request, url: URL, env: Env): Pro
     return Response.json({ active: activeOut, available, won }, { headers: { "cache-control": "no-store" } });
   }
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-  const body = (await req.json().catch(() => ({}))) as { code?: unknown };
-  const tpl = typeof body.code === "string" ? challengeByCode(body.code) : undefined;
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const v = validateBody(parsed.body, object({ code: str({ max: 60 }) }));
+  if (!v.ok) return v.response;
+  const tpl = challengeByCode(v.value.code);
   if (!tpl) return Response.json({ error: "bad request" }, { status: 400 });
   const active = await activeChallenges(env.DB, user._id, date).catch(() => []);
   if (active.some((c) => c.code === tpl.code)) return Response.json({ ok: true }); // already joined
@@ -109,13 +114,22 @@ export async function handleInjuriesApi(req: Request, url: URL, env: Env): Promi
     );
   }
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-  const body = (await req.json().catch(() => ({}))) as { area?: unknown; severity?: unknown };
-  const area = typeof body.area === "string" && AREA_KEY[body.area] ? body.area : null;
-  const severity = typeof body.severity === "string" && SEVERITIES.includes(body.severity) ? body.severity : null;
-  if (!area || !severity) return Response.json({ error: "bad request" }, { status: 400 });
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const v = validateBody(parsed.body, object({ area: oneOf(Object.keys(AREA_KEY) as [string, ...string[]]), severity: oneOf(SEVERITIES as [string, ...string[]]) }));
+  if (!v.ok) return v.response;
+  const { area, severity } = v.value;
+  // A lost-response retry must not log the same injury twice.
+  const idemKey = req.headers.get("idempotency-key");
+  if (idemKey) {
+    const cached = await getIdempotentResponse(env.DB, user._id, idemKey).catch(() => null);
+    if (cached) return Response.json(cached.response, { status: cached.status });
+  }
   const { date } = localParts(user.profile.timezone);
   await createInjury(env.DB, { userId: user._id, area, severity, checkAfter: checkAfterDate(date, severity as "mild" | "strong"), swaps: [] });
-  return Response.json({ ok: true });
+  const injResult = { ok: true };
+  if (idemKey) await recordIdempotentResponse(env.DB, user._id, idemKey, 200, injResult).catch(() => {});
+  return Response.json(injResult);
 }
 
 // Webview JS errors die silently inside Telegram otherwise — the app posts them here (deduped
@@ -125,7 +139,13 @@ export async function handleClientErrorApi(req: Request, url: URL, env: Env): Pr
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
   const user = await miniAppUser(req, url, env);
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as { message?: unknown; source?: unknown; line?: unknown };
+  // Deliberately not run through the shared schema validator beyond the size cap: this endpoint's
+  // whole job is reporting that something already went wrong client-side, so it stays maximally
+  // tolerant of odd/partial metadata (source/line) rather than risk rejecting the very report a
+  // broken client is trying to send.
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body as { message?: unknown; source?: unknown; line?: unknown };
   const message = typeof body.message === "string" ? body.message.trim().slice(0, 160) : "";
   if (!message) return Response.json({ error: "bad request" }, { status: 400 });
   const where = typeof body.source === "string" && body.source ? ` @ ${body.source.slice(-40)}:${Number(body.line) || 0}` : "";

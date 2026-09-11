@@ -32,6 +32,7 @@ import { formatRecordBest } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { latestRelease, releaseBody } from "../releaseNotes";
 import { miniAppUser } from "./auth";
+import { num, object, oneOf, optional, readJsonBody, str, validateBody } from "./validate";
 import type { Env } from "../types";
 
 async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
@@ -158,16 +159,18 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       return Response.json({ requests: out }, noStore);
     }
     if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-    const body = (await req.json().catch(() => ({}))) as { id?: unknown; action?: unknown };
-    const r = await getRequest(env.DB, Number(body.id));
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const v = validateBody(parsed.body, object({ id: num({ int: true, min: 1 }), action: oneOf(["accept", "decline"] as const) }));
+    if (!v.ok) return v.response;
+    const r = await getRequest(env.DB, v.value.id);
     if (!r || r.trainerId !== user._id || r.status !== "pending") return notFound();
-    if (body.action === "decline") {
+    if (v.value.action === "decline") {
       await setRequestStatus(env.DB, r.id, "declined");
       const client = await getUser(env.DB, r.clientId).catch(() => null);
       if (client) await tgSend(env, client.chatId, t(client.lang, "client_declined"));
       return Response.json({ ok: true });
     }
-    if (body.action !== "accept") return bad();
     // Accept — mirrors the bot's onRequestAccept: link, then walk a new client into the interview.
     await setRequestStatus(env.DB, r.id, "accepted");
     await linkClient(env.DB, r.clientId, user._id);
@@ -200,11 +203,14 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
   if (path === "/api/trainers") {
     if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
     if (user.role !== "solo") return bad();
-    const body = (await req.json().catch(() => ({}))) as { trainerId?: unknown; note?: unknown };
-    const trainer = await getUser(env.DB, Number(body.trainerId)).catch(() => null);
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const v = validateBody(parsed.body, object({ trainerId: num({ int: true, min: 1 }), note: optional(str({ max: 300 })) }));
+    if (!v.ok) return v.response;
+    const trainer = await getUser(env.DB, v.value.trainerId).catch(() => null);
     const trDoc = trainer ? await getTrainer(env.DB, trainer._id).catch(() => null) : null;
     if (!trainer || !trDoc || trDoc.status !== "approved") return notFound();
-    const note = typeof body.note === "string" ? body.note.trim().slice(0, 300) : undefined;
+    const note = v.value.note?.trim();
     const reqId = await createRequest(env.DB, user._id, trainer._id, note);
     const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
     const kb = { inline_keyboard: [[
@@ -223,8 +229,11 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     }
     if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
     if (user.role === "client") return bad(); // the trainer owns a client's plan
-    const body = (await req.json().catch(() => ({}))) as { code?: unknown };
-    const sp = await getSharedProgram(env.DB, String(body.code ?? ""));
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const v = validateBody(parsed.body, object({ code: str({ max: 60 }) }));
+    if (!v.ok) return v.response;
+    const sp = await getSharedProgram(env.DB, v.value.code);
     if (!sp) return notFound();
     const records = await listStrength(env.DB, user._id, 8).catch(() => []);
     const prs = records.length ? records.map((r) => `${r.exercise}: ${formatRecordBest(r)}`).join("\n") : undefined;
@@ -251,11 +260,16 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       );
     }
     if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : undefined);
+    const parsedProfile = await readJsonBody(req);
+    if (!parsedProfile.ok) return parsedProfile.response;
+    const body = parsedProfile.body as Record<string, unknown>;
+    // A partial-update patch (only supplied fields change) doesn't fit the all-fields-required
+    // shape validateBody/object() expects, so this stays a hand-rolled per-field trim -- the
+    // size-capped read above is what was actually missing here.
+    const truncStr = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : undefined);
     const patch = {
-      name: str(body.name, 60), bio: str(body.bio, 600), specialization: str(body.specialization, 120),
-      approach: str(body.approach, 600), city: str(body.city, 60), contact: str(body.contact, 120),
+      name: truncStr(body.name, 60), bio: truncStr(body.bio, 600), specialization: truncStr(body.specialization, 120),
+      approach: truncStr(body.approach, 600), city: truncStr(body.city, 60), contact: truncStr(body.contact, 120),
       experienceYears: typeof body.experienceYears === "number" && body.experienceYears >= 0 && body.experienceYears <= 60 ? Math.round(body.experienceYears) : undefined,
       priceOnline: typeof body.priceOnline === "number" && body.priceOnline >= 0 && body.priceOnline <= 100000 ? Math.round(body.priceOnline) : undefined,
     };
