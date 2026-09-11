@@ -39,7 +39,7 @@ import { handleNutritionApi } from "./webapp/nutritionApi";
 import { handleBuddyApi } from "./webapp/buddyApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./webapp/miscApi";
 import { handleOwnerApi } from "./webapp/ownerApi";
-import { logError, logInfo, runWithRequestId } from "./log";
+import { logError, logInfo, runWithRequestId, withHeader } from "./log";
 import type { Env, MealEntry, Weekday } from "./types";
 
 // Query strings routinely end up in proxy access logs and browser history, so the operator
@@ -367,8 +367,7 @@ export default {
       // One correlatable summary line per request; the reqId also rides back to the client so a
       // bug report ("it broke at 14:32") can be matched to this exact line in Workers Logs.
       logInfo("request", { method: req.method, path: url.pathname, status: res.status, durationMs: Date.now() - start });
-      res.headers.set("X-Request-Id", reqId);
-      return res;
+      return withHeader(res, "X-Request-Id", reqId);
     });
   },
 

@@ -50,3 +50,12 @@ export function logError(scope: string, err: unknown, extra?: Record<string, unk
 export function logInfo(scope: string, extra?: Record<string, unknown>): void {
   console.log(JSON.stringify({ level: "info", scope, ...extra, ...baseFields() }));
 }
+
+/** Adds a header to a Response, rebuilding via a fresh Headers instance rather than mutating in
+ * place -- a Response with an immutable header guard (Response.redirect(), most notably: GET /v
+ * shipped 500ing in production because of exactly this) throws on `.headers.set()` directly. */
+export function withHeader(res: Response, name: string, value: string): Response {
+  const headers = new Headers(res.headers);
+  headers.set(name, value);
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
