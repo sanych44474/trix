@@ -58,6 +58,14 @@ async function main() {
     return { cond: r.status === 200, detail: `got ${r.status}` };
   });
 
+  // 3b. Mini App shell ships its CSP (public/_headers) -- a regression here would silently widen
+  // what the webview can load/connect to.
+  await check("GET /app has a restrictive CSP", async () => {
+    const r = await fetch(`${BASE}/app`);
+    const csp = r.headers.get("content-security-policy") || "";
+    return { cond: csp.includes("default-src 'none'"), detail: csp || "(missing)" };
+  });
+
   // 4. /v redirect: rejects a non-YouTube / non-https target
   await check("GET /v rejects bad target (400)", async () => {
     const r = await fetch(`${BASE}/v?u=${encodeURIComponent("javascript://youtube.com/%0aalert(1)")}&uid=1`, { redirect: "manual" });
@@ -80,6 +88,28 @@ async function main() {
       body: "{}",
     });
     return { cond: r.status === 401, detail: `got ${r.status}` };
+  });
+
+  // 6b. admin auth: every /admin/* route shares isAdmin() (X-Admin-Secret header) -- a regression
+  // there would open every admin action (send-as, mass replan, ...) to an unauthenticated caller.
+  await check("POST /admin/replan rejects missing admin secret (401)", async () => {
+    const r = await fetch(`${BASE}/admin/replan?hours=1`, { method: "POST" });
+    return { cond: r.status === 401, detail: `got ${r.status}` };
+  });
+
+  // 6c. Mini App API auth: every /api/* handler shares miniAppUser() -- this is the one wall in
+  // front of every user's private data, so a regression here is worse than any single feature
+  // breaking. Can't exercise the happy path without signing real Telegram initData, but the
+  // reject-when-absent path needs no secret and covers the auth check actually running at all.
+  await check("GET /api/dashboard rejects missing auth (401)", async () => {
+    const r = await fetch(`${BASE}/api/dashboard`);
+    return { cond: r.status === 401, detail: `got ${r.status}` };
+  });
+
+  // 6d. unknown routes still fall through to a real 404, not e.g. a crash or an open proxy.
+  await check("GET /this-route-does-not-exist -> 404", async () => {
+    const r = await fetch(`${BASE}/this-route-does-not-exist`);
+    return { cond: r.status === 404, detail: `got ${r.status}` };
   });
 
   // 7. optional: a valid /start update round-trips (only with the real secret)
