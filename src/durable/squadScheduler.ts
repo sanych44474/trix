@@ -11,7 +11,7 @@ import { postSquadDigest, type DigestWindow, type SquadApi } from "../bot/squad"
 import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
-import { logInfo } from "../log";
+import { logInfo, runWithRequestId } from "../log";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000;
 // Must match scheduler.ts's SQUAD_RECAP_HOUR_UTC — duplicated rather than imported because
@@ -44,7 +44,13 @@ export class SquadSchedulerDO {
     return new Response("ok");
   }
 
+  // Thin wrapper so logInfo's Analytics Engine write (src/log.ts) has this.env to reach for --
+  // the DO's own alarm() never went through runWithRequestId the way fetch()/scheduled() do.
   async alarm(): Promise<void> {
+    return runWithRequestId(crypto.randomUUID(), this.env, () => this.runAlarm());
+  }
+
+  private async runAlarm(): Promise<void> {
     const chatId = await this.state.storage.get<number>("chatId");
     if (typeof chatId !== "number") return;
     // Reschedule first — same reasoning as UserSchedulerDO: nothing below should be able to

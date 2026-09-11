@@ -358,7 +358,7 @@ export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const reqId = crypto.randomUUID();
     const start = Date.now();
-    return runWithRequestId(reqId, async () => {
+    return runWithRequestId(reqId, env, async () => {
       const url = new URL(req.url);
       let res: Response;
       try {
@@ -377,7 +377,7 @@ export default {
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const reqId = crypto.randomUUID();
     ctx.waitUntil(
-      runWithRequestId(reqId, async () => {
+      runWithRequestId(reqId, env, async () => {
         const start = Date.now();
         try {
           await runSchedule(env);

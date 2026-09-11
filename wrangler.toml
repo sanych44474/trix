@@ -79,6 +79,14 @@ database_id = "00000000-0000-0000-0000-000000000000"
 binding = "R2_PHOTOS"
 bucket_name = "trix-photos"
 
+# Product events (docs/slos.md) for the Grafana dashboards -- src/log.ts's logInfo() writes here
+# in addition to the structured console.log line. Free on Workers Free (no separate enablement
+# step like R2's; the dataset is created automatically on first write, unlike a D1/R2 resource
+# that must exist before the Worker can use it).
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "trix_events"
+
 # Non-secret vars. Secrets (TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, GEMINI_API_KEY,
 # GROQ_API_KEY, OLLAMA_API_KEY, OPENROUTER_API_KEY, ADMIN_SECRET, YOUTUBE_API_KEY) are set
 # with `wrangler secret put`. YOUTUBE_API_KEY (YouTube Data API v3) powers exercise technique

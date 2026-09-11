@@ -19,7 +19,7 @@ import { isCutOver } from "./cutover";
 import { buildSinglePass, processUser, type Sender } from "../scheduler";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
-import { logInfo } from "../log";
+import { logInfo, runWithRequestId } from "../log";
 
 // Hourly, matching the cron path's own hourKey-gated cadence (scheduler.ts) — processUser's
 // internal gates (reminderHour, already(), daysBetween(...)) are what actually decide whether
@@ -56,7 +56,13 @@ export class UserSchedulerDO {
     return new Response("ok");
   }
 
+  // Thin wrapper so logInfo's Analytics Engine write (src/log.ts) has this.env to reach for --
+  // the DO's own alarm() never went through runWithRequestId the way fetch()/scheduled() do.
   async alarm(): Promise<void> {
+    return runWithRequestId(crypto.randomUUID(), this.env, () => this.runAlarm());
+  }
+
+  private async runAlarm(): Promise<void> {
     const userId = await this.state.storage.get<number>("userId");
     if (typeof userId !== "number") return; // woken without an id somehow — nothing to do
 

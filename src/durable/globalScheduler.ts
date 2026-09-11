@@ -11,7 +11,7 @@ import { isCutOver } from "./cutover";
 import { logDryRun } from "../db/repos";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
-import { logInfo } from "../log";
+import { logInfo, runWithRequestId } from "../log";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000; // hourly, matching the cron path's own cadence
 export const GLOBAL_SCHEDULER_NAME = "global";
@@ -42,7 +42,13 @@ export class GlobalSchedulerDO {
     return new Response("ok");
   }
 
+  // Thin wrapper so logInfo's Analytics Engine write (src/log.ts) has this.env to reach for --
+  // the DO's own alarm() never went through runWithRequestId the way fetch()/scheduled() do.
   async alarm(): Promise<void> {
+    return runWithRequestId(crypto.randomUUID(), this.env, () => this.runAlarm());
+  }
+
+  private async runAlarm(): Promise<void> {
     // Reschedule first — same reasoning as the other two DOs.
     await this.state.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
 
