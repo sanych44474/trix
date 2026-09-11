@@ -39,6 +39,7 @@ import { handleNutritionApi } from "./webapp/nutritionApi";
 import { handleBuddyApi } from "./webapp/buddyApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./webapp/miscApi";
 import { handleOwnerApi } from "./webapp/ownerApi";
+import { logError, logInfo, runWithRequestId } from "./log";
 import type { Env, MealEntry, Weekday } from "./types";
 
 // Query strings routinely end up in proxy access logs and browser history, so the operator
@@ -47,10 +48,7 @@ function isAdmin(req: Request, env: Env): boolean {
   return !!env.ADMIN_SECRET && req.headers.get("X-Admin-Secret") === env.ADMIN_SECRET;
 }
 
-export default {
-  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(req.url);
-
+async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
     if (url.pathname === "/" || url.pathname === "/health") {
       return new Response("trix bot up", { status: 200 });
     }
@@ -315,7 +313,7 @@ export default {
           return Response.json({ ok: true, items: items.map((i) => ({ desc: i.desc, kcal: i.kcal })), kcal });
         }
       } catch (err) {
-        console.error("api/log error", user._id, err);
+        logError("api/log", err, { userId: user._id });
         return new Response("error", { status: 500 });
       }
       return new Response("bad request", { status: 400 });
@@ -345,15 +343,47 @@ export default {
         await bot.handleUpdate(update);
       } catch (err) {
         // Already marked seen; reply 200 so Telegram doesn't retry into a no-op.
-        console.error("webhook error", err);
+        logError("webhook", err);
       }
       return new Response("ok", { status: 200 });
     }
 
     return new Response("not found", { status: 404 });
+}
+
+export default {
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const reqId = crypto.randomUUID();
+    const start = Date.now();
+    return runWithRequestId(reqId, async () => {
+      const url = new URL(req.url);
+      let res: Response;
+      try {
+        res = await handleFetch(req, env, ctx, url);
+      } catch (err) {
+        logError("fetch", err, { path: url.pathname, method: req.method });
+        res = new Response("error", { status: 500 });
+      }
+      // One correlatable summary line per request; the reqId also rides back to the client so a
+      // bug report ("it broke at 14:32") can be matched to this exact line in Workers Logs.
+      logInfo("request", { method: req.method, path: url.pathname, status: res.status, durationMs: Date.now() - start });
+      res.headers.set("X-Request-Id", reqId);
+      return res;
+    });
   },
 
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runSchedule(env));
+    const reqId = crypto.randomUUID();
+    ctx.waitUntil(
+      runWithRequestId(reqId, async () => {
+        const start = Date.now();
+        try {
+          await runSchedule(env);
+        } catch (err) {
+          logError("scheduled", err);
+        }
+        logInfo("scheduled", { durationMs: Date.now() - start });
+      }),
+    );
   },
 } satisfies ExportedHandler<Env>;
