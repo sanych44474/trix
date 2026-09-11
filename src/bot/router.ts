@@ -77,9 +77,36 @@ export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
   "menu:whatsnew": cmdWhatsNew,
 };
 
+// The idle gap that separates one session from the next — docs/slos.md §2's "visit / session".
+const SESSION_IDLE_MS = 30 * 60 * 1000;
+
 export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
   setAppUrl(env.WORKER_URL);
   const bot = new Bot<MyContext>(env.TELEGRAM_BOT_TOKEN);
+
+  // docs/slos.md's telegram_send_failure. An API transformer is the one real choke point for
+  // outbound Bot API traffic: every ctx.api.*/bot.api.* call in the bot AND the scheduler goes
+  // through here, so one hook replaces chasing dozens of scattered `.catch(() => {})` sites that
+  // each swallow their own error. Re-throws unchanged -- this observes, it must not alter
+  // behavior (callers' own catches still see exactly the error they saw before).
+  bot.api.config.use(async (prev, method, payload, signal) => {
+    try {
+      return await prev(method, payload, signal);
+    } catch (err) {
+      if (method.startsWith("send") || method === "copyMessage") {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Coarse buckets only -- the useful split is "the user is gone" vs "we're being
+        // throttled" vs "something else broke", not the exact Telegram description string.
+        const kind = /blocked|deactivated|chat not found|kicked/i.test(msg)
+          ? "blocked"
+          : /too many requests|retry after|flood/i.test(msg)
+            ? "rate_limited"
+            : "other";
+        logInfo("telegram_send_failure", { kind, method });
+      }
+      throw err;
+    }
+  });
 
   // Avoid a getMe round-trip on every webhook invocation. Requires BOT_ID + BOT_USERNAME; a
   // deployment that leaves them unset simply pays for getMe via grammY's own bot.init().
@@ -132,6 +159,12 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
       ctx.user.username = from.username;
       await updateUser(ctx.db, ctx.user._id, { username: from.username });
     }
+    // docs/slos.md's session_started, computed off the value lastSeenAt still holds RIGHT HERE
+    // (before the write below overwrites it): a gap wider than the idle window means this
+    // interaction opens a new session. No extra storage and no extra read -- the signal the
+    // session definition needs is already sitting in the user row.
+    const prevSeen = ctx.user.lastSeenAt ? ctx.user.lastSeenAt.getTime() : 0;
+    if (Date.now() - prevSeen > SESSION_IDLE_MS) logInfo("session_started", { surface: "bot" });
     // Record the LAST GENUINE interaction (only here — never from the cron). This is the only
     // reliable "is this user active" signal (users.updatedAt is bumped by the scheduler too).
     ctx.waitUntil(setLastSeen(ctx.db, ctx.user._id, new Date().toISOString()));

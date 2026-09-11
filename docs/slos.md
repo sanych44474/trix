@@ -54,10 +54,10 @@ plausible-sounding restatement.
 
 | Term | Definition |
 |---|---|
-| **Visit / session** | One `app_open` OR `dashboard_loaded` event (§3) from a given `userId` with no prior such event from the same user in the preceding 30 minutes. Session count, not page count. |
+| **Visit / session** | A user interaction with no prior interaction from the same user in the preceding 30 minutes. Session count, not page count. **Known gap:** implemented for the bot surface only — `users.lastSeenAt` (the signal the gate reads) is written in router.ts's auth middleware and NOT by `miniAppUser`, so a Mini-App-only session doesn't fire `session_started`. Closing that means bumping lastSeenAt from the Mini App auth path too, which also changes what "active user" counts — a deliberate decision, not a one-line fix. |
 | **Active user (Nd)** | A user whose `users.lastSeenAt` falls within the last N days. Matches `countActiveSince` / the existing "active 7d/30d" figures in `orOverview` exactly — do not compute a second definition from event counts. |
 | **Onboarded** | `users.onboarded = 1` (unchanged; matches `countOnboarded`). |
-| **Completed workout** | A row in `workout_logs` with `completed = 1`. Matches `countCompletedWorkoutsBetween`. A row that exists but has `completed = 0` is a **started, not completed** workout (§3's `workout_started`/`workout_skipped` events distinguish these going forward; historically only the completed/not-completed row exists, not a started-vs-skipped distinction). |
+| **Completed workout** | A row in `workout_logs` with `completed = 1`. Matches `countCompletedWorkoutsBetween`. A row with `completed = 0` is a partially-logged day. There is no started-vs-skipped distinction to be had: the product has no "start" or "skip" action that reaches the server (see §3's struck-through rows), so "skipped" can only ever mean *planned weekday that elapsed without a completed row* — computed in §4's rollup, never fired as an event. |
 | **Retention D1/D7/D30** | Of users onboarded on day X, the fraction with `lastSeenAt` on day X+1 / X+7 / X+30 respectively. Computed from the daily rollup table in §4, not live at dashboard-render time. |
 | **Churn risk** | Unchanged from `listChurnedUsers`: onboarded, active in the [14d, 7d) window, silent in the last 7d. |
 | **AI cost (estimated)** | `input_tokens × input_price + output_tokens × output_price` per provider/model, summed. Gemini/Groq/OpenRouter `:free` tiers and Workers AI are $0 by contract; this is tracked as a **leading indicator of paid-tier exposure**, not a real invoice reconciliation — call it "estimated cost," never "cost," in every panel label so nobody mistakes it for a billing figure. |
@@ -81,14 +81,14 @@ for a cohort chart, never the raw id as a label.
 |---|---|---|
 | `app_open` | `/start` handled (bot surface only — `GET /app` is served as a static asset straight from Cloudflare's edge, per `wrangler.toml`'s `[assets]` config, and never reaches the Worker, so it cannot be instrumented server-side) | `surface` (`bot`) |
 | `dashboard_loaded` | `GET /api/dashboard` succeeds — the practical "Mini App opened" proxy, since it's the first authenticated call the shell makes on load | — |
-| `session_started` | First `app_open`/`dashboard_loaded` after the 30-min idle gate (§2) | — |
+| `session_started` | Any bot interaction whose gap since `users.lastSeenAt` exceeds the 30-min idle window (§2) — computed in router.ts's auth middleware off the value lastSeenAt still holds before that same middleware overwrites it, so it costs no extra storage or read | `surface` (`bot`) |
 | `onboarding_started` | First onboarding step answered | `role` (`solo`\|`client`\|`trainer`) |
 | `onboarding_completed` | `users.onboarded` flips to true | `role`, `stepsAnswered` (count) |
 | `first_plan_ready` | A user's first-ever `setActivePlan` call | `source` (`ai`\|`bank`\|`template`) |
 | `first_workout_completed` | A user's first-ever `workout_logs.completed=1` row | — |
-| `workout_started` | A guided-log session begins (first set entered) | — |
+| ~~`workout_started`~~ | **NOT instrumented — no server-side hook exists.** The guided logger holds its in-progress sets client-side (logger.js's draft state) and only talks to the server on the final save, so "first set entered" never reaches the Worker. Capturing it needs a NEW lightweight client beacon endpoint — a real, scoped feature, not something instrumentable at an existing call site. | — |
 | `workout_completed` | `saveWorkout` succeeds with `completed=1` | `exerciseCount` |
-| `workout_skipped` | A planned day is explicitly marked skipped | `weekday` |
+| ~~`workout_skipped`~~ | **NOT an event — there is no explicit "skip" action in the product.** A skipped day is only ever *derived* (a planned weekday that elapsed with no `completed = 1` row), which is how `report.ts`/`exportData.ts` already count it. Belongs in §4's daily rollup as a computed metric, not a fired event. | — |
 | `nutrition_logged` | A meal entry is appended | `method` (`text` -- also covers voice, which transcribes then routes through the same text path \| `photo` \| `recent` (re-adding a previously logged food, bot or Mini App) \| `miniapp_search` (Mini App food-DB search or barcode pick)) |
 | `checkin_submitted` | Daily check-in recorded | — |
 | `photo_uploaded` | A progress photo is saved | — |
@@ -118,6 +118,8 @@ user base grows, and Grafana panels should read a small pre-aggregated table.
 
 Metrics populated into it (initial set — extend, don't fork a parallel table, when more are
 needed): `dau`, `wau`, `mau`, `new_users`, `onboarded_total`, `active_plans`, `completed_workouts`,
+`skipped_workouts` (planned weekdays that elapsed with no completed row — the derived metric that
+replaces the `workout_skipped` event §3 struck out),
 `ai_calls`, `ai_fallback_rate`, `ai_est_cost_usd`, `error_rate`, `retention_d1`, `retention_d7`,
 `retention_d30`.
 
