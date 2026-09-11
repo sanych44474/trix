@@ -89,7 +89,7 @@ for a cohort chart, never the raw id as a label.
 | `workout_started` | A guided-log session begins (first set entered) | — |
 | `workout_completed` | `saveWorkout` succeeds with `completed=1` | `exerciseCount` |
 | `workout_skipped` | A planned day is explicitly marked skipped | `weekday` |
-| `nutrition_logged` | A meal entry is appended | `method` (`text`\|`photo`\|`voice`\|`barcode`\|`miniapp`) |
+| `nutrition_logged` | A meal entry is appended | `method` (`text` -- also covers voice, which transcribes then routes through the same text path \| `photo` \| `recent` (re-adding a previously logged food, bot or Mini App) \| `miniapp_search` (Mini App food-DB search or barcode pick)) |
 | `checkin_submitted` | Daily check-in recorded | — |
 | `photo_uploaded` | A progress photo is saved | — |
 | `trainer_client_connected` | `linkClient` succeeds | — |

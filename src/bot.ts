@@ -1707,6 +1707,7 @@ export async function onReLog(ctx: MyContext, index: number) {
   if (!item) { await showFoodLog(ctx); return; }
   const { date } = localParts(ctx.user.profile.timezone);
   await appendMeals(ctx.db, ctx.user._id, date, [item]);
+  logInfo("nutrition_logged", { method: "recent" });
   await showFoodLog(ctx);
 }
 

@@ -3,6 +3,7 @@
 // its per-item edit/portion-scale sub-flows. Extracted from bot.ts (god-file split; same barrel
 // seam via bot.ts's `export * from "./bot/nutritionLog"`).
 import { InlineKeyboard } from "grammy";
+import { logInfo } from "../log";
 import type { Weekday } from "../types";
 import { type InlineImage, aiJSON, aiVisionJSON } from "../ai";
 import { lookupPer100gCached } from "../ai/nutritionDb";
@@ -67,7 +68,7 @@ export async function verifyItems(ctx: MyContext, items: P.NutritionItem[]) {
   return { final, verified, source };
 }
 
-export async function logMeal(ctx: MyContext, items: P.NutritionItem[]) {
+export async function logMeal(ctx: MyContext, items: P.NutritionItem[], method: "text" | "photo") {
   const lang = ctx.user.lang;
   const { final, verified, source } = await verifyItems(ctx, items);
   const sum = final.reduce(
@@ -84,6 +85,7 @@ export async function logMeal(ctx: MyContext, items: P.NutritionItem[]) {
   // Append meals and get the full day's meals back to compute totals.
   // Coerce stored values too — older rows may predate the validation fix.
   const dayMeals = await appendMeals(ctx.db, ctx.user._id, date, final);
+  logInfo("nutrition_logged", { method });
   const tot = dayMeals.reduce(
     (a, m) => ({
       kcal: a.kcal + num(m.kcal),
@@ -155,7 +157,7 @@ export async function handleNutrition(ctx: MyContext, text: string) {
       db: ctx.db,
       userId: ctx.user._id,
     });
-    await logMeal(ctx, est.items);
+    await logMeal(ctx, est.items, "text");
   });
 }
 
@@ -314,6 +316,6 @@ export async function onMealConfirm(ctx: MyContext, action: "ok" | "fix" | "canc
     await reply(ctx, t(lang, "meal_cancelled"), menuBtn(lang));
     return;
   }
-  if (items?.length) await logMeal(ctx, items);
+  if (items?.length) await logMeal(ctx, items, "photo");
   else await reply(ctx, t(lang, "nutrition_unreadable"));
 }

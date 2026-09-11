@@ -9,6 +9,7 @@ import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
 import { aiProductLookup, decodeEntities, fatSecretSearch } from "./foodDb";
 import { readJsonBody } from "./validate";
+import { logInfo } from "../log";
 import type { Env, MealEntry, NutritionTargets, UserDoc } from "../types";
 
 function totals(meals: MealEntry[]) {
@@ -144,6 +145,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       grams,
     });
     await setDayMeals(env.DB, user._id, date, cur);
+    logInfo("nutrition_logged", { method: "miniapp_search" });
     return Response.json({
       ok: true,
       meals: cur.map((m, i) => ({ index: i, desc: m.desc, kcal: Math.round(m.kcal || 0), protein: Math.round(m.protein || 0), fats: Math.round(m.fats || 0), carbs: Math.round(m.carbs || 0), grams: m.grams ?? null })),
@@ -170,6 +172,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       ...(pick.query ? { query: pick.query } : {}),
     });
     await setDayMeals(env.DB, user._id, date, cur);
+    logInfo("nutrition_logged", { method: "recent" });
     return Response.json({
       ok: true,
       meals: cur.map((m, i) => ({ index: i, desc: m.desc, kcal: Math.round(m.kcal || 0), protein: Math.round(m.protein || 0), fats: Math.round(m.fats || 0), carbs: Math.round(m.carbs || 0), grams: m.grams ?? null })),

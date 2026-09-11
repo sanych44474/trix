@@ -311,6 +311,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
             .map((i) => ({ desc: cleanAi(i.desc), kcal: i.kcal, protein: i.protein, fats: i.fats, carbs: i.carbs, grams: i.grams, query: i.query }));
           if (!items.length) return Response.json({ ok: false, reason: "unreadable" });
           await appendMeals(env.DB, user._id, today, items);
+          logInfo("nutrition_logged", { method: "text" }); // Mini App quick-log, same AI-text path as the bot's
           const kcal = items.reduce((s, i) => s + i.kcal, 0);
           return Response.json({ ok: true, items: items.map((i) => ({ desc: i.desc, kcal: i.kcal })), kcal });
         }
