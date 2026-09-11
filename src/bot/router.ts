@@ -3,6 +3,7 @@
 // Handlers are imported from "../bot"; nothing in bot.ts's handler bodies depends on this module
 // except four symbols re-imported back, so the dependency is essentially one-way.
 import { Bot, InlineKeyboard } from "grammy";
+import { logInfo } from "../log";
 import { type InlineImage, RateLimitError, aiJSON, aiTranscribe } from "../ai";
 import { type Per100g, lookupPer100gCached } from "../ai/nutritionDb";
 import * as P from "../ai/prompts";
@@ -306,6 +307,7 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
         ctx.user.session = { ...ctx.user.session, photoSelf: undefined };
         await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
         await addProgressPhoto(ctx.db, ctx.user._id, largest.file_id).catch(() => {});
+        logInfo("photo_uploaded", {});
         await reply(ctx, t(ctx.user.lang, "photo_self_saved"), menuBtn(ctx.user.lang));
         return;
       }
@@ -316,6 +318,7 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
         await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
         // Trainer-requested photos also land in the gallery — one history for both flows.
         await addProgressPhoto(ctx.db, ctx.user._id, largest.file_id).catch(() => {});
+        logInfo("photo_uploaded", {});
         if (trainer) {
           const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`);
           const kb = new InlineKeyboard().text(t(trainer.lang, "cc_message"), `cl:${ctx.user._id}:msg`);
@@ -436,6 +439,7 @@ export async function handleCheckinCallback(ctx: MyContext, data: string) {
     const stress = n;
     const { date, weekday } = localParts(ctx.user.profile.timezone);
     await recordDailyCheckin(ctx.db, ctx.user._id, date, energy, sleep, stress);
+    logInfo("checkin_submitted", {});
     await persistCheckinState(ctx, "idle", undefined);
     await reply(ctx, t(lang, "checkin_saved", { e: energy, s: sleep, st: stress }));
     // Context-aware advice: 2+ readiness markers ≤ 2 → back off; otherwise "train as planned"

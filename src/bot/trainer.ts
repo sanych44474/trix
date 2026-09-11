@@ -100,6 +100,7 @@ export function sharePromptKb(lang: Lang): InlineKeyboard {
 async function pairWithTrainer(ctx: MyContext, trainerId: number, trainerName: string) {
   const lang = ctx.user.lang;
   await linkClient(ctx.db, ctx.user._id, trainerId);
+  logInfo("trainer_client_connected", {});
   ctx.user.role = "client";
   ctx.user.trainerId = trainerId;
   const trainer = await getUser(ctx.db, trainerId);
@@ -576,6 +577,7 @@ export async function onRequestAccept(ctx: MyContext, reqId: number) {
   }
   await setRequestStatus(ctx.db, reqId, "accepted");
   await linkClient(ctx.db, req.clientId, ctx.user._id);
+  logInfo("trainer_client_connected", {});
   const client = await getUser(ctx.db, req.clientId);
   await reply(ctx, t(lang, "request_accepted_trainer", { name: escapeHtml(client?.profile.name ?? `id ${req.clientId}`) }));
   if (client) {

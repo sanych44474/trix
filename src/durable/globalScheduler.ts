@@ -11,6 +11,7 @@ import { isCutOver } from "./cutover";
 import { logDryRun } from "../db/repos";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
+import { logInfo } from "../log";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000; // hourly, matching the cron path's own cadence
 export const GLOBAL_SCHEDULER_NAME = "global";
@@ -47,7 +48,9 @@ export class GlobalSchedulerDO {
 
     // Cut over? (durable/cutover.ts — default off.) Real bot, real db: the exact path
     // runGlobalJobs used to run in the cron loop (and now skips — see scheduler.ts).
-    if (await isCutOver(this.env.DB, "global")) {
+    const cutOver = await isCutOver(this.env.DB, "global");
+    logInfo("do_alarm_run", { doType: "global", cutOver });
+    if (cutOver) {
       const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
       await runGlobalJobs(this.env.DB, bot);
       return;

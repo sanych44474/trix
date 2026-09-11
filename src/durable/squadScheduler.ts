@@ -11,6 +11,7 @@ import { postSquadDigest, type DigestWindow, type SquadApi } from "../bot/squad"
 import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
+import { logInfo } from "../log";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000;
 // Must match scheduler.ts's SQUAD_RECAP_HOUR_UTC — duplicated rather than imported because
@@ -64,7 +65,9 @@ export class SquadSchedulerDO {
 
     // Cut over? (durable/cutover.ts — default off.) Real bot.api, real db: the exact path
     // postSquadRecaps used to run in the cron loop (and now skips — see scheduler.ts).
-    if (await isCutOver(this.env.DB, "squad")) {
+    const cutOver = await isCutOver(this.env.DB, "squad");
+    logInfo("do_alarm_run", { doType: "squad", cutOver });
+    if (cutOver) {
       const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
       const ok = await postSquadDigest(this.env.DB, bot.api, chatId, win);
       await markSquadRecapped(this.env.DB, chatId, weekKey).catch(() => {});

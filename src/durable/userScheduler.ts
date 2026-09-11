@@ -19,6 +19,7 @@ import { isCutOver } from "./cutover";
 import { buildSinglePass, processUser, type Sender } from "../scheduler";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
+import { logInfo } from "../log";
 
 // Hourly, matching the cron path's own hourKey-gated cadence (scheduler.ts) — processUser's
 // internal gates (reminderHour, already(), daysBetween(...)) are what actually decide whether
@@ -73,7 +74,9 @@ export class UserSchedulerDO {
     // logging: this IS the real send/write path now, the exact same one the cron loop used to
     // run for this user (and now skips — see scheduler.ts's userCutOver check). Not cut over
     // (the default): shadow everything, exactly as before — see the file header.
-    if (await isCutOver(this.env.DB, "user")) {
+    const cutOver = await isCutOver(this.env.DB, "user");
+    logInfo("do_alarm_run", { doType: "user", cutOver });
+    if (cutOver) {
       const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
       const pass = await buildSinglePass(this.env.DB, userId);
       await processUser(this.env, bot, user, pass);

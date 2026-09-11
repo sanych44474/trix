@@ -8,6 +8,7 @@
 // wrangler.toml declares the binding AND the bucket is created (both live/billable actions --
 // not done by this code). Until then every call here is a no-op and every read falls straight
 // through to Telegram, exactly like before this module existed.
+import { logInfo } from "../log";
 import type { Env } from "../types";
 
 const KEY_PREFIX = "progress-photos/";
@@ -19,10 +20,14 @@ function r2Key(photoId: number): string {
 /** Best-effort cache lookup. Never throws -- a misconfigured/unavailable bucket must fall back to
  * the Telegram proxy, not break photo viewing. */
 export async function getCachedPhoto(env: Env, photoId: number): Promise<{ body: ReadableStream; contentType: string } | null> {
-  if (!env.R2_PHOTOS) return null;
+  if (!env.R2_PHOTOS) return null; // not configured -- not a "miss," nothing to log yet
   try {
     const obj = await env.R2_PHOTOS.get(r2Key(photoId));
-    if (!obj) return null;
+    if (!obj) {
+      logInfo("r2_cache_miss", {});
+      return null;
+    }
+    logInfo("r2_cache_hit", {});
     return { body: obj.body, contentType: obj.httpMetadata?.contentType || "image/jpeg" };
   } catch {
     return null;

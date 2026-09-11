@@ -28,6 +28,7 @@ import { runIdempotent } from "../db/repos/idempotency";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { cachePhoto, getCachedPhoto } from "./photoStorage";
+import { logInfo } from "../log";
 import { object, oneOf, readJsonBody, str, validateBody } from "./validate";
 import type { Env, UserDoc } from "../types";
 
@@ -173,6 +174,7 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: Exec
       headers: { "content-type": cached.contentType, "cache-control": "private, max-age=86400" },
     });
   }
+  logInfo("telegram_photo_fallback", {}); // R2 miss or R2_PHOTOS unconfigured -- either way, falling through to Telegram
   const fileRes = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getFile`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

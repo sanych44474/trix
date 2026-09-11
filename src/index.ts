@@ -291,6 +291,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
           const energy = c(body.energy), sleep = c(body.sleep), stress = c(body.stress);
           if (!energy || !sleep || !stress) return new Response("bad request", { status: 400 });
           await recordDailyCheckin(env.DB, user._id, today, energy, sleep, stress);
+          logInfo("checkin_submitted", {});
           return Response.json({ ok: true });
         }
         if (body.kind === "food") {

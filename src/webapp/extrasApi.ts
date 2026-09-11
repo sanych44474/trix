@@ -175,6 +175,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     // Accept — mirrors the bot's onRequestAccept: link, then walk a new client into the interview.
     await setRequestStatus(env.DB, r.id, "accepted");
     await linkClient(env.DB, r.clientId, user._id);
+    logInfo("trainer_client_connected", {});
     const client = await getUser(env.DB, r.clientId).catch(() => null);
     if (client) {
       const trainerName = escapeHtml(user.profile.name ?? "trainer");
