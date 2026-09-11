@@ -1,11 +1,10 @@
 name: CI
 
-# Typecheck + both test pools + Mini App build on every push and PR. This is the ONLY place these
-# checks run: Deploy (deploy.yml) triggers off this workflow's completion instead of re-running
-# them itself, so the production approval gate isn't also waiting on a second full test pass.
+# Typecheck + both test pools + Mini App build on every PR, for fast feedback before merge.
+# Pushes to main are NOT covered here — deploy.yml runs the identical checks as its own first
+# job (so they show up as one visible stage in the SAME workflow run as the deploy that follows),
+# rather than duplicating them in a second, disconnected workflow file.
 on:
-  push:
-    branches: [main]
   pull_request:
 
 permissions:

@@ -1,16 +1,18 @@
 name: Deploy
 
-# Deploys the Worker to Cloudflare. Triggers off CI (ci.yml) finishing on main, instead of running
-# independently on push -- this is the ONLY way tests and deploy are separated: a commit whose CI
-# run failed, was skipped, or hasn't finished never reaches the approval gate at all, and the
-# gate itself no longer sits behind a second full typecheck/test/test:workers pass. The job
-# targets the `production` environment, which has a required reviewer, so the deploy steps below
-# still wait for an explicit human approval before anything live is touched -- approval now just
-# comes faster once granted, since there's nothing left to re-run first.
+# Two jobs in ONE workflow run, so GitHub shows them as a connected pipeline graph on the same
+# page instead of two disconnected workflow files linked by workflow_run (which is what this
+# replaced -- it worked, but read as "tests vanished" to anyone just looking at this workflow's
+# run history, since the test job lived entirely in a separate file/run):
+#   test   -- typecheck, both test pools, Mini App build, dependency audit. No gate.
+#   deploy -- needs: test, so it can never start on a commit whose checks didn't pass, then waits
+#             for the `production` environment's required reviewer before touching anything live.
+# `needs:` also removes a whole class of complexity the old workflow_run version needed: both
+# jobs run against the exact same checkout of the exact same commit by construction, so there's
+# no separate "pin the ref workflow_run defaulted away from" step and no "did the upstream run
+# actually conclude successfully" check to hand-roll.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
   workflow_dispatch:
 
@@ -26,24 +28,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Runs against REAL D1 inside workerd (vitest.config.ts), separate from the
+      # node:test suite above -- covers D1 semantics (meta.changes, batch()) the
+      # node:sqlite-backed harness can't promise. Scoped to a D1-only binding (no
+      # [ai]), so it needs no Cloudflare credentials.
+      - name: Test (Workers runtime)
+        run: npm run test:workers
+
+      # Catches a broken shell.html marker or a client fragment that no longer parses —
+      # failures that would otherwise only surface at deploy time.
+      - name: Build Mini App shell
+        run: npm run build:webapp
+
+      # Runtime dependencies only. Dev-tool advisories (wrangler's transitive tree) never reach
+      # the deployed Worker and must not block a release.
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+
   deploy:
     name: Deploy to Cloudflare
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # workflow_run fires on EVERY completion of CI, success or failure -- only proceed past a
-    # green run. workflow_dispatch (manual redeploy of the current main tip) has no associated
-    # workflow_run event, so it isn't gated on this check.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     environment:
       name: production
       url: ${{ vars.WORKER_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # workflow_run defaults to the workflow FILE's ref, not the commit CI actually tested --
-          # pin explicitly to that commit. Falls back to the triggering ref for workflow_dispatch.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
