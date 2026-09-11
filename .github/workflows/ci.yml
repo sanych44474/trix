@@ -1,7 +1,8 @@
 name: CI
 
-# Typecheck + both test pools + Mini App build on every push and PR. All must be green before a
-# deploy — the deploy workflow re-runs them behind the production approval gate as well.
+# Typecheck + both test pools + Mini App build on every push and PR. This is the ONLY place these
+# checks run: Deploy (deploy.yml) triggers off this workflow's completion instead of re-running
+# them itself, so the production approval gate isn't also waiting on a second full test pass.
 on:
   push:
     branches: [main]

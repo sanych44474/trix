@@ -1,10 +1,16 @@
 name: Deploy
 
-# Deploys the Worker to Cloudflare. The job targets the `production` environment, which has a
-# required reviewer — so every deploy (and the D1 migration that precedes it) waits for an
-# explicit human approval before anything live is touched.
+# Deploys the Worker to Cloudflare. Triggers off CI (ci.yml) finishing on main, instead of running
+# independently on push -- this is the ONLY way tests and deploy are separated: a commit whose CI
+# run failed, was skipped, or hasn't finished never reaches the approval gate at all, and the
+# gate itself no longer sits behind a second full typecheck/test/test:workers pass. The job
+# targets the `production` environment, which has a required reviewer, so the deploy steps below
+# still wait for an explicit human approval before anything live is touched -- approval now just
+# comes faster once granted, since there's nothing left to re-run first.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -24,12 +30,20 @@ jobs:
     name: Deploy to Cloudflare
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # workflow_run fires on EVERY completion of CI, success or failure -- only proceed past a
+    # green run. workflow_dispatch (manual redeploy of the current main tip) has no associated
+    # workflow_run event, so it isn't gated on this check.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     environment:
       name: production
       url: ${{ vars.WORKER_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # workflow_run defaults to the workflow FILE's ref, not the commit CI actually tested --
+          # pin explicitly to that commit. Falls back to the triggering ref for workflow_dispatch.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -39,17 +53,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      # Re-run every gate inside the gated job. CI already ran them, but this guarantees a
-      # deploy can never ship a commit whose checks were skipped, re-run, or raced.
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm test
-
-      - name: Test (Workers runtime)
-        run: npm run test:workers
 
       # wrangler.toml ships with placeholder identity so no deployment is baked into the source
       # tree. Values arrive as env vars (never interpolated straight into the script) and are
