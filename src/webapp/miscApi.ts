@@ -27,6 +27,7 @@ import { challengeMilestones, rankOf } from "../domain/records";
 import { getIdempotentResponse, recordIdempotentResponse } from "../db/repos/idempotency";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
+import { cachePhoto, getCachedPhoto } from "./photoStorage";
 import { object, oneOf, readJsonBody, str, validateBody } from "./validate";
 import type { Env, UserDoc } from "../types";
 
@@ -156,7 +157,7 @@ export async function handleClientErrorApi(req: Request, url: URL, env: Env): Pr
 // Progress-photo proxy: streams Telegram file bytes so the Mini App can <img> them without
 // ever seeing the bot token. Owner or their trainer only. Auth rides in the `tma` query param
 // (img tags can't send headers); the response is private-cacheable for a day.
-export async function handlePhotoApi(req: Request, url: URL, env: Env): Promise<Response> {
+export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
   if (!user) return new Response("unauthorized", { status: 401 });
   const id = Number(url.searchParams.get("id"));
@@ -168,6 +169,14 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env): Promise<
     const owner = await getUser(env.DB, photo.userId).catch(() => null);
     if (!(user.role === "trainer" && owner?.trainerId === user._id)) return new Response("not found", { status: 404 });
   }
+  // Read-through cache: once R2_PHOTOS exists, most views never touch Telegram at all. Until
+  // then getCachedPhoto is always a no-op and this falls straight through, same as before.
+  const cached = await getCachedPhoto(env, id);
+  if (cached) {
+    return new Response(cached.body, {
+      headers: { "content-type": cached.contentType, "cache-control": "private, max-age=86400" },
+    });
+  }
   const fileRes = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getFile`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -176,8 +185,13 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env): Promise<
   const path = fileRes?.ok ? fileRes.result?.file_path : undefined;
   if (!path) return new Response("gone", { status: 410 });
   const bytes = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${path}`);
-  if (!bytes.ok) return new Response("gone", { status: 410 });
-  return new Response(bytes.body, {
+  if (!bytes.ok || !bytes.body) return new Response("gone", { status: 410 });
+  // Tee the stream: one branch streams to the client now, the other fills the cache in the
+  // background (ctx.waitUntil, off the response's critical path) so the NEXT view of this same
+  // photo skips Telegram entirely once a bucket exists.
+  const [toClient, toCache] = bytes.body.tee();
+  ctx.waitUntil(new Response(toCache).arrayBuffer().then((buf) => cachePhoto(env, id, buf, "image/jpeg")).catch(() => {}));
+  return new Response(toClient, {
     headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=86400" },
   });
 }

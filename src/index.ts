@@ -214,7 +214,7 @@ export default {
     if (url.pathname === "/api/injuries") return handleInjuriesApi(req, url, env);
     if (url.pathname === "/api/boards") return handleBoardsApi(req, url, env);
     if (url.pathname === "/api/client-error") return handleClientErrorApi(req, url, env);
-    if (url.pathname === "/api/photo") return handlePhotoApi(req, url, env);
+    if (url.pathname === "/api/photo") return handlePhotoApi(req, url, env, ctx);
     if (url.pathname.startsWith("/api/owner/")) return handleOwnerApi(req, url, env);
 
     // Mini App settings consolidation + onboarding form.
