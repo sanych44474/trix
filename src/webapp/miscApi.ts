@@ -24,7 +24,7 @@ import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challen
 import { checkAfterDate } from "../domain/injury";
 import { localParts } from "../domain/progression";
 import { challengeMilestones, rankOf } from "../domain/records";
-import { getIdempotentResponse, recordIdempotentResponse } from "../db/repos/idempotency";
+import { runIdempotent } from "../db/repos/idempotency";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { cachePhoto, getCachedPhoto } from "./photoStorage";
@@ -121,16 +121,12 @@ export async function handleInjuriesApi(req: Request, url: URL, env: Env): Promi
   if (!v.ok) return v.response;
   const { area, severity } = v.value;
   // A lost-response retry must not log the same injury twice.
-  const idemKey = req.headers.get("idempotency-key");
-  if (idemKey) {
-    const cached = await getIdempotentResponse(env.DB, user._id, idemKey).catch(() => null);
-    if (cached) return Response.json(cached.response, { status: cached.status });
-  }
-  const { date } = localParts(user.profile.timezone);
-  await createInjury(env.DB, { userId: user._id, area, severity, checkAfter: checkAfterDate(date, severity as "mild" | "strong"), swaps: [] });
-  const injResult = { ok: true };
-  if (idemKey) await recordIdempotentResponse(env.DB, user._id, idemKey, 200, injResult).catch(() => {});
-  return Response.json(injResult);
+  const inj = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
+    const { date } = localParts(user.profile.timezone);
+    await createInjury(env.DB, { userId: user._id, area, severity, checkAfter: checkAfterDate(date, severity as "mild" | "strong"), swaps: [] });
+    return { status: 200, body: { ok: true } };
+  });
+  return Response.json(inj.body, { status: inj.status });
 }
 
 // Webview JS errors die silently inside Telegram otherwise — the app posts them here (deduped

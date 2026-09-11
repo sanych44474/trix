@@ -14,7 +14,7 @@ import {
   unlinkClient,
   updateUser,
 } from "../db/repos";
-import { getIdempotentResponse, recordIdempotentResponse } from "../db/repos/idempotency";
+import { runIdempotent } from "../db/repos/idempotency";
 import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
@@ -134,21 +134,17 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
       const text = String(body.text ?? "").trim().slice(0, 1500);
       if (text.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
       // A lost-response retry must not double-insert the feedback row or double-ping the owner.
-      const idemKey = req.headers.get("idempotency-key");
-      if (idemKey) {
-        const cached = await getIdempotentResponse(env.DB, user._id, idemKey).catch(() => null);
-        if (cached) return Response.json(cached.response, { status: cached.status });
-      }
-      const { date } = localParts(user.profile.timezone);
-      await insertFeedback(env.DB, { userId: user._id, username: user.username, text, date });
-      const ownerChatId = await getOwnerChatId(env.DB).catch(() => null);
-      if (ownerChatId) {
-        const who = user.username ? `@${user.username}` : `id ${user._id}`;
-        await tgSend(env, ownerChatId, `✍️ <b>Feedback</b> from ${escapeHtml(who)}:\n${escapeHtml(text)}`);
-      }
-      const fbResult = { ok: true, state: state(user, user.lang) };
-      if (idemKey) await recordIdempotentResponse(env.DB, user._id, idemKey, 200, fbResult).catch(() => {});
-      return Response.json(fbResult);
+      const fb = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
+        const { date } = localParts(user.profile.timezone);
+        await insertFeedback(env.DB, { userId: user._id, username: user.username, text, date });
+        const ownerChatId = await getOwnerChatId(env.DB).catch(() => null);
+        if (ownerChatId) {
+          const who = user.username ? `@${user.username}` : `id ${user._id}`;
+          await tgSend(env, ownerChatId, `✍️ <b>Feedback</b> from ${escapeHtml(who)}:\n${escapeHtml(text)}`);
+        }
+        return { status: 200, body: { ok: true, state: state(user, user.lang) } };
+      });
+      return Response.json(fb.body, { status: fb.status });
     } else if (action === "export") {
       const md = await buildExportMd(env.DB, user);
       if (!md) return Response.json({ ok: false, reason: "empty" });

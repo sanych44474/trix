@@ -23,7 +23,7 @@ import {
   setQuestionStatus,
   setUserFlag,
 } from "../db/repos";
-import { getIdempotentResponse, recordIdempotentResponse } from "../db/repos/idempotency";
+import { runIdempotent } from "../db/repos/idempotency";
 import { adaptPlan } from "../domain/planAdapt";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
@@ -109,22 +109,18 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     const text = textField(b.text);
     if (!text) return Response.json({ error: "bad request" }, { status: 400 });
     // A lost-response retry must not message every client a second time.
-    const bcKey = req.headers.get("idempotency-key");
-    if (bcKey) {
-      const cached = await getIdempotentResponse(env.DB, user._id, bcKey).catch(() => null);
-      if (cached) return Response.json(cached.response, { status: cached.status });
-    }
-    const clients = await listClients(env.DB, user._id).catch(() => [] as UserDoc[]);
-    const who = escapeHtml(user.profile.name ?? "trainer");
-    let sent = 0;
-    for (const c of clients) {
-      await tgSend(env, c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)));
-      sent++;
-    }
-    await recordAudit(env.DB, user._id, "broadcast", undefined, `${sent}/${clients.length}`).catch(() => {});
-    const bcResult = { ok: true, sent };
-    if (bcKey) await recordIdempotentResponse(env.DB, user._id, bcKey, 200, bcResult).catch(() => {});
-    return Response.json(bcResult);
+    const bc = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
+      const clients = await listClients(env.DB, user._id).catch(() => [] as UserDoc[]);
+      const who = escapeHtml(user.profile.name ?? "trainer");
+      let sent = 0;
+      for (const c of clients) {
+        await tgSend(env, c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)));
+        sent++;
+      }
+      await recordAudit(env.DB, user._id, "broadcast", undefined, `${sent}/${clients.length}`).catch(() => {});
+      return { status: 200, body: { ok: true, sent } };
+    });
+    return Response.json(bc.body, { status: bc.status });
   }
 
   // Answer a client question — deliver to the client (chat push + stored message), mark answered.
@@ -141,24 +137,20 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     if (!text) return Response.json({ error: "bad request" }, { status: 400 });
     // The question's own status doesn't gate a re-answer (a trainer might legitimately amend),
     // so a lost-response retry must not double-message the client -- idempotency key only.
-    const ansKey = req.headers.get("idempotency-key");
-    if (ansKey) {
-      const cached = await getIdempotentResponse(env.DB, user._id, ansKey).catch(() => null);
-      if (cached) return Response.json(cached.response, { status: cached.status });
-    }
-    const client = await getUser(env.DB, q.clientId).catch(() => null);
-    if (client) {
-      await insertMessage(env.DB, user._id, q.clientId, text).catch(() => {});
-      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: client.chatId, text: t(client.lang, "answer_from_trainer", { text: escapeHtml(text) }), parse_mode: "HTML" }),
-      }).catch(() => {});
-    }
-    await setQuestionStatus(env.DB, qid, "answered");
-    const ansResult = { ok: true };
-    if (ansKey) await recordIdempotentResponse(env.DB, user._id, ansKey, 200, ansResult).catch(() => {});
-    return Response.json(ansResult);
+    const ans = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
+      const client = await getUser(env.DB, q.clientId).catch(() => null);
+      if (client) {
+        await insertMessage(env.DB, user._id, q.clientId, text).catch(() => {});
+        await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: client.chatId, text: t(client.lang, "answer_from_trainer", { text: escapeHtml(text) }), parse_mode: "HTML" }),
+        }).catch(() => {});
+      }
+      await setQuestionStatus(env.DB, qid, "answered");
+      return { status: 200, body: { ok: true } };
+    });
+    return Response.json(ans.body, { status: ans.status });
   }
 
   const m = ROUTE.exec(url.pathname);
