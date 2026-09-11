@@ -1,4 +1,5 @@
 import { InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
+import { logInfo } from "./log";
 import type { CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, NutritionTargets, PlanDay, PlanDoc, PlanExercise, Supplement, UserDoc, Weekday } from "./types";
 import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, bodyLogsByUser, countCompletedWorkouts, recordError, getCatalogExercise, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, searchExercisesByName, dailyCheckinsSince, getDailyCheckin, getActivePlan, getTrainer, getUser, listStrength, pendingRequestForClient, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, updateUser, workoutLogsSince } from "./db/repos";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
@@ -378,6 +379,7 @@ export async function cmdInterview(ctx: MyContext) {
 }
 
 export async function cmdStart(ctx: MyContext, payload?: string) {
+  logInfo("app_open", { surface: "bot" });
   await clearEditOwner(ctx);
   const u = ctx.user;
   const lang = u.lang;

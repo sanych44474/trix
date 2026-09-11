@@ -226,6 +226,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
       // Dead-man switch for the cron rides the hottest fetch path (detached, never blocks).
       ctx.waitUntil(checkCronHeartbeat(env));
       const payload = await buildDashboardPayload(env.DB, user);
+      logInfo("dashboard_loaded", {}); // docs/slos.md's practical "Mini App opened" proxy
       return Response.json(payload, { headers: { "cache-control": "no-store" } });
     }
 
@@ -378,10 +379,10 @@ export default {
         const start = Date.now();
         try {
           await runSchedule(env);
+          logInfo("cron_run", { durationMs: Date.now() - start });
         } catch (err) {
-          logError("scheduled", err);
+          logError("cron_failure", err, { durationMs: Date.now() - start });
         }
-        logInfo("scheduled", { durationMs: Date.now() - start });
       }),
     );
   },

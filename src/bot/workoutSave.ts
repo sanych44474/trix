@@ -4,6 +4,7 @@
 // notify, next-session preview). Extracted from bot.ts (god-file split; same barrel seam via
 // bot.ts's `export * from "./bot/workoutSave"`).
 import { InlineKeyboard } from "grammy";
+import { logInfo } from "../log";
 import type { ExerciseMetric, Lang, LoggedExercise, PlanDay, SetEntry, UserDoc, Weekday } from "../types";
 import {
   awardAchievement, countCompletedWorkouts, getActivePlan, getUser, listStrength, updateUser,
@@ -102,6 +103,7 @@ export async function applyWorkoutSave(
     ...(e.rpe !== undefined ? { rpe: e.rpe } : {}),
   }));
   await upsertWorkoutLog(db, user._id, date, weekday, exercises, true, rawText);
+  logInfo("workout_completed", { exerciseCount: entries.length }); // shared by both surfaces on purpose (see this function's own doc comment)
 
   const prExercises: string[] = [];
   let prHit: PrHit | null = null;

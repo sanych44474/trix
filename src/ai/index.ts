@@ -7,6 +7,7 @@ import { OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_TRANSLATE_MODEL, OPENROUTE
 import { WORKERSAI_DEFAULT_MODEL, workersaiGenerate, workersaiTranscribe } from "./workersai";
 import { groqTranscribe } from "./groq";
 import { RateLimitError, type GenInput, type InlineImage } from "./errors";
+import { logInfo } from "../log";
 
 export { RateLimitError } from "./errors";
 export type { InlineImage } from "./errors";
@@ -316,10 +317,17 @@ async function run(
       telemetry.push(aiCallStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, latencyMs: Date.now() - startMs, tokens: lastTokens, wasFallback }));
       if (key && cacheTtl) telemetry.push(aiCacheStmt(o.db, key, text, cacheTtl)); // piggybacks the batch
       await flushTelemetry(o.db, telemetry);
+      // docs/slos.md's ai_call_completed -- input/output token split and cost estimate are NOT
+      // populated yet: providers return bare text today (see aiCallStmt's own comment), so there
+      // is no real per-call token count to split or price. `tokens` is whatever lastTokens holds
+      // (often undefined) until that provider-level change happens.
+      logInfo("ai_call_completed", { provider: p.name, kind: o.kind, ok: true, wasFallback, latencyMs: Date.now() - startMs, tokens: lastTokens ?? null });
+      if (wasFallback) logInfo("ai_fallback", { fromProvider: chain[attempt - 2]?.name ?? null, toProvider: p.name, kind: o.kind });
       return text;
     } catch (err) {
       telemetry.push(aiUsageStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, model: p.model, ok: false, date }));
       telemetry.push(aiCallStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, latencyMs: Date.now() - startMs, wasFallback }));
+      logInfo("ai_call_completed", { provider: p.name, kind: o.kind, ok: false, wasFallback, latencyMs: Date.now() - startMs, tokens: null });
       const shortMsg = err instanceof Error ? err.message : String(err);
       attemptTrail.push(`${p.name}:${shortMsg.slice(0, 60)}`);
       if (!(err instanceof RateLimitError)) allRateLimit = false;
