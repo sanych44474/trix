@@ -79,8 +79,8 @@ for a cohort chart, never the raw id as a label.
 
 | Event | Fired when | Extra fields (labels unless noted D1-only) |
 |---|---|---|
-| `app_open` | Mini App shell (`GET /app`) or `/start` handled | `surface` (`miniapp`\|`bot`) |
-| `dashboard_loaded` | `GET /api/dashboard` succeeds | — |
+| `app_open` | `/start` handled (bot surface only — `GET /app` is served as a static asset straight from Cloudflare's edge, per `wrangler.toml`'s `[assets]` config, and never reaches the Worker, so it cannot be instrumented server-side) | `surface` (`bot`) |
+| `dashboard_loaded` | `GET /api/dashboard` succeeds — the practical "Mini App opened" proxy, since it's the first authenticated call the shell makes on load | — |
 | `session_started` | First `app_open`/`dashboard_loaded` after the 30-min idle gate (§2) | — |
 | `onboarding_started` | First onboarding step answered | `role` (`solo`\|`client`\|`trainer`) |
 | `onboarding_completed` | `users.onboarded` flips to true | `role`, `stepsAnswered` (count) |
