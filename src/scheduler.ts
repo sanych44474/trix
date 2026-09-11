@@ -98,6 +98,7 @@ import { aiText } from "./ai/index";
 import { weeklyNarrativeSystem } from "./ai/prompts";
 import { buildOwnerReport, computeBoards, finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
 import { APP_VERSION } from "./webapp/appVersion";
+import { enforceStorageBudget } from "./webapp/photoStorage";
 import { advanceMesocycle, phaseGuidance, phaseKey } from "./domain/mesocycle";
 
 const HTML = { parse_mode: "HTML" as const, link_preview_options: { is_disabled: true } };
@@ -411,6 +412,20 @@ async function runScheduleInner(env: Env): Promise<void> {
 
   if (!(await isCutOver(db, "global"))) await runGlobalJobs(db, bot);
   await wakeGlobalScheduler(env).catch((e) => logSchedulerError(db, "global_scheduler_wake", e));
+
+  // R2 photo-cache budget: always the real env here (runSchedule is only ever invoked with the
+  // live Worker env, never the DO's shadowed dry-run one) -- safe to run regardless of scheduler
+  // cutover state. No-op until the bucket exists, and a no-op below 80% of the free tier's 10GB
+  // even once it does; see photoStorage.ts for the eviction policy.
+  const lastR2Check = await getSetting(db, "last_r2_budget_check").catch(() => null);
+  if (!lastR2Check || Date.parse(lastR2Check) < Date.now() - 7 * 86_400_000) {
+    const budget = await enforceStorageBudget(env).catch((e) => {
+      logSchedulerError(db, "r2_budget", e);
+      return null;
+    });
+    if (budget?.evictedCount) console.log(JSON.stringify({ level: "info", scope: "r2_budget", ...budget }));
+    await setSetting(db, "last_r2_budget_check", new Date().toISOString()).catch(() => {});
+  }
 
   // Weekly buddy duels — compare last week's completed-workout counts for every paired buddy,
   // record the winner, and nudge both sides. Gated by ISO week (not a rolling N-day timer like
