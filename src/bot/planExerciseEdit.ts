@@ -11,7 +11,7 @@
 // logging flow these hand off to) stayed in bot.ts; imported from there like everything else.
 import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Lang, Weekday } from "../types";
-import { getActivePlan, getCatalogExercise, listCandidatesByMuscles, listExercisesByMusclesAnyLevel, updateActivePlanSplit, updateUser } from "../db/repos";
+import { getActivePlan, getCatalogExercise, listCandidatesByMuscles, listExercisesByMusclesAnyLevel, recordPlanChange, updateActivePlanSplit, updateUser } from "../db/repos";
 import { pickDifficultySwaps } from "../domain/difficultySwap";
 import { fitsEquipmentPreset, pickGymSwaps, profileEquipmentToPreset, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "../domain/gymSwap";
 import { getPlanDay, localParts } from "../domain/progression";
@@ -20,14 +20,8 @@ import { cleanAi, t } from "../locales/i18n";
 import { renderToday } from "../render";
 import { weekdayName } from "../render";
 import { translatePlanExercises } from "./plan";
-import {
-  type LogDraft, type MyContext,
-  cmdLog, cmdToday, createExerciseCatalogEntry, decodePlanRef, difficultyLabel, encodePlanRef,
-  exerciseInfoEntry, getActivePlanOrReply, isEditingOther, logExerciseKeyboard, logPickExercise,
-  menuBtn, muscleGroupToEnum, onError, persistLogDraft, planOwnerId, planOwnerLang, reRenderEditDay,
-  reply, searchExerciseCatalog, setMode, swapTuneKb, translateExerciseQueryToEnglish, videosForDays,
-  extractExerciseQuery, promptExerciseConfirmation,
-} from "../bot";
+import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply, setMode } from "../adapters/telegram/context";
+import { type LogDraft, cmdLog, cmdToday, createExerciseCatalogEntry, decodePlanRef, difficultyLabel, encodePlanRef, exerciseInfoEntry, logExerciseKeyboard, logPickExercise, menuBtn, muscleGroupToEnum, onError, persistLogDraft, reRenderEditDay, searchExerciseCatalog, swapTuneKb, translateExerciseQueryToEnglish, videosForDays, extractExerciseQuery, promptExerciseConfirmation } from "../bot";
 
 // Show exercises of a day as buttons to pick one to replace.
 export async function swapMenu(ctx: MyContext, weekday: Weekday) {
@@ -321,7 +315,7 @@ export async function startSwapCustom(ctx: MyContext, weekday: Weekday, index: n
 
 // Resolve a replacement exercise by name (catalog match, else AI-author) and confirm before
 // swapping exercise #index of `weekday`. Shared by the typed swap flow and the coach chat.
-export async function swapExerciseByName(ctx: MyContext, weekday: Weekday, index: number, query: string) {
+export async function swapExerciseByName(ctx: MyContext, weekday: Weekday, index: number, query: string, source: "ai_coach" | "manual" = "manual") {
   const lang = ctx.user.lang;
   const plan = await getActivePlan(ctx.db, planOwnerId(ctx));
   const day = plan ? getPlanDay(plan, weekday) : undefined;
@@ -332,7 +326,7 @@ export async function swapExerciseByName(ctx: MyContext, weekday: Weekday, index
     const matches = await searchExerciseCatalog(ctx, query, 5);
     await ctx.replyWithChatAction("typing").catch(() => {});
     const catalog = matches[0] ?? (await createExerciseCatalogEntry(ctx, query, day, "swap", current, englishQuery));
-    await promptExerciseConfirmation(ctx, { action: "swap", weekday, index, query, englishQuery, catalog });
+    await promptExerciseConfirmation(ctx, { action: "swap", weekday, index, query, englishQuery, catalog, source });
   } catch (err) {
     await onError(ctx, err, "swap_custom");
   }
@@ -356,6 +350,8 @@ export async function setExerciseWeight(ctx: MyContext, weekday: Weekday, index:
   if (Number.isFinite(num) && num > 0) ex.startWeight = `${Math.round(num * 2) / 2} kg`;
   else ex.startWeight = value.trim() || ex.startWeight;
   await updateActivePlanSplit(ctx.db, planOwnerId(ctx), plan.split);
+  // Only caller is the AI coach (handleCoachAction) — no manual UI path for this edit.
+  await recordPlanChange(ctx.db, planOwnerId(ctx), "ai_coach", `weight: ${ex.name} -> ${ex.startWeight}`).catch(() => {});
   await reply(ctx, t(lang, "plan_diff_weight_saved", { name: ex.name, weight: ex.startWeight }), menuBtn(lang));
 }
 
@@ -368,6 +364,8 @@ export async function setExerciseSets(ctx: MyContext, weekday: Weekday, index: n
   if (!plan || !ex) { await reply(ctx, t(lang, "error_generic"), menuBtn(lang)); return; }
   ex.sets = cleanAi(value).replace(/x/i, "×").trim() || ex.sets;
   await updateActivePlanSplit(ctx.db, planOwnerId(ctx), plan.split);
+  // Only caller is the AI coach (handleCoachAction) — no manual UI path for this edit.
+  await recordPlanChange(ctx.db, planOwnerId(ctx), "ai_coach", `sets: ${ex.name} -> ${ex.sets}`).catch(() => {});
   await reply(ctx, t(lang, "plan_diff_sets_saved", { name: ex.name, sets: ex.sets }), menuBtn(lang));
 }
 

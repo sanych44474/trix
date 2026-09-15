@@ -10,7 +10,8 @@ import {
 import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { isOwner } from "./owner";
-import { type MyContext, HTML, menuBtn, reply, setMode } from "../bot";
+import { type MyContext, HTML, reply, setMode } from "../adapters/telegram/context";
+import { menuBtn } from "../bot";
 
 export const INACTIVE_DAYS = 7;
 

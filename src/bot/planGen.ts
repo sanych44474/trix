@@ -6,7 +6,8 @@ import { saveBaselineBody as saveBaselineBodyDb, recordPlanSource, updateUser } 
 import { localParts, nextLevel } from "../domain/progression";
 import { t } from "../locales/i18n";
 import { generateClientDraft, generatePlan, regenBankPlan } from "./plan";
-import { type MyContext, menuBtn, reply } from "../bot";
+import { type MyContext, reply } from "../adapters/telegram/context";
+import { menuBtn } from "../bot";
 import type { UserDoc } from "../types";
 
 // "Level up" button → bump the trainee one experience tier and rebuild a harder bank plan.

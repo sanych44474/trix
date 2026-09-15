@@ -9,7 +9,8 @@ import { formatRecordBest, formatSetEntry, localParts } from "../domain/progress
 import { t } from "../locales/i18n";
 import { BODY_FIELDS, bodyFieldLabel, renderBodyDynamics, reportNutritionLine } from "./report";
 import { generatePlan } from "./plan";
-import { type MyContext, menuBtn, num, reply } from "../bot";
+import { type MyContext, reply } from "../adapters/telegram/context";
+import { menuBtn, num } from "../bot";
 
 export async function cmdReplan(ctx: MyContext) {
   const lang = ctx.user.lang;

@@ -38,6 +38,16 @@ export async function getCatalogExercise(db: DB, id: string): Promise<CatalogExe
   return r ? toCatalogExercise(r) : null;
 }
 
+/** Which of `ids` actually exist in the catalog — for plan_lint's "exercise grounded in a real
+ * catalog id" check, without an N-query per exercise in the plan being saved. */
+export async function existingCatalogIds(db: DB, ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const unique = [...new Set(ids)];
+  const placeholders = unique.map(() => "?").join(",");
+  const r = await db.prepare(`SELECT id FROM exercises WHERE id IN (${placeholders})`).bind(...unique).all<{ id: string }>();
+  return new Set((r.results ?? []).map((row) => row.id));
+}
+
 // Returns a random exercise of higher difficulty for the given muscle, excluding excluded ids.
 // beginner → intermediate → advanced → expert (tries each level in order, returns first match).
 export async function findHarderExercise(

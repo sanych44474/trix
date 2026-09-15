@@ -5,12 +5,14 @@ import { InlineKeyboard } from "grammy";
 import type { InjurySwap } from "../types";
 import {
   appendInjuryCheckin, createInjury, extendInjury, getActiveInjuryByArea, getActivePlan, getExerciseTranslation,
-  getInjury, getUser, listActiveInjuries, listCandidatesByMuscles, resolveInjury, updateActivePlanSplit, updateInjury,
+  getInjury, getUser, listActiveInjuries, listCandidatesByMuscles, recordPlanChange, resolveInjury, updateActivePlanSplit, updateInjury,
 } from "../db/repos";
 import { INJURY_AREAS, checkAfterDate, conflictingSlots, isSafeCandidate, restorable, safeMusclesFor, type InjuryArea, type Severity } from "../domain/injury";
+import { shouldEscalateForPainScore, shouldEscalateForSeverity } from "../domain/safety";
 import { localParts } from "../domain/progression";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
-import { type MyContext, type TKey, HTML, menuBtn, reply } from "../bot";
+import { type MyContext, type TKey, HTML, reply } from "../adapters/telegram/context";
+import { menuBtn } from "../bot";
 
 export const INJURY_AREA_LABEL: Record<string, TKey> = {
   shoulder: "inj_area_shoulder", elbow: "inj_area_elbow", wrist: "inj_area_wrist",
@@ -65,6 +67,9 @@ export async function reportInjury(ctx: MyContext, area: InjuryArea, severity: S
   const { date } = localParts(ctx.user.profile.timezone);
   const checkAfter = checkAfterDate(date, severity);
   const areaLabel = t(lang, areaLabelKey(area));
+  // A STRONG report gets a professional-care nudge up front, not just after a bad follow-up
+  // pain score (inj_score_severe) — trix gives general guidance, not a diagnosis.
+  const escalation = shouldEscalateForSeverity(severity) ? "\n\n" + t(lang, "inj_escalate_strong") : "";
 
   // A client's plan is trainer-owned — never silently mutate it; record + notify the trainer.
   if (ctx.user.role === "client") {
@@ -77,20 +82,20 @@ export async function reportInjury(ctx: MyContext, area: InjuryArea, severity: S
         await ctx.api.sendMessage(trainer.chatId, t(trainer.lang, "inj_client_notify", { name: who, area: t(trainer.lang, areaLabelKey(area)), sev: t(trainer.lang, severity === "strong" ? "inj_sev_strong" : "inj_sev_mild") }), { ...HTML, reply_markup: kb }).catch(() => {});
       }
     }
-    await reply(ctx, t(lang, "inj_saved_client", { area: areaLabel }), menuBtn(lang));
+    await reply(ctx, t(lang, "inj_saved_client", { area: areaLabel }) + escalation, menuBtn(lang));
     return;
   }
 
   const plan = await getActivePlan(ctx.db, uid);
   if (!plan || !plan.split.length) {
     await saveInjury(ctx, area, severity, checkAfter, []);
-    await reply(ctx, t(lang, "inj_saved_noplan", { area: areaLabel }), menuBtn(lang));
+    await reply(ctx, t(lang, "inj_saved_noplan", { area: areaLabel }) + escalation, menuBtn(lang));
     return;
   }
   const slots = conflictingSlots(plan.split, area, severity);
   if (!slots.length) {
     await saveInjury(ctx, area, severity, checkAfter, []);
-    await reply(ctx, t(lang, "inj_saved_noswap", { area: areaLabel }), menuBtn(lang));
+    await reply(ctx, t(lang, "inj_saved_noswap", { area: areaLabel }) + escalation, menuBtn(lang));
     return;
   }
 
@@ -127,12 +132,17 @@ export async function reportInjury(ctx: MyContext, area: InjuryArea, severity: S
     swappedLines.push(t(lang, "inj_swap_line", { from: original.name, to: name }));
   }
 
-  if (swaps.length) await updateActivePlanSplit(ctx.db, uid, plan.split);
+  if (swaps.length) {
+    await updateActivePlanSplit(ctx.db, uid, plan.split);
+    const summary = swaps.map((s) => `${s.original.name} -> ${s.replacementCanonical}`).join(", ");
+    await recordPlanChange(ctx.db, uid, "injury_swap", `${areaLabel}: ${summary}`).catch(() => {});
+  }
   await saveInjury(ctx, area, severity, checkAfter, swaps);
 
   let body = t(lang, "inj_saved_swaps", { area: areaLabel, n: swaps.length });
   if (swappedLines.length) body += "\n\n" + swappedLines.join("\n");
   if (leftLines.length) body += "\n\n" + t(lang, "inj_swap_reduce", { list: leftLines.map(escapeHtml).join(", ") });
+  body += escalation;
   await reply(ctx, body, menuBtn(lang));
 }
 
@@ -185,10 +195,11 @@ export async function onInjuryScore(ctx: MyContext, id: number, score: number) {
     return;
   }
   // Severe pain → longer window before re-asking, so we don't nag while it's still bad.
-  const nextCheck = checkAfterDate(date, clamped >= 7 ? "strong" : "mild");
+  const severe = shouldEscalateForPainScore(clamped);
+  const nextCheck = checkAfterDate(date, severe ? "strong" : "mild");
   await extendInjury(ctx.db, id, nextCheck);
   const kb = new InlineKeyboard().text(t(lang, "inj_trend_btn"), `inj:trend:${id}`);
-  await reply(ctx, t(lang, clamped >= 7 ? "inj_score_severe" : "inj_score_ack", { score: clamped }), kb);
+  await reply(ctx, t(lang, severe ? "inj_score_severe" : "inj_score_ack", { score: clamped }), kb);
 }
 
 // Recent pain scores for one injury — the "how has my knee trended?" answer. Renders the

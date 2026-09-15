@@ -12,12 +12,11 @@ import { exerciseMetric, fmtDuration, formatSetEntry, getPlanDay, localParts, pa
 import { unsavedLogCount } from "../domain/session";
 import { parseSetEdit, parseSetLine } from "../domain/setLine";
 import { escapeHtml, t } from "../locales/i18n";
-import { isoDateMinus } from "./boards";
-import { trainerMenuActionFor } from "./trainer";
+import { isoDateMinus } from "../features/gamification/boards";
+import { trainerMenuActionFor } from "../features/trainer/trainer";
 import { finalizeWorkoutLog } from "./workoutSave";
-import {
-  type MyContext, MENU_MAP, cmdMenu, clearEditOwner, menuActionFor, menuBtn, reply, setMode,
-} from "../bot";
+import { type MyContext, clearEditOwner, reply, setMode } from "../adapters/telegram/context";
+import { MENU_MAP, cmdMenu, menuActionFor, menuBtn } from "../bot";
 
 export type LogDraft = NonNullable<UserDoc["session"]["logDraft"]>;
 

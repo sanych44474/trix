@@ -22,7 +22,7 @@ import {
   userStatCounts,
   workoutLogsSince,
 } from "../db/repos";
-import { isoDateMinus } from "../bot/boards";
+import { isoDateMinus } from "../features/gamification/boards";
 import { cleanAi, t } from "../locales/i18n";
 import { aiText } from "../ai/index";
 import { exerciseVideoKey } from "../render";

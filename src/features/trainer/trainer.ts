@@ -1,8 +1,9 @@
-// Trainers & clients section — extracted verbatim from src/bot.ts (mechanical split).
+// Trainers & clients section. Part of the trainer feature slice (roadmap item 1); bot.ts's
+// barrel seam still applies: `export * from "./features/trainer/trainer"`.
 
 import { GrammyError, InlineKeyboard } from "grammy";
-import { logInfo } from "../log";
-import type { BankPlan, Lang, PlanDoc, SetEntry, TrainerDoc, TrainerProfileInput, UserDoc, Weekday } from "../types";
+import { logInfo } from "../../log";
+import type { BankPlan, Lang, PlanDoc, SetEntry, TrainerDoc, TrainerProfileInput, UserDoc, Weekday } from "../../types";
 import {
   applyTrainer, approveTrainer, assignDraftPlan, bodyLogsByUser,
   countClientsOf, countCompletedWorkouts, deleteDraftPlan,
@@ -14,27 +15,23 @@ import {
   createProspect, deleteProspect, getProspect, listProspects,
   createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken,
   saveDraftPlan, saveTrainerTemplate, setActivePlan, setClientCard, setClientNote, setQuestionStatus,
-  setRequestStatus, setUserFlag, unlinkClient, updateTrainer, updateUser, upsertStrengthRecord,
+  setRequestStatus, setUserFlag, stampOnboardedAt, unlinkClient, updateTrainer, updateUser, upsertStrengthRecord,
   upsertWorkoutLog, workoutLogsSince,
-} from "../db/repos";
-import { isoDateMinus } from "./boards";
-import { botDeepLink } from "./links";
-import { interviewProgress, isOwner } from "./owner";
-import { adaptPlan } from "../domain/planAdapt";
-import { anthroLines, birthdayInfo, parseBirthdayInput, trainerCanSee } from "../domain/clientCard";
-import { computeCyclePhase } from "../domain/cycle";
+} from "../../db/repos";
+import { isoDateMinus } from "../gamification/boards";
+import { botDeepLink } from "../../bot/links";
+import { interviewProgress, isOwner } from "../../bot/owner";
+import { adaptPlan } from "../../domain/planAdapt";
+import { anthroLines, birthdayInfo, parseBirthdayInput, trainerCanSee } from "../../domain/clientCard";
+import { computeCyclePhase } from "../../domain/cycle";
 import {
   bestSetForMetric, complianceScore, formatRecordBest, formatSetEntry, getPlanDay, localParts,
   metricOfSets, normalizeExercise, parseWorkoutText,
-} from "../domain/progression";
-import { escapeHtml, t } from "../locales/i18n";
-import { renderPlan, renderSchedule, renderStrength, renderToday, upcomingSessions, weekdayName } from "../render";
-import {
-  type MyContext, type TKey, HTML, buildPlanDoc, buildWeekCard, clearEditOwner, deferAi,
-  localCutoff, localizePlanNames, healPlanNamesForDisplay, mainMenu, menuBtn,
-  obProgress, renderBodyDynamics, renderObStep, reply, roleMenu, sendFirstObStep, sendObStepTo,
-  setEditOwner, setMode, trainerHubMenu, videosForDays, weekdayOf,
-} from "../bot";
+} from "../../domain/progression";
+import { escapeHtml, t } from "../../locales/i18n";
+import { renderPlan, renderSchedule, renderStrength, renderToday, upcomingSessions, weekdayName } from "../../render";
+import { type MyContext, type TKey, HTML, clearEditOwner, reply, setEditOwner, setMode } from "../../adapters/telegram/context";
+import { buildPlanDoc, buildWeekCard, deferAi, localCutoff, localizePlanNames, healPlanNamesForDisplay, mainMenu, menuBtn, obProgress, renderBodyDynamics, renderObStep, roleMenu, sendFirstObStep, sendObStepTo, trainerHubMenu, videosForDays, weekdayOf } from "../../bot";
 
 
 // ================ trainers & clients ================
@@ -917,6 +914,7 @@ export async function takeSharedProgram(ctx: MyContext, code: string) {
   if (!ctx.user.onboarded) {
     logInfo("onboarding_completed", { role: ctx.user.role });
     logInfo("first_plan_ready", { source: "template" }); // a taken shared program, not AI/bank
+    await stampOnboardedAt(ctx.db, ctx.user._id).catch(() => {});
   }
   await updateUser(ctx.db, ctx.user._id, { onboarded: true, nutrition: plan.nutrition });
   ctx.user.onboarded = true;

@@ -15,3 +15,6 @@ export * from "./repos/admin";
 export * from "./repos/squads";
 export * from "./repos/dryrun";
 export * from "./repos/idempotency";
+export * from "./repos/planChangeLog";
+export * from "./repos/notificationOutbox";
+export * from "./repos/dailyMetrics";

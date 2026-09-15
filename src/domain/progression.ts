@@ -2,6 +2,7 @@ import type {
   BodyMeasurements,
   DailyCheckinDoc,
   ExerciseMetric,
+  LoggedExercise,
   PlanDay,
   PlanDoc,
   PlanExercise,
@@ -401,6 +402,36 @@ export function nextTarget(
     return `${bestWeight || "BW"} × ${bestReps + (easy ? 2 : 1)}`;
   }
   return `${bestWeight + (easy ? inc * 2 : inc)} × 8`;
+}
+
+export interface NextTargetGuidance {
+  name: string;
+  target: string;
+  /** RPE ≥ 9.5 on the logged set — nextTarget already holds the load for this reason internally
+   * (see its own doc comment); this just gives the caller the "why" to display, since nextTarget
+   * itself only returns the target string, not the reasoning. */
+  overload: boolean;
+}
+
+/** Per-exercise "what to do next time" for the post-workout coach recap (roadmap item 6) —
+ * wraps nextTarget (already RPE-autoregulated, previously surfaced only on the standalone
+ * /records screen) with the selection logic a recap needs: skip non-weight metrics (time/
+ * distance aren't tracked by nextTarget), skip anything with no completed sets, and cap the
+ * list so the recap stays a short card, not a wall of text — PRs first (that's the exercise
+ * someone just cares most about), then the rest in logged order. */
+export function nextTargetGuidance(exercises: LoggedExercise[], prExerciseNames: string[], max = 3): NextTargetGuidance[] {
+  const prSet = new Set(prExerciseNames);
+  const candidates = exercises.filter((e) => !e.skipped && e.setsDone.length && metricOfSets(e.setsDone) === "reps");
+  const ordered = [...candidates].sort((a, b) => Number(prSet.has(b.name)) - Number(prSet.has(a.name)));
+  return ordered.slice(0, max).map((e) => {
+    const best = bestSetForMetric(e.setsDone, "reps")!;
+    const overload = typeof e.rpe === "number" && e.rpe >= 9.5;
+    return {
+      name: e.name,
+      target: nextTarget(best.weight, best.reps, isLowerBody(e.name), e.rpe),
+      overload,
+    };
+  });
 }
 
 /** Deload is suggested if the user has been progressing ≥ 42 days on any key lift. */

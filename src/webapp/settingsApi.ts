@@ -3,7 +3,7 @@
 // opt-in + alias, feedback, data export (pushed as a document to the chat), leave-trainer and
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
 import { buildExportJson, buildExportMd } from "../bot";
-import { resolveWaitlistNudge } from "../bot/trainer";
+import { resolveWaitlistNudge } from "../features/trainer/trainer";
 import {
   clearVacation,
   deleteUserData,

@@ -266,6 +266,36 @@ export async function countOnboarded(db: DB): Promise<number> {
   return r?.c ?? 0;
 }
 
+/** Cohort anchor for retention_d1/d7/d30 (docs/slos.md §2/§4) — called alongside every
+ * `onboarded: true` flip (the same sites that fire the `onboarding_completed` event). COALESCE
+ * so a stray second call (a retry, or the rare double-flip edge case) never overwrites the real
+ * first timestamp. */
+export async function stampOnboardedAt(db: DB, userId: number): Promise<void> {
+  await db.prepare("UPDATE users SET onboardedAt = COALESCE(onboardedAt, ?) WHERE id = ?").bind(nowIso(), userId).run();
+}
+
+/** userId -> local onboarding date (YYYY-MM-DD, UTC-sliced) for everyone onboarded that day —
+ * the cohort a retention_dN figure for `date` is computed against N days later. */
+export async function usersOnboardedOn(db: DB, date: string): Promise<number[]> {
+  const r = await db
+    .prepare("SELECT id FROM users WHERE onboardedAt IS NOT NULL AND substr(onboardedAt, 1, 10) = ?")
+    .bind(date)
+    .all<{ id: number }>();
+  return (r.results ?? []).map((row) => row.id);
+}
+
+/** Which of `userIds` have `lastSeenAt` on exactly `date` (local slice) — the retention-hit set
+ * for a cohort computed by usersOnboardedOn. */
+export async function usersSeenOn(db: DB, date: string, userIds: number[]): Promise<Set<number>> {
+  if (!userIds.length) return new Set();
+  const placeholders = userIds.map(() => "?").join(",");
+  const r = await db
+    .prepare(`SELECT id FROM users WHERE substr(lastSeenAt, 1, 10) = ? AND id IN (${placeholders})`)
+    .bind(date, ...userIds)
+    .all<{ id: number }>();
+  return new Set((r.results ?? []).map((row) => row.id));
+}
+
 /** Moderation counts for the owner report: owner-banned users and users who blocked the bot. */
 export async function countModeration(db: DB): Promise<{ blocked: number; botBlocked: number }> {
   const r = await db
@@ -279,6 +309,16 @@ export async function countUsersCreatedSince(db: DB, sinceIso: string): Promise<
   const r = await db
     .prepare("SELECT COUNT(*) AS c FROM users WHERE createdAt >= ?")
     .bind(sinceIso)
+    .first<{ c: number }>();
+  return r?.c ?? 0;
+}
+
+// Bounded variant for a single rollup day (daily_metrics `new_users`) — countUsersCreatedSince's
+// open-ended "through now" window is wrong for backfilling a past day.
+export async function countCreatedBetween(db: DB, fromIso: string, toExclusiveIso: string): Promise<number> {
+  const r = await db
+    .prepare("SELECT COUNT(*) AS c FROM users WHERE createdAt >= ? AND createdAt < ?")
+    .bind(fromIso, toExclusiveIso)
     .first<{ c: number }>();
   return r?.c ?? 0;
 }

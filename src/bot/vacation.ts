@@ -4,7 +4,8 @@ import { InlineKeyboard } from "grammy";
 import { clearVacation, setVacation, updateUser } from "../db/repos";
 import { t } from "../locales/i18n";
 import { generateClientDraft, generatePlan } from "./plan";
-import { type MyContext, type TKey, menuBtn, reply, setMode } from "../bot";
+import { type MyContext, type TKey, reply, setMode } from "../adapters/telegram/context";
+import { menuBtn } from "../bot";
 
 export async function cmdVacation(ctx: MyContext) {
   const lang = ctx.user.lang;

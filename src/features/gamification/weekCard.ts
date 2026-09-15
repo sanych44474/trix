@@ -1,14 +1,14 @@
 // Shareable <pre> week card, extracted from bot.ts. Built for ANY user (self via /progress,
 // a trainer's client via the client card, or the Mini App /api/weekcard). Takes a bare db —
 // no grammY context needed, so the webapp calls it without faking one.
-import { computeXp, levelFromXp } from "../domain/gamification";
-import { localParts } from "../domain/progression";
-import { recentPrCount, weekStreak } from "../domain/records";
-import { weekStats } from "../domain/weekCard";
-import { getActivePlan, listStrength, userStatCounts, workoutLogsSince } from "../db/repos";
-import { escapeHtml, t } from "../locales/i18n";
+import { computeXp, levelFromXp } from "../../domain/gamification";
+import { localParts } from "../../domain/progression";
+import { recentPrCount, weekStreak } from "../../domain/records";
+import { weekStats } from "../../domain/weekCard";
+import { getActivePlan, listStrength, userStatCounts, workoutLogsSince } from "../../db/repos";
+import { escapeHtml, t } from "../../locales/i18n";
 import { isoDateMinus } from "./boards";
-import type { Lang } from "../types";
+import type { Lang } from "../../types";
 
 export interface WeekCardStats {
   since: string;

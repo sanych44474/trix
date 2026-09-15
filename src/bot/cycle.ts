@@ -10,7 +10,8 @@ import { ymOf } from "../domain/calendar";
 import { computeCyclePhase } from "../domain/cycle";
 import { localParts } from "../domain/progression";
 import { t } from "../locales/i18n";
-import { type MyContext, calendarKeyboard, reply } from "../bot";
+import { type MyContext, reply } from "../adapters/telegram/context";
+import { calendarKeyboard } from "../bot";
 
 export async function showCycleSettings(ctx: MyContext) {
   const lang = ctx.user.lang;

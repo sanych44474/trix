@@ -11,7 +11,7 @@
 // someone's plan into the group, and would create their user row with the GROUP's chat id as
 // their personal chatId, sending every future reminder to the group.
 import type { Api } from "grammy";
-import { HTML, type MyContext } from "../bot";
+import { HTML, type MyContext } from "../adapters/telegram/context";
 import { getUser } from "../db/repos";
 import {
   deleteSquad,

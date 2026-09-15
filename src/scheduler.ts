@@ -1,4 +1,7 @@
-import { Bot, GrammyError, InlineKeyboard } from "grammy";
+import { Bot, InlineKeyboard } from "grammy";
+import { deliverDueNotifications, enqueueAndDeliver } from "./schedulerOutbox";
+import { rollupDailyMetrics } from "./dailyMetricsRollup";
+import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, PlanExercise, UserDoc, Weekday, WorkoutLogDoc } from "./types";
 import {
   allBuddyPairs,
@@ -47,6 +50,7 @@ import {
   pruneOldLogs,
   pruneAiCache,
   pruneIdempotencyKeys,
+  pruneNotificationOutbox,
   getSetting,
   setSetting,
   recordAdjustment,
@@ -236,7 +240,22 @@ export async function runGlobalJobs(db: D1Database, bot: Sender): Promise<void> 
     // Idempotency keys only ever need to survive their 24h replay window (see
     // db/repos/idempotency.ts) -- riding the same weekly pass rather than a dedicated one.
     await pruneIdempotencyKeys(db, cutoff.toISOString()).catch(() => {});
+    // Sent/failed/blocked outbox rows — pending rows are excluded regardless of age (see
+    // pruneNotificationOutbox), so this never deletes something still awaiting delivery.
+    await pruneNotificationOutbox(db, cutoff.toISOString()).catch(() => {});
     await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
+  }
+
+  // Daily product-metrics rollup (roadmap item 4 / docs/slos.md §4) — once per day, for
+  // YESTERDAY (the last day guaranteed complete; "today" is still accumulating and would give
+  // dau/retention/etc. a moving-target value that changes every time the pass reruns).
+  // 20h, not 24h: an exact 24h minimum gap can drift a run later each day until it eventually
+  // skips a calendar day; a shorter buffer keeps it comfortably once-daily without that drift.
+  const lastRollup = await getSetting(db, "last_daily_metrics_rollup").catch(() => null);
+  if (!lastRollup || Date.parse(lastRollup) < Date.now() - 20 * 3_600_000) {
+    const yesterday = isoDateMinus(new Date().toISOString().slice(0, 10), 1);
+    await rollupDailyMetrics(db, yesterday).catch((e) => logSchedulerError(db, "daily_metrics_rollup", e));
+    await setSetting(db, "last_daily_metrics_rollup", new Date().toISOString()).catch(() => {});
   }
 }
 
@@ -322,6 +341,12 @@ export async function runSchedule(env: Env): Promise<void> {
 async function runScheduleInner(env: Env): Promise<void> {
   const db = env.DB;
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+
+  // Retry sweep for reminder sends that backed off on an earlier tick (notification_outbox,
+  // roadmap item 3) — cheap no-op when nothing is due. Runs every tick since this Worker's cron
+  // trigger already fires every minute (wrangler.toml), giving the outbox fine-grained retry
+  // timing for free without a second cron trigger.
+  await deliverDueNotifications(env, bot).catch((e) => logSchedulerError(db, "outbox_delivery", e));
 
   // Rest-timer nudges — one-shot "rest over" pings scheduled from the guided logger.
   // Sends run in parallel (timeliness is the whole point) and the rows go in one DELETE.
@@ -645,21 +670,30 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   const { date, weekday, hour } = localParts(tz);
 
   // All reminder sends to the user go through this so a single failure can't abort the rest of
-  // processUser (which would skip flushReminders and re-fire next tick). A 403 means the user
-  // blocked the bot → flag them so we stop trying.
+  // processUser (which would skip flushReminders and re-fire next tick). Enqueues into the
+  // notification_outbox and attempts delivery immediately (same latency as a direct send on the
+  // happy path) — a failure is now retried with backoff on a later cron tick instead of being
+  // silently dropped (roadmap item 3, see schedulerOutbox.ts). A 403 still means the user
+  // blocked the bot → flag them so we stop trying for the rest of this invocation.
   let botBlocked = false;
   const send = async (text: string, extra?: Parameters<typeof bot.api.sendMessage>[2]) => {
     if (botBlocked) return;
-    try {
-      await bot.api.sendMessage(user.chatId, text, extra ?? HTML);
-    } catch (err) {
-      if (err instanceof GrammyError && err.error_code === 403) {
-        botBlocked = true;
-        await updateUser(db, user._id, { botBlocked: true }).catch(() => {});
-      } else {
-        console.error("reminder send error", user._id, err);
-      }
-    }
+    // Same message text to the same user on the same local day collapses to one outbox row —
+    // defense in depth against a double-enqueue, not the primary dedup (that's the cutover
+    // mutual-exclusion flag, durable/cutover.ts, which decides whether this call happens at all).
+    const idempotencyKey = `${date}:${text.slice(0, 200)}`;
+    const result = await enqueueAndDeliver(env, bot, {
+      userId: user._id,
+      chatId: user.chatId,
+      kind: "reminder",
+      idempotencyKey,
+      text,
+      extra: extra ?? HTML,
+    }).catch((e) => {
+      console.error("reminder enqueue error", user._id, e);
+      return "failed" as const;
+    });
+    if (result === "blocked") botBlocked = true;
   };
   // Explicit reminderHour wins; otherwise derive from sleep schedule (early risers get a
   // morning nudge, night owls keep the 18:00 default).

@@ -168,6 +168,17 @@ export async function aiUsageSince(
   return (r.results ?? []).map((x) => ({ provider: x.provider, kind: x.kind, ok: !!x.ok }));
 }
 
+/** Bounded AI/error summary for one daily_metrics rollup day (roadmap item 4) — the *Since
+ * variants above are open-ended (through now), which is wrong for backfilling a past day. */
+export async function aiAndErrorStatsBetween(db: DB, fromIso: string, toExclusiveIso: string): Promise<{ aiCalls: number; aiFallbacks: number; errors: number }> {
+  const [usage, fallbacks, errors] = await Promise.all([
+    db.prepare("SELECT COUNT(*) AS c FROM ai_usage WHERE ts >= ? AND ts < ?").bind(fromIso, toExclusiveIso).first<{ c: number }>(),
+    db.prepare("SELECT COALESCE(SUM(was_fallback), 0) AS c FROM ai_call_logs WHERE ts >= ? AND ts < ?").bind(fromIso, toExclusiveIso).first<{ c: number }>(),
+    db.prepare("SELECT COUNT(*) AS c FROM error_logs WHERE ts >= ? AND ts < ?").bind(fromIso, toExclusiveIso).first<{ c: number }>(),
+  ]);
+  return { aiCalls: usage?.c ?? 0, aiFallbacks: fallbacks?.c ?? 0, errors: errors?.c ?? 0 };
+}
+
 // ---------- ai call logs (per-attempt telemetry) ----------
 
 /** Prepared-statement builder — see aiUsageStmt. */
@@ -468,6 +479,8 @@ export async function deleteUserData(db: DB, userId: number): Promise<void> {
     // occupy overlapping numeric ranges, so entityId alone is not a safe match.
     db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'user' AND entityId = ?").bind(userId),
     db.prepare("DELETE FROM idempotency_keys WHERE userId = ?").bind(userId),
+    db.prepare("DELETE FROM plan_change_log WHERE userId = ?").bind(userId),
+    db.prepare("DELETE FROM notification_outbox WHERE userId = ?").bind(userId),
     // A squad outlives the person who happened to run /squad first: the group chat and everyone
     // else in it are unaffected, so createdBy is cleared to a tombstone rather than the squad
     // being deleted out from under its remaining members.

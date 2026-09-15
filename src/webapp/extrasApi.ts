@@ -22,6 +22,7 @@ import {
   pendingRequestsForTrainer,
   setActivePlan,
   setRequestStatus,
+  stampOnboardedAt,
   updateTrainer,
   updateUser,
 } from "../db/repos";
@@ -244,6 +245,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     if (!user.onboarded) {
       logInfo("onboarding_completed", { role: user.role });
       logInfo("first_plan_ready", { source: "template" }); // a taken shared program, not AI/bank
+      await stampOnboardedAt(env.DB, user._id).catch(() => {});
     }
     await updateUser(env.DB, user._id, { onboarded: true, nutrition: plan.nutrition });
     await bumpSharedTaken(env.DB, sp.code).catch(() => {});

@@ -13,16 +13,16 @@ import {
   weekStartStr,
   type BoardEntry,
   type Competitor,
-} from "../domain/records";
-import { localParts } from "../domain/progression";
+} from "../../domain/records";
+import { localParts } from "../../domain/progression";
 import {
   competitorBodyweights,
   competitorStrength,
   competitorWorkoutDates,
   listCompetitors,
-} from "../db/repos";
-import { t } from "../locales/i18n";
-import type { Lang, UserProfile } from "../types";
+} from "../../db/repos";
+import { t } from "../../locales/i18n";
+import type { Lang, UserProfile } from "../../types";
 
 export function isoDateMinus(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00Z`);

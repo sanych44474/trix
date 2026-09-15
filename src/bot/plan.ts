@@ -5,14 +5,17 @@
 import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Env, Lang, PlanDay, PlanExercise, PlanDoc, UserDoc, Weekday } from "../types";
 import type { AiPlan, MyContext } from "../bot";
-import { HTML, MIN_EXERCISES_PER_DAY, localizePlanNames, reply, saveBaselineBody, videosForDays } from "../bot";
+import { HTML, reply } from "../adapters/telegram/context";
+import { localizePlanNames, saveBaselineBody, videosForDays } from "../bot";
 import { mainMenu, menuBtn, planActionsKb } from "./keyboards";
 import { botDeepLink, shareUrl } from "./links";
 import { logInfo } from "../log";
-import { countExercises, getActivePlan, getCatalogExercise, getExerciseTranslation, getTrainer, getUser, listCandidatesByMuscles, listPlanBank, listStrength, recentAdjustments, recordError, recordPlanSource, saveDraftPlan, setActivePlan, updateUser } from "../db/repos";
+import { countExercises, getActivePlan, getCatalogExercise, getExerciseTranslation, getTrainer, getUser, listCandidatesByMuscles, listPlanBank, listStrength, recentAdjustments, recordError, recordPlanSource, saveDraftPlan, setActivePlan, stampOnboardedAt, updateUser } from "../db/repos";
 import { sanitizeBodyMetrics } from "./onboarding";
-import { trainerStyleBlock } from "./trainer";
+import { trainerStyleBlock } from "../features/trainer/trainer";
 import { adaptPlan } from "../domain/planAdapt";
+import { PLAN_SCHEMA_VERSION, parseAiPlanResponse } from "../domain/plan-schema";
+import { exerciseCountLimits } from "../domain/plan-lint";
 import { MATCH_THRESHOLD, selectBest } from "../domain/planBank";
 import { API_MUSCLES, formatRecordBest, localParts, reconcileGrounding } from "../domain/progression";
 import { computeCyclePhase, phaseHint, phaseLabel } from "../domain/cycle";
@@ -141,7 +144,10 @@ export async function finalizeOnboardingPlan(
         planSource = "bank";
       }
     }
-    if (!wasOnboarded) logInfo("onboarding_completed", { role: user.role });
+    if (!wasOnboarded) {
+      logInfo("onboarding_completed", { role: user.role });
+      await stampOnboardedAt(db, user._id).catch(() => {});
+    }
     if (isTrainerClient) {
       // Save as a draft for the trainer to review, not an active plan -- docs/slos.md's
       // first_plan_ready is defined as the first setActivePlan, which this branch never calls.
@@ -226,7 +232,10 @@ export async function generateClientDraft(ctx: MyContext, profile: UserDoc["prof
     await saveDraftPlan(ctx.db, plan);
     // Draft only, not activated -- first_plan_ready (docs/slos.md) is defined as the first
     // setActivePlan, which never happens on this trainer-review path.
-    if (!wasOnboarded) logInfo("onboarding_completed", { role: ctx.user.role });
+    if (!wasOnboarded) {
+      logInfo("onboarding_completed", { role: ctx.user.role });
+      await stampOnboardedAt(ctx.db, ctx.user._id).catch(() => {});
+    }
     await updateUser(ctx.db, ctx.user._id, {
       onboarded: true,
       nutrition: plan.nutrition,
@@ -263,7 +272,10 @@ export async function generateClientDraft(ctx: MyContext, profile: UserDoc["prof
     console.error("client draft failed", err);
     // Interview is genuinely done even though plan generation failed entirely (the plan-pending
     // recovery sweep will retry) -- onboarded flips true here too, so the event fires here too.
-    if (!wasOnboarded) logInfo("onboarding_completed", { role: ctx.user.role });
+    if (!wasOnboarded) {
+      logInfo("onboarding_completed", { role: ctx.user.role });
+      await stampOnboardedAt(ctx.db, ctx.user._id).catch(() => {});
+    }
     await updateUser(ctx.db, ctx.user._id, {
       onboarded: true,
       profile,
@@ -467,11 +479,12 @@ export async function buildPlanDocRaw(
   const cycleHint = cyclePhase
     ? `${phaseLabel(cyclePhase.phase)} (day ${cyclePhase.day}/${cyclePhase.cycleLength}) — ${phaseHint(cyclePhase.phase)}`
     : undefined;
-  const ai = await aiJSON<AiPlan>(env, {
+  const limits = exerciseCountLimits(profile);
+  const aiRaw = await aiJSON<AiPlan>(env, {
     system: P.planSystem(lang),
     user: P.planUser(profile, opts.prs, candidates, opts.trainerStyle, cycleHint),
     schema: P.PLAN_SCHEMA,
-    temperature: 0.7,
+    temperature: 0.35,
     kind: "plan",
     db,
     userId: forUserId,
@@ -489,22 +502,18 @@ export async function buildPlanDocRaw(
       }
       for (const d of p.split) {
         const n = Array.isArray(d.exercises) ? d.exercises.length : 0;
-        if (n < MIN_EXERCISES_PER_DAY) {
-          throw new Error(`plan: weekday ${d.weekday} has ${n} exercises (< ${MIN_EXERCISES_PER_DAY})`);
+        if (n < limits.min || n > limits.max) {
+          throw new Error(`plan: weekday ${d.weekday} has ${n} exercises (expected ${limits.min}-${limits.max})`);
         }
       }
     },
   });
-  // Guard against a parseable-but-wrong-shape AI response (e.g. a weak fallback model):
-  // fail clearly here so the caller shows a retry instead of crashing on undefined. PLAN_SCHEMA
-  // requires both `split` and `nutrition`, but that's only Gemini-enforced — a fallback provider
-  // (Groq/OpenRouter) only guarantees valid JSON syntax, not these keys being present.
-  if (!Array.isArray(ai.split) || ai.split.length === 0) {
-    throw new Error("AI plan missing split");
-  }
-  if (!ai.nutrition || typeof ai.nutrition.calories !== "number") {
-    throw new Error("AI plan missing nutrition");
-  }
+  // Guard against a parseable-but-wrong-shape AI response (e.g. a weak fallback model): fail
+  // clearly here so the caller shows a retry instead of crashing on undefined further down, or
+  // silently saving a plan built from missing/malformed fields. PLAN_SCHEMA requires both
+  // `split` and `nutrition`, but that's only Gemini-enforced — a fallback provider (Groq/
+  // OpenRouter) only guarantees valid JSON syntax, not these keys being present or well-typed.
+  const ai = parseAiPlanResponse(aiRaw);
   const split = aiSplitToPlanDays(ai.split, candidates, candidateIds);
   // Translate exercise fields (name/technique/muscles/muscleGroup) from English to the
   // user's language. The plan prompt always outputs these in English for best catalog
@@ -534,6 +543,7 @@ export async function buildPlanDocRaw(
     methodology: translatedMethodology,
     ...(ai.movementAudit ? { movementAudit: cleanAi(ai.movementAudit) } : {}),
     generatedAt: new Date(),
+    schemaVersion: PLAN_SCHEMA_VERSION,
     ...(typeof ai.stepsTarget === "number" ? { stepsTarget: ai.stepsTarget } : {}),
   };
 }
@@ -656,12 +666,13 @@ export async function buildPlanForUser(
 }
 
 // Lazy self-heal: if an AI-coached plan is degenerate (a training day with fewer than
-// MIN_EXERCISES_PER_DAY — the old "1 exercise/day" bug), silently rebuild it with the
+// the exercise minimum for this client's session budget), silently rebuild it with the
 // now-validated generator and notify once. Trainer-managed client plans are left untouched.
 // On any AI failure the original plan is kept (no data loss). Returns the plan to show.
 export async function healPlanIfDegenerate(ctx: MyContext, plan: PlanDoc): Promise<PlanDoc> {
   if (ctx.user.role === "client") return plan;
-  const degenerate = plan.split.some((d) => (d.exercises?.length ?? 0) < MIN_EXERCISES_PER_DAY);
+  const limits = exerciseCountLimits(ctx.user.profile);
+  const degenerate = plan.split.some((d) => (d.exercises?.length ?? 0) < limits.min);
   if (!degenerate) return plan;
   try {
     const records = await listStrength(ctx.db, ctx.user._id, 8);
@@ -708,6 +719,7 @@ export async function deliverPlan(ctx: MyContext, profile: UserDoc["profile"], p
     if (!wasOnboarded) {
       logInfo("onboarding_completed", { role: ctx.user.role });
       logInfo("first_plan_ready", { source });
+      await stampOnboardedAt(ctx.db, ctx.user._id).catch(() => {});
     }
     await updateUser(ctx.db, ctx.user._id, {
       onboarded: true,

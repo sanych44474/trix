@@ -5,7 +5,7 @@
 import { InlineKeyboard } from "grammy";
 import { updateUser } from "../db/repos";
 import { t } from "../locales/i18n";
-import { type MyContext, reply } from "../bot";
+import { type MyContext, reply } from "../adapters/telegram/context";
 
 export async function showShareSettings(ctx: MyContext) {
   const lang = ctx.user.lang;

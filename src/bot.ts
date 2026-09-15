@@ -1,7 +1,8 @@
-import { InlineKeyboard, InputFile, Keyboard, type Context } from "grammy";
+import { InlineKeyboard, InputFile } from "grammy";
 import { logInfo } from "./log";
-import type { CatalogExercise, Env, ExerciseMetric, ExerciseVideo, Lang, NutritionTargets, PlanDay, PlanDoc, PlanExercise, Supplement, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, bodyLogsByUser, countCompletedWorkouts, recordError, getCatalogExercise, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, searchExercisesByName, dailyCheckinsSince, getDailyCheckin, getActivePlan, getTrainer, getUser, listStrength, pendingRequestForClient, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, updateUser, workoutLogsSince } from "./db/repos";
+import type { CatalogExercise, ExerciseMetric, ExerciseVideo, Lang, PlanDay, PlanDoc, PlanExercise, UserDoc, Weekday } from "./types";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, bodyLogsByUser, countCompletedWorkouts, recordError, recordPlanChange, getCatalogExercise, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, searchExercisesByName, dailyCheckinsSince, getDailyCheckin, getActivePlan, getTrainer, getUser, listStrength, listActiveInjuries, pendingRequestForClient, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, updateUser, workoutLogsSince } from "./db/repos";
+import { checkExerciseAgainstInjuries } from "./domain/safety";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText } from "./ai";
 import { computeTargets } from "./domain/mealplan";
@@ -13,19 +14,19 @@ import { strengthStandard, type StrengthLevel } from "./domain/standards";
 import { cmdReport, localCutoff } from "./bot/report";
 import { cmdReplan, prDate } from "./bot/exportData";
 import { resumePendingPlan } from "./bot/planGen";
-import { num, verifyItems } from "./bot/nutritionLog";
+import { num, verifyItems } from "./features/nutrition/nutritionLog";
 import { renderDayInline } from "./bot/workoutSave";
 import { isOwner } from "./bot/owner";
-import { joinByCode, joinByProspectCode, showSharedProgram, showPlanEditDay, trainerMenu } from "./bot/trainer";
+import { joinByCode, joinByProspectCode, showSharedProgram, showPlanEditDay, trainerMenu } from "./features/trainer/trainer";
 export { buildOwnerReport, buildErrorReport, buildOwnerMetrics, ownerUsersData } from "./bot/owner";
 // Extracted modules — imported for internal use AND re-exported so every existing consumer
 // (scheduler, webapp, tests) keeps importing from "./bot" unchanged.
-import { computeBoards, isoDateMinus, recordsTabs, renderBadges } from "./bot/boards";
-import { buildWeekCard } from "./bot/weekCard";
+import { computeBoards, isoDateMinus, recordsTabs, renderBadges } from "./features/gamification/boards";
+import { buildWeekCard } from "./features/gamification/weekCard";
 import { showEveningSurvey } from "./bot/survey";
 import { onboardingStep, renderObStep } from "./bot/onboarding";
-export * from "./bot/boards";
-export * from "./bot/weekCard";
+export * from "./features/gamification/boards";
+export * from "./features/gamification/weekCard";
 export * from "./bot/survey";
 export * from "./bot/onboarding";
 import { mainMenu, moreMenu, progressHubMenu, trainerHubMenu, trainerClientsMenu, appendOwnerRow, menuBtn, planViewKb, langMenu, hourMenu, tzMenu, settingsMenu, difficultyKeyboard, todayWorkoutKeyboard } from "./bot/keyboards";
@@ -35,7 +36,7 @@ import { healPlanIfDegenerate } from "./bot/plan";
 export * from "./bot/plan";
 import { deferAi, onError } from "./bot/router";
 export * from "./bot/router";
-export * from "./bot/challenges";
+export * from "./features/gamification/challenges";
 export * from "./bot/vacation";
 export * from "./bot/injury";
 export * from "./bot/cleanup";
@@ -46,7 +47,7 @@ export * from "./bot/planDays";
 export * from "./bot/report";
 export * from "./bot/exportData";
 export * from "./bot/planGen";
-export * from "./bot/nutritionLog";
+export * from "./features/nutrition/nutritionLog";
 export * from "./bot/coach";
 export * from "./bot/workoutSave";
 export * from "./bot/feedbackIntake";
@@ -54,6 +55,8 @@ export * from "./bot/logSelfEdit";
 export * from "./bot/warmup";
 export * from "./bot/planExerciseEdit";
 export * from "./bot/guidedLog";
+import { showNextBestAction } from "./bot/nextBestAction";
+export * from "./bot/nextBestAction";
 import { endSelfEdit, swapExerciseByName } from "./bot/planExerciseEdit";
 import { cmdLog } from "./bot/guidedLog";
 
@@ -76,57 +79,27 @@ export const COMMON_TZ = [
   "UTC",
 ];
 
-export type MyContext = Context & {
-  env: Env;
-  db: D1Database;
-  user: UserDoc;
-  // Defer heavy background work past the webhook response (Cloudflare ExecutionContext.waitUntil).
-  // Falls back to fire-and-forget if no ExecutionContext was provided (e.g. tests).
-  waitUntil: (p: Promise<unknown>) => void;
-};
+// Core context/plumbing (MyContext, reply, HTML, setMode, plan-owner helpers, TKey) lives in
+// adapters/telegram/context.ts now — extracted so the many bot/*.ts feature files that only
+// need these don't have to import the whole god-file (roadmap item 1, first slice: this was the
+// single biggest source of router.ts's 100+ backward imports from bot.ts). Re-exported here so
+// every existing `from "./bot"` consumer keeps working unchanged.
+export type { MyContext, TKey } from "./adapters/telegram/context";
+export {
+  HTML, clearEditOwner, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply, sendLong, setEditOwner, setMode,
+} from "./adapters/telegram/context";
+import {
+  HTML, clearEditOwner, isEditingOther, planOwnerId, planOwnerLang, reply, setMode, type MyContext, type TKey,
+} from "./adapters/telegram/context";
 
-export const HTML = { parse_mode: "HTML" as const, link_preview_options: { is_disabled: true } };
 export const REPORT_DAYS = 14;
 
 // A valid training day must carry a full session — used to reject degenerate AI plans.
-export const MIN_EXERCISES_PER_DAY = 5;
+export { MIN_EXERCISES_PER_DAY } from "./domain/plan-lint";
 
-export interface AiPlan {
-  split: {
-    weekday: number;
-    muscleGroup: string;
-    sessionType?: string;
-    durationMin?: number;
-    warmUp?: string[];
-    coolDown?: string[];
-    exercises: {
-      name: string;
-      sets: string;
-      startWeight: string;
-      technique: string;
-      muscles?: string;
-      isKeyLift?: boolean;
-      metric?: string;
-      exerciseId?: string;
-      canonicalName?: string;
-      rpe?: string;
-      rir?: string;
-      rest?: string;
-      tempo?: string;
-      heartRateZone?: string;
-      movementPattern?: string;
-      role?: string;
-      warmupScheme?: string;
-      supersetGroup?: string;
-    }[];
-  }[];
-  nutrition: NutritionTargets;
-  restDayNutrition?: NutritionTargets;
-  supplements: Supplement[];
-  methodology: string;
-  movementAudit?: string;
-  stepsTarget?: number;
-}
+// The AI provider's raw plan response shape — canonical definition + runtime validation live in
+// domain/plan-schema.ts (AiPlanResponse/parseAiPlanResponse), not duplicated here.
+export type { AiPlanResponse as AiPlan } from "./domain/plan-schema";
 
 export function defaultLang(code?: string): Lang {
   return code?.toLowerCase().startsWith("uk") ? "uk" : "en";
@@ -173,7 +146,7 @@ export async function showProgressHub(ctx: MyContext) {
 // startMealMacroEdit/handleMealMacroEdit moved to bot/logSelfEdit.ts (they end by calling
 // showMyLogNutritionDay, defined there) — re-exported via the barrel below.
 
-// cmdTrainerReport/cmdTrainerBroadcast/handleTrainerBroadcast moved to bot/trainer.ts;
+// cmdTrainerReport/cmdTrainerBroadcast/handleTrainerBroadcast moved to features/trainer/trainer.ts;
 // showOwnerHub moved to bot/owner.ts; difficultyKeyboard/todayWorkoutKeyboard/difficultyLabel
 // moved to bot/keyboards.ts — each belongs to that file's existing concept, not this one.
 // Re-exported via the barrel below.
@@ -253,61 +226,6 @@ export async function cmdHideKeyboard(ctx: MyContext) {
   await ctx.reply(t(ctx.user.lang, "kbd_hidden"), { ...HTML, reply_markup: { remove_keyboard: true } });
 }
 
-export async function reply(ctx: MyContext, text: string, kb?: InlineKeyboard | Keyboard) {
-  await sendLong(ctx, text, kb);
-}
-
-// Telegram caps messages at 4096 chars; split on newlines if needed.
-// When a reply carries no inline keyboard we send ReplyKeyboardRemove so the
-// legacy persistent bottom keyboard is cleared (the menu is the inline button now).
-export async function sendLong(ctx: MyContext, text: string, kb?: InlineKeyboard | Keyboard) {
-  const LIMIT = 3800;
-  const tail = kb ? { reply_markup: kb } : { reply_markup: { remove_keyboard: true } as const };
-  if (text.length <= LIMIT) {
-    await ctx.reply(text, { ...HTML, ...tail });
-    return;
-  }
-  const chunks: string[] = [];
-  let buf = "";
-  for (const block of text.split("\n")) {
-    if ((buf + "\n" + block).length > LIMIT) {
-      chunks.push(buf);
-      buf = block;
-    } else {
-      buf = buf ? buf + "\n" + block : block;
-    }
-  }
-  if (buf) chunks.push(buf);
-  for (let i = 0; i < chunks.length; i++) {
-    const last = i === chunks.length - 1;
-    await ctx.reply(chunks[i], { ...HTML, ...(last ? tail : {}) });
-  }
-}
-
-export async function setMode(ctx: MyContext, mode: UserDoc["session"]["mode"]) {
-  // switchMode carries the context fields (editPlanOwner/editPlanPrefix/photoReviewFor) and
-  // drops all transient flow state — see domain/session.ts for why this lives in one place.
-  const session = switchMode(ctx.user.session, mode);
-  await updateUser(ctx.db, ctx.user._id, { session });
-  ctx.user.session = session;
-}
-
-// Whose plan the current plan-EDIT operation targets: a managed client (trainer/owner) or self.
-export function planOwnerId(ctx: MyContext): number {
-  return ctx.user.session.editPlanOwner ?? ctx.user._id;
-}
-
-// Fetch the active plan for the current edit target (managed client or self); if there is none,
-// send the standard "no plan" reply and return undefined — the caller should then `return`.
-export async function getActivePlanOrReply(
-  ctx: MyContext,
-  ownerId = planOwnerId(ctx),
-): Promise<Awaited<ReturnType<typeof getActivePlan>>> {
-  const plan = await getActivePlan(ctx.db, ownerId);
-  if (!plan) await reply(ctx, t(ctx.user.lang, "no_plan"), menuBtn(ctx.user.lang));
-  return plan;
-}
-
 // A weekday + exercise index packed into a single numeric session.targetId (weekday*1000 + idx).
 export function encodePlanRef(weekday: number, index: number): number {
   return weekday * 1000 + index;
@@ -316,45 +234,15 @@ export function decodePlanRef(ref: number): { weekday: number; index: number } {
   return { weekday: Math.floor(ref / 1000), index: ref % 1000 };
 }
 
-// The LANGUAGE of the plan owner — so a trainer/owner editing a client's plan persists the
-// client's exercise names in the CLIENT's language, not the editor's.
-export async function planOwnerLang(ctx: MyContext): Promise<Lang> {
-  const owner = ctx.user.session.editPlanOwner;
-  if (owner === undefined || owner === ctx.user._id) return ctx.user.lang;
-  const u = await getUser(ctx.db, owner);
-  return u?.lang ?? ctx.user.lang;
-}
-
-// Begin editing another user's plan (trainer→client / owner→anyone). Sets the edit context.
-// `prefix` records which card owns the edit ("cl"/"ou") so post-action re-renders can rebuild
-// the edit-day keyboard instead of the self logging view.
-export async function setEditOwner(ctx: MyContext, ownerId: number | undefined, prefix?: "cl" | "ou") {
-  const session = { ...ctx.user.session, editPlanOwner: ownerId, editPlanPrefix: prefix };
-  if (ownerId === undefined) { delete session.editPlanOwner; delete session.editPlanPrefix; }
-  await updateUser(ctx.db, ctx.user._id, { session });
-  ctx.user.session = session;
-}
-
-// True when the current edit targets someone else's plan (trainer→client / owner→user), so
-// the shared edit handlers must render the edit-day view, never the self "log workout" view.
-export function isEditingOther(ctx: MyContext): boolean {
-  return ctx.user.session.editPlanOwner !== undefined && ctx.user.session.editPlanOwner !== ctx.user._id;
-}
-
 // Re-show the managed user's edit-day view after a shared edit action (delete/swap/…), so the
 // trainer/owner stays in the client's plan instead of being dropped into their OWN today view.
+// Stayed in bot.ts (not adapters/telegram/context.ts) because it calls showPlanEditDay, a
+// feature-layer function (features/trainer/trainer.ts) — moving it would just recreate the cycle one file over.
 export async function reRenderEditDay(ctx: MyContext, weekday: Weekday) {
   const owner = ctx.user.session.editPlanOwner;
   const prefix = ctx.user.session.editPlanPrefix ?? "cl";
   if (owner === undefined) return;
   await showPlanEditDay(ctx, owner, prefix, weekday);
-}
-
-// Clear any "editing someone else's plan" context (called when the user navigates to their
-// own home / today / menu so self-edits never leak onto a managed client).
-export async function clearEditOwner(ctx: MyContext) {
-  if (ctx.user.session.editPlanOwner === undefined) return;
-  await setEditOwner(ctx, undefined);
 }
 
 // ---------------- command implementations ----------------
@@ -446,7 +334,10 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
     return;
   }
   if (u.role === "client") {
-    await reply(ctx, hi + t(lang, "welcome_back"), mainMenu(lang));
+    // Roadmap item 5: one prioritized action instead of a bare "welcome back" + full menu —
+    // the menu is still one tap away (mainMenu/moreMenu), just not the FIRST thing shown.
+    await reply(ctx, hi + t(lang, "welcome_back"));
+    await showNextBestAction(ctx);
     return;
   }
   // solo
@@ -458,7 +349,8 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
     return;
   }
   if (u.onboarded) {
-    await reply(ctx, hi + t(lang, "welcome_back"), mainMenu(lang));
+    await reply(ctx, hi + t(lang, "welcome_back"));
+    await showNextBestAction(ctx);
     return;
   }
   // Stuck mid-interview (started but never finished) → resume and re-send the current
@@ -659,6 +551,7 @@ export async function promptExerciseConfirmation(
     englishQuery: string;
     catalog: CatalogExercise;
     index?: number;
+    source?: "ai_coach" | "manual";
   },
 ) {
   const lang = ctx.user.lang;
@@ -671,6 +564,7 @@ export async function promptExerciseConfirmation(
       query: payload.query,
       englishQuery: payload.englishQuery,
       catalogId: payload.catalog.id,
+      source: payload.source,
     },
   });
   await updateUser(ctx.db, ctx.user._id, { session });
@@ -704,6 +598,19 @@ export async function applyCatalogExerciseChoice(
   if (!day) {
     await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
     return;
+  }
+  // AI-coach and manual add/swap both land here — the single place that actually writes the new
+  // exercise into the plan, so it's the right gate for "AI proposes, domain logic decides": a
+  // DIRECT conflict with an active injury (same rule the injury-report auto-swap already uses)
+  // blocks the write instead of silently applying it. Related-only conflicts still go through.
+  const activeInjuries = await listActiveInjuries(ctx.db, planOwnerId(ctx));
+  if (activeInjuries.length) {
+    const conflict = checkExerciseAgainstInjuries({ name: catalog.name, muscles: catalog.muscle }, activeInjuries);
+    if (conflict.blocked && conflict.area) {
+      const areaLabel = t(lang, `inj_area_${conflict.area}` as Parameters<typeof t>[1]);
+      await reply(ctx, t(lang, "safety_exercise_blocked_injury", { name: catalog.name, area: areaLabel }), menuBtn(lang));
+      return;
+    }
   }
   // Localize the single new exercise directly from the (cached) catalog translation — the same
   // entry the confirmation showed. This is deterministic and avoids running the whole split
@@ -756,12 +663,14 @@ export async function applyCatalogExerciseChoice(
   const updatedDay = plan.split.find((d) => d.weekday === payload.weekday);
   if (payload.action === "swap") {
     const swapped = updatedDay?.exercises[payload.index ?? 0];
+    await recordPlanChange(ctx.db, planOwnerId(ctx), payload.source ?? "manual", `swap: ${fromName} -> ${swapped?.name ?? catalog.name}`).catch(() => {});
     await reply(
       ctx,
       t(lang, "swap_done", { from: fromName, to: swapped?.name ?? catalog.name }),
       swapTuneKb(lang, payload.weekday, payload.index ?? 0),
     );
   } else {
+    await recordPlanChange(ctx.db, planOwnerId(ctx), payload.source ?? "manual", `add: ${updatedDay?.exercises.at(-1)?.name ?? catalog.name}`).catch(() => {});
     await reply(
       ctx,
       t(lang, "add_exercise_done", { name: updatedDay?.exercises.at(-1)?.name ?? catalog.name }),
@@ -1271,7 +1180,7 @@ export function defaultSetsForMetric(metric: ExerciseMetric, catalog: CatalogExe
 
 // Resolve an exercise by name (catalog match, else AI-author) and ask the user to confirm
 // before adding it to `weekday`. Shared by the typed add flow and the coach chat.
-export async function addExerciseByName(ctx: MyContext, weekday: Weekday, query: string) {
+export async function addExerciseByName(ctx: MyContext, weekday: Weekday, query: string, source: "ai_coach" | "manual" = "manual") {
   const lang = ctx.user.lang;
   const plan = await getActivePlan(ctx.db, planOwnerId(ctx));
   const day = plan ? getPlanDay(plan, weekday) : undefined;
@@ -1284,7 +1193,7 @@ export async function addExerciseByName(ctx: MyContext, weekday: Weekday, query:
     const matches = await searchExerciseCatalog(ctx, query, 5);
     await ctx.replyWithChatAction("typing").catch(() => {});
     const catalog = matches[0] ?? (await createExerciseCatalogEntry(ctx, query, day, "add", undefined, englishQuery));
-    await promptExerciseConfirmation(ctx, { action: "add", weekday, query, englishQuery, catalog });
+    await promptExerciseConfirmation(ctx, { action: "add", weekday, query, englishQuery, catalog, source });
   } catch (err) {
     await onError(ctx, err, "add_exercise");
   }
@@ -1924,7 +1833,7 @@ export async function onWaterAction(ctx: MyContext, action: string) {
 
 // ===================== Challenges =====================
 // challengeData/challengeTitle/cmdChallenges/showChallengePicker/onChallengeJoin moved to
-// bot/challenges.ts (god-file split); re-exported below so existing `from "./bot"` imports
+// features/gamification/challenges.ts; re-exported above so existing `from "./bot"` imports
 // (router.ts) keep working.
 
 export async function cmdFeedback(ctx: MyContext) {
@@ -2002,8 +1911,8 @@ export async function cmdSettings(ctx: MyContext) {
 }
 
 // ---------- bot records (leaderboards + badges) ----------
-// Board assembly + badge rendering live in ./bot/boards (also used by the scheduler cache and
-// the Mini App); bot.ts keeps only the chat command/render layer.
+// Board assembly + badge rendering live in ./features/gamification/boards (also used by the
+// scheduler cache and the Mini App); bot.ts keeps only the chat command/render layer.
 
 export async function cmdRecords(ctx: MyContext, tab: "weekly" | "hall" | "badges" | "prs" = "weekly") {
   await clearEditOwner(ctx);
@@ -2131,7 +2040,7 @@ export async function handleGoalWeight(ctx: MyContext, text: string) {
 
 // ===================== Calendar & session booking =====================
 // Moved to bot/calendar.ts (god-file split); re-exported below so existing `from "./bot"`
-// imports (router.ts, bot/trainer.ts) keep working.
+// imports (router.ts, features/trainer/trainer.ts) keep working.
 
 // Edit body height+weight from settings. Reuses the onboarding realism check + auto-swap.
 export async function handleBodyEdit(ctx: MyContext, text: string) {
@@ -2200,10 +2109,8 @@ export async function onToggleDay(ctx: MyContext, arg: string) {
 
 // ---------------- onboarding & plan generation ----------------
 
-// Onboarding wizard lives in ./bot/onboarding (extracted); TKey stays here — it's used
-// across the whole file.
-export type TKey = Parameters<typeof t>[1]; // keyof the locale dictionary
-
+// TKey moved to adapters/telegram/context.ts (re-exported near the top of this file) along with
+// the rest of the core plumbing.
 
 
 
@@ -2228,7 +2135,7 @@ export type TKey = Parameters<typeof t>[1]; // keyof the locale dictionary
 // (god-file split); re-exported below so existing `from "./bot"` imports keep working.
 
 // ---------------- nutrition ----------------
-// Moved to bot/nutritionLog.ts (god-file split); re-exported below so existing `from "./bot"`
+// Moved to features/nutrition/nutritionLog.ts; re-exported above so existing `from "./bot"`
 // imports (router.ts) keep working.
 
 // ---------------- coach / logging / measurements / feedback ----------------
@@ -2254,7 +2161,7 @@ export async function handleMeasure(ctx: MyContext, text: string) {
 
 // ---------------- user report ----------------
 // Moved to bot/report.ts (god-file split); re-exported below so existing `from "./bot"`
-// imports (router.ts, bot/trainer.ts) keep working.
+// imports (router.ts, features/trainer/trainer.ts) keep working.
 
 // ---------------- replan / delete / export ----------------
 // Moved to bot/exportData.ts (god-file split); re-exported below so existing `from "./bot"`

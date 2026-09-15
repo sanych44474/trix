@@ -10,7 +10,7 @@ import { getActivePlan, getWorkoutLog, workoutLogsSince } from "../db/repos";
 import { dayMarker, monthGrid, monthTitle, nextMonth, prevMonth, ymOf } from "../domain/calendar";
 import { getPlanDay, localParts } from "../domain/progression";
 import { t } from "../locales/i18n";
-import { type MyContext, clearEditOwner, reply } from "../bot";
+import { type MyContext, clearEditOwner, reply } from "../adapters/telegram/context";
 
 export const WD_SHORT: Record<Lang, string[]> = {
   uk: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"],

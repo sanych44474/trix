@@ -32,7 +32,8 @@
     "backup:d1": "node scripts/backup-d1.mjs"
   },
   "dependencies": {
-    "grammy": "^1.46.0"
+    "grammy": "^1.46.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.1.7",

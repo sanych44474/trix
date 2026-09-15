@@ -6,7 +6,7 @@
 // Extracted from bot.ts (god-file split; same barrel seam via bot.ts's
 // `export * from "./bot/coach"`).
 import { InlineKeyboard } from "grammy";
-import type { Weekday } from "../types";
+import type { UserDoc, Weekday } from "../types";
 import { aiJSON, aiText } from "../ai";
 import * as P from "../ai/prompts";
 import { createQuestion, getActivePlan, getRecentContext, getTrainer, getUser, recentAdjustments, setQuestionDraft, updateUser, workoutLogsSince } from "../db/repos";
@@ -15,25 +15,27 @@ import { phaseGuidance } from "../domain/mesocycle";
 import { bestSetForMetric, formatSetEntry, localParts, metricOfSets } from "../domain/progression";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
 import { recentCoachingReasons } from "../domain/coachMemory";
+import { validateCoachActionForApply, validateCoachEditResult } from "../domain/coachActions";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { upcomingSessions, weekdayName } from "../render";
 import { deferAi } from "./router";
 import { localCutoff } from "./report";
-import { trainerStyleBlock } from "./trainer";
-import {
-  type MyContext, HTML,
-  addExerciseByName, adjustDifficulty, deleteExerciseFromToday, menuBtn, reply, setExerciseSets, setExerciseWeight,
-  setMode, showSwapAlternatives, swapExerciseByName,
-} from "../bot";
+import { trainerStyleBlock } from "../features/trainer/trainer";
+import { type MyContext, HTML, planOwnerId, reply, setMode } from "../adapters/telegram/context";
+import { addExerciseByName, adjustDifficulty, deleteExerciseFromToday, menuBtn, setExerciseSets, setExerciseWeight, showSwapAlternatives, swapExerciseByName } from "../bot";
 
-export async function coachContext(ctx: MyContext): Promise<string> {
+// `owner` is whose plan/history the coach reasons about — the operator themselves when
+// self-coaching, or the managed client when a trainer is editing that client's plan (see
+// handleCoach, which resolves it via planOwnerId). Everything here reads from `owner`, not
+// `ctx.user`, so a trainer coaching a client gets THAT client's data, not their own.
+export async function coachContext(ctx: MyContext, owner: UserDoc): Promise<string> {
   // Plan and recent logs are independent reads — fetch them together.
   const [plan, recent] = await Promise.all([
-    getActivePlan(ctx.db, ctx.user._id),
+    getActivePlan(ctx.db, owner._id),
     // Last 14 days of real logs so the coach grounds advice in actual numbers (not generic tips).
-    getRecentContext(ctx.db, ctx.user._id, 14),
+    getRecentContext(ctx.db, owner._id, 14),
   ]);
-  const { date } = localParts(ctx.user.profile.timezone);
+  const { date } = localParts(owner.profile.timezone);
   // Full plan with ISO weekday + 0-based exercise indices, so the coach can target any exercise.
   const planText = plan?.split.length
     ? plan.split
@@ -72,18 +74,18 @@ export async function coachContext(ctx: MyContext): Promise<string> {
         nutrition.reduce((s, n) => s + n.meals.reduce((m, x) => m + (x.kcal || 0), 0), 0) / nutDays,
       )
     : 0;
-  const target = ctx.user.nutrition ? `${ctx.user.nutrition.calories}kcal` : "n/a";
-  const injuries = ctx.user.profile.limitations?.trim();
+  const target = owner.nutrition ? `${owner.nutrition.calories}kcal` : "n/a";
+  const injuries = owner.profile.limitations?.trim();
   // Cycle-phase awareness (opt-in only). Injected as a compact English hint so the coach can
   // adjust load / carbs advice around the phase without needing a separate prompt.
-  const cy = computeCyclePhase(ctx.user.profile, date);
+  const cy = computeCyclePhase(owner.profile, date);
   const cycleLine = cy ? `Cycle phase: ${phaseLabel(cy.phase)} (day ${cy.day}/${cy.cycleLength}) — ${phaseHint(cy.phase)}.\n` : "";
   // Same block-periodization state the scheduler advances weekly (domain/mesocycle.ts) — lets
   // the coach explain "why is my plan built this way" grounded in the actual phase driving it,
   // instead of guessing a rationale disconnected from what the plan generator actually did.
   // Conditioning load for the week — the coach used to see only barbell work and would happily
   // suggest "add a couple of runs" to someone already 5 sessions deep.
-  const cond = conditioningWeek(workouts, localCutoff(ctx.user.profile.timezone, 7));
+  const cond = conditioningWeek(workouts, localCutoff(owner.profile.timezone, 7));
   const condLine = `Conditioning last 7d: ${cond.sessions} session(s)${cond.minutes ? `, ~${cond.minutes} min` : ""}${cond.meters ? `, ${Math.round(cond.meters / 100) / 10} km` : ""} (zone: ${cond.zone}; aerobic baseline ${CONDITIONING_LANDMARK.targetMin} min/wk, high ${CONDITIONING_LANDMARK.highMin} min/wk).\n`;
   const meso = plan?.mesocycle;
   const mesoLine = meso
@@ -94,7 +96,7 @@ export async function coachContext(ctx: MyContext): Promise<string> {
   // instead of re-deriving a rationale from scratch on every question, or contradicting a
   // decision it already made. Capped and deduplicated on purpose: a full adjustment history
   // dump would bury the actually-relevant recent reasons in noise.
-  const pastReasons = recentCoachingReasons(await recentAdjustments(ctx.db, ctx.user._id, 5).catch(() => []));
+  const pastReasons = recentCoachingReasons(await recentAdjustments(ctx.db, owner._id, 5).catch(() => []));
   const memoryLine = pastReasons.length ? `Recent coaching decisions: ${pastReasons.join("; ")}.\n` : "";
   return (
     `PLAN (weekday in parens, exercise index before colon):\n${planText}\n` +
@@ -105,7 +107,7 @@ export async function coachContext(ctx: MyContext): Promise<string> {
     condLine +
     mesoLine +
     memoryLine +
-    `Training pace: ${ctx.user.progressionRate ?? "normal"}. Today: ${date}.`
+    `Training pace: ${owner.progressionRate ?? "normal"}. Today: ${date}.`
   );
 }
 
@@ -116,17 +118,31 @@ export async function handleCoach(ctx: MyContext, text: string) {
     await routeClientQuestion(ctx, text);
     return;
   }
+  // A trainer chatting while editing a client's plan (isEditingOther, see router.ts) coaches
+  // THAT client: the AI needs the client's plan/history/profile to ground advice in, not the
+  // trainer's own. Actions the trainer taps still route through the same planOwnerId-aware
+  // apply functions (applyCatalogExerciseChoice, setExerciseWeight/Sets), which already write to
+  // the client's plan and run the item-7 injury-conflict gate — only the CONTEXT the AI reasons
+  // from was wrong before this. Reply stays in the trainer's own language: they're the reader.
+  const ownerId = planOwnerId(ctx);
+  const owner = ownerId === ctx.user._id ? ctx.user : await getUser(ctx.db, ownerId);
+  if (!owner) {
+    await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
+    return;
+  }
   await ctx.replyWithChatAction("typing").catch(() => {});
   // The coach can also propose plan edits (add/cardio, harder/easier, swap) as buttons.
   // Deferred past the webhook response — the AI chain must not block the update.
   deferAi(ctx, "coach", async () => {
     const result = await aiJSON<P.CoachEditResult>(ctx.env, {
-      system: P.coachEditSystem(lang, ctx.user.profile, await coachContext(ctx)),
+      system: P.coachEditSystem(lang, owner.profile, await coachContext(ctx, owner)),
       user: text,
-      temperature: 0.7,
+      schema: P.COACH_EDIT_SCHEMA,
+      temperature: 0.35,
       kind: "coach",
       db: ctx.db,
       userId: ctx.user._id,
+      validate: (parsed) => validateCoachEditResult(parsed),
     });
     const actions = (result.actions ?? []).filter((a) => a.kind !== "none").slice(0, 4);
     let kb = menuBtn(lang);
@@ -151,13 +167,18 @@ export async function handleCoach(ctx: MyContext, text: string) {
 }
 
 // The plan day a coach edit targets: today's session if it's a training day, else the
-// earliest upcoming session, else the first plan day.
+// earliest upcoming session, else the first plan day. Resolves the same trainer-editing-a-
+// client target as handleCoach (planOwnerId) — "today" must be the CLIENT's local today, not
+// the trainer's, when the two are in different timezones.
 export async function coachEditWeekday(ctx: MyContext): Promise<Weekday | null> {
-  const plan = await getActivePlan(ctx.db, ctx.user._id);
+  const ownerId = planOwnerId(ctx);
+  const owner = ownerId === ctx.user._id ? ctx.user : await getUser(ctx.db, ownerId);
+  if (!owner) return null;
+  const plan = await getActivePlan(ctx.db, ownerId);
   if (!plan || !plan.split.length) return null;
-  const tz = ctx.user.profile.timezone;
-  const logs = (await workoutLogsSince(ctx.db, ctx.user._id, localCutoff(tz, 14))).map((l) => ({ date: l.date, completed: l.completed }));
-  const sessions = upcomingSessions(ctx.user.lang, plan, tz, logs, 7);
+  const tz = owner.profile.timezone;
+  const logs = (await workoutLogsSince(ctx.db, ownerId, localCutoff(tz, 14))).map((l) => ({ date: l.date, completed: l.completed }));
+  const sessions = upcomingSessions(owner.lang, plan, tz, logs, 7);
   const today = localParts(tz).date;
   const todays = sessions.find((s) => s.date === today && s.status === "pending");
   const next = todays ?? sessions.find((s) => s.isNext);
@@ -176,24 +197,31 @@ export async function handleCoachAction(ctx: MyContext, kind: string, turnId: nu
     await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
     return;
   }
+  let action: ReturnType<typeof validateCoachActionForApply>;
+  try {
+    action = validateCoachActionForApply(a, kind);
+  } catch {
+    await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
+    return;
+  }
   // Use the action's explicit weekday when given, else default to today's/next session.
-  const weekday = (a.weekday as Weekday) || (await coachEditWeekday(ctx));
+  const weekday = (action.weekday as Weekday) || (await coachEditWeekday(ctx));
   if (!weekday) {
     await reply(ctx, t(lang, "no_plan"), menuBtn(lang));
     return;
   }
-  const index = a.index ?? 0;
-  if (kind === "add" && a.exercise) {
-    await addExerciseByName(ctx, weekday, a.exercise);
+  const index = action.index ?? 0;
+  if (kind === "add" && action.exercise) {
+    await addExerciseByName(ctx, weekday, action.exercise, "ai_coach");
   } else if (kind === "delete") {
     await deleteExerciseFromToday(ctx, weekday, index);
   } else if (kind === "swap") {
-    if (a.exercise) await swapExerciseByName(ctx, weekday, index, a.exercise);
+    if (action.exercise) await swapExerciseByName(ctx, weekday, index, action.exercise, "ai_coach");
     else await showSwapAlternatives(ctx, weekday, index);
-  } else if (kind === "weight" && a.value) {
-    await setExerciseWeight(ctx, weekday, index, a.value);
-  } else if (kind === "sets" && a.value) {
-    await setExerciseSets(ctx, weekday, index, a.value);
+  } else if (kind === "weight" && action.value) {
+    await setExerciseWeight(ctx, weekday, index, action.value);
+  } else if (kind === "sets" && action.value) {
+    await setExerciseSets(ctx, weekday, index, action.value);
   } else if (kind === "harder") {
     await adjustDifficulty(ctx, "up", weekday);
   } else if (kind === "easier") {
@@ -222,7 +250,7 @@ export async function routeClientQuestion(ctx: MyContext, text: string) {
       // Draft the suggested answer in the TRAINER's voice (their stated style/philosophy).
       const trainerDoc = await getTrainer(ctx.db, trainerId).catch(() => null);
       draft = await aiText(ctx.env, {
-        system: P.coachSystem(trainer.lang, ctx.user.profile, await coachContext(ctx), trainerDoc ? trainerStyleBlock(trainerDoc) : undefined),
+        system: P.coachSystem(trainer.lang, ctx.user.profile, await coachContext(ctx, ctx.user), trainerDoc ? trainerStyleBlock(trainerDoc) : undefined),
         user: text,
         temperature: 0.7,
         kind: "coach",

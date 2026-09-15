@@ -7,7 +7,8 @@ import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { aiText } from "../ai";
 import * as P from "../ai/prompts";
-import { type MyContext, REPORT_DAYS, menuBtn, num, reply } from "../bot";
+import { type MyContext, reply } from "../adapters/telegram/context";
+import { REPORT_DAYS, menuBtn, num } from "../bot";
 
 export function localCutoff(timezone: string | undefined, days: number): string {
   const { date } = localParts(timezone);

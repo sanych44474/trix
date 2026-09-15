@@ -10,15 +10,16 @@ import {
   awardAchievement, countCompletedWorkouts, getActivePlan, getUser, listStrength, updateUser,
   upsertStrengthRecord, upsertWorkoutLog, workoutLogsSince,
 } from "../db/repos";
-import { bestSetForMetric, fmtDistance, fmtDuration, localParts, metricOfSets, normalizeExercise, parseWorkoutText } from "../domain/progression";
+import { bestSetForMetric, fmtDistance, fmtDuration, localParts, metricOfSets, nextTargetGuidance, normalizeExercise, parseWorkoutText } from "../domain/progression";
 import { prMilestones, rankOf, weekStartStr, weekStreak, workoutMilestones } from "../domain/records";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { announceSquadPr } from "./squad";
 import { upcomingSessions } from "../render";
-import { badgeLabel, computeBoards } from "./boards";
+import { badgeLabel, computeBoards } from "../features/gamification/boards";
 import { maybeCelebrateLevel } from "./router";
 import { localCutoff } from "./report";
-import { type MyContext, HTML, type TKey, menuBtn, reply, setMode } from "../bot";
+import { type MyContext, HTML, type TKey, reply, setMode } from "../adapters/telegram/context";
+import { menuBtn } from "../bot";
 
 export async function handleWorkoutLog(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;
@@ -149,9 +150,15 @@ export async function applyWorkoutSave(
   return { exercises, prExercises, prHit, freshBadges: fresh, totalWorkouts: total };
 }
 
-/** Persist a completed workout (text- or button-built), update strength records, and run the
- * shared post-save UX: celebration, trainer notification, next-session preview. Clears any
- * in-progress button-logging draft and returns the user to idle. */
+/** Persist a completed workout, update strength records, and send ONE consolidated coach recap
+ * (roadmap item 6) instead of the up-to-4 separate messages this used to send (saved+summary,
+ * PR, badges, next session): what was saved, PR/badges, per-key-lift "what to do next time"
+ * (nextTargetGuidance — RPE-autoregulated, previously shown only on the standalone /records
+ * screen), and the next session preview. Trainer notification and a rare level-up stay separate
+ * messages: the trainer notify targets a different chat entirely, and a level-up is a distinct,
+ * infrequent cross-feature celebration (also fired from nutrition logging) not worth threading
+ * through every caller just to fold into this one. Clears any in-progress button-logging draft
+ * and returns the user to idle. */
 export async function finalizeWorkoutLog(
   ctx: MyContext,
   date: string,
@@ -169,8 +176,10 @@ export async function finalizeWorkoutLog(
   const outcome = await applyWorkoutSave(ctx.db, ctx.user, entries, date, weekday, rawText);
 
   await setMode(ctx, "idle"); // resets session to {mode} — also clears any logDraft
-  // Momentum recap: this week's count + streak, and flag a bonus (off-plan) session.
-  let saved = t(lang, "log_saved");
+
+  const sections: string[] = [t(lang, "log_saved")];
+
+  // Momentum: this week's count + streak, and flag a bonus (off-plan) session.
   try {
     const tz = ctx.user.profile.timezone;
     const [recent, plan] = await Promise.all([
@@ -182,17 +191,31 @@ export async function finalizeWorkoutLog(
     const streak = weekStreak(doneDates, date, ctx.user.reminders?.lastVacation);
     const planWeekdays = new Set((plan?.split ?? []).map((d) => d.weekday));
     const bonus = planWeekdays.size > 0 && !planWeekdays.has(weekday);
-    saved += `\n\n${t(lang, "log_saved_summary", { week: thisWeek, streak, bonus: bonus ? t(lang, "log_bonus") : "" })}`;
+    sections.push(t(lang, "log_saved_summary", { week: thisWeek, streak, bonus: bonus ? t(lang, "log_bonus") : "" }));
   } catch {
-    /* recap is optional */
+    /* momentum line is optional */
   }
-  await reply(ctx, saved, menuBtn(lang));
-  await celebrateRecords(ctx, outcome);
+
+  const { lines: celebration, kb } = await celebrationLines(ctx, outcome);
+  sections.push(...celebration);
+
+  const guidance = nextTargetGuidance(outcome.exercises, outcome.prExercises);
+  if (guidance.length) {
+    const guidanceLines = guidance.map((g) => {
+      const flag = g.overload ? ` ${t(lang, "recap_overload_flag")}` : "";
+      return `• <b>${escapeHtml(g.name)}</b> → 🎯 ${escapeHtml(g.target)}${flag}`;
+    });
+    sections.push(`${t(lang, "recap_next_target_title")}\n${guidanceLines.join("\n")}`);
+  }
+
+  const next = await nextSessionText(ctx);
+  if (next) sections.push(next);
+
+  await reply(ctx, sections.join("\n\n"), kb ?? menuBtn(lang));
   await notifyTrainerWorkout(ctx, true, outcome.exercises.length);
-  await showNextSession(ctx);
+  await maybeCelebrateLevel(ctx);
 }
 
-// Celebrate a new PR (with a global rank if opted in) and any freshly-earned badges.
 /** Share + invite offered at a celebration moment (PR, badge, level-up). */
 function celebrationShareKb(lang: Lang): InlineKeyboard {
   return new InlineKeyboard()
@@ -200,9 +223,15 @@ function celebrationShareKb(lang: Lang): InlineKeyboard {
     .text(t(lang, "menu_invite"), "invite");
 }
 
-export async function celebrateRecords(ctx: MyContext, outcome: WorkoutSaveOutcome) {
+/** PR + badge text for the coach recap — everything except the actual `reply()`, so
+ * finalizeWorkoutLog can fold this into one message instead of the celebration living as its
+ * own separate send. The squad-announce side effect still fires independently (a different
+ * chat entirely, not something a "one message" merge could apply to). */
+async function celebrationLines(ctx: MyContext, outcome: WorkoutSaveOutcome): Promise<{ lines: string[]; kb?: InlineKeyboard }> {
   const lang = ctx.user.lang;
   const { prHit, freshBadges: fresh } = outcome;
+  const lines: string[] = [];
+  let kb: InlineKeyboard | undefined;
 
   if (prHit) {
     let msg: string;
@@ -222,10 +251,11 @@ export async function celebrateRecords(ctx: MyContext, outcome: WorkoutSaveOutco
     // on ctx.user by applyWorkoutSave).
     const prCount = ctx.user.reminders?.prCount ?? 0;
     msg += "\n" + t(lang, `pr_praise${(prCount % 3) + 1}` as TKey, { n: prCount });
+    lines.push(msg);
     // A personal record is the moment someone actually wants to tell people. Offering the share
     // and invite here is the whole reason the referral machinery exists — buried in a settings
     // menu it never fires, because nobody opens settings feeling proud.
-    await reply(ctx, msg, celebrationShareKb(lang));
+    kb = celebrationShareKb(lang);
     // …and if they're in a squad, the group hears about it without anyone having to brag. Sent
     // past the response: a group post must never be able to fail the workout save behind it.
     const best =
@@ -237,16 +267,22 @@ export async function celebrateRecords(ctx: MyContext, outcome: WorkoutSaveOutco
     ctx.waitUntil(announceSquadPr(ctx.db, ctx.api, ctx.user._id, cleanAi(prHit.name), best));
   }
   if (fresh.length) {
-    await reply(ctx, t(lang, "badge_unlocked", { badges: fresh.map((c) => badgeLabel(lang, c)).join(", ") }), celebrationShareKb(lang));
+    lines.push(t(lang, "badge_unlocked", { badges: fresh.map((c) => badgeLabel(lang, c)).join(", ") }));
+    kb ??= celebrationShareKb(lang);
   }
-  await maybeCelebrateLevel(ctx);
+  return { lines, kb };
 }
 
 // After a workout is logged/skipped, surface the next dated session (complete & advance).
 export async function showNextSession(ctx: MyContext) {
+  const text = await nextSessionText(ctx);
+  if (text) await reply(ctx, text);
+}
+
+async function nextSessionText(ctx: MyContext): Promise<string | null> {
   const lang = ctx.user.lang;
   const plan = await getActivePlan(ctx.db, ctx.user._id);
-  if (!plan) return;
+  if (!plan) return null;
   const tz = ctx.user.profile.timezone;
   const logs = (await workoutLogsSince(ctx.db, ctx.user._id, localCutoff(tz, 14))).map((l) => ({
     date: l.date,
@@ -254,12 +290,8 @@ export async function showNextSession(ctx: MyContext) {
   }));
   // Next session strictly after today.
   const next = upcomingSessions(lang, plan, tz, logs, 1, true)[0];
-  if (next) {
-    await reply(
-      ctx,
-      `${t(lang, "next_session")}\n\n🏋️ <b>${escapeHtml(next.label)} — ${escapeHtml(next.day.muscleGroup)}</b>\n` + renderDayInline(next.day),
-    );
-  }
+  if (!next) return null;
+  return `${t(lang, "next_session")}\n\n🏋️ <b>${escapeHtml(next.label)} — ${escapeHtml(next.day.muscleGroup)}</b>\n` + renderDayInline(next.day);
 }
 
 export function renderDayInline(day: PlanDay): string {

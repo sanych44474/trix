@@ -17,7 +17,7 @@ import { getUser, listCandidatesByMuscles, updateActivePlanSplit, updateUser } f
 import { t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { translatePlanExercises } from "./plan";
-import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply } from "../bot";
+import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply } from "../adapters/telegram/context";
 
 const DAY_GROUPS: { id: string; muscles: string[] }[] = [
   { id: "chest", muscles: ["chest", "triceps"] },

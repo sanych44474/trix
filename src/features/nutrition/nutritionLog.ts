@@ -1,20 +1,21 @@
 // AI food logging: text/photo estimation, USDA/OFF/user-correction verification against the
 // AI's guess, the meal-confirmation card (photo logging only — text logs straight through) and
-// its per-item edit/portion-scale sub-flows. Extracted from bot.ts (god-file split; same barrel
-// seam via bot.ts's `export * from "./bot/nutritionLog"`).
+// its per-item edit/portion-scale sub-flows. Part of the nutrition feature slice (roadmap item
+// 1); bot.ts's barrel seam still applies: `export * from "./features/nutrition/nutritionLog"`.
 import { InlineKeyboard } from "grammy";
-import { logInfo } from "../log";
-import type { Weekday } from "../types";
-import { type InlineImage, aiJSON, aiVisionJSON } from "../ai";
-import { lookupPer100gCached } from "../ai/nutritionDb";
-import * as P from "../ai/prompts";
-import { appendMeals, getActivePlan, getUserFoodCorrection, updateUser } from "../db/repos";
-import { scaleMealEntry } from "../domain/mealplan";
-import { localParts } from "../domain/progression";
-import { escapeHtml, t } from "../locales/i18n";
-import { deferAi, maybeCelebrateLevel } from "./router";
-import { showEveningSurvey } from "./survey";
-import { type MyContext, cleanFoodName, menuBtn, reply, setMode } from "../bot";
+import { logInfo } from "../../log";
+import type { Weekday } from "../../types";
+import { type InlineImage, aiJSON, aiVisionJSON } from "../../ai";
+import { lookupPer100gCached } from "../../ai/nutritionDb";
+import * as P from "../../ai/prompts";
+import { appendMeals, getActivePlan, getUserFoodCorrection, updateUser } from "../../db/repos";
+import { scaleMealEntry } from "../../domain/mealplan";
+import { localParts } from "../../domain/progression";
+import { escapeHtml, t } from "../../locales/i18n";
+import { deferAi, maybeCelebrateLevel } from "../../bot/router";
+import { showEveningSurvey } from "../../bot/survey";
+import { type MyContext, reply, setMode } from "../../adapters/telegram/context";
+import { cleanFoodName, menuBtn } from "../../bot";
 
 // Coerce any AI value (number, numeric string, or junk) to a finite integer.
 export function num(x: unknown): number {

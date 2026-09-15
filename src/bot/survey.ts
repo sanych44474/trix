@@ -1,5 +1,5 @@
 // Evening survey checklist + cardio quick-log flows, extracted from bot.ts. Imports flow
-// entrypoints back from ../bot (same value-cycle pattern as bot/trainer.ts — all calls happen
+// entrypoints back from ../bot (same value-cycle pattern as features/trainer/trainer.ts — all calls happen
 // at request time, after both modules are initialized).
 import { InlineKeyboard } from "grammy";
 import { localParts, parseWorkoutText } from "../domain/progression";
@@ -12,16 +12,8 @@ import {
   waterLogsSince,
 } from "../db/repos";
 import { t } from "../locales/i18n";
-import {
-  cmdCheckin,
-  cmdNutrition,
-  cmdSteps,
-  cmdWater,
-  handleWorkoutLog,
-  menuBtn,
-  reply,
-  type MyContext,
-} from "../bot";
+import { reply, type MyContext } from "../adapters/telegram/context";
+import { cmdCheckin, cmdNutrition, cmdSteps, cmdWater, handleWorkoutLog, menuBtn } from "../bot";
 import type { Lang, UserDoc } from "../types";
 
 // ===================== Evening survey checklist =====================

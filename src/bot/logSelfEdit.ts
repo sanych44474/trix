@@ -12,10 +12,11 @@ import { getActivePlan, getDayMeals, getWorkoutLog, listStrength, nutritionLogsS
 import { per100gCorrectionFrom } from "../domain/mealplan";
 import { bestSetForMetric, getPlanDay, metricOfSets, normalizeExercise, parseWorkoutText, formatSetEntry } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
-import { num } from "./nutritionLog";
+import { num } from "../features/nutrition/nutritionLog";
 import { weekdayOf } from "./calendar";
 import { localCutoff } from "./report";
-import { type MyContext, alcoholKcalOf, cleanFoodName, reply, setMode } from "../bot";
+import { type MyContext, reply, setMode } from "../adapters/telegram/context";
+import { alcoholKcalOf, cleanFoodName } from "../bot";
 
 export async function showMyLogHub(ctx: MyContext, tab: "workout" | "nutrition" = "workout") {
   const lang = ctx.user.lang;

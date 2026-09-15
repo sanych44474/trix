@@ -5,6 +5,10 @@
 // unrelated banners elsewhere in repos.ts — moved here where they actually belong.
 import type { PlanAdjustmentDoc, PlanBankEntry, PlanDoc, ProgressionRate } from "../../types";
 import { nowIso, type DB } from "./shared";
+import { PLAN_SCHEMA_VERSION, parsePlanDoc, parsePlanSplit, PlanValidationError } from "../../domain/plan-schema";
+import { hasCriticalIssues, lintPlan, type LintIssue } from "../../domain/plan-lint";
+import { existingCatalogIds } from "./catalog";
+import { listActiveInjuries } from "./tracking";
 
 interface PlanRow {
   userId: number;
@@ -16,6 +20,7 @@ interface PlanRow {
   supplements: string;
   methodology: string;
   generatedAt: string;
+  schemaVersion: number | null;
   meta: string | null;
 }
 
@@ -38,16 +43,26 @@ function planMetaJson(plan: PlanDoc): string | null {
   return Object.keys(meta).length ? JSON.stringify(meta) : null;
 }
 
+// Strict: throws PlanValidationError on malformed JSON or a schema mismatch rather than
+// silently substituting an empty split/default nutrition — a corrupted plan must surface as an
+// error, not render as if the user simply has no plan. Single-user reads (getActivePlan,
+// getDraftPlan) let this propagate; listActivePlans (bulk cron prefetch, see below) catches it
+// per-row so one corrupted user's plan can't blank out reminders for everyone else.
 function toPlan(r: PlanRow): PlanDoc {
   let meta: PlanMeta = {};
-  if (r.meta) { try { meta = JSON.parse(r.meta); } catch { meta = {}; } }
-  let split: PlanDoc["split"] = [];
-  try { split = JSON.parse(r.split); } catch { split = []; }
-  let nutrition: PlanDoc["nutrition"] = { calories: 0, protein: 0, fats: 0, carbs: 0 };
-  try { nutrition = JSON.parse(r.nutrition); } catch { /* keep default */ }
-  let supplements: PlanDoc["supplements"] = [];
-  try { supplements = JSON.parse(r.supplements); } catch { supplements = []; }
-  return {
+  if (r.meta) { try { meta = JSON.parse(r.meta); } catch { meta = {}; } } // meta is best-effort extras, not core plan data
+  let split: unknown, nutrition: unknown, supplements: unknown;
+  try {
+    split = JSON.parse(r.split);
+    nutrition = JSON.parse(r.nutrition);
+    supplements = JSON.parse(r.supplements);
+  } catch (err) {
+    throw new PlanValidationError(
+      `Plan row for user ${r.userId} has malformed JSON: ${err instanceof Error ? err.message : String(err)}`,
+      [],
+    );
+  }
+  return parsePlanDoc({
     userId: r.userId,
     active: !!r.active,
     status: (r.status as "draft" | "active") ?? "active",
@@ -57,12 +72,32 @@ function toPlan(r: PlanRow): PlanDoc {
     supplements,
     methodology: r.methodology,
     generatedAt: new Date(r.generatedAt),
+    schemaVersion: r.schemaVersion ?? PLAN_SCHEMA_VERSION,
     ...(typeof meta.stepsTarget === "number" ? { stepsTarget: meta.stepsTarget } : {}),
     ...(meta.restDayNutrition ? { restDayNutrition: meta.restDayNutrition } : {}),
     ...(meta.movementAudit ? { movementAudit: meta.movementAudit } : {}),
     ...(typeof meta.deloadInterval === "number" ? { deloadInterval: meta.deloadInterval } : {}),
     ...(meta.mesocycle ? { mesocycle: meta.mesocycle } : {}),
-  };
+  });
+}
+
+/** plan_lint just before a save — fetches only what the checks need (catalog ids referenced by
+ * this plan, this user's active injury swaps) rather than the whole catalog. Throws on any
+ * critical issue; warnings are returned so the caller can log them without blocking the save. */
+async function lintBeforeSave(db: DB, plan: PlanDoc): Promise<LintIssue[]> {
+  const referencedIds = plan.split.flatMap((d) => d.exercises.map((e) => e.exerciseId).filter((id): id is string => !!id));
+  const [knownCatalogIds, activeInjurySwaps] = await Promise.all([
+    existingCatalogIds(db, referencedIds),
+    listActiveInjuries(db, plan.userId).then((injuries) => injuries.flatMap((i) => i.swaps)),
+  ]);
+  const issues = lintPlan(plan, { knownCatalogIds, activeInjurySwaps });
+  if (hasCriticalIssues(issues)) {
+    throw new PlanValidationError(
+      `Plan for user ${plan.userId} failed plan_lint: ${issues.filter((i) => i.severity === "critical").map((i) => i.code).join(", ")}`,
+      [],
+    );
+  }
+  return issues;
 }
 
 export async function getActivePlan(db: DB, userId: number): Promise<PlanDoc | null> {
@@ -75,19 +110,39 @@ export async function getActivePlan(db: DB, userId: number): Promise<PlanDoc | n
 
 /** All users' active plans in ONE query — bulk prefetch for the hourly scheduler pass
  * (replaces a getActivePlan per user). Ordered ASC so on a (shouldn't-happen) duplicate
- * the newest row wins in a Map, matching getActivePlan's ORDER BY id DESC. */
+ * the newest row wins in a Map, matching getActivePlan's ORDER BY id DESC.
+ * Unlike getActivePlan/getDraftPlan, a single corrupted row here must NOT throw: this feeds the
+ * hourly cron pass for every user, and both call sites `.catch(() => [])` around it — one bad
+ * plan throwing would silently drop reminders for every user, not just the corrupted one. The
+ * corrupted row is skipped and logged instead. */
 export async function listActivePlans(db: DB): Promise<PlanDoc[]> {
   const r = await db.prepare("SELECT * FROM plans WHERE active = 1 ORDER BY id ASC").all<PlanRow>();
-  return (r.results ?? []).map(toPlan);
+  const plans: PlanDoc[] = [];
+  for (const row of r.results ?? []) {
+    try {
+      plans.push(toPlan(row));
+    } catch (err) {
+      console.error("listActivePlans: skipping corrupted plan row", row.userId, err);
+    }
+  }
+  return plans;
+}
+
+/** Cheap count for daily_metrics' `active_plans` — a snapshot at rollup time (the plans table
+ * has no per-day history to backfill a past day against, unlike the user/log tables). */
+export async function countActivePlans(db: DB): Promise<number> {
+  const r = await db.prepare("SELECT COUNT(*) AS c FROM plans WHERE active = 1").first<{ c: number }>();
+  return r?.c ?? 0;
 }
 
 export async function setActivePlan(db: DB, plan: PlanDoc): Promise<void> {
+  await lintBeforeSave(db, plan);
   await db.batch([
     db.prepare("UPDATE plans SET active = 0 WHERE userId = ? AND active = 1").bind(plan.userId),
     db
       .prepare(
-        `INSERT INTO plans (userId, active, status, authoredBy, split, nutrition, supplements, methodology, generatedAt, meta)
-         VALUES (?, 1, 'active', ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO plans (userId, active, status, authoredBy, split, nutrition, supplements, methodology, generatedAt, schemaVersion, meta)
+         VALUES (?, 1, 'active', ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         plan.userId,
@@ -97,6 +152,7 @@ export async function setActivePlan(db: DB, plan: PlanDoc): Promise<void> {
         JSON.stringify(plan.supplements),
         plan.methodology,
         plan.generatedAt.toISOString(),
+        plan.schemaVersion ?? PLAN_SCHEMA_VERSION,
         planMetaJson(plan),
       ),
   ]);
@@ -104,12 +160,13 @@ export async function setActivePlan(db: DB, plan: PlanDoc): Promise<void> {
 
 // Save a trainer-authored DRAFT (not active) for a client; replaces any prior draft.
 export async function saveDraftPlan(db: DB, plan: PlanDoc): Promise<void> {
+  await lintBeforeSave(db, plan);
   await db.batch([
     db.prepare("DELETE FROM plans WHERE userId = ? AND status = 'draft'").bind(plan.userId),
     db
       .prepare(
-        `INSERT INTO plans (userId, active, status, authoredBy, split, nutrition, supplements, methodology, generatedAt, meta)
-         VALUES (?, 0, 'draft', ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO plans (userId, active, status, authoredBy, split, nutrition, supplements, methodology, generatedAt, schemaVersion, meta)
+         VALUES (?, 0, 'draft', ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         plan.userId,
@@ -119,6 +176,7 @@ export async function saveDraftPlan(db: DB, plan: PlanDoc): Promise<void> {
         JSON.stringify(plan.supplements),
         plan.methodology,
         plan.generatedAt.toISOString(),
+        plan.schemaVersion ?? PLAN_SCHEMA_VERSION,
         planMetaJson(plan),
       ),
   ]);
@@ -132,11 +190,14 @@ export async function getDraftPlan(db: DB, userId: number): Promise<PlanDoc | nu
   return r ? toPlan(r) : null;
 }
 
-// Persist edits to the client's draft split (trainer swap).
+// Persist edits to the client's draft split (trainer swap). Validates shape before writing —
+// this bypasses setActivePlan/saveDraftPlan, so without this check a malformed split written
+// here would only surface as a PlanValidationError the next time the plan is read.
 export async function updateDraftSplit(db: DB, userId: number, split: unknown): Promise<void> {
+  const validated = parsePlanSplit(split);
   await db
     .prepare("UPDATE plans SET split = ? WHERE userId = ? AND status = 'draft'")
-    .bind(JSON.stringify(split), userId)
+    .bind(JSON.stringify(validated), userId)
     .run();
 }
 
@@ -230,9 +291,10 @@ export async function setProgressionRate(db: DB, userId: number, rate: Progressi
 }
 
 export async function updateActivePlanSplit(db: DB, userId: number, split: unknown): Promise<void> {
+  const validated = parsePlanSplit(split);
   await db
     .prepare("UPDATE plans SET split = ? WHERE userId = ? AND active = 1")
-    .bind(JSON.stringify(split), userId)
+    .bind(JSON.stringify(validated), userId)
     .run();
 }
 

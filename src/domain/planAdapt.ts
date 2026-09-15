@@ -1,5 +1,6 @@
 import type { BankPlan, PlanDay, PlanDoc, PlanExercise, UserProfile, Weekday } from "../types";
 import { computeTargets } from "./mealplan";
+import { PLAN_SCHEMA_VERSION } from "./plan-schema";
 
 // Pure per-user adapter: turns a generic bank plan into a personalized PlanDoc — remaps the
 // training days to the client's chosen weekdays, scales starting weights to their bodyweight
@@ -103,6 +104,7 @@ export function adaptPlan(
     methodology: bank.methodology,
     ...(bank.movementAudit ? { movementAudit: bank.movementAudit } : {}),
     generatedAt: new Date(),
+    schemaVersion: PLAN_SCHEMA_VERSION,
     ...(typeof bank.stepsTarget === "number" ? { stepsTarget: bank.stepsTarget } : {}),
   };
 }

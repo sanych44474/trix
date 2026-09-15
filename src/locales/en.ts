@@ -4,6 +4,10 @@ export const en = {
   start_greeting:
     "Hi! I'm *trix* — your personal AI strength & nutrition coach.\n\nI'll ask you a few questions like a real trainer would, then build a plan tailored to you. Ready? Let's start.",
   welcome_back: "Welcome back! Use the menu below or just talk to me like your coach.",
+  nba_first_workout: "💪 Welcome back! Let's get your very first workout logged — here's what's up:",
+  nba_recovery: "👋 It's been a couple of sessions — no worries, let's just pick back up from here:",
+  nba_checkin: "🧠 Quick check-in before we get into training:",
+  nba_nutrition: "🍽 Nice work training today — let's log what you ate:",
 
   help_title: "❓ *How to use trix*",
   help_body:
@@ -229,6 +233,8 @@ export const en = {
   log_saved: "Logged. Great work — keep it up! 💪",
   log_saved_summary: "📊 {week} this week · 🔥 {streak}-week streak{bonus}",
   log_bonus: " · 🎯 bonus session!",
+  recap_next_target_title: "🎯 <b>Next time:</b>",
+  recap_overload_flag: "(near max — hold this)",
   log_pick_exercise: "Tap an exercise to log its sets. Or tap *✍️ Text* to enter everything in one message.",
   log_finish: "✅ Done",
   log_swap_pick: "Bar taken? Pick a same-muscle alternative for <b>{name}</b> (this session only):",
@@ -396,6 +402,7 @@ export const en = {
   inj_saved_noswap: "🩹 Noted your {area}. Nothing in your plan conflicts — train as usual, but stop if it hurts.",
   inj_saved_noplan: "🩹 Noted your {area}. I'll keep it in mind for your next plan.",
   inj_saved_client: "🩹 Noted your {area} — I let your trainer know so they can adjust your plan.",
+  inj_escalate_strong: "⚠️ That sounds serious — please consider getting it checked by a doctor or physiotherapist before continuing to train through it. trix can adjust your plan around it, but can't diagnose it.",
   inj_client_notify: "🩹 <b>{name}</b> reported {area} pain ({sev}). Consider adjusting their plan.",
   inj_check_q: "🩹 How's the {area} feeling? (0 = all good … 10 = severe)",
   inj_check_ok: "✅ Recovered",
@@ -412,6 +419,7 @@ export const en = {
   inj_restored: "💪 Great — restored {n} original exercise(s). Ease back in.",
   inj_recovered_done: "💪 Marked as recovered. Ease back in and stop if pain returns.",
   inj_extended: "👍 Okay — I'll check again in a week. Keep it easy on that area.",
+  safety_exercise_blocked_injury: "🚫 Not applied: <b>{name}</b> conflicts with your active {area} injury. Pick a different exercise, or mark it recovered in Settings → Injuries if it's healed.",
   // --- Mini App dashboard ---
   menu_dashboard: "📊 Dashboard",
   app_log_btn: "📱 Log in the app",
@@ -648,7 +656,6 @@ export const en = {
   owner_regen: "♻️ Regenerate plan",
   owner_no_plan: "{name} has no plan yet — tap ♻️ Regenerate plan to build one.",
   edit_day_banner: "✏️ Editing {name}'s plan (not your own)",
-  edit_use_buttons: "✏️ You're editing another person's plan — use the buttons: tap an exercise → 🔄 Swap → ✏️ Enter your own to type a replacement, or ➕ Add exercise. Tap ✅ Done to finish.",
   owner_regen_run: "♻️ Regenerating {name}'s plan…",
   owner_regen_done: "✅ Regenerated {name}'s plan.",
   owner_assign_done: "✅ Assigned {name}'s draft as the active plan.",

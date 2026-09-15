@@ -1,23 +1,25 @@
-// Challenges (join a consistency goal, track progress, celebrate completion) — extracted from
-// bot.ts (god-file split; same barrel seam via bot.ts's `export * from "./bot/challenges"`).
+// Challenges (join a consistency goal, track progress, celebrate completion) — part of the
+// gamification feature slice (roadmap item 1), moved here from bot/challenges.ts. bot.ts's
+// barrel seam still applies: `export * from "./features/gamification/challenges"`.
 // The "Challenges" banner in bot.ts also held an unrelated cmdFeedback and the reminder on/off
 // settings (REMINDER_TYPES/showReminderSettings/onReminderToggle) — those stayed in bot.ts,
 // they aren't challenges code and moving them here would just relocate the same drift.
 import { InlineKeyboard } from "grammy";
-import type { Lang } from "../types";
+import type { Lang } from "../../types";
 import {
   activeChallengeCodes, activeChallenges, awardAchievement, countCompletedChallenges, joinChallenge, markChallengeDone,
   nutritionLogsSince, stepLogsSince, waterLogsSince, workoutLogsSince,
-} from "../db/repos";
+} from "../../db/repos";
 import {
   CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindowCounts, progressBar,
   type ChallengeData, type ChallengeTemplate,
-} from "../domain/challenges";
-import { challengeMilestones } from "../domain/records";
-import { localParts } from "../domain/progression";
-import { escapeHtml, t } from "../locales/i18n";
+} from "../../domain/challenges";
+import { challengeMilestones } from "../../domain/records";
+import { localParts } from "../../domain/progression";
+import { escapeHtml, t } from "../../locales/i18n";
 import { isoDateMinus } from "./boards";
-import { type MyContext, type TKey, clearEditOwner, menuBtn, reply, waterGoalFor } from "../bot";
+import { type MyContext, type TKey, clearEditOwner, reply } from "../../adapters/telegram/context";
+import { menuBtn, waterGoalFor } from "../../bot";
 
 // Gather the raw counts a challenge needs, over its [startDate, endDate] window. Progress is always
 // recomputed live from logs (so editing/deleting a log keeps it honest); only enrollment is stored.

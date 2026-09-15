@@ -13,7 +13,7 @@ import { cmdAdmin, cmdAnnounce, cmdOwnerReport, cmdRefreshVideos, cmdSetVideo, c
 import { obProgress, onboardingStep } from "./onboarding";
 import { onPlanRegenAi } from "./plan";
 import { showCardioMenu, showEveningSurvey } from "./survey";
-import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerBroadcast, cmdTrainerQuestions, cmdTrainerReport, handleAnswerQuestion, handleTemplateName, handleTrainerBroadcast, onTrainerLimitCycle, openFindTrainer, openTrainerEdit, shareAssignToClients, startShareMyPlan, toggleShareAll, trainerMenuActionFor, trainerSteps, twAdvance } from "./trainer";
+import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerBroadcast, cmdTrainerQuestions, cmdTrainerReport, handleAnswerQuestion, handleTemplateName, handleTrainerBroadcast, onTrainerLimitCycle, openFindTrainer, openTrainerEdit, shareAssignToClients, startShareMyPlan, toggleShareAll, trainerMenuActionFor, trainerSteps, twAdvance } from "../features/trainer/trainer";
 import { addProgressPhoto, awardAchievement, bumpEvent, deleteUserData, getActivePlan, getFoodTranslations, getMealPlan, getOrCreateUser, getTrainer, getUser, getWorkoutLog, recordAdjustment, recordDailyCheckin, recordError, recordPlanSource, saveMealPlan, setActivePlan, setLastSeen, updateTrainer, updateUser, upsertFoodTranslations, upsertWorkoutLog, userStatCounts } from "../db/repos";
 import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
 import { buildTemplateMealDay, dishName, expandExclusions } from "../domain/mealTemplate";
@@ -26,7 +26,8 @@ import { renderGroceryList, renderMealPlan } from "../render";
 import { handleGroupUpdate } from "./squad";
 import { groceryList } from "../domain/groceryList";
 import { type Env, type Lang, type Meal, type MealPlanDoc, type NutritionTargets, type SessionMode, type Weekday } from "../types";
-import { setAppUrl, MyContext, TKey, handleAliasInput, handleWeightEdit, handleSetsEdit, handleSwapCustom, handleAddExercise, handleExerciseAltText, handleWarmupEdit, menuActionFor, isEditingOther, adjustDifficulty, aiAuthorAndAdd, cmdAskInactive, cmdCalendar, cmdChallenges, cmdCleanup, cmdCoach, cmdDeleteMe, cmdExport, cmdExportJson, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdLang, cmdLog, cmdLogPast, cmdMeasure, cmdMenu, cmdNutrition, cmdPlan, cmdPlanChanges, cmdPlates, cmdProgress, cmdRecords, cmdReplan, cmdReport, cmdSchedule, cmdSettings, cmdStandards, cmdStart, cmdSteps, cmdToday, cmdVacation, cmdVolume, cmdWater, cmdWeekCard, cmdWellbeing, applyGymSwap, showGymSwapPicker, coachContext, defaultLang, endVacation, guardLogExit, handleCoach, handleExerciseConfirmation, handleNutrition, handlePhotoMeal, handleWorkoutLog, logBackToPick, logFinish, logSwitchToText, normalizeEvent, notifyTrainerWorkout, onCleanupAll, onGoalMaintain, onInactiveReply, onLevelUp, onLogExit, onMacrosSuggest, onMealConfirm, openSetsEditor, openWeightEditor, pickCycleLength, reply, setAlias, setMode, showAddDayPicker, showAthleteMenu, showChallengePicker, showCycleCalendar, showCycleSettings, showDayManager, showExerciseList, showInjuryAreas, showMealConfirm, showMealItemEditor, showMoreMenu, showMyLogHub, showNextSession, showProgressHub, showRecentFoods, showReminderSettings, showShareSettings, showTrainerClientsMenu, showWorkoutInfo, startAddExercise, startInterview, startSwapCustom, toggleCompete, toggleCycleTracking, undoDelete } from "../bot";
+import { MyContext, TKey, reply, setMode } from "../adapters/telegram/context";
+import { setAppUrl, handleAliasInput, handleWeightEdit, handleSetsEdit, handleSwapCustom, handleAddExercise, handleExerciseAltText, handleWarmupEdit, menuActionFor, adjustDifficulty, aiAuthorAndAdd, cmdAskInactive, cmdCalendar, cmdChallenges, cmdCleanup, cmdCoach, cmdDeleteMe, cmdExport, cmdExportJson, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdLang, cmdLog, cmdLogPast, cmdMeasure, cmdMenu, cmdNutrition, cmdPlan, cmdPlanChanges, cmdPlates, cmdProgress, cmdRecords, cmdReplan, cmdReport, cmdSchedule, cmdSettings, cmdStandards, cmdStart, cmdSteps, cmdToday, cmdVacation, cmdVolume, cmdWater, cmdWeekCard, cmdWellbeing, applyGymSwap, showGymSwapPicker, coachContext, defaultLang, endVacation, guardLogExit, handleCoach, handleExerciseConfirmation, handleNutrition, handlePhotoMeal, handleWorkoutLog, logBackToPick, logFinish, logSwitchToText, normalizeEvent, notifyTrainerWorkout, onCleanupAll, onGoalMaintain, onInactiveReply, onLevelUp, onLogExit, onMacrosSuggest, onMealConfirm, openSetsEditor, openWeightEditor, pickCycleLength, setAlias, showAddDayPicker, showAthleteMenu, showChallengePicker, showCycleCalendar, showCycleSettings, showDayManager, showExerciseList, showInjuryAreas, showMealConfirm, showMealItemEditor, showMoreMenu, showMyLogHub, showNextSession, showProgressHub, showRecentFoods, showReminderSettings, showShareSettings, showTrainerClientsMenu, showWorkoutInfo, startAddExercise, startInterview, startSwapCustom, toggleCompete, toggleCycleTracking, undoDelete } from "../bot";
 
 import { getCatalogExercise, updatePlanMesocycle } from "../db/repos";
 import { INJURY_AREAS, type InjuryArea } from "../domain/injury";
@@ -34,7 +35,7 @@ import { defaultMesocycle, phaseGuidance } from "../domain/mesocycle";
 import { onboardingButton } from "./onboarding";
 import { ownerUserAction, sendOwnerSection, startVideoPick, startVideoSet } from "./owner";
 import { handleCardioLog, onSurveyItem, showCardioPlans, showCardioSession, startCardioLog } from "./survey";
-import { clientCardAction, handleClientLogEdit, handleClientReply, handleProspectName, handleShareMyPlanName, handleTrainerBirthday, handleTrainerHealth, handleTrainerMessage, handleTrainerNote, handleTrainerPersonal, handleTwText, joinByCode, onMiniInterview, onQuestionOwn, onQuestionSend, onQuestionSkip, onRequestAccept, onRequestCancel, onRequestDecline, onTemplateDelete, onTrainerApprove, onTrainerReject, shareLink, sharePublish, shareTemplateMenu, showClientLogDay, showSharedProgram, startClientLogEdit, startProspectInvite, startShareSelect, takeSharedProgram, toggleShareClient, trainerWizardButton, twEditField } from "./trainer";
+import { clientCardAction, handleClientLogEdit, handleClientReply, handleProspectName, handleShareMyPlanName, handleTrainerBirthday, handleTrainerHealth, handleTrainerMessage, handleTrainerNote, handleTrainerPersonal, handleTwText, joinByCode, onMiniInterview, onQuestionOwn, onQuestionSend, onQuestionSkip, onRequestAccept, onRequestCancel, onRequestDecline, onTemplateDelete, onTrainerApprove, onTrainerReject, shareLink, sharePublish, shareTemplateMenu, showClientLogDay, showSharedProgram, startClientLogEdit, startProspectInvite, startShareSelect, takeSharedProgram, toggleShareClient, trainerWizardButton, twEditField } from "../features/trainer/trainer";
 import { applyCatalogExerciseChoice, comebackButton, confirmDeleteDay, createPlanDay, deleteExerciseFromToday, deletePlanDay, endReorder, endSelfEdit, handleBodyEdit, handleCalcWeight, handleCoachAction, handleComebackText, handleFeedback, handleFoodProduct, handleFoodWeight, handleGoalWeight, handleInactiveFeedback, handleLogDraftInput, handleMealClarify, handleMealItemFix, handleMealMacroEdit, handleMeasure, handleMyLogNutritionEdit, handleMyLogWorkoutEdit, handleSkipReason, handleStepsLog, handleVacationCustom, logPickExercise, logSwapFromCatalog, moveExercise, onCalDay, onCalNav, onChallengeJoin, onCleanupDelete, onCycleCalNav, onExerciseChart, onFoodDelete, onFoodEditProduct, onFoodEditWeight, onInjuryExtend, onInjuryRecovered, onInjuryScore, onMealItemDelete, onMealItemMenu, onMealItemReplace, onMealPortion, onQualityFollowupSkip, onQualityRating, onReLog, onReminderToggle, onRestTimer, onSetHour, onSetTz, onSmartHour, onToggleDay, onWaterAction, openSetting, pickCycleDate, reportInjury, resumePendingPlan, saveWarmup, selectExerciseSets, selectExerciseWeight, setCycleLength, setEntryRpe, setVacationDays, showDayGroupPicker, showDeleteExerciseMenu, showFoodItem, showInjurySeverity, showInjuryTrend, showLogSwapAlternatives, showMyLogNutritionDay, showMyLogWorkoutDay, showReorder, showSwapAlternatives, showWarmupEditor, startMealMacroEdit, startMyLogNutritionEdit, startMyLogWorkoutEdit, startPastLog, startSetEdit, suggestWarmup, swapFromCatalog, swapMenu, toggleShare } from "../bot";
 
 export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
@@ -511,7 +512,7 @@ export async function handleAdaptiveCheckin(ctx: MyContext, text: string) {
   await ctx.replyWithChatAction("typing").catch(() => {});
   deferAi(ctx, "coach", async () => {
     const result = await aiJSON<P.AdaptiveResult>(ctx.env, {
-      system: P.adaptiveAdjustmentSystem(lang, ctx.user.profile, await coachContext(ctx)),
+      system: P.adaptiveAdjustmentSystem(lang, ctx.user.profile, await coachContext(ctx, ctx.user)),
       user: text,
       schema: P.ADAPTIVE_SCHEMA,
       temperature: 0.5,
@@ -1399,10 +1400,11 @@ export async function routeUserText(ctx: MyContext, text: string) {
   }
   const handler = (MODE_TEXT_HANDLERS as Partial<Record<SessionMode, TextHandler>>)[mode];
   if (handler) { await handler(ctx, text); return; }
-  // While editing someone ELSE's plan, free text must NOT fall to the coach — the coach acts on
-  // the operator's OWN plan, so a typed exercise name silently edited the wrong plan. Point them
-  // at the deterministic edit buttons (tap the exercise → 🔄 → ✏️ Ввести свою to type a swap).
-  if (isEditingOther(ctx)) { await reply(ctx, t(ctx.user.lang, "edit_use_buttons")); return; }
+  // While editing someone ELSE's plan (trainer -> client), free text now goes to the AI coach
+  // grounded in THAT client's plan/history (coachContext resolves the target via planOwnerId —
+  // see bot/coach.ts), not a silent edit of the operator's own plan as it used to before the
+  // coach was made owner-aware. Roadmap item 0: the trainer gets the same AI-coach interface for
+  // a client that a solo user has for themselves, with edits gated by the item-7 safety layer.
   await handleCoach(ctx, text);
 }
 

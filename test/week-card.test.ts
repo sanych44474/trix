@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { weekStats } from "../src/domain/weekCard";
-import { buildWeekCard, computeWeekCardStats, formatWeekCardText } from "../src/bot/weekCard";
+import { buildWeekCard, computeWeekCardStats, formatWeekCardText } from "../src/features/gamification/weekCard";
 import { newDb } from "./harness";
 import { getOrCreateUser, upsertWorkoutLog } from "../src/db/repos";
 import type { WorkoutLogDoc } from "../src/types";

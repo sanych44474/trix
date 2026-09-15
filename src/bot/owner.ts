@@ -14,7 +14,7 @@ import {
   nonOnboardedByMode, pendingRequestsAll, pendingTrainerApplications, planStatusByUser,
   getTrainer, updateTrainer,
   recentAudit, recentErrors, recentEventsForUser, recentFeedback, recordAudit, setActivePlan,
-  setManualVideo, setOwnerChatId, setUserVideo, updateUser, upsertExerciseVideo,
+  setManualVideo, setOwnerChatId, stampOnboardedAt, setUserVideo, updateUser, upsertExerciseVideo,
 } from "../db/repos";
 import { formatRecordBest, getPlanDay } from "../domain/progression";
 import { weekStartStr } from "../domain/records";
@@ -26,11 +26,9 @@ import { aiJSON } from "../ai/index";
 import * as P from "../ai/prompts";
 import { YouTubeQuotaError, normalizeVideoKey, parseYouTubeId, searchExerciseVideo } from "../youtube";
 import { ownerHubMenu } from "./keyboards";
-import {
-  type MyContext, HTML, buildPlanDoc, clearEditOwner, deferAi, mainMenu, menuBtn,
-  obSteps, planOwnerId, reply, setMode,
-} from "../bot";
-import { showPlanEditPicker, showPlanEditDay } from "./trainer";
+import { type MyContext, HTML, clearEditOwner, planOwnerId, reply, setMode } from "../adapters/telegram/context";
+import { buildPlanDoc, deferAi, mainMenu, menuBtn, obSteps } from "../bot";
+import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/trainer";
 
 
 // ---------------- owner / admin ----------------
@@ -492,6 +490,7 @@ export async function ownerUserAction(ctx: MyContext, userId: number, action: st
       if (!target.onboarded) {
         logInfo("onboarding_completed", { role: target.role });
         logInfo("first_plan_ready", { source: "ai" });
+        await stampOnboardedAt(ctx.db, userId).catch(() => {});
       }
       await updateUser(ctx.db, userId, { onboarded: true, nutrition: plan.nutrition, session: { mode: "idle" } });
       await reply(ctx, t(lang, "owner_regen_done", { name: uname }), ownerUserKb(lang, userId, false, !!target.blocked));

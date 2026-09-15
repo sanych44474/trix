@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
 import { getOrCreateUser, updateUser, getUser, setActivePlan, applyTrainer, approveTrainer, updateTrainer, getTrainer, linkClient, saveTrainerTemplate, getActivePlan } from "../src/db/repos";
 import { setMode, startAddExercise, cmdLog, logPickExercise, handleLogDraftInput, guardLogExit, onLogExit, healPlanNamesForDisplay, setEntryRpe, logFinish, routeUserText, moveExercise } from "../src/bot";
-import { startShareSelect, toggleShareClient, shareAssignToClients, shareLink, sharePublish, cmdLibrary, takeSharedProgram } from "../src/bot/trainer";
+import { startShareSelect, toggleShareClient, shareAssignToClients, shareLink, sharePublish, cmdLibrary, takeSharedProgram } from "../src/features/trainer/trainer";
 import { listPublicPrograms, getSharedProgram, upsertExercise, upsertExerciseTranslation } from "../src/db/repos";
 import type { PlanDoc, UserDoc } from "../src/types";
 
@@ -224,7 +224,7 @@ test("render self-heal localizes English exercise names on view and persists", a
   await upsertExerciseTranslation(db, exId, "uk", { name: "Жим гантелей лежачи", instructions: "Тисни вгору.", safetyInfo: "" } as never);
   // An active plan that stored the ENGLISH name (as a pre-fix template/shared assign would).
   const p = plan(301);
-  p.split[0].exercises[0] = { name: "Dumbbell Bench Press", exerciseId: exId, sets: "3 × 8-12", startWeight: "20 kg", muscles: "chest" } as never;
+  p.split[0].exercises[0] = { name: "Dumbbell Bench Press", exerciseId: exId, sets: "3 × 8-12", startWeight: "20 kg", technique: "Press up.", muscles: "chest" } as never;
   await setActivePlan(db, p);
 
   const stored = (await getActivePlan(db, 301))!;

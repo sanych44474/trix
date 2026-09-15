@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
 import { applyTrainer, approveTrainer, getOrCreateUser, getUser, updateUser } from "../src/db/repos";
 import { getProspect, listProspects } from "../src/db/repos/trainer";
-import { handleProspectName, joinByCode, joinByProspectCode, startProspectInvite } from "../src/bot/trainer";
+import { handleProspectName, joinByCode, joinByProspectCode, startProspectInvite } from "../src/features/trainer/trainer";
 import type { UserDoc } from "../src/types";
 
 async function setupApprovedTrainer(db: ReturnType<typeof newDb>, tid = 300) {

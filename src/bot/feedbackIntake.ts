@@ -5,7 +5,8 @@ import { InlineKeyboard } from "grammy";
 import { getOwnerChatId, insertFeedback } from "../db/repos";
 import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
-import { type MyContext, HTML, menuBtn, reply, setMode } from "../bot";
+import { type MyContext, HTML, reply, setMode } from "../adapters/telegram/context";
+import { menuBtn } from "../bot";
 
 export async function handleFeedback(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;

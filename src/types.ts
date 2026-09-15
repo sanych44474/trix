@@ -253,6 +253,9 @@ export interface UserSession {
         query: string;
         englishQuery: string;
         catalogId?: string;
+        // Who initiated this edit — for the plan_change_log audit trail (db/repos/planChangeLog.ts
+        // PlanChangeSource). Absent = "manual" (the pre-existing behavior, e.g. plain text swap).
+        source?: "ai_coach" | "manual";
       }
     | undefined;
   trainerDraft?: TrainerProfileInput; // in-progress answers during the trainer profile wizard
@@ -474,6 +477,9 @@ export interface PlanDoc {
   supplements: Supplement[];
   methodology: string;
   generatedAt: Date;
+  /** Shape version, see domain/plan-schema.ts PLAN_SCHEMA_VERSION. Rows predating this
+   * (migration 0065) are backfilled to 1. */
+  schemaVersion: number;
   stepsTarget?: number; // daily NEAT steps target
   restDayNutrition?: NutritionTargets; // lower-carb/calorie macros for non-training days
   movementAudit?: string; // one-line weekly movement-pattern coverage summary
