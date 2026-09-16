@@ -290,7 +290,7 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
   const isPastEdit = date !== local.date;
 
   const saveEntries: WorkoutSaveEntry[] = entries.map((e) => ({ name: e.name, sets: e.sets, rpe: e.rpe }));
-  const outcome = await applyWorkoutSave(env.DB, user, saveEntries, date, weekday, buildRawText(entries));
+  const outcome = await applyWorkoutSave(env.DB, user, saveEntries, date, weekday, buildRawText(entries), isPastEdit);
   const fresh = [...outcome.freshBadges];
 
   // Level bookkeeping — same decision as maybeCelebrateLevel, minus the chat message (the app

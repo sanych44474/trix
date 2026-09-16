@@ -99,6 +99,7 @@ export async function applyWorkoutSave(
   date: string,
   weekday: Weekday,
   rawText: string,
+  isPastEdit = false, // true when `date` is a backfilled day, not today (Mini App only -- the chat path always logs today)
 ): Promise<WorkoutSaveOutcome> {
   const exercises: LoggedExercise[] = entries.map((e) => ({
     name: e.name,
@@ -111,7 +112,7 @@ export async function applyWorkoutSave(
   // is never their first. A pre-save count of 0 means it unambiguously is, no further check needed.
   const isFirstEver = (await countCompletedWorkouts(db, user._id).catch(() => 1)) === 0;
   await upsertWorkoutLog(db, user._id, date, weekday, exercises, true, rawText);
-  logInfo("workout_completed", { exerciseCount: entries.length }); // shared by both surfaces on purpose (see this function's own doc comment)
+  logInfo("workout_completed", { exerciseCount: entries.length, pastDate: isPastEdit }); // shared by both surfaces on purpose (see this function's own doc comment)
   if (isFirstEver) logInfo("first_workout_completed", {});
 
   const prExercises: string[] = [];

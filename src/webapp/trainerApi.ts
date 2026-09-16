@@ -8,7 +8,7 @@ import {
   recordAudit,
   setUserFlag,
 } from "../adapters/d1/v2Admin";
-import { assignDraftPlan, saveDraftPlan } from "../adapters/d1/v2Plans";
+import { assignDraftPlan, getActivePlan, saveDraftPlan } from "../adapters/d1/v2Plans";
 import {
   deleteTrainerTemplate,
   getClientCard,
@@ -19,6 +19,7 @@ import {
   listClients,
   listQuestionsForTrainer,
   listTrainerTemplates,
+  saveTrainerTemplate,
   setClientCard,
   setClientNote,
   setQuestionStatus,
@@ -31,7 +32,7 @@ import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { buildClientCardPayload } from "./clientCard";
 import { readJsonBody } from "./validate";
-import type { Env, UserDoc } from "../types";
+import type { BankPlan, Env, UserDoc } from "../types";
 
 const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
@@ -99,6 +100,30 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       await recordAudit(env.DB, user._id, "template_assign", client._id, tpl.name).catch(() => {});
       await tgSend(env, client.chatId, t(client.lang, "client_plan_assigned"));
       return Response.json({ ok: true });
+    }
+    if (b.action === "create") {
+      // "Save this client's current active plan as a reusable template" — the minimal
+      // creation flow: no plan-authoring UI, just snapshot an existing plan for later reuse.
+      const name = textField(b.name);
+      if (!name) return Response.json({ error: "bad request" }, { status: 400 });
+      const fromClientId = Number(b.fromClientId);
+      if (!Number.isFinite(fromClientId)) return Response.json({ error: "bad request" }, { status: 400 });
+      const client = await getClientForTrainer(env.DB, user._id, fromClientId);
+      if (!client) return Response.json({ error: "not found" }, { status: 404 });
+      const plan = await getActivePlan(env.DB, fromClientId);
+      if (!plan) return Response.json({ error: "not found" }, { status: 404 });
+      const bankPlan: BankPlan = {
+        split: plan.split,
+        nutrition: plan.nutrition,
+        supplements: plan.supplements,
+        methodology: plan.methodology,
+        ...(plan.restDayNutrition ? { restDayNutrition: plan.restDayNutrition } : {}),
+        ...(plan.movementAudit ? { movementAudit: plan.movementAudit } : {}),
+        ...(plan.stepsTarget !== undefined ? { stepsTarget: plan.stepsTarget } : {}),
+      };
+      const newId = await saveTrainerTemplate(env.DB, user._id, name, bankPlan);
+      await recordAudit(env.DB, user._id, "template_create", fromClientId, name).catch(() => {});
+      return Response.json({ ok: true, id: newId });
     }
     return Response.json({ error: "bad request" }, { status: 400 });
   }

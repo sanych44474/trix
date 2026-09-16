@@ -48,6 +48,26 @@ export interface Nutrition {
   recent?: Array<{ ri: number; desc: string; kcal: number; protein: number }>;
 }
 
+export interface WorkoutHistoryItem {
+  date: string;
+  title: string; // first few exercise names, comma-joined, for the picker
+  n: number; // exercise count
+}
+
+export interface WorkoutCopySet {
+  w: number;
+  r: number;
+  sec: number;
+  m: number;
+}
+
+export interface WorkoutCopyExercise {
+  name: string;
+  metric: "reps" | "time" | "distance";
+  sets: WorkoutCopySet[];
+  rpe: number;
+}
+
 export interface FoodSearchItem {
   name: string;
   brand?: string;
