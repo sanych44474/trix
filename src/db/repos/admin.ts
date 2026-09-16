@@ -508,6 +508,11 @@ export async function deleteUserData(db: DB, userId: number): Promise<void> {
      // by test/delete-user-data-coverage.test.ts).
      db.prepare("DELETE FROM v2_client_note_history WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
      db.prepare("DELETE FROM v2_shared_programs WHERE ownerId = ?").bind(userId),
+     // Trainer schedule/money: migrations/0082_v2_trainer_schedule_finance.sql. Both sides are
+     // user-identifying (a session names its client, a payment names who paid), so a deletion
+     // has to clear rows where the user is EITHER party, not just the trainer.
+     db.prepare("DELETE FROM v2_trainer_sessions WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_trainer_payments WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
      db.prepare("DELETE FROM v2_trainer_prospects WHERE trainerId = ?").bind(userId),
      db.prepare("DELETE FROM v2_achievements WHERE accountId = ?").bind(userId),
      db.prepare("DELETE FROM v2_challenges WHERE accountId = ?").bind(userId),

@@ -22,6 +22,7 @@ import { handlePlanApi } from "./webapp/planApi";
 import { handleProfileApi, handleOnboardingApi } from "./webapp/profileApi";
 import { handleSettingsApi } from "./webapp/settingsApi";
 import { handleExtrasApi } from "./webapp/extrasApi";
+import { handleTrainerScheduleApi } from "./webapp/trainerScheduleApi";
 import { handleNutritionApi } from "./webapp/nutritionApi";
 import { handleBuddyApi } from "./webapp/buddyApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./webapp/miscApi";
@@ -188,13 +189,17 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
       return handleV2Api(req, url, env, ctx);
     }
 
-    // Mini App extras: records, weekcard, requests, sessions, finance, directory, library,
-    // whatsnew, plates, trainer profile. MUST come before the /api/trainer/ prefix catch —
-    // three of these live under that prefix.
+    // Trainer scheduling + money (own tables, own handler). Like the extras block below, this
+    // MUST come before the /api/trainer/ prefix catch.
+    if (url.pathname === "/api/trainer/sessions" || url.pathname === "/api/trainer/finance") {
+      return handleTrainerScheduleApi(req, url, env);
+    }
+
+    // Mini App extras: records, weekcard, requests, directory, library, whatsnew, plates,
+    // trainer profile. MUST come before the /api/trainer/ prefix catch — one lives under it.
     if (
       url.pathname === "/api/records" || url.pathname === "/api/weekcard" || url.pathname === "/api/whatsnew" ||
-      url.pathname === "/api/plates" || url.pathname === "/api/requests" || url.pathname === "/api/trainer/sessions" ||
-      url.pathname === "/api/trainer/finance" || url.pathname === "/api/trainers" || url.pathname === "/api/library" ||
+      url.pathname === "/api/plates" || url.pathname === "/api/requests" || url.pathname === "/api/trainers" || url.pathname === "/api/library" ||
       url.pathname === "/api/trainer/profile"
     ) {
       return handleExtrasApi(req, url, env);

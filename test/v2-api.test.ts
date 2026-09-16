@@ -60,7 +60,9 @@ test("v2 workout save is not double-claimed by forward()'s own idempotency wrap"
 
   const request = new Request(`https://example.test/api/v2/workout/save?debugUser=${userId}`, {
     method: "POST",
-    headers: { "Idempotency-Key": "regression-test-key-001" },
+    // Not "...-key-001": that literal tripped gitleaks' generic-api-key rule (entropy 3.50 vs its
+    // 3.5 threshold) and red-failed the Secret scan workflow on every push after it landed.
+    headers: { "Idempotency-Key": "regression-test-0001" },
     body: JSON.stringify({ entries: [{ name: "Bench Press", sets: [{ reps: 8, weight: 60 }] }] }),
   });
   const response = await handleV2Api(request, new URL(request.url), testEnv);

@@ -460,6 +460,149 @@ function AiCoachView({ lang, onBack, routed }: { lang: Lang; onBack: () => void;
   </div>;
 }
 
+type ScheduleClient = { id: number; name: string };
+type SchedulePayload = { from: string; to: string; clients: ScheduleClient[]; sessions: Array<{ id: number; clientId: number; clientName: string; startsAt: string; durationMin: number; status: string; price: number | null; note: string }> };
+type FinancePayload = {
+  currency: string;
+  defaultPrice: number | null;
+  clients: ScheduleClient[];
+  ledgers: Array<{ clientId: number; clientName: string; sessionsDone: number; sessionsPlanned: number; billed: number; paid: number; balance: number }>;
+  payments: Array<{ id: number; clientName: string; amount: number; currency: string; paidOn: string; note: string }>;
+  totals: { billed: number; paid: number; balance: number };
+};
+
+const statusKey = (status: string): Key =>
+  status === "done" ? "session_status_done" : status === "cancelled" ? "session_status_cancelled" : status === "no_show" ? "session_status_no_show" : "session_status_planned";
+
+/** `datetime-local` hands back a naive local string; the API stores a real instant. */
+const toInstant = (local: string) => new Date(local).toISOString();
+const showWhen = (iso: string) => iso.slice(0, 16).replace("T", " ");
+
+function ScheduleView({ lang, onBack }: { lang: Lang; onBack: () => void }) {
+  const [data, setData] = useState<SchedulePayload | null>(null);
+  const [error, setError] = useState(false);
+  const [actionError, setActionError] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [clientId, setClientId] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [durationMin, setDurationMin] = useState("60");
+  const [price, setPrice] = useState("");
+  const [note, setNote] = useState("");
+
+  const load = () => { setError(false); api<SchedulePayload>("/api/v2/trainer/sessions").then(setData).catch(() => setError(true)); };
+  useEffect(load, []);
+
+  const act = async (key: string, body: unknown) => {
+    setBusy(key);
+    try { await api("/api/v2/trainer/sessions", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); load(); }
+    catch { setActionError(true); } finally { setBusy(null); }
+  };
+  const book = () => {
+    if (!clientId || !startsAt) return;
+    void act("create", { action: "create", clientId: Number(clientId), startsAt: toInstant(startsAt), durationMin: Number(durationMin) || 60, price: price ? Number(price) : null, note })
+      .then(() => { setStartsAt(""); setPrice(""); setNote(""); });
+  };
+
+  if (error) return <WorkspaceError lang={lang} onRetry={load} />;
+  if (!data) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
+
+  return <div className="view-stack">
+    <div className="eyebrow">{t(lang, "schedule_eyebrow")}</div>
+    <div className="page-title"><h1>{t(lang, "schedule_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
+    {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
+
+    <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "schedule_add_title")}</span></div></div>
+      <div className="form-grid">
+        <label className="form-field"><span>{t(lang, "pick_client_label")}</span><select value={clientId} onChange={(event) => setClientId(event.target.value)}><option value="">{t(lang, "pick_client_label")}</option>{data.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        <label className="form-field"><span>{t(lang, "field_datetime")}</span><input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} /></label>
+        <label className="form-field"><span>{t(lang, "field_duration_min")}</span><input type="number" min="5" max="600" value={durationMin} onChange={(event) => setDurationMin(event.target.value)} /></label>
+        <label className="form-field"><span>{t(lang, "field_price")}</span><input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} /></label>
+      </div>
+      <label className="form-field"><span>{t(lang, "field_note")}</span><input value={note} maxLength={300} onChange={(event) => setNote(event.target.value)} /></label>
+      <div className="button-row"><button className="button button-primary" disabled={busy !== null || !clientId || !startsAt} onClick={book}>{busy === "create" ? t(lang, "saving_ellipsis") : t(lang, "schedule_add_btn")}</button></div>
+    </Panel>
+
+    <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "schedule_eyebrow")}</span><h2>{t(lang, "schedule_title")}</h2></div><span className="tag">{data.sessions.length}</span></div>
+      {data.sessions.length ? <div className="record-list">{data.sessions.map((s) => <div className="record-row" key={s.id}>
+        <div>
+          <strong>{s.clientName}</strong>
+          <small>{showWhen(s.startsAt)} · {t(lang, "session_len_line", { n: s.durationMin })}{s.price !== null ? ` · ${s.price}` : ""}{s.note ? ` · ${s.note}` : ""}</small>
+          <div className="button-row">
+            {(["done", "cancelled", "no_show"] as const).map((next) => <button className="button button-ghost" key={next} disabled={busy !== null || s.status === next} onClick={() => void act(`s:${s.id}`, { action: "status", id: s.id, status: next })}>{t(lang, statusKey(next))}</button>)}
+            <button className="text-button danger-button" disabled={busy !== null} onClick={() => void act(`d:${s.id}`, { action: "delete", id: s.id })}>{t(lang, "delete_btn")}</button>
+          </div>
+        </div>
+        <span className={s.status === "planned" ? "status-badge status-attention" : "status-badge"}>{t(lang, statusKey(s.status))}</span>
+      </div>)}</div> : <p className="muted">{t(lang, "schedule_empty")}</p>}
+    </Panel>
+  </div>;
+}
+
+function FinanceView({ lang, onBack }: { lang: Lang; onBack: () => void }) {
+  const [data, setData] = useState<FinancePayload | null>(null);
+  const [error, setError] = useState(false);
+  const [actionError, setActionError] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [clientId, setClientId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [paidOn, setPaidOn] = useState(new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState("");
+
+  const load = () => { setError(false); api<FinancePayload>("/api/v2/trainer/finance").then(setData).catch(() => setError(true)); };
+  useEffect(load, []);
+
+  const act = async (key: string, body: unknown) => {
+    setBusy(key);
+    try { await api("/api/v2/trainer/finance", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); load(); }
+    catch { setActionError(true); } finally { setBusy(null); }
+  };
+
+  if (error) return <WorkspaceError lang={lang} onRetry={load} />;
+  if (!data) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
+  const money = (n: number) => `${n} ${data.currency}`;
+
+  return <div className="view-stack">
+    <div className="eyebrow">{t(lang, "finance_eyebrow")}</div>
+    <div className="page-title"><h1>{t(lang, "finance_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
+    {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
+
+    <div className="metric-grid">
+      <Metric label={t(lang, "finance_billed")} value={money(data.totals.billed)} />
+      <Metric label={t(lang, "finance_paid")} value={money(data.totals.paid)} />
+      <Metric label={t(lang, "finance_balance")} value={money(data.totals.balance)} />
+    </div>
+
+    <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "payment_add_title")}</span></div></div>
+      <div className="form-grid">
+        <label className="form-field"><span>{t(lang, "pick_client_label")}</span><select value={clientId} onChange={(event) => setClientId(event.target.value)}><option value="">{t(lang, "pick_client_label")}</option>{data.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        <label className="form-field"><span>{t(lang, "field_amount")}</span><input type="number" min="1" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
+        <label className="form-field"><span>{t(lang, "field_paid_on")}</span><input type="date" value={paidOn} onChange={(event) => setPaidOn(event.target.value)} /></label>
+        <label className="form-field"><span>{t(lang, "field_note")}</span><input value={note} maxLength={300} onChange={(event) => setNote(event.target.value)} /></label>
+      </div>
+      <div className="button-row"><button className="button button-primary" disabled={busy !== null || !clientId || !(Number(amount) > 0)} onClick={() => void act("pay", { action: "pay", clientId: Number(clientId), amount: Number(amount), paidOn, note }).then(() => { setAmount(""); setNote(""); })}>{busy === "pay" ? t(lang, "saving_ellipsis") : t(lang, "payment_add_btn")}</button></div>
+    </Panel>
+
+    <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "finance_eyebrow")}</span><h2>{t(lang, "finance_title")}</h2></div><span className="tag">{data.ledgers.length}</span></div>
+      {data.ledgers.length ? <div className="record-list">{data.ledgers.map((l) => <div className="record-row" key={l.clientId}>
+        <div><strong>{l.clientName}</strong><small>{t(lang, "finance_sessions_line", { done: l.sessionsDone, planned: l.sessionsPlanned })} · {t(lang, "finance_billed")} {money(l.billed)} · {t(lang, "finance_paid")} {money(l.paid)}</small></div>
+        <span className={l.balance > 0 ? "status-badge status-attention" : "status-badge"}>{money(l.balance)}</span>
+      </div>)}</div> : <p className="muted">{t(lang, "finance_empty")}</p>}
+    </Panel>
+
+    {data.payments.length > 0 && <Panel tone="muted">
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "payments_log_title")}</span></div><span className="tag">{data.payments.length}</span></div>
+      <div className="record-list">{data.payments.map((p) => <div className="record-row" key={p.id}>
+        <div><strong>{p.clientName}</strong><small>{p.paidOn}{p.note ? ` · ${p.note}` : ""}</small></div>
+        <div className="button-row"><span>{p.amount} {p.currency}</span><button className="text-button danger-button" disabled={busy !== null} onClick={() => void act(`pd:${p.id}`, { action: "delete", id: p.id })}>{t(lang, "delete_btn")}</button></div>
+      </div>)}</div>
+    </Panel>}
+  </div>;
+}
+
 function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   const [questions, setQuestions] = useState<TrainerQuestions | null>(null);
   const [requests, setRequests] = useState<TrainerRequests | null>(null);
@@ -469,7 +612,7 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [actionError, setActionError] = useState(false);
-  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach">("list");
+  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach" | "schedule" | "finance">("list");
   const [activeClientId, setActiveClientId] = useState<number | null>(null);
   const [assignTemplateId, setAssignTemplateId] = useState("");
   const [assignClientId, setAssignClientId] = useState("");
@@ -506,6 +649,8 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   if (error) return <WorkspaceError lang={lang} onRetry={() => { setError(false); void load().catch(() => setError(true)); }} />;
 
   if (subview === "profile") return <TrainerProfilePanel lang={lang} onBack={() => setSubview("list")} />;
+  if (subview === "schedule") return <ScheduleView lang={lang} onBack={() => setSubview("list")} />;
+  if (subview === "finance") return <FinanceView lang={lang} onBack={() => setSubview("list")} />;
   if (subview === "coach") return <AiCoachView lang={lang} routed={false} onBack={() => setSubview("list")} />;
   if (subview === "atrisk") return <AtRiskReportView dashboard={dashboard} lang={lang} onBack={() => setSubview("list")} onOpenClient={(id) => { setActiveClientId(id); setSubview("client"); }} />;
   if (subview === "client" && activeClientId !== null) {
@@ -524,6 +669,8 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
       <button className="button button-ghost" onClick={() => setSubview("profile")}>{t(lang, "workspace_tab_profile")}</button>
       <button className="button button-ghost" onClick={() => setSubview("atrisk")}>{t(lang, "atrisk_report_btn", { n: atRiskCount })}</button>
       <button className="button button-ghost" onClick={() => setSubview("coach")}>{t(lang, "ai_coach_nav_btn")}</button>
+      <button className="button button-ghost" onClick={() => setSubview("schedule")}>{t(lang, "workspace_tab_schedule")}</button>
+      <button className="button button-ghost" onClick={() => setSubview("finance")}>{t(lang, "workspace_tab_finance")}</button>
     </div>
 
     <Panel tone="accent">

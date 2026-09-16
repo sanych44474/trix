@@ -478,6 +478,12 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
   };
 
   // squads
+  // /api/v2/whatsnew was registered in v2Api.ts but nothing ever called it -- the release note
+  // was reachable only through the bot's /whatsnew command. It's Telegram-HTML, so it's stripped
+  // to plain text the same way the owner report is.
+  const [whatsnew, setWhatsnew] = useState<{ version: string; html: string } | null>(null);
+  useEffect(() => { api<{ version: string; html: string }>("/api/v2/whatsnew").then(setWhatsnew).catch(() => setWhatsnew(null)); }, []);
+
   const [squads, setSquads] = useState<SquadInfo[] | null>(null);
   const [squadsError, setSquadsError] = useState<unknown>(null);
   const loadSquads = () => { setSquadsError(null); api<{ squads: SquadInfo[] }>("/api/v2/squads").then((data) => setSquads(data.squads)).catch(setSquadsError); };
@@ -555,6 +561,11 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
       </div>
       {trainerSent && <div className="save-note">{t(lang, "trainer_request_sent_note")}</div>}
       {trainerError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
+    </Card>}
+
+    {whatsnew && <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "whatsnew_eyebrow")}</span><h2>{t(lang, "whatsnew_title")}</h2></div><span className="tag">{t(lang, "whatsnew_version", { v: whatsnew.version })}</span></div>
+      <pre className="owner-report">{whatsnew.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")}</pre>
     </Card>}
 
     {trainerApp !== undefined && (trainerApp !== null || role === "solo") && <Card>

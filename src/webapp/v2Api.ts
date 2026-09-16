@@ -11,6 +11,7 @@ import { handleQuickLogApi } from "./quickLogApi";
 import { handleExtrasApi } from "./extrasApi";
 import { handleSquadsApi } from "./squadApi";
 import { handleTrainerApi } from "./trainerApi";
+import { handleTrainerScheduleApi } from "./trainerScheduleApi";
 import { handleOwnerApi } from "./ownerApi";
 import { handleCoachApi } from "./coachApi";
 import { handleBuddyApi } from "./buddyApi";
@@ -49,8 +50,8 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/settings", legacy: "/api/settings", handler: handleSettingsApi },
   { prefix: "/api/v2/log", legacy: "/api/log", handler: handleQuickLogApi },
   { prefix: "/api/v2/trainer/profile", legacy: "/api/trainer/profile", handler: handleExtrasApi },
-  { prefix: "/api/v2/trainer/sessions", legacy: "/api/trainer/sessions", handler: handleExtrasApi },
-  { prefix: "/api/v2/trainer/finance", legacy: "/api/trainer/finance", handler: handleExtrasApi },
+  { prefix: "/api/v2/trainer/sessions", legacy: "/api/trainer/sessions", handler: handleTrainerScheduleApi },
+  { prefix: "/api/v2/trainer/finance", legacy: "/api/trainer/finance", handler: handleTrainerScheduleApi },
   { prefix: "/api/v2/trainer", legacy: "/api/trainer", handler: handleTrainerApi },
   { prefix: "/api/v2/owner", legacy: "/api/owner", handler: handleOwnerApi },
   { prefix: "/api/v2/coach", legacy: "/api/coach", handler: handleCoachApi },
