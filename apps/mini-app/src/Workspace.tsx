@@ -469,7 +469,7 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
     <div className="eyebrow">{t(lang, "trainer_workspace_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "coach_right_thing_title")}</h1><span>{t(lang, "n_clients", { n: clients.length })}</span></div>
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
-    <div className="button-row">
+    <div className="button-row tabs">
       <button className="button button-ghost" onClick={() => setSubview("profile")}>{t(lang, "workspace_tab_profile")}</button>
       <button className="button button-ghost" onClick={() => setSubview("atrisk")}>{t(lang, "atrisk_report_btn", { n: atRiskCount })}</button>
       <button className="button button-ghost" onClick={() => setSubview("coach")}>{t(lang, "ai_coach_nav_btn")}</button>
@@ -574,7 +574,7 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
     <div className="eyebrow">{t(lang, "owner_ops_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "system_pulse_title")}</h1><span>{t(lang, "n_users", { n: users.rows.length })}</span></div>
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
-    <div className="button-row">
+    <div className="button-row tabs-scroll">
       {OWNER_REPORT_SECTIONS.map((s) => <button key={s.id} className={section === s.id ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== s.id} onClick={() => selectSection(s.id)}>{t(lang, s.tab)}</button>)}
       <button className={section === "roster" ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== "roster"} onClick={() => selectSection("roster")}>{t(lang, "owner_tab_roster")}</button>
     </div>

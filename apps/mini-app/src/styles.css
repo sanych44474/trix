@@ -46,6 +46,10 @@ button { cursor: pointer; }
 .button-ghost { background: var(--surface-2); color: var(--text); }
 .button-wide { width: 100%; padding: 15px; }
 .button-row, .input-row { display: flex; gap: 9px; align-items: end; flex-wrap: wrap; }
+.button-row.tabs .button { flex: 1 1 auto; min-width: 100px; text-align: center; }
+.button-row.tabs-scroll { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; padding-right: 14px; scrollbar-width: none; }
+.button-row.tabs-scroll::-webkit-scrollbar { display: none; }
+.button-row.tabs-scroll .button { flex: 0 0 auto; scroll-snap-align: start; }
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 12px 0; }
 .ring-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
 .ring-item { display: grid; justify-items: center; gap: 7px; color: var(--muted); font-size: 11px; text-align: center; }
