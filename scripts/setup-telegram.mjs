@@ -64,8 +64,13 @@ await post("setMyCommands", { commands: toList(COMMANDS, "en") });
 await post("setMyCommands", { commands: toList(COMMANDS, "uk"), language_code: "uk" });
 
 // Persistent chat menu button → the Mini App dashboard (text is global, not per-language).
+// Path follows V2_APP_ENABLED (matches src/bot.ts's setAppUrl) so this stays in sync with
+// whichever Mini App bundle the bot itself is currently pointing users at -- override with
+// MINI_APP_PATH if you need to force one explicitly (e.g. testing the legacy bundle).
+const miniAppPath =
+  process.env.MINI_APP_PATH || (process.env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app");
 await post("setChatMenuButton", {
-  menu_button: { type: "web_app", text: "📊 Dashboard", web_app: { url: `${base}/app` } },
+  menu_button: { type: "web_app", text: "📊 Dashboard", web_app: { url: `${base}${miniAppPath}` } },
 });
 
 // Owner chat scope: a per-chat command list OVERRIDES the default, so an old run that
