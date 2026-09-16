@@ -12,7 +12,7 @@ test("recoveryScore: no data at all is a clean 100, not penalized for missing si
 test("recoveryScore: each bad check-in axis is its own penalty", () => {
   const r = recoveryScore({ ...NEUTRAL, checkin: { energy: 1, sleep: 5, stress: 1 } });
   assert.equal(r.score, 85);
-  assert.deepEqual(r.factors, ["low energy in your last check-in"]);
+  assert.deepEqual(r.factors, [{ code: "low_energy" }]);
 });
 
 test("recoveryScore: a good check-in (no bad axis) costs nothing", () => {
@@ -40,11 +40,11 @@ test("recoveryScore: factors are ordered heaviest penalty first", () => {
     groupsAboveMav: 3, // 30
   });
   assert.deepEqual(r.factors, [
-    "3 muscle group(s) trained past the weekly volume landmark",
-    "cardio load well past the weekly landmark",
-    "low energy in your last check-in",
-    "high stress in your last check-in",
-    "recent sessions have been grinding (RPE 9+)",
+    { code: "volume_above", count: 3 },
+    { code: "cardio_above" },
+    { code: "low_energy" },
+    { code: "high_stress" },
+    { code: "grinding_rpe" },
   ]);
   assert.equal(r.score, 5); // 100 - 30 - 20 - 15 - 15 - 15
 });

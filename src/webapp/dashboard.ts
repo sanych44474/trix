@@ -8,7 +8,7 @@
 // see docs/adr/0001-v2-seams-and-staged-cutover.md). This file has no D1 access at all.
 import { projectWeight, weeklyVolume } from "../domain/analysis";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
-import { recoveryScore } from "../domain/recovery";
+import { recoveryScore, type RecoveryFactor, type RecoveryLabel } from "../domain/recovery";
 import { muscleGroupOf } from "../domain/progression";
 import { e1rm } from "../domain/records";
 import type {
@@ -48,7 +48,7 @@ export interface DashboardPayload {
   conditioning: { sessions: number; minutes: number; meters: number; untimedSets: number; zone: string; targetMin: number; highMin: number };
   // Combines the daily check-in with what the app already knows from logged training -- see
   // domain/recovery.ts for why HRV/pulse are deliberately not inputs (no wearable integration).
-  recovery: { score: number; label: string; factors: string[] };
+  recovery: { score: number; label: RecoveryLabel; factors: RecoveryFactor[] };
   // Body measurements (cm) with >=2 points — waist/chest/hips/arm/thigh trend lines.
   measurements?: { key: string; points: { date: string; v: number }[] }[];
   exercises: { name: string; group: string; points: { date: string; e1rm: number }[] }[];

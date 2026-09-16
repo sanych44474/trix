@@ -131,5 +131,5 @@ test("recovery: a poor check-in lowers the score and names the factor", () => {
     checkin: { userId: 1, date: TODAY, energy: 1, sleep: 3, stress: 2, createdAt: new Date() },
   });
   assert.ok(p.recovery.score < 100);
-  assert.match(p.recovery.factors[0], /energy/);
+  assert.deepEqual(p.recovery.factors[0], { code: "low_energy" });
 });

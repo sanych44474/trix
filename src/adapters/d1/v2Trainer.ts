@@ -533,6 +533,15 @@ export async function listQuestionsForTrainer(db: DB, trainerId: number, limit =
   return (r.results ?? []).map(toQuestion);
 }
 
+/** The client's own side of the same archive — what they asked, and whether it's been answered. */
+export async function listQuestionsForClient(db: DB, clientId: number, limit = 20): Promise<ClientQuestionDoc[]> {
+  const r = await db
+    .prepare("SELECT * FROM v2_trainer_questions WHERE clientId = ? ORDER BY id DESC LIMIT ?")
+    .bind(clientId, limit)
+    .all<Parameters<typeof toQuestion>[0]>();
+  return (r.results ?? []).map(toQuestion);
+}
+
 export async function insertMessage(db: DB, fromId: number, toId: number, text: string): Promise<void> {
   await db.prepare("INSERT INTO v2_messages (fromAccountId, toAccountId, text, createdAt) VALUES (?, ?, ?, ?)")
     .bind(fromId, toId, text, nowIso()).run();

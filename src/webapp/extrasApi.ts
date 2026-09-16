@@ -261,7 +261,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
         {
           role: user.role,
           trainer: tr
-            ? { status: tr.status, name: tr.name, bio: tr.bio ?? "", specialization: tr.specialization ?? "", experienceYears: tr.experienceYears ?? null, priceOnline: tr.priceOnline ?? null, city: tr.city ?? "", contact: tr.contact ?? "", accepting: !!tr.accepting, clients: nClients }
+            ? { status: tr.status, name: tr.name, bio: tr.bio ?? "", specialization: tr.specialization ?? "", approach: tr.approach ?? "", experienceYears: tr.experienceYears ?? null, priceOnline: tr.priceOnline ?? null, city: tr.city ?? "", contact: tr.contact ?? "", accepting: !!tr.accepting, clients: nClients }
             : null,
         },
         noStore,

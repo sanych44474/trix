@@ -13,10 +13,19 @@ export interface RecoveryInputs {
 
 export type RecoveryLabel = "great" | "good" | "fair" | "poor";
 
+// Stable codes, not prose: the only consumer is the Mini App dashboard, which is bilingual --
+// an English sentence baked in here would surface untranslated in a Ukrainian UI.
+export type RecoveryFactorCode = "volume_above" | "cardio_above" | "low_energy" | "high_stress" | "poor_sleep" | "grinding_rpe";
+
+export interface RecoveryFactor {
+  code: RecoveryFactorCode;
+  count?: number; // only "volume_above" carries one: how many muscle groups are past MAV
+}
+
 export interface RecoveryScore {
   score: number; // 0-100, higher = more recovered
   label: RecoveryLabel;
-  factors: string[]; // what pulled the score down, heaviest first -- empty when score is 100
+  factors: RecoveryFactor[]; // what pulled the score down, heaviest first -- empty when score is 100
 }
 
 const LABEL_THRESHOLDS: [number, RecoveryLabel][] = [
@@ -39,26 +48,26 @@ function labelFor(score: number): RecoveryLabel {
  */
 export function recoveryScore(inputs: RecoveryInputs): RecoveryScore {
   let score = 100;
-  const penalties: { amount: number; factor: string }[] = [];
+  const penalties: { amount: number; factor: RecoveryFactor }[] = [];
 
   if (inputs.checkin) {
     const { energy, sleep, stress } = inputs.checkin;
-    if (energy > 0 && energy <= 2) penalties.push({ amount: 15, factor: "low energy in your last check-in" });
-    if (sleep > 0 && sleep <= 2) penalties.push({ amount: 15, factor: "poor sleep in your last check-in" });
-    if (stress >= 4) penalties.push({ amount: 15, factor: "high stress in your last check-in" });
+    if (energy > 0 && energy <= 2) penalties.push({ amount: 15, factor: { code: "low_energy" } });
+    if (sleep > 0 && sleep <= 2) penalties.push({ amount: 15, factor: { code: "poor_sleep" } });
+    if (stress >= 4) penalties.push({ amount: 15, factor: { code: "high_stress" } });
   }
 
   if (inputs.conditioningZone === "above") {
-    penalties.push({ amount: 20, factor: "cardio load well past the weekly landmark" });
+    penalties.push({ amount: 20, factor: { code: "cardio_above" } });
   }
 
   if (inputs.avgRpe !== null && inputs.avgRpe >= 9) {
-    penalties.push({ amount: 15, factor: "recent sessions have been grinding (RPE 9+)" });
+    penalties.push({ amount: 15, factor: { code: "grinding_rpe" } });
   }
 
   if (inputs.groupsAboveMav > 0) {
     const amount = Math.min(30, inputs.groupsAboveMav * 10);
-    penalties.push({ amount, factor: `${inputs.groupsAboveMav} muscle group(s) trained past the weekly volume landmark` });
+    penalties.push({ amount, factor: { code: "volume_above", count: inputs.groupsAboveMav } });
   }
 
   penalties.sort((a, b) => b.amount - a.amount);

@@ -7,6 +7,22 @@ export interface V2Failure {
   error: { code: string; message: string; requestId?: string };
 }
 
+// What /api/v2/trainer/profile's GET returns for the caller's own v2_trainers row (null = never applied).
+export interface TrainerApplication {
+  status: string;
+  name: string;
+  bio: string;
+  specialization: string;
+  city: string;
+  contact: string;
+  clients: number;
+}
+
+// Mirrors src/domain/recovery.ts -- codes, not prose, so the UI renders them in the viewer's language.
+export type RecoveryLabel = "great" | "good" | "fair" | "poor";
+export type RecoveryFactorCode = "volume_above" | "cardio_above" | "low_energy" | "high_stress" | "poor_sleep" | "grinding_rpe";
+export interface RecoveryFactor { code: RecoveryFactorCode; count?: number }
+
 export interface Dashboard {
   viewer: { id: number; role: "solo" | "trainer" | "client"; onboarded: boolean };
   lang: "uk" | "en";
@@ -16,7 +32,7 @@ export interface Dashboard {
   calendar: { days: { date: string; s: "done" | "missed" | "rest" }[]; split: { weekday: number; group: string; n: number }[]; logs: { date: string; done: boolean; ex: { n: string; s: number }[] }[] };
   volume: { group: string; sets: number; mev: number; mav: number; zone: string }[];
   conditioning: { sessions: number; minutes: number; meters: number; zone: string };
-  recovery: { score: number; label: string; factors: string[] };
+  recovery: { score: number; label: RecoveryLabel; factors: RecoveryFactor[] };
   measurements?: { key: string; points: { date: string; v: number }[] }[];
   exercises: { name: string; group: string; points: { date: string; e1rm: number }[] }[];
   macros: { targets?: { calories: number; protein: number; fats: number; carbs: number }; days: { date: string; kcal: number; p: number; f: number; c: number; training: boolean }[] };

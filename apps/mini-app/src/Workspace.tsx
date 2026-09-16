@@ -54,8 +54,13 @@ type ClientCardPayload = {
   messages: Array<{ fromMe: boolean; text: string; createdAt: string }>;
   dashboard: Dashboard;
 };
-type TrainerProfile = { status: string; name: string; bio: string; specialization: string; experienceYears: number | null; priceOnline: number | null; city: string; contact: string; accepting: boolean; clients: number };
+type TrainerProfile = { status: string; name: string; bio: string; specialization: string; approach: string; experienceYears: number | null; priceOnline: number | null; city: string; contact: string; accepting: boolean; clients: number };
 type TrainerProfilePayload = { role: string; trainer: TrainerProfile | null };
+type CoachThread = {
+  trainer: { name: string } | null;
+  questions: Array<{ id: number; text: string; status: string; createdAt: string }>;
+  messages: Array<{ fromMe: boolean; text: string; createdAt: string }>;
+};
 type OwnerReport = { html: string };
 type OwnerUsers = { rows: Array<{ id?: number; name?: string; [key: string]: unknown }>; feedback: Array<{ who: string; date: string; text: string }> };
 type InjuryPayload = {
@@ -272,12 +277,19 @@ function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () => void 
   const load = () => { setError(false); api<TrainerProfilePayload>("/api/v2/trainer/profile").then((next) => { setData(next); setForm(next.trainer); }).catch(() => setError(true)); };
   useEffect(load, []);
   if (error) return <WorkspaceError lang={lang} onRetry={load} />;
-  if (!data || !form) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
+  if (!data) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
+  // data loaded but no v2_trainers row: the caller isn't a trainer. Without this the panel sat on
+  // the loading skeleton forever, because `form` stays null and only `data` ever arrives.
+  if (!form) return <div className="view-stack">
+    <div className="eyebrow">{t(lang, "my_profile_eyebrow")}</div>
+    <div className="page-title"><h1>{t(lang, "trainer_not_yet_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
+    <Panel tone="muted"><p className="muted">{t(lang, "trainer_not_yet_body")}</p></Panel>
+  </div>;
   const patch = (value: Partial<TrainerProfile>) => setForm((current) => current ? { ...current, ...value } : current);
   const save = async () => {
     setSaving(true); setSaved(false);
     try {
-      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ bio: form.bio, specialization: form.specialization, experienceYears: form.experienceYears, priceOnline: form.priceOnline, city: form.city, contact: form.contact, accepting: form.accepting }) });
+      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ name: form.name, bio: form.bio, specialization: form.specialization, approach: form.approach, experienceYears: form.experienceYears, priceOnline: form.priceOnline, city: form.city, contact: form.contact, accepting: form.accepting }) });
       setSaved(true);
     } catch { setActionError(true); } finally { setSaving(false); }
   };
@@ -285,8 +297,16 @@ function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () => void 
     <div className="eyebrow">{t(lang, "my_profile_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "my_profile_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
+    <Panel tone="muted">
+      <div className="section-head">
+        <div><span className="eyebrow">{t(lang, form.status === "approved" ? "trainer_status_approved_title" : "trainer_status_pending_title")}</span><h2>{t(lang, "trainer_clients_count", { n: form.clients })}</h2></div>
+        <span className={form.status === "approved" ? "status-badge" : "status-badge status-attention"}>{form.status}</span>
+      </div>
+      <p className="muted">{t(lang, form.status === "approved" ? "trainer_status_approved_body" : "trainer_status_pending_body")}</p>
+    </Panel>
     <Panel>
       <div className="form-grid">
+        <label className="form-field"><span>{t(lang, "field_name")}</span><input value={form.name} maxLength={60} onChange={(event) => patch({ name: event.target.value })} /></label>
         <label className="form-field"><span>{t(lang, "field_specialization")}</span><input value={form.specialization} maxLength={120} onChange={(event) => patch({ specialization: event.target.value })} /></label>
         <label className="form-field"><span>{t(lang, "field_experience_years")}</span><input type="number" min="0" max="60" value={form.experienceYears ?? ""} onChange={(event) => patch({ experienceYears: event.target.value ? Number(event.target.value) : null })} /></label>
         <label className="form-field"><span>{t(lang, "field_price_online")}</span><input type="number" min="0" max="100000" value={form.priceOnline ?? ""} onChange={(event) => patch({ priceOnline: event.target.value ? Number(event.target.value) : null })} /></label>
@@ -294,6 +314,7 @@ function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () => void 
         <label className="form-field"><span>{t(lang, "field_contact")}</span><input value={form.contact} maxLength={120} onChange={(event) => patch({ contact: event.target.value })} /></label>
       </div>
       <label className="form-field"><span>{t(lang, "field_bio")}</span><textarea value={form.bio} maxLength={600} onChange={(event) => patch({ bio: event.target.value })} /></label>
+      <label className="form-field"><span>{t(lang, "field_approach")}</span><textarea value={form.approach} maxLength={600} onChange={(event) => patch({ approach: event.target.value })} /></label>
       <label className="check-row"><input type="checkbox" checked={form.accepting} onChange={(event) => patch({ accepting: event.target.checked })} /><span>{t(lang, "accepting_clients_label")}</span></label>
       {saved && <div className="save-note">{t(lang, "profile_updated_note")}</div>}
       <div className="button-row"><button className="button button-primary" disabled={saving} onClick={() => void save()}>{saving ? t(lang, "saving_ellipsis") : t(lang, "save_profile_btn")}</button></div>
@@ -336,7 +357,9 @@ function SocialWorkspace({ lang, role }: { lang: Lang; role: Dashboard["viewer"]
     finally { setBusy(null); }
   };
 
-  if (subview === "coach") return <AiCoachView lang={lang} onBack={() => setSubview("main")} />;
+  // A client's coach is a human: the same screen routes their question to their trainer instead.
+  const routed = role === "client";
+  if (subview === "coach") return <AiCoachView lang={lang} routed={routed} onBack={() => setSubview("main")} />;
   if (error) return <WorkspaceError lang={lang} onRetry={load} />;
   if (!data || !injuries) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
   const buddy = data.buddy.buddy;
@@ -346,9 +369,10 @@ function SocialWorkspace({ lang, role }: { lang: Lang; role: Dashboard["viewer"]
     <div className="eyebrow">{t(lang, "social_eyebrow")}</div>
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <div className="page-title"><h1>{t(lang, "stay_accountable_title")}</h1><span>{t(lang, "challenges_won", { n: data.challenges.won })}</span></div>
-    {/* A client with a trainer routes questions to them (see coachApi.ts) -- this single-turn
-        self-coach Q&A is solo-only. */}
-    {role !== "client" && <div className="button-row"><button className="button button-ghost" onClick={() => setSubview("coach")}>{t(lang, "ai_coach_nav_btn")}</button></div>}
+    {/* Both roles get this button: solo/trainer reach the AI coach, a client reaches their own
+        trainer through it (coachApi.ts routes the question). It used to be hidden from clients,
+        which left them with no coach entry point of any kind. */}
+    <div className="button-row"><button className="button button-ghost" onClick={() => setSubview("coach")}>{t(lang, routed ? "ask_trainer_nav_btn" : "ai_coach_nav_btn")}</button></div>
 
     {buddy ? <Panel tone="accent"><div className="section-head"><div><span className="eyebrow">{t(lang, "buddy_eyebrow")}</span><h2>{buddy.name}</h2></div><span className="tag">{t(lang, "level_n", { n: buddy.level })}</span></div><p>{t(lang, "buddy_stats", { my: buddy.myWeekWorkouts, their: buddy.weekWorkouts, name: buddy.name, streak: buddy.streak })}</p><ProgressBar value={buddy.needed ? buddy.intoLevel / buddy.needed * 100 : 100} /></Panel> : <Panel><div className="section-head"><div><span className="eyebrow">{t(lang, "buddy_eyebrow")}</span><h2>{t(lang, "no_buddy_title")}</h2></div></div><p className="muted">{t(lang, "no_buddy_detail")}</p></Panel>}
 
@@ -390,30 +414,49 @@ function AtRiskReportView({ dashboard, lang, onBack, onOpenClient }: { dashboard
 
 /** Single-turn "ask the AI coach" screen — solo/trainer self-coaching only (see coachApi.ts for
  * why a client with a trainer doesn't get this: their questions route to a human, not here). */
-function AiCoachView({ lang, onBack }: { lang: Lang; onBack: () => void }) {
+/**
+ * One screen, two flows, because the backend has two: a solo athlete (or a trainer asking about
+ * their own training) gets a direct AI answer, while a client with a human trainer has their
+ * question routed to that trainer with an AI-drafted reply for the trainer to send. The client
+ * branch used to be a plain 403, so the client role had no coach and no way to reach their
+ * trainer from the app at all -- this renders the routed flow plus the resulting reply thread.
+ */
+function AiCoachView({ lang, onBack, routed }: { lang: Lang; onBack: () => void; routed: boolean }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const [thread, setThread] = useState<CoachThread | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
 
+  const loadThread = () => { if (routed) api<CoachThread>("/api/v2/coach/thread").then(setThread).catch(() => setThread(null)); };
+  useEffect(loadThread, [routed]);
+
   const ask = async () => {
     if (!question.trim()) return;
-    setBusy(true); setError(false); setAnswer(null);
+    setBusy(true); setError(false); setAnswer(null); setSent(false);
     try {
-      const result = await api<{ answer: string }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ question: question.trim() }) });
-      setAnswer(result.answer);
+      const result = await api<{ answer?: string; routed?: boolean }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ question: question.trim() }) });
+      if (result.routed) { setSent(true); setQuestion(""); loadThread(); } else setAnswer(result.answer ?? "");
     } catch { setError(true); } finally { setBusy(false); }
   };
 
   return <div className="view-stack">
-    <div className="eyebrow">{t(lang, "ai_coach_eyebrow")}</div>
-    <div className="page-title"><h1>{t(lang, "ai_coach_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
+    <div className="eyebrow">{t(lang, routed ? "ask_trainer_eyebrow" : "ai_coach_eyebrow")}</div>
+    <div className="page-title"><h1>{t(lang, routed ? "ask_trainer_title" : "ai_coach_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
     <Panel>
-      <label className="form-field"><span>{t(lang, "ai_coach_question_label")}</span><textarea value={question} maxLength={500} placeholder={t(lang, "ai_coach_ph")} onChange={(event) => setQuestion(event.target.value)} /></label>
-      <div className="button-row"><button className="button button-primary" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? t(lang, "saving_ellipsis") : t(lang, "ai_coach_ask_btn")}</button></div>
+      {routed && <p className="muted">{t(lang, "ask_trainer_detail", { name: thread?.trainer?.name || t(lang, "your_trainer_fallback") })}</p>}
+      <label className="form-field"><span>{t(lang, routed ? "ask_trainer_question_label" : "ai_coach_question_label")}</span><textarea value={question} maxLength={500} placeholder={t(lang, "ai_coach_ph")} onChange={(event) => setQuestion(event.target.value)} /></label>
+      <div className="button-row"><button className="button button-primary" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? t(lang, "saving_ellipsis") : t(lang, routed ? "ask_trainer_send_btn" : "ai_coach_ask_btn")}</button></div>
+      {sent && <div className="save-note">{t(lang, "ask_trainer_sent_note")}</div>}
       {error && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
     </Panel>
     {answer !== null && <Panel tone="accent"><div className="section-head"><div><span className="eyebrow">{t(lang, "ai_coach_answer_eyebrow")}</span></div></div><p>{answer}</p></Panel>}
+    {routed && thread && (thread.messages.length > 0 || thread.questions.length > 0) && <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "ask_trainer_thread_eyebrow")}</span><h2>{t(lang, "ask_trainer_thread_title")}</h2></div><span className="tag">{t(lang, "n_open", { n: thread.questions.filter((q) => q.status !== "answered").length })}</span></div>
+      {thread.messages.length > 0 && <div className="message-thread">{thread.messages.map((message, index) => <div className={message.fromMe ? "message-row message-mine" : "message-row"} key={`${message.createdAt}-${index}`}><p>{message.text}</p><small>{message.createdAt.slice(0, 10)}</small></div>)}</div>}
+      {thread.questions.filter((q) => q.status !== "answered").map((q) => <div className="record-row" key={q.id}><div><strong>{q.text}</strong><small>{q.createdAt.slice(0, 10)}</small></div><span className="status-badge status-attention">{t(lang, "awaiting_reply_label")}</span></div>)}
+    </Panel>}
   </div>;
 }
 
@@ -432,11 +475,19 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   const [assignClientId, setAssignClientId] = useState("");
   const [templateNote, setTemplateNote] = useState<string | null>(null);
 
-  const load = () => Promise.all([
+  // allSettled, not all: these three panels are independent, and a single failing one used to
+  // replace the entire trainer workspace (clients, requests, templates, broadcast) with an error.
+  const load = () => Promise.allSettled([
     api<TrainerQuestions>("/api/v2/trainer/questions"),
     api<TrainerRequests>("/api/v2/requests"),
     api<TrainerTemplates>("/api/v2/trainer/templates"),
-  ]).then(([q, r, tpl]) => { setQuestions(q); setRequests(r); setTemplates(tpl); });
+  ]).then(([q, r, tpl]) => {
+    if (q.status === "fulfilled") setQuestions(q.value);
+    if (r.status === "fulfilled") setRequests(r.value);
+    if (tpl.status === "fulfilled") setTemplates(tpl.value);
+    if (q.status === "rejected" && r.status === "rejected" && tpl.status === "rejected") throw q.reason;
+    if ([q, r, tpl].some((part) => part.status === "rejected")) setActionError(true);
+  });
   useEffect(() => { void load().catch(() => setError(true)); }, []);
   const act = async (key: string, path: string, body: unknown): Promise<boolean> => {
     setBusy(key);
@@ -455,7 +506,7 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   if (error) return <WorkspaceError lang={lang} onRetry={() => { setError(false); void load().catch(() => setError(true)); }} />;
 
   if (subview === "profile") return <TrainerProfilePanel lang={lang} onBack={() => setSubview("list")} />;
-  if (subview === "coach") return <AiCoachView lang={lang} onBack={() => setSubview("list")} />;
+  if (subview === "coach") return <AiCoachView lang={lang} routed={false} onBack={() => setSubview("list")} />;
   if (subview === "atrisk") return <AtRiskReportView dashboard={dashboard} lang={lang} onBack={() => setSubview("list")} onOpenClient={(id) => { setActiveClientId(id); setSubview("client"); }} />;
   if (subview === "client" && activeClientId !== null) {
     return <ClientCardView clientId={activeClientId} lang={lang} onBack={() => setSubview("list")} onTemplateSaved={() => void load()} onOpenPlan={onOpenPlan} />;
@@ -611,8 +662,31 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
   </div>;
 }
 
+type Space = "social" | "trainer" | "owner";
+
+/**
+ * This tab used to return exactly ONE workspace, first match wins: owner, else trainer, else
+ * social. So a trainer lost every athlete/social surface (buddy, challenges, records, board,
+ * quick log, injury reporting) and an owner lost those AND the whole trainer workspace -- even
+ * though a trainer trains too, and an owner is usually both. Every role now keeps every surface
+ * it qualifies for; the switcher only appears when there is more than one.
+ */
 export function WorkspaceView({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
-  if (dashboard.owner) return <OwnerWorkspace lang={lang} />;
-  if (dashboard.viewer.role === "trainer") return <TrainerWorkspace dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} />;
-  return <SocialWorkspace lang={lang} role={dashboard.viewer.role} />;
+  const isTrainer = dashboard.viewer.role === "trainer";
+  const isOwner = !!dashboard.owner;
+  const spaces: Array<{ id: Space; label: Key }> = [
+    ...(isOwner ? [{ id: "owner" as Space, label: "workspace_switch_owner" as Key }] : []),
+    ...(isTrainer ? [{ id: "trainer" as Space, label: "workspace_switch_trainer" as Key }] : []),
+    { id: "social", label: "workspace_switch_social" },
+  ];
+  const [space, setSpace] = useState<Space>(spaces[0].id);
+  const active = spaces.some((s) => s.id === space) ? space : spaces[0].id;
+  return <div className="view-stack">
+    {spaces.length > 1 && <div className="button-row tabs">
+      {spaces.map((s) => <button key={s.id} className={active === s.id ? "button button-primary" : "button button-ghost"} onClick={() => setSpace(s.id)}>{t(lang, s.label)}</button>)}
+    </div>}
+    {active === "owner" && <OwnerWorkspace lang={lang} />}
+    {active === "trainer" && <TrainerWorkspace dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} />}
+    {active === "social" && <SocialWorkspace lang={lang} role={dashboard.viewer.role} />}
+  </div>;
 }

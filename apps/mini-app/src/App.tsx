@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, jsonBody } from "./api";
-import type { Dashboard, LibraryProgram, LibraryResponse, Plan, PlatesResponse, ProfilePhoto, SquadInfo, WeekCardResponse } from "./types";
-import { guessLang, t, type Lang } from "./i18n";
+import type { Dashboard, LibraryProgram, LibraryResponse, Plan, PlatesResponse, ProfilePhoto, RecoveryFactor, RecoveryLabel, SquadInfo, TrainerApplication, WeekCardResponse } from "./types";
+import { guessLang, t, type Key, type Lang } from "./i18n";
 import { WorkspaceView } from "./Workspace";
 import { OnboardingView } from "./Onboarding";
 import { ProfileView } from "./ProfileView";
@@ -43,6 +43,10 @@ function ErrorState({ lang, error, retry }: { lang: Lang; error: unknown; retry:
   return <Card tone="muted"><div className="error-state"><strong>{message}</strong><button className="button button-ghost" onClick={retry}>{t(lang, "retry")}</button></div></Card>;
 }
 
+// The dashboard sends stable recovery codes (src/domain/recovery.ts), never prose -- rendered here.
+const recoveryLabel = (lang: Lang, label: RecoveryLabel) => t(lang, `recovery_label_${label}` as Key);
+const recoveryFactor = (lang: Lang, factor: RecoveryFactor) => t(lang, `recovery_factor_${factor.code}` as Key, { n: factor.count ?? 0 });
+
 function TodayView({ dashboard, lang, onOpen }: { dashboard: Dashboard; lang: Lang; onOpen: (view: View) => void }) {
   const stats = dashboard.todayStats;
   const recovery = dashboard.recovery;
@@ -50,7 +54,7 @@ function TodayView({ dashboard, lang, onOpen }: { dashboard: Dashboard; lang: La
   const hasExercises = !!dashboard.logForm?.exercises?.length;
   const rings = [
     { label: t(lang, "metric_sessions"), value: workoutCount, goal: Math.max(1, dashboard.calendar.split.filter((day) => day.weekday > 0).length || 3) },
-    { label: t(lang, "metric_water"), value: stats?.waterMl ?? 0, goal: stats?.waterGoal ?? 2000, suffix: " ml" },
+    { label: t(lang, "metric_water"), value: stats?.waterMl ?? 0, goal: stats?.waterGoal ?? 2000, suffix: ` ${t(lang, "unit_ml")}` },
     { label: t(lang, "metric_steps"), value: stats?.steps ?? 0, goal: stats?.stepsGoal ?? 8000 },
   ];
   return <div className="view-stack">
@@ -60,16 +64,16 @@ function TodayView({ dashboard, lang, onOpen }: { dashboard: Dashboard; lang: La
       <button className="button button-light" onClick={() => onOpen("train")}>{hasExercises ? t(lang, "start_session") : t(lang, "open_training")}</button>
     </div>
     <div className="metric-grid">
-      <Metric label={t(lang, "metric_recovery")} value={`${recovery.score}`} detail={recovery.label} />
+      <Metric label={t(lang, "metric_recovery")} value={`${recovery.score}`} detail={recoveryLabel(lang, recovery.label)} />
       <Metric label={t(lang, "metric_streak")} value={t(lang, "streak_weeks", { n: dashboard.gamification?.streak ?? 0 })} detail={t(lang, "level_n", { n: dashboard.gamification?.level ?? 1 })} />
       <Metric label={t(lang, "metric_sessions")} value={`${workoutCount}`} detail={t(lang, "today_detail")} />
     </div>
     <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "activity_rings_eyebrow")}</span><h2>{t(lang, "activity_rings_title")}</h2></div><button className="text-button" onClick={() => onOpen("progress")}>{t(lang, "details_arrow")}</button></div><div className="ring-grid">{rings.map((ring) => { const pct = Math.min(100, Math.round((ring.value / Math.max(1, ring.goal)) * 100)); return <div className="ring-item" key={ring.label}><div className="ring" style={{ background: `conic-gradient(var(--accent) ${pct}%, var(--surface-2) 0)` }}><div><strong>{pct}%</strong><small>{ring.value}{ring.suffix ?? ""}</small></div></div><span>{ring.label}</span></div>; })}</div></Card>
     <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "readiness_eyebrow")}</span><h2>{recovery.label}</h2></div><span className={`status-dot status-${recovery.score >= 70 ? "good" : recovery.score >= 45 ? "warn" : "bad"}`} /></div>
-      {recovery.factors.length ? <ul className="factor-list">{recovery.factors.slice(0, 3).map((factor) => <li key={factor}>{factor}</li>)}</ul> : <p className="muted">{t(lang, "no_recovery_blockers")}</p>}
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "readiness_eyebrow")}</span><h2>{recoveryLabel(lang, recovery.label)}</h2></div><span className={`status-dot status-${recovery.score >= 70 ? "good" : recovery.score >= 45 ? "warn" : "bad"}`} /></div>
+      {recovery.factors.length ? <ul className="factor-list">{recovery.factors.slice(0, 3).map((factor) => <li key={factor.code}>{recoveryFactor(lang, factor)}</li>)}</ul> : <p className="muted">{t(lang, "no_recovery_blockers")}</p>}
     </Card>
-    {stats && <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "daily_load_eyebrow")}</span><h2>{t(lang, "small_actions_count")}</h2></div><button className="text-button" onClick={() => onOpen("progress")}>{t(lang, "details_arrow")}</button></div><div className="metric-grid compact"><Metric label={t(lang, "metric_water")} value={`${formatNumber(stats.waterMl)} ml`} detail={t(lang, "goal_ml", { n: formatNumber(stats.waterGoal) })} /><Metric label={t(lang, "metric_steps")} value={formatNumber(stats.steps)} detail={t(lang, "goal_n", { n: formatNumber(stats.stepsGoal) })} /></div></Card>}
+    {stats && <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "daily_load_eyebrow")}</span><h2>{t(lang, "small_actions_count")}</h2></div><button className="text-button" onClick={() => onOpen("progress")}>{t(lang, "details_arrow")}</button></div><div className="metric-grid compact"><Metric label={t(lang, "metric_water")} value={`${formatNumber(stats.waterMl)} ${t(lang, "unit_ml")}`} detail={t(lang, "goal_ml", { n: formatNumber(stats.waterGoal) })} /><Metric label={t(lang, "metric_steps")} value={formatNumber(stats.steps)} detail={t(lang, "goal_n", { n: formatNumber(stats.stepsGoal) })} /></div></Card>}
     <Card tone="accent"><div className="section-head"><div><span className="eyebrow">{t(lang, "nba_eyebrow")}</span><h2>{hasExercises ? t(lang, "nba_log_session") : t(lang, "nba_keep_baseline")}</h2></div><span className="action-arrow">↗</span></div><p>{hasExercises ? t(lang, "nba_evidence") : t(lang, "nba_open_plan")}</p><div className="button-row"><button className="button button-light" onClick={() => onOpen(hasExercises ? "train" : "plan")}>{hasExercises ? t(lang, "log_workout") : t(lang, "review_plan")}</button><button className="button button-outline-light" onClick={() => onOpen("fuel")}>{t(lang, "fuel_btn")}</button></div></Card>
   </div>;
 }
@@ -442,7 +446,10 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
   // v2_trainers row yet, extrasApi.ts's handler treats the same body as a NEW application
   // (applyTrainer, pending owner approval) instead of an edit. TrainerProfilePanel itself isn't
   // reachable here -- it only renders inside TrainerWorkspace, which is gated to role==="trainer"
-  // already, so a solo user applying for the first time could never reach it.
+  // already, so a solo user applying for the first time could never reach it. The same GET also
+  // tells an applicant where they stand: without it, a pending application looked identical to
+  // never having applied (the form just reappeared blank on every open).
+  const [trainerApp, setTrainerApp] = useState<TrainerApplication | null | undefined>(undefined);
   const [becomeName, setBecomeName] = useState("");
   const [becomeSpecialization, setBecomeSpecialization] = useState("");
   const [becomeCity, setBecomeCity] = useState("");
@@ -451,12 +458,22 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
   const [becomeBusy, setBecomeBusy] = useState(false);
   const [becomeSent, setBecomeSent] = useState(false);
   const [becomeError, setBecomeError] = useState<unknown>(null);
+  const loadTrainerApp = () => {
+    api<{ trainer: TrainerApplication | null }>("/api/v2/trainer/profile").then((data) => {
+      setTrainerApp(data.trainer);
+      if (!data.trainer) return;
+      setBecomeName(data.trainer.name); setBecomeSpecialization(data.trainer.specialization);
+      setBecomeCity(data.trainer.city); setBecomeContact(data.trainer.contact); setBecomeBio(data.trainer.bio);
+    }).catch(() => setTrainerApp(null));
+  };
+  useEffect(loadTrainerApp, []);
   const applyAsTrainer = async () => {
     if (!becomeName.trim()) return;
     setBecomeBusy(true); setBecomeError(null); setBecomeSent(false);
     try {
       await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ name: becomeName.trim(), specialization: becomeSpecialization.trim(), city: becomeCity.trim(), contact: becomeContact.trim(), bio: becomeBio.trim() }) });
       setBecomeSent(true);
+      loadTrainerApp();
     } catch (err) { setBecomeError(err); } finally { setBecomeBusy(false); }
   };
 
@@ -540,10 +557,10 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
       {trainerError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
     </Card>}
 
-    {role === "solo" && <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "become_trainer_eyebrow")}</span><h2>{t(lang, "become_trainer_title")}</h2></div></div>
-      {becomeSent ? <p className="muted">{t(lang, "become_trainer_pending_note")}</p> : <>
-        <p className="muted">{t(lang, "become_trainer_detail")}</p>
+    {trainerApp !== undefined && (trainerApp !== null || role === "solo") && <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "become_trainer_eyebrow")}</span><h2>{trainerApp ? t(lang, "trainer_profile_edit_title") : t(lang, "become_trainer_title")}</h2></div>{trainerApp && <span className="tag">{t(lang, "trainer_clients_count", { n: trainerApp.clients })}</span>}</div>
+      {becomeSent && !trainerApp ? <p className="muted">{t(lang, "become_trainer_pending_note")}</p> : <>
+        {trainerApp ? <p className="muted"><strong>{t(lang, trainerApp.status === "approved" ? "trainer_status_approved_title" : "trainer_status_pending_title")}</strong> — {t(lang, trainerApp.status === "approved" ? "trainer_status_approved_body" : "trainer_status_pending_body")}</p> : <p className="muted">{t(lang, "become_trainer_detail")}</p>}
         <div className="form-grid">
           <label className="form-field"><span>{t(lang, "field_name")}</span><input value={becomeName} maxLength={60} onChange={(event) => setBecomeName(event.target.value)} /></label>
           <label className="form-field"><span>{t(lang, "field_specialization")}</span><input value={becomeSpecialization} maxLength={120} onChange={(event) => setBecomeSpecialization(event.target.value)} /></label>
@@ -552,8 +569,9 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
         </div>
         <label className="form-field"><span>{t(lang, "field_bio")}</span><textarea value={becomeBio} maxLength={600} onChange={(event) => setBecomeBio(event.target.value)} /></label>
         <div className="button-row" style={{ marginTop: 10 }}>
-          <button className="button button-primary" disabled={becomeBusy || !becomeName.trim()} onClick={() => void applyAsTrainer()}>{becomeBusy ? t(lang, "saving_ellipsis") : t(lang, "become_trainer_btn")}</button>
+          <button className="button button-primary" disabled={becomeBusy || !becomeName.trim()} onClick={() => void applyAsTrainer()}>{becomeBusy ? t(lang, "saving_ellipsis") : t(lang, trainerApp ? "save_profile_btn" : "become_trainer_btn")}</button>
         </div>
+        {becomeSent && trainerApp && <div className="save-note">{t(lang, "profile_updated_note")}</div>}
         {becomeError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
       </>}
     </Card>}
@@ -589,5 +607,5 @@ export function App() {
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => { if (window.scrollY === 0) pullStart.current = event.touches[0]?.clientY ?? null; };
   const onTouchEnd = (event: React.TouchEvent<HTMLElement>) => { const start = pullStart.current; pullStart.current = null; const end = event.changedTouches[0]?.clientY ?? 0; if (start !== null && end - start > 72 && !loading) loadDashboard(); };
   const openPlan = (clientId?: number) => { setPlanClientId(clientId ?? null); setView("plan"); };
-  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content">{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} />}{view === "train" && <TrainView lang={lang} />}{view === "plan" && <PlanView lang={lang} clientId={planClientId} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} />}{view === "fuel" && <FuelView lang={lang} />}{view === "progress" && <ProgressView dashboard={dashboard} lang={lang} />}{view === "more" && <ExtrasView lang={lang} role={dashboard.viewer.role} />}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "settings" && <ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} />}</div><nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span>{navLabel(lang, item)}</span></button>)}</nav></main>;
+  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content">{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} />}{view === "train" && <TrainView lang={lang} />}{view === "plan" && <PlanView lang={lang} clientId={planClientId} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} />}{view === "fuel" && <FuelView lang={lang} />}{view === "progress" && <ProgressView dashboard={dashboard} lang={lang} />}{view === "more" && <ExtrasView lang={lang} role={dashboard.viewer.role} />}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "settings" && <ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} />}</div><nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
 }
