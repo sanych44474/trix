@@ -21,7 +21,7 @@ import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getDayMeals } from "../adapters/d1/v2Nutrition";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { localParts } from "../domain/progression";
-import { logInfo } from "../log";
+import { logError, logInfo } from "../log";
 import { V2_ERROR_CODES, type V2ErrorCode, type V2Response } from "../contracts/v2";
 import { v2CohortEnabled } from "../contracts/rollout";
 import type { Env, UserDoc } from "../types";
@@ -209,7 +209,8 @@ export async function handleV2Api(req: Request, url: URL, env: Env, ctx?: Execut
         if (parity) logInfo("v2_shadow_parity", { ok: parity.ok, legacy: parity.legacy, v2: parity.v2 });
       }
       return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded }, ...payload }, req);
-    } catch {
+    } catch (err) {
+      logError("v2_dashboard_failed", err, { userId: user._id });
       return Response.json({ error: { code: "dependency_unavailable", message: "Dashboard unavailable" } }, { status: 503 });
     }
   }
