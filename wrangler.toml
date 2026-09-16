@@ -101,7 +101,9 @@ dataset = "trix_events"
 # (wrangler dev) to enable the ?debugUser= bypass and hide the buttons.
 WORKER_URL = ""
 V2_DUAL_WRITE = "0"
-V2_APP_ENABLED = "0"
+# Enabled for all users [2026-09-16] once the v2 cutover (all 10 domains) landed and was verified
+# live against production data. Legacy /app bundle stays built and served as the rollback path.
+V2_APP_ENABLED = "1"
 V2_COHORT_PERCENT = "0"
 V2_INTERNAL_USER_IDS = ""
 V2_SHADOW_READS = "0"
