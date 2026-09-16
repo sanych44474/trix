@@ -34,6 +34,11 @@ type MealPlanDays = NonNullable<Nutrition["mealPlan"]>["days"];
 export function FuelView({ lang }: { lang: Lang }) {
   const [nutrition, setNutrition] = useState<Nutrition | null>(null);
   const [error, setError] = useState<unknown>(null);
+  // Separate from `error` on purpose: `error` means "couldn't load Fuel, nothing to show" and
+  // replaces the whole view with ErrorState. A single action failing (log/search/add/correct/
+  // regenerate/send) is recoverable and must not blank an already-rendered day's data out from
+  // under the user; it shows as a small dismissible inline note instead.
+  const [actionError, setActionError] = useState<unknown>(null);
   const [text, setText] = useState(""); const [search, setSearch] = useState(""); const [barcode, setBarcode] = useState("");
   const [results, setResults] = useState<FoodSearchItem[]>([]); const [grams, setGrams] = useState("100");
   const [saving, setSaving] = useState(false); const [searching, setSearching] = useState(false); const [selected, setSelected] = useState<FoodSearchItem | null>(null);
@@ -43,15 +48,15 @@ export function FuelView({ lang }: { lang: Lang }) {
   const [grocerySendBusy, setGrocerySendBusy] = useState(false); const [grocerySent, setGrocerySent] = useState(false);
   const load = () => { setError(null); api<Nutrition>("/api/v2/nutrition").then(setNutrition).catch(setError); };
   useEffect(load, []);
-  const log = async () => { if (!text.trim()) return; setSaving(true); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ kind: "food", text: text.trim() }) }); setText(""); load(); } catch (err) { setError(err); } finally { setSaving(false); } };
-  const searchFood = async (action: "dbsearch" | "barcode") => { const q = action === "dbsearch" ? search.trim() : barcode.replace(/\D/g, ""); if (!q || q.length < 2) return; setSearching(true); try { const result = await api<{ items: FoodSearchItem[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(action === "dbsearch" ? { action, q } : { action, code: q }) }); setResults(result.items ?? []); } catch (err) { setError(err); } finally { setSearching(false); } };
-  const addFood = async (item: FoodSearchItem) => { const amount = Number(grams); if (!Number.isFinite(amount) || amount < 1 || amount > 3000) return; setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "dbadd", name: item.name, grams: amount, per100: item.per100 }) }); setSelected(null); setResults([]); load(); } catch (err) { setError(err); } finally { setSaving(false); } };
-  const readd = async (ri: number) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "readd", ri }) }); load(); } catch (err) { setError(err); } finally { setSaving(false); } };
-  const mutateMeal = async (action: string, index: number, extra: Record<string, unknown> = {}) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action, index, ...extra }) }); setEditing(null); load(); } catch (err) { setError(err); } finally { setSaving(false); } };
+  const log = async () => { if (!text.trim()) return; setSaving(true); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ kind: "food", text: text.trim() }) }); setText(""); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
+  const searchFood = async (action: "dbsearch" | "barcode") => { const q = action === "dbsearch" ? search.trim() : barcode.replace(/\D/g, ""); if (!q || q.length < 2) return; setSearching(true); try { const result = await api<{ items: FoodSearchItem[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(action === "dbsearch" ? { action, q } : { action, code: q }) }); setResults(result.items ?? []); } catch (err) { setActionError(err); } finally { setSearching(false); } };
+  const addFood = async (item: FoodSearchItem) => { const amount = Number(grams); if (!Number.isFinite(amount) || amount < 1 || amount > 3000) return; setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "dbadd", name: item.name, grams: amount, per100: item.per100 }) }); setSelected(null); setResults([]); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
+  const readd = async (ri: number) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "readd", ri }) }); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
+  const mutateMeal = async (action: string, index: number, extra: Record<string, unknown> = {}) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action, index, ...extra }) }); setEditing(null); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
   const openMealEdit = (meal: Nutrition["meals"][number]) => { setEditing(meal.index); setCorrection({ kcal: String(meal.kcal), protein: String(meal.protein), fats: String(meal.fats), carbs: String(meal.carbs), grams: meal.grams ? String(meal.grams) : "" }); };
   const saveCorrection = () => { if (editing === null) return; void mutateMeal("macros", editing, { kcal: Number(correction.kcal), protein: Number(correction.protein), fats: Number(correction.fats), carbs: Number(correction.carbs) }); };
-  const askNutrition = async (action: "recipe" | "recover") => { setAdviceBusy(true); try { const result = await api<{ text: string }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action }) }); setAdvice(result.text || t(lang, "no_advice_available")); } catch (err) { setError(err); } finally { setAdviceBusy(false); } };
-  const loadGrocery = async (days: number) => { setGroceryDays(days); setGrocerySent(false); try { const result = await api<{ lines: GroceryLine[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "grocery", days }) }); setGrocery(result.lines); } catch (err) { setError(err); } };
+  const askNutrition = async (action: "recipe" | "recover") => { setAdviceBusy(true); try { const result = await api<{ text: string }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action }) }); setAdvice(result.text || t(lang, "no_advice_available")); } catch (err) { setActionError(err); } finally { setAdviceBusy(false); } };
+  const loadGrocery = async (days: number) => { setGroceryDays(days); setGrocerySent(false); try { const result = await api<{ lines: GroceryLine[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "grocery", days }) }); setGrocery(result.lines); } catch (err) { setActionError(err); } };
   // Regenerate today's plan, reusing the same allergen/likes/dislikes prefs already on file --
   // same "keep my prefs, build a fresh day" action as the bot's mp:useprev button. A from-scratch
   // questionnaire (new allergens/likes/dislikes) stays bot-only (a multi-step chat intake, not a
@@ -62,7 +67,7 @@ export function FuelView({ lang }: { lang: Lang }) {
       const result = await api<{ days: MealPlanDays }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "mealplan_regen" }) });
       setNutrition((current) => current ? { ...current, mealPlan: { days: result.days } } : current);
       setRegenNote(true);
-    } catch (err) { setError(err); } finally { setRegenBusy(false); }
+    } catch (err) { setActionError(err); } finally { setRegenBusy(false); }
   };
   // Push the grocery checklist to the viewer's own Telegram chat -- same delivery pattern as the
   // week-card / photo-compare exports in ExtrasView (the webview can't offer a file download).
@@ -71,12 +76,13 @@ export function FuelView({ lang }: { lang: Lang }) {
     try {
       await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "grocery_send", days: groceryDays }) });
       setGrocerySent(true);
-    } catch (err) { setError(err); } finally { setGrocerySendBusy(false); }
+    } catch (err) { setActionError(err); } finally { setGrocerySendBusy(false); }
   };
   if (error) return <ErrorState lang={lang} error={error} retry={load} />; if (!nutrition) return <Loading />;
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "fuel_eyebrow", { date: nutrition.date })}</div>
     <div className="page-title"><h1>{t(lang, "eat_intent_title")}</h1><span>{t(lang, "kcal_value", { n: formatNumber(nutrition.totals.kcal) })}</span></div>
+    {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
     <Card tone="accent">
       {nutrition.isRestDay && <div className="tag" style={{ marginBottom: 10 }}>{t(lang, "fuel_rest_day_badge")}</div>}
       <div className="macro-grid"><Metric label={t(lang, "metric_calories")} value={`${formatNumber(nutrition.totals.kcal)}`} detail={nutrition.targets ? t(lang, "of_n", { n: formatNumber(nutrition.targets.calories) }) : undefined} /><Metric label={t(lang, "metric_protein")} value={`${formatNumber(nutrition.totals.protein)} g`} detail={nutrition.targets ? t(lang, "of_n_g", { n: formatNumber(nutrition.targets.protein) }) : undefined} /><Metric label={t(lang, "metric_fats")} value={`${formatNumber(nutrition.totals.fats)} g`} detail={nutrition.targets ? t(lang, "of_n_g", { n: formatNumber(nutrition.targets.fats) }) : undefined} /><Metric label={t(lang, "metric_carbs")} value={`${formatNumber(nutrition.totals.carbs)} g`} detail={nutrition.targets ? t(lang, "of_n_g", { n: formatNumber(nutrition.targets.carbs) }) : undefined} /></div>

@@ -101,6 +101,11 @@ function noteFieldLabel(lang: Lang, field: string): string {
 function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }: { clientId: number; lang: Lang; onBack: () => void; onTemplateSaved: () => void; onOpenPlan?: (clientId?: number) => void }) {
   const [data, setData] = useState<ClientCardPayload | null>(null);
   const [error, setError] = useState(false);
+  // Separate from `error` on purpose: `error` means "couldn't load this client's card, nothing to
+  // show" and replaces the whole view with WorkspaceError. A single action failing (save/flag/
+  // request) is recoverable and must not blank an already-rendered card out from under the
+  // trainer; it shows as a small dismissible inline note instead.
+  const [actionError, setActionError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [healthNotes, setHealthNotes] = useState("");
   const [personalNotes, setPersonalNotes] = useState("");
@@ -127,14 +132,14 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }:
     try {
       await api(`/api/v2/trainer/client/${clientId}/card`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ healthNotes, personalNotes, birthday }) });
       setSavedKey("card");
-    } catch { setError(true); } finally { setBusy(null); }
+    } catch { setActionError(true); } finally { setBusy(null); }
   };
   const saveNote = async () => {
     setBusy("note"); setSavedKey(null);
     try {
       await api(`/api/v2/trainer/client/${clientId}/note`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ note }) });
       setSavedKey("note");
-    } catch { setError(true); } finally { setBusy(null); }
+    } catch { setActionError(true); } finally { setBusy(null); }
   };
   const toggleFlag = async () => {
     if (!data) return;
@@ -143,7 +148,7 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }:
       const next = !data.client.flagged;
       await api(`/api/v2/trainer/client/${clientId}/flag`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ flagged: next }) });
       setData({ ...data, client: { ...data.client, flagged: next } });
-    } catch { setError(true); } finally { setBusy(null); }
+    } catch { setActionError(true); } finally { setBusy(null); }
   };
   const createTemplate = async () => {
     if (!templateName.trim()) return;
@@ -153,7 +158,7 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }:
       setTemplateName(""); setSavedKey("template"); onTemplateSaved();
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) setTemplateError(t(lang, "no_active_plan_hint"));
-      else setError(true);
+      else setActionError(true);
     } finally { setBusy(null); }
   };
   const requestPhotos = async () => {
@@ -161,14 +166,14 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }:
     try {
       await api(`/api/v2/trainer/client/${clientId}/photo-request`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
       setSavedKey("photoreq");
-    } catch { setError(true); } finally { setBusy(null); }
+    } catch { setActionError(true); } finally { setBusy(null); }
   };
   const requestInterview = async () => {
     setBusy("interview"); setSavedKey(null);
     try {
       await api(`/api/v2/trainer/client/${clientId}/interview-nudge`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
       setSavedKey("interview");
-    } catch { setError(true); } finally { setBusy(null); }
+    } catch { setActionError(true); } finally { setBusy(null); }
   };
 
   if (error) return <WorkspaceError lang={lang} onRetry={load} />;
@@ -178,6 +183,7 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }:
 
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "client_card_eyebrow")}</div>
+    {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <div className="page-title"><h1>{data.client.name}</h1><div className="button-row"><button className="button button-ghost" onClick={() => onOpenPlan?.(clientId)}>{t(lang, "edit_client_plan_btn")}</button><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div></div>
 
     <Panel tone="accent">
@@ -260,6 +266,7 @@ function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () => void 
   const [data, setData] = useState<TrainerProfilePayload | null>(null);
   const [form, setForm] = useState<TrainerProfile | null>(null);
   const [error, setError] = useState(false);
+  const [actionError, setActionError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const load = () => { setError(false); api<TrainerProfilePayload>("/api/v2/trainer/profile").then((next) => { setData(next); setForm(next.trainer); }).catch(() => setError(true)); };
@@ -272,11 +279,12 @@ function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () => void 
     try {
       await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ bio: form.bio, specialization: form.specialization, experienceYears: form.experienceYears, priceOnline: form.priceOnline, city: form.city, contact: form.contact, accepting: form.accepting }) });
       setSaved(true);
-    } catch { setError(true); } finally { setSaving(false); }
+    } catch { setActionError(true); } finally { setSaving(false); }
   };
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "my_profile_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "my_profile_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
+    {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <Panel>
       <div className="form-grid">
         <label className="form-field"><span>{t(lang, "field_specialization")}</span><input value={form.specialization} maxLength={120} onChange={(event) => patch({ specialization: event.target.value })} /></label>
@@ -297,6 +305,7 @@ function SocialWorkspace({ lang, role }: { lang: Lang; role: Dashboard["viewer"]
   const [data, setData] = useState<{ buddy: Buddy; challenges: Challenges; records: Records; boards: Boards } | null>(null);
   const [injuries, setInjuries] = useState<InjuryPayload | null>(null);
   const [error, setError] = useState(false);
+  const [actionError, setActionError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [steps, setSteps] = useState("");
   const [injuryArea, setInjuryArea] = useState("");
@@ -323,7 +332,7 @@ function SocialWorkspace({ lang, role }: { lang: Lang; role: Dashboard["viewer"]
   const post = async (key: string, path: string, body: unknown) => {
     setBusy(key);
     try { await api(path, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); load(); }
-    catch { setError(true); }
+    catch { setActionError(true); }
     finally { setBusy(null); }
   };
 
@@ -335,6 +344,7 @@ function SocialWorkspace({ lang, role }: { lang: Lang; role: Dashboard["viewer"]
 
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "social_eyebrow")}</div>
+    {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <div className="page-title"><h1>{t(lang, "stay_accountable_title")}</h1><span>{t(lang, "challenges_won", { n: data.challenges.won })}</span></div>
     {/* A client with a trainer routes questions to them (see coachApi.ts) -- this single-turn
         self-coach Q&A is solo-only. */}
@@ -415,6 +425,7 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [actionError, setActionError] = useState(false);
   const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach">("list");
   const [activeClientId, setActiveClientId] = useState<number | null>(null);
   const [assignTemplateId, setAssignTemplateId] = useState("");
@@ -430,7 +441,7 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   const act = async (key: string, path: string, body: unknown): Promise<boolean> => {
     setBusy(key);
     try { await api(path, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); await load(); return true; }
-    catch { setError(true); return false; }
+    catch { setActionError(true); return false; }
     finally { setBusy(null); }
   };
 
@@ -457,6 +468,7 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "trainer_workspace_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "coach_right_thing_title")}</h1><span>{t(lang, "n_clients", { n: clients.length })}</span></div>
+    {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <div className="button-row">
       <button className="button button-ghost" onClick={() => setSubview("profile")}>{t(lang, "workspace_tab_profile")}</button>
       <button className="button button-ghost" onClick={() => setSubview("atrisk")}>{t(lang, "atrisk_report_btn", { n: atRiskCount })}</button>
@@ -520,6 +532,10 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
   const [sectionBusy, setSectionBusy] = useState(false);
   const [sent, setSent] = useState<number | null>(null);
   const [error, setError] = useState(false);
+  // Separate from `error` on purpose: `error` means "couldn't load the roster, nothing to show".
+  // A single report-tab fetch, block/unblock/delete, or "ask inactive" failing is recoverable and
+  // must not blank the whole console out from under the owner mid-action; it shows inline instead.
+  const [actionError, setActionError] = useState(false);
   const [rosterBusy, setRosterBusy] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
 
@@ -529,14 +545,14 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
     setSectionBusy(true);
     api<OwnerReport>(`/api/v2/owner/report?section=${id}`)
       .then((result) => setReports((current) => ({ ...current, [id]: result.html })))
-      .catch(() => setError(true))
+      .catch(() => setActionError(true))
       .finally(() => setSectionBusy(false));
   };
   useEffect(() => { void loadUsers(); loadSection("overview"); }, []);
   const selectSection = (id: OwnerSection) => { setSection(id); loadSection(id); };
   const retry = () => { setError(false); void loadUsers(); loadSection(section, true); };
 
-  const askInactive = async () => { try { const result = await api<{ sent: number }>("/api/v2/owner/ask-inactive", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) }); setSent(result.sent); } catch { setError(true); } };
+  const askInactive = async () => { try { const result = await api<{ sent: number }>("/api/v2/owner/ask-inactive", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) }); setSent(result.sent); } catch { setActionError(true); } };
   // Block/unblock/delete ANY user. Delete is a two-tap gate matching the bot's own ownerUserKb
   // confirm (ou:*:del shows confirm/cancel, only ou:*:delok deletes) -- pendingDelete tracks which
   // row is mid-confirm; a second explicit tap on "Yes, delete" is what actually calls the route.
@@ -546,7 +562,7 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
       await api(`/api/v2/owner/user/${id}/${action}`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
       if (action === "delete") setPendingDelete(null);
       await loadUsers();
-    } catch { setError(true); } finally { setRosterBusy(null); }
+    } catch { setActionError(true); } finally { setRosterBusy(null); }
   };
   if (error) return <WorkspaceError lang={lang} onRetry={retry} />;
   if (!users) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
@@ -557,6 +573,7 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "owner_ops_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "system_pulse_title")}</h1><span>{t(lang, "n_users", { n: users.rows.length })}</span></div>
+    {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <div className="button-row">
       {OWNER_REPORT_SECTIONS.map((s) => <button key={s.id} className={section === s.id ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== s.id} onClick={() => selectSection(s.id)}>{t(lang, s.tab)}</button>)}
       <button className={section === "roster" ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== "roster"} onClick={() => selectSection("roster")}>{t(lang, "owner_tab_roster")}</button>

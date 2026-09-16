@@ -79,6 +79,11 @@ type PlanAction = "weight" | "sets" | "del" | "move" | "swap" | "add" | "link" |
 function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: number | null; onBack?: () => void }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<unknown>(null);
+  // Separate from `error` on purpose: `error` means "couldn't load the plan, nothing to show" and
+  // replaces the whole editor with ErrorState. A single edit failing -- most commonly a 409 from a
+  // stale If-Match version after a concurrent change -- is recoverable and must not blank out an
+  // already-rendered plan the user is mid-edit on; it shows as a small dismissible inline note.
+  const [actionError, setActionError] = useState<unknown>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [newExercises, setNewExercises] = useState<Record<number, string>>({});
   const [swapDrafts, setSwapDrafts] = useState<Record<string, string>>({});
@@ -104,7 +109,7 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
   ): Promise<boolean> => {
     if (!plan) return false;
     const key = `${weekday}:${index}:${action}`;
-    setSaving(key); setSaved(null); setError(null);
+    setSaving(key); setSaved(null); setActionError(null);
     try {
       const result = await api<{ ok: true; days: Plan["days"]; version: string }>("/api/v2/plan", {
         method: "POST",
@@ -116,7 +121,9 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
       setSaved(key);
       return true;
     } catch (err) {
-      setError(err);
+      // A 409 here is a stale If-Match version (the plan changed since this copy was loaded) --
+      // recoverable by re-fetching, not a reason to blank the editor out from under the user.
+      setActionError(err);
       return false;
     } finally {
       setSaving(null);
@@ -138,7 +145,7 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
       const result = await api<{ items: Array<{ id: string; name: string; muscle: string }> }>(`/api/v2/plan/catalog?q=${encodeURIComponent(query.trim())}`);
       setCatalogResults((current) => ({ ...current, [key]: result.items ?? [] }));
     } catch (err) {
-      setError(err);
+      setActionError(err);
     } finally {
       setCatalogBusy(null);
     }
@@ -153,6 +160,7 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
     <div className="page-title"><h1>{t(lang, "plan_owner_title", { name: plan.owner.name })}</h1><span>{t(lang, "days_count", { n: plan.days.length })}</span></div>
     {onBack && <button className="text-button" onClick={onBack}>← {t(lang, "nav_role")}</button>}
     <p className="muted">{t(lang, "plan_editor_hint")}</p>
+    {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
     {saved && <div className="save-note">{t(lang, "plan_updated")}</div>}
     {plan.days.map((day) => <Card key={day.weekday}>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "day_label", { n: day.weekday })}</span><h2>{day.name}</h2></div><span className="tag">{day.muscleGroup}</span></div>
@@ -191,7 +199,7 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
                 <button className="text-button" disabled={saving !== null || exercise.index === 0} aria-label={t(lang, "plan_move_up")} onClick={() => void edit(day.weekday, exercise.index, "move", undefined, exercise.name, { dir: "up" })}>↑ {t(lang, "plan_move_up")}</button>
                 <button className="text-button" disabled={saving !== null || exercise.index === day.exercises.length - 1} aria-label={t(lang, "plan_move_down")} onClick={() => void edit(day.weekday, exercise.index, "move", undefined, exercise.name, { dir: "down" })}>↓ {t(lang, "plan_move_down")}</button>
                 {canLink && <button className="text-button" disabled={saving !== null} onClick={() => void edit(day.weekday, exercise.index, "link", undefined, exercise.name)}>{exercise.ssGroup ? t(lang, "plan_unlink_btn") : t(lang, "plan_link_btn")}</button>}
-                <button className="text-button danger-button" disabled={saving !== null} onClick={() => { if (day.exercises.length <= 1) { setError(new Error(t(lang, "plan_last_exercise"))); return; } if (window.confirm(t(lang, "plan_delete_confirm"))) void edit(day.weekday, exercise.index, "del", undefined, exercise.name); }}>{t(lang, "plan_delete_btn")}</button>
+                <button className="text-button danger-button" disabled={saving !== null} onClick={() => { if (day.exercises.length <= 1) { setActionError(new Error(t(lang, "plan_last_exercise"))); return; } if (window.confirm(t(lang, "plan_delete_confirm"))) void edit(day.weekday, exercise.index, "del", undefined, exercise.name); }}>{t(lang, "plan_delete_btn")}</button>
               </div>
             </div>
           </div>;

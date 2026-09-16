@@ -98,7 +98,10 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
 
   const patch = (value: Partial<ProfilePayload["profile"]>) => setForm((current) => current ? { ...current, ...value } : current);
   const toggleDay = (value: number) => patch({ trainingWeekdays: form.trainingWeekdays.includes(value) ? form.trainingWeekdays.filter((day) => day !== value) : [...form.trainingWeekdays, value].sort((a, b) => a - b) });
-  const save = async () => { setSaving(true); setError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ ...form, goalWeight: form.goalWeight === null ? null : Number(form.goalWeight), waterGoalMl: form.waterGoalMl === null ? null : Number(form.waterGoalMl), stepsGoal: form.stepsGoal === null ? null : Number(form.stepsGoal) }) }); onBack(); } catch { setError("save"); } finally { setSaving(false); } };
+  // A failed save must NOT blank the form via the shared `error`/`load`-failure state (the user's
+  // typed edits would vanish) -- reuses the same per-field actionError/actionSaved convention the
+  // settings actions below already use, keyed "profile", rendered as an inline note near the button.
+  const save = async () => { setSaving(true); setActionError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ ...form, goalWeight: form.goalWeight === null ? null : Number(form.goalWeight), waterGoalMl: form.waterGoalMl === null ? null : Number(form.waterGoalMl), stepsGoal: form.stepsGoal === null ? null : Number(form.stepsGoal) }) }); onBack(); } catch { setActionError("profile"); } finally { setSaving(false); } };
   const photoQuery = () => { const tma = window.Telegram?.WebApp?.initData; if (tma) return `&tma=${encodeURIComponent(tma)}`; return window.location.search.replace(/^\?/, "&"); };
 
   return <div className="view-stack">
@@ -109,6 +112,7 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
     {data.photos.length > 0 && <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "progress_photos_eyebrow")}</span><h2>{t(lang, "your_timeline_title")}</h2></div><span className="tag">{data.photos.length}</span></div><div className="photo-grid">{data.photos.map((photo) => <figure key={photo.id}><img src={`/api/v2/photo?id=${photo.id}${photoQuery()}`} alt={t(lang, "progress_alt", { date: photo.takenAt })} loading="lazy" /><figcaption>{photo.takenAt}</figcaption></figure>)}</div></section>}
     {form.share && <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "consent_eyebrow")}</span><h2>{t(lang, "trainer_visibility_title")}</h2></div></div><label className="check-row"><input type="checkbox" checked={form.share.body} onChange={(event) => patch({ share: { ...form.share!, body: event.target.checked } })} /><span>{t(lang, "share_body_label")}</span></label><label className="check-row"><input type="checkbox" checked={form.share.health} onChange={(event) => patch({ share: { ...form.share!, health: event.target.checked } })} /><span>{t(lang, "share_health_label")}</span></label></section>}
     {error && <div className="save-note error-note">{t(lang, "save_error")}</div>}
+    {actionError === "profile" && <div className="save-note error-note">{t(lang, "save_error")}</div>}
     <button className="button button-primary button-wide" onClick={() => void save()} disabled={saving}>{saving ? t(lang, "saving_ellipsis") : t(lang, "save_profile_btn")}</button>
 
     <div className="eyebrow">{t(lang, "account_eyebrow")}</div>
