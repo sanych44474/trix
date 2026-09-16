@@ -44,6 +44,91 @@ paths:
             application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
         '400': { $ref: '#/components/responses/ValidationError' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/v2/workout/history:
+    get:
+      operationId: getWorkoutHistory
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200':
+          description: Recent workout history
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+  /api/v2/workout/past:
+    get:
+      operationId: getPastWorkout
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Workout used as a repeat template
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v2/workout/swap:
+    get:
+      operationId: getWorkoutSwaps
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - { name: index, in: query, required: true, schema: { type: integer, minimum: 0, maximum: 50 } }
+      responses:
+        '200':
+          description: Safe exercise alternatives
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+  /api/v2/workout/exinfo:
+    get:
+      operationId: getExerciseInfo
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - { name: name, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 80 } }
+      responses:
+        '200':
+          description: Exercise technique information
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+  /api/v2/workout/custom:
+    post:
+      operationId: addCustomExercise
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 200 }
+      responses:
+        '200':
+          description: Custom exercise
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /api/v2/workout/rest:
+    post:
+      operationId: startRestTimer
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seconds]
+              properties:
+                seconds: { type: number, minimum: 30, maximum: 900 }
+      responses:
+        '200':
+          description: Rest timer scheduled
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
   /api/v2/log:
     post:
       operationId: quickLog
@@ -103,13 +188,36 @@ paths:
       requestBody:
         required: true
         content:
-          application/json: { schema: { type: object } }
+          application/json:
+            schema:
+              type: object
+              required: [weekday, action]
+              properties:
+                weekday: { type: integer, minimum: 1, maximum: 7 }
+                index: { type: integer, minimum: -1, maximum: 12 }
+                action: { type: string, enum: [weight, sets, wmode, video, link, del, move, swap, add] }
+                value: { type: string, maxLength: 300 }
+                name: { type: string, minLength: 2, maxLength: 80 }
+                expectName: { type: string, maxLength: 200 }
+                dir: { type: string, enum: [up, down] }
+                catalogId: { type: string, maxLength: 80 }
       responses:
         '200':
           description: Updated plan
           content:
             application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/v2/plan/catalog:
+    get:
+      operationId: searchPlanExercises
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 80 } }
+      responses:
+        '200':
+          description: Catalog exercises matching the query
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
   /api/v2/onboarding:
     post:
       operationId: completeOnboarding

@@ -214,7 +214,7 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
 
 ## 11. Engineering safeguards (invisible features)
 
-- 354 unit/integration tests; typecheck-enforced bilingual catalogs; session-mode registry
+- 825 unit/integration tests; typecheck-enforced bilingual catalogs; session-mode registry
   with compile-time exhaustiveness; callback route tables with a prefix-conflict detector;
   D1 migrations tracker (rebaselined, standard tooling); idempotent saves everywhere;
   reminder dedup that survives crashes; scheduler mutex; AI input identical across fallback

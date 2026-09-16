@@ -12,6 +12,7 @@ import {
   getExerciseTranslation,
   getExerciseVideos,
   getUserVideos,
+  searchExercisesByName,
   setUserVideo,
 } from "../adapters/d1/v2Catalog";
 import { exerciseMetric, resolveWeightMode } from "../domain/progression";
@@ -31,6 +32,8 @@ interface PlanExerciseView {
   technique?: string;
   videoUrl?: string;
   videoTitle?: string;
+  ssGroup?: string;
+  wmode?: "total" | "perSide" | "perHand";
 }
 interface PlanDayView {
   weekday: number;
@@ -88,6 +91,17 @@ const MAX_EX_PER_DAY = 12;
 export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+
+  if (req.method === "GET" && url.pathname === "/api/plan/catalog") {
+    const query = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+    if (query.length < 2) return Response.json({ items: [] }, { headers: { "cache-control": "no-store" } });
+    const found = await searchExercisesByName(env.DB, query, 8, user.lang).catch(() => []);
+    const items = await Promise.all(found.map(async (exercise) => {
+      const translation = user.lang === "en" ? null : await getExerciseTranslation(env.DB, exercise.id, user.lang).catch(() => null);
+      return { id: exercise.id, name: translation?.name || exercise.name, muscle: exercise.muscle };
+    }));
+    return Response.json({ items }, { headers: { "cache-control": "no-store" } });
+  }
 
   if (req.method === "GET") {
     const clientId = url.searchParams.get("clientId");

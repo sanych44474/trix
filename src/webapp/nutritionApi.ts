@@ -2,16 +2,31 @@
 // (½ / 1.5× / 2× / grams) and item delete, plus the meal-plan display. AI photo/voice logging
 // stays in the bot (media). Same initData auth as every webapp API.
 import { getActivePlan } from "../adapters/d1/v2Plans";
-import { getDayMeals, getMealPlan, getRecentFoods, setDayMeals, putUserFoodCorrection } from "../adapters/d1/v2Nutrition";
-import { per100gCorrectionFrom, scaleMealEntry } from "../domain/mealplan";
+import { getDayMeals, getMealPlan, getRecentFoods, saveMealPlan, setDayMeals, putUserFoodCorrection } from "../adapters/d1/v2Nutrition";
+import { computeTargets, per100gCorrectionFrom, scaleMealEntry } from "../domain/mealplan";
+import { groceryList } from "../domain/groceryList";
 import { localParts } from "../domain/progression";
+import { generateMealDayFor } from "../bot/router";
 import { miniAppUser } from "./auth";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
+import { renderGroceryList } from "../render";
 import { aiProductLookup, decodeEntities, fatSecretSearch } from "./foodDb";
 import { readJsonBody } from "./validate";
 import { logInfo } from "../log";
 import type { Env, MealEntry, NutritionTargets, UserDoc } from "../types";
+
+// Same "the webview can't offer a file download, so push it to the viewer's own Telegram chat"
+// pattern extrasApi.ts/settingsApi.ts/trainerApi.ts already each define locally -- this endpoint
+// gets its own copy rather than a shared import, matching that convention.
+async function tgSend(env: Env, chatId: number, text: string): Promise<boolean> {
+  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+  }).catch(() => null);
+  return !!res?.ok;
+}
 
 function totals(meals: MealEntry[]) {
   return meals.reduce(
@@ -19,12 +34,13 @@ function totals(meals: MealEntry[]) {
     { kcal: 0, protein: 0, fats: 0, carbs: 0 },
   );
 }
-async function dayTargets(env: Env, user: UserDoc): Promise<NutritionTargets | null> {
+async function dayTargets(env: Env, user: UserDoc): Promise<{ targets: NutritionTargets | null; isRestDay: boolean }> {
   const { weekday } = localParts(user.profile.timezone);
   const plan = await getActivePlan(env.DB, user._id).catch(() => null);
   const trainingDays = user.profile.trainingWeekdays ?? plan?.split.map((d) => d.weekday) ?? [];
   const isTraining = trainingDays.includes(weekday as (typeof trainingDays)[number]);
-  return (!isTraining && plan?.restDayNutrition) || user.nutrition || null;
+  const isRestDay = !isTraining && !!plan?.restDayNutrition;
+  return { targets: (!isTraining && plan?.restDayNutrition) || user.nutrition || null, isRestDay };
 }
 
 export async function handleNutritionApi(req: Request, url: URL, env: Env): Promise<Response> {
@@ -34,7 +50,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
 
   if (req.method === "GET") {
     const recentSince = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-    const [meals, targets, mp, recent] = await Promise.all([
+    const [meals, dayTg, mp, recent] = await Promise.all([
       getDayMeals(env.DB, user._id, date),
       dayTargets(env, user),
       getMealPlan(env.DB, user._id, 0).catch(() => null),
@@ -45,7 +61,8 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
         date,
         meals: meals.map((m, i) => ({ index: i, desc: m.desc, kcal: Math.round(m.kcal || 0), protein: Math.round(m.protein || 0), fats: Math.round(m.fats || 0), carbs: Math.round(m.carbs || 0), grams: m.grams ?? null, query: m.query ?? null })),
         totals: totals(meals),
-        targets,
+        targets: dayTg.targets,
+        isRestDay: dayTg.isRestDay,
         mealPlan: mp ? { days: mp.days } : null,
         // Quick re-add: distinct recently-logged foods (last 30d), re-added by index via "readd".
         recent: recent.map((m, i) => ({ ri: i, desc: m.desc, kcal: Math.round(m.kcal || 0), protein: Math.round(m.protein || 0) })),
@@ -62,6 +79,45 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
   if (!parsedNutrition.ok) return parsedNutrition.response;
   const body = parsedNutrition.body as Record<string, unknown>;
   const action = String(body.action);
+
+  if (action === "grocery") {
+    const repeat = Math.max(1, Math.min(14, Math.round(Number(body.days) || 1)));
+    const menu = await getMealPlan(env.DB, user._id, 0).catch(() => null);
+    return Response.json({ days: repeat, lines: menu ? groceryList(menu.days, repeat) : [] }, { headers: { "cache-control": "no-store" } });
+  }
+
+  // Push the in-app grocery preview to the viewer's own Telegram chat as a real checklist message
+  // -- same renderGroceryList() the bot's /grocery command sends, same tgSend-to-self pattern
+  // extrasApi.ts's /api/weekcard and /api/photocompare use for "the webview can't offer a file
+  // download" delivery.
+  if (action === "grocery_send") {
+    const repeat = Math.max(1, Math.min(14, Math.round(Number(body.days) || 1)));
+    const menu = await getMealPlan(env.DB, user._id, 0).catch(() => null);
+    const lines = menu?.days?.length ? groceryList(menu.days, repeat) : [];
+    if (!lines.length) return Response.json({ error: "bad request" }, { status: 400 });
+    const ok = await tgSend(env, user.chatId, renderGroceryList(user.lang, lines, repeat));
+    return Response.json({ ok });
+  }
+
+  // Regenerate today's meal plan -- same "keep my existing allergen/likes/dislikes prefs, build
+  // a fresh template day" flow as the bot's mp:useprev callback (deliverMealPlan with useAi=false).
+  // Reuses generateMealDayFor (exported from bot/router.ts) so the food-selection/solving logic
+  // is never duplicated; this route does not re-ask the allergen/likes/dislikes questionnaire --
+  // that stays a bot-only flow (mp:redo) since it is multi-step chat intake, not a single mutation.
+  if (action === "mealplan_regen") {
+    const plan = await getActivePlan(env.DB, user._id).catch(() => null);
+    const targets = computeTargets(user.profile, plan?.nutrition);
+    if (!targets.calories) return Response.json({ error: "no targets" }, { status: 400 });
+    const p = user.profile;
+    const excluded = [p.allergies, p.dietPrefs, p.foodDislikes].filter((x) => x && x.toLowerCase() !== "none").join("; ");
+    const likes = p.foodLikes ?? "";
+    const display = await generateMealDayFor(env, env.DB, user.lang, p, user._id, targets, 4, excluded, likes, false, 0).catch(() => []);
+    if (!display.length) return Response.json({ error: "generation_failed" }, { status: 502 });
+    const doc = { userId: user._id, week: 0, days: [{ label: date, meals: display }], targets, generatedAt: new Date() };
+    await saveMealPlan(env.DB, doc);
+    logInfo("mealplan_regenerated", { method: "miniapp" });
+    return Response.json({ ok: true, days: doc.days }, { headers: { "cache-control": "no-store" } });
+  }
 
   // Robust per-100g extraction across Open Food Facts field variants: kcal may live in
   // energy-kcal_100g / energy-kcal / energy-kcal_value, or only as kilojoules (energy_100g,
@@ -185,7 +241,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
   if (action === "recipe") {
     const cur = await getDayMeals(env.DB, user._id, date);
     const tot = totals(cur);
-    const tg = await dayTargets(env, user);
+    const { targets: tg } = await dayTargets(env, user);
     if (!tg) return Response.json({ text: "" });
     const remKcal = Math.max(0, Math.round(tg.calories - tot.kcal));
     const remP = Math.max(0, Math.round(tg.protein - tot.protein));
@@ -206,7 +262,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
   if (action === "recover") {
     const cur = await getDayMeals(env.DB, user._id, date);
     const tot = totals(cur);
-    const tg = await dayTargets(env, user);
+    const { targets: tg } = await dayTargets(env, user);
     if (!tg) return Response.json({ text: "" });
     const over = Math.round(tot.kcal - tg.calories);
     const langName = user.lang === "uk" ? "Ukrainian" : "English";

@@ -54,6 +54,8 @@ const rows = (u: UserDoc, over: Partial<Parameters<typeof assembleClientCardPayl
   note: null,
   injuries: [] as InjuryDoc[],
   dashboard: dash(u),
+  noteHistory: [],
+  messages: [],
   ...over,
 });
 
@@ -151,4 +153,13 @@ test("note passthrough; empty note normalizes to null", () => {
   const p2 = assembleClientCardPayload(u, TODAY, rows(u, { note: "" }));
   assert.equal(p2.note, null);
   assert.equal(p.dashboard.today, TODAY); // embedded dashboard payload is carried as-is
+});
+
+test("noteHistory + messages pass through unchanged (fetch layer already shaped them)", () => {
+  const u = client();
+  const noteHistory = [{ field: "note", value: "old note", savedAt: "2026-06-01T00:00:00.000Z" }];
+  const messages = [{ fromMe: true, text: "hi", createdAt: "2026-06-02T00:00:00.000Z" }];
+  const p = assembleClientCardPayload(u, TODAY, rows(u, { noteHistory, messages }));
+  assert.deepEqual(p.noteHistory, noteHistory);
+  assert.deepEqual(p.messages, messages);
 });

@@ -24,17 +24,18 @@ import {
   setClientNote,
   setQuestionStatus,
 } from "../adapters/d1/v2Trainer";
-import { getUser } from "../adapters/d1/v2Users";
+import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { logInfo } from "../log";
 import { adaptPlan } from "../domain/planAdapt";
 import { escapeHtml, t } from "../locales/i18n";
+import { obKeyboard, obProgress, obSteps } from "../bot";
 import { miniAppUser } from "./auth";
 import { buildClientCardPayload } from "./clientCard";
 import { readJsonBody } from "./validate";
 import type { BankPlan, Env, UserDoc } from "../types";
 
-const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag)$/;
+const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|photo-request|interview-nudge)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
 const MAX_TEXT = 2000;
 
@@ -184,7 +185,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   const m = ROUTE.exec(url.pathname);
   if (!m) return Response.json({ error: "not found" }, { status: 404 });
   const clientId = Number(m[1]);
-  const action = m[2] as "card" | "note" | "flag";
+  const action = m[2] as "card" | "note" | "flag" | "photo-request" | "interview-nudge";
   const client = await getClientForTrainer(env.DB, user._id, clientId);
   if (!client) return Response.json({ error: "not found" }, { status: 404 });
 
@@ -230,11 +231,44 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       await setClientNote(env.DB, user._id, clientId, note ?? "");
       return Response.json({ note });
     }
-    // action === "flag" — mirrors the bot's toggle: setUserFlag + audit trail.
-    if (typeof body.flagged !== "boolean") return Response.json({ error: "bad request" }, { status: 400 });
-    await setUserFlag(env.DB, clientId, body.flagged);
-    await recordAudit(env.DB, user._id, body.flagged ? "flag_client" : "unflag_client", clientId);
-    return Response.json({ flagged: body.flagged });
+    if (action === "flag") {
+      // Mirrors the bot's toggle: setUserFlag + audit trail.
+      if (typeof body.flagged !== "boolean") return Response.json({ error: "bad request" }, { status: 400 });
+      await setUserFlag(env.DB, clientId, body.flagged);
+      await recordAudit(env.DB, user._id, body.flagged ? "flag_client" : "unflag_client", clientId);
+      return Response.json({ flagged: body.flagged });
+    }
+    if (action === "photo-request") {
+      // Mirrors the bot's cl:*:photo action (features/trainer/trainer.ts) exactly: park the
+      // client's session so their next photo upload routes to this trainer, then push the same
+      // prompt (with the same skip button) the bot sends. No new repo function, no audit trail —
+      // the bot action doesn't record one either.
+      await updateUser(env.DB, clientId, { session: { ...client.session, photoReviewFor: user._id } });
+      const trName = escapeHtml(user.profile.name ?? "trainer");
+      const kb = { inline_keyboard: [[{ text: t(client.lang, "photo_req_skip_btn"), callback_data: "photo:skip" }]] };
+      await tgSend(env, client.chatId, t(client.lang, "photo_req_from", { name: trName }), kb);
+      return Response.json({ ok: true });
+    }
+    // action === "interview-nudge" — mirrors the bot's cl:*:intvping action: resume the AI
+    // interview transcript if one is in progress, else resume/restart the button wizard at the
+    // first unanswered step. A no-op (ok:true, alreadyOnboarded:true) once the client is done —
+    // the bot's own action just shows the summary at that point, nothing to nudge.
+    if (client.onboarded) return Response.json({ ok: true, alreadyOnboarded: true });
+    const prefix = t(client.lang, "cc_intv_remind_text");
+    const transcript = client.session.transcript;
+    if (client.session.mode === "onboarding" && transcript?.length) {
+      const lastQ = [...transcript].reverse().find((entry) => entry.role === "assistant");
+      await tgSend(env, client.chatId, `${prefix}\n\n${escapeHtml(lastQ?.text ?? "")}`.trim());
+    } else {
+      const step = client.session.mode === "onboarding" && typeof client.session.step === "number" ? client.session.step : obProgress(client.profile).next;
+      await updateUser(env.DB, clientId, { session: { mode: "onboarding", step } });
+      const steps = obSteps(client.lang);
+      const idx = Math.max(0, Math.min(step, steps.length - 1));
+      const stepDef = steps[idx];
+      const text = `${prefix}\n\n(${idx + 1}/${steps.length}) ${t(client.lang, stepDef.q)}`;
+      await tgSend(env, client.chatId, text, obKeyboard(client.lang, stepDef, client.profile.trainingWeekdays ?? [], idx > 0));
+    }
+    return Response.json({ ok: true });
   } catch (err) {
     console.error("api/trainer error", user._id, action, err);
     return Response.json({ error: "error" }, { status: 500 });

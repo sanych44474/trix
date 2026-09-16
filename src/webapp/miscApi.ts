@@ -14,7 +14,7 @@ import {
   joinChallenge,
   markChallengeDone,
 } from "../adapters/d1/v2Gamification";
-import { createInjury, getProgressPhoto, listActiveInjuries, stepLogsSince, waterLogsSince } from "../adapters/d1/v2Tracking";
+import { addProgressPhoto, createInjury, getProgressPhoto, listActiveInjuries, stepLogsSince, waterLogsSince } from "../adapters/d1/v2Tracking";
 import { getUser } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { computeBoards } from "../bot";
@@ -149,12 +149,39 @@ export async function handleClientErrorApi(req: Request, url: URL, env: Env): Pr
   return Response.json({ ok: true });
 }
 
+// Progress-photo upload: the Mini App's Progress tab posts a file here (multipart, same
+// "webview can't hand the bot a file directly" apiUpload() pattern as /api/weekcard and
+// /api/photocompare). There is no direct byte-storage path for progress photos -- the bot has
+// only ever stored a Telegram file_id (v2_progress_photos.legacyFileId, written by
+// addProgressPhoto — see bot/router.ts's own self-serve-photo handling) and streamed bytes back
+// through the Telegram file API (handlePhotoApi's GET branch below). Mirroring that exactly:
+// push the upload to the VIEWER's own chat via sendPhoto (same call weekcard/photocompare already
+// make), take the file_id Telegram hands back for the largest size, and store it the normal way.
+async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise<Response> {
+  const form = await req.formData().catch(() => null);
+  const file = form?.get("photo");
+  if (!(file instanceof Blob)) return Response.json({ error: "bad request" }, { status: 400 });
+  const tgForm = new FormData();
+  tgForm.append("chat_id", String(user.chatId));
+  tgForm.append("photo", file, "progress.jpg");
+  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: "POST", body: tgForm })
+    .then((r) => r.json() as Promise<{ ok: boolean; result?: { photo?: Array<{ file_id: string }> } }>)
+    .catch(() => null);
+  const photos = res?.result?.photo;
+  const largest = photos?.[photos.length - 1];
+  if (!res?.ok || !largest?.file_id) return Response.json({ error: "dependency_unavailable" }, { status: 502 });
+  await addProgressPhoto(env.DB, user._id, largest.file_id);
+  logInfo("photo_uploaded", { source: "webapp" });
+  return Response.json({ ok: true });
+}
+
 // Progress-photo proxy: streams Telegram file bytes so the Mini App can <img> them without
 // ever seeing the bot token. Owner or their trainer only. Auth rides in the `tma` query param
 // (img tags can't send headers); the response is private-cacheable for a day.
 export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
   if (!user) return new Response("unauthorized", { status: 401 });
+  if (req.method === "POST") return handlePhotoUpload(req, env, user);
   const id = Number(url.searchParams.get("id"));
   if (!Number.isFinite(id) || id <= 0) return new Response("bad request", { status: 400 });
   const photo = await getProgressPhoto(env.DB, id).catch(() => null);

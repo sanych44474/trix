@@ -99,17 +99,31 @@ async function buildTrainerSection(
       windowDays: 7,
     });
     let atRisk = false;
+    // The two most recent missed planned dates (oldest first) — the same tuple
+    // missedConsecutiveWorkouts already computes to decide atRisk; surfaced here too so the Mini
+    // App's at-risk report can say WHY, not just flag a boolean.
+    let missedDates: [string, string] | undefined;
     if (plan?.split.length) {
       const genD = plan.generatedAt.toISOString().slice(0, 10);
       const joinD = c.createdAt.toISOString().slice(0, 10);
-      atRisk = !!missedConsecutiveWorkouts(
+      const missed = missedConsecutiveWorkouts(
         plan.split.map((d) => d.weekday),
         wl.filter((l) => l.completed).map((l) => l.date),
         today,
         genD > joinD ? genD : joinD,
       );
+      atRisk = !!missed;
+      if (missed) missedDates = missed;
     }
-    return { id: c._id, name: c.profile.name ?? `id ${c._id}`, workoutPct: comp.workoutPct, nutritionPct: comp.nutritionPct, atRisk, flagged: !!c.flagged };
+    return {
+      id: c._id,
+      name: c.profile.name ?? `id ${c._id}`,
+      workoutPct: comp.workoutPct,
+      nutritionPct: comp.nutritionPct,
+      atRisk,
+      flagged: !!c.flagged,
+      ...(missedDates ? { missedDates } : {}),
+    };
   });
   // Attention first in the actual displayed order: flagged, then at-risk, then everyone else.
   rows.sort((a, b) => Number(b.flagged) - Number(a.flagged) || Number(b.atRisk) - Number(a.atRisk));

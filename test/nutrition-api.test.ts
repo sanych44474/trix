@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
-import { setDayMeals } from "../src/adapters/d1/v2Nutrition";
+import { saveMealPlan, setDayMeals } from "../src/adapters/d1/v2Nutrition";
 import { handleNutritionApi } from "../src/webapp/nutritionApi";
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -36,6 +36,26 @@ test("GET: an empty day returns zeroed totals and no meals", async () => {
   assert.equal(res.status, 200);
   assert.deepEqual(body.meals, []);
   assert.equal(body.totals.kcal, 0);
+});
+
+test("grocery: returns a multiplied, merged list without mutating the meal plan", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await saveMealPlan(db, {
+    userId: 1,
+    week: 0,
+    days: [{ label: "Day 1", meals: [
+      { name: "Breakfast", items: [{ food: "Oats", grams: 80 }, { food: "Banana", grams: 100 }], kcal: 0, protein: 0, fats: 0, carbs: 0 },
+      { name: "Snack", items: [{ food: "Oats", grams: 20 }], kcal: 0, protein: 0, fats: 0, carbs: 0 },
+    ] }],
+    targets: { calories: 2000, protein: 120, fats: 70, carbs: 220 },
+    generatedAt: new Date(),
+  });
+  const res = await call(db, 1, "POST", "/api/nutrition", { action: "grocery", days: 3 });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { days: 3, lines: [{ category: "produce", food: "Banana", grams: 300 }, { category: "grains", food: "Oats", grams: 300 }] });
+  const stored = db.dump<{ food: string }>("SELECT json_extract(days, '$[0].meals[0].items[0].food') AS food FROM v2_meal_plans WHERE accountId = 1");
+  assert.equal(stored[0]?.food, "Oats");
 });
 
 test("dbadd: rejects an incomplete macro set, otherwise logs it and returns running totals", async () => {

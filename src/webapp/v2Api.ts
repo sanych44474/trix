@@ -9,8 +9,10 @@ import { handleProfileApi, handleOnboardingApi } from "./profileApi";
 import { handleSettingsApi } from "./settingsApi";
 import { handleQuickLogApi } from "./quickLogApi";
 import { handleExtrasApi } from "./extrasApi";
+import { handleSquadsApi } from "./squadApi";
 import { handleTrainerApi } from "./trainerApi";
 import { handleOwnerApi } from "./ownerApi";
+import { handleCoachApi } from "./coachApi";
 import { handleBuddyApi } from "./buddyApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./miscApi";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
@@ -41,6 +43,7 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/trainer/finance", legacy: "/api/trainer/finance", handler: handleExtrasApi },
   { prefix: "/api/v2/trainer", legacy: "/api/trainer", handler: handleTrainerApi },
   { prefix: "/api/v2/owner", legacy: "/api/owner", handler: handleOwnerApi },
+  { prefix: "/api/v2/coach", legacy: "/api/coach", handler: handleCoachApi },
   { prefix: "/api/v2/records", legacy: "/api/records", handler: handleExtrasApi },
   { prefix: "/api/v2/weekcard", legacy: "/api/weekcard", handler: handleExtrasApi },
   { prefix: "/api/v2/photocompare", legacy: "/api/photocompare", handler: handleExtrasApi },
@@ -49,6 +52,7 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/requests", legacy: "/api/requests", handler: handleExtrasApi },
   { prefix: "/api/v2/trainers", legacy: "/api/trainers", handler: handleExtrasApi },
   { prefix: "/api/v2/library", legacy: "/api/library", handler: handleExtrasApi },
+  { prefix: "/api/v2/squads", legacy: "/api/squads", handler: handleSquadsApi },
   { prefix: "/api/v2/buddy", legacy: "/api/buddy", handler: handleBuddyApi },
   { prefix: "/api/v2/challenges", legacy: "/api/challenges", handler: handleChallengesApi },
   { prefix: "/api/v2/injuries", legacy: "/api/injuries", handler: handleInjuriesApi },
@@ -191,7 +195,7 @@ function routeFor(pathname: string): { handler: LegacyHandler; legacyPath: strin
 export async function handleV2Api(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const headerError = validateV2Headers(req);
   if (headerError) return headerError;
-  if (url.pathname === "/api/v2/photo" && req.method === "GET") {
+  if (url.pathname === "/api/v2/photo" && (req.method === "GET" || req.method === "POST")) {
     const legacyUrl = new URL(url.toString());
     legacyUrl.pathname = "/api/photo";
     const execution = ctx ?? ({ waitUntil: () => {} } as unknown as ExecutionContext);

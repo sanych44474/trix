@@ -378,7 +378,19 @@ export async function listClients(db: DB, trainerId: number): Promise<UserDoc[]>
   const map = await getUsersByIds(db, clientIds);
   // role='client' cross-check preserves legacy's exact filter (WHERE trainerId=? AND
   // role='client') in case the two ever disagree (e.g. a stale row from before a hard freeze).
-  return [...map.values()].filter((u) => u.role === "client");
+  const clients = [...map.values()].filter((u) => u.role === "client");
+  // Attention-first ordering, at THIS repo layer so every caller benefits (not just
+  // dashboardReader.ts's buildTrainerSection, which used to be the only place this got sorted).
+  // Flagged first, then by staleness (least-recently-active first) as the best proxy available
+  // here: real "at risk" (missed consecutive planned workouts) needs plan + workout-history data
+  // this function doesn't fetch, and adding those queries would turn an O(1) roster read into a
+  // per-trainer fan-out -- buildTrainerSection already does that heavier computation for its own
+  // dashboard view. A never-seen client (no lastSeenAt) sorts as maximally stale.
+  return clients.sort((a, b) => {
+    const flagDiff = Number(!!b.flagged) - Number(!!a.flagged);
+    if (flagDiff) return flagDiff;
+    return (a.lastSeenAt?.getTime() ?? 0) - (b.lastSeenAt?.getTime() ?? 0);
+  });
 }
 
 export async function listTrainerUsers(db: DB): Promise<UserDoc[]> {

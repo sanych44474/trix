@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody } from "./api";
 import type { Dashboard } from "./types";
-import { t, type Lang } from "./i18n";
+import { t, type Key, type Lang } from "./i18n";
 
-type WorkspaceProps = { dashboard: Dashboard; lang: Lang };
+type WorkspaceProps = { dashboard: Dashboard; lang: Lang; onOpenPlan?: (clientId?: number) => void };
 
 type Buddy = {
   buddy: null | {
@@ -50,6 +50,8 @@ type ClientCardPayload = {
     health?: { limitations?: string; injuries: Array<{ area: string; severity: string; since: string; lastScore?: number }> };
   };
   photos?: Array<{ id: number; takenAt: string }>;
+  noteHistory: Array<{ field: string; value: string; savedAt: string }>;
+  messages: Array<{ fromMe: boolean; text: string; createdAt: string }>;
   dashboard: Dashboard;
 };
 type TrainerProfile = { status: string; name: string; bio: string; specialization: string; experienceYears: number | null; priceOnline: number | null; city: string; contact: string; accepting: boolean; clients: number };
@@ -87,7 +89,16 @@ function photoQuery(): string {
   return window.location.search.replace(/^\?/, "&");
 }
 
-function ClientCardView({ clientId, lang, onBack, onTemplateSaved }: { clientId: number; lang: Lang; onBack: () => void; onTemplateSaved: () => void }) {
+/** Note-history rows store raw field keys (v2_client_note_history) -- map them to the same
+ * labels the corresponding editable field already uses elsewhere in this view. */
+function noteFieldLabel(lang: Lang, field: string): string {
+  if (field === "healthNotes") return t(lang, "field_health_notes");
+  if (field === "personalNotes") return t(lang, "field_personal_notes");
+  if (field === "note") return t(lang, "coach_note_title");
+  return field;
+}
+
+function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }: { clientId: number; lang: Lang; onBack: () => void; onTemplateSaved: () => void; onOpenPlan?: (clientId?: number) => void }) {
   const [data, setData] = useState<ClientCardPayload | null>(null);
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -145,6 +156,20 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved }: { clientId:
       else setError(true);
     } finally { setBusy(null); }
   };
+  const requestPhotos = async () => {
+    setBusy("photoreq"); setSavedKey(null);
+    try {
+      await api(`/api/v2/trainer/client/${clientId}/photo-request`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
+      setSavedKey("photoreq");
+    } catch { setError(true); } finally { setBusy(null); }
+  };
+  const requestInterview = async () => {
+    setBusy("interview"); setSavedKey(null);
+    try {
+      await api(`/api/v2/trainer/client/${clientId}/interview-nudge`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
+      setSavedKey("interview");
+    } catch { setError(true); } finally { setBusy(null); }
+  };
 
   if (error) return <WorkspaceError lang={lang} onRetry={load} />;
   if (!data) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
@@ -153,7 +178,7 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved }: { clientId:
 
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "client_card_eyebrow")}</div>
-    <div className="page-title"><h1>{data.client.name}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
+    <div className="page-title"><h1>{data.client.name}</h1><div className="button-row"><button className="button button-ghost" onClick={() => onOpenPlan?.(clientId)}>{t(lang, "edit_client_plan_btn")}</button><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div></div>
 
     <Panel tone="accent">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "readiness_eyebrow")}</span><h2>{recovery.label}</h2></div><span className={data.client.flagged ? "status-badge status-attention" : "status-badge"}>{data.client.flagged ? t(lang, "flagged_label") : t(lang, "on_track_label")}</span></div>
@@ -164,6 +189,12 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved }: { clientId:
       {data.cycle && <p className="muted">{t(lang, "cycle_phase_line", { phase: data.cycle.phase, day: data.cycle.day })}</p>}
       <div className="button-row"><button className="button button-ghost" disabled={busy === "flag"} onClick={() => void toggleFlag()}>{busy === "flag" ? "…" : data.client.flagged ? t(lang, "unflag_client_btn") : t(lang, "flag_client_btn")}</button></div>
     </Panel>
+
+    {!data.client.onboarded && <Panel tone="muted">
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "interview_nudge_eyebrow")}</span><h2>{t(lang, "interview_nudge_title")}</h2></div></div>
+      <div className="button-row"><button className="button button-ghost" disabled={busy === "interview"} onClick={() => void requestInterview()}>{busy === "interview" ? t(lang, "saving_ellipsis") : t(lang, "request_interview_btn")}</button></div>
+      {savedKey === "interview" && <div className="save-note">{t(lang, "request_interview_sent_note")}</div>}
+    </Panel>}
 
     <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "card_notes_eyebrow")}</span><h2>{t(lang, "card_notes_title")}</h2></div></div>
@@ -181,6 +212,20 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved }: { clientId:
       <div className="button-row"><button className="button button-ghost" disabled={busy === "note"} onClick={() => void saveNote()}>{busy === "note" ? t(lang, "saving_ellipsis") : t(lang, "save_note_btn")}</button></div>
     </Panel>
 
+    <Panel tone="muted">
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "note_history_eyebrow")}</span><h2>{t(lang, "note_history_title")}</h2></div></div>
+      {data.noteHistory.length > 0
+        ? <div className="record-list">{data.noteHistory.map((entry, index) => <div className="record-row" key={`${entry.field}-${entry.savedAt}-${index}`}><div><strong>{noteFieldLabel(lang, entry.field)}</strong><small>{entry.savedAt.slice(0, 16).replace("T", " ")}</small></div><span>{entry.value}</span></div>)}</div>
+        : <p className="muted">{t(lang, "note_history_empty")}</p>}
+    </Panel>
+
+    <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "message_thread_eyebrow")}</span><h2>{t(lang, "message_thread_title")}</h2></div></div>
+      {data.messages.length > 0
+        ? <div className="record-list">{data.messages.map((message, index) => <div className="record-row" key={`${message.createdAt}-${index}`}><div><strong>{message.fromMe ? t(lang, "you_label") : data.client.name}</strong><small>{message.createdAt.slice(0, 16).replace("T", " ")}</small></div><span>{message.text}</span></div>)}</div>
+        : <p className="muted">{t(lang, "message_thread_empty")}</p>}
+    </Panel>
+
     {data.shared.body && <Panel><div className="section-head"><div><span className="eyebrow">{t(lang, "shared_body_eyebrow")}</span><h2>{t(lang, "shared_body_title")}</h2></div></div><div className="metric-grid compact">
       {data.shared.body.heightCm !== undefined && <Metric label={t(lang, "card_height_cm")} value={`${data.shared.body.heightCm} cm`} />}
       {data.shared.body.weightKg !== undefined && <Metric label={t(lang, "card_weight_kg")} value={`${data.shared.body.weightKg} kg`} />}
@@ -193,7 +238,14 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved }: { clientId:
       {data.shared.health.injuries.length > 0 ? <div className="injury-list">{data.shared.health.injuries.map((injury) => <div className="record-row" key={`${injury.area}-${injury.since}`}><div><strong>{injury.area}</strong><small>{t(lang, "since_date", { date: injury.since })}</small></div><span>{injury.severity}</span></div>)}</div> : <p className="muted">{t(lang, "no_recovery_blockers")}</p>}
     </Panel>}
 
-    {data.photos && data.photos.length > 0 && <Panel><div className="section-head"><div><span className="eyebrow">{t(lang, "progress_photos_eyebrow")}</span><h2>{t(lang, "client_photos_title")}</h2></div><span className="tag">{data.photos.length}</span></div><div className="photo-grid">{data.photos.map((photo) => <figure key={photo.id}><img src={`/api/v2/photo?id=${photo.id}${photoQuery()}`} alt={t(lang, "progress_alt", { date: photo.takenAt })} loading="lazy" /><figcaption>{photo.takenAt}</figcaption></figure>)}</div></Panel>}
+    <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "progress_photos_eyebrow")}</span><h2>{t(lang, "client_photos_title")}</h2></div>{data.photos && data.photos.length > 0 && <span className="tag">{data.photos.length}</span>}</div>
+      {data.photos && data.photos.length > 0
+        ? <div className="photo-grid">{data.photos.map((photo) => <figure key={photo.id}><img src={`/api/v2/photo?id=${photo.id}${photoQuery()}`} alt={t(lang, "progress_alt", { date: photo.takenAt })} loading="lazy" /><figcaption>{photo.takenAt}</figcaption></figure>)}</div>
+        : <p className="muted">{t(lang, "no_client_photos_hint")}</p>}
+      <div className="button-row"><button className="button button-ghost" disabled={busy === "photoreq"} onClick={() => void requestPhotos()}>{busy === "photoreq" ? t(lang, "saving_ellipsis") : t(lang, "request_photos_btn")}</button></div>
+      {savedKey === "photoreq" && <div className="save-note">{t(lang, "request_photos_sent_note")}</div>}
+    </Panel>
 
     <Panel tone="muted">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "templates_eyebrow")}</span><h2>{t(lang, "create_template_title")}</h2></div></div>
@@ -241,7 +293,7 @@ function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () => void 
   </div>;
 }
 
-function SocialWorkspace({ lang }: { lang: Lang }) {
+function SocialWorkspace({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["role"] }) {
   const [data, setData] = useState<{ buddy: Buddy; challenges: Challenges; records: Records; boards: Boards } | null>(null);
   const [injuries, setInjuries] = useState<InjuryPayload | null>(null);
   const [error, setError] = useState(false);
@@ -249,6 +301,7 @@ function SocialWorkspace({ lang }: { lang: Lang }) {
   const [steps, setSteps] = useState("");
   const [injuryArea, setInjuryArea] = useState("");
   const [injurySeverity, setInjurySeverity] = useState("");
+  const [subview, setSubview] = useState<"main" | "coach">("main");
 
   const load = () => {
     setError(false);
@@ -274,6 +327,7 @@ function SocialWorkspace({ lang }: { lang: Lang }) {
     finally { setBusy(null); }
   };
 
+  if (subview === "coach") return <AiCoachView lang={lang} onBack={() => setSubview("main")} />;
   if (error) return <WorkspaceError lang={lang} onRetry={load} />;
   if (!data || !injuries) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
   const buddy = data.buddy.buddy;
@@ -282,6 +336,9 @@ function SocialWorkspace({ lang }: { lang: Lang }) {
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "social_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "stay_accountable_title")}</h1><span>{t(lang, "challenges_won", { n: data.challenges.won })}</span></div>
+    {/* A client with a trainer routes questions to them (see coachApi.ts) -- this single-turn
+        self-coach Q&A is solo-only. */}
+    {role !== "client" && <div className="button-row"><button className="button button-ghost" onClick={() => setSubview("coach")}>{t(lang, "ai_coach_nav_btn")}</button></div>}
 
     {buddy ? <Panel tone="accent"><div className="section-head"><div><span className="eyebrow">{t(lang, "buddy_eyebrow")}</span><h2>{buddy.name}</h2></div><span className="tag">{t(lang, "level_n", { n: buddy.level })}</span></div><p>{t(lang, "buddy_stats", { my: buddy.myWeekWorkouts, their: buddy.weekWorkouts, name: buddy.name, streak: buddy.streak })}</p><ProgressBar value={buddy.needed ? buddy.intoLevel / buddy.needed * 100 : 100} /></Panel> : <Panel><div className="section-head"><div><span className="eyebrow">{t(lang, "buddy_eyebrow")}</span><h2>{t(lang, "no_buddy_title")}</h2></div></div><p className="muted">{t(lang, "no_buddy_detail")}</p></Panel>}
 
@@ -297,7 +354,60 @@ function SocialWorkspace({ lang }: { lang: Lang }) {
   </div>;
 }
 
-function TrainerWorkspace({ dashboard, lang }: WorkspaceProps) {
+/** Dedicated at-risk report: everything TrainerWorkspace's client-pulse list already flags
+ * (flagged OR atRisk), un-sliced, with the missed-planned-dates detail dashboardReader.ts already
+ * computes (missedConsecutiveWorkouts) but the client list itself only ever surfaced as a boolean. */
+function AtRiskReportView({ dashboard, lang, onBack, onOpenClient }: { dashboard: Dashboard; lang: Lang; onBack: () => void; onOpenClient: (id: number) => void }) {
+  const clients = (dashboard.trainer?.clients ?? []).filter((client) => client.atRisk || client.flagged);
+  return <div className="view-stack">
+    <div className="eyebrow">{t(lang, "atrisk_eyebrow")}</div>
+    <div className="page-title"><h1>{t(lang, "atrisk_title", { n: clients.length })}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
+    {clients.length
+      ? <div className="client-list">{clients.map((client) => <div className="client-row" key={client.id}>
+          <div>
+            <strong>{client.name}</strong>
+            <small>{t(lang, "client_pcts", { w: client.workoutPct, n: client.nutritionPct })}</small>
+            {client.missedDates && <small className="muted">{t(lang, "atrisk_missed_dates", { a: client.missedDates[0], b: client.missedDates[1] })}</small>}
+          </div>
+          <div className="button-row">
+            <span className="status-badge status-attention">{client.flagged ? t(lang, "flagged_label") : t(lang, "at_risk_label")}</span>
+            <button className="button button-ghost" onClick={() => onOpenClient(client.id)}>{t(lang, "open_client_btn")}</button>
+          </div>
+        </div>)}</div>
+      : <p className="muted">{t(lang, "atrisk_empty")}</p>}
+  </div>;
+}
+
+/** Single-turn "ask the AI coach" screen — solo/trainer self-coaching only (see coachApi.ts for
+ * why a client with a trainer doesn't get this: their questions route to a human, not here). */
+function AiCoachView({ lang, onBack }: { lang: Lang; onBack: () => void }) {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+
+  const ask = async () => {
+    if (!question.trim()) return;
+    setBusy(true); setError(false); setAnswer(null);
+    try {
+      const result = await api<{ answer: string }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ question: question.trim() }) });
+      setAnswer(result.answer);
+    } catch { setError(true); } finally { setBusy(false); }
+  };
+
+  return <div className="view-stack">
+    <div className="eyebrow">{t(lang, "ai_coach_eyebrow")}</div>
+    <div className="page-title"><h1>{t(lang, "ai_coach_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
+    <Panel>
+      <label className="form-field"><span>{t(lang, "ai_coach_question_label")}</span><textarea value={question} maxLength={500} placeholder={t(lang, "ai_coach_ph")} onChange={(event) => setQuestion(event.target.value)} /></label>
+      <div className="button-row"><button className="button button-primary" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? t(lang, "saving_ellipsis") : t(lang, "ai_coach_ask_btn")}</button></div>
+      {error && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
+    </Panel>
+    {answer !== null && <Panel tone="accent"><div className="section-head"><div><span className="eyebrow">{t(lang, "ai_coach_answer_eyebrow")}</span></div></div><p>{answer}</p></Panel>}
+  </div>;
+}
+
+function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   const [questions, setQuestions] = useState<TrainerQuestions | null>(null);
   const [requests, setRequests] = useState<TrainerRequests | null>(null);
   const [templates, setTemplates] = useState<TrainerTemplates | null>(null);
@@ -305,7 +415,7 @@ function TrainerWorkspace({ dashboard, lang }: WorkspaceProps) {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
-  const [subview, setSubview] = useState<"list" | "client" | "profile">("list");
+  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach">("list");
   const [activeClientId, setActiveClientId] = useState<number | null>(null);
   const [assignTemplateId, setAssignTemplateId] = useState("");
   const [assignClientId, setAssignClientId] = useState("");
@@ -334,17 +444,24 @@ function TrainerWorkspace({ dashboard, lang }: WorkspaceProps) {
   if (error) return <WorkspaceError lang={lang} onRetry={() => { setError(false); void load().catch(() => setError(true)); }} />;
 
   if (subview === "profile") return <TrainerProfilePanel lang={lang} onBack={() => setSubview("list")} />;
+  if (subview === "coach") return <AiCoachView lang={lang} onBack={() => setSubview("list")} />;
+  if (subview === "atrisk") return <AtRiskReportView dashboard={dashboard} lang={lang} onBack={() => setSubview("list")} onOpenClient={(id) => { setActiveClientId(id); setSubview("client"); }} />;
   if (subview === "client" && activeClientId !== null) {
-    return <ClientCardView clientId={activeClientId} lang={lang} onBack={() => setSubview("list")} onTemplateSaved={() => void load()} />;
+    return <ClientCardView clientId={activeClientId} lang={lang} onBack={() => setSubview("list")} onTemplateSaved={() => void load()} onOpenPlan={onOpenPlan} />;
   }
 
   const clients: ClientSummary[] = dashboard.trainer?.clients ?? [];
   const hasTemplates = (templates?.templates.length ?? 0) > 0;
+  const atRiskCount = clients.filter((client) => client.atRisk || client.flagged).length;
 
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "trainer_workspace_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "coach_right_thing_title")}</h1><span>{t(lang, "n_clients", { n: clients.length })}</span></div>
-    <div className="button-row"><button className="button button-ghost" onClick={() => setSubview("profile")}>{t(lang, "workspace_tab_profile")}</button></div>
+    <div className="button-row">
+      <button className="button button-ghost" onClick={() => setSubview("profile")}>{t(lang, "workspace_tab_profile")}</button>
+      <button className="button button-ghost" onClick={() => setSubview("atrisk")}>{t(lang, "atrisk_report_btn", { n: atRiskCount })}</button>
+      <button className="button button-ghost" onClick={() => setSubview("coach")}>{t(lang, "ai_coach_nav_btn")}</button>
+    </div>
 
     <Panel tone="accent">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "client_pulse_eyebrow")}</span><h2>{t(lang, "needs_attention_title")}</h2></div></div>
@@ -382,21 +499,103 @@ function TrainerWorkspace({ dashboard, lang }: WorkspaceProps) {
   </div>;
 }
 
+type OwnerSection = "overview" | "roster" | "ai" | "trainers" | "onboarding" | "errors" | "events";
+const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster">; tab: Key; eyebrow: Key; title: Key }> = [
+  { id: "overview", tab: "owner_tab_overview", eyebrow: "overview_eyebrow", title: "live_report_title" },
+  { id: "ai", tab: "owner_tab_ai", eyebrow: "ai_stats_eyebrow", title: "ai_stats_title" },
+  { id: "trainers", tab: "owner_tab_trainers", eyebrow: "trainers_report_eyebrow", title: "trainers_report_title" },
+  { id: "onboarding", tab: "owner_tab_onboarding", eyebrow: "onboarding_funnel_eyebrow", title: "onboarding_funnel_title" },
+  { id: "errors", tab: "owner_tab_errors", eyebrow: "errors_report_eyebrow", title: "errors_report_title" },
+  { id: "events", tab: "owner_tab_events", eyebrow: "events_report_eyebrow", title: "events_report_title" },
+];
+// The backend already renders each section as Telegram-HTML (<b>/<i>/<pre>/<code> + newlines);
+// stripped to plain text and dropped into a monospace <pre>, alignment/tables survive untouched
+// (same approach the existing overview panel used before this got split into tabs).
+const plainReport = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+
 function OwnerWorkspace({ lang }: { lang: Lang }) {
-  const [report, setReport] = useState<OwnerReport | null>(null);
   const [users, setUsers] = useState<OwnerUsers | null>(null);
+  const [section, setSection] = useState<OwnerSection>("overview");
+  const [reports, setReports] = useState<Partial<Record<OwnerSection, string>>>({});
+  const [sectionBusy, setSectionBusy] = useState(false);
   const [sent, setSent] = useState<number | null>(null);
   const [error, setError] = useState(false);
-  const load = () => { setError(false); Promise.all([api<OwnerReport>("/api/v2/owner/report?section=overview"), api<OwnerUsers>("/api/v2/owner/users")]).then(([nextReport, nextUsers]) => { setReport(nextReport); setUsers(nextUsers); }).catch(() => setError(true)); };
-  useEffect(load, []);
+  const [rosterBusy, setRosterBusy] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+
+  const loadUsers = () => { setError(false); return api<OwnerUsers>("/api/v2/owner/users").then(setUsers).catch(() => setError(true)); };
+  const loadSection = (id: OwnerSection, force = false) => {
+    if (id === "roster" || (!force && reports[id] !== undefined)) return;
+    setSectionBusy(true);
+    api<OwnerReport>(`/api/v2/owner/report?section=${id}`)
+      .then((result) => setReports((current) => ({ ...current, [id]: result.html })))
+      .catch(() => setError(true))
+      .finally(() => setSectionBusy(false));
+  };
+  useEffect(() => { void loadUsers(); loadSection("overview"); }, []);
+  const selectSection = (id: OwnerSection) => { setSection(id); loadSection(id); };
+  const retry = () => { setError(false); void loadUsers(); loadSection(section, true); };
+
   const askInactive = async () => { try { const result = await api<{ sent: number }>("/api/v2/owner/ask-inactive", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) }); setSent(result.sent); } catch { setError(true); } };
-  if (error) return <WorkspaceError lang={lang} onRetry={load} />;
-  if (!report || !users) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
-  return <div className="view-stack"><div className="eyebrow">{t(lang, "owner_ops_eyebrow")}</div><div className="page-title"><h1>{t(lang, "system_pulse_title")}</h1><span>{t(lang, "n_users", { n: users.rows.length })}</span></div><Panel><div className="section-head"><div><span className="eyebrow">{t(lang, "overview_eyebrow")}</span><h2>{t(lang, "live_report_title")}</h2></div><button className="button button-ghost" onClick={() => void askInactive()}>{t(lang, "ask_inactive_btn")}</button></div><pre className="owner-report">{report.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")}</pre>{sent !== null && <div className="save-note">{t(lang, "sent_to_n_users", { n: sent })}</div>}</Panel><Panel><div className="section-head"><div><span className="eyebrow">{t(lang, "roster_eyebrow")}</span><h2>{t(lang, "recent_users_title")}</h2></div></div><div className="client-list">{users.rows.slice(0, 12).map((user, index) => <div className="client-row" key={`${user.id ?? index}-${index}`}><strong>{String(user.name ?? user.id ?? t(lang, "user_fallback_name", { n: index + 1 }))}</strong><span className="status-badge">#{index + 1}</span></div>)}</div></Panel></div>;
+  // Block/unblock/delete ANY user. Delete is a two-tap gate matching the bot's own ownerUserKb
+  // confirm (ou:*:del shows confirm/cancel, only ou:*:delok deletes) -- pendingDelete tracks which
+  // row is mid-confirm; a second explicit tap on "Yes, delete" is what actually calls the route.
+  const userAction = async (id: number, action: "block" | "unblock" | "delete") => {
+    setRosterBusy(`${action}:${id}`);
+    try {
+      await api(`/api/v2/owner/user/${id}/${action}`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
+      if (action === "delete") setPendingDelete(null);
+      await loadUsers();
+    } catch { setError(true); } finally { setRosterBusy(null); }
+  };
+  if (error) return <WorkspaceError lang={lang} onRetry={retry} />;
+  if (!users) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
+
+  const activeReport = section === "roster" ? undefined : OWNER_REPORT_SECTIONS.find((s) => s.id === section);
+  const activeHtml = activeReport ? reports[activeReport.id] : undefined;
+
+  return <div className="view-stack">
+    <div className="eyebrow">{t(lang, "owner_ops_eyebrow")}</div>
+    <div className="page-title"><h1>{t(lang, "system_pulse_title")}</h1><span>{t(lang, "n_users", { n: users.rows.length })}</span></div>
+    <div className="button-row">
+      {OWNER_REPORT_SECTIONS.map((s) => <button key={s.id} className={section === s.id ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== s.id} onClick={() => selectSection(s.id)}>{t(lang, s.tab)}</button>)}
+      <button className={section === "roster" ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== "roster"} onClick={() => selectSection("roster")}>{t(lang, "owner_tab_roster")}</button>
+    </div>
+
+    {section === "roster" && <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "roster_eyebrow")}</span><h2>{t(lang, "recent_users_title")}</h2></div></div>
+      <div className="client-list">{users.rows.slice(0, 12).map((user, index) => {
+        const id = typeof user.id === "number" ? user.id : undefined;
+        const blocked = user.status === "banned";
+        const name = String(user.name ?? user.id ?? t(lang, "user_fallback_name", { n: index + 1 }));
+        return <div className="client-row" key={`${user.id ?? index}-${index}`}>
+          <div><strong>{name}</strong><small>{String(user.status ?? "")}</small></div>
+          {id !== undefined && (pendingDelete === id
+            ? <div className="button-row">
+                <button className="button button-ghost" disabled={rosterBusy === `delete:${id}`} onClick={() => void userAction(id, "delete")}>{rosterBusy === `delete:${id}` ? "…" : t(lang, "owner_delete_confirm_btn")}</button>
+                <button className="text-button" onClick={() => setPendingDelete(null)}>{t(lang, "cancel_btn")}</button>
+              </div>
+            : <div className="button-row">
+                <button className="button button-ghost" disabled={rosterBusy === `${blocked ? "unblock" : "block"}:${id}`} onClick={() => void userAction(id, blocked ? "unblock" : "block")}>{rosterBusy === `${blocked ? "unblock" : "block"}:${id}` ? "…" : t(lang, blocked ? "owner_unblock_btn" : "owner_block_btn")}</button>
+                <button className="text-button" onClick={() => setPendingDelete(id)}>{t(lang, "owner_delete_btn")}</button>
+              </div>)}
+        </div>;
+      })}</div>
+    </Panel>}
+
+    {activeReport && <Panel>
+      <div className="section-head">
+        <div><span className="eyebrow">{t(lang, activeReport.eyebrow)}</span><h2>{t(lang, activeReport.title)}</h2></div>
+        {activeReport.id === "overview" && <button className="button button-ghost" onClick={() => void askInactive()}>{t(lang, "ask_inactive_btn")}</button>}
+      </div>
+      {activeHtml === undefined ? <div className="skeleton" /> : <pre className="owner-report">{plainReport(activeHtml)}</pre>}
+      {activeReport.id === "overview" && sent !== null && <div className="save-note">{t(lang, "sent_to_n_users", { n: sent })}</div>}
+    </Panel>}
+  </div>;
 }
 
-export function WorkspaceView({ dashboard, lang }: WorkspaceProps) {
+export function WorkspaceView({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   if (dashboard.owner) return <OwnerWorkspace lang={lang} />;
-  if (dashboard.viewer.role === "trainer") return <TrainerWorkspace dashboard={dashboard} lang={lang} />;
-  return <SocialWorkspace lang={lang} />;
+  if (dashboard.viewer.role === "trainer") return <TrainerWorkspace dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} />;
+  return <SocialWorkspace lang={lang} role={dashboard.viewer.role} />;
 }

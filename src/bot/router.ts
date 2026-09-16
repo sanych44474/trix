@@ -33,7 +33,7 @@ import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { renderGroceryList, renderMealPlan } from "../render";
 import { handleGroupUpdate } from "./squad";
 import { groceryList } from "../domain/groceryList";
-import { type Env, type Lang, type Meal, type MealPlanDoc, type NutritionTargets, type SessionMode, type Weekday } from "../types";
+import { type Env, type Lang, type Meal, type MealPlanDoc, type NutritionTargets, type SessionMode, type UserProfile, type Weekday } from "../types";
 import { MyContext, TKey, reply, setMode } from "../adapters/telegram/context";
 import { setAppUrl, handleAliasInput, handleWeightEdit, handleSetsEdit, handleSwapCustom, handleAddExercise, handleExerciseAltText, handleWarmupEdit, menuActionFor, adjustDifficulty, aiAuthorAndAdd, cmdAskInactive, cmdCalendar, cmdChallenges, cmdCleanup, cmdCoach, cmdDeleteMe, cmdExport, cmdExportJson, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdLang, cmdLog, cmdLogPast, cmdMeasure, cmdMenu, cmdNutrition, cmdPlan, cmdPlanChanges, cmdPlates, cmdProgress, cmdRecords, cmdReplan, cmdReport, cmdSchedule, cmdSettings, cmdStandards, cmdStart, cmdSteps, cmdToday, cmdVacation, cmdVolume, cmdWater, cmdWeekCard, cmdWellbeing, applyGymSwap, showGymSwapPicker, coachContext, defaultLang, endVacation, guardLogExit, handleCoach, handleExerciseConfirmation, handleNutrition, handlePhotoMeal, handleWorkoutLog, logBackToPick, logFinish, logSwitchToText, normalizeEvent, notifyTrainerWorkout, onCleanupAll, onGoalMaintain, onInactiveReply, onLevelUp, onLogExit, onMacrosSuggest, onMealConfirm, openSetsEditor, openWeightEditor, pickCycleLength, setAlias, showAddDayPicker, showAthleteMenu, showChallengePicker, showCycleCalendar, showCycleSettings, showDayManager, showExerciseList, showInjuryAreas, showMealConfirm, showMealItemEditor, showMoreMenu, showMyLogHub, showNextSession, showProgressHub, showRecentFoods, showReminderSettings, showShareSettings, showTrainerClientsMenu, showWorkoutInfo, startAddExercise, startInterview, startSwapCustom, toggleCompete, toggleCycleTracking, undoDelete } from "../bot";
 
@@ -724,8 +724,15 @@ export async function startMealGeneration(ctx: MyContext) {
 // `seedOffset` shifts the template's rotation (buildTemplateMealDay's seed is userId-based) so
 // callers generating several days at once (deliverWeeklyMealPlan) get genuinely distinct days
 // instead of the same menu repeated. Template = deterministic human composition (zero AI); AI = Gemini.
-async function generateMealDay(
-  ctx: MyContext,
+// Exported (env/db/profile passed explicitly, no MyContext) so the Mini App's webapp route can
+// call the exact same generation logic as the bot's /mealplan regenerate flow, instead of
+// reimplementing it.
+export async function generateMealDayFor(
+  env: Env,
+  db: D1Database,
+  lang: Lang,
+  profile: UserProfile,
+  userId: number,
   targets: NutritionTargets,
   mealsPerDay: number,
   excluded: string,
@@ -733,15 +740,14 @@ async function generateMealDay(
   useAi: boolean,
   seedOffset: number,
 ): Promise<Meal[]> {
-  const lang = ctx.user.lang;
-  const p = ctx.user.profile;
+  const p = profile;
   const mealSplit = splitMeals(targets, mealsPerDay);
   // Turn a raw day (AI- or template-produced) into solved, macro-accurate meals.
   const solveDay = async (rawMeals: { name: string; items: { food_name: string; grams: number }[] }[]): Promise<Meal[]> => {
     // Batch all per-100g lookups for the whole day in parallel (deduped) instead of one-by-one.
     const names = [...new Set((rawMeals ?? []).flatMap((m) => (m.items ?? []).map((it) => it.food_name)))];
     const refs = new Map<string, Per100g | null>(
-      await Promise.all(names.map(async (n) => [n, await lookupPer100gCached(ctx.db, ctx.env, n)] as const)),
+      await Promise.all(names.map(async (n) => [n, await lookupPer100gCached(db, env, n)] as const)),
     );
     const meals: Meal[] = [];
     for (let i = 0; i < (rawMeals ?? []).length; i++) {
@@ -762,20 +768,20 @@ async function generateMealDay(
   };
 
   const rawDay = useAi
-    ? (await aiJSON<P.MealDayResult>(ctx.env, {
+    ? (await aiJSON<P.MealDayResult>(env, {
         system: P.mealDaySystem({ mealsPerDay, daily: targets, mealSplit, excluded, likes }),
         user: "Generate the day's meals now as JSON.",
         schema: P.MEAL_DAY_SCHEMA,
         kind: "meal_plan",
         groqModel: "openai/gpt-oss-120b",
         temperature: 0.5,
-        db: ctx.db,
-        userId: ctx.user._id,
+        db,
+        userId,
       })).meals
-    : buildTemplateMealDay(mealsPerDay, { goal: goalBucket(p.goal), excluded: expandExclusions(excluded), seed: ctx.user._id + seedOffset }).meals;
+    : buildTemplateMealDay(mealsPerDay, { goal: goalBucket(p.goal), excluded: expandExclusions(excluded), seed: userId + seedOffset }).meals;
   const meals = await solveDay(rawDay);
   if (!meals.length) return [];
-  const localized = await localizeMealNames(ctx.env, ctx.db, lang, ctx.user._id, meals);
+  const localized = await localizeMealNames(env, db, lang, userId, meals);
   // Override the plain translation with a human dish name (porridge / boiled rice / cooked
   // lentils…) for known foods — keyed by the original English food so the lookup stayed exact.
   return localized.map((m, mi) => ({
@@ -785,6 +791,18 @@ async function generateMealDay(
       return dish ? { ...item, food: dish } : item;
     }),
   }));
+}
+
+async function generateMealDay(
+  ctx: MyContext,
+  targets: NutritionTargets,
+  mealsPerDay: number,
+  excluded: string,
+  likes: string,
+  useAi: boolean,
+  seedOffset: number,
+): Promise<Meal[]> {
+  return generateMealDayFor(ctx.env, ctx.db, ctx.user.lang, ctx.user.profile, ctx.user._id, targets, mealsPerDay, excluded, likes, useAi, seedOffset);
 }
 
 function mealPlanSharedInputs(ctx: MyContext) {

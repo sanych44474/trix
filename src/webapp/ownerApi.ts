@@ -2,7 +2,8 @@
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
 import { getOwnerChatId } from "../adapters/d1/v2Admin";
-import { listInactive, updateUser } from "../adapters/d1/v2Users";
+import { getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
+import { deleteUserData } from "../db/repos";
 import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orTrainers, orUsers, ownerUsersData } from "../bot/owner";
 import { switchMode } from "../domain/session";
 import { t } from "../locales/i18n";
@@ -10,6 +11,7 @@ import { miniAppUser } from "./auth";
 import type { Env } from "../types";
 
 const FB_ASK_COOLDOWN_DAYS = 14;
+const USER_ACTION_ROUTE = /^\/api\/owner\/user\/(\d+)\/(block|unblock|delete)$/;
 
 export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
@@ -65,6 +67,33 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
       }
     }
     return Response.json({ sent, total: targets.length });
+  }
+
+  // Moderation: block/unblock/delete ANY user. Mirrors bot/owner.ts's ownerUserAction "block" /
+  // "unblock" / "delok" branches exactly (same updateUser/deleteUserData calls, no new repo
+  // function, no audit trail — the bot's own branches don't record one either). The bot's
+  // two-tap delete confirm (ou:*:del shows a confirm/cancel keyboard, only ou:*:delok deletes) is
+  // the app's safety bar for this — the Mini App mirrors it as a two-tap UI gate client-side
+  // (see OwnerWorkspace's pendingDelete state) rather than a second server round trip.
+  const um = USER_ACTION_ROUTE.exec(path);
+  if (um) {
+    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    const targetId = Number(um[1]);
+    const action = um[2] as "block" | "unblock" | "delete";
+    // The owner can't block/delete their own account through this console — self-lockout has no
+    // recovery path in the Mini App (unlike the bot, which has no such guard but also isn't the
+    // only door: /admin re-claims ownership by chat). Not present in the bot's own flow, but a
+    // sane safety net for an irreversible action exposed as a one-tap button in a UI.
+    if (targetId === user._id) return Response.json({ error: "bad request" }, { status: 400 });
+    const target = await getUser(env.DB, targetId).catch(() => null);
+    if (!target) return Response.json({ error: "not found" }, { status: 404 });
+    if (action === "delete") {
+      await deleteUserData(env.DB, targetId);
+      return Response.json({ ok: true });
+    }
+    const blocked = action === "block";
+    await updateUser(env.DB, targetId, blocked ? { blocked: true } : { blocked: false, botBlocked: false });
+    return Response.json({ ok: true, blocked });
   }
 
   return Response.json({ error: "not found" }, { status: 404 });

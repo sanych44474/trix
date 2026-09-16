@@ -5,11 +5,19 @@
 import { trainerCanSee } from "../domain/clientCard";
 import { computeCyclePhase } from "../domain/cycle";
 import { localParts } from "../domain/progression";
-import { getClientCard, getClientNote } from "../adapters/d1/v2Trainer";
+import { getClientCard, getClientNote, listClientNoteHistory, listMessages, type ClientNoteHistoryEntry } from "../adapters/d1/v2Trainer";
 import { listActiveInjuries, listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { buildDashboardPayload } from "../adapters/d1/dashboardReader";
 import type { DashboardPayload } from "./dashboard";
 import type { ClientCardDoc, InjuryDoc, UserDoc } from "../types";
+
+/** One trainer<->client message, from the client-card viewer's perspective (no raw account ids
+ * exposed to the client -- just "was this from me [the trainer]"). */
+export interface ClientCardMessage {
+  fromMe: boolean;
+  text: string;
+  createdAt: string;
+}
 
 export interface ClientCardPayload {
   client: { id: number; name: string; onboarded: boolean; flagged: boolean };
@@ -32,6 +40,13 @@ export interface ClientCardPayload {
     };
   };
   photos?: { id: number; takenAt: string }[];
+  // Both were already fully built at the repo layer (v2Trainer.ts) and already surfaced by the
+  // bot itself (trainer.ts's cl:*:thread / cl:*:note actions) -- neither was reachable from the
+  // Mini App until now. Same no-consent-gating rule the bot uses: these are trainer-authored/
+  // exchanged data (the trainer's own note journal, the trainer<->client message log), not
+  // client-shared profile data, so trainerCanSee doesn't apply here.
+  noteHistory: ClientNoteHistoryEntry[];
+  messages: ClientCardMessage[];
   dashboard: DashboardPayload;
 }
 
@@ -46,6 +61,8 @@ export function assembleClientCardPayload(
     note: string | null;
     injuries: InjuryDoc[];
     dashboard: DashboardPayload;
+    noteHistory: ClientNoteHistoryEntry[];
+    messages: ClientCardMessage[];
   },
 ): ClientCardPayload {
   const profile = client.profile;
@@ -98,6 +115,8 @@ export function assembleClientCardPayload(
       ? { healthNotes: rows.card.healthNotes, personalNotes: rows.card.personalNotes, birthday: rows.card.birthday }
       : null,
     shared,
+    noteHistory: rows.noteHistory,
+    messages: rows.messages,
     dashboard: rows.dashboard,
   };
 }
@@ -105,7 +124,7 @@ export function assembleClientCardPayload(
 export async function buildClientCardPayload(db: D1Database, trainer: UserDoc, client: UserDoc): Promise<ClientCardPayload> {
   // The cycle chip runs on the CLIENT's local date (same as the bot's client card).
   const today = localParts(client.profile.timezone).date;
-  const [card, note, injuries, dashboard, photos] = await Promise.all([
+  const [card, note, injuries, dashboard, photos, noteHistory, rawMessages] = await Promise.all([
     getClientCard(db, trainer._id, client._id),
     getClientNote(db, trainer._id, client._id).catch(() => null),
     // Skip the injuries query entirely when health isn't shared (free-tier subrequest budget).
@@ -114,8 +133,11 @@ export async function buildClientCardPayload(db: D1Database, trainer: UserDoc, c
       : Promise.resolve([] as InjuryDoc[]),
     buildDashboardPayload(db, client),
     listProgressPhotos(db, client._id, 8).catch(() => []),
+    listClientNoteHistory(db, trainer._id, client._id).catch(() => []),
+    listMessages(db, trainer._id, client._id).catch(() => []),
   ]);
-  const payload = assembleClientCardPayload(client, today, { card, note, injuries, dashboard });
+  const messages: ClientCardMessage[] = rawMessages.map((m) => ({ fromMe: m.fromId === trainer._id, text: m.text, createdAt: m.createdAt }));
+  const payload = assembleClientCardPayload(client, today, { card, note, injuries, dashboard, noteHistory, messages });
   payload.photos = photos.map((ph) => ({ id: ph.id, takenAt: ph.takenAt.slice(0, 10) }));
   return payload;
 }

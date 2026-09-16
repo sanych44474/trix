@@ -73,7 +73,7 @@ export interface DashboardPayload {
   logForm?: { exercises: string[] };
   // Trainer-only portfolio view: one row per client with 7-day compliance + at-risk flag.
   trainer?: {
-    clients: { id: number; name: string; workoutPct: number; nutritionPct: number; atRisk: boolean; flagged: boolean }[];
+    clients: { id: number; name: string; workoutPct: number; nutritionPct: number; atRisk: boolean; flagged: boolean; missedDates?: [string, string] }[];
   };
   // Owner-only analytics: DAU trend, funnel, AI provider stats, plan-source offload.
   owner?: {

@@ -181,7 +181,7 @@ npm run typecheck   # tsc --noEmit
 npm run typecheck:webapp
 npm run build:webapp:v2
 npm run verify-v2-backfill # local D1; add --remote for an explicit remote check
-npm test            # node --test (273 unit/integration tests)
+npm test            # node --test (825 unit/integration tests)
 npm run deploy      # build the Mini App shell + wrangler deploy
 npm run tail        # stream live Worker logs
 ```
