@@ -154,15 +154,24 @@ CREATE TABLE IF NOT EXISTS v2_trainer_relationships (
   PRIMARY KEY(clientId, trainerId)
 );
 
+-- idempotencyKey is scoped per-account (composite index below), not globally unique: legacy
+-- notification_outbox's actual uniqueness is the composite (userId, idempotencyKey) index
+-- (migrations/0067) -- scheduler.ts's enqueueAndDeliver builds the key as
+-- `${date}:${text.slice(0,200)}`, WITHOUT the userId baked in, relying entirely on that index to
+-- scope it per user. A single global UNIQUE would collide (and silently drop) a second user's
+-- identical templated reminder text on the same day -- confirmed against real production data,
+-- which had exactly this collision across several users on the same day.
 CREATE TABLE IF NOT EXISTS v2_notifications (
   id INTEGER PRIMARY KEY,
   accountId INTEGER NOT NULL REFERENCES v2_accounts(id) ON DELETE CASCADE,
+  chatId INTEGER NOT NULL DEFAULT 0,
   kind TEXT NOT NULL,
-  idempotencyKey TEXT NOT NULL UNIQUE,
+  idempotencyKey TEXT NOT NULL,
   payload TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   nextAttemptAt TEXT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
+  lastError TEXT,
   createdAt TEXT NOT NULL,
   sentAt TEXT
 );
@@ -178,6 +187,7 @@ CREATE TABLE IF NOT EXISTS v2_audit_events (
 
 CREATE INDEX IF NOT EXISTS idx_v2_workout_account_date ON v2_workout_sessions(accountId, date);
 CREATE INDEX IF NOT EXISTS idx_v2_nutrition_account_date ON v2_nutrition_entries(accountId, date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_v2_notifications_idem ON v2_notifications(accountId, idempotencyKey);
 CREATE INDEX IF NOT EXISTS idx_v2_notifications_due ON v2_notifications(status, nextAttemptAt);
 CREATE INDEX IF NOT EXISTS idx_v2_audit_target_time ON v2_audit_events(targetId, createdAt);
 
@@ -199,8 +209,17 @@ SELECT id, lang,
 FROM users
 WHERE json_valid(profile);
 
+-- version is a real per-account generation counter (chronological by generatedAt, ties broken by
+-- id), not a hardcoded 1 -- v2_plans has UNIQUE(accountId, version), and any account with more
+-- than one historical plan row (a regenerate) would otherwise collide on version=1 and have every
+-- plan after its first silently dropped by OR IGNORE, which then orphans v2_plan_days/
+-- v2_plan_exercises rows below that reference the dropped plan's id (FOREIGN KEY constraint
+-- failed). Confirmed against real production data, which had this exact case; the local dev D1
+-- has zero plan rows and could never have caught it. Same "real counter, not a placeholder"
+-- reasoning as v2Plans.ts's own runtime NEXT_VERSION_SUBQUERY (migrations/0078).
 INSERT OR IGNORE INTO v2_plans (id, accountId, version, status, source, nutrition, mesocycle, createdAt, updatedAt)
-SELECT id, userId, 1, COALESCE(status, CASE WHEN active = 1 THEN 'active' ELSE 'draft' END),
+SELECT id, userId, ROW_NUMBER() OVER (PARTITION BY userId ORDER BY generatedAt, id),
+  COALESCE(status, CASE WHEN active = 1 THEN 'active' ELSE 'draft' END),
   CASE WHEN authoredBy IS NULL THEN 'ai' ELSE 'trainer' END, nutrition, NULL, generatedAt, generatedAt
 FROM plans;
 
@@ -261,8 +280,8 @@ INSERT OR IGNORE INTO v2_trainer_relationships (clientId, trainerId, status, con
 SELECT id, trainerId, 'active', COALESCE(json_extract(profile, '$.shareWithTrainer'), '{}'), createdAt, updatedAt
 FROM users WHERE trainerId IS NOT NULL;
 
-INSERT OR IGNORE INTO v2_notifications (accountId, kind, idempotencyKey, payload, status, nextAttemptAt, attempts, createdAt, sentAt)
-SELECT userId, kind, idempotencyKey, payload, status, nextAttemptAt, attempts, createdAt, sentAt
+INSERT OR IGNORE INTO v2_notifications (accountId, chatId, kind, idempotencyKey, payload, status, nextAttemptAt, attempts, lastError, createdAt, sentAt)
+SELECT userId, chatId, kind, idempotencyKey, payload, status, nextAttemptAt, attempts, lastError, createdAt, sentAt
 FROM notification_outbox;
 
 INSERT OR IGNORE INTO v2_audit_events (id, actorId, targetId, kind, payload, createdAt)

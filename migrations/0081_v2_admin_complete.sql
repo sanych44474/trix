@@ -5,55 +5,12 @@
 -- admin.ts exports have NO v2 table at all yet (feedback inbox, the separate ai_usage
 -- telemetry stream, plan-source logs, rest timers, owner config/alert state, the Telegram
 -- update-id dedup set, key-value settings/schedule-lock, and the AI response cache), and
--- v2_notifications/v2_analytics_events have real correctness gaps in what 0069/0070 already
--- created (see below). This migration closes both so src/adapters/d1/v2Admin.ts (+
--- v2Notifications.ts/v2DailyMetrics.ts/v2Idempotency.ts) can be a full, faithful v2-native
--- replacement, not just a parity shadow.
-
--- ---------- v2_notifications: fix scope of the idempotency-key uniqueness + add missing columns ----------
--- Two real gaps, not stylistic:
---   (a) 0069 declared `idempotencyKey TEXT NOT NULL UNIQUE` -- globally unique across ALL users.
---       Legacy notification_outbox's actual uniqueness is the composite index
---       (userId, idempotencyKey) (migrations/0067) -- and scheduler.ts's enqueueAndDeliver caller
---       builds the key as `${date}:${text.slice(0,200)}`, WITHOUT the userId baked in, relying
---       entirely on the index to scope it per user. Left as a single-column UNIQUE, two different
---       users getting the same templated reminder text on the same day would collide and the
---       second user's notification would be silently dropped by enqueueNotification's
---       `ON CONFLICT DO NOTHING`.
---   (b) chatId/lastError were never added at all -- OutboxRow.chatId (what dueNotifications must
---       return so the delivery sweep knows where to send) has no source column in v2_notifications
---       today, and markRetry's lastError has nowhere to go.
--- SQLite can't drop or re-scope an inline UNIQUE constraint via ALTER TABLE, so this rebuilds the
--- table (same id values preserved, so v2_notification_attempts' FK stays valid).
-CREATE TABLE v2_notifications_rebuild (
-  id INTEGER PRIMARY KEY,
-  accountId INTEGER NOT NULL REFERENCES v2_accounts(id) ON DELETE CASCADE,
-  chatId INTEGER NOT NULL DEFAULT 0,
-  kind TEXT NOT NULL,
-  idempotencyKey TEXT NOT NULL,
-  payload TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  nextAttemptAt TEXT NOT NULL,
-  attempts INTEGER NOT NULL DEFAULT 0,
-  lastError TEXT,
-  createdAt TEXT NOT NULL,
-  sentAt TEXT
-);
-INSERT INTO v2_notifications_rebuild (id, accountId, chatId, kind, idempotencyKey, payload, status, nextAttemptAt, attempts, lastError, createdAt, sentAt)
-SELECT n.id, n.accountId,
-  COALESCE(
-    (SELECT o.chatId FROM notification_outbox o WHERE o.userId = n.accountId AND o.idempotencyKey = n.idempotencyKey),
-    (SELECT a.chatId FROM v2_accounts a WHERE a.id = n.accountId),
-    0
-  ),
-  n.kind, n.idempotencyKey, n.payload, n.status, n.nextAttemptAt, n.attempts,
-  (SELECT o.lastError FROM notification_outbox o WHERE o.userId = n.accountId AND o.idempotencyKey = n.idempotencyKey),
-  n.createdAt, n.sentAt
-FROM v2_notifications n;
-DROP TABLE v2_notifications;
-ALTER TABLE v2_notifications_rebuild RENAME TO v2_notifications;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_v2_notifications_idem ON v2_notifications(accountId, idempotencyKey);
-CREATE INDEX IF NOT EXISTS idx_v2_notifications_due ON v2_notifications(status, nextAttemptAt);
+-- v2_analytics_events has a real correctness gap in what 0070 already created (see below). This
+-- migration closes both so src/adapters/d1/v2Admin.ts (+ v2Notifications.ts/v2DailyMetrics.ts/
+-- v2Idempotency.ts) can be a full, faithful v2-native replacement, not just a parity shadow.
+-- (v2_notifications' own idempotency-key scoping bug -- found against real production data,
+-- where it silently dropped a second user's identical reminder text -- is fixed directly in
+-- 0069/0070 now, not rebuilt here.)
 
 -- ---------- v2_analytics_events: bumpEvent's upsert needs a conflict target ----------
 -- Legacy event_counts is genuinely one row per (userId, event, day), incremented in place
@@ -154,11 +111,17 @@ CREATE INDEX IF NOT EXISTS idx_v2_ai_cache_expires ON v2_ai_cache(expiresAt);
 INSERT OR IGNORE INTO v2_feedback (id, accountId, username, text, date, createdAt)
 SELECT id, userId, username, text, date, createdAt FROM feedback;
 
+-- accountId nulled out for rows whose legacy userId has no matching `users` row -- same real,
+-- confirmed-against-production gap as v2_ai_calls/v2_error_events/v2_analytics_events in 0070
+-- (see that file's comment); both columns here are nullable (ON DELETE SET NULL) for exactly
+-- this reason.
 INSERT OR IGNORE INTO v2_ai_usage (id, accountId, provider, kind, model, ok, date, createdAt)
-SELECT id, userId, provider, kind, model, ok, date, ts FROM ai_usage;
+SELECT id, CASE WHEN EXISTS (SELECT 1 FROM users u WHERE u.id = ai_usage.userId) THEN userId END,
+  provider, kind, model, ok, date, ts FROM ai_usage;
 
 INSERT OR IGNORE INTO v2_plan_source_logs (accountId, kind, source, createdAt)
-SELECT userId, kind, source, ts FROM plan_source_logs;
+SELECT CASE WHEN EXISTS (SELECT 1 FROM users u WHERE u.id = plan_source_logs.userId) THEN userId END,
+  kind, source, ts FROM plan_source_logs;
 
 INSERT OR IGNORE INTO v2_rest_timers (accountId, chatId, dueAt, lang)
 SELECT userId, chatId, dueAt, lang FROM rest_timers;

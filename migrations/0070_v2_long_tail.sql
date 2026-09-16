@@ -290,15 +290,29 @@ INSERT OR IGNORE INTO v2_squads (id, chatId, createdByAccountId, createdAt)
 SELECT chatId, chatId, createdBy, createdAt FROM squads;
 INSERT OR IGNORE INTO v2_squad_members (squadId, accountId, joinedAt)
 SELECT chatId, userId, joinedAt FROM squad_members;
+-- Joined back via the (accountId, idempotencyKey) natural key, not notification_outbox.id directly:
+-- v2_notifications.id is SQLite-auto-assigned on insert (never set to match the legacy id), same
+-- reasoning as v2_workout_exercises joining back to v2_workout_sessions via (accountId, date)
+-- above rather than assuming id continuity.
 INSERT OR IGNORE INTO v2_notification_attempts (notificationId, attempt, status, error, attemptedAt)
-SELECT id, attempts, status, lastError, COALESCE(sentAt, createdAt) FROM notification_outbox;
+SELECT n.id, o.attempts, o.status, o.lastError, COALESCE(o.sentAt, o.createdAt)
+FROM notification_outbox o
+JOIN v2_notifications n ON n.accountId = o.userId AND n.idempotencyKey = o.idempotencyKey;
 INSERT OR IGNORE INTO v2_idempotency (accountId, key, status, response, state, createdAt)
 SELECT userId, key, status, response, state, createdAt FROM idempotency_keys;
+-- accountId is nulled out (never left as a dangling FK) for rows whose legacy userId has no
+-- matching `users` row -- confirmed against real production data: ai_call_logs/event_counts both
+-- have real orphaned userId values (a user deleted before deleteUserData's cascade covered these
+-- telemetry tables, or similar historical gap). accountId is nullable here (ON DELETE SET NULL)
+-- specifically so this degrades to "telemetry with an unknown owner", not a failed migration.
 INSERT OR IGNORE INTO v2_ai_calls (id, accountId, provider, kind, latencyMs, tokens, ok, wasFallback, createdAt)
-SELECT id, userId, provider, kind, latency_ms, tokens, 1, was_fallback, ts FROM ai_call_logs;
+SELECT id, CASE WHEN EXISTS (SELECT 1 FROM users u WHERE u.id = ai_call_logs.userId) THEN userId END,
+  provider, kind, latency_ms, tokens, 1, was_fallback, ts FROM ai_call_logs;
 INSERT OR IGNORE INTO v2_error_events (id, accountId, kind, errorType, message, createdAt)
-SELECT id, userId, kind, errorType, message, ts FROM error_logs;
+SELECT id, CASE WHEN EXISTS (SELECT 1 FROM users u WHERE u.id = error_logs.userId) THEN userId END,
+  kind, errorType, message, ts FROM error_logs;
 INSERT OR IGNORE INTO v2_analytics_events (accountId, event, date, count)
-SELECT userId, event, day, n FROM event_counts;
+SELECT CASE WHEN EXISTS (SELECT 1 FROM users u WHERE u.id = event_counts.userId) THEN userId END,
+  event, day, n FROM event_counts;
 INSERT OR IGNORE INTO v2_daily_metrics (date, metric, dimensions, value)
 SELECT date, metric, dims, value FROM daily_metrics;
