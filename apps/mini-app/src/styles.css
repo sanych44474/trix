@@ -23,7 +23,7 @@
   .button-outline-light { color: #fff; border-color: rgba(255,255,255,.5); }
 }
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; background: radial-gradient(circle at 90% -10%, rgba(255,95,61,.14), transparent 34%), var(--bg); color: var(--text); }
+body { margin: 0; min-width: 320px; overflow-x: hidden; background: radial-gradient(circle at 90% -10%, rgba(255,95,61,.14), transparent 34%), var(--bg); color: var(--text); }
 button, input { font: inherit; }
 button { cursor: pointer; }
 .app-shell { width: min(100%, 680px); min-height: 100vh; margin: 0 auto; padding: env(safe-area-inset-top) 18px calc(96px + env(safe-area-inset-bottom)); }
@@ -47,7 +47,7 @@ button { cursor: pointer; }
 .button-wide { width: 100%; padding: 15px; }
 .button-row, .input-row { display: flex; gap: 9px; align-items: end; flex-wrap: wrap; }
 .button-row.tabs .button { flex: 1 1 auto; min-width: 100px; text-align: center; }
-.button-row.tabs-scroll { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; padding-right: 14px; scrollbar-width: none; }
+.button-row.tabs-scroll { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; padding-right: 14px; scrollbar-width: none; min-width: 0; }
 .button-row.tabs-scroll::-webkit-scrollbar { display: none; }
 .button-row.tabs-scroll .button { flex: 0 0 auto; scroll-snap-align: start; }
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 12px 0; }
@@ -61,7 +61,7 @@ button { cursor: pointer; }
 .metric span, .metric small { color: var(--muted); font-size: 11px; }
 .metric strong { font-size: clamp(18px, 5vw, 26px); letter-spacing: -.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .view-stack { display: grid; gap: 12px; }
-.card { padding: 17px; background: rgba(20,24,32,.9); border: 1px solid var(--line); border-radius: 18px; }
+.card { min-width: 0; padding: 17px; background: rgba(20,24,32,.9); border: 1px solid var(--line); border-radius: 18px; }
 .card-accent { background: linear-gradient(145deg, rgba(255,95,61,.95), rgba(191,48,29,.8)); border-color: rgba(255,191,171,.5); color: #1c0d08; }
 .card-accent .eyebrow, .card-accent .muted { color: rgba(28,13,8,.65); }
 .card-muted { background: var(--surface-2); }
