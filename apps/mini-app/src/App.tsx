@@ -437,6 +437,29 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
     } catch (err) { setTrainerError(err); } finally { setTrainerBusy(false); }
   };
 
+  // become a trainer -- reuses the exact same /api/v2/trainer/profile POST the bot's own
+  // trainer-profile wizard and TrainerProfilePanel (Workspace.tsx) use: when the caller has no
+  // v2_trainers row yet, extrasApi.ts's handler treats the same body as a NEW application
+  // (applyTrainer, pending owner approval) instead of an edit. TrainerProfilePanel itself isn't
+  // reachable here -- it only renders inside TrainerWorkspace, which is gated to role==="trainer"
+  // already, so a solo user applying for the first time could never reach it.
+  const [becomeName, setBecomeName] = useState("");
+  const [becomeSpecialization, setBecomeSpecialization] = useState("");
+  const [becomeCity, setBecomeCity] = useState("");
+  const [becomeContact, setBecomeContact] = useState("");
+  const [becomeBio, setBecomeBio] = useState("");
+  const [becomeBusy, setBecomeBusy] = useState(false);
+  const [becomeSent, setBecomeSent] = useState(false);
+  const [becomeError, setBecomeError] = useState<unknown>(null);
+  const applyAsTrainer = async () => {
+    if (!becomeName.trim()) return;
+    setBecomeBusy(true); setBecomeError(null); setBecomeSent(false);
+    try {
+      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ name: becomeName.trim(), specialization: becomeSpecialization.trim(), city: becomeCity.trim(), contact: becomeContact.trim(), bio: becomeBio.trim() }) });
+      setBecomeSent(true);
+    } catch (err) { setBecomeError(err); } finally { setBecomeBusy(false); }
+  };
+
   // squads
   const [squads, setSquads] = useState<SquadInfo[] | null>(null);
   const [squadsError, setSquadsError] = useState<unknown>(null);
@@ -515,6 +538,24 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
       </div>
       {trainerSent && <div className="save-note">{t(lang, "trainer_request_sent_note")}</div>}
       {trainerError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
+    </Card>}
+
+    {role === "solo" && <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "become_trainer_eyebrow")}</span><h2>{t(lang, "become_trainer_title")}</h2></div></div>
+      {becomeSent ? <p className="muted">{t(lang, "become_trainer_pending_note")}</p> : <>
+        <p className="muted">{t(lang, "become_trainer_detail")}</p>
+        <div className="form-grid">
+          <label className="form-field"><span>{t(lang, "field_name")}</span><input value={becomeName} maxLength={60} onChange={(event) => setBecomeName(event.target.value)} /></label>
+          <label className="form-field"><span>{t(lang, "field_specialization")}</span><input value={becomeSpecialization} maxLength={120} onChange={(event) => setBecomeSpecialization(event.target.value)} /></label>
+          <label className="form-field"><span>{t(lang, "field_city")}</span><input value={becomeCity} maxLength={60} onChange={(event) => setBecomeCity(event.target.value)} /></label>
+          <label className="form-field"><span>{t(lang, "field_contact")}</span><input value={becomeContact} maxLength={120} onChange={(event) => setBecomeContact(event.target.value)} /></label>
+        </div>
+        <label className="form-field"><span>{t(lang, "field_bio")}</span><textarea value={becomeBio} maxLength={600} onChange={(event) => setBecomeBio(event.target.value)} /></label>
+        <div className="button-row" style={{ marginTop: 10 }}>
+          <button className="button button-primary" disabled={becomeBusy || !becomeName.trim()} onClick={() => void applyAsTrainer()}>{becomeBusy ? t(lang, "saving_ellipsis") : t(lang, "become_trainer_btn")}</button>
+        </div>
+        {becomeError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
+      </>}
     </Card>}
 
     <Card>

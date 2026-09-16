@@ -62,7 +62,7 @@ button { cursor: pointer; }
 .metric strong { font-size: clamp(18px, 5vw, 26px); letter-spacing: -.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .view-stack { display: grid; gap: 12px; }
 .card { min-width: 0; padding: 17px; background: rgba(20,24,32,.9); border: 1px solid var(--line); border-radius: 18px; }
-.card-accent { background: linear-gradient(145deg, rgba(255,95,61,.95), rgba(191,48,29,.8)); border-color: rgba(255,191,171,.5); color: #1c0d08; }
+.card-accent { background: linear-gradient(145deg, #ff5f3d, #bf301d); border-color: rgba(255,191,171,.5); color: #1c0d08; }
 .card-accent .eyebrow, .card-accent .muted { color: rgba(28,13,8,.65); }
 .card-muted { background: var(--surface-2); }
 .section-head, .page-title, .exercise-head, .meal-row, .client-row, .plan-row, .volume-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

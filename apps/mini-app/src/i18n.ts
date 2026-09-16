@@ -673,6 +673,12 @@ const en = {
   grocery_send_btn: "Send to Telegram",
   grocery_sent_note: "Sent! Check your Telegram chat.",
   fuel_rest_day_badge: "Rest day target",
+  // more view: become a trainer (new application -- reuses trainer/profile's own edit fields)
+  become_trainer_eyebrow: "BECOME A TRAINER",
+  become_trainer_title: "Apply as a trainer",
+  become_trainer_detail: "Tell us a bit about yourself. The owner reviews new applications before you go live.",
+  become_trainer_btn: "Submit application",
+  become_trainer_pending_note: "Application sent -- you'll hear back once it's reviewed.",
 } as const;
 
 const uk: Record<keyof typeof en, string> = {
@@ -1346,6 +1352,12 @@ const uk: Record<keyof typeof en, string> = {
   grocery_send_btn: "Надіслати в Telegram",
   grocery_sent_note: "Надіслано! Перевір чат у Telegram.",
   fuel_rest_day_badge: "Ціль на день відпочинку",
+  // more view: become a trainer (new application -- reuses trainer/profile's own edit fields)
+  become_trainer_eyebrow: "СТАТИ ТРЕНЕРОМ",
+  become_trainer_title: "Подати заявку",
+  become_trainer_detail: "Розкажи трохи про себе. Власник перевіряє нові заявки перед публікацією.",
+  become_trainer_btn: "Надіслати заявку",
+  become_trainer_pending_note: "Заявку надіслано — напишемо, коли її розглянуть.",
 };
 
 const dictionaries: Record<Lang, Record<keyof typeof en, string>> = { en, uk };
