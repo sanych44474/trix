@@ -48,6 +48,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Typecheck Mini App
+        run: npm run typecheck:webapp
+
       - name: Test
         run: npm test
 
@@ -59,9 +62,12 @@ jobs:
         run: npm run test:workers
 
       # Catches a broken shell.html marker or a client fragment that no longer parses —
-      # failures that would otherwise only surface at deploy time.
+      # failures that would otherwise only surface at deploy time. build:webapp:all covers
+      # BOTH bundles (legacy public/app.html + the React public/app-v2/ build) -- build:webapp
+      # alone silently never built app-v2 at all, so /app-v2 404'd on every live deploy despite
+      # V2_APP_ENABLED being on and the Telegram menu button correctly pointing at it.
       - name: Build Mini App shell
-        run: npm run build:webapp
+        run: npm run build:webapp:all
 
       # Runtime dependencies only. Dev-tool advisories (wrangler's transitive tree) never reach
       # the deployed Worker and must not block a release.
@@ -133,7 +139,7 @@ jobs:
       - name: Build Mini App shell
         env:
           BOT_USERNAME: ${{ vars.BOT_USERNAME }}
-        run: npm run build:webapp
+        run: npm run build:webapp:all
 
       # Schema first: new code may depend on new columns, old code never depends on their
       # absence. Migrations are forward-only, so this is safe to run on every deploy.

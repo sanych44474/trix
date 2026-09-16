@@ -35,6 +35,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Typecheck Mini App
+        run: npm run typecheck:webapp
+
       - name: Test
         run: npm test
 
@@ -46,9 +49,10 @@ jobs:
         run: npm run test:workers
 
       # Catches a broken shell.html marker or a client fragment that no longer parses —
-      # failures that would otherwise only surface at deploy time.
+      # failures that would otherwise only surface at deploy time. build:webapp:all covers
+      # both bundles (legacy public/app.html + the React public/app-v2/ build).
       - name: Build Mini App shell
-        run: npm run build:webapp
+        run: npm run build:webapp:all
 
       # Runtime dependencies only. Dev-tool advisories (wrangler's transitive tree) never reach
       # the deployed Worker and must not block a release.
