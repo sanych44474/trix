@@ -14,12 +14,14 @@
 // (making this the real sender, and giving it its own persisted dedup state) is a deliberate
 // later phase, not a flag flip — see the grilling transcript this design came out of.
 import { Bot } from "grammy";
-import { getUser, logDryRun } from "../db/repos";
+import { logDryRun } from "../db/repos";
+import { getUser } from "../adapters/d1/v2Users";
 import { isCutOver } from "./cutover";
 import { buildSinglePass, processUser, type Sender } from "../scheduler";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
-import { logInfo, runWithRequestId } from "../log";
+import { logError, logInfo, runWithRequestId } from "../log";
+import { withLegacyFreeze } from "../adapters/d1/legacyFreeze";
 
 // Hourly, matching the cron path's own hourKey-gated cadence (scheduler.ts) — processUser's
 // internal gates (reminderHour, already(), daysBetween(...)) are what actually decide whether
@@ -34,10 +36,14 @@ export async function wakeUserScheduler(env: Env, userId: number): Promise<void>
 }
 
 export class UserSchedulerDO {
+  private readonly env: Env;
+
   constructor(
     private readonly state: DurableObjectState,
-    private readonly env: Env,
-  ) {}
+    env: Env,
+  ) {
+    this.env = withLegacyFreeze(env, (sql) => logError("legacy_write_blocked", new Error(sql), {}));
+  }
 
   /** Wake (or re-wake) this DO for a specific user. Idempotent: safe to call again after a
    * settings change (timezone/reminder-hour) that needs the alarm cadence re-armed, or just to

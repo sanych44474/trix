@@ -1,5 +1,5 @@
 import type { Env, ExerciseVideo } from "./types";
-import { getExerciseVideo, upsertExerciseVideo } from "./db/repos";
+import { getExerciseVideo, upsertExerciseVideo } from "./adapters/d1/v2Catalog";
 
 // Thrown when the YouTube Data API rejects with HTTP 403 quotaExceeded so batch callers
 // (warm-at-generation, background backfill, /refreshvideos) can stop instead of hammering.

@@ -8,8 +8,10 @@ import { InlineKeyboard } from "grammy";
 import type { Lang } from "../../types";
 import {
   activeChallengeCodes, activeChallenges, awardAchievement, countCompletedChallenges, joinChallenge, markChallengeDone,
-  nutritionLogsSince, stepLogsSince, waterLogsSince, workoutLogsSince,
-} from "../../db/repos";
+} from "../../adapters/d1/v2Gamification";
+import { workoutLogsSince } from "../../adapters/d1/v2Workouts";
+import { stepLogsSince, waterLogsSince } from "../../adapters/d1/v2Tracking";
+import { nutritionLogsSince } from "../../adapters/d1/v2Nutrition";
 import {
   CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindowCounts, progressBar,
   type ChallengeData, type ChallengeTemplate,

@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 import { GrammyError } from "grammy";
 import { newDb } from "./harness";
 import { deliverDueNotifications, enqueueAndDeliver, type OutboxSender } from "../src/schedulerOutbox";
-import { dueNotifications, getOrCreateUser, getUser, markRetry } from "../src/db/repos";
+import { dueNotifications, markRetry } from "../src/adapters/d1/v2Notifications";
+import { getOrCreateUser, getUser } from "../src/adapters/d1/v2Users";
 import type { Env } from "../src/types";
 
 function grammyErr(errorCode: number, retryAfterSeconds?: number): GrammyError {

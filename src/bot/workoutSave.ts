@@ -6,10 +6,13 @@
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { ExerciseMetric, Lang, LoggedExercise, PlanDay, SetEntry, UserDoc, Weekday } from "../types";
+import { getActivePlan } from "../adapters/d1/v2Plans";
 import {
-  awardAchievement, countCompletedWorkouts, getActivePlan, getUser, listStrength, updateUser,
+  countCompletedWorkouts, listStrength,
   upsertStrengthRecord, upsertWorkoutLog, workoutLogsSince,
-} from "../db/repos";
+} from "../adapters/d1/v2Workouts";
+import { awardAchievement } from "../adapters/d1/v2Gamification";
+import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { bestSetForMetric, fmtDistance, fmtDuration, localParts, metricOfSets, nextTargetGuidance, normalizeExercise, parseWorkoutText } from "../domain/progression";
 import { prMilestones, rankOf, weekStartStr, weekStreak, workoutMilestones } from "../domain/records";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";

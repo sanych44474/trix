@@ -1,7 +1,8 @@
 // Nutrition suite for the Mini App (roadmap P4): today's meal history (view), portion re-weigh
 // (½ / 1.5× / 2× / grams) and item delete, plus the meal-plan display. AI photo/voice logging
 // stays in the bot (media). Same initData auth as every webapp API.
-import { getActivePlan, getDayMeals, getMealPlan, getRecentFoods, setDayMeals, putUserFoodCorrection } from "../db/repos";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import { getDayMeals, getMealPlan, getRecentFoods, setDayMeals, putUserFoodCorrection } from "../adapters/d1/v2Nutrition";
 import { per100gCorrectionFrom, scaleMealEntry } from "../domain/mealplan";
 import { localParts } from "../domain/progression";
 import { miniAppUser } from "./auth";

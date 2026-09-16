@@ -13,7 +13,9 @@
 // pass rather than forced into boundaries the code doesn't actually have.
 import { InlineKeyboard } from "grammy";
 import type { PlanDay, PlanExercise, Weekday } from "../types";
-import { getUser, listCandidatesByMuscles, updateActivePlanSplit, updateUser } from "../db/repos";
+import { updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
+import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { translatePlanExercises } from "./plan";

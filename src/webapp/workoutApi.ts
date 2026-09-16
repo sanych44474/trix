@@ -1,7 +1,9 @@
 // Guided-logger Mini App APIs: /api/workout/(today|swap|rest|save). Same initData auth as the
 // dashboard; all routes act on the authenticated user only (no cross-user access).
-import { getActivePlan, getWorkoutLog, listStrength, recentWorkoutLogs, setRestTimer, workoutLogsSince } from "../db/repos";
-import { runIdempotent } from "../db/repos/idempotency";
+import { setRestTimer } from "../adapters/d1/v2Admin";
+import { getWorkoutLog, listStrength, recentWorkoutLogs, workoutLogsSince } from "../adapters/d1/v2Workouts";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { miniAppUser } from "./auth";
 import { num, object, readJsonBody, str, validateBody } from "./validate";
 import { stalledLifts } from "../domain/analysis";

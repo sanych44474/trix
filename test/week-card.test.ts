@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { weekStats } from "../src/domain/weekCard";
 import { buildWeekCard, computeWeekCardStats, formatWeekCardText } from "../src/features/gamification/weekCard";
 import { newDb } from "./harness";
-import { getOrCreateUser, upsertWorkoutLog } from "../src/db/repos";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
+import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import type { WorkoutLogDoc } from "../src/types";
 
 function log(date: string, completed: boolean, sets: { weight: number; reps: number }[][]): WorkoutLogDoc {

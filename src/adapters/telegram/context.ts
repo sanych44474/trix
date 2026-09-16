@@ -13,7 +13,8 @@
 // would just re-create the same cycle one level down.
 import { InlineKeyboard, Keyboard, type Context } from "grammy";
 import type { Env, Lang, UserDoc } from "../../types";
-import { getActivePlan, getUser, updateUser } from "../../db/repos";
+import { getActivePlan } from "../d1/v2Plans";
+import { getUser, updateUser } from "../d1/v2Users";
 import { switchMode } from "../../domain/session";
 import { t } from "../../locales/i18n";
 import { menuBtn } from "../../bot/keyboards";

@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, updateUser, applyTrainer, approveTrainer, getUser, listStrength, getTrainer } from "../src/db/repos";
+import { getOrCreateUser, updateUser, getUser } from "../src/adapters/d1/v2Users";
+import { applyTrainer, approveTrainer, getTrainer, createSharedProgram } from "../src/adapters/d1/v2Trainer";
+import { listStrength } from "../src/adapters/d1/v2Workouts";
 import { handleExtrasApi } from "../src/webapp/extrasApi";
 import type { UserDoc } from "../src/types";
 
@@ -106,14 +108,12 @@ test("/api/requests: declining leaves the client unlinked", async () => {
 test("/api/library: taking a shared program activates it and marks onboarded", async () => {
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "en", "Ann");
-  await db.raw.exec(
-    `INSERT INTO shared_programs (code, ownerId, name, plan, isPublic, takenCount, createdAt)
-     VALUES ('PLN1', 99, 'Push Pull Legs', '${JSON.stringify({
-       split: [{ weekday: 1, muscleGroup: "Push", exercises: [] }],
-       nutrition: { calories: 2000, protein: 150, fats: 60, carbs: 200 },
-       supplements: [], methodology: "",
-     }).replace(/'/g, "''")}', 1, 0, '${new Date().toISOString()}')`,
-  );
+  await getOrCreateUser(db, 99, 99, "en", "Owner");
+  await createSharedProgram(db, "PLN1", 99, "Push Pull Legs", {
+    split: [{ weekday: 1, muscleGroup: "Push", exercises: [] }],
+    nutrition: { calories: 2000, protein: 150, fats: 60, carbs: 200 },
+    supplements: [], methodology: "",
+  } as never, true);
   const res = await asUser(db, 1, "POST", "/api/library", { code: "PLN1" });
   assert.equal(res.status, 200);
   const reloaded = await getUser(db, 1);

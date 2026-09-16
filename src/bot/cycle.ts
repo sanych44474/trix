@@ -5,7 +5,7 @@
 // reversible. Extracted from bot.ts (god-file split; same barrel seam via bot.ts's
 // `export * from "./bot/cycle"`).
 import { InlineKeyboard } from "grammy";
-import { updateUser } from "../db/repos";
+import { updateUser } from "../adapters/d1/v2Users";
 import { ymOf } from "../domain/calendar";
 import { computeCyclePhase } from "../domain/cycle";
 import { localParts } from "../domain/progression";

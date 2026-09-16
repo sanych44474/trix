@@ -3,12 +3,12 @@
 // leaderboard cache write), but this time expects it to land for real.
 import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { getSetting } from "../../src/db/repos";
+import { getSetting } from "../../src/adapters/d1/v2Admin";
 
 describe("GlobalSchedulerDO alarm — cut over (real)", () => {
   it("with scheduler_cutover_global=1, the leaderboard cache is actually written", async () => {
     await env.DB
-      .prepare("INSERT INTO settings (key, value) VALUES ('scheduler_cutover_global', '1')")
+      .prepare("INSERT INTO v2_settings (key, value) VALUES ('scheduler_cutover_global', '1')")
       .run();
     expect(await getSetting(env.DB, "boards_cache")).toBeNull();
 

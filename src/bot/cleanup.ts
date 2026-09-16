@@ -3,10 +3,13 @@
 // (god-file split; same barrel seam via bot.ts's `export * from "./bot/cleanup"`).
 import { GrammyError, InlineKeyboard } from "grammy";
 import type { UserDoc } from "../types";
+import { deleteUserData } from "../db/repos";
 import {
-  clearInactiveAsk, deleteUserData, getOwnerChatId, getUser, insertFeedback, listClients, listInactive,
-  recordAudit, unlinkClient, updateUser,
-} from "../db/repos";
+  getOwnerChatId, insertFeedback,
+  recordAudit,
+} from "../adapters/d1/v2Admin";
+import { listClients, unlinkClient } from "../adapters/d1/v2Trainer";
+import { clearInactiveAsk, getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { isOwner } from "./owner";

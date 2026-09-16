@@ -12,7 +12,7 @@
 // their personal chatId, sending every future reminder to the group.
 import type { Api } from "grammy";
 import { HTML, type MyContext } from "../adapters/telegram/context";
-import { getUser } from "../db/repos";
+import { getUser } from "../adapters/d1/v2Users";
 import {
   deleteSquad,
   getSquad,
@@ -22,7 +22,7 @@ import {
   squadMembers,
   squadsForUser,
   upsertSquad,
-} from "../db/repos";
+} from "../adapters/d1/v2Gamification";
 import { weekStartStr } from "../domain/records";
 import { squadMedal, squadWeek, type SquadWeek } from "../domain/squad";
 import { wakeSquadScheduler } from "../durable/squadScheduler";

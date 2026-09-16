@@ -20,7 +20,7 @@ import {
   competitorStrength,
   competitorWorkoutDates,
   listCompetitors,
-} from "../../db/repos";
+} from "../../adapters/d1/v2Gamification";
 import { t } from "../../locales/i18n";
 import type { Lang, UserProfile } from "../../types";
 

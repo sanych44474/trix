@@ -21,6 +21,12 @@
 // already caused once. Omitting them first means these declarations always win, regardless of
 // what .dev.vars happens to contain in whatever environment typecheck runs in.
 type SecretKey =
+  | "V2_DUAL_WRITE"
+  | "V2_APP_ENABLED"
+  | "V2_COHORT_PERCENT"
+  | "V2_INTERNAL_USER_IDS"
+  | "V2_SHADOW_READS"
+  | "CUTOVER_LEGACY_FROZEN"
   | "TELEGRAM_BOT_TOKEN"
   | "TELEGRAM_WEBHOOK_SECRET"
   | "GEMINI_API_KEY"
@@ -53,6 +59,12 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   USDA_FDC_API_KEY?: string;
   FATSECRET_CLIENT_ID?: string; // FatSecret OAuth2 — food database search (primary, OFF fallback)
   FATSECRET_CLIENT_SECRET?: string;
+  V2_DUAL_WRITE: string;
+  V2_APP_ENABLED: string;
+  V2_COHORT_PERCENT: string;
+  V2_INTERNAL_USER_IDS: string;
+  V2_SHADOW_READS: string;
+  CUTOVER_LEGACY_FROZEN: string;
   // R2_PHOTOS (read-through cache for progress photos, webapp/photoStorage.ts) is NOT hand-
   // declared here -- wrangler.toml's [[r2_buckets]] binding makes Cloudflare.Env already provide
   // it, required. photoStorage.ts still treats it defensively (a real binding can still be
@@ -468,6 +480,8 @@ export interface Supplement {
 }
 
 export interface PlanDoc {
+  /** Legacy D1 row id, retained by the projection adapter as the stable v2 plan id. */
+  id?: number;
   userId: number;
   active: boolean;
   status: "draft" | "active";

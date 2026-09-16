@@ -5,27 +5,27 @@
 // kick-off) go out via the Bot API.
 import { computeWeekCardStats, formatWeekCardText, obKeyboard, obSteps } from "../bot";
 import {
+  getOwnerChatId,
+} from "../adapters/d1/v2Admin";
+import { listStrength } from "../adapters/d1/v2Workouts";
+import { listAchievements } from "../adapters/d1/v2Gamification";
+import { setActivePlan } from "../adapters/d1/v2Plans";
+import {
   applyTrainer,
   bumpSharedTaken,
   countClientsOf,
   createRequest,
   getClientForTrainer,
-  getOwnerChatId,
   getRequest,
   getSharedProgram,
   getTrainer,
-  getUser,
   linkClient,
-  listAchievements,
   listPublicPrograms,
-  listStrength,
   pendingRequestsForTrainer,
-  setActivePlan,
   setRequestStatus,
-  stampOnboardedAt,
   updateTrainer,
-  updateUser,
-} from "../db/repos";
+} from "../adapters/d1/v2Trainer";
+import { getUser, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
 import { adaptPlan } from "../domain/planAdapt";
 import { platePlan, warmupRamp } from "../domain/calc";
 import { BADGES, e1rm } from "../domain/records";

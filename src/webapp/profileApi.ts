@@ -2,7 +2,8 @@
 // fields plus localized option lists; POST validates a patch against the allowed enum values and
 // merges it into the profile. AI replan is NOT triggered here — the plan refreshes weekly, or the
 // user rebuilds it in the bot (/replan); this screen just keeps the profile in sync.
-import { listProgressPhotos, updateUser } from "../db/repos";
+import { listProgressPhotos } from "../adapters/d1/v2Tracking";
+import { updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";

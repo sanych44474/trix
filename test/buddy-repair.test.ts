@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
 import { cmdStart } from "../src/bot";
-import { getOrCreateUser, getUser, updateUser } from "../src/db/repos";
+import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import type { UserDoc } from "../src/types";
 
 test("cmdStart buddy_<id>: re-pairing unlinks the old buddy instead of leaving a stale link", async () => {

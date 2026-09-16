@@ -5,13 +5,15 @@
 // this phase; it only actually acts once the recap hour arrives and the week hasn't been
 // recapped yet, exactly the same gate scheduler.ts's own SQUAD_RECAP_HOUR_UTC uses.
 import { Bot } from "grammy";
-import { deleteSquad, getSquad, logDryRun, markSquadRecapped } from "../db/repos";
+import { logDryRun } from "../db/repos";
+import { deleteSquad, getSquad, markSquadRecapped } from "../adapters/d1/v2Gamification";
 import { isCutOver } from "./cutover";
 import { postSquadDigest, type DigestWindow, type SquadApi } from "../bot/squad";
 import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
-import { logInfo, runWithRequestId } from "../log";
+import { logError, logInfo, runWithRequestId } from "../log";
+import { withLegacyFreeze } from "../adapters/d1/legacyFreeze";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000;
 // Must match scheduler.ts's SQUAD_RECAP_HOUR_UTC — duplicated rather than imported because
@@ -27,10 +29,14 @@ export async function wakeSquadScheduler(env: Env, chatId: number): Promise<void
 }
 
 export class SquadSchedulerDO {
+  private readonly env: Env;
+
   constructor(
     private readonly state: DurableObjectState,
-    private readonly env: Env,
-  ) {}
+    env: Env,
+  ) {
+    this.env = withLegacyFreeze(env, (sql) => logError("legacy_write_blocked", new Error(sql), {}));
+  }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);

@@ -7,7 +7,8 @@
 //    cron) — sweeps rows a previous attempt backed off, whose nextAttemptAt has now passed.
 import type { Bot } from "grammy";
 import { GrammyError } from "grammy";
-import { dueNotifications, enqueueNotification, markPermanentFailure, markRetry, markSent, updateUser, type OutboxRow } from "./db/repos";
+import { dueNotifications, enqueueNotification, markPermanentFailure, markRetry, markSent, type OutboxRow } from "./adapters/d1/v2Notifications";
+import { updateUser } from "./adapters/d1/v2Users";
 import { classifySendError } from "./domain/notificationDelivery";
 import type { Env } from "./types";
 

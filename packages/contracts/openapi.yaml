@@ -1,0 +1,402 @@
+openapi: 3.1.0
+info:
+  title: trix v2 API
+  version: 2.0.0
+  description: Versioned REST contract for the React Mini App and shared application layer.
+servers:
+  - url: /
+paths:
+  /api/v2/dashboard:
+    get:
+      operationId: getDashboard
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200':
+          description: Dashboard snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v2/workout/today:
+    get:
+      operationId: getTodayWorkout
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200':
+          description: Guided workout payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+  /api/v2/workout/save:
+    post:
+      operationId: saveWorkout
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object } }
+      responses:
+        '200':
+          description: Saved workout
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v2/log:
+    post:
+      operationId: quickLog
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/QuickLogRequest' } }
+      responses:
+        '200':
+          description: Logged activity
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v2/nutrition:
+    get:
+      operationId: getNutrition
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200':
+          description: Nutrition day
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+    post:
+      operationId: editNutrition
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object } }
+      responses:
+        '200':
+          description: Updated nutrition day
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v2/plan:
+    get:
+      operationId: getPlan
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200':
+          description: Active plan
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+    post:
+      operationId: editPlan
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object } }
+      responses:
+        '200':
+          description: Updated plan
+          content:
+            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v2/onboarding:
+    post:
+      operationId: completeOnboarding
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/OnboardingRequest' } }
+      responses:
+        '200': { description: Onboarding accepted, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v2/profile:
+    get:
+      operationId: getProfile
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Profile, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: updateProfile
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, additionalProperties: true } }
+      responses:
+        '200': { description: Profile updated, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v2/settings:
+    get:
+      operationId: getSettings
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Settings, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+    post:
+      operationId: updateSettings
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, additionalProperties: true } }
+      responses:
+        '200': { description: Settings updated, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/buddy:
+    get:
+      operationId: getBuddy
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Buddy progress, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/challenges:
+    get:
+      operationId: listChallenges
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Challenges, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+    post:
+      operationId: joinChallenge
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/ChallengeRequest' } }
+      responses:
+        '200': { description: Challenge joined, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /api/v2/injuries:
+    get:
+      operationId: listInjuries
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Injury history, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+    post:
+      operationId: reportInjury
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/InjuryRequest' } }
+      responses:
+        '200': { description: Injury reported, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/boards:
+    get:
+      operationId: getLeaderboards
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Leaderboards, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/records:
+    get:
+      operationId: getPersonalRecords
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Records and badges, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/photo:
+    get:
+      operationId: getProgressPhoto
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - { name: id, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: tma, in: query, required: false, schema: { type: string } }
+      responses:
+        '200': { description: Progress photo bytes, content: { image/jpeg: { schema: { type: string, format: binary } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v2/requests:
+    get:
+      operationId: listTrainerRequests
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Trainer requests, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+    post:
+      operationId: resolveTrainerRequest
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/RequestAction' } }
+      responses:
+        '200': { description: Request resolved, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/trainer/questions:
+    get:
+      operationId: listTrainerQuestions
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Questions, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/trainer/question/{id}/answer:
+    post:
+      operationId: answerTrainerQuestion
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/TextRequest' } }
+      responses:
+        '200': { description: Answer sent, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/trainer/broadcast:
+    post:
+      operationId: broadcastTrainerMessage
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/TextRequest' } }
+      responses:
+        '200': { description: Broadcast sent, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/owner/report:
+    get:
+      operationId: getOwnerReport
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - { name: section, in: query, required: false, schema: { type: string } }
+      responses:
+        '200': { description: Owner report, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/owner/users:
+    get:
+      operationId: getOwnerUsers
+      security: [{ telegramInitData: [] }]
+      responses:
+        '200': { description: Owner roster, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+  /api/v2/owner/ask-inactive:
+    post:
+      operationId: askInactiveUsers
+      security: [{ telegramInitData: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200': { description: Feedback request sent, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+components:
+  securitySchemes:
+    telegramInitData:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Telegram Mini App initData sent as Authorization: tma <initData>.'
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, minLength: 8, maxLength: 128 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      schema: { type: string, maxLength: 128 }
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    ValidationError:
+      description: Invalid request
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    Conflict:
+      description: Optimistic concurrency conflict
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    NotFound:
+      description: Resource not found
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: {}
+        meta:
+          type: object
+          properties:
+            version: { type: integer, const: 2 }
+            requestId: { type: string }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [validation_error, unauthorized, forbidden, not_found, conflict, rate_limited, dependency_unavailable]
+            message: { type: string }
+            requestId: { type: string }
+            details: { type: object }
+    QuickLogRequest:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [water, workout, steps, measure, checkin, food]
+        text: { type: string, maxLength: 500 }
+        ml: { type: number, minimum: 1, maximum: 3000 }
+        steps: { type: number, minimum: 0, maximum: 200000 }
+        name: { type: string, maxLength: 80 }
+        sets: { type: number, minimum: 1, maximum: 20 }
+        reps: { type: number, minimum: 1, maximum: 1000 }
+        weight: { type: number, minimum: 0, maximum: 1000 }
+    OnboardingRequest:
+      type: object
+      required: [sex, age, heightCm, weightKg, goal, level, equipment, trainingWeekdays]
+      properties:
+        sex: { type: string, enum: [male, female] }
+        age: { type: integer, minimum: 13, maximum: 120 }
+        heightCm: { type: number, minimum: 100, maximum: 250 }
+        weightKg: { type: number, minimum: 30, maximum: 300 }
+        goal: { type: string }
+        level: { type: string, enum: [beginner, intermediate, advanced] }
+        equipment: { type: string }
+        dietPrefs: { type: string }
+        trainingWeekdays: { type: array, minItems: 1, maxItems: 7, items: { type: integer, minimum: 1, maximum: 7 } }
+        limitations: { type: string, maxLength: 500 }
+    ChallengeRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, maxLength: 60 }
+    InjuryRequest:
+      type: object
+      required: [area, severity]
+      properties:
+        area: { type: string }
+        severity: { type: string, enum: [mild, strong] }
+    RequestAction:
+      type: object
+      required: [id, action]
+      properties:
+        id: { type: integer, minimum: 1 }
+        action: { type: string, enum: [accept, decline] }
+    TextRequest:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 2000 }

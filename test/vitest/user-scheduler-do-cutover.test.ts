@@ -4,7 +4,7 @@
 // leak into every other test sharing a file and silently flip them from dry-run to real too.
 import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { getOrCreateUser, getUser, updateUser } from "../../src/db/repos";
+import { getOrCreateUser, getUser, updateUser } from "../../src/adapters/d1/v2Users";
 
 describe("UserSchedulerDO alarm — cut over (real)", () => {
   it("with scheduler_cutover_user=1, the write actually lands — no shadow, no dry-run log", async () => {
@@ -12,7 +12,7 @@ describe("UserSchedulerDO alarm — cut over (real)", () => {
     await getOrCreateUser(env.DB, 402, 9402, "en", "Invitee");
     await updateUser(env.DB, 402, { onboarded: true, profile: { referredBy: 401 } });
     await env.DB
-      .prepare("INSERT INTO settings (key, value) VALUES ('scheduler_cutover_user', '1')")
+      .prepare("INSERT INTO v2_settings (key, value) VALUES ('scheduler_cutover_user', '1')")
       .run();
 
     const id = env.USER_SCHEDULER.idFromName("402");

@@ -1,7 +1,8 @@
 // Owner console in the Mini App: the /ownerreport sections rendered in-app (they're already
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
-import { getOwnerChatId, listInactive, updateUser } from "../db/repos";
+import { getOwnerChatId } from "../adapters/d1/v2Admin";
+import { listInactive, updateUser } from "../adapters/d1/v2Users";
 import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orTrainers, orUsers, ownerUsersData } from "../bot/owner";
 import { switchMode } from "../domain/session";
 import { t } from "../locales/i18n";

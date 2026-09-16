@@ -5,8 +5,10 @@
 import { trainerCanSee } from "../domain/clientCard";
 import { computeCyclePhase } from "../domain/cycle";
 import { localParts } from "../domain/progression";
-import { getClientCard, getClientNote, listActiveInjuries, listProgressPhotos } from "../db/repos";
-import { buildDashboardPayload, type DashboardPayload } from "./dashboard";
+import { getClientCard, getClientNote } from "../adapters/d1/v2Trainer";
+import { listActiveInjuries, listProgressPhotos } from "../adapters/d1/v2Tracking";
+import { buildDashboardPayload } from "../adapters/d1/dashboardReader";
+import type { DashboardPayload } from "./dashboard";
 import type { ClientCardDoc, InjuryDoc, UserDoc } from "../types";
 
 export interface ClientCardPayload {

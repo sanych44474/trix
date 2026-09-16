@@ -6,5 +6,11 @@
 /app.html
   Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:
   Cache-Control: public, max-age=86400
+/app-v2
+  Content-Security-Policy: default-src 'none'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:
+  Cache-Control: no-cache
+/app-v2/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:
+  Cache-Control: public, max-age=86400
 /mascot.png
   Cache-Control: public, max-age=604800

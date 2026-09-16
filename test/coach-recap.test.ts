@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
-import { getOrCreateUser, updateUser } from "../src/db/repos";
+import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import { handleWorkoutLog } from "../src/bot/workoutSave";
 import { nextTargetGuidance } from "../src/domain/progression";
 import type { LoggedExercise, UserDoc } from "../src/types";

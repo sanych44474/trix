@@ -5,30 +5,17 @@ export { GlobalSchedulerDO } from "./durable/globalScheduler";
 import { createBot, buildOwnerMetrics, buildPlanDocRaw, ownerUsersData, pingIncompleteOnboarding } from "./bot";
 import { checkCronHeartbeat, runSchedule } from "./scheduler";
 import {
-  addWater,
-  appendMeals,
   bumpEvent,
   deleteSetting,
   getSetting,
-  getUser,
-  getWorkoutLog,
   markUpdateSeen,
   pingDb,
-  recordDailyCheckin,
-  setActivePlan,
   setSetting,
-  updateUser,
-  upsertBodyLog,
-  upsertStepLog,
-  upsertStrengthRecord,
-  upsertWorkoutLog,
-} from "./db/repos";
-import { aiJSON } from "./ai/index";
-import { nutritionSystem, NUTRITION_SCHEMA, type NutritionEstimate } from "./ai/prompts";
-import { localParts, parseMeasurements } from "./domain/progression";
-import { cleanAi } from "./locales/i18n";
+} from "./adapters/d1/v2Admin";
+import { setActivePlan } from "./adapters/d1/v2Plans";
+import { getUser, updateUser } from "./adapters/d1/v2Users";
 import { miniAppUser } from "./webapp/auth";
-import { buildDashboardPayload } from "./webapp/dashboard";
+import { buildDashboardPayload } from "./adapters/d1/dashboardReader";
 import { handleTrainerApi } from "./webapp/trainerApi";
 import { handleWorkoutApi } from "./webapp/workoutApi";
 import { handlePlanApi } from "./webapp/planApi";
@@ -39,8 +26,13 @@ import { handleNutritionApi } from "./webapp/nutritionApi";
 import { handleBuddyApi } from "./webapp/buddyApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./webapp/miscApi";
 import { handleOwnerApi } from "./webapp/ownerApi";
+import { handleQuickLogApi } from "./webapp/quickLogApi";
+import { handleV2Api } from "./webapp/v2Api";
 import { logError, logInfo, runWithRequestId, withHeader } from "./log";
-import type { Env, MealEntry, Weekday } from "./types";
+import { withLegacyFreeze } from "./adapters/d1/legacyFreeze";
+import type { Env } from "./types";
+
+const logLegacyWriteBlocked = (sql: string): void => logError("legacy_write_blocked", new Error(sql), {});
 
 // Query strings routinely end up in proxy access logs and browser history, so the operator
 // credential travels as a header instead — never compare env.ADMIN_SECRET against a URL param.
@@ -189,6 +181,13 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
     // time) via wrangler [assets] — it never reaches the Worker, so it neither bloats the bundle
     // nor costs a Worker invocation. CSP/cache headers for it live in public/_headers.
 
+    // Versioned Mini App REST seam. The v2 client is served at /app-v2 while this adapter
+    // delegates to the legacy implementations; business behavior therefore stays identical
+    // during the staged migration.
+    if (url.pathname.startsWith("/api/v2/")) {
+      return handleV2Api(req, url, env, ctx);
+    }
+
     // Mini App extras: records, weekcard, requests, sessions, finance, directory, library,
     // whatsnew, plates, trainer profile. MUST come before the /api/trainer/ prefix catch —
     // three of these live under that prefix.
@@ -250,97 +249,8 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
       return Response.json(payload, { headers: { "cache-control": "no-store" } });
     }
 
-    // Mini App quick-log: water top-up, one-exercise workout entry, or AI-estimated food text.
-    // POST /api/log — same initData auth as the dashboard.
-    if (req.method === "POST" && url.pathname === "/api/log") {
-      const user = await miniAppUser(req, url, env);
-      if (!user) return new Response("unauthorized", { status: 401 });
-      let body: { kind?: string; ml?: number; name?: string; sets?: number; weight?: number; reps?: number; text?: string; steps?: number; energy?: number; sleep?: number; stress?: number };
-      try {
-        body = (await req.json()) as typeof body;
-      } catch {
-        return new Response("bad request", { status: 400 });
-      }
-      const { date: today, weekday } = localParts(user.profile.timezone);
-      try {
-        if (body.kind === "water") {
-          const add = Math.round(Number(body.ml));
-          if (!Number.isFinite(add) || add <= 0 || add > 3000) return new Response("bad request", { status: 400 });
-          // Atomic increment — a read-modify-write here loses a double-tap's increment.
-          const total = await addWater(env.DB, user._id, today, add);
-          return Response.json({ ok: true, ml: total });
-        }
-        if (body.kind === "workout") {
-          const name = String(body.name ?? "").trim().slice(0, 80);
-          const sets = Math.round(Number(body.sets));
-          const reps = Math.round(Number(body.reps));
-          const weight = Number(body.weight) || 0;
-          if (!name || !(sets >= 1 && sets <= 20) || !(reps >= 1 && reps <= 1000) || weight < 0 || weight > 1000) {
-            return new Response("bad request", { status: 400 });
-          }
-          // Merge into today's log (replace a re-logged exercise), same as the guided logger.
-          // Preserve the existing log's completed flag and notes — a quick-logged extra set
-          // must not flip an in-progress (not-done) day to done or wipe bot-written notes.
-          const existing = await getWorkoutLog(env.DB, user._id, today);
-          const exercises = (existing?.exercises ?? []).filter((e) => e.name !== name);
-          exercises.push({ name, setsDone: Array.from({ length: sets }, () => ({ weight, reps })), skipped: false });
-          await upsertWorkoutLog(env.DB, user._id, today, weekday as Weekday, exercises, existing?.completed ?? true, existing?.notes);
-          // Weighted lifts only: a bodyweight quick-log must not overwrite a time/distance
-          // record's metric axis or create a bestWeight=0 row.
-          if (weight > 0) {
-            await upsertStrengthRecord(env.DB, user._id, name, { metric: "reps", weight, reps }, today).catch(() => {});
-          }
-          return Response.json({ ok: true, exercises: exercises.length });
-        }
-        if (body.kind === "steps") {
-          const steps = Math.round(Number(body.steps));
-          if (!Number.isFinite(steps) || steps < 0 || steps > 200000) return new Response("bad request", { status: 400 });
-          await upsertStepLog(env.DB, user._id, today, steps);
-          return Response.json({ ok: true, steps });
-        }
-        if (body.kind === "measure") {
-          // Reuse the bot's free-text parser: "вага 74, талія 80" → weight + circumferences.
-          const text = String(body.text ?? "").trim().slice(0, 200);
-          const { weight, measurements } = parseMeasurements(text);
-          if (weight === undefined && Object.keys(measurements).length === 0) return Response.json({ ok: false, reason: "unreadable" });
-          await upsertBodyLog(env.DB, user._id, today, { ...(weight !== undefined ? { weight } : {}), measurements });
-          return Response.json({ ok: true, weight: weight ?? null, measurements });
-        }
-        if (body.kind === "checkin") {
-          const c = (v: unknown) => { const n = Math.round(Number(v)); return n >= 1 && n <= 5 ? n : 0; };
-          const energy = c(body.energy), sleep = c(body.sleep), stress = c(body.stress);
-          if (!energy || !sleep || !stress) return new Response("bad request", { status: 400 });
-          await recordDailyCheckin(env.DB, user._id, today, energy, sleep, stress);
-          logInfo("checkin_submitted", {});
-          return Response.json({ ok: true });
-        }
-        if (body.kind === "food") {
-          const text = String(body.text ?? "").trim().slice(0, 500);
-          if (!text) return new Response("bad request", { status: 400 });
-          const est = await aiJSON<NutritionEstimate>(env, {
-            system: nutritionSystem(user.lang),
-            user: text,
-            schema: NUTRITION_SCHEMA,
-            temperature: 0.3,
-            kind: "nutrition",
-            db: env.DB,
-            userId: user._id,
-          });
-          const items: MealEntry[] = (est.items ?? [])
-            .filter((i) => i.kcal > 0)
-            .map((i) => ({ desc: cleanAi(i.desc), kcal: i.kcal, protein: i.protein, fats: i.fats, carbs: i.carbs, grams: i.grams, query: i.query }));
-          if (!items.length) return Response.json({ ok: false, reason: "unreadable" });
-          await appendMeals(env.DB, user._id, today, items);
-          logInfo("nutrition_logged", { method: "text" }); // Mini App quick-log, same AI-text path as the bot's
-          const kcal = items.reduce((s, i) => s + i.kcal, 0);
-          return Response.json({ ok: true, items: items.map((i) => ({ desc: i.desc, kcal: i.kcal })), kcal });
-        }
-      } catch (err) {
-        logError("api/log", err, { userId: user._id });
-        return new Response("error", { status: 500 });
-      }
-      return new Response("bad request", { status: 400 });
-    }
+    // Mini App quick-log shares its use case with the versioned API.
+    if (req.method === "POST" && url.pathname === "/api/log") return handleQuickLogApi(req, url, env);
 
     if (req.method === "POST" && url.pathname === "/webhook") {
       // Verify the secret header Telegram echoes back.
@@ -375,7 +285,8 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
 }
 
 export default {
-  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(req: Request, rawEnv: Env, ctx: ExecutionContext): Promise<Response> {
+    const env = withLegacyFreeze(rawEnv, logLegacyWriteBlocked);
     const reqId = crypto.randomUUID();
     const start = Date.now();
     return runWithRequestId(reqId, env, async () => {
@@ -394,7 +305,8 @@ export default {
     });
   },
 
-  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(_event: ScheduledController, rawEnv: Env, ctx: ExecutionContext): Promise<void> {
+    const env = withLegacyFreeze(rawEnv, logLegacyWriteBlocked);
     const reqId = crypto.randomUUID();
     ctx.waitUntil(
       runWithRequestId(reqId, env, async () => {

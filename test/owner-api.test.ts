@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, setOwnerChatId, updateUser } from "../src/db/repos";
+import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
+import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { handleOwnerApi } from "../src/webapp/ownerApi";
 
 function req(method: string, path: string, body?: unknown) {

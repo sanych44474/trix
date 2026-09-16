@@ -14,7 +14,15 @@ import { obProgress, onboardingStep } from "./onboarding";
 import { onPlanRegenAi } from "./plan";
 import { showCardioMenu, showEveningSurvey } from "./survey";
 import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerBroadcast, cmdTrainerQuestions, cmdTrainerReport, handleAnswerQuestion, handleTemplateName, handleTrainerBroadcast, onTrainerLimitCycle, openFindTrainer, openTrainerEdit, shareAssignToClients, startShareMyPlan, toggleShareAll, trainerMenuActionFor, trainerSteps, twAdvance } from "../features/trainer/trainer";
-import { addProgressPhoto, awardAchievement, bumpEvent, deleteUserData, getActivePlan, getFoodTranslations, getMealPlan, getOrCreateUser, getTrainer, getUser, getWorkoutLog, recordAdjustment, recordDailyCheckin, recordError, recordPlanSource, saveMealPlan, setActivePlan, setLastSeen, updateTrainer, updateUser, upsertFoodTranslations, upsertWorkoutLog, userStatCounts } from "../db/repos";
+import { deleteUserData } from "../db/repos";
+import { bumpEvent, recordError, recordPlanSource, setLastSeen, userStatCounts } from "../adapters/d1/v2Admin";
+import { getWorkoutLog, upsertWorkoutLog } from "../adapters/d1/v2Workouts";
+import { awardAchievement } from "../adapters/d1/v2Gamification";
+import { getActivePlan, recordAdjustment, setActivePlan } from "../adapters/d1/v2Plans";
+import { getTrainer, updateTrainer } from "../adapters/d1/v2Trainer";
+import { addProgressPhoto, recordDailyCheckin } from "../adapters/d1/v2Tracking";
+import { getOrCreateUser, getUser, updateUser } from "../adapters/d1/v2Users";
+import { getFoodTranslations, getMealPlan, saveMealPlan, upsertFoodTranslations } from "../adapters/d1/v2Nutrition";
 import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
 import { buildTemplateMealDay, dishName, expandExclusions } from "../domain/mealTemplate";
 import { computeTargets, isPlausiblePer100g, solvePortions, splitMeals, sumItems } from "../domain/mealplan";
@@ -29,7 +37,8 @@ import { type Env, type Lang, type Meal, type MealPlanDoc, type NutritionTargets
 import { MyContext, TKey, reply, setMode } from "../adapters/telegram/context";
 import { setAppUrl, handleAliasInput, handleWeightEdit, handleSetsEdit, handleSwapCustom, handleAddExercise, handleExerciseAltText, handleWarmupEdit, menuActionFor, adjustDifficulty, aiAuthorAndAdd, cmdAskInactive, cmdCalendar, cmdChallenges, cmdCleanup, cmdCoach, cmdDeleteMe, cmdExport, cmdExportJson, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdLang, cmdLog, cmdLogPast, cmdMeasure, cmdMenu, cmdNutrition, cmdPlan, cmdPlanChanges, cmdPlates, cmdProgress, cmdRecords, cmdReplan, cmdReport, cmdSchedule, cmdSettings, cmdStandards, cmdStart, cmdSteps, cmdToday, cmdVacation, cmdVolume, cmdWater, cmdWeekCard, cmdWellbeing, applyGymSwap, showGymSwapPicker, coachContext, defaultLang, endVacation, guardLogExit, handleCoach, handleExerciseConfirmation, handleNutrition, handlePhotoMeal, handleWorkoutLog, logBackToPick, logFinish, logSwitchToText, normalizeEvent, notifyTrainerWorkout, onCleanupAll, onGoalMaintain, onInactiveReply, onLevelUp, onLogExit, onMacrosSuggest, onMealConfirm, openSetsEditor, openWeightEditor, pickCycleLength, setAlias, showAddDayPicker, showAthleteMenu, showChallengePicker, showCycleCalendar, showCycleSettings, showDayManager, showExerciseList, showInjuryAreas, showMealConfirm, showMealItemEditor, showMoreMenu, showMyLogHub, showNextSession, showProgressHub, showRecentFoods, showReminderSettings, showShareSettings, showTrainerClientsMenu, showWorkoutInfo, startAddExercise, startInterview, startSwapCustom, toggleCompete, toggleCycleTracking, undoDelete } from "../bot";
 
-import { getCatalogExercise, updatePlanMesocycle } from "../db/repos";
+import { updatePlanMesocycle } from "../adapters/d1/v2Plans";
+import { getCatalogExercise } from "../adapters/d1/v2Catalog";
 import { INJURY_AREAS, type InjuryArea } from "../domain/injury";
 import { defaultMesocycle, phaseGuidance } from "../domain/mesocycle";
 import { onboardingButton } from "./onboarding";
@@ -82,7 +91,7 @@ export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
 const SESSION_IDLE_MS = 30 * 60 * 1000;
 
 export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
-  setAppUrl(env.WORKER_URL);
+  setAppUrl(env.WORKER_URL, env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app");
   const bot = new Bot<MyContext>(env.TELEGRAM_BOT_TOKEN);
 
   // docs/slos.md's telegram_send_failure. An API transformer is the one real choke point for
@@ -1432,4 +1441,3 @@ export function abToB64(buf: ArrayBuffer): string {
   }
   return btoa(bin);
 }
-

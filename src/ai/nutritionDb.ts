@@ -1,5 +1,5 @@
 import type { Env } from "../types";
-import { getFoodCache, putFoodCache } from "../db/repos";
+import { getFoodCache, putFoodCache } from "../adapters/d1/v2Nutrition";
 import { aiJSON } from "./index";
 import { PER100G_SCHEMA, per100gSystem, type Per100gResult } from "./prompts";
 

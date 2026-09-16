@@ -4,7 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, setActivePlan, updateUser, upsertWorkoutLog } from "../src/db/repos";
+import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
+import { setActivePlan } from "../src/adapters/d1/v2Plans";
+import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { handleBuddyApi } from "../src/webapp/buddyApi";
 import type { PlanDoc, UserDoc, WorkoutLogDoc } from "../src/types";
 

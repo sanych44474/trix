@@ -1,5 +1,5 @@
 // Mini App auth: resolve the requesting user from the Telegram initData header.
-import { getUser } from "../db/repos";
+import { getUser } from "../adapters/d1/v2Users";
 import { validateInitData } from "./initData";
 import type { Env, UserDoc } from "../types";
 

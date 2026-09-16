@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, updateUser, addProgressPhoto, listAchievements, recentErrors, upsertWorkoutLog } from "../src/db/repos";
+import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
+import { addProgressPhoto } from "../src/adapters/d1/v2Tracking";
+import { listAchievements } from "../src/adapters/d1/v2Gamification";
+import { recentErrors } from "../src/adapters/d1/v2Admin";
+import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { handleChallengesApi, handleInjuriesApi, handleClientErrorApi, handlePhotoApi, handleBoardsApi } from "../src/webapp/miscApi";
 import type { UserDoc, WorkoutLogDoc } from "../src/types";
 
@@ -147,7 +151,7 @@ test("handlePhotoApi: 400 on a bad id, 404 on a missing photo, 404 for someone e
   assert.equal((await call(handlePhotoApi, db, 1, "GET", "/api/photo?id=999")).status, 404);
 
   await addProgressPhoto(db, 2, "file123");
-  const rows = db.dump<{ id: number }>("SELECT id FROM progress_photos WHERE userId = 2");
+  const rows = db.dump<{ id: number }>("SELECT id FROM v2_progress_photos WHERE accountId = 2");
   const res = await call(handlePhotoApi, db, 1, "GET", `/api/photo?id=${rows[0].id}`);
   assert.equal(res.status, 404); // owned by user 2, requester is user 1 (not their trainer)
 });

@@ -4,13 +4,9 @@
 import { InlineKeyboard } from "grammy";
 import { localParts, parseWorkoutText } from "../domain/progression";
 import { CARDIO_TEMPLATES, cardioTemplateByKey, zoneBpm } from "../domain/cardioPlan";
-import {
-  getDailyCheckin,
-  getStepLog,
-  nutritionLogsSince,
-  updateUser,
-  waterLogsSince,
-} from "../db/repos";
+import { getDailyCheckin, getStepLog, waterLogsSince } from "../adapters/d1/v2Tracking";
+import { updateUser } from "../adapters/d1/v2Users";
+import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { t } from "../locales/i18n";
 import { reply, type MyContext } from "../adapters/telegram/context";
 import { cmdCheckin, cmdNutrition, cmdSteps, cmdWater, handleWorkoutLog, menuBtn } from "../bot";

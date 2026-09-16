@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, getUser, updateUser } from "../src/db/repos";
+import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { handleProfileApi, handleOnboardingApi } from "../src/webapp/profileApi";
 import type { UserDoc } from "../src/types";
 

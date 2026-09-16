@@ -1,7 +1,7 @@
 // FatSecret food search — much better branded/international coverage than Open Food Facts.
 // OAuth2 client-credentials; token cached in settings until expiry. Best-effort: any failure
 // (missing keys, IP allowlist, scope, throttle) returns null so the caller falls back to OFF/AI.
-import { getSetting, setSetting } from "../db/repos";
+import { getSetting, setSetting } from "../adapters/d1/v2Admin";
 import { aiJSON } from "../ai/index";
 import type { Env, Lang } from "../types";
 

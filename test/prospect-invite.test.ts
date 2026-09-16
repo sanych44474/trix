@@ -4,8 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
-import { applyTrainer, approveTrainer, getOrCreateUser, getUser, updateUser } from "../src/db/repos";
-import { getProspect, listProspects } from "../src/db/repos/trainer";
+import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
+import { applyTrainer, approveTrainer, getProspect, listProspects } from "../src/adapters/d1/v2Trainer";
 import { handleProspectName, joinByCode, joinByProspectCode, startProspectInvite } from "../src/features/trainer/trainer";
 import type { UserDoc } from "../src/types";
 

@@ -9,7 +9,8 @@
 // the wall clock.
 import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { getOrCreateUser, getUser, listAchievements, updateUser } from "../../src/db/repos";
+import { getOrCreateUser, getUser, updateUser } from "../../src/adapters/d1/v2Users";
+import { listAchievements } from "../../src/adapters/d1/v2Gamification";
 
 describe("UserSchedulerDO alarm (dry-run)", () => {
   it("decides for real, but sends and writes are logged instead of applied", async () => {

@@ -5,13 +5,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, getDailyMetrics, setActivePlan, upsertWorkoutLog } from "../src/db/repos";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
+import { getDailyMetrics } from "../src/adapters/d1/v2DailyMetrics";
+import { setActivePlan } from "../src/adapters/d1/v2Plans";
+import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { rollupDailyMetrics } from "../src/dailyMetricsRollup";
 import type { PlanDoc } from "../src/types";
 
 async function setTimestamps(db: ReturnType<typeof newDb>, id: number, fields: { createdAt?: string; updatedAt?: string; lastSeenAt?: string; onboardedAt?: string }) {
-  for (const [col, val] of Object.entries(fields)) {
-    await db.prepare(`UPDATE users SET ${col} = ? WHERE id = ?`).bind(val, id).run();
+  const { onboardedAt, ...accountFields } = fields;
+  for (const [col, val] of Object.entries(accountFields)) {
+    await db.prepare(`UPDATE v2_accounts SET ${col} = ? WHERE id = ?`).bind(val, id).run();
+  }
+  if (onboardedAt !== undefined) {
+    await db.prepare(`UPDATE v2_onboarding SET onboardedAt = ? WHERE accountId = ?`).bind(onboardedAt, id).run();
   }
 }
 

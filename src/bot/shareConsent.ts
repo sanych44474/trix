@@ -3,7 +3,7 @@
 // them once the client flips these on (see domain/clientCard's trainerCanSee). Extracted from
 // bot.ts (god-file split; same barrel seam via bot.ts's `export * from "./bot/shareConsent"`).
 import { InlineKeyboard } from "grammy";
-import { updateUser } from "../db/repos";
+import { updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
 

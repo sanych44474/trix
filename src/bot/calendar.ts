@@ -6,7 +6,8 @@
 // none of them are calendar code, so they stayed in bot.ts.
 import { InlineKeyboard } from "grammy";
 import type { Lang, Weekday } from "../types";
-import { getActivePlan, getWorkoutLog, workoutLogsSince } from "../db/repos";
+import { getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
+import { getActivePlan } from "../adapters/d1/v2Plans";
 import { dayMarker, monthGrid, monthTitle, nextMonth, prevMonth, ymOf } from "../domain/calendar";
 import { getPlanDay, localParts } from "../domain/progression";
 import { t } from "../locales/i18n";

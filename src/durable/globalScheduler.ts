@@ -11,7 +11,8 @@ import { isCutOver } from "./cutover";
 import { logDryRun } from "../db/repos";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
-import { logInfo, runWithRequestId } from "../log";
+import { logError, logInfo, runWithRequestId } from "../log";
+import { withLegacyFreeze } from "../adapters/d1/legacyFreeze";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000; // hourly, matching the cron path's own cadence
 export const GLOBAL_SCHEDULER_NAME = "global";
@@ -28,10 +29,14 @@ export async function wakeGlobalScheduler(env: Env): Promise<void> {
 }
 
 export class GlobalSchedulerDO {
+  private readonly env: Env;
+
   constructor(
     private readonly state: DurableObjectState,
-    private readonly env: Env,
-  ) {}
+    env: Env,
+  ) {
+    this.env = withLegacyFreeze(env, (sql) => logError("legacy_write_blocked", new Error(sql), {}));
+  }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);

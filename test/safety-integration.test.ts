@@ -6,7 +6,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
 import { applyCatalogExerciseChoice, type PendingExercise } from "../src/bot";
-import { createInjury, getActivePlan, getOrCreateUser, listPlanChanges, setActivePlan, upsertExercise } from "../src/db/repos";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
+import { getActivePlan, listPlanChanges, setActivePlan } from "../src/adapters/d1/v2Plans";
+import { createInjury } from "../src/adapters/d1/v2Tracking";
+import { upsertExercise } from "../src/adapters/d1/v2Catalog";
 import type { CatalogExercise, PlanDoc, UserDoc } from "../src/types";
 
 function plan(userId: number): PlanDoc {

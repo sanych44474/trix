@@ -3,19 +3,31 @@
 import { GrammyError, InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
+import { deleteUserData } from "../db/repos";
 import {
-  aiCallStatsSince, aiTokensByKindSince, aiUsageSince, assignDraftPlan, countActiveSince, countAdjustmentsSince,
-  countByRole, countClientsOf, countCompletedWorkoutsBetween, countInactive, countModeration,
-  countOnboarded, countPendingClientRequests, countPlanSourcesSince, countUsers,
-  countUsersCreatedSince, dailyActiveUsers, deleteUserData, deleteUserVideo, engagementSince, errorStatsSince,
-  eventCountsByUser, eventStatsSince, getActivePlan, getDraftPlan, getExerciseVideo,
-  getOwnerChatId, getUser, listAllCatalogNames, listChurnedUsers, listOnboardedUsers,
-  listOnboardingUsers, listPlanPendingUsers, listStrength, listTrainerUsers, listUsersBrief,
-  nonOnboardedByMode, pendingRequestsAll, pendingTrainerApplications, planStatusByUser,
+  aiCallStatsSince, aiTokensByKindSince, aiUsageSince, countAdjustmentsSince,
+  countPlanSourcesSince,
+  dailyActiveUsers, engagementSince, errorStatsSince,
+  eventCountsByUser, eventStatsSince,
+  getOwnerChatId, listUsersBrief,
+  recentAudit, recentErrors, recentEventsForUser, recentFeedback, recordAudit,
+  setOwnerChatId,
+} from "../adapters/d1/v2Admin";
+import { countCompletedWorkoutsBetween, listStrength } from "../adapters/d1/v2Workouts";
+import { assignDraftPlan, getActivePlan, getDraftPlan, planStatusByUser, setActivePlan } from "../adapters/d1/v2Plans";
+import {
+  countByRole, countClientsOf, countPendingClientRequests, listTrainerUsers,
+  pendingRequestsAll, pendingTrainerApplications,
   getTrainer, updateTrainer,
-  recentAudit, recentErrors, recentEventsForUser, recentFeedback, recordAudit, setActivePlan,
-  setManualVideo, setOwnerChatId, stampOnboardedAt, setUserVideo, updateUser, upsertExerciseVideo,
-} from "../db/repos";
+} from "../adapters/d1/v2Trainer";
+import {
+  deleteUserVideo, getExerciseVideo, listAllCatalogNames, setManualVideo, setUserVideo, upsertExerciseVideo,
+} from "../adapters/d1/v2Catalog";
+import {
+  countActiveSince, countInactive, countModeration, countOnboarded, countUsers, countUsersCreatedSince,
+  getUser, listChurnedUsers, listOnboardedUsers, listOnboardingUsers, listPlanPendingUsers,
+  nonOnboardedByMode, stampOnboardedAt, updateUser,
+} from "../adapters/d1/v2Users";
 import { formatRecordBest, getPlanDay } from "../domain/progression";
 import { weekStartStr } from "../domain/records";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";

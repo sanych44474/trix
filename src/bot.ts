@@ -1,7 +1,15 @@
 import { InlineKeyboard, InputFile } from "grammy";
 import { logInfo } from "./log";
 import type { CatalogExercise, ExerciseMetric, ExerciseVideo, Lang, PlanDay, PlanDoc, PlanExercise, UserDoc, Weekday } from "./types";
-import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, bodyLogsByUser, countCompletedWorkouts, recordError, recordPlanChange, getCatalogExercise, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, listAchievements, searchExercisesByName, dailyCheckinsSince, getDailyCheckin, getActivePlan, getTrainer, getUser, listStrength, listActiveInjuries, pendingRequestForClient, updateActivePlanSplit, nutritionLogsSince, saveDraftPlan, getStepLog, addWater, setWater, getWater, userStatCounts, upsertExercise, upsertBodyLog, upsertStepLog, updateUser, workoutLogsSince } from "./db/repos";
+import { recordError, userStatCounts } from "./adapters/d1/v2Admin";
+import { countCompletedWorkouts, listStrength, workoutLogsSince } from "./adapters/d1/v2Workouts";
+import { listAchievements } from "./adapters/d1/v2Gamification";
+import { getActivePlan, recordPlanChange, saveDraftPlan, updateActivePlanSplit } from "./adapters/d1/v2Plans";
+import { getTrainer, pendingRequestForClient } from "./adapters/d1/v2Trainer";
+import { addWater, bodyLogsByUser, dailyCheckinsSince, getDailyCheckin, getStepLog, getWater, listActiveInjuries, setWater, upsertBodyLog, upsertStepLog } from "./adapters/d1/v2Tracking";
+import { getCatalogExercise, getExerciseTranslation, upsertExerciseTranslation, getExerciseVideos, getUserVideos, searchExercisesByName, upsertExercise } from "./adapters/d1/v2Catalog";
+import { getUser, updateUser } from "./adapters/d1/v2Users";
+import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem, nutritionLogsSince } from "./adapters/d1/v2Nutrition";
 import { checkExerciseAgainstInjuries } from "./domain/safety";
 import { cleanAi, escapeHtml, LANG_NAME, t } from "./locales/i18n";
 import { aiJSON, aiText } from "./ai";
@@ -115,12 +123,16 @@ export function normalizeEvent(data: string): string {
 // Mini App base URL, captured once in createBot so pure keyboard builders can use it without
 // threading env through every call site. Undefined (e.g. local dev) hides the dashboard buttons.
 export let APP_URL: string | undefined;
+export let APP_PATH = "/app";
 // Setter so the extracted router module can populate this module-owned binding at bot startup
 // (an imported binding can't be assigned to across modules).
-export function setAppUrl(v: string | undefined): void { APP_URL = v; }
+export function setAppUrl(v: string | undefined, path = "/app"): void {
+  APP_URL = v;
+  APP_PATH = path === "/app-v2" ? "/app-v2" : "/app";
+}
 
 export function dashboardUrl(): string | undefined {
-  return APP_URL ? `${APP_URL}/app?v=${APP_VERSION}` : undefined;
+  return APP_URL ? `${APP_URL}${APP_PATH}?v=${APP_VERSION}` : undefined;
 }
 
 

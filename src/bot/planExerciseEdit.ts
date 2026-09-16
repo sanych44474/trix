@@ -11,7 +11,9 @@
 // logging flow these hand off to) stayed in bot.ts; imported from there like everything else.
 import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Lang, Weekday } from "../types";
-import { getActivePlan, getCatalogExercise, listCandidatesByMuscles, listExercisesByMusclesAnyLevel, recordPlanChange, updateActivePlanSplit, updateUser } from "../db/repos";
+import { getActivePlan, recordPlanChange, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { getCatalogExercise, listCandidatesByMuscles, listExercisesByMusclesAnyLevel } from "../adapters/d1/v2Catalog";
+import { updateUser } from "../adapters/d1/v2Users";
 import { pickDifficultySwaps } from "../domain/difficultySwap";
 import { fitsEquipmentPreset, pickGymSwaps, profileEquipmentToPreset, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "../domain/gymSwap";
 import { getPlanDay, localParts } from "../domain/progression";

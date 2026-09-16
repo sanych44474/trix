@@ -12,11 +12,12 @@
 //
 // Turning one on is a single D1 write and nothing else — no code change, no redeploy:
 //   npx wrangler d1 execute trix --remote --command \
-//     "INSERT INTO settings (key, value) VALUES ('scheduler_cutover_user', '1') \
+//     "INSERT INTO v2_settings (key, value) VALUES ('scheduler_cutover_user', '1') \
 //      ON CONFLICT(key) DO UPDATE SET value = excluded.value"
 // (swap the key for _squad / _global.) That write is a live mutation like any other
-// `d1 execute --remote` — same per-session approval rule as always.
-import { getSetting } from "../db/repos";
+// `d1 execute --remote` — same per-session approval rule as always. (getSetting reads
+// v2_settings now — Domain 9 — so this example targets that table, not legacy `settings`.)
+import { getSetting } from "../adapters/d1/v2Admin";
 
 export type CutoverKind = "user" | "squad" | "global";
 

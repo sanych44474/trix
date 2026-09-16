@@ -3,7 +3,8 @@
 // seam via bot.ts's `export * from "./bot/exportData"`).
 import { InlineKeyboard, InputFile } from "grammy";
 import type { BodyLogDoc, Lang, StrengthRecordDoc, UserDoc } from "../types";
-import { listStrength, loadActivityWindow } from "../db/repos";
+import { loadActivityWindow } from "../adapters/d1/v2Admin";
+import { listStrength } from "../adapters/d1/v2Workouts";
 import { e1rm } from "../domain/records";
 import { formatRecordBest, formatSetEntry, localParts } from "../domain/progression";
 import { t } from "../locales/i18n";

@@ -8,7 +8,9 @@ import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
 import { coachContext, coachEditWeekday } from "../src/bot/coach";
 import { setEditOwner } from "../src/bot";
-import { applyTrainer, approveTrainer, getOrCreateUser, linkClient, setActivePlan } from "../src/db/repos";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
+import { applyTrainer, approveTrainer, linkClient } from "../src/adapters/d1/v2Trainer";
+import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import type { PlanDoc, UserDoc } from "../src/types";
 
 function plan(userId: number, exerciseName: string): PlanDoc {

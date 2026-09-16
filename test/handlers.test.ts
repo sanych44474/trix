@@ -4,10 +4,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
-import { getOrCreateUser, updateUser, getUser, setActivePlan, applyTrainer, approveTrainer, updateTrainer, getTrainer, linkClient, saveTrainerTemplate, getActivePlan } from "../src/db/repos";
+import { getOrCreateUser, updateUser, getUser } from "../src/adapters/d1/v2Users";
+import { setActivePlan, getActivePlan } from "../src/adapters/d1/v2Plans";
+import { applyTrainer, approveTrainer, updateTrainer, getTrainer, linkClient, saveTrainerTemplate } from "../src/adapters/d1/v2Trainer";
+import { getWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { setMode, startAddExercise, cmdLog, logPickExercise, handleLogDraftInput, guardLogExit, onLogExit, healPlanNamesForDisplay, setEntryRpe, logFinish, routeUserText, moveExercise } from "../src/bot";
 import { startShareSelect, toggleShareClient, shareAssignToClients, shareLink, sharePublish, cmdLibrary, takeSharedProgram } from "../src/features/trainer/trainer";
-import { listPublicPrograms, getSharedProgram, upsertExercise, upsertExerciseTranslation } from "../src/db/repos";
+import { listPublicPrograms, getSharedProgram } from "../src/adapters/d1/v2Trainer";
+import { upsertExercise, upsertExerciseTranslation } from "../src/adapters/d1/v2Catalog";
 import type { PlanDoc, UserDoc } from "../src/types";
 
 function plan(userId: number): PlanDoc {
@@ -51,6 +55,7 @@ test("setMode carries context across a real DB round-trip and drops transient st
 test("non-onboarded client answering the wizard is pulled back into onboarding (regression: reply routed to trainer)", async () => {
   const db = newDb();
   const user = (await getOrCreateUser(db, 113, 113, "uk", "Maksym")) as unknown as UserDoc;
+  await getOrCreateUser(db, 999, 999, "uk", "Trainer999");
   // Reproduce the field report: a not-yet-onboarded CLIENT whose session drifted into
   // "msg_trainer" (tapped "message trainer", never sent). Sex already answered, so the next
   // wizard step is age. They type "32" — it must advance onboarding, not go to the trainer.
@@ -134,7 +139,7 @@ test("exit guard: leaving an unsaved log asks, and Discard clears the draft then
   assert.equal(s.mode, "nutrition"); // resumed the intended destination
   assert.equal(s.logDraft, undefined);
   assert.equal(s.pendingExitResume, undefined);
-  const logs = db.dump("SELECT * FROM workout_logs WHERE userId = 113");
+  const logs = db.dump("SELECT * FROM v2_workout_sessions WHERE accountId = 113");
   assert.equal(logs.length, 0); // discarded, nothing saved
 });
 
@@ -190,7 +195,7 @@ test("share by link → shared_programs row; a solo user takes it as their plan"
   const { trainer, templateId } = await setupInstructor(db, 220, []);
   const { ctx } = makeCtx(db, trainer as unknown as Record<string, unknown>);
   await shareLink(ctx as never, templateId);
-  const rows = db.dump<{ code: string; isPublic: number }>("SELECT code, isPublic FROM shared_programs WHERE ownerId = 220");
+  const rows = db.dump<{ code: string; isPublic: number }>("SELECT code, isPublic FROM v2_shared_programs WHERE ownerId = 220");
   assert.equal(rows.length, 1);
   assert.equal(rows[0].isPublic, 0);
 
@@ -251,9 +256,10 @@ test("per-set RPE tap is captured on the draft and persisted onto the logged exe
   assert.equal(ctx.user.session.logDraft?.entries[0].rpe, 8.5);
 
   await logFinish(ctx as never);
-  const logs = db.dump<{ exercises: string }>("SELECT * FROM workout_logs WHERE userId = 302");
-  assert.equal(logs.length, 1);
-  assert.equal(JSON.parse(logs[0].exercises)[0].rpe, 8.5); // flowed into the saved log for autoregulation
+  const sessions = db.dump<{ date: string }>("SELECT date FROM v2_workout_sessions WHERE accountId = 302");
+  assert.equal(sessions.length, 1);
+  const saved = await getWorkoutLog(db, 302, sessions[0].date);
+  assert.equal(saved!.exercises[0].rpe, 8.5); // flowed into the saved log for autoregulation
 });
 
 test("exit guard: Save persists the workout before navigating on", async () => {
@@ -270,10 +276,11 @@ test("exit guard: Save persists the workout before navigating on", async () => {
   await guardLogExit(ctx as never, "menu:nutrition");
   await onLogExit(ctx as never, "save");
 
-  const logs = db.dump<{ exercises: string; completed: number }>("SELECT * FROM workout_logs WHERE userId = 114");
-  assert.equal(logs.length, 1);
-  assert.equal(logs[0].completed, 1);
-  const ex = JSON.parse(logs[0].exercises);
+  const sessions = db.dump<{ date: string; completed: number }>("SELECT date, completed FROM v2_workout_sessions WHERE accountId = 114");
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].completed, 1);
+  const saved = await getWorkoutLog(db, 114, sessions[0].date);
+  const ex = saved!.exercises;
   assert.equal(ex[0].setsDone.length, 3); // per-set reps preserved (8/7/6)
   assert.deepEqual(ex[0].setsDone.map((s: { reps: number }) => s.reps), [8, 7, 6]);
 });

@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, getUser, setOwnerChatId, updateUser } from "../src/db/repos";
+import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
+import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { handleSettingsApi } from "../src/webapp/settingsApi";
 import type { UserDoc } from "../src/types";
 
@@ -126,7 +127,7 @@ test("feedback: rejects a too-short message, stores + notifies the owner otherwi
   } finally {
     unstub();
   }
-  const rows = db.dump<{ text: string }>("SELECT text FROM feedback WHERE userId = 1");
+  const rows = db.dump<{ text: string }>("SELECT text FROM v2_feedback WHERE accountId = 1");
   assert.equal(rows.length, 1);
 });
 

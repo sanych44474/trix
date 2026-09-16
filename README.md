@@ -28,6 +28,12 @@ Mini App ──fetch─────▶ Worker.fetch ──▶ /api/* (initData H
                       Worker.scheduled (cron, DB-locked) ──▶ reminders / nudges / reports
 ```
 
+The staged v2 surface adds `apps/mini-app` (React + Vite) at `/app-v2` and a versioned REST seam
+at `/api/v2/*`. Telegram and the Mini App call the same application behavior; D1 v2 projections
+are enabled with `V2_DUAL_WRITE=1` after migration 0069 parity checks. The legacy `/app` and
+`/api/*` paths stay available for rollback. See [the v2 feature audit](docs/feature-audit-v2.md)
+and [ADR-0001](docs/adr/0001-v2-seams-and-staged-cutover.md).
+
 User and onboarding state live on the user row in D1 — no KV, no external session store.
 Free-text messages are routed by `user.session.mode`; inline keyboards carry their state in
 `callback_data`. The Mini App shell is a single static asset served straight from Cloudflare's
@@ -53,13 +59,18 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 
 | Path | Responsibility |
 |---|---|
-| `src/index.ts` | Worker entry: `/webhook`, `/health`, `/api/*`, `/admin/*`, cron `scheduled` |
+| `apps/worker/index.ts` | Cloudflare deploy composition root; exports the Worker and Durable Objects |
+| `src/index.ts` | Worker runtime implementation: `/webhook`, `/health`, `/api/*`, `/admin/*`, cron `scheduled` |
 | `src/bot.ts` | grammY bot: commands, callbacks, routing, onboarding, plan generation, roles |
 | `src/bot/router.ts` | Command + callback route tables, bot construction |
 | `src/bot/trainer.ts` | Trainer flows: client cards, templates, program sharing |
 | `src/bot/owner.ts` | Owner admin: user cards, moderation, video overrides |
 | `src/scheduler.ts` | Cron: reminders, check-ins, weekly digests, trainer digests, owner report |
 | `src/webapp/` | Mini App: `client/` static shell fragments + per-screen JSON APIs |
+| `apps/mini-app/` | React + Vite v2 Mini App shell and dark sports design system |
+| `src/application/` | Deep application interfaces shared by adapters |
+| `src/adapters/d1/` | D1 application adapters and legacy-to-v2 projections |
+| `packages/contracts/` | OpenAPI 3.1 contract for `/api/v2/*` |
 | `src/db/repos.ts` | D1 (SQLite) repository — every query a function over `D1Database` |
 | `src/domain/` | **Pure**, unit-tested logic: progression, records, analysis, standards, plan bank |
 | `src/ai/` | Orchestrator + provider clients (shared `http.ts`) + prompts + nutrition DB |
@@ -123,6 +134,10 @@ placeholder in `wrangler.toml` or a secret.
 | `BOT_ID` | no | Numeric bot id. With `BOT_USERNAME` it lets the Worker skip a `getMe` call on every webhook. |
 | `BOT_NAME` | no | Display name used in the preset `botInfo`. |
 | `WORKER_URL` | no | Public origin of the deployed Worker. Enables the Mini App buttons; leave empty in local dev to unlock the `?debugUser=` bypass. |
+| `V2_APP_ENABLED` | no | Selects the React v2 Mini App URL in bot buttons when set to `1`; legacy `/app` remains the default. |
+| `V2_COHORT_PERCENT` | no | Deterministic v2 dual-write cohort from `0` to `100`; account ids stay in the same bucket. |
+| `V2_INTERNAL_USER_IDS` | no | Comma-separated Telegram user ids included in the v2 dual-write cohort for internal validation. |
+| `V2_SHADOW_READS` | no | Logs per-account legacy/v2 count parity on v2 dashboard reads when set to `1`; it never changes the response. |
 
 `account_id` is deliberately **not** committed — wrangler reads `CLOUDFLARE_ACCOUNT_ID` from
 the environment. `database_id` in `wrangler.toml` is a placeholder you replace with your own.
@@ -163,6 +178,9 @@ For `wrangler deploy` + D1 against `*.workers.dev`:
 ```bash
 npm run dev         # wrangler dev (.dev.vars + local D1)
 npm run typecheck   # tsc --noEmit
+npm run typecheck:webapp
+npm run build:webapp:v2
+npm run verify-v2-backfill # local D1; add --remote for an explicit remote check
 npm test            # node --test (273 unit/integration tests)
 npm run deploy      # build the Mini App shell + wrangler deploy
 npm run tail        # stream live Worker logs

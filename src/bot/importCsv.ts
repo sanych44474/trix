@@ -1,7 +1,8 @@
 // CSV import from third-party trackers (Strong, Hevy) -- the receiving side. Parsing itself is
 // pure (domain/csvImport.ts, unit-tested); this module is the Telegram plumbing: prompt -> file
 // upload -> parse -> write only the dates that don't already have a log (never clobber a real one).
-import { getWorkoutLog, updateUser, upsertWorkoutLog } from "../db/repos";
+import { getWorkoutLog, upsertWorkoutLog } from "../adapters/d1/v2Workouts";
+import { updateUser } from "../adapters/d1/v2Users";
 import { isoWeekday } from "../domain/atrisk";
 import { parseWorkoutCsv, type ImportedDay } from "../domain/csvImport";
 import type { Weekday } from "../types";

@@ -7,10 +7,11 @@ import type { PlanAdjustmentDoc, PlanBankEntry, PlanDoc, ProgressionRate } from 
 import { nowIso, type DB } from "./shared";
 import { PLAN_SCHEMA_VERSION, parsePlanDoc, parsePlanSplit, PlanValidationError } from "../../domain/plan-schema";
 import { hasCriticalIssues, lintPlan, type LintIssue } from "../../domain/plan-lint";
-import { existingCatalogIds } from "./catalog";
+import { existingCatalogIds } from "../../adapters/d1/v2Catalog";
 import { listActiveInjuries } from "./tracking";
 
 interface PlanRow {
+  id: number;
   userId: number;
   active: number;
   status: string | null;
@@ -62,7 +63,8 @@ function toPlan(r: PlanRow): PlanDoc {
       [],
     );
   }
-  return parsePlanDoc({
+  const plan = parsePlanDoc({
+    id: r.id,
     userId: r.userId,
     active: !!r.active,
     status: (r.status as "draft" | "active") ?? "active",
@@ -79,6 +81,7 @@ function toPlan(r: PlanRow): PlanDoc {
     ...(typeof meta.deloadInterval === "number" ? { deloadInterval: meta.deloadInterval } : {}),
     ...(meta.mesocycle ? { mesocycle: meta.mesocycle } : {}),
   });
+  return { ...plan, id: r.id };
 }
 
 /** plan_lint just before a save — fetches only what the checks need (catalog ids referenced by

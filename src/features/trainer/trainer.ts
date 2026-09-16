@@ -5,19 +5,37 @@ import { GrammyError, InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
 import type { BankPlan, Lang, PlanDoc, SetEntry, TrainerDoc, TrainerProfileInput, UserDoc, Weekday } from "../../types";
 import {
-  applyTrainer, approveTrainer, assignDraftPlan, bodyLogsByUser,
-  countClientsOf, countCompletedWorkouts, deleteDraftPlan,
-  deleteTrainerTemplate, eventCountsByUser, getActivePlan, getClientCard, getClientForTrainer, getClientNote,
-  getDraftPlan, getOwnerChatId, getQuestion, getRequest, getTrainer, getTrainerByCode,
-  getTrainerTemplate, getUser, getUsersByIds, getWorkoutLog, insertMessage, linkClient, listActiveInjuries,
-  listClientNoteHistory, listClients, listMessages, listQuestionsForTrainer, listStrength,
-  listTrainerTemplates, nutritionLogsSince, pendingRequestsForTrainer, planStatusByUser, recordAudit, rejectTrainer,
+  eventCountsByUser, getOwnerChatId,
+  recordAudit,
+  setUserFlag,
+} from "../../adapters/d1/v2Admin";
+import {
+  countCompletedWorkouts,
+  getWorkoutLog,
+  listStrength,
+  upsertStrengthRecord,
+  upsertWorkoutLog, workoutLogsSince,
+} from "../../adapters/d1/v2Workouts";
+import {
+  assignDraftPlan, deleteDraftPlan, getActivePlan, getDraftPlan,
+  planStatusByUser, saveDraftPlan, setActivePlan,
+} from "../../adapters/d1/v2Plans";
+import {
+  applyTrainer, approveTrainer,
+  countClientsOf,
+  deleteTrainerTemplate, getClientCard, getClientForTrainer, getClientNote,
+  getQuestion, getRequest, getTrainer, getTrainerByCode,
+  getTrainerTemplate, insertMessage, linkClient,
+  listClientNoteHistory, listClients, listMessages, listQuestionsForTrainer,
+  listTrainerTemplates, pendingRequestsForTrainer, rejectTrainer,
   createProspect, deleteProspect, getProspect, listProspects,
   createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken,
-  saveDraftPlan, saveTrainerTemplate, setActivePlan, setClientCard, setClientNote, setQuestionStatus,
-  setRequestStatus, setUserFlag, stampOnboardedAt, unlinkClient, updateTrainer, updateUser, upsertStrengthRecord,
-  upsertWorkoutLog, workoutLogsSince,
-} from "../../db/repos";
+  saveTrainerTemplate, setClientCard, setClientNote, setQuestionStatus,
+  setRequestStatus, unlinkClient, updateTrainer,
+} from "../../adapters/d1/v2Trainer";
+import { bodyLogsByUser, listActiveInjuries } from "../../adapters/d1/v2Tracking";
+import { nutritionLogsSince } from "../../adapters/d1/v2Nutrition";
+import { getUser, getUsersByIds, stampOnboardedAt, updateUser } from "../../adapters/d1/v2Users";
 import { isoDateMinus } from "../gamification/boards";
 import { botDeepLink } from "../../bot/links";
 import { interviewProgress, isOwner } from "../../bot/owner";

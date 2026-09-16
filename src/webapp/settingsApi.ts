@@ -4,17 +4,14 @@
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
 import { buildExportJson, buildExportMd } from "../bot";
 import { resolveWaitlistNudge } from "../features/trainer/trainer";
+import { deleteUserData } from "../db/repos";
 import {
-  clearVacation,
-  deleteUserData,
   getOwnerChatId,
-  getUser,
   insertFeedback,
-  setVacation,
-  unlinkClient,
-  updateUser,
-} from "../db/repos";
-import { runIdempotent } from "../db/repos/idempotency";
+} from "../adapters/d1/v2Admin";
+import { unlinkClient } from "../adapters/d1/v2Trainer";
+import { clearVacation, getUser, setVacation, updateUser } from "../adapters/d1/v2Users";
+import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";

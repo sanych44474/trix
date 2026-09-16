@@ -7,21 +7,21 @@ import { computeXp, levelFromXp, levelTransition } from "../domain/gamification"
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { exerciseMetric, formatSetEntry, getPlanDay, localParts, resolveWeightMode } from "../domain/progression";
 import {
-  awardAchievement,
-  getActivePlan,
+  userStatCounts,
+} from "../adapters/d1/v2Admin";
+import { getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
+import { awardAchievement } from "../adapters/d1/v2Gamification";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import {
   getCatalogExercise,
   getExerciseTranslation,
   getExerciseTranslationNames,
   getExerciseVideos,
-  getUser,
   getUserVideos,
-  getWorkoutLog,
   listCandidatesByMuscles,
   searchExercisesByName,
-  updateUser,
-  userStatCounts,
-  workoutLogsSince,
-} from "../db/repos";
+} from "../adapters/d1/v2Catalog";
+import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { isoDateMinus } from "../features/gamification/boards";
 import { cleanAi, t } from "../locales/i18n";
 import { aiText } from "../ai/index";

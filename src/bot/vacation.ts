@@ -1,7 +1,7 @@
 // Vacation / pause mode and the comeback interview that follows it — extracted from bot.ts
 // (god-file split; same barrel seam via bot.ts's `export * from "./bot/vacation"`).
 import { InlineKeyboard } from "grammy";
-import { clearVacation, setVacation, updateUser } from "../db/repos";
+import { clearVacation, setVacation, updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { generateClientDraft, generatePlan } from "./plan";
 import { type MyContext, type TKey, reply, setMode } from "../adapters/telegram/context";

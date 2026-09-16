@@ -4,7 +4,10 @@
 // phase, readiness, videos) rather than re-deriving it; this file's only real new logic is the
 // priority gate in front of it (recovery / checkin / post-workout nutrition), each a short lead-
 // in line before falling through to the normal screen it's nudging toward.
-import { countCompletedWorkouts, getActivePlan, getDailyCheckin, getDayMeals, workoutLogsSince } from "../db/repos";
+import { countCompletedWorkouts, workoutLogsSince } from "../adapters/d1/v2Workouts";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import { getDailyCheckin } from "../adapters/d1/v2Tracking";
+import { getDayMeals } from "../adapters/d1/v2Nutrition";
 import { missedConsecutiveWorkouts } from "../domain/atrisk";
 import { localParts } from "../domain/progression";
 import { resolveNextBestAction } from "../domain/nextBestAction";

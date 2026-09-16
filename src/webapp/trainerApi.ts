@@ -5,25 +5,26 @@
 // Same initData auth as the dashboard, plus a trainer-role gate; per-client ops also run the
 // ownership check (getClientForTrainer — missing and not-yours both 404).
 import {
-  assignDraftPlan,
+  recordAudit,
+  setUserFlag,
+} from "../adapters/d1/v2Admin";
+import { assignDraftPlan, saveDraftPlan } from "../adapters/d1/v2Plans";
+import {
   deleteTrainerTemplate,
   getClientCard,
   getClientForTrainer,
   getQuestion,
   getTrainerTemplate,
-  getUser,
   insertMessage,
   listClients,
   listQuestionsForTrainer,
   listTrainerTemplates,
-  recordAudit,
-  saveDraftPlan,
   setClientCard,
   setClientNote,
   setQuestionStatus,
-  setUserFlag,
-} from "../db/repos";
-import { runIdempotent } from "../db/repos/idempotency";
+} from "../adapters/d1/v2Trainer";
+import { getUser } from "../adapters/d1/v2Users";
+import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { logInfo } from "../log";
 import { adaptPlan } from "../domain/planAdapt";
 import { escapeHtml, t } from "../locales/i18n";

@@ -2,7 +2,7 @@
 // forward to the owner if one is registered. Extracted from bot.ts (god-file split; same
 // barrel seam via bot.ts's `export * from "./bot/feedbackIntake"`).
 import { InlineKeyboard } from "grammy";
-import { getOwnerChatId, insertFeedback } from "../db/repos";
+import { getOwnerChatId, insertFeedback } from "../adapters/d1/v2Admin";
 import { localParts } from "../domain/progression";
 import { escapeHtml, t } from "../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../adapters/telegram/context";

@@ -1,5 +1,5 @@
 import type { AiKind, AiProvider, Env } from "../types";
-import { aiAttemptCountForUserSince, aiCacheStmt, aiCallStmt, aiUsageStmt, getAiCache, recordError } from "../db/repos";
+import { aiAttemptCountForUserSince, aiCacheStmt, aiCallStmt, aiUsageStmt, getAiCache, recordError } from "../adapters/d1/v2Admin";
 import { GEMINI_DEFAULT_LIGHT_MODEL, geminiGenerate } from "./gemini";
 import { GROQ_DEFAULT_MODEL, groqGenerate } from "./groq";
 import { OLLAMA_DEFAULT_MODEL, ollamaGenerate } from "./ollama";

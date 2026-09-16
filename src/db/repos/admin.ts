@@ -20,8 +20,8 @@ import type {
 } from "../../types";
 import { nowIso, type DB } from "./shared";
 import { bodyLogsByUser, dailyCheckinsSince, stepLogsSince, waterLogsSince } from "./tracking";
-import { listStrength, workoutLogsSince } from "./workouts";
-import { nutritionLogsSince } from "./nutrition";
+import { nutritionLogsSince } from "../../adapters/d1/v2Nutrition";
+import { listStrength, workoutLogsSince } from "../../adapters/d1/v2Workouts";
 
 // ---------- feedback ----------
 
@@ -479,9 +479,56 @@ export async function deleteUserData(db: DB, userId: number): Promise<void> {
     // occupy overlapping numeric ranges, so entityId alone is not a safe match.
     db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'user' AND entityId = ?").bind(userId),
     db.prepare("DELETE FROM idempotency_keys WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM plan_change_log WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM notification_outbox WHERE userId = ?").bind(userId),
-    // A squad outlives the person who happened to run /squad first: the group chat and everyone
+     db.prepare("DELETE FROM plan_change_log WHERE userId = ?").bind(userId),
+     db.prepare("DELETE FROM notification_outbox WHERE userId = ?").bind(userId),
+     // v2 is a projection of the legacy account, so deleting the account must remove its
+     // projection as well. Child rows cascade from v2_accounts; audit rows need an explicit
+     // decision because they intentionally do not have a foreign key cascade.
+     db.prepare("DELETE FROM v2_audit_events WHERE actorId = ? OR targetId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_trainer_relationships WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_preferences WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_onboarding WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_plan_changes WHERE accountId = ? OR actorId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_workout_cardio_metrics WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_nutrition_corrections WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_activity_days WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_water_logs WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_step_logs WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_injuries WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_progress_photos WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_trainer_requests WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_trainer_questions WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_messages WHERE fromAccountId = ? OR toAccountId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_trainer_templates WHERE trainerId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_trainers WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_client_cards WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_client_notes WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
+     // v2_client_note_history/v2_shared_programs: added by migrations/0077_v2_trainer_complete.sql
+     // (Domain 7) -- new user-identifying tables, so deleteUserData must cover them too (enforced
+     // by test/delete-user-data-coverage.test.ts).
+     db.prepare("DELETE FROM v2_client_note_history WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_shared_programs WHERE ownerId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_trainer_prospects WHERE trainerId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_achievements WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_challenges WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_leaderboard_entries WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_buddies WHERE accountId = ? OR buddyAccountId = ?").bind(userId, userId),
+     db.prepare("DELETE FROM v2_squad_members WHERE accountId = ?").bind(userId),
+     db.prepare("UPDATE v2_squads SET createdByAccountId = NULL WHERE createdByAccountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_idempotency WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_ai_calls WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_error_events WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_analytics_events WHERE accountId = ?").bind(userId),
+     // v2_feedback/v2_ai_usage/v2_plan_source_logs/v2_rest_timers: added by
+     // migrations/0081_v2_admin_complete.sql (Domain 9) -- new user-identifying tables, so
+     // deleteUserData must cover them too (enforced by test/delete-user-data-coverage.test.ts;
+     // same pattern Domain 7 used for v2_client_note_history/v2_shared_programs above).
+     db.prepare("DELETE FROM v2_feedback WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_ai_usage WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_plan_source_logs WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_rest_timers WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_accounts WHERE id = ? OR legacyUserId = ?").bind(userId, userId),
+     // A squad outlives the person who happened to run /squad first: the group chat and everyone
     // else in it are unaffected, so createdBy is cleared to a tombstone rather than the squad
     // being deleted out from under its remaining members.
     db.prepare("UPDATE squads SET createdBy = 0 WHERE createdBy = ?").bind(userId),

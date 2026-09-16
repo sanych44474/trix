@@ -7,7 +7,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { aiText, RateLimitError } from "../src/ai/index";
-import { aiCallStmt } from "../src/db/repos";
+import { aiCallStmt } from "../src/adapters/d1/v2Admin";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import type { Env } from "../src/types";
 
 async function seedAttempts(db: ReturnType<typeof newDb>, userId: number, n: number) {
@@ -19,6 +20,7 @@ async function seedAttempts(db: ReturnType<typeof newDb>, userId: number, n: num
 
 test("run(): throws RateLimitError once a user crosses the attempt threshold, without calling any provider", async () => {
   const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en");
   await seedAttempts(db, 1, 20); // at the limit already
   let fetchCalled = false;
   const realFetch = globalThis.fetch;
@@ -37,6 +39,7 @@ test("run(): throws RateLimitError once a user crosses the attempt threshold, wi
 
 test("run(): a user under the threshold is not limited", async () => {
   const db = newDb();
+  await getOrCreateUser(db, 2, 2, "en");
   await seedAttempts(db, 2, 5); // well under the limit
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response(JSON.stringify({ choices: [{ message: { content: "hi" } }] }), { status: 200 })) as typeof fetch;
@@ -51,6 +54,8 @@ test("run(): a user under the threshold is not limited", async () => {
 
 test("run(): the limit is scoped per-user, not global", async () => {
   const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en");
+  await getOrCreateUser(db, 2, 2, "en");
   await seedAttempts(db, 1, 20); // user 1 is at the limit
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response(JSON.stringify({ choices: [{ message: { content: "hi" } }] }), { status: 200 })) as typeof fetch;

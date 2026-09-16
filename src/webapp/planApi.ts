@@ -4,18 +4,20 @@
 // the client and the bot editor stay in sync. Same initData auth as every other webapp API.
 import {
   getActivePlan,
+  updateActivePlanSplit,
+} from "../adapters/d1/v2Plans";
+import { getClientForTrainer } from "../adapters/d1/v2Trainer";
+import {
   getCatalogExercise,
-  getClientForTrainer,
   getExerciseTranslation,
   getExerciseVideos,
   getUserVideos,
-  updateActivePlanSplit,
-} from "../db/repos";
+  setUserVideo,
+} from "../adapters/d1/v2Catalog";
 import { exerciseMetric, resolveWeightMode } from "../domain/progression";
 import { cleanAi } from "../locales/i18n";
 import { exerciseVideoKey, weekdayName } from "../render";
 import { parseYouTubeId } from "../youtube";
-import { setUserVideo } from "../db/repos";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env, ExerciseVideo, Lang, PlanDay, PlanExercise, UserDoc } from "../types";
@@ -105,7 +107,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
       version: plan.generatedAt.toISOString(),
       days: toView(plan.split, videos, owner.lang),
     };
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    return Response.json(payload, { headers: { "cache-control": "no-store", etag: `"${payload.version}"` } });
   }
 
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
@@ -128,8 +130,11 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
 
   const plan = await getActivePlan(env.DB, owner._id);
   if (!plan) return Response.json({ error: "no_plan" }, { status: 404 });
-  // Coarse concurrency guard: a full replan (new generatedAt) invalidates in-flight edits.
-  if (typeof body.version === "string" && body.version !== plan.generatedAt.toISOString()) {
+  // Coarse concurrency guard: a full replan (new generatedAt) invalidates in-flight edits. v2
+  // accepts the standard If-Match header; the JSON version remains for the legacy client.
+  const ifMatch = req.headers.get("if-match")?.replace(/^W\//, "").replace(/^"|"$/g, "");
+  const expectedVersion = ifMatch && ifMatch !== "*" ? ifMatch : typeof body.version === "string" ? body.version : undefined;
+  if (expectedVersion && expectedVersion !== plan.generatedAt.toISOString()) {
     return Response.json({ error: "stale" }, { status: 409 });
   }
 

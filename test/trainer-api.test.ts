@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, updateUser, createQuestion, saveTrainerTemplate, getUser } from "../src/db/repos";
+import { getOrCreateUser, updateUser, getUser } from "../src/adapters/d1/v2Users";
+import { createQuestion, saveTrainerTemplate } from "../src/adapters/d1/v2Trainer";
 import { handleTrainerApi } from "../src/webapp/trainerApi";
 import type { BankPlan, UserDoc } from "../src/types";
 
@@ -79,9 +80,9 @@ test("answering marks the question answered and stores the message", async () =>
   } finally {
     unstub();
   }
-  const rows = db.dump<{ status: string }>("SELECT status FROM client_questions WHERE id = ?", qid);
+  const rows = db.dump<{ status: string }>("SELECT status FROM v2_trainer_questions WHERE id = ?", qid);
   assert.equal(rows[0].status, "answered");
-  const msgs = db.dump<{ text: string }>("SELECT text FROM messages WHERE toId = 20");
+  const msgs = db.dump<{ text: string }>("SELECT text FROM v2_messages WHERE toAccountId = 20");
   assert.equal(msgs.length, 1);
 });
 
@@ -119,7 +120,7 @@ test("flag: toggles the client's flagged state and writes an audit row", async (
   assert.equal(res.status, 200);
   const client = (await getUser(db, 20)) as UserDoc;
   assert.equal(client.flagged, true);
-  const audit = db.dump<{ action: string }>("SELECT action FROM admin_audit WHERE actorId = 10");
+  const audit = db.dump<{ action: string }>("SELECT kind AS action FROM v2_audit_events WHERE actorId = 10");
   assert.equal(audit.length, 1);
   assert.equal(audit[0].action, "flag_client");
 });

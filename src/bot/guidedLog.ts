@@ -6,7 +6,10 @@
 // bot.ts, an unrelated concept it happened to follow.
 import { InlineKeyboard } from "grammy";
 import type { Lang, PlanDay, SetEntry, UserDoc, Weekday } from "../types";
-import { getActivePlan, getWorkoutLog, setRestTimer, updateUser, upsertWorkoutLog } from "../db/repos";
+import { setRestTimer } from "../adapters/d1/v2Admin";
+import { getWorkoutLog, upsertWorkoutLog } from "../adapters/d1/v2Workouts";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import { updateUser } from "../adapters/d1/v2Users";
 import { OB_WEEKDAY_KEYS } from "./onboarding";
 import { exerciseMetric, fmtDuration, formatSetEntry, getPlanDay, localParts, parseDistance, parseDuration } from "../domain/progression";
 import { unsavedLogCount } from "../domain/session";

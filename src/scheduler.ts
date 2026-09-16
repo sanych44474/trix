@@ -4,35 +4,54 @@ import { rollupDailyMetrics } from "./dailyMetricsRollup";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, PlanExercise, UserDoc, Weekday, WorkoutLogDoc } from "./types";
 import {
-  allBuddyPairs,
-  awardAchievement,
-  bodyLogsByUser,
-  buddyDuelHistory,
-  buddyWinCount,
-  competitorWorkoutDates,
-  recordBuddyDuel,
-  countAdjustmentWeeksSince,
-  dailyCheckinsSince,
-  findHarderExercise,
-  getCatalogExercise,
-  getDailyCheckin,
-  getExerciseTranslation,
   getOwnerChatId,
   getAlertState,
   setAlertState,
   recordError,
   errorStatsSince,
   aiUsageSince,
-  stepLogsSince,
-  listStrength,
-  listInjuriesDue,
-  markInjuryAsked,
-  getUser,
+  acquireScheduleLock,
+  releaseScheduleLock,
+  dueRestTimers,
+  deleteRestTimers,
+  pruneSeenUpdates,
+  pruneOldLogs,
+  pruneAiCache,
+  getSetting,
+  setSetting,
+  recordPlanSource,
+} from "./adapters/d1/v2Admin";
+import { pruneNotificationOutbox } from "./adapters/d1/v2Notifications";
+import { pruneIdempotencyKeys } from "./adapters/d1/v2Idempotency";
+import { listStrength, allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
+import {
+  allBuddyPairs,
+  awardAchievement,
+  buddyDuelHistory,
+  buddyWinCount,
+  competitorWorkoutDates,
+  recordBuddyDuel,
+  deleteSquad,
+  markSquadRecapped,
+  markSquadWoken,
+  squadsDueForRecap,
+  squadsNeedingWake,
+} from "./adapters/d1/v2Gamification";
+import {
+  countAdjustmentWeeksSince,
   getActivePlan,
   listActivePlans,
-  allWorkoutLogsSince,
-  listCandidatesByMuscles,
-  listClients,
+  recordAdjustment,
+  saveDraftPlan,
+  setActivePlan,
+  setProgressionRate,
+  updatePlanMesocycle,
+} from "./adapters/d1/v2Plans";
+import { listClients } from "./adapters/d1/v2Trainer";
+import { bodyLogsByUser, dailyCheckinsSince, getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked, stepLogsSince } from "./adapters/d1/v2Tracking";
+import { findHarderExercise, getCatalogExercise, getExerciseTranslation, listCandidatesByMuscles } from "./adapters/d1/v2Catalog";
+import {
+  getUser,
   listOnboardedUsers,
   listOnboardingOwedReply,
   listPlanPendingUsers,
@@ -41,28 +60,9 @@ import {
   listStuckOnboardingUsers,
   listVacationEnded,
   markComebackDone,
-  acquireScheduleLock,
-  releaseScheduleLock,
-  dueRestTimers,
-  deleteRestTimers,
-  nutritionLogsSince,
-  pruneSeenUpdates,
-  pruneOldLogs,
-  pruneAiCache,
-  pruneIdempotencyKeys,
-  pruneNotificationOutbox,
-  getSetting,
-  setSetting,
-  recordAdjustment,
-  recordPlanSource,
-  saveDraftPlan,
-  setActivePlan,
-  setProgressionRate,
-  updatePlanMesocycle,
   updateUser,
-  workoutLogsSince,
-  getWater,
-} from "./db/repos";
+} from "./adapters/d1/v2Users";
+import { nutritionLogsSince } from "./adapters/d1/v2Nutrition";
 import { resolveWaterGoal } from "./domain/challenges";
 import {
   adherenceDeloadDue,
@@ -90,7 +90,6 @@ import { wakeUserScheduler } from "./durable/userScheduler";
 import { wakeSquadScheduler } from "./durable/squadScheduler";
 import { wakeGlobalScheduler } from "./durable/globalScheduler";
 import { isCutOver } from "./durable/cutover";
-import { deleteSquad, markSquadRecapped, markSquadWoken, squadsDueForRecap, squadsNeedingWake } from "./db/repos";
 import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
 import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
 import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";

@@ -16,6 +16,7 @@ wrangler.local.toml
 
 # Generated Mini App shell (built from src/webapp by scripts/build-webapp.mjs); public/_headers is committed.
 public/app.html
+public/app-v2/
 
 # Local databases / dumps
 *.sqlite

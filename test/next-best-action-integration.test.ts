@@ -5,7 +5,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
 import { cmdStart } from "../src/bot";
-import { getOrCreateUser, recordDailyCheckin, setActivePlan, updateUser, upsertWorkoutLog } from "../src/db/repos";
+import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
+import { setActivePlan } from "../src/adapters/d1/v2Plans";
+import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
+import { recordDailyCheckin } from "../src/adapters/d1/v2Tracking";
 import type { PlanDoc, UserDoc } from "../src/types";
 
 function todayUtc(): string {

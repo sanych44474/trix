@@ -2,29 +2,27 @@
 // the competitor leaderboards (read). Each reuses the same repos/domain as the bot; same initData
 // auth. Routed at /api/challenges, /api/injuries, /api/boards.
 import {
+  getSetting,
+  recordError,
+} from "../adapters/d1/v2Admin";
+import { workoutLogsSince } from "../adapters/d1/v2Workouts";
+import {
   activeChallenges,
   awardAchievement,
-  createInjury,
   countCompletedChallenges,
   friendIds,
-  getProgressPhoto,
-  getSetting,
-  getUser,
   joinChallenge,
   markChallengeDone,
-  recordError,
-  listActiveInjuries,
-  nutritionLogsSince,
-  stepLogsSince,
-  waterLogsSince,
-  workoutLogsSince,
-} from "../db/repos";
+} from "../adapters/d1/v2Gamification";
+import { createInjury, getProgressPhoto, listActiveInjuries, stepLogsSince, waterLogsSince } from "../adapters/d1/v2Tracking";
+import { getUser } from "../adapters/d1/v2Users";
+import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { computeBoards } from "../bot";
 import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindowCounts, resolveWaterGoal } from "../domain/challenges";
 import { checkAfterDate } from "../domain/injury";
 import { localParts } from "../domain/progression";
 import { challengeMilestones, rankOf } from "../domain/records";
-import { runIdempotent } from "../db/repos/idempotency";
+import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { cachePhoto, getCachedPhoto } from "./photoStorage";

@@ -1,6 +1,10 @@
 // Accountability buddy detail: the paired partner's progress (level/XP/streak), this week's
 // workouts, and their active plan. Both users opted in by pairing, so sharing is consented.
-import { buddyDuelHistory, buddyWinCount, getActivePlan, getUser, userStatCounts, workoutLogsSince } from "../db/repos";
+import { userStatCounts } from "../adapters/d1/v2Admin";
+import { workoutLogsSince } from "../adapters/d1/v2Workouts";
+import { buddyDuelHistory, buddyWinCount } from "../adapters/d1/v2Gamification";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import { getUser } from "../adapters/d1/v2Users";
 import { currentWinStreak } from "../domain/buddyDuel";
 import { computeXp, levelFromXp } from "../domain/gamification";
 import { weekStartStr, weekStreak } from "../domain/records";

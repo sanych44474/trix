@@ -5,7 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser, setDayMeals } from "../src/db/repos";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
+import { setDayMeals } from "../src/adapters/d1/v2Nutrition";
 import { handleNutritionApi } from "../src/webapp/nutritionApi";
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -123,7 +124,7 @@ test("macros: manual edit updates the item and caches a per-100g correction when
   const body = (await res.json()) as { cached: boolean; meals: { kcal: number }[] };
   assert.equal(body.cached, true);
   assert.equal(body.meals[0].kcal, 250);
-  const cached = db.dump<{ query: string }>("SELECT query FROM food_corrections WHERE userId = 1");
+  const cached = db.dump<{ query: string }>("SELECT query FROM v2_nutrition_corrections WHERE accountId = 1");
   assert.equal(cached.length, 1);
 });
 

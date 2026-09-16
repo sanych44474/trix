@@ -17,7 +17,7 @@ test("run(): a fully-failed chain records a multi-provider trail, not just the l
     await assert.rejects(() => aiText(env, { system: "s", user: "u", kind: "coach", db }));
 
     const row = await db
-      .prepare("SELECT message FROM error_logs ORDER BY id DESC LIMIT 1")
+      .prepare("SELECT message FROM v2_error_events ORDER BY id DESC LIMIT 1")
       .first<{ message: string | null }>();
     assert.ok(row?.message, "expected an error_logs row to have been written");
     assert.match(row!.message!, /trail:/);
