@@ -30,6 +30,16 @@ import type { Env, UserDoc } from "../types";
 
 type LegacyHandler = (req: Request, url: URL, env: Env) => Promise<Response>;
 
+// Handlers that already claim the request's Idempotency-Key themselves (each calls
+// runIdempotent internally: workoutApi.ts's save, settingsApi.ts, trainerApi.ts,
+// miscApi.ts's handleInjuriesApi). forward() must NOT also wrap these in its own
+// runIdempotent -- doing so claims the SAME (accountId, key) pair twice in one request: the
+// outer claim commits first, then the inner claim's insert always collides with it (not a race,
+// deterministic every time), so the inner handler always gets "still processing" and returns
+// 409 -- the real work (e.g. saveWorkout) never runs. Confirmed live: /api/v2/workout/save was
+// 409ing on every attempt while v2_workout_sessions received zero writes.
+const SELF_IDEMPOTENT_HANDLERS = new Set<LegacyHandler>([handleWorkoutApi, handleSettingsApi, handleTrainerApi, handleInjuriesApi]);
+
 const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> = [
   { prefix: "/api/v2/workout", legacy: "/api/workout", handler: handleWorkoutApi },
   { prefix: "/api/v2/plan", legacy: "/api/plan", handler: handlePlanApi },
@@ -119,7 +129,7 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
     }
     return { status: response.status, body };
   };
-  const result = actor && idempotencyKey
+  const result = actor && idempotencyKey && !SELF_IDEMPOTENT_HANDLERS.has(handler)
     ? await runIdempotent(env.DB, actor._id, idempotencyKey, run)
     : await run();
   const body = result.body;
