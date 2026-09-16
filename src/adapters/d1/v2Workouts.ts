@@ -203,25 +203,40 @@ function toWorkoutLog(session: V2SessionRow, exercises: LoggedExercise[]): Worko
  * (sessions already fetched by the caller, then all their exercises, then all those exercises'
  * sets) rather than N+1 nested awaits per session — matters for allWorkoutLogsSince's
  * all-users-since-a-date scheduler prefetch, which can return hundreds of rows. */
+// D1 rejects a statement above a few hundred bound parameters ("too many SQL variables") --
+// hit for real once allWorkoutLogsSince (the dashboard's trainer-section bulk fetch) pulled
+// every account's sessions/exercises for a real multi-user, multi-week window. Chunking keeps
+// each IN (...) query's parameter count bounded regardless of how many ids are being looked up.
+const ID_CHUNK_SIZE = 100;
+
+async function selectByIdsInChunks<T>(
+  db: DB,
+  ids: number[],
+  buildQuery: (placeholders: string) => string,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + ID_CHUNK_SIZE);
+    const r = await db.prepare(buildQuery(chunk.map(() => "?").join(","))).bind(...chunk).all<T>();
+    out.push(...(r.results ?? []));
+  }
+  return out;
+}
+
 async function loadWorkoutLogs(db: DB, sessions: V2SessionRow[]): Promise<WorkoutLogDoc[]> {
   if (!sessions.length) return [];
   const sessionIds = sessions.map((s) => s.id);
-  const sessionPlaceholders = sessionIds.map(() => "?").join(",");
-  const exercisesR = await db
-    .prepare(`SELECT * FROM v2_workout_exercises WHERE sessionId IN (${sessionPlaceholders}) ORDER BY sessionId, position`)
-    .bind(...sessionIds)
-    .all<V2ExerciseRow>();
-  const exerciseRows = exercisesR.results ?? [];
+  const exerciseRows = await selectByIdsInChunks<V2ExerciseRow>(db, sessionIds, (placeholders) =>
+    `SELECT * FROM v2_workout_exercises WHERE sessionId IN (${placeholders}) ORDER BY sessionId, position`,
+  );
 
   const setsByExercise = new Map<number, V2SetRow[]>();
   if (exerciseRows.length) {
     const exerciseIds = exerciseRows.map((e) => e.id);
-    const exercisePlaceholders = exerciseIds.map(() => "?").join(",");
-    const setsR = await db
-      .prepare(`SELECT * FROM v2_workout_sets WHERE exerciseId IN (${exercisePlaceholders}) ORDER BY exerciseId, position`)
-      .bind(...exerciseIds)
-      .all<V2SetRow>();
-    for (const row of setsR.results ?? []) {
+    const setRows = await selectByIdsInChunks<V2SetRow>(db, exerciseIds, (placeholders) =>
+      `SELECT * FROM v2_workout_sets WHERE exerciseId IN (${placeholders}) ORDER BY exerciseId, position`,
+    );
+    for (const row of setRows) {
       const list = setsByExercise.get(row.exerciseId) ?? [];
       list.push(row);
       setsByExercise.set(row.exerciseId, list);

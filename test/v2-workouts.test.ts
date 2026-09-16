@@ -217,3 +217,31 @@ test("listStrength: ordered by bestWeight desc, respects limit", async () => {
   const limited = await listStrength(db, 70, 2);
   assert.deepEqual(limited.map((r) => r.exercise), ["B", "C"]);
 });
+
+// Regression for a real production crash: allWorkoutLogsSince (the dashboard's cross-account
+// trainer-section pull) built one SQL bound parameter per session/exercise id in a single
+// unchunked IN (...) clause -- D1 rejected the statement once a real multi-user, multi-week
+// window pushed the count past its "too many SQL variables" limit. 120 sessions across several
+// accounts, each with its own exercise, exercises the chunking (ID_CHUNK_SIZE = 100 internally)
+// without needing to know that constant here -- it just has to not throw and return everything.
+test("allWorkoutLogsSince: chunks the exercise/set lookup past D1's bound-parameter limit", async () => {
+  const db = newDb();
+  const accountIds = [201, 202, 203];
+  for (const id of accountIds) seedAccount(db, id);
+  const sessionsPerAccount = 40; // 3 accounts * 40 = 120 sessions, well past a 100-id chunk
+  for (const accountId of accountIds) {
+    for (let day = 0; day < sessionsPerAccount; day++) {
+      const date = new Date(Date.UTC(2026, 0, 1 + day)).toISOString().slice(0, 10);
+      await upsertWorkoutLog(db, accountId, date, 1 as Weekday, makeExercises(), true, undefined);
+    }
+  }
+  const logs = await allWorkoutLogsSince(db, "2026-01-01");
+  assert.equal(logs.length, accountIds.length * sessionsPerAccount);
+  // Spot-check one full log survived the chunked re-join with its exercises/sets intact, not
+  // just its session row.
+  const sample = logs.find((l) => l.userId === 202 && l.date === "2026-01-15");
+  assert.ok(sample);
+  assert.equal(sample.exercises.length, 2);
+  assert.equal(sample.exercises[0].name, "Bench Press");
+  assert.equal(sample.exercises[0].setsDone.length, 2);
+});
