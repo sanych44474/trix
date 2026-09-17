@@ -6,7 +6,7 @@
 // problem specific to these jobs. Same dry-run posture as the others: runs the real
 // runGlobalJobs (scheduler.ts) against a shadowed D1 and a logging Sender.
 import { Bot } from "grammy";
-import { runGlobalJobs, type Sender } from "../scheduler";
+import { logSchedulerError, runGlobalJobs, type Sender } from "../scheduler";
 import { isCutOver } from "./cutover";
 import { logDryRun } from "../db/repos";
 import type { Env } from "../types";
@@ -62,8 +62,12 @@ export class GlobalSchedulerDO {
     const cutOver = await isCutOver(this.env.DB, "global");
     logInfo("do_alarm_run", { doType: "global", cutOver });
     if (cutOver) {
+      // runGlobalJobs already catches each of its own sub-jobs internally (scheduler.ts), but the
+      // cron caller never wraps the outer call either -- this is defense in depth so a genuinely
+      // unexpected exception here still reaches error_logs/owner-report instead of only a raw
+      // uncaught exception in Workers Logs.
       const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
-      await runGlobalJobs(this.env.DB, bot);
+      await runGlobalJobs(this.env.DB, bot).catch((err) => logSchedulerError(this.env.DB, "global_jobs", err));
       return;
     }
 

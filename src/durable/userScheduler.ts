@@ -17,7 +17,7 @@ import { Bot } from "grammy";
 import { logDryRun } from "../db/repos";
 import { getUser } from "../adapters/d1/v2Users";
 import { isCutOver } from "./cutover";
-import { buildSinglePass, processUser, type Sender } from "../scheduler";
+import { buildSinglePass, logSchedulerError, processUser, type Sender } from "../scheduler";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
 import { logError, logInfo, runWithRequestId } from "../log";
@@ -89,9 +89,13 @@ export class UserSchedulerDO {
     const cutOver = await isCutOver(this.env.DB, "user");
     logInfo("do_alarm_run", { doType: "user", cutOver });
     if (cutOver) {
+      // Mirrors the cron path's own try/catch around processUser (scheduler.ts's per-user loop)
+      // so a real error after cutover still reaches error_logs/owner-report instead of only a
+      // raw uncaught exception in Workers Logs -- an exception thrown straight out of alarm()
+      // is invisible to the same owner-facing channel the cron path already reports through.
       const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
       const pass = await buildSinglePass(this.env.DB, userId);
-      await processUser(this.env, bot, user, pass);
+      await processUser(this.env, bot, user, pass).catch((err) => logSchedulerError(this.env.DB, "schedule_user", err, userId));
       return;
     }
 

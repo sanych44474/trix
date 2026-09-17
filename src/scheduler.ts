@@ -116,7 +116,7 @@ const HTML = { parse_mode: "HTML" as const, link_preview_options: { is_disabled:
  * that were already being console.error'd as "this needed someone's attention," so nothing about
  * the error taxonomy is invented here, only where each one goes.
  */
-function logSchedulerError(db: D1Database, kind: string, e: unknown, userId?: number): void {
+export function logSchedulerError(db: D1Database, kind: string, e: unknown, userId?: number): void {
   console.error(kind, userId, e);
   recordError(db, { userId, kind, errorType: "exception", message: String(e).slice(0, 200) }).catch(() => {});
 }

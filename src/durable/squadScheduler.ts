@@ -8,6 +8,7 @@ import { Bot } from "grammy";
 import { logDryRun } from "../db/repos";
 import { deleteSquad, getSquad, markSquadRecapped } from "../adapters/d1/v2Gamification";
 import { isCutOver } from "./cutover";
+import { logSchedulerError } from "../scheduler";
 import { postSquadDigest, type DigestWindow, type SquadApi } from "../bot/squad";
 import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
 import type { Env } from "../types";
@@ -80,10 +81,21 @@ export class SquadSchedulerDO {
     const cutOver = await isCutOver(this.env.DB, "squad");
     logInfo("do_alarm_run", { doType: "squad", cutOver });
     if (cutOver) {
-      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
-      const ok = await postSquadDigest(this.env.DB, bot.api, chatId, win);
-      await markSquadRecapped(this.env.DB, chatId, weekKey).catch(() => {});
-      if (!ok) await deleteSquad(this.env.DB, chatId).catch(() => {});
+      // Mirrors the cron path's own logSchedulerError around postSquadRecaps -- without this, an
+      // exception here would only surface as a raw uncaught exception in Workers Logs, invisible
+      // to error_logs/owner-report the way the same failure would be from the cron path.
+      try {
+        const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
+        const ok = await postSquadDigest(this.env.DB, bot.api, chatId, win);
+        await markSquadRecapped(this.env.DB, chatId, weekKey).catch(() => {});
+        if (!ok) await deleteSquad(this.env.DB, chatId).catch(() => {});
+      } catch (err) {
+        // accountId has a real FK to v2_accounts -- chatId (a Telegram group id) would violate
+        // it and be silently dropped by logSchedulerError's own .catch(). createdBy is squad
+        // creation's actual v2_accounts.id, so it both satisfies the FK and gives owner-report a
+        // real person to attribute the failure to.
+        logSchedulerError(this.env.DB, "squad_recaps", err, squad.createdBy);
+      }
       return;
     }
 
