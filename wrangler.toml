@@ -100,13 +100,9 @@ dataset = "trix_events"
 # Public worker origin — powers the Mini App dashboard buttons (/app). Leave unset in local dev
 # (wrangler dev) to enable the ?debugUser= bypass and hide the buttons.
 WORKER_URL = ""
-V2_DUAL_WRITE = "0"
 # Enabled for all users [2026-09-16] once the v2 cutover (all 10 domains) landed and was verified
 # live against production data. Legacy /app bundle stays built and served as the rollback path.
 V2_APP_ENABLED = "1"
-V2_COHORT_PERCENT = "0"
-V2_INTERNAL_USER_IDS = ""
-V2_SHADOW_READS = "0"
 # Freezes every legacy table (src/adapters/d1/legacyFreeze.ts) against writes once the v2 cutover
 # is verified live -- a stray missed call site then fails loudly instead of silently writing to a
 # schema the rest of the app has stopped reading. Off by default; flipping this is a live-prod

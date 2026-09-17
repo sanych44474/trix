@@ -11,7 +11,7 @@ exposes the role or data, but the full scenario still uses legacy routes or bot 
 |---|---|---|---|
 | Onboarding & roles | v2 integrated | React onboarding form, pending-plan state, profile/consent editor and role-aware workspace use `/api/v2/onboarding` and `/api/v2/profile` | Keep the bot wizard as a peer interface; plan generation remains an asynchronous scheduler job |
 | Training plan | v2 integrated | `Plan` screen, `/api/v2/plan`, catalog search, version check and `If-Match` support | Keep; Mini App now exposes weight/sets plus catalog/custom add/swap, delete/reorder, superset linking, personal video overrides and trainer-for-client editing; whole-day editing remains long-tail |
-| Workout logging | v2 integrated | `Train` guided logger handles reps, timed and distance metrics, offline drafts, idempotent save, exercise swaps, ad-hoc exercises, rest timer (resilient to screen-lock/backgrounding), and full editing of any already-saved session in the 14-day window, through the shared `/api/v2/workout/*` seam | Keep; a real server-push (Durable Object alarm) timer delivery is the only remaining long-tail item |
+| Workout logging | v2 integrated | `Train` guided logger handles reps, timed and distance metrics, offline drafts, idempotent save, exercise swaps, ad-hoc exercises, rest timer (resilient to screen-lock/backgrounding), and full editing of any already-saved session in the 14-day window, through the shared `/api/v2/workout/*` seam | Keep; rest-timer delivery already pushes for real (minute-cron + `v2_rest_timers`, worst-case ~60s lag) — a Durable Object alarm was considered for sub-second precision and deliberately declined, see [ADR-0002](adr/0002-no-do-rest-timer.md) |
 | Nutrition | v2 integrated | `Fuel` totals/meals, AI quick-log, food search, barcode, measured portions, recent re-add, meal-plan regeneration, grocery-list send-to-chat, and rest-day target labeling use `/api/v2/nutrition` and `/api/v2/log` | Keep; per-item meal-plan editing (swap/adjust a single planned food) and photo-of-food logging remain long-tail — no existing mutation/route to build on yet |
 | Body & activity | v2 integrated | `Progress` renders a tappable 84-day heatmap with per-day detail, measurement/e1RM line charts, a macros donut, and progress-photo upload, backed by the existing dashboard payload plus a new `/api/v2/photo` POST | Keep |
 | Gamification & social | v2 integrated | Workspace exposes buddy progress, challenges, records, badges, leaderboard read, injury reporting, quick activity logging, and a read-only squad view (`/api/v2/squads`, scoped to the caller's own membership) through `/api/v2/*` | Keep in the role-aware Connect workspace; squad creation/management stays bot-only |
@@ -27,8 +27,11 @@ exposes the role or data, but the full scenario still uses legacy routes or bot 
   other placeholder flows. Existing legacy routes remain reachable only where they already have
   backend behavior.
 - The legacy `/app` and `/api/*` surface is preserved for rollback. `/app-v2` and `/api/v2/*`
-  are the staged surface; `V2_APP_ENABLED`, `V2_DUAL_WRITE`, `V2_COHORT_PERCENT` and
-  `V2_INTERNAL_USER_IDS` control exposure and projection cohorts.
+  are the default surface for every user (`V2_APP_ENABLED=1`); `v2_*` tables are the sole
+  source of truth. The dual-write/cohort/shadow-read machinery that staged this cutover
+  (`V2_DUAL_WRITE`, `V2_COHORT_PERCENT`, `V2_INTERNAL_USER_IDS`, `V2_SHADOW_READS`) has been
+  removed now that the cutover is complete and verified — see
+  [ADR-0004](adr/0004-retire-dual-write-and-shadow-reads.md).
 - Plan edits use a resource version and reject stale changes with `409 conflict`. Workout and
   quick-log saves accept `Idempotency-Key`; repeated requests replay the stored result.
 - User deletion covers v2 account projections, trainer relationships and user-targeted audit

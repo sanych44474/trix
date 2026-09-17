@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { handleV2Api } from "../src/webapp/v2Api";
 import { isV2Failure } from "../src/contracts/v2";
-import { v2CohortEnabled } from "../src/contracts/rollout";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
@@ -71,13 +70,4 @@ test("v2 workout save is not double-claimed by forward()'s own idempotency wrap"
 
   const row = await db.prepare("SELECT id FROM v2_workout_sessions WHERE accountId = ?").bind(userId).first<{ id: number }>();
   assert.ok(row, "saveWorkout must have actually written a v2_workout_sessions row, not just returned 200");
-});
-
-test("v2 rollout uses stable percentage buckets and internal allow-list", () => {
-  const rolloutEnv = { V2_DUAL_WRITE: "0", V2_COHORT_PERCENT: "10", V2_INTERNAL_USER_IDS: "42, 99" } as Env;
-  assert.equal(v2CohortEnabled(rolloutEnv, 42), true);
-  assert.equal(v2CohortEnabled(rolloutEnv, 99), true);
-  assert.equal(v2CohortEnabled(rolloutEnv, 9), true);
-  assert.equal(v2CohortEnabled(rolloutEnv, 11), false);
-  assert.equal(v2CohortEnabled(rolloutEnv, 111), false);
 });

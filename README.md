@@ -28,11 +28,11 @@ Mini App ──fetch─────▶ Worker.fetch ──▶ /api/* (initData H
                       Worker.scheduled (cron, DB-locked) ──▶ reminders / nudges / reports
 ```
 
-The staged v2 surface adds `apps/mini-app` (React + Vite) at `/app-v2` and a versioned REST seam
-at `/api/v2/*`. Telegram and the Mini App call the same application behavior; D1 v2 projections
-are enabled with `V2_DUAL_WRITE=1` after migration 0069 parity checks. The legacy `/app` and
-`/api/*` paths stay available for rollback. See [the v2 feature audit](docs/feature-audit-v2.md)
-and [ADR-0001](docs/adr/0001-v2-seams-and-staged-cutover.md).
+`apps/mini-app` (React + Vite) at `/app-v2` and its versioned REST seam at `/api/v2/*` are the
+default surface for every user (`V2_APP_ENABLED=1`); `v2_*` D1 tables are the source of truth
+for all ten domains. The legacy `/app` and `/api/*` paths stay available and functional as the
+rollback path. See [the v2 feature audit](docs/feature-audit-v2.md) and
+[ADR-0001](docs/adr/0001-v2-seams-and-staged-cutover.md).
 
 User and onboarding state live on the user row in D1 — no KV, no external session store.
 Free-text messages are routed by `user.session.mode`; inline keyboards carry their state in
@@ -134,10 +134,7 @@ placeholder in `wrangler.toml` or a secret.
 | `BOT_ID` | no | Numeric bot id. With `BOT_USERNAME` it lets the Worker skip a `getMe` call on every webhook. |
 | `BOT_NAME` | no | Display name used in the preset `botInfo`. |
 | `WORKER_URL` | no | Public origin of the deployed Worker. Enables the Mini App buttons; leave empty in local dev to unlock the `?debugUser=` bypass. |
-| `V2_APP_ENABLED` | no | Selects the React v2 Mini App URL in bot buttons when set to `1`; legacy `/app` remains the default. |
-| `V2_COHORT_PERCENT` | no | Deterministic v2 dual-write cohort from `0` to `100`; account ids stay in the same bucket. |
-| `V2_INTERNAL_USER_IDS` | no | Comma-separated Telegram user ids included in the v2 dual-write cohort for internal validation. |
-| `V2_SHADOW_READS` | no | Logs per-account legacy/v2 count parity on v2 dashboard reads when set to `1`; it never changes the response. |
+| `V2_APP_ENABLED` | no | Selects the React v2 Mini App URL in bot buttons when set to `1` (the committed default); `0` falls back to legacy `/app`. |
 
 `account_id` is deliberately **not** committed — wrangler reads `CLOUDFLARE_ACCOUNT_ID` from
 the environment. `database_id` in `wrangler.toml` is a placeholder you replace with your own.

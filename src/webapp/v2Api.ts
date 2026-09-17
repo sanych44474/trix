@@ -17,17 +17,10 @@ import { handleCoachApi } from "./coachApi";
 import { handleBuddyApi } from "./buddyApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./miscApi";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
-import { projectNutrition, projectPlan, projectUserCore, projectWorkout } from "../adapters/d1/v2Projection";
-import { compareV2UserParity } from "../adapters/d1/v2Parity";
-import { getWorkoutLog } from "../adapters/d1/v2Workouts";
-import { getActivePlan } from "../adapters/d1/v2Plans";
-import { getDayMeals } from "../adapters/d1/v2Nutrition";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
-import { localParts } from "../domain/progression";
-import { logError, logInfo } from "../log";
+import { logError } from "../log";
 import { V2_ERROR_CODES, type V2ErrorCode, type V2Response } from "../contracts/v2";
-import { v2CohortEnabled } from "../contracts/rollout";
-import type { Env, UserDoc } from "../types";
+import type { Env } from "../types";
 
 type LegacyHandler = (req: Request, url: URL, env: Env) => Promise<Response>;
 
@@ -115,19 +108,9 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
   legacyUrl.pathname = path;
   const idempotencyKey = req.method !== "GET" ? req.headers.get("idempotency-key") : null;
   const actor = req.method !== "GET" ? await miniAppUser(req, url, env).catch(() => null) : null;
-  const dualWrite = actor ? v2CohortEnabled(env, actor._id) : false;
-  let requestBody: Record<string, unknown> | null = null;
-  if (actor && req.method !== "GET") {
-    requestBody = await req.clone().json().catch(() => null) as Record<string, unknown> | null;
-  }
   const run = async (): Promise<{ status: number; body: unknown }> => {
     const response = await handler(req, legacyUrl, env);
     const body = await jsonBody(response);
-    if (response.status < 400 && actor && dualWrite) {
-      await syncDualWrite(env, path, actor, requestBody).catch((error) => {
-        logInfo("v2_dual_write_failure", { resource: path, error: error instanceof Error ? error.message : String(error) });
-      });
-    }
     return { status: response.status, body };
   };
   const result = actor && idempotencyKey && !SELF_IDEMPOTENT_HANDLERS.has(handler)
@@ -157,43 +140,6 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
   return withMeta(body, req);
 }
 
-async function syncDualWrite(
-  env: Env,
-  path: string,
-  user: UserDoc,
-  body: Record<string, unknown> | null,
-): Promise<void> {
-  await projectUserCore(env.DB, user);
-  if (path.startsWith("/api/plan")) {
-    const plan = await getActivePlan(env.DB, user._id);
-    if (plan) await projectPlan(env.DB, plan);
-    return;
-  }
-  if (path.startsWith("/api/workout")) {
-    const requestedDate = typeof body?.date === "string" ? body.date : localParts(user.profile.timezone).date;
-    const workout = await getWorkoutLog(env.DB, user._id, requestedDate);
-    if (workout) await projectWorkout(env.DB, workout);
-    return;
-  }
-  if (path.startsWith("/api/nutrition")) {
-    const date = localParts(user.profile.timezone).date;
-    const meals = await getDayMeals(env.DB, user._id, date);
-    await projectNutrition(env.DB, { userId: user._id, date, meals, updatedAt: new Date() });
-    return;
-  }
-  if (path.startsWith("/api/log")) {
-    if (body?.kind === "food") {
-      const date = localParts(user.profile.timezone).date;
-      const meals = await getDayMeals(env.DB, user._id, date);
-      await projectNutrition(env.DB, { userId: user._id, date, meals, updatedAt: new Date() });
-    } else if (body?.kind === "workout") {
-      const date = localParts(user.profile.timezone).date;
-      const workout = await getWorkoutLog(env.DB, user._id, date);
-      if (workout) await projectWorkout(env.DB, workout);
-    }
-  }
-}
-
 function routeFor(pathname: string): { handler: LegacyHandler; legacyPath: string } | null {
   for (const route of PATHS) {
     if (!pathname.startsWith(route.prefix)) continue;
@@ -219,10 +165,6 @@ export async function handleV2Api(req: Request, url: URL, env: Env, ctx?: Execut
     }
     try {
       const payload = await createD1DashboardApplication(env.DB).getDashboard(user);
-      if (env.V2_SHADOW_READS === "1") {
-        const parity = await compareV2UserParity(env.DB, user._id).catch(() => null);
-        if (parity) logInfo("v2_shadow_parity", { ok: parity.ok, legacy: parity.legacy, v2: parity.v2 });
-      }
       return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded }, ...payload }, req);
     } catch (err) {
       logError("v2_dashboard_failed", err, { userId: user._id });
