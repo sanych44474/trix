@@ -246,7 +246,10 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }:
     {data.shared.health && <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "health_context_eyebrow")}</span><h2>{t(lang, "health_context_title")}</h2></div></div>
       {data.shared.health.limitations && <p className="muted">{data.shared.health.limitations}</p>}
-      {data.shared.health.injuries.length > 0 ? <div className="injury-list">{data.shared.health.injuries.map((injury) => <div className="record-row" key={`${injury.area}-${injury.since}`}><div><strong>{injury.area}</strong><small>{t(lang, "since_date", { date: injury.since })}</small></div><span>{injury.severity}</span></div>)}</div> : <p className="muted">{t(lang, "no_recovery_blockers")}</p>}
+      {/* clientCard.ts sends raw area/severity codes (same fixed set miscApi.ts's own injury
+          report uses) rather than localized text -- translated here so a trainer viewing a
+          client's card doesn't see "shoulder"/"mild" hardcoded in English. */}
+      {data.shared.health.injuries.length > 0 ? <div className="injury-list">{data.shared.health.injuries.map((injury) => <div className="record-row" key={`${injury.area}-${injury.since}`}><div><strong>{t(lang, `inj_area_${injury.area}` as Key)}</strong><small>{t(lang, "since_date", { date: injury.since })}</small></div><span>{t(lang, `inj_sev_${injury.severity}` as Key)}</span></div>)}</div> : <p className="muted">{t(lang, "no_recovery_blockers")}</p>}
     </Panel>}
 
     <Panel>
@@ -299,10 +302,10 @@ function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () => void 
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <Panel tone="muted">
       <div className="section-head">
-        <div><span className="eyebrow">{t(lang, form.status === "approved" ? "trainer_status_approved_title" : "trainer_status_pending_title")}</span><h2>{t(lang, "trainer_clients_count", { n: form.clients })}</h2></div>
-        <span className={form.status === "approved" ? "status-badge" : "status-badge status-attention"}>{form.status}</span>
+        <div><span className="eyebrow">{t(lang, `trainer_status_${form.status}_title` as Key)}</span><h2>{t(lang, "trainer_clients_count", { n: form.clients })}</h2></div>
+        <span className={form.status === "approved" ? "status-badge" : "status-badge status-attention"}>{t(lang, `trainer_status_badge_${form.status}` as Key)}</span>
       </div>
-      <p className="muted">{t(lang, form.status === "approved" ? "trainer_status_approved_body" : "trainer_status_pending_body")}</p>
+      <p className="muted">{t(lang, `trainer_status_${form.status}_body` as Key)}</p>
     </Panel>
     <Panel>
       <div className="form-grid">

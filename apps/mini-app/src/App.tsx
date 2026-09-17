@@ -47,6 +47,11 @@ function ErrorState({ lang, error, retry }: { lang: Lang; error: unknown; retry:
 const recoveryLabel = (lang: Lang, label: RecoveryLabel) => t(lang, `recovery_label_${label}` as Key);
 const recoveryFactor = (lang: Lang, factor: RecoveryFactor) => t(lang, `recovery_factor_${factor.code}` as Key, { n: factor.count ?? 0 });
 
+// PlanView's exercise.wmode is a stable code ("total"|"perSide"|"perHand", planApi.ts) rendered
+// straight into a sentence -- same class of bug as the recovery/volume codes above.
+const wmodeLabel = (lang: Lang, wmode: "total" | "perSide" | "perHand") =>
+  t(lang, wmode === "perSide" ? "wmode_persidem" : wmode === "perHand" ? "wmode_perhandm" : "wmode_total");
+
 function TodayView({ dashboard, lang, onOpen }: { dashboard: Dashboard; lang: Lang; onOpen: (view: View) => void }) {
   const stats = dashboard.todayStats;
   const recovery = dashboard.recovery;
@@ -181,7 +186,7 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
             <span className="exercise-index">{String(exercise.index + 1).padStart(2, "0")}</span>
             <div>
               <div className="plan-exercise-title"><strong>{exercise.name}</strong>{exercise.ssGroup && <span className="tag">{t(lang, "plan_superset_label", { group: exercise.ssGroup })}</span>}</div>
-              <small>{exercise.sets} · {exercise.startWeight}{exercise.wmode && ` · ${exercise.wmode}`}</small>
+              <small>{exercise.sets} · {exercise.startWeight}{exercise.wmode && ` · ${wmodeLabel(lang, exercise.wmode)}`}</small>
               {(exercise.technique || exercise.videoUrl) && <div className="plan-reference"><span>{exercise.technique ? `${t(lang, "plan_technique_label")}: ${exercise.technique}` : ""}</span>{exercise.videoUrl && <a href={exercise.videoUrl} target="_blank" rel="noreferrer">{exercise.videoTitle || t(lang, "plan_video_label")}</a>}</div>}
               <div className="plan-edit-fields">
                 <input aria-label={t(lang, "weight_field_aria", { name: exercise.name })} value={drafts[weightKey] ?? exercise.startWeight} onChange={(event) => setDrafts((current) => ({ ...current, [weightKey]: event.target.value }))} />
@@ -571,7 +576,7 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
     {trainerApp !== undefined && (trainerApp !== null || role === "solo") && <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "become_trainer_eyebrow")}</span><h2>{trainerApp ? t(lang, "trainer_profile_edit_title") : t(lang, "become_trainer_title")}</h2></div>{trainerApp && <span className="tag">{t(lang, "trainer_clients_count", { n: trainerApp.clients })}</span>}</div>
       {becomeSent && !trainerApp ? <p className="muted">{t(lang, "become_trainer_pending_note")}</p> : <>
-        {trainerApp ? <p className="muted"><strong>{t(lang, trainerApp.status === "approved" ? "trainer_status_approved_title" : "trainer_status_pending_title")}</strong> — {t(lang, trainerApp.status === "approved" ? "trainer_status_approved_body" : "trainer_status_pending_body")}</p> : <p className="muted">{t(lang, "become_trainer_detail")}</p>}
+        {trainerApp ? <p className="muted"><strong>{t(lang, `trainer_status_${trainerApp.status}_title` as Key)}</strong> — {t(lang, `trainer_status_${trainerApp.status}_body` as Key)}</p> : <p className="muted">{t(lang, "become_trainer_detail")}</p>}
         <div className="form-grid">
           <label className="form-field"><span>{t(lang, "field_name")}</span><input value={becomeName} maxLength={60} onChange={(event) => setBecomeName(event.target.value)} /></label>
           <label className="form-field"><span>{t(lang, "field_specialization")}</span><input value={becomeSpecialization} maxLength={120} onChange={(event) => setBecomeSpecialization(event.target.value)} /></label>

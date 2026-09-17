@@ -18,6 +18,10 @@ export interface TrainerApplication {
   clients: number;
 }
 
+// Mirrors src/domain/analysis.ts / src/domain/progression.ts -- codes, not prose.
+export type MuscleGroup = "legs" | "back" | "chest" | "shoulders" | "arms" | "core";
+export type VolumeZone = "below" | "optimal" | "above";
+
 // Mirrors src/domain/recovery.ts -- codes, not prose, so the UI renders them in the viewer's language.
 export type RecoveryLabel = "great" | "good" | "fair" | "poor";
 export type RecoveryFactorCode = "volume_above" | "cardio_above" | "low_energy" | "high_stress" | "poor_sleep" | "grinding_rpe";
@@ -30,8 +34,8 @@ export interface Dashboard {
   name?: string;
   weight: { points: { date: string; kg: number }[]; goal?: number; projection?: { slopePerWeek: number; etaWeeks?: number; onTrack: boolean; reached: boolean } };
   calendar: { days: { date: string; s: "done" | "missed" | "rest" }[]; split: { weekday: number; group: string; n: number }[]; logs: { date: string; done: boolean; ex: { n: string; s: number }[] }[] };
-  volume: { group: string; sets: number; mev: number; mav: number; zone: string }[];
-  conditioning: { sessions: number; minutes: number; meters: number; zone: string };
+  volume: { group: MuscleGroup; sets: number; mev: number; mav: number; zone: VolumeZone }[];
+  conditioning: { sessions: number; minutes: number; meters: number; zone: VolumeZone };
   recovery: { score: number; label: RecoveryLabel; factors: RecoveryFactor[] };
   measurements?: { key: string; points: { date: string; v: number }[] }[];
   exercises: { name: string; group: string; points: { date: string; e1rm: number }[] }[];

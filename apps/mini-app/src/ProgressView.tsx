@@ -1,7 +1,13 @@
 import { useMemo, useRef, useState } from "react";
 import { api, ApiError, jsonBody } from "./api";
-import type { Dashboard, WorkoutToday } from "./types";
+import type { Dashboard, MuscleGroup, VolumeZone, WorkoutToday } from "./types";
 import { t, type Key, type Lang } from "./i18n";
+
+// dashboard.volume/conditioning send stable codes (src/domain/analysis.ts), never prose -- the
+// raw group/zone strings were being interpolated straight into an otherwise-localized sentence
+// ("19 підходів · optimal"), which is why the weekly-volume card mixed languages.
+const muscleGroupLabel = (lang: Lang, group: MuscleGroup) => t(lang, `mg_${group}` as Key);
+const zoneLabel = (lang: Lang, zone: VolumeZone) => t(lang, `zone_${zone}` as Key);
 
 // ---- Small view-local UI primitives -- duplicated from App.tsx rather than imported, matching
 // this app's convention of no cross-file context/helpers for small view-local concerns (see
@@ -180,7 +186,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
     <div className="metric-grid">
       <Metric label={t(lang, "metric_current_weight")} value={latest ? `${formatNumber(latest.kg)} kg` : "—"} detail={dashboard.weight.goal ? t(lang, "goal_kg", { n: formatNumber(dashboard.weight.goal) }) : t(lang, "add_weighin")} />
       <Metric label={t(lang, "metric_recovery")} value={`${dashboard.recovery.score}`} detail={dashboard.recovery.label} />
-      <Metric label={t(lang, "metric_conditioning")} value={t(lang, "min_value", { n: dashboard.conditioning.minutes })} detail={t(lang, "zone_load", { zone: dashboard.conditioning.zone })} />
+      <Metric label={t(lang, "metric_conditioning")} value={t(lang, "min_value", { n: dashboard.conditioning.minutes })} detail={t(lang, "zone_load", { zone: zoneLabel(lang, dashboard.conditioning.zone) })} />
     </div>
 
     <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "weight_trend_eyebrow")}</span><h2>{dashboard.weight.projection?.reached ? t(lang, "goal_reached") : dashboard.weight.projection?.onTrack ? t(lang, "on_track") : t(lang, "keep_observing")}</h2></div></div>{dashboard.weight.points.length > 1 ? <div className="sparkline">{dashboard.weight.points.map((point, index) => <span key={point.date} style={{ left: `${(index / (dashboard.weight.points.length - 1)) * 100}%`, bottom: `${Math.max(4, Math.min(92, ((point.kg - (first?.kg ?? point.kg) + 5) / 10) * 100))}%` }} title={`${point.date}: ${point.kg} kg`} />)}</div> : <Empty title={t(lang, "build_baseline_title")} detail={t(lang, "build_baseline_detail")} />}</Card>
@@ -259,6 +265,6 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
       {photoNotice && <div className="save-note">{photoNotice}</div>}
     </Card>
 
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "weekly_volume_eyebrow")}</span><h2>{t(lang, "strength_load_title")}</h2></div><button className="text-button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>{t(lang, "top_btn")}</button></div>{dashboard.volume.length ? <div className="volume-list">{dashboard.volume.map((item) => <div className="volume-row" key={item.group}><div><strong>{item.group}</strong><small>{t(lang, "volume_row_detail", { n: item.sets, zone: item.zone })}</small></div><div className="bar"><span style={{ width: `${Math.min(100, (item.sets / Math.max(item.mav, 1)) * 100)}%` }} /></div></div>)}</div> : <Empty title={t(lang, "no_volume_title")} detail={t(lang, "no_volume_detail")} />}</Card>
+    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "weekly_volume_eyebrow")}</span><h2>{t(lang, "strength_load_title")}</h2></div><button className="text-button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>{t(lang, "top_btn")}</button></div>{dashboard.volume.length ? <div className="volume-list">{dashboard.volume.map((item) => <div className="volume-row" key={item.group}><div><strong>{muscleGroupLabel(lang, item.group)}</strong><small>{t(lang, "volume_row_detail", { n: item.sets, zone: zoneLabel(lang, item.zone) })}</small></div><div className="bar"><span style={{ width: `${Math.min(100, (item.sets / Math.max(item.mav, 1)) * 100)}%` }} /></div></div>)}</div> : <Empty title={t(lang, "no_volume_title")} detail={t(lang, "no_volume_detail")} />}</Card>
   </div>;
 }
