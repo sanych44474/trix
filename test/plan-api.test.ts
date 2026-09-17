@@ -91,3 +91,39 @@ test("plan editor: catalog search and add/move/link/swap/video/delete round-trip
   await edit({ weekday: 1, index: 2, action: "del", expectName: current.days[0].exercises[2].name });
   assert.equal(current.days[0].exercises.length, 2);
 });
+
+test("plan mesocycle: GET reflects null until started, POST toggles it, and it needs no weekday/index", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await setActivePlan(db, plan(1));
+
+  const before = await (await call(db, 1, "GET", "/api/plan")).json() as { mesocycle: unknown };
+  assert.equal(before.mesocycle, null);
+
+  const started = await call(db, 1, "POST", "/api/plan", { action: "meso", on: true });
+  assert.equal(started.status, 200);
+  assert.deepEqual(await started.json(), { ok: true });
+
+  const after = await (await call(db, 1, "GET", "/api/plan")).json() as { mesocycle: { phase: string; weekInBlock: number; blockLength: number } };
+  assert.deepEqual(after.mesocycle, { phase: "hypertrophy", weekInBlock: 1, blockLength: 4 });
+
+  const stopped = await call(db, 1, "POST", "/api/plan", { action: "meso", on: false });
+  assert.equal(stopped.status, 200);
+  const cleared = await (await call(db, 1, "GET", "/api/plan")).json() as { mesocycle: unknown };
+  assert.equal(cleared.mesocycle, null);
+});
+
+test("plan mesocycle: a trainer can toggle it for a client via clientId, scoped correctly", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 10, 10, "en", "Coach");
+  const { updateUser } = await import("../src/adapters/d1/v2Users");
+  await updateUser(db, 10, { role: "trainer" });
+  await getOrCreateUser(db, 11, 11, "en", "Client");
+  await updateUser(db, 11, { role: "client", trainerId: 10 });
+  await setActivePlan(db, plan(11));
+
+  const res = await call(db, 10, "POST", "/api/plan", { action: "meso", on: true, clientId: 11 });
+  assert.equal(res.status, 200);
+  const clientPlan = await (await call(db, 11, "GET", "/api/plan")).json() as { mesocycle: { phase: string } | null };
+  assert.equal(clientPlan.mesocycle?.phase, "hypertrophy");
+});

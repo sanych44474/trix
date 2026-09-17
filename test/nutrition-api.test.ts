@@ -221,3 +221,89 @@ test("nutrition barcode: rejects anything that isn't 8-14 digits, without callin
     globalThis.fetch = realFetch;
   }
 });
+
+test("mealplan_item_scale: scales one item's macros/grams and recomputes the meal's own totals", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await saveMealPlan(db, {
+    userId: 1,
+    week: 0,
+    days: [{ label: "Day 1", meals: [
+      { name: "Breakfast", items: [
+        { food: "Oats", grams: 80, kcal: 300, protein: 10, fats: 6, carbs: 50 },
+        { food: "Banana", grams: 100, kcal: 90, protein: 1, fats: 0, carbs: 23 },
+      ], kcal: 390, protein: 11, fats: 6, carbs: 73 },
+    ] }],
+    targets: { calories: 2000, protein: 120, fats: 70, carbs: 220 },
+    generatedAt: new Date(),
+  });
+
+  const res = await call(db, 1, "POST", "/api/nutrition", { action: "mealplan_item_scale", dayIndex: 0, mealIndex: 0, itemIndex: 0, factor: 1.5 });
+  assert.equal(res.status, 200);
+  const body = await res.json() as { days: Array<{ meals: Array<{ kcal: number; items: Array<{ food: string; grams: number; kcal: number }> }> }> };
+  const meal = body.days[0].meals[0];
+  assert.deepEqual(meal.items[0], { food: "Oats", grams: 120, kcal: 450, protein: 15, fats: 9, carbs: 75 });
+  assert.equal(meal.items[1].grams, 100, "the untouched item must be unaffected");
+  // Meal-level totals must be recomputed from the new item set, not left stale.
+  assert.equal(meal.kcal, 450 + 90);
+});
+
+test("mealplan_item_grams: rescales to an exact gram amount via the same factor math", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await saveMealPlan(db, {
+    userId: 1,
+    week: 0,
+    days: [{ label: "Day 1", meals: [
+      { name: "Breakfast", items: [{ food: "Oats", grams: 80, kcal: 300, protein: 10, fats: 6, carbs: 50 }], kcal: 300, protein: 10, fats: 6, carbs: 50 },
+    ] }],
+    targets: { calories: 2000, protein: 120, fats: 70, carbs: 220 },
+    generatedAt: new Date(),
+  });
+  const res = await call(db, 1, "POST", "/api/nutrition", { action: "mealplan_item_grams", dayIndex: 0, mealIndex: 0, itemIndex: 0, grams: 40 });
+  assert.equal(res.status, 200);
+  const body = await res.json() as { days: Array<{ meals: Array<{ items: Array<{ grams: number; kcal: number }> }> }> };
+  assert.deepEqual(body.days[0].meals[0].items[0], { food: "Oats", grams: 40, kcal: 150, protein: 5, fats: 3, carbs: 25 });
+});
+
+test("mealplan_item_del: removes one item but refuses to empty a meal entirely", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await saveMealPlan(db, {
+    userId: 1,
+    week: 0,
+    days: [{ label: "Day 1", meals: [
+      { name: "Breakfast", items: [{ food: "Oats", grams: 80, kcal: 300, protein: 10, fats: 6, carbs: 50 }, { food: "Banana", grams: 100, kcal: 90, protein: 1, fats: 0, carbs: 23 }], kcal: 390, protein: 11, fats: 6, carbs: 73 },
+    ] }],
+    targets: { calories: 2000, protein: 120, fats: 70, carbs: 220 },
+    generatedAt: new Date(),
+  });
+  const ok = await call(db, 1, "POST", "/api/nutrition", { action: "mealplan_item_del", dayIndex: 0, mealIndex: 0, itemIndex: 0 });
+  assert.equal(ok.status, 200);
+  const afterFirst = await ok.json() as { days: Array<{ meals: Array<{ items: unknown[] }> }> };
+  assert.equal(afterFirst.days[0].meals[0].items.length, 1);
+
+  const last = await call(db, 1, "POST", "/api/nutrition", { action: "mealplan_item_del", dayIndex: 0, mealIndex: 0, itemIndex: 0 });
+  assert.equal(last.status, 400, "deleting the only remaining item in a meal must be refused, not leave an empty meal");
+});
+
+test("mealplan item actions: out-of-range indices are rejected, not thrown", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await saveMealPlan(db, {
+    userId: 1,
+    week: 0,
+    days: [{ label: "Day 1", meals: [{ name: "Breakfast", items: [{ food: "Oats", grams: 80, kcal: 300, protein: 10, fats: 6, carbs: 50 }], kcal: 300, protein: 10, fats: 6, carbs: 50 }] }],
+    targets: { calories: 2000, protein: 120, fats: 70, carbs: 220 },
+    generatedAt: new Date(),
+  });
+  const res = await call(db, 1, "POST", "/api/nutrition", { action: "mealplan_item_scale", dayIndex: 9, mealIndex: 0, itemIndex: 0, factor: 1.5 });
+  assert.equal(res.status, 400);
+});
+
+test("mealplan item actions: 404 when the caller has no meal plan at all", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const res = await call(db, 1, "POST", "/api/nutrition", { action: "mealplan_item_del", dayIndex: 0, mealIndex: 0, itemIndex: 0 });
+  assert.equal(res.status, 404);
+});

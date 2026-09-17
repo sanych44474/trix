@@ -3,7 +3,7 @@
 // stays in the bot (media). Same initData auth as every webapp API.
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getDayMeals, getMealPlan, getRecentFoods, saveMealPlan, setDayMeals, putUserFoodCorrection } from "../adapters/d1/v2Nutrition";
-import { computeTargets, per100gCorrectionFrom, scaleMealEntry } from "../domain/mealplan";
+import { computeTargets, per100gCorrectionFrom, scaleMealEntry, sumItems } from "../domain/mealplan";
 import { groceryList } from "../domain/groceryList";
 import { localParts } from "../domain/progression";
 import { generateMealDayFor } from "../bot/router";
@@ -117,6 +117,40 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     await saveMealPlan(env.DB, doc);
     logInfo("mealplan_regenerated", { method: "miniapp" });
     return Response.json({ ok: true, days: doc.days }, { headers: { "cache-control": "no-store" } });
+  }
+
+  // Point edit of a single food item inside the stored meal-plan template (mealPlan.days[].
+  // meals[].items[]) -- distinct from the "macros"/"del"/"scale"/"grams" actions further below,
+  // which operate on the day's LOGGED meals (getDayMeals/setDayMeals). One owner, no concurrent
+  // editors (unlike the trainer-shared workout Plan), so a direct overwrite by index is safe --
+  // no version/If-Match guard needed.
+  if (action === "mealplan_item_del" || action === "mealplan_item_scale" || action === "mealplan_item_grams") {
+    const mp = await getMealPlan(env.DB, user._id, 0).catch(() => null);
+    if (!mp) return Response.json({ error: "not found" }, { status: 404 });
+    const dayIndex = Number(body.dayIndex);
+    const mealIndex = Number(body.mealIndex);
+    const itemIndex = Number(body.itemIndex);
+    const day = mp.days[dayIndex];
+    const meal = day?.meals[mealIndex];
+    const item = meal?.items[itemIndex];
+    if (!day || !meal || !item) return Response.json({ error: "bad request" }, { status: 400 });
+
+    if (action === "mealplan_item_del") {
+      if (meal.items.length <= 1) return Response.json({ error: "last" }, { status: 400 });
+      meal.items.splice(itemIndex, 1);
+    } else if (action === "mealplan_item_scale") {
+      const f = Number(body.factor);
+      if (![0.5, 1.5, 2].includes(f)) return Response.json({ error: "bad request" }, { status: 400 });
+      meal.items[itemIndex] = scaleMealEntry(item, f);
+    } else {
+      const g = Number(body.grams);
+      if (!Number.isFinite(g) || g <= 0 || g > 5000 || item.grams <= 0) return Response.json({ error: "bad request" }, { status: 400 });
+      meal.items[itemIndex] = scaleMealEntry(item, g / item.grams);
+    }
+    const sums = sumItems(meal.items);
+    meal.kcal = sums.kcal; meal.protein = sums.protein; meal.fats = sums.fats; meal.carbs = sums.carbs;
+    await saveMealPlan(env.DB, mp);
+    return Response.json({ ok: true, days: mp.days }, { headers: { "cache-control": "no-store" } });
   }
 
   // Robust per-100g extraction across Open Food Facts field variants: kcal may live in

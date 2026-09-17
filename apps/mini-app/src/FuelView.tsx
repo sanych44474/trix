@@ -69,6 +69,20 @@ export function FuelView({ lang }: { lang: Lang }) {
       setRegenNote(true);
     } catch (err) { setActionError(err); } finally { setRegenBusy(false); }
   };
+  // Point edit of one item inside the meal-plan template -- separate from mutateMeal above,
+  // which edits the day's LOGGED meals. dayIndex/mealIndex/itemIndex address the nested
+  // day -> meal -> items shape (mealPlan.days[].meals[].items[]).
+  const [planEditing, setPlanEditing] = useState<{ dayIndex: number; mealIndex: number; itemIndex: number } | null>(null);
+  const [planGrams, setPlanGrams] = useState("");
+  const mutateMealPlanItem = async (action: "mealplan_item_scale" | "mealplan_item_grams" | "mealplan_item_del", extra: Record<string, unknown> = {}) => {
+    if (!planEditing) return;
+    setSaving(true);
+    try {
+      const result = await api<{ days: MealPlanDays }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action, ...planEditing, ...extra }) });
+      setNutrition((current) => current ? { ...current, mealPlan: { days: result.days } } : current);
+      setPlanEditing(null);
+    } catch (err) { setActionError(err); } finally { setSaving(false); }
+  };
   // Push the grocery checklist to the viewer's own Telegram chat -- same delivery pattern as the
   // week-card / photo-compare exports in ExtrasView (the webview can't offer a file download).
   const sendGrocery = async () => {
@@ -95,7 +109,26 @@ export function FuelView({ lang }: { lang: Lang }) {
       <Card>
         <div className="section-head"><div><span className="eyebrow">{t(lang, "meal_plan_eyebrow")}</span><h2>{t(lang, "use_plan_compass_title")}</h2></div><span className="tag">{nutrition.mealPlan.days.length}</span></div>
         <p className="muted">{t(lang, "meal_plan_detail", { n: nutrition.mealPlan.days.length })}</p>
-        <div className="meal-plan-list">{nutrition.mealPlan.days.map((day) => <div className="meal-plan-day" key={day.label}><strong>{day.label}</strong>{day.meals.map((meal) => <div className="plan-row" key={meal.name}><span>{meal.name}</span><small>{meal.items.map((item) => `${item.food} ${item.grams}g`).join(", ")}</small></div>)}</div>)}</div>
+        <div className="meal-plan-list">{nutrition.mealPlan.days.map((day, dayIndex) => <div className="meal-plan-day" key={day.label}><strong>{day.label}</strong>{day.meals.map((meal, mealIndex) => <div key={meal.name}>
+          <span className="meal-plan-name">{meal.name}</span>
+          {meal.items.map((item, itemIndex) => {
+            const editKey = { dayIndex, mealIndex, itemIndex };
+            const isEditing = planEditing && planEditing.dayIndex === dayIndex && planEditing.mealIndex === mealIndex && planEditing.itemIndex === itemIndex;
+            return <div className="plan-row" key={item.food}>
+              <button className="text-button" onClick={() => { setPlanEditing(isEditing ? null : editKey); setPlanGrams(String(item.grams)); }}>{item.food} {item.grams}g</button>
+              {isEditing && <div className="meal-editor">
+                <div className="button-row">
+                  {[0.5, 1.5, 2].map((f) => <button className="button button-ghost" key={f} disabled={saving} onClick={() => void mutateMealPlanItem("mealplan_item_scale", { factor: f })}>×{f}</button>)}
+                </div>
+                <div className="input-row">
+                  <input value={planGrams} inputMode="numeric" onChange={(event) => setPlanGrams(event.target.value)} />
+                  <button className="button button-ghost" disabled={saving || !planGrams} onClick={() => void mutateMealPlanItem("mealplan_item_grams", { grams: Number(planGrams) })}>{t(lang, "save_btn")}</button>
+                  <button className="text-button danger-button" disabled={saving} onClick={() => void mutateMealPlanItem("mealplan_item_del")}>{t(lang, "delete_btn")}</button>
+                </div>
+              </div>}
+            </div>;
+          })}
+        </div>)}</div>)}</div>
         <div className="button-row" style={{ marginTop: 10 }}>
           <button className="button button-ghost" disabled={regenBusy} onClick={() => void regenerateMealPlan()}>{regenBusy ? t(lang, "saving_ellipsis") : t(lang, "mealplan_regenerate_btn")}</button>
         </div>

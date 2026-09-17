@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, jsonBody } from "./api";
-import type { Dashboard, LibraryProgram, LibraryResponse, Plan, PlatesResponse, ProfilePhoto, RecoveryFactor, RecoveryLabel, SquadInfo, TrainerApplication, WeekCardResponse } from "./types";
+import type { Dashboard, LibraryProgram, LibraryResponse, MesoPhase, Plan, PlatesResponse, ProfilePhoto, RecoveryFactor, RecoveryLabel, SquadInfo, TrainerProfile, WeekCardResponse } from "./types";
 import { guessLang, t, type Key, type Lang } from "./i18n";
 import { WorkspaceView } from "./Workspace";
 import { OnboardingView } from "./Onboarding";
@@ -51,6 +51,18 @@ const recoveryFactor = (lang: Lang, factor: RecoveryFactor) => t(lang, `recovery
 // straight into a sentence -- same class of bug as the recovery/volume codes above.
 const wmodeLabel = (lang: Lang, wmode: "total" | "perSide" | "perHand") =>
   t(lang, wmode === "perSide" ? "wmode_persidem" : wmode === "perHand" ? "wmode_perhandm" : "wmode_total");
+
+// Mirrors src/domain/mesocycle.ts's phaseGuidance() -- rep range/intensity notation is
+// non-linguistic (numbers, "RPE"), so it's duplicated here rather than round-tripped through the
+// backend, matching this app's convention of small view-local presentation helpers.
+function mesoGuidance(phase: MesoPhase): { reps: string; intensity: string } {
+  switch (phase) {
+    case "hypertrophy": return { reps: "8–12", intensity: "RPE 7–8" };
+    case "strength": return { reps: "3–6", intensity: "RPE 8–9" };
+    case "peak": return { reps: "1–3", intensity: "RPE 9–10" };
+    case "deload": return { reps: "8–10", intensity: "RPE 5–6" };
+  }
+}
 
 function TodayView({ dashboard, lang, onOpen }: { dashboard: Dashboard; lang: Lang; onOpen: (view: View) => void }) {
   const stats = dashboard.todayStats;
@@ -147,6 +159,21 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
     }
   };
 
+  const [mesoBusy, setMesoBusy] = useState(false);
+  const toggleMeso = async (on: boolean) => {
+    if (!plan) return;
+    setMesoBusy(true); setActionError(null);
+    try {
+      await api("/api/v2/plan", {
+        method: "POST",
+        headers: { "If-Match": `"${plan.version}"` },
+        idempotencyKey: crypto.randomUUID(),
+        body: jsonBody({ action: "meso", on, ...(clientId ? { clientId } : {}) }),
+      });
+      load();
+    } catch (err) { setActionError(err); } finally { setMesoBusy(false); }
+  };
+
   const searchCatalog = async (key: string, query: string) => {
     if (query.trim().length < 2) return;
     setCatalogBusy(key);
@@ -168,6 +195,16 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
     <div className="eyebrow">{t(lang, "plan_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "plan_owner_title", { name: plan.owner.name })}</h1><span>{t(lang, "days_count", { n: plan.days.length })}</span></div>
     {onBack && <button className="text-button" onClick={onBack}>← {t(lang, "nav_role")}</button>}
+    <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "meso_eyebrow")}</span><h2>{plan.mesocycle ? t(lang, `meso_phase_${plan.mesocycle.phase}` as Key) : t(lang, "meso_start_btn")}</h2></div>{plan.mesocycle && <span className="tag">{t(lang, "meso_week", { n: plan.mesocycle.weekInBlock, total: plan.mesocycle.blockLength })}</span>}</div>
+      {plan.mesocycle ? <>
+        <p className="muted">{t(lang, "meso_target_line", mesoGuidance(plan.mesocycle.phase))}</p>
+        <div className="button-row"><button className="button button-ghost" disabled={mesoBusy} onClick={() => void toggleMeso(false)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_stop_btn")}</button></div>
+      </> : <>
+        <p className="muted">{t(lang, "meso_intro")}</p>
+        <div className="button-row"><button className="button button-primary" disabled={mesoBusy} onClick={() => void toggleMeso(true)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_start_btn")}</button></div>
+      </>}
+    </Card>
     <p className="muted">{t(lang, "plan_editor_hint")}</p>
     {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
     {saved && <div className="save-note">{t(lang, "plan_updated")}</div>}
@@ -375,11 +412,19 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
     } catch (err) { setWeekError(err); } finally { setWeekBusy(false); }
   };
 
-  // photo compare
+  // photo compare + invite (both ride the same /api/v2/profile GET this view already fetches
+  // for photos -- self-scoped, unlike /api/v2/weekcard's clientId-delegatable response, which is
+  // why the referral link lives here and not on the week-card fetch).
   const [photos, setPhotos] = useState<ProfilePhoto[] | null>(null);
   const [photosError, setPhotosError] = useState<unknown>(null);
-  const loadPhotos = () => { setPhotosError(null); api<{ photos: ProfilePhoto[] }>("/api/v2/profile").then((data) => setPhotos(data.photos)).catch(setPhotosError); };
+  const [referral, setReferral] = useState<{ referralLink: string; referredCount: number } | null>(null);
+  const loadPhotos = () => { setPhotosError(null); api<{ photos: ProfilePhoto[]; referralLink: string; referredCount: number }>("/api/v2/profile").then((data) => { setPhotos(data.photos); setReferral({ referralLink: data.referralLink, referredCount: data.referredCount }); }).catch(setPhotosError); };
   useEffect(loadPhotos, []);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const copyInviteLink = () => {
+    if (!referral?.referralLink) return;
+    navigator.clipboard?.writeText(referral.referralLink).then(() => { setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2500); }).catch(() => {});
+  };
   const [fromId, setFromId] = useState<number | null>(null);
   const [toId, setToId] = useState<number | null>(null);
   const [compareBusy, setCompareBusy] = useState(false);
@@ -454,7 +499,7 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
   // already, so a solo user applying for the first time could never reach it. The same GET also
   // tells an applicant where they stand: without it, a pending application looked identical to
   // never having applied (the form just reappeared blank on every open).
-  const [trainerApp, setTrainerApp] = useState<TrainerApplication | null | undefined>(undefined);
+  const [trainerApp, setTrainerApp] = useState<TrainerProfile | null | undefined>(undefined);
   const [becomeName, setBecomeName] = useState("");
   const [becomeSpecialization, setBecomeSpecialization] = useState("");
   const [becomeCity, setBecomeCity] = useState("");
@@ -464,7 +509,7 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
   const [becomeSent, setBecomeSent] = useState(false);
   const [becomeError, setBecomeError] = useState<unknown>(null);
   const loadTrainerApp = () => {
-    api<{ trainer: TrainerApplication | null }>("/api/v2/trainer/profile").then((data) => {
+    api<{ trainer: TrainerProfile | null }>("/api/v2/trainer/profile").then((data) => {
       setTrainerApp(data.trainer);
       if (!data.trainer) return;
       setBecomeName(data.trainer.name); setBecomeSpecialization(data.trainer.specialization);
@@ -518,6 +563,14 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
         </div>
         {weekCanvasUrl && <img src={weekCanvasUrl} alt="" style={{ marginTop: 10, width: "100%", borderRadius: 12 }} />}
         {weekSent && <div className="save-note">{t(lang, "weekcard_sent_note")}</div>}
+      </>}
+    </Card>
+
+    <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "invite_eyebrow")}</span><h2>{t(lang, "invite_title")}</h2></div>{referral && referral.referredCount > 0 && <span className="tag">{t(lang, "invite_count", { n: referral.referredCount })}</span>}</div>
+      {!referral ? <div className="skeleton" /> : !referral.referralLink ? null : <>
+        <p className="muted">{t(lang, "invite_detail")}</p>
+        <div className="input-row"><input readOnly value={referral.referralLink} onFocus={(event) => event.target.select()} /><button className="button button-primary" onClick={copyInviteLink}>{inviteCopied ? t(lang, "invite_copied_note") : t(lang, "invite_copy_btn")}</button></div>
       </>}
     </Card>
 

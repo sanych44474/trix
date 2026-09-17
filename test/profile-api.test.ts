@@ -131,3 +131,39 @@ test("handleOnboardingApi: an already-onboarded user is refused", async () => {
   });
   assert.equal(res.status, 400);
 });
+
+test("handleProfileApi: GET includes a self-scoped referral link and a one-directional invite count", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Coach");
+  const invitee = await getOrCreateUser(db, 2, 2, "en", "Invitee");
+  // Real callers (src/bot.ts's cmdStart) spread the existing profile before adding
+  // referredBy -- updateUser's profile patch REPLACES the whole JSON column, not merges it.
+  await updateUser(db, 2, { profile: { ...invitee.profile, referredBy: 1 } });
+  const res = await handleProfileApi(
+    new Request("https://x/api/profile?debugUser=1"),
+    new URL("https://x/api/profile?debugUser=1"),
+    { DB: db, TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "hack_limits_bot" },
+  );
+  const body = (await res.json()) as { referralLink: string; referredCount: number };
+  assert.equal(res.status, 200);
+  assert.equal(body.referralLink, "https://t.me/hack_limits_bot?start=ref_1");
+  assert.equal(body.referredCount, 1);
+
+  // The direction matters: the INVITEE's own referral count must be 0, not 1 -- countReferrals
+  // must not reuse friendIds()'s bidirectional semantics.
+  const inviteeRes = await handleProfileApi(
+    new Request("https://x/api/profile?debugUser=2"),
+    new URL("https://x/api/profile?debugUser=2"),
+    { DB: db, TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "hack_limits_bot" },
+  );
+  const inviteeBody = (await inviteeRes.json()) as { referredCount: number };
+  assert.equal(inviteeBody.referredCount, 0);
+});
+
+test("handleProfileApi: GET falls back to an empty referral link when BOT_USERNAME is unset (a fresh fork)", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const res = await call(handleProfileApi, db, 1, "GET", "/api/profile");
+  const body = (await res.json()) as { referralLink: string };
+  assert.equal(body.referralLink, "");
+});

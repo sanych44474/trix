@@ -1,98 +1,190 @@
+# Source of truth for /api/v2/* response/request shapes. Every response schema here is verified
+# against the real handler code in src/webapp/*.ts, not guessed from the Mini App's own types --
+# apps/mini-app/src/types.ts is generated FROM this file (npm run generate:contracts ->
+# packages/contracts/generated.ts), not the other way around. When a handler's response shape
+# changes, update this file first, regenerate, then fix whatever the mini-app typecheck flags.
+#
+# Regeneration note: openapi-typescript@7.13.0's own code imports `ts.factory` from the
+# `typescript` package and crashes against this project's local `typescript@^7.0.2` (a
+# different, incompatible module surface -- not just a stale peer-range warning). `npm run
+# generate:contracts` therefore pins `npx -y openapi-typescript@7.13.0`, which resolves its own
+# isolated (TS 5.x-compatible) dependency tree instead of the project's node_modules/typescript.
+# Do not "fix" this by installing openapi-typescript as a local devDependency -- it will resolve
+# to the shared local typescript@7 again and crash the same way.
 openapi: 3.1.0
-info:
-  title: trix v2 API
-  version: 2.0.0
-  description: Versioned REST contract for the React Mini App and shared application layer.
+info: {title: trix v2 API, version: 2.0.0, description: Versioned REST contract for the React Mini App and shared application layer.}
 servers:
-  - url: /
+- {url: /}
 paths:
   /api/v2/dashboard:
     get:
       operationId: getDashboard
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
         '200':
           description: Dashboard snapshot
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/Dashboard'}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/workout/today:
     get:
       operationId: getTodayWorkout
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
         '200':
           description: Guided workout payload
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/WorkoutToday'}
+                  required: [data]
   /api/v2/workout/save:
     post:
       operationId: saveWorkout
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { type: object } }
+          application/json:
+            schema: {$ref: '#/components/schemas/SaveWorkoutRequest'}
       responses:
         '200':
           description: Saved workout
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '409': { $ref: '#/components/responses/Conflict' }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {$ref: '#/components/responses/Conflict'}
   /api/v2/workout/history:
     get:
       operationId: getWorkoutHistory
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
         '200':
           description: Recent workout history
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: {$ref: '#/components/schemas/WorkoutHistoryItem'}
+                  required: [data]
   /api/v2/workout/past:
     get:
       operationId: getPastWorkout
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+      - name: date
+        in: query
+        required: true
+        schema: {type: string, format: date}
       responses:
         '200':
           description: Workout used as a repeat template
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
-        '404': { $ref: '#/components/responses/NotFound' }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: {$ref: '#/components/schemas/WorkoutCopyExercise'}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/workout/swap:
     get:
       operationId: getWorkoutSwaps
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - { name: index, in: query, required: true, schema: { type: integer, minimum: 0, maximum: 50 } }
+      - name: index
+        in: query
+        required: true
+        schema: {type: integer, minimum: 0, maximum: 50}
       responses:
         '200':
           description: Safe exercise alternatives
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        alternatives:
+                          type: array
+                          items: {type: string}
+                  required: [data]
   /api/v2/workout/exinfo:
     get:
       operationId: getExerciseInfo
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - { name: name, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 80 } }
+      - name: name
+        in: query
+        required: true
+        schema: {type: string, minLength: 2, maxLength: 80}
       responses:
         '200':
           description: Exercise technique information
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        technique: {type: string}
+                        videoUrl: {type: string}
+                        videoTitle: {type: string}
+                  required: [data]
   /api/v2/workout/custom:
     post:
       operationId: addCustomExercise
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
@@ -101,19 +193,30 @@ paths:
               type: object
               required: [name]
               properties:
-                name: { type: string, minLength: 2, maxLength: 200 }
+                name: {type: string, minLength: 2, maxLength: 200}
       responses:
         '200':
           description: Custom exercise
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
-        '400': { $ref: '#/components/responses/ValidationError' }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/workout/rest:
     post:
       operationId: startRestTimer
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
@@ -122,319 +225,1426 @@ paths:
               type: object
               required: [seconds]
               properties:
-                seconds: { type: number, minimum: 30, maximum: 900 }
+                seconds: {type: number, minimum: 30, maximum: 900}
       responses:
         '200':
           description: Rest timer scheduled
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
-        '400': { $ref: '#/components/responses/ValidationError' }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/log:
     post:
       operationId: quickLog
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { $ref: '#/components/schemas/QuickLogRequest' } }
+          application/json:
+            schema: {$ref: '#/components/schemas/QuickLogRequest'}
       responses:
         '200':
           description: Logged activity
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '409': { $ref: '#/components/responses/Conflict' }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {$ref: '#/components/responses/Conflict'}
   /api/v2/nutrition:
     get:
       operationId: getNutrition
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
         '200':
           description: Nutrition day
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/Nutrition'}
+                  required: [data]
     post:
       operationId: editNutrition
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json: { schema: { type: object } }
-      responses:
-        '200':
-          description: Updated nutrition day
-          content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '409': { $ref: '#/components/responses/Conflict' }
-  /api/v2/plan:
-    get:
-      operationId: getPlan
-      security: [{ telegramInitData: [] }]
-      responses:
-        '200':
-          description: Active plan
-          content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
-    post:
-      operationId: editPlan
-      security: [{ telegramInitData: [] }]
-      parameters:
-        - $ref: '#/components/parameters/IfMatch'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [weekday, action]
+              required: [action]
+              additionalProperties: true
               properties:
-                weekday: { type: integer, minimum: 1, maximum: 7 }
-                index: { type: integer, minimum: -1, maximum: 12 }
-                action: { type: string, enum: [weight, sets, wmode, video, link, del, move, swap, add] }
-                value: { type: string, maxLength: 300 }
-                name: { type: string, minLength: 2, maxLength: 80 }
-                expectName: { type: string, maxLength: 200 }
-                dir: { type: string, enum: [up, down] }
-                catalogId: { type: string, maxLength: 80 }
+                action: {type: string}
       responses:
         '200':
-          description: Updated plan
+          description: Updated nutrition day
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
-        '409': { $ref: '#/components/responses/Conflict' }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {type: object, additionalProperties: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v2/plan:
+    get:
+      operationId: getPlan
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: clientId
+        in: query
+        required: false
+        schema: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: Active plan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/Plan'}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: editPlan
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IfMatch'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                clientId: {type: integer, minimum: 1}
+                weekday: {type: integer, minimum: 1, maximum: 7}
+                index: {type: integer, minimum: -1, maximum: 12}
+                action:
+                  type: string
+                  enum: [weight, sets, wmode, video, link, del, move, swap, add, meso]
+                value: {type: string, maxLength: 300}
+                name: {type: string, minLength: 2, maxLength: 80}
+                expectName: {type: string, maxLength: 200}
+                dir:
+                  type: string
+                  enum: [up, down]
+                catalogId: {type: string, maxLength: 80}
+                true: {type: boolean, description: 'action=meso only: start/stop periodization'}
+      responses:
+        '200':
+          description: Updated plan (or {ok:true} for the meso toggle, which has no weekday/index)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        days:
+                          type: array
+                          items: {$ref: '#/components/schemas/PlanDay'}
+                        version: {type: string}
+                  required: [data]
+        '409': {$ref: '#/components/responses/Conflict'}
   /api/v2/plan/catalog:
     get:
       operationId: searchPlanExercises
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - { name: q, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 80 } }
+      - name: q
+        in: query
+        required: true
+        schema: {type: string, minLength: 2, maxLength: 80}
       responses:
         '200':
           description: Catalog exercises matching the query
           content:
-            application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } }
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        items:
+                          type: array
+                          items: {$ref: '#/components/schemas/CatalogExercise'}
+                  required: [data]
   /api/v2/onboarding:
     post:
       operationId: completeOnboarding
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { $ref: '#/components/schemas/OnboardingRequest' } }
+          application/json:
+            schema: {$ref: '#/components/schemas/OnboardingRequest'}
       responses:
-        '200': { description: Onboarding accepted, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: Onboarding accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        pending: {type: boolean}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/profile:
     get:
       operationId: getProfile
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Profile, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/ProfilePayload'}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
     post:
       operationId: updateProfile
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { type: object, additionalProperties: true } }
+          application/json:
+            schema: {type: object, additionalProperties: true}
       responses:
-        '200': { description: Profile updated, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/settings:
     get:
       operationId: getSettings
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Settings, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/SettingsPayload'}
+                  required: [data]
     post:
       operationId: updateSettings
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { type: object, additionalProperties: true } }
+          application/json:
+            schema: {type: object, additionalProperties: true}
       responses:
-        '200': { description: Settings updated, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {type: boolean}
+                        state: {$ref: '#/components/schemas/SettingsPayload'}
+                  required: [data]
   /api/v2/buddy:
     get:
       operationId: getBuddy
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Buddy progress, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Buddy progress
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        buddy:
+                          anyOf:
+                          - {type: 'null'}
+                          - {$ref: '#/components/schemas/BuddyInfo'}
+                  required: [data]
   /api/v2/challenges:
     get:
       operationId: listChallenges
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Challenges, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Challenges
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/ChallengesPayload'}
+                  required: [data]
     post:
       operationId: joinChallenge
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { $ref: '#/components/schemas/ChallengeRequest' } }
+          application/json:
+            schema: {$ref: '#/components/schemas/ChallengeRequest'}
       responses:
-        '200': { description: Challenge joined, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
-        '400': { $ref: '#/components/responses/ValidationError' }
+        '200':
+          description: Challenge joined
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/injuries:
     get:
       operationId: listInjuries
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Injury history, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Injury history
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/InjuryPayload'}
+                  required: [data]
     post:
       operationId: reportInjury
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { $ref: '#/components/schemas/InjuryRequest' } }
+          application/json:
+            schema: {$ref: '#/components/schemas/InjuryRequest'}
       responses:
-        '200': { description: Injury reported, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Injury reported
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
   /api/v2/boards:
     get:
       operationId: getLeaderboards
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Leaderboards, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Leaderboards
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/BoardsPayload'}
+                  required: [data]
   /api/v2/records:
     get:
       operationId: getPersonalRecords
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Records and badges, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Records and badges
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/RecordsPayload'}
+                  required: [data]
   /api/v2/photo:
     get:
       operationId: getProgressPhoto
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - { name: id, in: query, required: true, schema: { type: integer, minimum: 1 } }
-        - { name: tma, in: query, required: false, schema: { type: string } }
+      - name: id
+        in: query
+        required: true
+        schema: {type: integer, minimum: 1}
+      - name: tma
+        in: query
+        required: false
+        schema: {type: string}
       responses:
-        '200': { description: Progress photo bytes, content: { image/jpeg: { schema: { type: string, format: binary } } } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '200':
+          description: Progress photo bytes
+          content:
+            image/jpeg:
+              schema: {type: string, format: binary}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/photocompare:
+    post:
+      operationId: sendPhotoCompare
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo, from, to]
+              properties:
+                photo: {type: string, format: binary}
+                from: {type: string}
+                to: {type: string}
+      responses:
+        '200':
+          description: Sent to the viewer's own chat
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {type: boolean}
+                  required: [data]
+  /api/v2/weekcard:
+    get:
+      operationId: getWeekCard
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: clientId
+        in: query
+        required: false
+        schema: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: Week card
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/WeekCardResponse'}
+                  required: [data]
+    post:
+      operationId: sendWeekCard
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo: {type: string, format: binary}
+      responses:
+        '200':
+          description: Sent to the viewer's own chat
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {type: boolean}
+                  required: [data]
+  /api/v2/plates:
+    get:
+      operationId: getPlates
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: kg
+        in: query
+        required: true
+        schema: {type: number, minimum: 0, maximum: 600}
+      responses:
+        '200':
+          description: Plate loading and warm-up ramp
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/PlatesResponse'}
+                  required: [data]
+  /api/v2/library:
+    get:
+      operationId: getLibrary
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Public shared program library
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/LibraryResponse'}
+                  required: [data]
+    post:
+      operationId: takeLibraryProgram
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: {type: string, maxLength: 60}
+      responses:
+        '200':
+          description: Program adopted as the active plan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        name: {type: string}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/squads:
+    get:
+      operationId: getSquads
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: The caller's squad membership(s)
+          read-only: null
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        squads:
+                          type: array
+                          items: {$ref: '#/components/schemas/SquadInfo'}
+                  required: [data]
+  /api/v2/trainers:
+    post:
+      operationId: requestTrainer
+      security:
+      - telegramInitData: []
+      description: Send a join request to a trainer the caller already knows the id of -- no public trainer directory exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trainerId]
+              properties:
+                trainerId: {type: integer, minimum: 1}
+                note: {type: string, maxLength: 300}
+      responses:
+        '200':
+          description: Request sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/requests:
     get:
       operationId: listTrainerRequests
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Trainer requests, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Trainer requests
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        requests:
+                          type: array
+                          items: {$ref: '#/components/schemas/TrainerRequest'}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
     post:
       operationId: resolveTrainerRequest
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { $ref: '#/components/schemas/RequestAction' } }
+          application/json:
+            schema: {$ref: '#/components/schemas/RequestAction'}
       responses:
-        '200': { description: Request resolved, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Request resolved
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/profile:
+    get:
+      operationId: getTrainerProfile
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: The caller's own v2_trainers row, or null if never applied
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        role: {type: string}
+                        trainer:
+                          anyOf:
+                          - {type: 'null'}
+                          - {$ref: '#/components/schemas/TrainerProfile'}
+                  required: [data]
+    post:
+      operationId: updateTrainerProfile
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      description: When the caller has no v2_trainers row yet, the same body is treated as a NEW application (pending owner approval) instead of an edit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200':
+          description: Profile saved (or application submitted)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        pending: {type: boolean}
+                  required: [data]
+  /api/v2/trainer/sessions:
+    get:
+      operationId: getTrainerSessions
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema: {type: string, format: date-time}
+      - name: to
+        in: query
+        required: false
+        schema: {type: string, format: date-time}
+      responses:
+        '200':
+          description: Schedule in the given window
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/SchedulePayload'}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      operationId: mutateTrainerSessions
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [create, status, reschedule, delete]
+                id: {type: integer, minimum: 1}
+                clientId: {type: integer, minimum: 1}
+                startsAt: {type: string, format: date-time}
+                durationMin: {type: integer, minimum: 5, maximum: 600}
+                price: {type: number, minimum: 0}
+                note: {type: string, maxLength: 300}
+                status:
+                  type: string
+                  enum: [planned, done, cancelled, no_show]
+      responses:
+        '200':
+          description: Session created/updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        id: {type: integer}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/finance:
+    get:
+      operationId: getTrainerFinance
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema: {type: string, format: date-time}
+      - name: to
+        in: query
+        required: false
+        schema: {type: string, format: date-time}
+      responses:
+        '200':
+          description: Per-client ledger and payment log
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/FinancePayload'}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      operationId: mutateTrainerFinance
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [pay, delete]
+                id: {type: integer, minimum: 1}
+                clientId: {type: integer, minimum: 1}
+                amount: {type: number, minimum: 0}
+                currency: {type: string, maxLength: 8}
+                paidOn: {type: string, format: date}
+                note: {type: string, maxLength: 300}
+      responses:
+        '200':
+          description: Payment recorded/removed
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        id: {type: integer}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/templates:
+    get:
+      operationId: listTrainerTemplates
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Template bank
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        templates:
+                          type: array
+                          items: {$ref: '#/components/schemas/TrainerTemplate'}
+                  required: [data]
+    post:
+      operationId: mutateTrainerTemplates
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [create, delete, assign]
+                id: {type: integer, minimum: 1}
+                name: {type: string, maxLength: 60}
+                fromClientId: {type: integer, minimum: 1}
+                clientId: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: Template created/deleted/assigned
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {type: boolean}
+                        id: {type: integer}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/client/{id}/card:
+    get:
+      operationId: getClientCard
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      responses:
+        '200':
+          description: Full client card (notes
+          consent-gated body/health: null
+          photos: null
+          message thread: null
+          embedded dashboard): null
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ClientCardPayload'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: updateClientCard
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                healthNotes: {type: string, maxLength: 2000}
+                personalNotes: {type: string, maxLength: 2000}
+                birthday: {type: string}
+      responses:
+        '200':
+          description: Card updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  card:
+                    anyOf:
+                    - {type: 'null'}
+                    - type: object
+                      properties:
+                        healthNotes:
+                          type: [string, 'null']
+                        personalNotes:
+                          type: [string, 'null']
+                        birthday:
+                          type: [string, 'null']
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/client/{id}/note:
+    post:
+      operationId: updateClientNote
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: {type: string, maxLength: 2000}
+      responses:
+        '200':
+          description: Note updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  note:
+                    type: [string, 'null']
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/client/{id}/flag:
+    post:
+      operationId: updateClientFlag
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flagged]
+              properties:
+                flagged: {type: boolean}
+      responses:
+        '200':
+          description: Flag toggled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flagged: {type: boolean}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/client/{id}/photo-request:
+    post:
+      operationId: requestClientPhoto
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '200':
+          description: Photo request sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {const: true}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/client/{id}/interview-nudge:
+    post:
+      operationId: nudgeClientInterview
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '200':
+          description: Nudge sent (or a no-op if the client already finished onboarding)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {const: true}
+                  alreadyOnboarded: {type: boolean}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/trainer/questions:
     get:
       operationId: listTrainerQuestions
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Questions, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Questions
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        questions:
+                          type: array
+                          items: {$ref: '#/components/schemas/TrainerQuestion'}
+                  required: [data]
   /api/v2/trainer/question/{id}/answer:
     post:
       operationId: answerTrainerQuestion
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { $ref: '#/components/schemas/TextRequest' } }
+          application/json:
+            schema: {$ref: '#/components/schemas/TextRequest'}
       responses:
-        '200': { description: Answer sent, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Answer sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
   /api/v2/trainer/broadcast:
     post:
       operationId: broadcastTrainerMessage
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
-          application/json: { schema: { $ref: '#/components/schemas/TextRequest' } }
+          application/json:
+            schema: {$ref: '#/components/schemas/TextRequest'}
       responses:
-        '200': { description: Broadcast sent, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Broadcast sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+  /api/v2/coach/ask:
+    post:
+      operationId: askCoach
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      description: A solo/trainer caller gets a direct AI answer. A client with a human trainer instead has the question routed to that trainer (an AI-drafted reply for the trainer to send) -- {routed:true} instead of {answer}.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: {type: string, minLength: 1, maxLength: 500}
+      responses:
+        '200':
+          description: Direct answer
+          or routed:true if handed to the caller's trainer: null
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        answer: {type: string}
+                        routed: {type: boolean}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/coach/thread:
+    get:
+      operationId: getCoachThread
+      security:
+      - telegramInitData: []
+      description: A client's own view of the routed Q&A with their trainer -- their questions plus the trainer's replies.
+      responses:
+        '200':
+          description: Question/reply thread with the caller's trainer
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/CoachThread'}
+                  required: [data]
   /api/v2/owner/report:
     get:
       operationId: getOwnerReport
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - { name: section, in: query, required: false, schema: { type: string } }
+      - name: section
+        in: query
+        required: false
+        schema: {type: string}
       responses:
-        '200': { description: Owner report, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Owner report
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        html: {type: string}
+                  required: [data]
   /api/v2/owner/users:
     get:
       operationId: getOwnerUsers
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       responses:
-        '200': { description: Owner roster, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Owner roster
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/OwnerUsers'}
+                  required: [data]
   /api/v2/owner/ask-inactive:
     post:
       operationId: askInactiveUsers
-      security: [{ telegramInitData: [] }]
+      security:
+      - telegramInitData: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - {$ref: '#/components/parameters/IdempotencyKey'}
       responses:
-        '200': { description: Feedback request sent, content: { application/json: { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } }
+        '200':
+          description: Feedback request sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        sent: {type: integer}
+                  required: [data]
+  /api/v2/owner/user/{id}/{action}:
+    post:
+      operationId: moderateUser
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      - name: action
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [block, unblock, delete]
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '200':
+          description: Moderation action applied
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        blocked: {type: boolean}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
 components:
   securitySchemes:
-    telegramInitData:
-      type: apiKey
-      in: header
-      name: Authorization
-      description: 'Telegram Mini App initData sent as Authorization: tma <initData>.'
+    telegramInitData: {type: apiKey, in: header, name: Authorization, description: 'Telegram Mini App initData sent as Authorization: tma <initData>.'}
   parameters:
     IdempotencyKey:
       name: Idempotency-Key
       in: header
       required: false
-      schema: { type: string, minLength: 8, maxLength: 128 }
+      schema: {type: string, minLength: 8, maxLength: 128}
     IfMatch:
       name: If-Match
       in: header
       required: false
-      schema: { type: string, maxLength: 128 }
+      schema: {type: string, maxLength: 128}
   responses:
     Unauthorized:
       description: Authentication required
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     ValidationError:
       description: Invalid request
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     Conflict:
       description: Optimistic concurrency conflict
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
     NotFound:
       description: Resource not found
-      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    Forbidden:
+      description: Caller's role does not permit this action
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   schemas:
-    SuccessEnvelope:
+    Envelope:
       type: object
       required: [data]
       properties:
@@ -442,8 +1652,8 @@ components:
         meta:
           type: object
           properties:
-            version: { type: integer, const: 2 }
-            requestId: { type: string }
+            version: {type: integer, const: 2}
+            requestId: {type: string}
     ErrorEnvelope:
       type: object
       required: [error]
@@ -455,56 +1665,1165 @@ components:
             code:
               type: string
               enum: [validation_error, unauthorized, forbidden, not_found, conflict, rate_limited, dependency_unavailable]
-            message: { type: string }
-            requestId: { type: string }
-            details: { type: object }
+            message: {type: string}
+            requestId: {type: string}
+            details: {type: object}
     QuickLogRequest:
       type: object
-      required: [kind]
+      required: [kind, text, ml, steps, name, sets, reps, weight]
       properties:
         kind:
           type: string
           enum: [water, workout, steps, measure, checkin, food]
-        text: { type: string, maxLength: 500 }
-        ml: { type: number, minimum: 1, maximum: 3000 }
-        steps: { type: number, minimum: 0, maximum: 200000 }
-        name: { type: string, maxLength: 80 }
-        sets: { type: number, minimum: 1, maximum: 20 }
-        reps: { type: number, minimum: 1, maximum: 1000 }
-        weight: { type: number, minimum: 0, maximum: 1000 }
+        text: {type: string, maxLength: 500}
+        ml: {type: number, minimum: 1, maximum: 3000}
+        steps: {type: number, minimum: 0, maximum: 200000}
+        name: {type: string, maxLength: 80}
+        sets: {type: number, minimum: 1, maximum: 20}
+        reps: {type: number, minimum: 1, maximum: 1000}
+        weight: {type: number, minimum: 0, maximum: 1000}
     OnboardingRequest:
       type: object
-      required: [sex, age, heightCm, weightKg, goal, level, equipment, trainingWeekdays]
+      required: [sex, age, heightCm, weightKg, goal, level, equipment, dietPrefs, trainingWeekdays, limitations]
       properties:
-        sex: { type: string, enum: [male, female] }
-        age: { type: integer, minimum: 13, maximum: 120 }
-        heightCm: { type: number, minimum: 100, maximum: 250 }
-        weightKg: { type: number, minimum: 30, maximum: 300 }
-        goal: { type: string }
-        level: { type: string, enum: [beginner, intermediate, advanced] }
-        equipment: { type: string }
-        dietPrefs: { type: string }
-        trainingWeekdays: { type: array, minItems: 1, maxItems: 7, items: { type: integer, minimum: 1, maximum: 7 } }
-        limitations: { type: string, maxLength: 500 }
+        sex:
+          type: string
+          enum: [male, female]
+        age: {type: integer, minimum: 13, maximum: 120}
+        heightCm: {type: number, minimum: 100, maximum: 250}
+        weightKg: {type: number, minimum: 30, maximum: 300}
+        goal: {type: string}
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        equipment: {type: string}
+        dietPrefs: {type: string}
+        trainingWeekdays:
+          type: array
+          minItems: 1
+          maxItems: 7
+          items: {type: integer, minimum: 1, maximum: 7}
+        limitations: {type: string, maxLength: 500}
     ChallengeRequest:
       type: object
       required: [code]
       properties:
-        code: { type: string, maxLength: 60 }
+        code: {type: string, maxLength: 60}
     InjuryRequest:
       type: object
       required: [area, severity]
       properties:
-        area: { type: string }
-        severity: { type: string, enum: [mild, strong] }
+        area: {type: string}
+        severity:
+          type: string
+          enum: [mild, strong]
     RequestAction:
       type: object
       required: [id, action]
       properties:
-        id: { type: integer, minimum: 1 }
-        action: { type: string, enum: [accept, decline] }
+        id: {type: integer, minimum: 1}
+        action:
+          type: string
+          enum: [accept, decline]
     TextRequest:
       type: object
       required: [text]
       properties:
-        text: { type: string, minLength: 1, maxLength: 2000 }
+        text: {type: string, minLength: 1, maxLength: 2000}
+    SaveWorkoutRequest:
+      type: object
+      properties:
+        date: {type: string, format: date}
+        entries:
+          type: array
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              sets:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    reps: {type: number}
+                    weight: {type: number}
+                    seconds: {type: number}
+                    meters: {type: number}
+                    rpe: {type: number}
+                  required: [reps, weight, seconds, meters, rpe]
+            required: [name, sets]
+      required: [date, entries]
+    RecoveryFactor:
+      type: object
+      required: [code, count]
+      properties:
+        code:
+          type: string
+          enum: [volume_above, cardio_above, low_energy, high_stress, poor_sleep, grinding_rpe]
+        count: {type: integer}
+    Meal:
+      type: object
+      required: [name, items, kcal, protein, fats, carbs]
+      properties:
+        name: {type: string}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/MealItem'}
+        kcal: {type: number}
+        protein: {type: number}
+        fats: {type: number}
+        carbs: {type: number}
+    MealItem:
+      type: object
+      required: [food, grams]
+      properties:
+        food: {type: string}
+        grams: {type: number}
+    CatalogExercise:
+      type: object
+      required: [id, name, muscle]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        muscle: {type: string}
+    PlanExercise:
+      type: object
+      required: [index, name, sets, startWeight, metric]
+      properties:
+        index: {type: integer}
+        name: {type: string}
+        sets: {type: string}
+        startWeight: {type: string}
+        metric: {type: string}
+        technique: {type: string}
+        videoUrl: {type: string}
+        videoTitle: {type: string}
+        ssGroup: {type: string}
+        wmode:
+          type: string
+          enum: [total, perSide, perHand]
+    PlanDay:
+      type: object
+      required: [weekday, name, muscleGroup, exercises]
+      properties:
+        weekday: {type: integer}
+        name: {type: string}
+        muscleGroup: {type: string}
+        exercises:
+          type: array
+          items: {$ref: '#/components/schemas/PlanExercise'}
+    ClientSummary:
+      type: object
+      required: [id, name, workoutPct, nutritionPct, atRisk, flagged]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        workoutPct: {type: number}
+        nutritionPct: {type: number}
+        atRisk: {type: boolean}
+        flagged: {type: boolean}
+        missedDates:
+          type: array
+          items: {type: string}
+          minItems: 2
+          maxItems: 2
+    Dashboard:
+      type: object
+      required: [viewer, lang, today, weight, calendar, volume, conditioning, recovery, exercises, macros]
+      properties:
+        viewer:
+          type: object
+          required: [id, role, onboarded]
+          properties:
+            id: {type: integer}
+            role:
+              type: string
+              enum: [solo, trainer, client]
+            onboarded: {type: boolean}
+        lang:
+          type: string
+          enum: [uk, en]
+        today: {type: string}
+        name: {type: string}
+        weight:
+          type: object
+          properties:
+            points:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: {type: string}
+                  kg: {type: number}
+                required: [date, kg]
+            goal: {type: number}
+            projection:
+              type: object
+              properties:
+                slopePerWeek: {type: number}
+                etaWeeks: {type: number}
+                onTrack: {type: boolean}
+                reached: {type: boolean}
+              required: [slopePerWeek, onTrack, reached]
+          required: [points]
+        calendar:
+          type: object
+          properties:
+            days:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: {type: string}
+                  s:
+                    type: string
+                    enum: [done, missed, rest]
+                required: [date, s]
+            split:
+              type: array
+              items:
+                type: object
+                properties:
+                  weekday: {type: integer}
+                  group: {type: string}
+                  n: {type: integer}
+                required: [weekday, group, n]
+            logs:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: {type: string}
+                  done: {type: boolean}
+                  ex:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        n: {type: string}
+                        s: {type: integer}
+                      required: [n, s]
+                required: [date, done, ex]
+          required: [days, split, logs]
+        volume:
+          type: array
+          items:
+            type: object
+            properties:
+              group:
+                type: string
+                enum: [legs, back, chest, shoulders, arms, core]
+              sets: {type: integer}
+              mev: {type: integer}
+              mav: {type: integer}
+              zone:
+                type: string
+                enum: [below, optimal, above]
+            required: [group, sets, mev, mav, zone]
+        conditioning:
+          type: object
+          properties:
+            sessions: {type: integer}
+            minutes: {type: integer}
+            meters: {type: integer}
+            zone:
+              type: string
+              enum: [below, optimal, above]
+          required: [sessions, minutes, meters, zone]
+        recovery:
+          type: object
+          properties:
+            score: {type: integer}
+            label:
+              type: string
+              enum: [great, good, fair, poor]
+            factors:
+              type: array
+              items: {$ref: '#/components/schemas/RecoveryFactor'}
+          required: [score, label, factors]
+        measurements:
+          type: array
+          items:
+            type: object
+            properties:
+              key: {type: string}
+              points:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    date: {type: string}
+                    v: {type: number}
+                  required: [date, v]
+            required: [key, points]
+        exercises:
+          type: array
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              group: {type: string}
+              points:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    date: {type: string}
+                    e1rm: {type: number}
+                  required: [date, e1rm]
+            required: [name, group, points]
+        macros:
+          type: object
+          properties:
+            targets:
+              type: object
+              properties:
+                calories: {type: number}
+                protein: {type: number}
+                fats: {type: number}
+                carbs: {type: number}
+              required: [calories, protein, fats, carbs]
+            days:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: {type: string}
+                  kcal: {type: number}
+                  p: {type: number}
+                  f: {type: number}
+                  c: {type: number}
+                  training: {type: boolean}
+                required: [date, kcal, p, f, c, training]
+          required: [days]
+        gamification:
+          type: object
+          properties:
+            level: {type: integer}
+            xp: {type: integer}
+            intoLevel: {type: integer}
+            needed: {type: integer}
+            streak: {type: integer}
+          required: [level, xp, intoLevel, needed]
+        todayStats:
+          type: object
+          properties:
+            waterMl: {type: number}
+            waterGoal: {type: number}
+            steps: {type: integer}
+            stepsGoal: {type: integer}
+          required: [waterMl, waterGoal, steps, stepsGoal]
+        logForm:
+          type: object
+          properties:
+            exercises:
+              type: array
+              items: {type: string}
+          required: [exercises]
+        trainer:
+          type: object
+          properties:
+            clients:
+              type: array
+              items: {$ref: '#/components/schemas/ClientSummary'}
+          required: [clients]
+        owner:
+          type: object
+          properties:
+            funnel:
+              type: object
+              properties:
+                total: {type: integer}
+                onboarded: {type: integer}
+                active7: {type: integer}
+                active30: {type: integer}
+              required: [total, onboarded, active7, active30]
+            ai:
+              type: array
+              items:
+                type: object
+                properties:
+                  provider: {type: string}
+                  calls: {type: integer}
+                  fallbacks: {type: integer}
+                  avgLatencyMs: {type: number}
+                  tokens: {type: integer}
+                required: [provider, calls, fallbacks, avgLatencyMs, tokens]
+          required: [funnel, ai]
+    WorkoutToday:
+      type: object
+      required: [date, weekday, exercises]
+      properties:
+        date: {type: string}
+        weekday: {type: integer}
+        title: {type: string}
+        restDay: {type: boolean}
+        muscleGroup: {type: string}
+        exercises:
+          type: array
+          items:
+            type: object
+            required: [index, name, metric, sets]
+            properties:
+              index: {type: integer}
+              name: {type: string}
+              metric:
+                type: string
+                enum: [reps, time, distance]
+              sets: {type: integer}
+              reps: {type: integer}
+              weightKg: {type: number}
+              planSets: {type: string}
+              planWeight: {type: string}
+              technique: {type: string}
+              videoUrl: {type: string}
+              videoTitle: {type: string}
+              last:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    w: {type: number}
+                    r: {type: number}
+                    sec: {type: number}
+                    m: {type: number}
+                  required: [w, r, sec, m]
+              ssGroup: {type: string}
+              wmode:
+                type: string
+                enum: [total, perSide, perHand]
+              setsDone:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    weight: {type: number}
+                    reps: {type: number}
+                    seconds: {type: number}
+                    meters: {type: number}
+                    rpe: {type: number}
+                  required: [weight, reps]
+              rpe: {type: number}
+              completed: {type: boolean}
+              restSec: {type: number}
+        saved:
+          type: array
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              rpe: {type: number}
+              sets:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    w: {type: number}
+                    r: {type: number}
+                    sec: {type: number}
+                    m: {type: number}
+                  required: [w, r, sec, m]
+            required: [name, rpe, sets]
+        recentDates:
+          type: array
+          items: {type: string}
+        alreadyLogged: {type: boolean}
+    WorkoutHistoryItem:
+      type: object
+      required: [date, title, n]
+      properties:
+        date: {type: string}
+        title: {type: string}
+        n: {type: integer}
+    WorkoutCopyExercise:
+      type: object
+      required: [name, metric, sets, rpe]
+      properties:
+        name: {type: string}
+        metric:
+          type: string
+          enum: [reps, time, distance]
+        sets:
+          type: array
+          items:
+            type: object
+            properties:
+              w: {type: number}
+              r: {type: number}
+              sec: {type: number}
+              m: {type: number}
+            required: [w, r, sec, m]
+        rpe: {type: number}
+    Plan:
+      type: object
+      required: [owner, editable, version, mesocycle, days]
+      properties:
+        owner:
+          type: object
+          properties:
+            id: {type: integer}
+            name: {type: string}
+          required: [id, name]
+        editable: {type: boolean}
+        version: {type: string}
+        mesocycle:
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            properties:
+              phase:
+                type: string
+                enum: [hypertrophy, strength, peak, deload]
+              weekInBlock: {type: integer}
+              blockLength: {type: integer}
+            required: [phase, weekInBlock, blockLength]
+        days:
+          type: array
+          items: {$ref: '#/components/schemas/PlanDay'}
+    Nutrition:
+      type: object
+      required: [date, meals, totals]
+      properties:
+        date: {type: string}
+        meals:
+          type: array
+          items:
+            type: object
+            properties:
+              index: {type: integer}
+              desc: {type: string}
+              kcal: {type: number}
+              protein: {type: number}
+              fats: {type: number}
+              carbs: {type: number}
+              grams:
+                type: [number, 'null']
+              query:
+                type: [string, 'null']
+            required: [index, desc, kcal, protein, fats, carbs]
+        totals:
+          type: object
+          properties:
+            kcal: {type: number}
+            protein: {type: number}
+            fats: {type: number}
+            carbs: {type: number}
+          required: [kcal, protein, fats, carbs]
+        targets:
+          type: object
+          properties:
+            calories: {type: number}
+            protein: {type: number}
+            fats: {type: number}
+            carbs: {type: number}
+          required: [calories, protein, fats, carbs]
+        isRestDay: {type: boolean}
+        mealPlan:
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            properties:
+              days:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    label: {type: string}
+                    meals:
+                      type: array
+                      items: {$ref: '#/components/schemas/Meal'}
+                  required: [label, meals]
+            required: [days]
+        recent:
+          type: array
+          items:
+            type: object
+            properties:
+              ri: {type: integer}
+              desc: {type: string}
+              kcal: {type: number}
+              protein: {type: number}
+            required: [ri, desc, kcal, protein]
+    ProfilePayload:
+      type: object
+      required: [photos, referralLink, referredCount, profile, options, weekdays]
+      properties:
+        photos:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              takenAt: {type: string}
+            required: [id, takenAt]
+        referralLink: {type: string, description: Empty string when BOT_USERNAME is unset (a fresh fork).}
+        referredCount: {type: integer}
+        profile:
+          type: object
+          properties:
+            name: {type: string}
+            goal: {type: string}
+            level: {type: string}
+            equipment: {type: string}
+            dietPrefs: {type: string}
+            limitations: {type: string}
+            goalWeight:
+              type: [number, 'null']
+            waterGoalMl:
+              type: [number, 'null']
+            waterEvery: {type: integer}
+            stepsGoal:
+              type: [integer, 'null']
+            quietFrom:
+              type: [integer, 'null']
+            quietTo:
+              type: [integer, 'null']
+            reminderHour: {type: integer}
+            trainingWeekdays:
+              type: array
+              items: {type: integer}
+            share:
+              anyOf:
+              - {type: 'null'}
+              - type: object
+                properties:
+                  body: {type: boolean}
+                  health: {type: boolean}
+                required: [body, health]
+          required: [name, goal, level, equipment, dietPrefs, limitations, goalWeight, waterGoalMl, waterEvery, stepsGoal, quietFrom, quietTo, reminderHour, trainingWeekdays, share]
+        options:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              properties:
+                value: {type: string}
+                label: {type: string}
+              required: [value, label]
+        weekdays:
+          type: array
+          items:
+            type: object
+            properties:
+              value: {type: integer}
+              label: {type: string}
+            required: [value, label]
+    SettingsPayload:
+      type: object
+      required: [onboarded, reminders, vacationUntil, lang, role, compete]
+      properties:
+        onboarded: {type: boolean}
+        reminders:
+          type: array
+          items:
+            type: object
+            properties:
+              key: {type: string}
+              label: {type: string}
+              true: {type: boolean}
+            required: [key, label, true]
+        vacationUntil:
+          type: [string, 'null']
+        lang:
+          type: string
+          enum: [uk, en]
+        role:
+          type: string
+          enum: [solo, trainer, client]
+        cycle:
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            properties:
+              true: {type: boolean}
+              lastStart:
+                type: [string, 'null']
+              len: {type: integer}
+            required: [true, lastStart, len]
+        compete:
+          type: object
+          properties:
+            true: {type: boolean}
+            alias: {type: string}
+          required: [true, alias]
+    BuddyInfo:
+      type: object
+      properties:
+        name: {type: string}
+        level: {type: integer}
+        xp: {type: integer}
+        intoLevel: {type: integer}
+        needed: {type: integer}
+        streak: {type: integer}
+        weekWorkouts: {type: integer}
+        myWeekWorkouts: {type: integer}
+        week:
+          type: array
+          items:
+            type: object
+            properties:
+              date: {type: string}
+              ex:
+                type: array
+                items: {type: string}
+            required: [date, ex]
+        duel:
+          type: object
+          properties:
+            myWins: {type: integer}
+            theirWins: {type: integer}
+            myStreak: {type: integer}
+          required: [myWins, theirWins, myStreak]
+      required: [name, level, xp, intoLevel, needed, streak, weekWorkouts, myWeekWorkouts, week, duel]
+    ChallengesPayload:
+      type: object
+      required: [active, available, won]
+      properties:
+        active:
+          type: array
+          items:
+            type: object
+            properties:
+              code: {type: string}
+              emoji: {type: string}
+              title: {type: string}
+              current: {type: integer}
+              target: {type: integer}
+              pct: {type: number}
+              done: {type: boolean}
+              daysLeft: {type: integer}
+            required: [code, emoji, title, current, target, pct, done, daysLeft]
+        available:
+          type: array
+          items:
+            type: object
+            properties:
+              code: {type: string}
+              emoji: {type: string}
+              title: {type: string}
+              target: {type: integer}
+              windowDays: {type: integer}
+            required: [code, emoji, title, target, windowDays]
+        won: {type: integer}
+    InjuryPayload:
+      type: object
+      required: [injuries, areas, severities]
+      properties:
+        injuries:
+          type: array
+          items:
+            type: object
+            properties:
+              area: {type: string}
+              severity: {type: string}
+              since: {type: string}
+              lastScore:
+                type: [number, 'null']
+            required: [area, severity, since]
+        areas:
+          type: array
+          items:
+            type: object
+            properties:
+              value: {type: string}
+              label: {type: string}
+            required: [value, label]
+        severities:
+          type: array
+          items:
+            type: object
+            properties:
+              value: {type: string}
+              label: {type: string}
+            required: [value, label]
+    BoardsPayload:
+      type: object
+      required: [optedIn, consistency]
+      properties:
+        optedIn: {type: boolean}
+        consistency:
+          type: object
+          properties:
+            rank: {type: integer}
+            total: {type: integer}
+            top:
+              type: array
+              items:
+                type: object
+                properties:
+                  pos: {type: integer}
+                  name: {type: string}
+                  value: {type: number}
+                  detail: {type: string}
+                  me: {type: boolean}
+                required: [pos, name, value, detail, me]
+          required: [rank, total, top]
+    RecordsPayload:
+      type: object
+      required: [records, badges]
+      properties:
+        records:
+          type: array
+          items:
+            type: object
+            properties:
+              exercise: {type: string}
+              best: {type: string}
+              metric: {type: string}
+              updated:
+                type: [string, 'null']
+            required: [exercise, best, metric, updated]
+        badges:
+          type: array
+          items:
+            type: object
+            properties:
+              label: {type: string}
+              earned: {type: boolean}
+            required: [label, earned]
+    WeekCardResponse:
+      type: object
+      required: [card, name]
+      properties:
+        card:
+          type: [string, 'null']
+        stats:
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            properties:
+              since: {type: string}
+              until: {type: string}
+              done: {type: integer}
+              planned: {type: integer}
+              totalSets: {type: integer}
+              volumeKg: {type: number}
+              prs: {type: integer}
+              streak: {type: integer}
+              level: {type: integer}
+              xp: {type: integer}
+            required: [since, until, done, planned, totalSets, volumeKg, prs, streak, level, xp]
+        name: {type: string}
+    PlatesResponse:
+      type: object
+      required: [plan, ramp]
+      properties:
+        plan:
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            properties:
+              loaded: {type: number}
+              perSide:
+                type: array
+                items: {type: number}
+              leftover: {type: number}
+            required: [loaded, perSide, leftover]
+        ramp:
+          type: array
+          items:
+            type: object
+            properties:
+              weight: {type: number}
+              reps: {type: integer}
+              pct: {type: number}
+            required: [weight, reps, pct]
+    LibraryResponse:
+      type: object
+      required: [role, programs]
+      properties:
+        role:
+          type: string
+          enum: [solo, trainer, client]
+        programs:
+          type: array
+          items:
+            type: object
+            properties:
+              code: {type: string}
+              name: {type: string}
+              takenCount: {type: integer}
+            required: [code, name, takenCount]
+    SquadInfo:
+      type: object
+      required: [title, memberCount, entries, total, silent]
+      properties:
+        title:
+          type: [string, 'null']
+        memberCount: {type: integer}
+        entries:
+          type: array
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              workouts: {type: integer}
+              me: {type: boolean}
+              medal: {type: string}
+            required: [name, workouts, me, medal]
+        total: {type: integer}
+        silent: {type: integer}
+    TrainerRequest:
+      type: object
+      required: [id, clientId, name, note]
+      properties:
+        id: {type: integer}
+        clientId: {type: integer}
+        name: {type: string}
+        note: {type: string}
+    TrainerProfile:
+      type: object
+      required: [status, name, bio, specialization, city, contact, clients]
+      properties:
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        name: {type: string}
+        bio: {type: string}
+        specialization: {type: string}
+        approach: {type: string}
+        experienceYears:
+          type: [integer, 'null']
+        priceOnline:
+          type: [number, 'null']
+        city: {type: string}
+        contact: {type: string}
+        accepting: {type: boolean}
+        clients: {type: integer}
+    TrainerQuestion:
+      type: object
+      required: [id, clientId, client, text, draft, status]
+      properties:
+        id: {type: integer}
+        clientId: {type: integer}
+        client: {type: string}
+        text: {type: string}
+        draft: {type: string}
+        status:
+          type: string
+          enum: [pending, answered, dismissed]
+    TrainerTemplate:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+    SchedulePayload:
+      type: object
+      required: [from, to, clients, sessions]
+      properties:
+        from: {type: string}
+        to: {type: string}
+        clients:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+            required: [id, name]
+        sessions:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              clientId: {type: integer}
+              clientName: {type: string}
+              startsAt: {type: string}
+              durationMin: {type: integer}
+              status:
+                type: string
+                enum: [planned, done, cancelled, no_show]
+              price:
+                type: [number, 'null']
+              note: {type: string}
+            required: [id, clientId, clientName, startsAt, durationMin, status]
+    FinancePayload:
+      type: object
+      required: [currency, clients, ledgers, payments, totals]
+      properties:
+        currency: {type: string}
+        defaultPrice:
+          type: [number, 'null']
+        clients:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              name: {type: string}
+            required: [id, name]
+        ledgers:
+          type: array
+          items:
+            type: object
+            properties:
+              clientId: {type: integer}
+              clientName: {type: string}
+              sessionsDone: {type: integer}
+              sessionsPlanned: {type: integer}
+              billed: {type: number}
+              paid: {type: number}
+              balance: {type: number}
+            required: [clientId, clientName, sessionsDone, sessionsPlanned, billed, paid, balance]
+        payments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              clientName: {type: string}
+              amount: {type: number}
+              currency: {type: string}
+              paidOn: {type: string}
+              note: {type: string}
+            required: [id, clientName, amount, currency, paidOn, note]
+        totals:
+          type: object
+          properties:
+            billed: {type: number}
+            paid: {type: number}
+            balance: {type: number}
+          required: [billed, paid, balance]
+    CoachThread:
+      type: object
+      required: [questions, messages]
+      properties:
+        trainer:
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            properties:
+              name: {type: string}
+            required: [name]
+        questions:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              text: {type: string}
+              status: {type: string}
+              createdAt: {type: string}
+            required: [id, text, status, createdAt]
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              fromMe: {type: boolean}
+              text: {type: string}
+              createdAt: {type: string}
+            required: [fromMe, text, createdAt]
+    ClientCardPayload:
+      type: object
+      required: [client, note, shared, noteHistory, messages, dashboard]
+      properties:
+        client:
+          type: object
+          properties:
+            id: {type: integer}
+            name: {type: string}
+            onboarded: {type: boolean}
+            flagged: {type: boolean}
+          required: [id, name, onboarded, flagged]
+        cycle:
+          type: object
+          properties:
+            phase: {type: string}
+            day: {type: integer}
+          required: [phase, day]
+        note:
+          type: [string, 'null']
+        card:
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            properties:
+              healthNotes:
+                type: [string, 'null']
+              personalNotes:
+                type: [string, 'null']
+              birthday:
+                type: [string, 'null']
+            required: [healthNotes, personalNotes, birthday]
+        shared:
+          type: object
+          properties:
+            body:
+              type: object
+              description: 'Every field is independently optional -- the client shares body data field by field, per trainerCanSee() consent.'
+              properties:
+                heightCm: {type: number}
+                weightKg: {type: number}
+                age: {type: integer}
+                sex: {type: string}
+                goalWeight: {type: number}
+                measurements:
+                  type: object
+                  additionalProperties: {type: number}
+            health:
+              type: object
+              properties:
+                limitations: {type: string}
+                injuries:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      area: {type: string}
+                      severity: {type: string}
+                      since: {type: string}
+                      lastScore: {type: number}
+                    required: [area, severity, since]
+              required: [injuries]
+        photos:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer}
+              takenAt: {type: string}
+            required: [id, takenAt]
+        noteHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              field: {type: string}
+              value: {type: string}
+              savedAt: {type: string}
+            required: [field, value, savedAt]
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              fromMe: {type: boolean}
+              text: {type: string}
+              createdAt: {type: string}
+            required: [fromMe, text, createdAt]
+        dashboard: {$ref: '#/components/schemas/Dashboard'}
+    OwnerUsers:
+      type: object
+      required: [rows, feedback]
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              id: {type: integer}
+              name: {type: string}
+        feedback:
+          type: array
+          items:
+            type: object
+            properties:
+              who: {type: string}
+              date: {type: string}
+              text: {type: string}
+            required: [who, date, text]

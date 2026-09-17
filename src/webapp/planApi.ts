@@ -5,7 +5,9 @@
 import {
   getActivePlan,
   updateActivePlanSplit,
+  updatePlanMesocycle,
 } from "../adapters/d1/v2Plans";
+import { defaultMesocycle, type Mesocycle } from "../domain/mesocycle";
 import { getClientForTrainer } from "../adapters/d1/v2Trainer";
 import {
   getCatalogExercise,
@@ -46,6 +48,7 @@ export interface PlanPayload {
   editable: boolean; // self, or a trainer/owner viewing their client
   version: string; // plan.generatedAt ISO — a full replan invalidates in-flight edits
   days: PlanDayView[];
+  mesocycle: Mesocycle | null; // opt-in block periodization overlay, see src/domain/mesocycle.ts
 }
 
 async function resolveVideos(env: Env, userId: number, days: PlanDay[]): Promise<Map<string, ExerciseVideo>> {
@@ -120,6 +123,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
       editable: true,
       version: plan.generatedAt.toISOString(),
       days: toView(plan.split, videos, owner.lang),
+      mesocycle: plan.mesocycle ?? null,
     };
     return Response.json(payload, { headers: { "cache-control": "no-store", etag: `"${payload.version}"` } });
   }
@@ -150,6 +154,13 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
   const expectedVersion = ifMatch && ifMatch !== "*" ? ifMatch : typeof body.version === "string" ? body.version : undefined;
   if (expectedVersion && expectedVersion !== plan.generatedAt.toISOString()) {
     return Response.json({ error: "stale" }, { status: 409 });
+  }
+
+  // Mesocycle on/off is a whole-plan toggle, not a per-exercise edit -- it has no weekday/index
+  // to resolve, so it's handled before the day-scoped actions below (which all require one).
+  if (body.action === "meso") {
+    await updatePlanMesocycle(env.DB, owner._id, body.on ? defaultMesocycle() : null);
+    return Response.json({ ok: true });
   }
 
   const weekday = Number(body.weekday);

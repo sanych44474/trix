@@ -4,6 +4,8 @@
 // user rebuilds it in the bot (/replan); this screen just keeps the profile in sync.
 import { listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
+import { countReferrals } from "../adapters/d1/v2Gamification";
+import { botDeepLink } from "../bot/links";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
@@ -26,10 +28,17 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
   const p = user.profile;
 
   if (req.method === "GET") {
-    const photos = await listProgressPhotos(env.DB, user._id, 12).catch(() => []);
+    const [photos, referredCount] = await Promise.all([
+      listProgressPhotos(env.DB, user._id, 12).catch(() => []),
+      countReferrals(env.DB, user._id).catch(() => 0),
+    ]);
     return Response.json(
       {
         photos: photos.map((ph) => ({ id: ph.id, takenAt: ph.takenAt.slice(0, 10) })),
+        // Self-scoped by construction (no clientId delegation on this route, unlike /api/v2/
+        // weekcard) -- a referral link is specific to the caller, never to a "viewed" target.
+        referralLink: botDeepLink(env, `ref_${user._id}`),
+        referredCount,
         profile: {
           name: p.name ?? "",
           goal: p.goal ?? "",

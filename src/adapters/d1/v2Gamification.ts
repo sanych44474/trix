@@ -87,6 +87,14 @@ export async function friendIds(db: DB, userId: number): Promise<number[]> {
   return [...ids];
 }
 
+/** How many people THIS user invited (one direction only) -- distinct from friendIds(), which
+ * mixes "who invited me" and "who I invited" for leaderboard scoping. The invite feature needs
+ * the one-directional count: "how many friends has your link brought in". */
+export async function countReferrals(db: DB, userId: number): Promise<number> {
+  const row = await db.prepare("SELECT COUNT(*) AS n FROM v2_profiles WHERE referredBy = ?").bind(userId).first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
 /** Every mutually-paired accountability-buddy pair, each returned exactly once (userA is always
  * the smaller id) — feeds the weekly buddy-duel sweep. See this file's header comment for why
  * this reads v2_profiles.buddyId (not v2_buddies): it is the column v2Users.ts's updateUser
