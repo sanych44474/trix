@@ -26,8 +26,10 @@ exposes the role or data, but the full scenario still uses legacy routes or bot 
 - The new shell has no entry points for unsupported booking, billing, public trainer discovery or
   other placeholder flows. Existing legacy routes remain reachable only where they already have
   backend behavior.
-- The legacy `/app` and `/api/*` surface is preserved for rollback. `/app-v2` and `/api/v2/*`
-  are the default surface for every user (`V2_APP_ENABLED=1`); `v2_*` tables are the sole
+- The legacy `/app` shell is retired — `GET /app` now redirects to `/app-v2`
+  (`scripts/build-webapp.mjs`). Its source (`src/webapp/client/*`) and the unversioned `/api/*`
+  routes it called stay in the tree only as the rollback path. `/app-v2` and `/api/v2/*`
+  are the sole surface for every user (`V2_APP_ENABLED=1`); `v2_*` tables are the sole
   source of truth. The dual-write/cohort/shadow-read machinery that staged this cutover
   (`V2_DUAL_WRITE`, `V2_COHORT_PERCENT`, `V2_INTERNAL_USER_IDS`, `V2_SHADOW_READS`) has been
   removed now that the cutover is complete and verified — see

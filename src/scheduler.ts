@@ -698,7 +698,11 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // morning nudge, night owls keep the 18:00 default).
   const reminderHour = user.profile.reminderHour ?? (user.profile.sleepSchedule === "morning" ? 8 : 18);
   // Mini App deep link for reminder buttons — opens the app at a specific view in one tap.
-  const appView = (view: string) => (env.WORKER_URL ? `${env.WORKER_URL}/app?v=${APP_VERSION}&view=${view}` : undefined);
+  // Computed from env directly (not bot.ts's APP_PATH module binding, which is only ever set by
+  // the webhook path's createBot/router.ts call — the cron trigger that reaches this function
+  // never runs that, so APP_PATH could read stale/default depending on isolate reuse).
+  const appPath = env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app";
+  const appView = (view: string) => (env.WORKER_URL ? `${env.WORKER_URL}${appPath}?v=${APP_VERSION}&view=${view}` : undefined);
   // A day is a "training day" if the ACTIVE PLAN has a session for it (the source of truth /today
   // uses) — falling back to the profile's chosen weekdays only when there's no plan. This keeps
   // reminders consistent with the plan even if profile.trainingWeekdays drifts / is empty.

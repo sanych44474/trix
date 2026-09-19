@@ -29,9 +29,12 @@ Mini App ──fetch─────▶ Worker.fetch ──▶ /api/* (initData H
 ```
 
 `apps/mini-app` (React + Vite) at `/app-v2` and its versioned REST seam at `/api/v2/*` are the
-default surface for every user (`V2_APP_ENABLED=1`); `v2_*` D1 tables are the source of truth
-for all ten domains. The legacy `/app` and `/api/*` paths stay available and functional as the
-rollback path. See [the v2 feature audit](docs/feature-audit-v2.md) and
+only Mini App surface now — `v2_*` D1 tables are the source of truth for all ten domains. The
+legacy vanilla-JS shell has been retired: `GET /app` is now a tiny static redirect to `/app-v2`
+(`scripts/build-webapp.mjs`), not a functional fallback UI. Its source
+(`src/webapp/client/*`) and the unversioned `/api/*` routes it used stay in the tree as the
+rollback path — restore `build-webapp.mjs`'s previous assembly logic from git history if `/app-v2`
+ever needs to be rolled back. See [the v2 feature audit](docs/feature-audit-v2.md) and
 [ADR-0001](docs/adr/0001-v2-seams-and-staged-cutover.md).
 
 User and onboarding state live on the user row in D1 — no KV, no external session store.
@@ -134,7 +137,7 @@ placeholder in `wrangler.toml` or a secret.
 | `BOT_ID` | no | Numeric bot id. With `BOT_USERNAME` it lets the Worker skip a `getMe` call on every webhook. |
 | `BOT_NAME` | no | Display name used in the preset `botInfo`. |
 | `WORKER_URL` | no | Public origin of the deployed Worker. Enables the Mini App buttons; leave empty in local dev to unlock the `?debugUser=` bypass. |
-| `V2_APP_ENABLED` | no | Selects the React v2 Mini App URL in bot buttons when set to `1` (the committed default); `0` falls back to legacy `/app`. |
+| `V2_APP_ENABLED` | no | Selects `/app-v2` in bot buttons when set to `1` (the committed default). `0` points buttons at `/app`, which now just redirects straight back to `/app-v2` — the legacy shell it used to serve is retired, so this no longer gives a distinct fallback UI. |
 
 `account_id` is deliberately **not** committed — wrangler reads `CLOUDFLARE_ACCOUNT_ID` from
 the environment. `database_id` in `wrangler.toml` is a placeholder you replace with your own.

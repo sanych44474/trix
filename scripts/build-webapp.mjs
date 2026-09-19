@@ -1,73 +1,37 @@
-// Build the Mini App static shell: assemble src/webapp/client/* (plain .css/.html/.js files —
-// no inertness constraints, write normal JS with template literals if you like) into
-// public/app.html, which wrangler [assets] serves at GET /app. Run before every deploy and
-// before `wrangler dev` (see package.json). Uses tsx so the locale JSON imports TS directly.
+// GET /app used to serve the legacy vanilla-JS Mini App shell, assembled from
+// src/webapp/client/* (see git history for the assembly logic this replaced). The React Mini
+// App at /app-v2 is now the sole live surface (V2_APP_ENABLED=1 is the committed default; every
+// bot link/notification already points at /app-v2 -- see src/bot.ts's dashboardUrl() and
+// src/scheduler.ts's appView()). This script now emits a tiny static redirect instead of
+// building the legacy shell, so an old bookmark, cached deep link, or stale notification still
+// lands the user in the app instead of a dead page -- rather than deleting src/webapp/client/*
+// outright, which stays as the rollback path (restore this file's previous assembly logic from
+// git history if /app-v2 ever needs to be rolled back).
 //
-// Assembly: shell.html carries five markers —
-//   /*__VIEW_CSS__*/  <!--__VIEW_HTML__-->  /*__VIEW_JS__*/  "__WA_I18N__"  "__WA_BOT__"
-// replaced with the concatenated per-view fragments (VIEWS order matters: trainer.js defines
-// `var WA` and ccFetch used by the others), the locale JSON and the bot username. Replacements
-// use functions so `$&`-style sequences inside fragment content can never be misread as
-// replace patterns.
-import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+// Query string is preserved (?view=... / ?startapp=...): App.tsx's viewFromLocation() reads the
+// same "view"/"startapp" params the legacy shell used, with the same alias table, so an old deep
+// link resolves to the equivalent v2 screen.
+import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { transformSync } from "esbuild";
-import { WA_I18N_JSON } from "../src/webapp/webappStrings.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const clientDir = join(root, "src", "webapp", "client");
-const read = (f) => readFileSync(join(clientDir, f), "utf8");
 
-// Bot username for the t.me links the app builds client-side. Comes from the environment in CI
-// (deploy workflow passes vars.BOT_USERNAME) and from .dev.vars locally, so no deployment's
-// identity is baked into the source tree.
-function botUsername() {
-  if (process.env.BOT_USERNAME) return process.env.BOT_USERNAME.replace(/^@/, "");
-  try {
-    const m = readFileSync(join(root, ".dev.vars"), "utf8").match(/^\s*BOT_USERNAME\s*=\s*"?([^"\r\n]*)"?/m);
-    if (m?.[1]) return m[1].replace(/^@/, "");
-  } catch {}
-  return "";
-}
-
-const VIEWS = ["trainer", "logger", "plan", "profile", "nutrition", "longtail", "owner"];
-const css = VIEWS.map((v) => read(v + ".css")).join("\n");
-const html = VIEWS.map((v) => read(v + ".html")).join("\n");
-// components.js has no matching .css/.html (it's shared string-builder helpers, not a view) —
-// prepended so its uiCard/uiChip/etc. globals exist before any view's own JS runs.
-const js = read("components.js") + "\n" + VIEWS.map((v) => read(v + ".js")).join("\n");
-
-let page = read("shell.html");
-for (const [marker, content] of [
-  ["/*__VIEW_CSS__*/", css],
-  ["<!--__VIEW_HTML__-->", html],
-  ["/*__VIEW_JS__*/", js],
-  ['"__WA_I18N__"', WA_I18N_JSON],
-  ['"__WA_BOT__"', JSON.stringify(botUsername())],
-]) {
-  if (!page.includes(marker)) throw new Error(`marker ${marker} missing from shell.html`);
-  page = page.replace(marker, () => content);
-}
-
-
-// Minify the app's own inline <script> (the FIRST/only <script> WITHOUT a marker attribute) and
-// <style>. Identifier renaming is off so cross-fragment globals + error reports stay intact.
-const rawLen = page.length;
-try {
-  page = page.replace(/<script>([\s\S]*?)<\/script>/, (_m, code) => {
-    const out = transformSync(code, { loader: "js", minifyWhitespace: true, minifySyntax: true, target: "es2017" });
-    return `<script>${out.code}</script>`;
-  });
-  page = page.replace(/<style>([\s\S]*?)<\/style>/, (_m, css2) => {
-    const out = transformSync(css2, { loader: "css", minify: true });
-    return `<style>${out.code}</style>`;
-  });
-} catch (e) {
-  console.warn("minify skipped:", e.message);
-}
+const page = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trix</title>
+<script>location.replace("/app-v2" + location.search + location.hash);</script>
+</head>
+<body>
+<p>This page has moved. <a href="/app-v2">Open trix</a>.</p>
+</body>
+</html>
+`;
 
 const outDir = join(root, "public");
 mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, "app.html"), page);
-console.log(`built public/app.html (${page.length} bytes, raw ${rawLen})`);
+console.log(`built public/app.html (${page.length} bytes) -- redirect to /app-v2, legacy UI retired`);

@@ -1,11 +1,12 @@
-# Headers for the Mini App static shell (Cloudflare Workers static assets).
-# Same CSP the Worker used to set inline: only Telegram's SDK script + same-origin API calls.
+# /app is now a tiny static redirect to /app-v2 (scripts/build-webapp.mjs) -- the legacy vanilla-JS
+# shell is retired. no-cache (not a long max-age) so a client with a stale cached copy of this
+# tiny page still re-fetches promptly rather than being stuck on an old version for a day.
 /app
-  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:
-  Cache-Control: public, max-age=86400
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'
+  Cache-Control: no-cache
 /app.html
-  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' https://telegram.org; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:
-  Cache-Control: public, max-age=86400
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'
+  Cache-Control: no-cache
 /app-v2
   Content-Security-Policy: default-src 'none'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:
   Cache-Control: no-cache

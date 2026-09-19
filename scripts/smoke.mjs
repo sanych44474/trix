@@ -52,10 +52,16 @@ async function main() {
     return { cond: r.status === 200 && body.ok === true, detail: JSON.stringify(body) };
   });
 
-  // 3. Mini App shell
+  // 3. Legacy Mini App shell is retired -- /app now redirects (client-side) to /app-v2 instead of
+  // serving the old vanilla-JS UI. Still 200 (it's a real static page, not an HTTP redirect).
   await check("GET /app 200", async () => {
     const r = await fetch(`${BASE}/app`);
     return { cond: r.status === 200, detail: `got ${r.status}` };
+  });
+  await check("GET /app redirects to /app-v2", async () => {
+    const r = await fetch(`${BASE}/app`);
+    const body = await r.text();
+    return { cond: body.includes('"/app-v2"'), detail: body.slice(0, 120) };
   });
 
   // 3b. Mini App shell ships its CSP (public/_headers) -- a regression here would silently widen

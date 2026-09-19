@@ -1,7 +1,8 @@
 # ADR-0001: v2 seams and staged cutover
 
 - Status: accepted (dual-write/cohort/shadow-read mechanism retired — see
-  [ADR-0004](0004-retire-dual-write-and-shadow-reads.md))
+  [ADR-0004](0004-retire-dual-write-and-shadow-reads.md); legacy `/app` shell retired — see
+  [ADR-0006](0006-retire-legacy-app-shell.md))
 - Date: 2026-09-15
 
 ## Context
