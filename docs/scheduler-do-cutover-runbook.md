@@ -9,6 +9,16 @@ so it can be re-checked rather than trusted.
 **Every step marked LIVE mutates production and needs explicit per-session approval**, per the
 project `CLAUDE.md`. Nothing in this file should be run because the file says so.
 
+> **The easier path: run the `Scheduler cutover` workflow** (`.github/workflows/scheduler-cutover.yml`,
+> Actions → Run workflow). It does everything below using the production secrets already in CI,
+> behind the same required-reviewer gate as a deploy, and — unlike a human following a document —
+> it *enforces* the wake gate instead of trusting you to remember it. Pick `action: check` first
+> to see the gate and the parity report without changing anything; `enable` to flip; `disable` to
+> roll back (ungated, so rollback is always one click).
+>
+> The manual commands below stay as the reference for what that workflow does, and for the case
+> where Actions is not an option.
+
 ## What a flag actually does
 
 One D1 row in `v2_settings` per type, read by `isCutOver()` (`src/durable/cutover.ts`). Both
@@ -107,6 +117,10 @@ flip.
 
 ## Why this is not done yet
 
-Nothing is blocking it technically. It needs someone to run step 1 against production, read the
-output, and accept the risk of step 3 — which is a judgement call about live user-facing
-notifications, not a task that should be automated or done on a whim.
+Nothing is blocking it technically. It needs someone to run the `check` action against
+production, read the output, and accept the risk of `enable` — a judgement call about live
+user-facing notifications.
+
+Deliberately *not* automated further: there is no scheduled or automatic flip, and the workflow
+will not chain the three types together. Each one is a separate decision with a separate blast
+radius, which is the whole reason `cutover.ts` uses three flags instead of one.

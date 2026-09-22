@@ -1,24 +1,30 @@
 name: CI
 
-# Typecheck + both test pools + Mini App build on every PR, for fast feedback before merge.
-# Pushes to main are NOT covered here — deploy.yml runs the identical checks as its own first
-# job (so they show up as one visible stage in the SAME workflow run as the deploy that follows),
-# rather than duplicating them in a second, disconnected workflow file.
+# Typecheck + both test pools + Mini App build. Runs on every PR, and is CALLED by deploy.yml
+# (workflow_call) so a push to main runs the identical checks as part of the same run graph as
+# the deploy that follows -- one definition, not two copies that drift.
+#
+# Split into three parallel jobs rather than one sequential list. Measured on run 35736401019,
+# where the single job took 102s: unit tests 42s, Workers-runtime tests 41s, and everything else
+# (install 13s, both typechecks, build, audit) about 17s combined. Run back to back that is the
+# sum; run side by side it is roughly the longest leg. No test was removed, shortened or skipped
+# to get there -- the same 849 node:test cases and 77 workerd cases still run on every trigger.
 on:
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Typecheck, test, build
+  checks:
+    name: Typecheck, build, audit
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,16 +38,6 @@ jobs:
       - name: Typecheck Mini App
         run: npm run typecheck:webapp
 
-      - name: Test
-        run: npm test
-
-      # Runs against REAL D1 inside workerd (vitest.config.ts), separate from the
-      # node:test suite above -- covers D1 semantics (meta.changes, batch()) the
-      # node:sqlite-backed harness can't promise. Scoped to a D1-only binding (no
-      # [ai]), so it needs no Cloudflare credentials.
-      - name: Test (Workers runtime)
-        run: npm run test:workers
-
       # Catches a broken shell.html marker or a client fragment that no longer parses —
       # failures that would otherwise only surface at deploy time. build:webapp:all covers
       # both bundles (legacy public/app.html + the React public/app-v2/ build).
@@ -52,3 +48,35 @@ jobs:
       # the deployed Worker and must not block a release.
       - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
+
+  unit:
+    name: Test (node:test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node and install dependencies
+        uses: ./.github/actions/node-deps
+
+      - name: Test
+        run: npm test
+
+  workers:
+    name: Test (Workers runtime)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node and install dependencies
+        uses: ./.github/actions/node-deps
+
+      # Runs against REAL D1 inside workerd (vitest.config.ts), separate from the
+      # node:test suite above -- covers D1 semantics (meta.changes, batch()) the
+      # node:sqlite-backed harness can't promise. Scoped to a D1-only binding (no
+      # [ai]), so it needs no Cloudflare credentials.
+      - name: Test (Workers runtime)
+        run: npm run test:workers
