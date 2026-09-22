@@ -99,6 +99,12 @@ type PlanAction = "weight" | "sets" | "del" | "move" | "swap" | "add" | "link" |
 // The plan-edit request body straight from the contract, so every field name the editor sends
 // is checked against what the handler declares it reads.
 type PlanEditBody = RequestBody<"editPlan">;
+// The muscle-group templates a new day can be filled from, straight off the contract so this
+// list cannot drift from the server's DAY_GROUPS table.
+type DayGroup = NonNullable<PlanEditBody["group"]>;
+const DAY_GROUPS: DayGroup[] = ["chest", "back", "legs", "shoulders", "arms", "full", "core"];
+// Same order/keys Onboarding.tsx uses, index 0 = Monday = weekday 1.
+const WEEKDAY_KEYS: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed", "weekday_thu", "weekday_fri", "weekday_sat", "weekday_sun"];
 
 function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: number | null; onBack?: () => void }) {
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -117,6 +123,9 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [showChanges, setShowChanges] = useState(false);
+  const [dayBusy, setDayBusy] = useState<string | null>(null);
+  const [newDayWeekday, setNewDayWeekday] = useState(1);
+  const [newDayGroup, setNewDayGroup] = useState<DayGroup>("chest");
 
   const load = () => {
     setError(null);
@@ -154,6 +163,27 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
       setSaving(null);
     }
   };
+
+  const mutateDay = async (key: string, body: Partial<PlanEditBody>) => {
+    if (!plan) return;
+    setDayBusy(key); setSaved(null); setActionError(null);
+    try {
+      const result = await api<{ ok: true; days: Plan["days"]; version: string; changes?: Plan["changes"] }>("/api/v2/plan", {
+        method: "POST",
+        headers: { "If-Match": `"${plan.version}"` },
+        idempotencyKey: crypto.randomUUID(),
+        body: typedBody<"editPlan">({ ...body, clientId: clientId ?? undefined }),
+      });
+      setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}) });
+      setSaved(key);
+    } catch (err) { setActionError(err); } finally { setDayBusy(null); }
+  };
+  // Only weekdays the plan does not already use -- adding a duplicate is a 409 server-side, so
+  // don't offer it.
+  const usedWeekdays = new Set((plan?.days ?? []).map((d) => d.weekday));
+  const missingWeekdays = [1, 2, 3, 4, 5, 6, 7].filter((w) => !usedWeekdays.has(w));
+  const addDay = () => mutateDay("add", { action: "dayadd", weekday: newDayWeekday, group: newDayGroup });
+  const removeDay = (weekday: number) => mutateDay(`del:${weekday}`, { action: "daydel", weekday });
 
   const addExercise = async (weekday: number) => {
     const name = newExercises[weekday]?.trim();
@@ -215,11 +245,28 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
         <div><strong>{change.summary}</strong><small>{t(lang, `plan_change_src_${change.source}` as Key)} · {change.at.slice(0, 10)}</small></div>
       </div>)}</div>}
     </Card>}
+    <Card tone="muted">
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_days_eyebrow")}</span><h2>{t(lang, "plan_day_add_title")}</h2></div></div>
+      {missingWeekdays.length === 0 ? <p className="muted">{t(lang, "plan_day_week_full")}</p> : <>
+        <div className="form-grid">
+          <label className="form-field"><span>{t(lang, "plan_day_weekday_label")}</span>
+            <select value={newDayWeekday} onChange={(event) => setNewDayWeekday(Number(event.target.value))}>
+              {missingWeekdays.map((w) => <option key={w} value={w}>{t(lang, WEEKDAY_KEYS[w - 1])}</option>)}
+            </select></label>
+          <label className="form-field"><span>{t(lang, "plan_day_group_label")}</span>
+            <select value={newDayGroup} onChange={(event) => setNewDayGroup(event.target.value as DayGroup)}>
+              {DAY_GROUPS.map((g) => <option key={g} value={g}>{t(lang, `plan_day_g_${g}` as Key)}</option>)}
+            </select></label>
+        </div>
+        <div className="button-row"><button className="button button-primary" disabled={dayBusy !== null} onClick={() => void addDay()}>{dayBusy === "add" ? t(lang, "saving_ellipsis") : t(lang, "plan_day_add_btn")}</button></div>
+        <p className="muted">{t(lang, "plan_day_add_hint")}</p>
+      </>}
+    </Card>
     <p className="muted">{t(lang, "plan_editor_hint")}</p>
     {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
     {saved && <div className="save-note">{t(lang, "plan_updated")}</div>}
     {plan.days.map((day) => <Card key={day.weekday}>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "day_label", { n: day.weekday })}</span><h2>{day.name}</h2></div><span className="tag">{day.muscleGroup}</span></div>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "day_label", { n: day.weekday })}</span><h2>{day.name}</h2></div><span className="tag">{day.muscleGroup}</span>{plan.days.length > 1 && <button className="text-button danger-button" disabled={dayBusy !== null} onClick={() => void removeDay(day.weekday)}>{dayBusy === `del:${day.weekday}` ? "…" : t(lang, "plan_day_remove_btn")}</button>}</div>
       <div className="plan-list">
         {day.exercises.map((exercise) => {
           const base = `${day.weekday}:${exercise.index}`;

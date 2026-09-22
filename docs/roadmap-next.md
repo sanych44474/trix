@@ -219,8 +219,12 @@ whether anyone looks at the density number, then decide.
 
 ## P2.1 Trainer workspace
 
-- **Whole-day plan editing** — per-exercise editing is complete; replacing or reordering a whole
-  day is still bot-only (noted in `feature-audit-v2.md`).
+- **Whole-day plan editing** — **done.** `dayadd`/`daydel` on `/api/v2/plan`, mirroring the bot's
+  day manager and sharing its `DAY_GROUPS` table (now exported rather than copied, so the two
+  surfaces cannot drift into two different products). A new day is auto-filled from the catalog
+  for the chosen muscle group, exactly as the bot does it, and both actions re-sync the owner's
+  `trainingWeekdays` — that sync is deliberately *not* best-effort, because a plan and a reminder
+  schedule that disagree produce a nudge on a rest day.
 - **Plan templates** exist (create / assign); there is no way for a trainer to preview a template
   before assigning it.
 - **In-app interview/onboarding chat** is bot-only by design — keep it that way, it is the right
@@ -237,7 +241,11 @@ whether anyone looks at the density number, then decide.
 
 ## P2.3 Social
 
-- **Squad creation and management** stays bot-only; the Mini App has a read-only squad view.
+- **Squad creation and management** — **decided, see [ADR-0008](adr/0008-squads-stay-bot-only.md).**
+  Not a gap: a squad *is* a Telegram group chat, keyed on its `chatId` and created by a command
+  sent inside that group. A webview authenticates a user, never a group, so there is nothing for
+  "create a squad from the app" to resolve to. Second item on this list whose stated reason
+  dissolved on inspection, after photo-of-food.
 
 ## P2.4 Plan change log
 

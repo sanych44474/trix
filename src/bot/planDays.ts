@@ -18,18 +18,10 @@ import { listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { weekdayName } from "../render";
+import { DAY_GROUPS } from "../domain/dayGroups";
 import { translatePlanExercises } from "./plan";
 import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply } from "../adapters/telegram/context";
 
-const DAY_GROUPS: { id: string; muscles: string[] }[] = [
-  { id: "chest", muscles: ["chest", "triceps"] },
-  { id: "back", muscles: ["middle back", "lats", "biceps"] },
-  { id: "legs", muscles: ["quadriceps", "hamstrings", "glutes", "calves"] },
-  { id: "shoulders", muscles: ["shoulders", "traps"] },
-  { id: "arms", muscles: ["biceps", "triceps"] },
-  { id: "full", muscles: ["chest", "middle back", "quadriceps", "shoulders"] },
-  { id: "core", muscles: ["abdominals"] },
-];
 
 // Keep the owner's reminder/calendar weekdays in step with the plan's actual days.
 async function syncOwnerTrainingDays(ctx: MyContext, split: PlanDay[]) {

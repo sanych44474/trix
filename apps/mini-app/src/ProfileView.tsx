@@ -1,19 +1,10 @@
 import { useEffect, useState } from "react";
 import { api, jsonBody, typedBody } from "./api";
 import { t, type Lang } from "./i18n";
-import type { ProfilePayload, RequestBody } from "./types";
+import type { ProfilePayload, RequestBody, SettingsPayload } from "./types";
 
 type SettingsBody = RequestBody<"updateSettings">;
 
-type SettingsPayload = {
-  onboarded: boolean;
-  reminders: Array<{ key: string; label: string; on: boolean }>;
-  vacationUntil: string | null;
-  lang: Lang;
-  role: "solo" | "trainer" | "client";
-  cycle: { on: boolean; lastStart: string | null; len: number } | null;
-  compete: { on: boolean; alias: string };
-};
 
 type SettingsResult = { ok?: boolean; state?: SettingsPayload };
 

@@ -11,6 +11,9 @@ import {
 } from "../adapters/d1/v2Plans";
 import { defaultMesocycle, type Mesocycle } from "../domain/mesocycle";
 import { getClientForTrainer } from "../adapters/d1/v2Trainer";
+import { updateUser } from "../adapters/d1/v2Users";
+import { DAY_GROUPS } from "../domain/dayGroups";
+import { listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
 import {
   getCatalogExercise,
   getExerciseTranslation,
@@ -20,12 +23,12 @@ import {
   setUserVideo,
 } from "../adapters/d1/v2Catalog";
 import { exerciseMetric, resolveWeightMode } from "../domain/progression";
-import { cleanAi } from "../locales/i18n";
+import { cleanAi, t } from "../locales/i18n";
 import { exerciseVideoKey, weekdayName } from "../render";
 import { parseYouTubeId } from "../youtube";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
-import type { Env, ExerciseVideo, Lang, PlanDay, PlanExercise, UserDoc } from "../types";
+import type { Env, ExerciseVideo, Lang, PlanDay, PlanExercise, UserDoc, Weekday } from "../types";
 
 interface PlanExerciseView {
   index: number;
@@ -99,6 +102,12 @@ function toView(days: PlanDay[], videos: Map<string, ExerciseVideo>, lang: Lang)
 }
 
 const MAX_EX_PER_DAY = 12;
+
+/** Localized label for a DAY_GROUPS id, using the same `pday_g_*` keys the bot's picker shows,
+ *  so a day added from the app and one added from chat read identically. */
+function dayGroupLabel(groupId: string, lang: Lang): string {
+  return t(lang, `pday_g_${groupId}` as Parameters<typeof t>[1]);
+}
 
 /** One-line "what changed" for the audit trail, mirroring the phrasing the bot's own editor
  *  already writes ("weight: Bench Press -> 60 kg") so both surfaces read as one history. */
@@ -190,6 +199,73 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
   if (body.action === "meso") {
     await updatePlanMesocycle(env.DB, owner._id, body.on ? defaultMesocycle() : null);
     return Response.json({ ok: true });
+  }
+
+  // Whole-day add/delete. Mirrors the bot's day manager (createPlanDay/deletePlanDay in
+  // src/bot/planDays.ts) and shares its DAY_GROUPS table (src/domain/dayGroups.ts), so the two surfaces build the same
+  // day. Handled before the per-exercise actions below: like `meso`, they address a DAY, not an
+  // exercise within one, so the index/expectName resolution underneath does not apply.
+  if (body.action === "dayadd" || body.action === "daydel") {
+    const raw = Number(body.weekday);
+    if (!Number.isInteger(raw) || raw < 1 || raw > 7) {
+      return Response.json({ error: "bad request" }, { status: 400 });
+    }
+    const targetWeekday = raw as Weekday;
+    let split: PlanDay[];
+    if (body.action === "daydel") {
+      // Same guard as the bot: a plan with no training days at all is not a plan.
+      if (plan.split.length <= 1) return Response.json({ error: "last" }, { status: 400 });
+      if (!plan.split.some((d) => d.weekday === targetWeekday)) return Response.json({ error: "not found" }, { status: 404 });
+      split = plan.split.filter((d) => d.weekday !== targetWeekday);
+    } else {
+      if (plan.split.length >= 7) return Response.json({ error: "full" }, { status: 400 });
+      if (plan.split.some((d) => d.weekday === targetWeekday)) return Response.json({ error: "conflict" }, { status: 409 });
+      const group = DAY_GROUPS.find((g) => g.id === String(body.group ?? ""));
+      if (!group) return Response.json({ error: "bad request" }, { status: 400 });
+      // Auto-fill from the catalog so the new day is usable immediately; the user then tweaks it
+      // with the per-exercise editor that already exists.
+      const candidates = await listCandidatesByMuscles(env.DB, group.muscles, {
+        level: owner.profile.level,
+        perMuscle: 2,
+        total: 5,
+      }).catch(() => []);
+      const exercises: PlanExercise[] = candidates.map((c) => ({
+        name: c.name,
+        canonicalName: c.name,
+        exerciseId: c.id,
+        sets: "3 × 8–12",
+        startWeight: "—",
+        technique: c.instructions ?? "",
+        muscles: c.muscle,
+      }));
+      split = [...plan.split, { weekday: targetWeekday, muscleGroup: dayGroupLabel(group.id, owner.lang), exercises }];
+    }
+    split.sort((a, b) => a.weekday - b.weekday);
+    await updateActivePlanSplit(env.DB, owner._id, split);
+    // Keep the owner's reminder/calendar weekdays in step with the plan's real days -- the bot's
+    // syncOwnerTrainingDays does exactly this, and skipping it would leave reminders firing on a
+    // day that no longer has a session (or silent on a newly added one).
+    const weekdays = [...new Set(split.map((d) => d.weekday))].sort((a, b) => a - b);
+    // NOT best-effort, unlike the audit write below: if this fails the plan and the reminder
+    // schedule disagree, which is a silent, user-visible wrong (a nudge on a rest day, or none
+    // on a training day). Let it throw to the handler's catch, same as the bot's own sync.
+    await updateUser(env.DB, owner._id, {
+      profile: { ...owner.profile, trainingWeekdays: weekdays as Weekday[], daysPerWeek: weekdays.length },
+    });
+    await recordPlanChange(
+      env.DB,
+      owner._id,
+      owner._id === user._id ? "manual" : "trainer",
+      body.action === "daydel" ? `removed day: ${weekdayName(owner.lang, targetWeekday)}` : `added day: ${weekdayName(owner.lang, targetWeekday)}`,
+    ).catch(() => {});
+    const dayVideos = await resolveVideos(env, owner._id, split);
+    const dayChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
+    return Response.json({
+      ok: true,
+      days: toView(split, dayVideos, owner.lang),
+      version: plan.generatedAt.toISOString(),
+      changes: dayChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
+    });
   }
 
   const weekday = Number(body.weekday);
