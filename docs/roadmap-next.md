@@ -267,6 +267,14 @@ type's blast radius is separate). The open item is simply that all three have be
 dry-run — someone has to look at the dry-run comparison output (`scripts/`, added in `87521e9`)
 and decide.
 
+**The procedure is now written down: [`docs/scheduler-do-cutover-runbook.md`](scheduler-do-cutover-runbook.md).**
+Writing it surfaced a precondition that existed nowhere: a DO only fires if its alarm was ever
+armed, and the cron arms them lazily, only for entities with a NULL `doWokenAt`. So flipping the
+user or squad flag while any entity is still unwoken would silently stop reminders for exactly
+those entities. The runbook has the (read-only) gate query for each, verified against the local
+D1. It also corrects the order — `global` → `squad` → `user`, smallest blast radius first, not
+the order this table happens to list them in.
+
 **Legacy shell removal.** `src/webapp/client/*` is 269 KB of retired vanilla-JS kept as the
 rollback path ([ADR-0006](adr/0006-retire-legacy-app-shell.md)), still built by
 `npm run build:webapp` on every deploy. It should get an expiry date rather than an indefinite
