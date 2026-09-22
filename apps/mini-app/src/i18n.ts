@@ -2,7 +2,9 @@
 // bot's src/locales/i18n.ts (no HTML/markdown post-processing) -- this app renders plain text.
 export type Lang = "uk" | "en";
 
-const en = {
+// Exported for test/mini-app-i18n.test.ts, which checks what the type cannot: empty strings
+// and placeholder drift between the two catalogs.
+export const en = {
   // common
   retry: "Retry",
   close: "Close",
@@ -833,7 +835,7 @@ const en = {
   trainer_clients_count: "{n} client(s)",
 } as const;
 
-const uk: Record<keyof typeof en, string> = {
+export const uk: Record<keyof typeof en, string> = {
   // common
   retry: "Повторити",
   close: "Закрити",

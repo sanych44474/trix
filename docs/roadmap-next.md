@@ -196,9 +196,19 @@ migration and no new table**, and only Phase C does.
 > - **Level and streak on the Train screen** (passed down from the dashboard App.tsx already
 >   loads), where previously nothing suggested the session counted towards anything.
 >
-> Not covered by automated tests: this is all React, and the repo has no client test harness
-> (`npm test` runs `test/*.test.ts` against worker code). The server side of it — the cancel
-> route — is tested. Adding a component harness was out of scope for this pass.
+> **Now partly covered.** The pure logic behind the timer was extracted to
+> `apps/mini-app/src/logic/rest.ts` and is tested in `test/mini-app-rest.test.ts` (9 cases) —
+> clamping, `M:SS` formatting, defensive preference parsing, countdown/overrun, ring fill,
+> on-target streak scoring and work-vs-rest density. It needed no new dependency and no browser:
+> the module takes `now` as a parameter and parses preferences from a raw string, so the repo's
+> existing `node:test` pool runs it. `test/mini-app-i18n.test.ts` adds catalog checks the type
+> cannot make (empty strings, `{placeholder}` drift between `en` and `uk`).
+>
+> Writing them immediately paid for itself: the countdown returned `-0` at exactly the deadline,
+> which the tests caught and the implementation was fixed for.
+>
+> Still uncovered: the React components themselves. Covering those needs a DOM harness
+> (vitest + testing-library), which is a separate decision about a new dependency.
 
 > **Deliberate non-goal in Phase B: no rest-based XP.** `computeXp`
 > (`src/domain/gamification.ts:13`) is documented as deterministic from all-time counts with "no

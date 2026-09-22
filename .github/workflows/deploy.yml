@@ -67,42 +67,13 @@ jobs:
       # never typechecks. If a typecheck is ever added to this job, regenerate the types after
       # this step rather than trusting the restored ones.
       - name: Inject deployment configuration
-        env:
-          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
-          WORKER_URL: ${{ vars.WORKER_URL }}
-          BOT_USERNAME: ${{ vars.BOT_USERNAME }}
-          BOT_ID: ${{ vars.BOT_ID }}
-          BOT_NAME: ${{ vars.BOT_NAME }}
-        run: |
-          set -euo pipefail
-          if [ -z "${D1_DATABASE_ID}" ]; then
-            echo "::error::D1_DATABASE_ID secret is not set for the production environment"
-            exit 1
-          fi
-          if [ -z "${WORKER_URL}" ]; then
-            echo "::error::WORKER_URL repository variable is not set"
-            exit 1
-          fi
-          python3 - <<'PY'
-          import os, re, pathlib
-          cfg = pathlib.Path("wrangler.toml")
-          text = cfg.read_text(encoding="utf-8")
-          replacements = {
-              "database_id": os.environ["D1_DATABASE_ID"],
-              "WORKER_URL": os.environ["WORKER_URL"],
-              "BOT_USERNAME": os.environ.get("BOT_USERNAME", ""),
-              "BOT_ID": os.environ.get("BOT_ID", ""),
-              "BOT_NAME": os.environ.get("BOT_NAME", ""),
-          }
-          for key, value in replacements.items():
-              pattern = rf'^({re.escape(key)}\s*=\s*)"[^"]*"$'
-              new, n = re.subn(pattern, lambda m: m.group(1) + '"' + value + '"', text, flags=re.M)
-              if n != 1:
-                  raise SystemExit(f"expected exactly one {key} assignment in wrangler.toml, found {n}")
-              text = new
-          cfg.write_text(text, encoding="utf-8")
-          print("wrangler.toml configured")
-          PY
+        uses: ./.github/actions/wrangler-config
+        with:
+          d1-database-id: ${{ secrets.D1_DATABASE_ID }}
+          worker-url: ${{ vars.WORKER_URL }}
+          bot-username: ${{ vars.BOT_USERNAME }}
+          bot-id: ${{ vars.BOT_ID }}
+          bot-name: ${{ vars.BOT_NAME }}
 
       - name: Build Mini App shell
         env:

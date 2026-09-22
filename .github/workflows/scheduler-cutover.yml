@@ -58,6 +58,18 @@ jobs:
       - name: Set up Node and install dependencies
         uses: ./.github/actions/node-deps
 
+      # Without this every wrangler call below targets the PLACEHOLDER database id committed to
+      # wrangler.toml and fails with "could not be found [code: 7404]". The first version of
+      # this workflow omitted it.
+      - name: Inject deployment configuration
+        uses: ./.github/actions/wrangler-config
+        with:
+          d1-database-id: ${{ secrets.D1_DATABASE_ID }}
+          worker-url: ${{ vars.WORKER_URL }}
+          bot-username: ${{ vars.BOT_USERNAME }}
+          bot-id: ${{ vars.BOT_ID }}
+          bot-name: ${{ vars.BOT_NAME }}
+
       - name: Current flag state
         run: |
           set -euo pipefail

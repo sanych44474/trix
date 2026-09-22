@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "./api";
 import type { Dashboard, SaveResponse, WorkoutCopyExercise, WorkoutHistoryItem, WorkoutToday } from "./types";
 import { t, type Lang } from "./i18n";
+import {
+  clampRest, density, DEFAULT_REST_PREFS, DEFAULT_REST_SEC, EMPTY_QUALITY, fmtRest,
+  parseRestPrefs, REST_ADJUST_SEC, REST_OVERRUN_CAP_SEC, REST_PREFS_KEY, restMetricKey,
+  restProgress, restRingPct, scoreRest,
+  type RestPrefs, type SessionQuality,
+} from "./logic/rest";
 
 // ---- Local UI atoms: duplicated rather than imported from App.tsx on purpose (same convention
 // Workspace.tsx/ProfileView.tsx already use) -- keeps this file free of a circular import back to
@@ -33,71 +39,20 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-// ---- Rest timer (mirrors the legacy vanilla logger's lgRest/REST_OPTS intent: a countdown that
-// starts once a set's numbers are in, dismissible/resettable) ----
-const DEFAULT_REST_SEC = 60;
-const REST_MIN_SEC = 30;
-const REST_MAX_SEC = 900;
-// Stop counting up eventually, so a rest left running while the user wandered off doesn't pin a
-// bar to the screen forever.
-const REST_OVERRUN_CAP_SEC = 300;
-const REST_ADJUST_SEC = 15;
-
-function fmtRest(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const r = sec % 60;
-  return `${m}:${r < 10 ? "0" : ""}${r}`;
-}
-
-function clampRest(seconds: number): number {
-  return Math.max(REST_MIN_SEC, Math.min(REST_MAX_SEC, Math.round(seconds || DEFAULT_REST_SEC)));
-}
-
-// Per-viewer rest preferences. The retired vanilla shell persisted the chosen rest length
-// (lgRestPref) and v2 dropped it, so a user who prefers 120s silently got 60s back every
-// session -- this restores that, keyed per metric since a timed hold and a heavy compound want
-// different rests. Same best-effort try/catch treatment as the workout draft above: storage can
-// be unavailable, and none of this is worth failing a workout over.
-type RestPrefs = { reps: number; time: number; distance: number; sound: boolean; auto: boolean };
-const REST_PREFS_KEY = "trix:v2:rest-prefs";
-const DEFAULT_REST_PREFS: RestPrefs = { reps: DEFAULT_REST_SEC, time: DEFAULT_REST_SEC, distance: DEFAULT_REST_SEC, sound: false, auto: true };
+// ---- Rest timer ----
+// The pure parts (clamping, formatting, preference parsing, density, streak scoring) live in
+// ./logic/rest so they can be unit-tested without a DOM -- see test/mini-app-rest.test.ts. What
+// stays here is the part that genuinely needs the browser: localStorage and the audio context.
 
 function loadRestPrefs(): RestPrefs {
-  try {
-    const raw = localStorage.getItem(REST_PREFS_KEY);
-    if (!raw) return DEFAULT_REST_PREFS;
-    const parsed = JSON.parse(raw) as Partial<RestPrefs>;
-    return {
-      reps: clampRest(Number(parsed.reps) || DEFAULT_REST_SEC),
-      time: clampRest(Number(parsed.time) || DEFAULT_REST_SEC),
-      distance: clampRest(Number(parsed.distance) || DEFAULT_REST_SEC),
-      sound: parsed.sound === true,
-      auto: parsed.auto !== false,
-    };
-  } catch { return DEFAULT_REST_PREFS; }
+  try { return parseRestPrefs(localStorage.getItem(REST_PREFS_KEY)); } catch { return DEFAULT_REST_PREFS; }
 }
 
 function saveRestPrefs(prefs: RestPrefs): void {
   try { localStorage.setItem(REST_PREFS_KEY, JSON.stringify(prefs)); } catch { /* storage is optional */ }
 }
 
-function restMetricKey(exercise: LoggerExercise): "reps" | "time" | "distance" {
-  return exercise.metric === "time" ? "time" : exercise.metric === "distance" ? "distance" : "reps";
-}
 
-// ---- Session quality: derived live, stored nowhere ----
-// A rest counts as "on target" if it ended within this of the planned length -- early enough to
-// be honest, loose enough that racking a bar doesn't break a streak.
-const REST_ON_TARGET_TOLERANCE_SEC = 15;
-
-interface SessionQuality {
-  restCount: number;      // rests actually taken this session
-  restTotalSec: number;   // wall-clock time spent resting
-  onTargetStreak: number; // consecutive rests ended within tolerance
-  bestStreak: number;
-}
-
-const EMPTY_QUALITY: SessionQuality = { restCount: 0, restTotalSec: 0, onTargetStreak: 0, bestStreak: 0 };
 
 // What saveWorkout() already returns (SaveResult, src/webapp/workout.ts) plus the locally
 // measured session quality. The server has always computed the PR/badge/level payload; the app
@@ -115,14 +70,6 @@ interface SaveSummary {
   bestStreak: number;
 }
 
-/** Work-vs-rest split of the session so far, as a percentage of elapsed time spent working.
- *  Deliberately derived from elapsed wall clock and measured rest -- nothing is persisted, so
- *  this can never drift out of sync with a stored number or need a migration. */
-function density(startedAt: number | null, restTotalSec: number): number | null {
-  if (startedAt == null) return null;
-  const elapsed = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
-  return Math.max(0, Math.min(100, Math.round((elapsed - restTotalSec) / elapsed * 100)));
-}
 
 // A short two-tone chirp so the phone can sit on the bench face-down. Built on demand and torn
 // down after: holding an AudioContext open across a whole session is what gets a webview's audio
@@ -251,9 +198,8 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
     let warned = -1;
     let fired = false;
     const tick = () => {
-      const deltaMs = restEndAt - Date.now();
-      if (deltaMs > 0) {
-        const left = Math.ceil(deltaMs / 1000);
+      const { left, over, done } = restProgress(restEndAt, Date.now());
+      if (!done) {
         setRestLeft(left); setRestOver(0);
         // 3-2-1 countdown, one light tap per second, so the last seconds are felt not watched.
         if (left <= 3 && left !== warned) {
@@ -262,7 +208,6 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
         }
         return;
       }
-      const over = Math.floor(-deltaMs / 1000);
       setRestLeft(0); setRestOver(over);
       if (!fired) {
         fired = true;
@@ -288,16 +233,8 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
     if (startedAt == null) return;
     restStartedRef.current = null;
     const actual = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-    const onTarget = Math.abs(actual - restTargetRef.current) <= REST_ON_TARGET_TOLERANCE_SEC;
-    setQuality((current) => {
-      const streak = onTarget ? current.onTargetStreak + 1 : 0;
-      return {
-        restCount: current.restCount + 1,
-        restTotalSec: current.restTotalSec + actual,
-        onTargetStreak: streak,
-        bestStreak: Math.max(current.bestStreak, streak),
-      };
-    });
+    const target = restTargetRef.current;
+    setQuality((current) => scoreRest(current, actual, target));
   };
 
   // One place that arms both the local countdown and the server row, so they can never disagree
@@ -344,8 +281,8 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
   };
   // What rest to use for an exercise: the plan's own value wins (a coach set it deliberately),
   // then this viewer's remembered preference for that metric.
-  const restForExercise = (exercise: LoggerExercise): number => exercise.restSec ?? restPrefs[restMetricKey(exercise)];
-  const liveDensity = density(sessionStartedAt, quality.restTotalSec);
+  const restForExercise = (exercise: LoggerExercise): number => exercise.restSec ?? restPrefs[restMetricKey(exercise.metric)];
+  const liveDensity = density(sessionStartedAt, quality.restTotalSec, Date.now());
 
   const persistDraft = (next: WorkoutToday, nextLogDate: string | null, nextCopiedFrom: string | null) => {
     try { localStorage.setItem(draftKey, JSON.stringify({ ...next, logDate: nextLogDate, copiedFrom: nextCopiedFrom })); setDrafted(true); } catch { /* storage is optional */ }
@@ -438,7 +375,7 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
   const applySwap = (name: string) => { if (swapFor === null) return; setWorkout((current) => { if (!current) return current; const next = { ...current, exercises: current.exercises.map((exercise) => exercise.index === swapFor ? { ...exercise, name, setsDone: [] } : exercise) }; persistDraft(next, logDate, copiedFrom); return next; }); setSwapFor(null); setSwapChoices([]); };
   const addCustom = async () => { const name = customName.trim(); if (name.length < 2) return; setActionBusy("custom"); try { const result = await api<{ name: string; videoUrl?: string; videoTitle?: string }>("/api/v2/workout/custom", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"addCustomExercise">({ name }) }); setWorkout((current) => { if (!current) return current; const exercise: LoggerExercise = { index: current.exercises.length, name: result.name, metric: "reps", sets: 1, ...(result.videoUrl ? { videoUrl: result.videoUrl, videoTitle: result.videoTitle } : {}) }; const next = { ...current, exercises: [...current.exercises, exercise] }; persistDraft(next, logDate, copiedFrom); return next; }); setCustomName(""); setShowCustom(false); } catch (err) { setActionError(err); } finally { setActionBusy(null); } };
   const openInfo = async (exercise: LoggerExercise) => { if (infoFor === exercise.index) { setInfoFor(null); return; } setInfoFor(exercise.index); if (exercise.technique || exercise.videoUrl) { setInfo({ technique: exercise.technique ?? "", videoUrl: exercise.videoUrl, videoTitle: exercise.videoTitle }); return; } setActionBusy(`info:${exercise.index}`); try { setInfo(await api(`/api/v2/workout/exinfo?name=${encodeURIComponent(exercise.name)}`)); } catch { setInfo(null); } finally { setActionBusy(null); } };
-  const save = async () => { if (!workout) return; setSaving(true); setSaved(false); setActionError(null); const targetDate = logDate; try { const entries = workout.exercises.flatMap((e) => e.setsDone && e.setsDone.some((set) => set.reps || set.seconds || set.meters) ? [{ name: e.name, sets: e.setsDone, ...(e.rpe !== undefined ? { rpe: e.rpe } : {}) }] : []); const result = await api<SaveResponse>("/api/v2/workout/save", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"saveWorkout">({ entries, ...(targetDate ? { date: targetDate } : {}) }) }); closeOpenRest(); localStorage.removeItem(draftKey); setDrafted(false); setSaved(true); setSaveNoteDate(targetDate); setSummary({ prExercises: result.prExercises ?? [], newBadges: result.newBadges ?? [], level: result.level ?? 1, leveledUp: result.leveledUp === true, totalWorkouts: result.totalWorkouts ?? 0, sets: entries.reduce((total, e) => total + e.sets.filter((set) => set.reps || set.seconds || set.meters).length, 0), elapsedSec: sessionStartedAt == null ? 0 : Math.round((Date.now() - sessionStartedAt) / 1000), restTotalSec: quality.restTotalSec, densityPct: density(sessionStartedAt, quality.restTotalSec), bestStreak: quality.bestStreak }); window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success"); if (targetDate) { setHistory(null); load(); } } catch (err) {
+  const save = async () => { if (!workout) return; setSaving(true); setSaved(false); setActionError(null); const targetDate = logDate; try { const entries = workout.exercises.flatMap((e) => e.setsDone && e.setsDone.some((set) => set.reps || set.seconds || set.meters) ? [{ name: e.name, sets: e.setsDone, ...(e.rpe !== undefined ? { rpe: e.rpe } : {}) }] : []); const result = await api<SaveResponse>("/api/v2/workout/save", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"saveWorkout">({ entries, ...(targetDate ? { date: targetDate } : {}) }) }); closeOpenRest(); localStorage.removeItem(draftKey); setDrafted(false); setSaved(true); setSaveNoteDate(targetDate); setSummary({ prExercises: result.prExercises ?? [], newBadges: result.newBadges ?? [], level: result.level ?? 1, leveledUp: result.leveledUp === true, totalWorkouts: result.totalWorkouts ?? 0, sets: entries.reduce((total, e) => total + e.sets.filter((set) => set.reps || set.seconds || set.meters).length, 0), elapsedSec: sessionStartedAt == null ? 0 : Math.round((Date.now() - sessionStartedAt) / 1000), restTotalSec: quality.restTotalSec, densityPct: density(sessionStartedAt, quality.restTotalSec, Date.now()), bestStreak: quality.bestStreak }); window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success"); if (targetDate) { setHistory(null); load(); } } catch (err) {
     // A 409 here means the idempotency layer found this exact save still genuinely in-flight
     // (src/adapters/d1/v2Idempotency.ts's ClaimResult "cached: null" branch) -- typically a
     // network-level retry of the same request racing its own still-processing first attempt.
@@ -466,5 +403,5 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
       {summary.prExercises.length > 0 && <p className="summary-hit">{t(lang, "summary_prs", { names: summary.prExercises.join(", ") })}</p>}
       {summary.newBadges.length > 0 && <p className="summary-hit">{t(lang, "summary_badges", { names: summary.newBadges.join(", ") })}</p>}
       <p className="muted">{t(lang, "summary_total_workouts", { n: summary.totalWorkouts })}</p>
-    </Card> : saved ? <div className="save-note">{saveNoteDate ? t(lang, "session_saved_for_date", { date: saveNoteDate }) : t(lang, "session_saved")}</div> : null}{logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}{copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}{drafted && <div className="draft-note">{t(lang, "draft_saved_note")}</div>}<div className="progress-track session-progress"><span style={{ width: `${workout.exercises.length ? filled / workout.exercises.length * 100 : 0}%` }} /></div>{workout.exercises.length > 1 && <div className="button-row"><button className="button button-ghost" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button></div>}<div className="exercise-list">{workout.exercises.map((exercise) => { const restSec = restForExercise(exercise); const sets = exercise.setsDone ?? []; const completed = sets.some((set) => set.reps || set.seconds || set.meters); return <Card key={`${exercise.index}-${exercise.name}`} tone={completed ? "muted" : "default"}><div className="exercise-head"><div><span className="exercise-index">{String(exercise.index + 1).padStart(2, "0")}</span><h2>{completed ? "✓ " : ""}{exercise.name}</h2></div><div className="button-row"><span className="tag">{t(lang, exercise.metric === "reps" ? "metric_tag_reps" : exercise.metric === "time" ? "metric_tag_time" : "metric_tag_distance")}</span><button type="button" className="text-button" onClick={() => startRest(restSec, exercise.name)}>{t(lang, "train_start_rest_btn", { sec: restSec })}</button><button type="button" className="text-button" aria-label={t(lang, "train_rest_prefs_aria")} onClick={() => setRestEditFor((current) => current === exercise.index ? null : exercise.index)}>⚙</button></div></div>{restEditFor === exercise.index && <div className="rest-prefs">{[45, 60, 90, 120, 180].map((sec) => <button type="button" key={sec} className={restPrefs[restMetricKey(exercise)] === sec ? "rest-chip selected" : "rest-chip"} onClick={() => patchRestPrefs({ [restMetricKey(exercise)]: sec })}>{sec}s</button>)}<button type="button" className={restPrefs.auto ? "rest-chip selected" : "rest-chip"} onClick={() => patchRestPrefs({ auto: !restPrefs.auto })}>{t(lang, "train_rest_auto")}</button><button type="button" className={restPrefs.sound ? "rest-chip selected" : "rest-chip"} onClick={() => patchRestPrefs({ sound: !restPrefs.sound })}>{t(lang, "train_rest_sound")}</button>{exercise.restSec != null && <small className="muted">{t(lang, "train_rest_plan_wins")}</small>}</div>}<p className="muted">{exercise.planSets ? `${exercise.planSets}${exercise.planWeight ? ` · ${exercise.planWeight}` : ""}` : t(lang, "exercise_sets_line", { n: exercise.sets, detail: exercise.metric === "reps" ? t(lang, "controlled_reps") : t(lang, "measured_effort") })}</p><div className="button-row exercise-actions"><button className="text-button" onClick={() => fillPlanned(exercise.index)}>{t(lang, "train_as_planned_btn")}</button>{exercise.last?.length ? <button className="text-button" onClick={() => fillLast(exercise.index)}>{t(lang, "train_repeat_last_btn")}</button> : null}<button className="text-button" onClick={() => void openSwap(exercise.index)}>{actionBusy === `swap:${exercise.index}` ? "…" : t(lang, "train_swap_btn")}</button><button className="text-button" onClick={() => void openInfo(exercise)}>{actionBusy === `info:${exercise.index}` ? "…" : t(lang, "train_info_btn")}</button></div>{swapFor === exercise.index && <div className="choice-list">{swapChoices.length ? swapChoices.map((choice) => <button className="choice-button" key={choice.id} onClick={() => applySwap(choice.name)}>{choice.name}</button>) : <span className="muted">{t(lang, "train_no_swaps")}</span>}</div>}{infoFor === exercise.index && info && <div className="info-box"><p>{info.technique || t(lang, "train_no_info")}</p>{info.videoUrl && <a href={info.videoUrl} target="_blank" rel="noreferrer">{info.videoTitle || t(lang, "train_watch_video")}</a>}</div>}<div className="set-list">{sets.map((set, setIndex) => <div className="set-row" key={setIndex}><span className="set-number">{setIndex + 1}</span>{exercise.metric === "reps" ? <><label><span>{t(lang, "field_load")}</span><input type="number" inputMode="decimal" value={set.weight || ""} placeholder={t(lang, "ph_kg")} onChange={(event) => updateSet(exercise.index, setIndex, "weight", Number(event.target.value))} /></label><label><span>{t(lang, "field_reps")}</span><input type="number" inputMode="numeric" value={set.reps || ""} placeholder={t(lang, "ph_reps")} onChange={(event) => updateSet(exercise.index, setIndex, "reps", Number(event.target.value))} onBlur={(event) => { if (restPrefs.auto && Number(event.target.value) > 0) startRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: setIndex + 1 })); }} /></label></> : exercise.metric === "time" ? <label><span>{t(lang, "field_seconds")}</span><input type="number" inputMode="numeric" value={set.seconds || ""} placeholder={t(lang, "ph_sec")} onChange={(event) => updateSet(exercise.index, setIndex, "seconds", Number(event.target.value))} onBlur={(event) => { if (restPrefs.auto && Number(event.target.value) > 0) startRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: setIndex + 1 })); }} /></label> : <label><span>{t(lang, "field_meters")}</span><input type="number" inputMode="decimal" value={set.meters || ""} placeholder={t(lang, "ph_m")} onChange={(event) => updateSet(exercise.index, setIndex, "meters", Number(event.target.value))} onBlur={(event) => { if (restPrefs.auto && Number(event.target.value) > 0) startRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: setIndex + 1 })); }} /></label>}<div className="rpe-chips">{[6, 7, 8, 9, 10].map((rpe) => <button type="button" className={set.rpe === rpe ? "rpe-chip selected" : "rpe-chip"} key={rpe} onClick={() => updateSet(exercise.index, setIndex, "rpe", rpe)}>{rpe}</button>)}</div><button type="button" className="icon-button set-remove" onClick={() => removeSet(exercise.index, setIndex)} aria-label={t(lang, "train_remove_set_aria")}>×</button></div>)}</div><div className="button-row exercise-footer"><button className="button button-ghost" onClick={() => addSet(exercise.index)}>{t(lang, "train_add_set_btn")}</button><button className="text-button" onClick={() => moveExercise(exercise.index, -1)}>↑</button><button className="text-button" onClick={() => moveExercise(exercise.index, 1)}>↓</button><button className="text-button danger-button" onClick={() => removeExercise(exercise.index)}>{t(lang, "train_delete_btn")}</button></div></Card>; })}</div>{showCustom ? <Card tone="muted"><div className="input-row"><input value={customName} maxLength={80} placeholder={t(lang, "train_custom_ph")} onChange={(event) => setCustomName(event.target.value)} /><button className="button button-primary" disabled={actionBusy === "custom"} onClick={() => void addCustom()}>{actionBusy === "custom" ? "…" : t(lang, "train_add_custom_btn")}</button><button className="button button-ghost" onClick={() => setShowCustom(false)}>{t(lang, "cancel_btn")}</button></div></Card> : <button className="button button-ghost button-wide" onClick={() => setShowCustom(true)}>{t(lang, "train_add_exercise_btn")}</button>}{restEndAt != null && <div className={restDone ? "rest-bar over" : "rest-bar"} role="status" aria-live="polite"><div className="rest-ring" style={{ ["--rest-pct" as string]: `${restTarget > 0 ? Math.min(100, Math.max(0, (restTarget - restLeft) / restTarget * 100)) : 100}%` }}><span>{restDone ? `+${fmtRest(restOver)}` : fmtRest(restLeft)}</span></div><div className="rest-meta"><strong>{restDone ? t(lang, "train_rest_over_label") : t(lang, "train_resting_label", { time: fmtRest(restLeft) })}</strong><small>{restLabel ? `${restLabel} · ` : ""}{liveDensity !== null ? t(lang, "rest_bar_density", { n: liveDensity }) : ""}{quality.onTargetStreak > 1 ? ` · 🎯 ${quality.onTargetStreak}` : ""}</small></div><div className="rest-actions"><button type="button" className="rest-adjust" onClick={() => adjustRest(-REST_ADJUST_SEC)} aria-label={t(lang, "train_rest_minus_aria", { sec: REST_ADJUST_SEC })}>−{REST_ADJUST_SEC}</button><button type="button" className="rest-adjust" onClick={() => adjustRest(REST_ADJUST_SEC)} aria-label={t(lang, "train_rest_plus_aria", { sec: REST_ADJUST_SEC })}>+{REST_ADJUST_SEC}</button><button type="button" className="rest-skip" onClick={stopRest}>{t(lang, "train_rest_skip_btn")}</button></div></div>}<button className="button button-primary button-wide" onClick={save} disabled={saving || filled === 0}>{saving ? t(lang, "saving_ellipsis") : logDate ? t(lang, "save_for_date", { date: logDate }) : t(lang, "save_session")}</button></div>;
+    </Card> : saved ? <div className="save-note">{saveNoteDate ? t(lang, "session_saved_for_date", { date: saveNoteDate }) : t(lang, "session_saved")}</div> : null}{logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}{copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}{drafted && <div className="draft-note">{t(lang, "draft_saved_note")}</div>}<div className="progress-track session-progress"><span style={{ width: `${workout.exercises.length ? filled / workout.exercises.length * 100 : 0}%` }} /></div>{workout.exercises.length > 1 && <div className="button-row"><button className="button button-ghost" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button></div>}<div className="exercise-list">{workout.exercises.map((exercise) => { const restSec = restForExercise(exercise); const sets = exercise.setsDone ?? []; const completed = sets.some((set) => set.reps || set.seconds || set.meters); return <Card key={`${exercise.index}-${exercise.name}`} tone={completed ? "muted" : "default"}><div className="exercise-head"><div><span className="exercise-index">{String(exercise.index + 1).padStart(2, "0")}</span><h2>{completed ? "✓ " : ""}{exercise.name}</h2></div><div className="button-row"><span className="tag">{t(lang, exercise.metric === "reps" ? "metric_tag_reps" : exercise.metric === "time" ? "metric_tag_time" : "metric_tag_distance")}</span><button type="button" className="text-button" onClick={() => startRest(restSec, exercise.name)}>{t(lang, "train_start_rest_btn", { sec: restSec })}</button><button type="button" className="text-button" aria-label={t(lang, "train_rest_prefs_aria")} onClick={() => setRestEditFor((current) => current === exercise.index ? null : exercise.index)}>⚙</button></div></div>{restEditFor === exercise.index && <div className="rest-prefs">{[45, 60, 90, 120, 180].map((sec) => <button type="button" key={sec} className={restPrefs[restMetricKey(exercise.metric)] === sec ? "rest-chip selected" : "rest-chip"} onClick={() => patchRestPrefs({ [restMetricKey(exercise.metric)]: sec })}>{sec}s</button>)}<button type="button" className={restPrefs.auto ? "rest-chip selected" : "rest-chip"} onClick={() => patchRestPrefs({ auto: !restPrefs.auto })}>{t(lang, "train_rest_auto")}</button><button type="button" className={restPrefs.sound ? "rest-chip selected" : "rest-chip"} onClick={() => patchRestPrefs({ sound: !restPrefs.sound })}>{t(lang, "train_rest_sound")}</button>{exercise.restSec != null && <small className="muted">{t(lang, "train_rest_plan_wins")}</small>}</div>}<p className="muted">{exercise.planSets ? `${exercise.planSets}${exercise.planWeight ? ` · ${exercise.planWeight}` : ""}` : t(lang, "exercise_sets_line", { n: exercise.sets, detail: exercise.metric === "reps" ? t(lang, "controlled_reps") : t(lang, "measured_effort") })}</p><div className="button-row exercise-actions"><button className="text-button" onClick={() => fillPlanned(exercise.index)}>{t(lang, "train_as_planned_btn")}</button>{exercise.last?.length ? <button className="text-button" onClick={() => fillLast(exercise.index)}>{t(lang, "train_repeat_last_btn")}</button> : null}<button className="text-button" onClick={() => void openSwap(exercise.index)}>{actionBusy === `swap:${exercise.index}` ? "…" : t(lang, "train_swap_btn")}</button><button className="text-button" onClick={() => void openInfo(exercise)}>{actionBusy === `info:${exercise.index}` ? "…" : t(lang, "train_info_btn")}</button></div>{swapFor === exercise.index && <div className="choice-list">{swapChoices.length ? swapChoices.map((choice) => <button className="choice-button" key={choice.id} onClick={() => applySwap(choice.name)}>{choice.name}</button>) : <span className="muted">{t(lang, "train_no_swaps")}</span>}</div>}{infoFor === exercise.index && info && <div className="info-box"><p>{info.technique || t(lang, "train_no_info")}</p>{info.videoUrl && <a href={info.videoUrl} target="_blank" rel="noreferrer">{info.videoTitle || t(lang, "train_watch_video")}</a>}</div>}<div className="set-list">{sets.map((set, setIndex) => <div className="set-row" key={setIndex}><span className="set-number">{setIndex + 1}</span>{exercise.metric === "reps" ? <><label><span>{t(lang, "field_load")}</span><input type="number" inputMode="decimal" value={set.weight || ""} placeholder={t(lang, "ph_kg")} onChange={(event) => updateSet(exercise.index, setIndex, "weight", Number(event.target.value))} /></label><label><span>{t(lang, "field_reps")}</span><input type="number" inputMode="numeric" value={set.reps || ""} placeholder={t(lang, "ph_reps")} onChange={(event) => updateSet(exercise.index, setIndex, "reps", Number(event.target.value))} onBlur={(event) => { if (restPrefs.auto && Number(event.target.value) > 0) startRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: setIndex + 1 })); }} /></label></> : exercise.metric === "time" ? <label><span>{t(lang, "field_seconds")}</span><input type="number" inputMode="numeric" value={set.seconds || ""} placeholder={t(lang, "ph_sec")} onChange={(event) => updateSet(exercise.index, setIndex, "seconds", Number(event.target.value))} onBlur={(event) => { if (restPrefs.auto && Number(event.target.value) > 0) startRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: setIndex + 1 })); }} /></label> : <label><span>{t(lang, "field_meters")}</span><input type="number" inputMode="decimal" value={set.meters || ""} placeholder={t(lang, "ph_m")} onChange={(event) => updateSet(exercise.index, setIndex, "meters", Number(event.target.value))} onBlur={(event) => { if (restPrefs.auto && Number(event.target.value) > 0) startRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: setIndex + 1 })); }} /></label>}<div className="rpe-chips">{[6, 7, 8, 9, 10].map((rpe) => <button type="button" className={set.rpe === rpe ? "rpe-chip selected" : "rpe-chip"} key={rpe} onClick={() => updateSet(exercise.index, setIndex, "rpe", rpe)}>{rpe}</button>)}</div><button type="button" className="icon-button set-remove" onClick={() => removeSet(exercise.index, setIndex)} aria-label={t(lang, "train_remove_set_aria")}>×</button></div>)}</div><div className="button-row exercise-footer"><button className="button button-ghost" onClick={() => addSet(exercise.index)}>{t(lang, "train_add_set_btn")}</button><button className="text-button" onClick={() => moveExercise(exercise.index, -1)}>↑</button><button className="text-button" onClick={() => moveExercise(exercise.index, 1)}>↓</button><button className="text-button danger-button" onClick={() => removeExercise(exercise.index)}>{t(lang, "train_delete_btn")}</button></div></Card>; })}</div>{showCustom ? <Card tone="muted"><div className="input-row"><input value={customName} maxLength={80} placeholder={t(lang, "train_custom_ph")} onChange={(event) => setCustomName(event.target.value)} /><button className="button button-primary" disabled={actionBusy === "custom"} onClick={() => void addCustom()}>{actionBusy === "custom" ? "…" : t(lang, "train_add_custom_btn")}</button><button className="button button-ghost" onClick={() => setShowCustom(false)}>{t(lang, "cancel_btn")}</button></div></Card> : <button className="button button-ghost button-wide" onClick={() => setShowCustom(true)}>{t(lang, "train_add_exercise_btn")}</button>}{restEndAt != null && <div className={restDone ? "rest-bar over" : "rest-bar"} role="status" aria-live="polite"><div className="rest-ring" style={{ ["--rest-pct" as string]: `${restRingPct(restTarget, restLeft)}%` }}><span>{restDone ? `+${fmtRest(restOver)}` : fmtRest(restLeft)}</span></div><div className="rest-meta"><strong>{restDone ? t(lang, "train_rest_over_label") : t(lang, "train_resting_label", { time: fmtRest(restLeft) })}</strong><small>{restLabel ? `${restLabel} · ` : ""}{liveDensity !== null ? t(lang, "rest_bar_density", { n: liveDensity }) : ""}{quality.onTargetStreak > 1 ? ` · 🎯 ${quality.onTargetStreak}` : ""}</small></div><div className="rest-actions"><button type="button" className="rest-adjust" onClick={() => adjustRest(-REST_ADJUST_SEC)} aria-label={t(lang, "train_rest_minus_aria", { sec: REST_ADJUST_SEC })}>−{REST_ADJUST_SEC}</button><button type="button" className="rest-adjust" onClick={() => adjustRest(REST_ADJUST_SEC)} aria-label={t(lang, "train_rest_plus_aria", { sec: REST_ADJUST_SEC })}>+{REST_ADJUST_SEC}</button><button type="button" className="rest-skip" onClick={stopRest}>{t(lang, "train_rest_skip_btn")}</button></div></div>}<button className="button button-primary button-wide" onClick={save} disabled={saving || filled === 0}>{saving ? t(lang, "saving_ellipsis") : logDate ? t(lang, "save_for_date", { date: logDate }) : t(lang, "save_session")}</button></div>;
 }

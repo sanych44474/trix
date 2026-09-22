@@ -1,0 +1,86 @@
+name: Inject deployment configuration into wrangler.toml
+description: >-
+  Writes the real deployment identity into the committed wrangler.toml, which ships with
+  placeholders so no deployment is baked into the source tree. REQUIRED before any wrangler
+  command that talks to Cloudflare — without it `wrangler d1 execute --remote` targets the
+  placeholder database id and fails with "could not be found [code: 7404]".
+
+  Extracted from deploy.yml so every wrangler-invoking workflow uses the same step. It existed
+  only inside deploy.yml at first, and scheduler-cutover.yml was written without it — which is
+  precisely the drift this shape prevents.
+
+inputs:
+  d1-database-id:
+    description: D1_DATABASE_ID secret
+    required: true
+  worker-url:
+    description: WORKER_URL repository variable
+    required: true
+  bot-username:
+    description: BOT_USERNAME repository variable
+    required: false
+    default: ""
+  bot-id:
+    description: BOT_ID repository variable
+    required: false
+    default: ""
+  bot-name:
+    description: BOT_NAME repository variable
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # Values arrive as env vars and are never interpolated straight into the script, so a value
+    # containing shell or regex metacharacters cannot change what runs.
+    - name: Inject deployment configuration
+      shell: bash
+      env:
+        D1_DATABASE_ID: ${{ inputs.d1-database-id }}
+        WORKER_URL: ${{ inputs.worker-url }}
+        BOT_USERNAME: ${{ inputs.bot-username }}
+        BOT_ID: ${{ inputs.bot-id }}
+        BOT_NAME: ${{ inputs.bot-name }}
+      run: |
+        set -euo pipefail
+        if [ -z "${D1_DATABASE_ID}" ]; then
+          echo "::error::D1_DATABASE_ID secret is not set for the production environment"
+          exit 1
+        fi
+        if [ -z "${WORKER_URL}" ]; then
+          echo "::error::WORKER_URL repository variable is not set"
+          exit 1
+        fi
+        python3 - <<'PY'
+        import os, re, pathlib
+        cfg = pathlib.Path("wrangler.toml")
+        text = cfg.read_text(encoding="utf-8")
+        replacements = {
+            "database_id": os.environ["D1_DATABASE_ID"],
+            "WORKER_URL": os.environ["WORKER_URL"],
+            "BOT_USERNAME": os.environ.get("BOT_USERNAME", ""),
+            "BOT_ID": os.environ.get("BOT_ID", ""),
+            "BOT_NAME": os.environ.get("BOT_NAME", ""),
+        }
+        for key, value in replacements.items():
+            pattern = rf'^({re.escape(key)}\s*=\s*)"[^"]*"$'
+            new, n = re.subn(pattern, lambda m: m.group(1) + '"' + value + '"', text, flags=re.M)
+            if n != 1:
+                raise SystemExit(f"expected exactly one {key} assignment in wrangler.toml, found {n}")
+            text = new
+        cfg.write_text(text, encoding="utf-8")
+        print("wrangler.toml configured")
+        PY
+
+    # Fail loudly here rather than letting a wrangler call fail with a 7404 that reads like a
+    # deleted database instead of an unconfigured workflow.
+    - name: Verify the placeholder is gone
+      shell: bash
+      run: |
+        set -euo pipefail
+        if grep -q '^database_id = "00000000-0000-0000-0000-000000000000"$' wrangler.toml; then
+          echo "::error::wrangler.toml still holds the placeholder database_id after injection"
+          exit 1
+        fi
+        echo "wrangler.toml points at the configured database"
