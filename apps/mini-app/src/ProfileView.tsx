@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
-import { api, jsonBody } from "./api";
+import { api, jsonBody, typedBody } from "./api";
 import { t, type Lang } from "./i18n";
+import type { ProfilePayload, RequestBody } from "./types";
 
-type ProfilePayload = {
-  photos: Array<{ id: number; takenAt: string }>;
-  profile: { name: string; goal: string; level: string; equipment: string; dietPrefs: string; limitations: string; goalWeight: number | null; waterGoalMl: number | null; stepsGoal: number | null; trainingWeekdays: number[]; share: { body: boolean; health: boolean } | null };
-  options: Record<string, Array<{ value: string; label: string }>>;
-  weekdays: Array<{ value: number; label: string }>;
-};
+type SettingsBody = RequestBody<"updateSettings">;
 
 type SettingsPayload = {
   onboarded: boolean;
@@ -47,10 +43,12 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   useEffect(load, []);
   useEffect(loadSettings, []);
 
-  const run = async (key: string, action: string, extra?: Record<string, unknown>): Promise<SettingsResult | null> => {
+  // `action` and `extra` both come from the contract now, so a call site naming a field the
+  // handler doesn't read -- or an action it doesn't implement -- fails typecheck.
+  const run = async (key: string, action: SettingsBody["action"], extra?: Omit<Partial<SettingsBody>, "action">): Promise<SettingsResult | null> => {
     setBusy(key); setActionSaved(null); setActionError(null);
     try {
-      const result = await api<SettingsResult>("/api/v2/settings", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action, ...extra }) });
+      const result = await api<SettingsResult>("/api/v2/settings", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateSettings">({ action, ...extra }) });
       if (result.state) setSettings(result.state);
       if (result.ok === false) { setActionError(key); return result; }
       setActionSaved(key);
@@ -101,14 +99,14 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   // A failed save must NOT blank the form via the shared `error`/`load`-failure state (the user's
   // typed edits would vanish) -- reuses the same per-field actionError/actionSaved convention the
   // settings actions below already use, keyed "profile", rendered as an inline note near the button.
-  const save = async () => { setSaving(true); setActionError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ ...form, goalWeight: form.goalWeight === null ? null : Number(form.goalWeight), waterGoalMl: form.waterGoalMl === null ? null : Number(form.waterGoalMl), stepsGoal: form.stepsGoal === null ? null : Number(form.stepsGoal) }) }); onBack(); } catch { setActionError("profile"); } finally { setSaving(false); } };
+  const save = async () => { setSaving(true); setActionError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateProfile">({ ...form, goalWeight: form.goalWeight === null ? null : Number(form.goalWeight), waterGoalMl: form.waterGoalMl === null ? null : Number(form.waterGoalMl), stepsGoal: form.stepsGoal === null ? null : Number(form.stepsGoal) }) }); onBack(); } catch { setActionError("profile"); } finally { setSaving(false); } };
   const photoQuery = () => { const tma = window.Telegram?.WebApp?.initData; if (tma) return `&tma=${encodeURIComponent(tma)}`; return window.location.search.replace(/^\?/, "&"); };
 
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "profile_settings_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "your_baseline_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
     <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "identity_eyebrow")}</span><h2>{t(lang, "keep_current_title")}</h2></div></div><div className="form-grid"><label className="form-field"><span>{t(lang, "field_name")}</span><input value={form.name} maxLength={60} onChange={(event) => patch({ name: event.target.value })} /></label><label className="form-field"><span>{t(lang, "field_goal_weight_kg")}</span><input type="number" min="30" max="300" step="0.1" value={form.goalWeight ?? ""} placeholder={t(lang, "optional_ph")} onChange={(event) => patch({ goalWeight: event.target.value ? Number(event.target.value) : null })} /></label><label className="form-field"><span>{t(lang, "field_water_goal_ml")}</span><input type="number" min="500" max="8000" step="50" value={form.waterGoalMl ?? ""} placeholder={t(lang, "auto_ph")} onChange={(event) => patch({ waterGoalMl: event.target.value ? Number(event.target.value) : null })} /></label><label className="form-field"><span>{t(lang, "field_steps_goal")}</span><input type="number" min="1000" max="50000" step="500" value={form.stepsGoal ?? ""} placeholder="8000" onChange={(event) => patch({ stepsGoal: event.target.value ? Number(event.target.value) : null })} /></label></div></section>
-    <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "training_eyebrow")}</span><h2>{t(lang, "weekly_rhythm_title")}</h2></div></div><div className="form-grid"><label className="form-field"><span>{t(lang, "field_goal")}</span><select value={form.goal} onChange={(event) => patch({ goal: event.target.value })}>{(data.options.goal ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="form-field"><span>{t(lang, "field_experience")}</span><select value={form.level} onChange={(event) => patch({ level: event.target.value })}>{(data.options.level ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div><div className="weekday-grid">{data.weekdays.map((day) => <button className={form.trainingWeekdays.includes(day.value) ? "weekday selected" : "weekday"} key={day.value} onClick={() => toggleDay(day.value)}>{day.label.slice(0, 3)}</button>)}</div></section>
+    <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "training_eyebrow")}</span><h2>{t(lang, "weekly_rhythm_title")}</h2></div></div><div className="form-grid"><label className="form-field"><span>{t(lang, "field_goal")}</span><select value={form.goal} onChange={(event) => patch({ goal: event.target.value })}>{(data.options.goal ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="form-field"><span>{t(lang, "field_experience")}</span><select value={form.level} onChange={(event) => patch({ level: event.target.value as ProfilePayload["profile"]["level"] })}>{(data.options.level ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div><div className="weekday-grid">{data.weekdays.map((day) => <button className={form.trainingWeekdays.includes(day.value) ? "weekday selected" : "weekday"} key={day.value} onClick={() => toggleDay(day.value)}>{day.label.slice(0, 3)}</button>)}</div></section>
     {data.photos.length > 0 && <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "progress_photos_eyebrow")}</span><h2>{t(lang, "your_timeline_title")}</h2></div><span className="tag">{data.photos.length}</span></div><div className="photo-grid">{data.photos.map((photo) => <figure key={photo.id}><img src={`/api/v2/photo?id=${photo.id}${photoQuery()}`} alt={t(lang, "progress_alt", { date: photo.takenAt })} loading="lazy" /><figcaption>{photo.takenAt}</figcaption></figure>)}</div></section>}
     {form.share && <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "consent_eyebrow")}</span><h2>{t(lang, "trainer_visibility_title")}</h2></div></div><label className="check-row"><input type="checkbox" checked={form.share.body} onChange={(event) => patch({ share: { ...form.share!, body: event.target.checked } })} /><span>{t(lang, "share_body_label")}</span></label><label className="check-row"><input type="checkbox" checked={form.share.health} onChange={(event) => patch({ share: { ...form.share!, health: event.target.checked } })} /><span>{t(lang, "share_health_label")}</span></label></section>}
     {error && <div className="save-note error-note">{t(lang, "save_error")}</div>}

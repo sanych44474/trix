@@ -9,9 +9,25 @@
 // screen's own fetch) are NOT centralized here -- that split is a deliberate, pre-existing
 // convention of this app (see e.g. Workspace.tsx's own comment on ClientCardPayload), not
 // something this contract migration changes.
-import type { components } from "../../../packages/contracts/generated";
+import type { components, operations } from "../../../packages/contracts/generated";
 
 type Schemas = components["schemas"];
+
+/** The celebration payload saveWorkout() returns (PRs, badges, level). Derived from the
+ *  operation rather than hand-declared, so a change to the handler's response shape has to go
+ *  through the contract to reach this app -- exactly the drift ADR-0005 exists to stop. */
+export type SaveResponse = operations["saveWorkout"]["responses"][200]["content"]["application/json"]["data"];
+
+/** The JSON request body an operation accepts, per the contract.
+ *
+ *  The contract has typed RESPONSES since ADR-0005, but request bodies were assembled as plain
+ *  object literals and arrived at the handler as `unknown` -- so nothing checked what the app
+ *  SENT. That asymmetry shipped a real break: the plan editor sent the new exercise name as
+ *  `value` while the handler read `name`, which typechecked, passed the unit suite (it
+ *  hand-wrote the server's spelling) and 400'd for every user. Pair this with `typedBody()` in
+ *  api.ts so a mistyped or unknown field is a compile error instead. */
+export type RequestBody<Op extends keyof operations> =
+  operations[Op] extends { requestBody: { content: { "application/json": infer B } } } ? B : never;
 
 export interface V2Envelope<T> {
   data: T;

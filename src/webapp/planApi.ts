@@ -4,6 +4,8 @@
 // the client and the bot editor stay in sync. Same initData auth as every other webapp API.
 import {
   getActivePlan,
+  listPlanChanges,
+  recordPlanChange,
   updateActivePlanSplit,
   updatePlanMesocycle,
 } from "../adapters/d1/v2Plans";
@@ -49,6 +51,13 @@ export interface PlanPayload {
   version: string; // plan.generatedAt ISO — a full replan invalidates in-flight edits
   days: PlanDayView[];
   mesocycle: Mesocycle | null; // opt-in block periodization overlay, see src/domain/mesocycle.ts
+  changes: PlanChangeView[]; // recent audit trail; a trainer reading a client's plan sees the same list
+}
+
+interface PlanChangeView {
+  source: string; // ai_coach | manual | injury_swap | trainer
+  summary: string;
+  at: string; // ISO
 }
 
 async function resolveVideos(env: Env, userId: number, days: PlanDay[]): Promise<Map<string, ExerciseVideo>> {
@@ -91,6 +100,21 @@ function toView(days: PlanDay[], videos: Map<string, ExerciseVideo>, lang: Lang)
 
 const MAX_EX_PER_DAY = 12;
 
+/** One-line "what changed" for the audit trail, mirroring the phrasing the bot's own editor
+ *  already writes ("weight: Bench Press -> 60 kg") so both surfaces read as one history. */
+function changeSummary(action: string, before: string, after: PlanExercise | undefined): string {
+  if (action === "weight") return `weight: ${before} -> ${after?.startWeight ?? "?"}`;
+  if (action === "sets") return `sets: ${before} -> ${after?.sets ?? "?"}`;
+  if (action === "wmode") return `weight mode: ${before} -> ${after?.weightMode ?? "total"}`;
+  if (action === "video") return `video: ${before}`;
+  if (action === "link") return `superset: ${before}`;
+  if (action === "del") return `removed: ${before}`;
+  if (action === "move") return `reordered: ${before}`;
+  if (action === "swap") return `swap: ${before} -> ${after?.name ?? "?"}`;
+  if (action === "add") return `added: ${after?.name ?? "?"}`;
+  return action;
+}
+
 export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
@@ -118,12 +142,17 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
     const plan = await getActivePlan(env.DB, owner._id);
     if (!plan) return Response.json({ error: "no_plan" }, { status: 404 });
     const videos = await resolveVideos(env, owner._id, plan.split);
+    // The change log had no reader anywhere in the codebase until now -- it was written by the
+    // bot's editor and never shown. Surfacing it here serves both audiences off one endpoint:
+    // an athlete seeing what their coach changed, and a trainer seeing a client's plan history.
+    const changes = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
     const payload: PlanPayload = {
       owner: { id: owner._id, name: owner.profile.name ?? `id ${owner._id}` },
       editable: true,
       version: plan.generatedAt.toISOString(),
       days: toView(plan.split, videos, owner.lang),
       mesocycle: plan.mesocycle ?? null,
+      changes: changes.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
     };
     return Response.json(payload, { headers: { "cache-control": "no-store", etag: `"${payload.version}"` } });
   }
@@ -169,6 +198,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
   const action = String(body.action);
   const index = Number(body.index);
   const ex = day.exercises[index];
+  const beforeName = ex?.name ?? "";
   // Optimistic target check for ops that reference an existing exercise (avoid editing the wrong
   // one if the plan shifted between load and tap).
   if (["weight", "sets", "del", "move", "swap", "video", "wmode", "link"].includes(action)) {
@@ -228,7 +258,12 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
       if (j < 0 || j >= day.exercises.length) return Response.json({ ok: true }); // no-op at the edge
       [day.exercises[index], day.exercises[j]] = [day.exercises[j], day.exercises[index]];
     } else if (action === "swap" || action === "add") {
-      const name = String(body.name ?? "").trim().slice(0, 80);
+      // `value` is what the Mini App's shared edit() helper sends for EVERY action (App.tsx);
+      // `name` is the older spelling the bot-era payload and the existing tests use. Reading
+      // only `name` here silently 400'd every catalog swap and add-exercise from the app --
+      // for a trainer editing a client's plan and for a solo user alike -- while the other
+      // actions (weight/sets/wmode/video), which read `value`, kept working. Accept both.
+      const name = String(body.value ?? body.name ?? "").trim().slice(0, 80);
       if (name.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
       const catalogId = body.catalogId ? String(body.catalogId) : undefined;
       const cat = catalogId ? await getCatalogExercise(env.DB, catalogId).catch(() => null) : null;
@@ -254,8 +289,28 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
       return Response.json({ error: "bad request" }, { status: 400 });
     }
     await updateActivePlanSplit(env.DB, owner._id, plan.split);
+    // Parity with the bot's editor (src/bot/planExerciseEdit.ts), which records every one of
+    // these: without it an edit made in the Mini App left no audit trail while the identical
+    // edit made in chat did. A trainer editing a client's plan is logged as "trainer", not
+    // "manual", so the client can tell who changed what. Best-effort -- a failed audit write
+    // must not fail the edit the user already saw succeed.
+    const after = action === "add" ? day.exercises[day.exercises.length - 1] : action === "del" ? undefined : day.exercises[index];
+    await recordPlanChange(
+      env.DB,
+      owner._id,
+      owner._id === user._id ? "manual" : "trainer",
+      changeSummary(action, beforeName, after),
+    ).catch(() => {});
     const videos = await resolveVideos(env, owner._id, plan.split);
-    return Response.json({ ok: true, days: toView(plan.split, videos, owner.lang), version: plan.generatedAt.toISOString() });
+    // Return the refreshed log with the edit, so the client's history panel can't show a list
+    // that's missing the change the user just made.
+    const freshChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
+    return Response.json({
+      ok: true,
+      days: toView(plan.split, videos, owner.lang),
+      version: plan.generatedAt.toISOString(),
+      changes: freshChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
+    });
   } catch (err) {
     console.error("api/plan edit", user._id, action, err);
     return Response.json({ error: "error" }, { status: 500 });

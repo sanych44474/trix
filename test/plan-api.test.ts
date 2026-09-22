@@ -92,6 +92,134 @@ test("plan editor: catalog search and add/move/link/swap/video/delete round-trip
   assert.equal(current.days[0].exercises.length, 2);
 });
 
+// Regression: the Mini App's plan editor builds EVERY edit body through one shared helper
+// (`edit()` in apps/mini-app/src/App.tsx), which serializes the payload field as `value`. The
+// swap/add branch used to read `body.name` only, so every catalog swap and every add-exercise
+// from the app 400'd -- reported as "a trainer picks a replacement exercise from the list and
+// can't apply it to a client", but it broke a solo user's own plan the same way. The test below
+// deliberately posts the payload the way the CLIENT builds it (value + catalogId, no `name`),
+// not the way the handler happened to read it -- the pre-existing test above hand-writes `name`
+// and so stayed green against a body the app never sends.
+test("plan editor: swap and add accept the Mini App's `value` payload, not just `name`", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await setActivePlan(db, plan(1));
+  await upsertExercise(db, {
+    id: "incline-press",
+    name: "Incline Press",
+    muscle: "chest",
+    equipments: ["barbell"],
+    instructions: "Keep the shoulder blades set.",
+    safetyInfo: "Use a controlled range.",
+  });
+
+  let current = await (await call(db, 1, "GET", "/api/plan")).json() as { version: string; days: PlanDoc["split"] };
+
+  // Mirrors App.tsx's edit(): { weekday, index, action, value, expectName, ...extra }.
+  const clientEdit = async (
+    weekday: number,
+    index: number,
+    action: string,
+    value: string,
+    expectName?: string,
+    extra: Record<string, unknown> = {},
+  ) => {
+    const response = await call(
+      db,
+      1,
+      "POST",
+      "/api/plan",
+      { weekday, index, action, value, ...(expectName ? { expectName } : {}), ...extra },
+      { "if-match": `"${current.version}"` },
+    );
+    assert.equal(response.status, 200, `${action} should not be rejected: ${await response.clone().text()}`);
+    current = await response.json() as typeof current;
+  };
+
+  // Catalog tap: App.tsx sends the picked exercise's name as `value` plus its catalogId.
+  await clientEdit(1, 1, "swap", "Incline Press", "Lat Pulldown", { catalogId: "incline-press" });
+  assert.equal(current.days[0].exercises[1].name, "Incline Press");
+
+  // Free-text swap: same helper, no catalogId.
+  await clientEdit(1, 0, "swap", "Floor Press", "Bench Press");
+  assert.equal(current.days[0].exercises[0].name, "Floor Press");
+
+  // Add-exercise field: index -1, name carried in `value`.
+  await clientEdit(1, -1, "add", "Cable Curl");
+  assert.equal(current.days[0].exercises.length, 3);
+  assert.equal(current.days[0].exercises[2].name, "Cable Curl");
+
+  // A genuinely empty value must still be rejected -- the fix widens which field is read, it
+  // does not weaken the length guard.
+  const empty = await call(
+    db,
+    1,
+    "POST",
+    "/api/plan",
+    { weekday: 1, index: -1, action: "add", value: " " },
+    { "if-match": `"${current.version}"` },
+  );
+  assert.equal(empty.status, 400);
+});
+
+// The bot's editor has always written to the plan change log; the Mini App's never did, so the
+// same edit left an audit trail in chat and none in the app. The log also had no reader anywhere
+// in src/ -- it is now returned with the plan.
+test("plan editor: Mini App edits are recorded in the change log and returned with the plan", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await setActivePlan(db, plan(1));
+
+  const fresh = await (await call(db, 1, "GET", "/api/plan")).json() as { version: string; changes: Array<{ source: string; summary: string }> };
+  assert.deepEqual(fresh.changes, [], "a plan with no edits yet has an empty history");
+
+  const edited = await call(
+    db,
+    1,
+    "POST",
+    "/api/plan",
+    { weekday: 1, index: 0, action: "weight", value: "60", expectName: "Bench Press" },
+    { "if-match": `"${fresh.version}"` },
+  );
+  assert.equal(edited.status, 200);
+  const result = await edited.json() as { changes: Array<{ source: string; summary: string }> };
+  assert.equal(result.changes.length, 1, "the edit response carries the refreshed log");
+  assert.equal(result.changes[0].source, "manual", "a user editing their own plan is 'manual'");
+  assert.match(result.changes[0].summary, /Bench Press/);
+
+  const reread = await (await call(db, 1, "GET", "/api/plan")).json() as { changes: Array<{ source: string }> };
+  assert.equal(reread.changes.length, 1, "GET /plan surfaces the same log");
+});
+
+test("plan editor: a trainer's edit to a client's plan is logged as 'trainer', against the client", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Coach");
+  await getOrCreateUser(db, 2, 2, "en", "Client");
+  const { updateUser } = await import("../src/adapters/d1/v2Users");
+  await updateUser(db, 1, { role: "trainer" });
+  await updateUser(db, 2, { role: "client", trainerId: 1 });
+  await setActivePlan(db, plan(2));
+
+  const clientPlan = await (await call(db, 1, "GET", "/api/plan?clientId=2")).json() as { version: string };
+  const edited = await call(
+    db,
+    1,
+    "POST",
+    "/api/plan",
+    { clientId: 2, weekday: 1, index: 0, action: "sets", value: "5 × 5", expectName: "Bench Press" },
+    { "if-match": `"${clientPlan.version}"` },
+  );
+  assert.equal(edited.status, 200, `trainer edit should succeed: ${await edited.clone().text()}`);
+  const result = await edited.json() as { changes: Array<{ source: string }> };
+  assert.equal(result.changes[0].source, "trainer", "so the client can tell who changed their plan");
+
+  // The row belongs to the CLIENT's history, not the trainer's own.
+  const coachOwn = await db.prepare("SELECT COUNT(*) AS n FROM v2_plan_changes WHERE accountId = 1").first<{ n: number }>();
+  assert.equal(coachOwn?.n, 0);
+  const clientOwn = await db.prepare("SELECT COUNT(*) AS n FROM v2_plan_changes WHERE accountId = 2").first<{ n: number }>();
+  assert.equal(clientOwn?.n, 1);
+});
+
 test("plan mesocycle: GET reflects null until started, POST toggles it, and it needs no weekday/index", async () => {
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "en", "Ann");

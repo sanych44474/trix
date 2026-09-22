@@ -130,6 +130,35 @@ button { cursor: pointer; }
 .question-card { display: grid; align-items: start; gap: 8px; }
 .empty { display: grid; gap: 6px; place-items: start; padding: 26px 4px 10px; }.empty-mark { color: var(--accent); font-size: 30px; }.empty strong { font-size: 16px; }.empty small { max-width: 360px; }
 .error-state { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }.error-state > strong { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }.skeleton { height: 130px; border-radius: 18px; background: linear-gradient(90deg, var(--surface), var(--surface-2), var(--surface)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }.skeleton-hero { height: 215px; }
+/* Rest bar: pinned just above the bottom nav so a running rest is visible wherever the user
+   has scrolled to. Replaces a line of muted text at the very end of the exercise list, which
+   nobody mid-session was looking at. The ring is a conic-gradient driven by --rest-pct. */
+.rest-bar { position: fixed; z-index: 11; right: 12px; bottom: calc(66px + env(safe-area-inset-bottom)); left: 12px; display: flex; align-items: center; gap: 11px; padding: 9px 11px; border: 1px solid var(--accent); border-radius: 14px; background: rgba(11,13,17,.96); box-shadow: 0 8px 24px rgba(0,0,0,.35); backdrop-filter: blur(18px); }
+.rest-bar.over { border-color: var(--good); }
+.rest-ring { position: relative; display: grid; place-items: center; flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%; background: conic-gradient(var(--accent) var(--rest-pct, 0%), var(--surface-2) 0); }
+.rest-bar.over .rest-ring { background: conic-gradient(var(--good) 100%, var(--good) 0); }
+.rest-ring::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--surface); }
+.rest-ring span { position: relative; z-index: 1; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rest-meta { display: grid; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.rest-meta strong { overflow: hidden; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+.rest-meta small { overflow: hidden; color: var(--muted); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.rest-actions { display: flex; gap: 5px; flex: 0 0 auto; }
+.rest-adjust, .rest-skip { padding: 6px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--text); font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rest-skip { border-color: var(--accent); color: var(--accent); }
+/* Per-metric rest preference chips, revealed by the gear next to an exercise's rest button. */
+.rest-prefs { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 7px 0 3px; }
+.rest-prefs small { flex: 1 0 100%; font-size: 11px; }
+.rest-chip { padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 11px; font-weight: 800; }
+.rest-chip.selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+/* Session summary: the PR/badge/level payload the save endpoint has always returned and the
+   app used to discard, plus the locally measured work-vs-rest split. */
+.session-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 8px; margin: 9px 0; }
+.session-stats > div { display: grid; gap: 2px; padding: 8px; border-radius: 10px; background: rgba(20,13,10,.13); text-align: center; }
+.session-stats strong { font-size: 16px; font-variant-numeric: tabular-nums; }
+.session-stats small { color: rgba(28,13,8,.65); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.summary-hit { margin: 4px 0; font-size: 13px; font-weight: 700; }
+.train-progress { display: flex; gap: 8px; align-items: center; }
+.train-progress .progress-track { flex: 1 1 auto; }
 .bottom-nav { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; display: flex; gap: 2px; padding: 8px 6px calc(8px + env(safe-area-inset-bottom)); background: rgba(11,13,17,.92); border-top: 1px solid var(--line); backdrop-filter: blur(18px); }.nav-item { display: grid; gap: 3px; flex: 1 1 0; min-width: 0; padding: 5px 2px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 10px; line-height: 1.15; text-align: center; }.nav-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }.nav-icon { font-size: 19px; line-height: 1; }.nav-item.active { background: var(--accent-soft); color: var(--accent); }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (min-width: 640px) { .hero { grid-template-columns: 1fr auto; align-items: end; }.hero .button { margin-bottom: 2px; }.bottom-nav { right: auto; left: 50%; width: 640px; transform: translateX(-50%); border-right: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: 18px 18px 0 0; } }
@@ -141,6 +170,7 @@ button { cursor: pointer; }
   .factor-list { color: #465366; }
   .input-row input, .form-field input, .form-field select, .form-field textarea, .set-row input, .meal-editor input, .plan-edit-fields input, .compact-input { background: var(--surface); color: var(--text); }
   .bottom-nav { background: rgba(244,246,248,.94); }
+  .rest-bar { background: rgba(255,255,255,.97); box-shadow: 0 8px 24px rgba(24,32,43,.14); }
 }
 :root[data-theme="light"] { color-scheme: light; color: #18202b; background: #f4f6f8; --bg: #f4f6f8; --surface: #ffffff; --surface-2: #eef1f5; --line: #d8dee7; --text: #18202b; --muted: #637083; --accent-soft: rgba(255,95,61,.12); }
 :root[data-theme="light"] body { background: radial-gradient(circle at 90% -10%, rgba(255,95,61,.10), transparent 34%), var(--bg); }
@@ -149,10 +179,12 @@ button { cursor: pointer; }
 :root[data-theme="light"] .factor-list { color: #465366; }
 :root[data-theme="light"] .input-row input, :root[data-theme="light"] .form-field input, :root[data-theme="light"] .form-field select, :root[data-theme="light"] .form-field textarea, :root[data-theme="light"] .set-row input, :root[data-theme="light"] .meal-editor input, :root[data-theme="light"] .plan-edit-fields input, :root[data-theme="light"] .compact-input { background: var(--surface); color: var(--text); }
 :root[data-theme="light"] .bottom-nav { background: rgba(244,246,248,.94); }
+:root[data-theme="light"] .rest-bar { background: rgba(255,255,255,.97); box-shadow: 0 8px 24px rgba(24,32,43,.14); }
 :root[data-theme="dark"] { color-scheme: dark; color: #eef1f6; background: #0b0d11; --bg: #0b0d11; --surface: #141820; --surface-2: #1b202a; --line: #2a303b; --text: #eef1f6; --muted: #8f99aa; --accent: #ff5f3d; --accent-soft: rgba(255,95,61,.16); --good: #55d38b; --warn: #ffc857; --bad: #ff6f6f; }
 :root[data-theme="dark"] body { background: radial-gradient(circle at 90% -10%, rgba(255,95,61,.14), transparent 34%), var(--bg); }
 :root[data-theme="dark"] .card { background: rgba(20,24,32,.9); }
 :root[data-theme="dark"] .bottom-nav { background: rgba(11,13,17,.92); }
+:root[data-theme="dark"] .rest-bar { background: rgba(11,13,17,.96); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 
 /* ---- ProgressView: calendar day-detail, 12-week heatmap, mini line charts, macro donut ---- */
 .activity-cell { cursor: pointer; }
