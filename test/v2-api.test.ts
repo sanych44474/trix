@@ -71,3 +71,33 @@ test("v2 workout save is not double-claimed by forward()'s own idempotency wrap"
   const row = await db.prepare("SELECT id FROM v2_workout_sessions WHERE accountId = ?").bind(userId).first<{ id: number }>();
   assert.ok(row, "saveWorkout must have actually written a v2_workout_sessions row, not just returned 200");
 });
+
+// Skipping a rest in the app has to clear the SERVER row, not just the local countdown: that
+// row is what the minute-cron turns into a Telegram "rest is over" push, so without a cancel
+// route the user still got pinged ~a minute after abandoning the rest.
+test("v2 workout rest: DELETE cancels the pending timer so the cron can't still push it", async () => {
+  const db = newDb();
+  const userId = 9002;
+  await getOrCreateUser(db, userId, userId, "en", "Test");
+  const testEnv = { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+
+  const start = new Request(`https://example.test/api/v2/workout/rest?debugUser=${userId}`, {
+    method: "POST",
+    body: JSON.stringify({ seconds: 90 }),
+  });
+  const started = await handleV2Api(start, new URL(start.url), testEnv);
+  assert.equal(started.status, 200, `starting a rest should succeed: ${await started.clone().text()}`);
+  const pending = await db.prepare("SELECT accountId FROM v2_rest_timers WHERE accountId = ?").bind(userId).first();
+  assert.ok(pending, "POST /workout/rest must persist a pending timer row");
+
+  const cancel = new Request(`https://example.test/api/v2/workout/rest?debugUser=${userId}`, { method: "DELETE" });
+  const cancelled = await handleV2Api(cancel, new URL(cancel.url), testEnv);
+  assert.equal(cancelled.status, 200, `cancelling a rest should succeed: ${await cancelled.clone().text()}`);
+  const after = await db.prepare("SELECT accountId FROM v2_rest_timers WHERE accountId = ?").bind(userId).first();
+  assert.equal(after, null, "DELETE /workout/rest must remove the row the cron would have pushed");
+
+  // Cancelling with nothing pending is a no-op, not an error -- the client fires this on every
+  // Stop tap without knowing whether a row exists.
+  const again = new Request(`https://example.test/api/v2/workout/rest?debugUser=${userId}`, { method: "DELETE" });
+  assert.equal((await handleV2Api(again, new URL(again.url), testEnv)).status, 200);
+});

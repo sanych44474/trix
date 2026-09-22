@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, jsonBody } from "./api";
+import { api, ApiError, jsonBody, typedBody } from "./api";
 import type { FoodSearchItem, Nutrition } from "./types";
 import { t, type Lang } from "./i18n";
+import type { RequestBody } from "./types";
+
+type NutritionBody = RequestBody<"editNutrition">;
+type NutritionAction = NutritionBody["action"];
 
 // Local copies of App.tsx's tiny shared UI primitives -- same convention TrainView.tsx /
 // ProgressView.tsx already use for their own extraction, avoiding a circular import with App.tsx.
@@ -48,15 +52,15 @@ export function FuelView({ lang }: { lang: Lang }) {
   const [grocerySendBusy, setGrocerySendBusy] = useState(false); const [grocerySent, setGrocerySent] = useState(false);
   const load = () => { setError(null); api<Nutrition>("/api/v2/nutrition").then(setNutrition).catch(setError); };
   useEffect(load, []);
-  const log = async () => { if (!text.trim()) return; setSaving(true); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ kind: "food", text: text.trim() }) }); setText(""); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
-  const searchFood = async (action: "dbsearch" | "barcode") => { const q = action === "dbsearch" ? search.trim() : barcode.replace(/\D/g, ""); if (!q || q.length < 2) return; setSearching(true); try { const result = await api<{ items: FoodSearchItem[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(action === "dbsearch" ? { action, q } : { action, code: q }) }); setResults(result.items ?? []); } catch (err) { setActionError(err); } finally { setSearching(false); } };
-  const addFood = async (item: FoodSearchItem) => { const amount = Number(grams); if (!Number.isFinite(amount) || amount < 1 || amount > 3000) return; setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "dbadd", name: item.name, grams: amount, per100: item.per100 }) }); setSelected(null); setResults([]); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
-  const readd = async (ri: number) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "readd", ri }) }); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
-  const mutateMeal = async (action: string, index: number, extra: Record<string, unknown> = {}) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action, index, ...extra }) }); setEditing(null); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
+  const log = async () => { if (!text.trim()) return; setSaving(true); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"quickLog">({ kind: "food", text: text.trim() }) }); setText(""); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
+  const searchFood = async (action: "dbsearch" | "barcode") => { const q = action === "dbsearch" ? search.trim() : barcode.replace(/\D/g, ""); if (!q || q.length < 2) return; setSearching(true); try { const result = await api<{ items: FoodSearchItem[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">(action === "dbsearch" ? { action, q } : { action, code: q }) }); setResults(result.items ?? []); } catch (err) { setActionError(err); } finally { setSearching(false); } };
+  const addFood = async (item: FoodSearchItem) => { const amount = Number(grams); if (!Number.isFinite(amount) || amount < 1 || amount > 3000) return; setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action: "dbadd", name: item.name, grams: amount, per100: item.per100 }) }); setSelected(null); setResults([]); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
+  const readd = async (ri: number) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action: "readd", ri }) }); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
+  const mutateMeal = async (action: NutritionAction, index: number, extra: Omit<Partial<NutritionBody>, "action" | "index"> = {}) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action, index, ...extra }) }); setEditing(null); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
   const openMealEdit = (meal: Nutrition["meals"][number]) => { setEditing(meal.index); setCorrection({ kcal: String(meal.kcal), protein: String(meal.protein), fats: String(meal.fats), carbs: String(meal.carbs), grams: meal.grams ? String(meal.grams) : "" }); };
   const saveCorrection = () => { if (editing === null) return; void mutateMeal("macros", editing, { kcal: Number(correction.kcal), protein: Number(correction.protein), fats: Number(correction.fats), carbs: Number(correction.carbs) }); };
-  const askNutrition = async (action: "recipe" | "recover") => { setAdviceBusy(true); try { const result = await api<{ text: string }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action }) }); setAdvice(result.text || t(lang, "no_advice_available")); } catch (err) { setActionError(err); } finally { setAdviceBusy(false); } };
-  const loadGrocery = async (days: number) => { setGroceryDays(days); setGrocerySent(false); try { const result = await api<{ lines: GroceryLine[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "grocery", days }) }); setGrocery(result.lines); } catch (err) { setActionError(err); } };
+  const askNutrition = async (action: "recipe" | "recover") => { setAdviceBusy(true); try { const result = await api<{ text: string }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action }) }); setAdvice(result.text || t(lang, "no_advice_available")); } catch (err) { setActionError(err); } finally { setAdviceBusy(false); } };
+  const loadGrocery = async (days: number) => { setGroceryDays(days); setGrocerySent(false); try { const result = await api<{ lines: GroceryLine[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action: "grocery", days }) }); setGrocery(result.lines); } catch (err) { setActionError(err); } };
   // Regenerate today's plan, reusing the same allergen/likes/dislikes prefs already on file --
   // same "keep my prefs, build a fresh day" action as the bot's mp:useprev button. A from-scratch
   // questionnaire (new allergens/likes/dislikes) stays bot-only (a multi-step chat intake, not a
@@ -64,7 +68,7 @@ export function FuelView({ lang }: { lang: Lang }) {
   const regenerateMealPlan = async () => {
     setRegenBusy(true); setRegenNote(false);
     try {
-      const result = await api<{ days: MealPlanDays }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "mealplan_regen" }) });
+      const result = await api<{ days: MealPlanDays }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action: "mealplan_regen" }) });
       setNutrition((current) => current ? { ...current, mealPlan: { days: result.days } } : current);
       setRegenNote(true);
     } catch (err) { setActionError(err); } finally { setRegenBusy(false); }
@@ -74,11 +78,11 @@ export function FuelView({ lang }: { lang: Lang }) {
   // day -> meal -> items shape (mealPlan.days[].meals[].items[]).
   const [planEditing, setPlanEditing] = useState<{ dayIndex: number; mealIndex: number; itemIndex: number } | null>(null);
   const [planGrams, setPlanGrams] = useState("");
-  const mutateMealPlanItem = async (action: "mealplan_item_scale" | "mealplan_item_grams" | "mealplan_item_del", extra: Record<string, unknown> = {}) => {
+  const mutateMealPlanItem = async (action: NutritionAction, extra: Omit<Partial<NutritionBody>, "action"> = {}) => {
     if (!planEditing) return;
     setSaving(true);
     try {
-      const result = await api<{ days: MealPlanDays }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action, ...planEditing, ...extra }) });
+      const result = await api<{ days: MealPlanDays }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action, ...planEditing, ...extra }) });
       setNutrition((current) => current ? { ...current, mealPlan: { days: result.days } } : current);
       setPlanEditing(null);
     } catch (err) { setActionError(err); } finally { setSaving(false); }
@@ -88,7 +92,7 @@ export function FuelView({ lang }: { lang: Lang }) {
   const sendGrocery = async () => {
     setGrocerySendBusy(true); setGrocerySent(false);
     try {
-      await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "grocery_send", days: groceryDays }) });
+      await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action: "grocery_send", days: groceryDays }) });
       setGrocerySent(true);
     } catch (err) { setActionError(err); } finally { setGrocerySendBusy(false); }
   };
@@ -118,7 +122,7 @@ export function FuelView({ lang }: { lang: Lang }) {
               <button className="text-button" onClick={() => { setPlanEditing(isEditing ? null : editKey); setPlanGrams(String(item.grams)); }}>{item.food} {item.grams}g</button>
               {isEditing && <div className="meal-editor">
                 <div className="button-row">
-                  {[0.5, 1.5, 2].map((f) => <button className="button button-ghost" key={f} disabled={saving} onClick={() => void mutateMealPlanItem("mealplan_item_scale", { factor: f })}>×{f}</button>)}
+                  {([0.5, 1.5, 2] as const).map((f) => <button className="button button-ghost" key={f} disabled={saving} onClick={() => void mutateMealPlanItem("mealplan_item_scale", { factor: f })}>×{f}</button>)}
                 </div>
                 <div className="input-row">
                   <input value={planGrams} inputMode="numeric" onChange={(event) => setPlanGrams(event.target.value)} />

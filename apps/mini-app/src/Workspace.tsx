@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, jsonBody } from "./api";
-import type { Dashboard } from "./types";
+import { api, ApiError, jsonBody, typedBody } from "./api";
+import type { Dashboard, RequestBody } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 
 type WorkspaceProps = { dashboard: Dashboard; lang: Lang; onOpenPlan?: (clientId?: number) => void };
@@ -135,14 +135,14 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }:
   const saveCard = async () => {
     setBusy("card"); setSavedKey(null);
     try {
-      await api(`/api/v2/trainer/client/${clientId}/card`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ healthNotes, personalNotes, birthday }) });
+      await api(`/api/v2/trainer/client/${clientId}/card`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateClientCard">({ healthNotes, personalNotes, birthday }) });
       setSavedKey("card");
     } catch { setActionError(true); } finally { setBusy(null); }
   };
   const saveNote = async () => {
     setBusy("note"); setSavedKey(null);
     try {
-      await api(`/api/v2/trainer/client/${clientId}/note`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ note }) });
+      await api(`/api/v2/trainer/client/${clientId}/note`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateClientNote">({ note }) });
       setSavedKey("note");
     } catch { setActionError(true); } finally { setBusy(null); }
   };
@@ -151,7 +151,7 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }:
     setBusy("flag");
     try {
       const next = !data.client.flagged;
-      await api(`/api/v2/trainer/client/${clientId}/flag`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ flagged: next }) });
+      await api(`/api/v2/trainer/client/${clientId}/flag`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateClientFlag">({ flagged: next }) });
       setData({ ...data, client: { ...data.client, flagged: next } });
     } catch { setActionError(true); } finally { setBusy(null); }
   };
@@ -159,7 +159,7 @@ function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }:
     if (!templateName.trim()) return;
     setBusy("template"); setTemplateError(null); setSavedKey(null);
     try {
-      await api("/api/v2/trainer/templates", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ action: "create", name: templateName.trim(), fromClientId: clientId }) });
+      await api("/api/v2/trainer/templates", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"mutateTrainerTemplates">({ action: "create", name: templateName.trim(), fromClientId: clientId }) });
       setTemplateName(""); setSavedKey("template"); onTemplateSaved();
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) setTemplateError(t(lang, "no_active_plan_hint"));
@@ -292,7 +292,7 @@ function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () => void 
   const save = async () => {
     setSaving(true); setSaved(false);
     try {
-      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ name: form.name, bio: form.bio, specialization: form.specialization, approach: form.approach, experienceYears: form.experienceYears, priceOnline: form.priceOnline, city: form.city, contact: form.contact, accepting: form.accepting }) });
+      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateTrainerProfile">({ name: form.name, bio: form.bio, specialization: form.specialization, approach: form.approach, experienceYears: form.experienceYears, priceOnline: form.priceOnline, city: form.city, contact: form.contact, accepting: form.accepting }) });
       setSaved(true);
     } catch { setActionError(true); } finally { setSaving(false); }
   };
@@ -439,7 +439,7 @@ function AiCoachView({ lang, onBack, routed }: { lang: Lang; onBack: () => void;
     if (!question.trim()) return;
     setBusy(true); setError(false); setAnswer(null); setSent(false);
     try {
-      const result = await api<{ answer?: string; routed?: boolean }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ question: question.trim() }) });
+      const result = await api<{ answer?: string; routed?: boolean }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"askCoach">({ question: question.trim() }) });
       if (result.routed) { setSent(true); setQuestion(""); loadThread(); } else setAnswer(result.answer ?? "");
     } catch { setError(true); } finally { setBusy(false); }
   };
@@ -495,9 +495,9 @@ function ScheduleView({ lang, onBack }: { lang: Lang; onBack: () => void }) {
   const load = () => { setError(false); api<SchedulePayload>("/api/v2/trainer/sessions").then(setData).catch(() => setError(true)); };
   useEffect(load, []);
 
-  const act = async (key: string, body: unknown) => {
+  const act = async (key: string, body: RequestBody<"mutateTrainerSessions">) => {
     setBusy(key);
-    try { await api("/api/v2/trainer/sessions", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); load(); }
+    try { await api("/api/v2/trainer/sessions", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"mutateTrainerSessions">(body) }); load(); }
     catch { setActionError(true); } finally { setBusy(null); }
   };
   const book = () => {
@@ -556,9 +556,9 @@ function FinanceView({ lang, onBack }: { lang: Lang; onBack: () => void }) {
   const load = () => { setError(false); api<FinancePayload>("/api/v2/trainer/finance").then(setData).catch(() => setError(true)); };
   useEffect(load, []);
 
-  const act = async (key: string, body: unknown) => {
+  const act = async (key: string, body: RequestBody<"mutateTrainerFinance">) => {
     setBusy(key);
-    try { await api("/api/v2/trainer/finance", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); load(); }
+    try { await api("/api/v2/trainer/finance", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"mutateTrainerFinance">(body) }); load(); }
     catch { setActionError(true); } finally { setBusy(null); }
   };
 

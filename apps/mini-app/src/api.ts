@@ -1,4 +1,5 @@
-import type { V2Envelope, V2Failure } from "./types";
+import type { operations } from "../../../packages/contracts/generated";
+import type { RequestBody, V2Envelope, V2Failure } from "./types";
 
 export class ApiError extends Error {
   constructor(public readonly code: string, message: string, public readonly status: number) {
@@ -38,5 +39,17 @@ export async function api<T>(path: string, init: RequestInit & { idempotencyKey?
 }
 
 export function jsonBody(value: unknown): BodyInit {
+  return JSON.stringify(value);
+}
+
+/** `jsonBody` for a route the OpenAPI contract describes: the body is checked against that
+ *  operation's declared request schema, so a renamed or misspelled field fails `npm run
+ *  typecheck:webapp` instead of 400'ing at runtime. Prefer this over `jsonBody` for any
+ *  /api/v2/* route with a `requestBody` in the contract.
+ *
+ *  A handful of routes take no body at all (requestClientPhoto, nudgeClientInterview,
+ *  askInactiveUsers, moderateUser -- the action is entirely in the path). `RequestBody` is
+ *  `never` for those, which is correct: they stay on plain `jsonBody({})`. */
+export function typedBody<Op extends keyof operations>(value: RequestBody<Op>): BodyInit {
   return JSON.stringify(value);
 }

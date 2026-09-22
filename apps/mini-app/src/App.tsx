@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, jsonBody } from "./api";
-import type { Dashboard, LibraryProgram, LibraryResponse, MesoPhase, Plan, PlatesResponse, ProfilePhoto, RecoveryFactor, RecoveryLabel, SquadInfo, TrainerProfile, WeekCardResponse } from "./types";
+import { api, ApiError, jsonBody, typedBody } from "./api";
+import type { RequestBody, Dashboard, LibraryProgram, LibraryResponse, MesoPhase, Plan, PlatesResponse, ProfilePhoto, RecoveryFactor, RecoveryLabel, SquadInfo, TrainerProfile, WeekCardResponse } from "./types";
 import { guessLang, t, type Key, type Lang } from "./i18n";
 import { WorkspaceView } from "./Workspace";
 import { OnboardingView } from "./Onboarding";
@@ -96,6 +96,9 @@ function TodayView({ dashboard, lang, onOpen }: { dashboard: Dashboard; lang: La
 }
 
 type PlanAction = "weight" | "sets" | "del" | "move" | "swap" | "add" | "link" | "video";
+// The plan-edit request body straight from the contract, so every field name the editor sends
+// is checked against what the handler declares it reads.
+type PlanEditBody = RequestBody<"editPlan">;
 
 function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: number | null; onBack?: () => void }) {
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -113,6 +116,7 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
   const [videoDrafts, setVideoDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [showChanges, setShowChanges] = useState(false);
 
   const load = () => {
     setError(null);
@@ -126,19 +130,19 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
     action: PlanAction,
     value?: string,
     expectName?: string,
-    extra: Record<string, unknown> = {},
+    extra: Partial<PlanEditBody> = {},
   ): Promise<boolean> => {
     if (!plan) return false;
     const key = `${weekday}:${index}:${action}`;
     setSaving(key); setSaved(null); setActionError(null);
     try {
-      const result = await api<{ ok: true; days: Plan["days"]; version: string }>("/api/v2/plan", {
+      const result = await api<{ ok: true; days: Plan["days"]; version: string; changes?: Plan["changes"] }>("/api/v2/plan", {
         method: "POST",
         headers: { "If-Match": `"${plan.version}"` },
         idempotencyKey: crypto.randomUUID(),
-        body: jsonBody({ weekday, index, action, ...(clientId ? { clientId } : {}), ...(value !== undefined ? { value } : {}), ...(expectName ? { expectName } : {}), ...extra }),
+        body: typedBody<"editPlan">({ weekday, index, action, clientId: clientId ?? undefined, value, expectName, ...extra }),
       });
-      setPlan({ ...plan, days: result.days, version: result.version });
+      setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}) });
       setSaved(key);
       return true;
     } catch (err) {
@@ -168,7 +172,7 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
         method: "POST",
         headers: { "If-Match": `"${plan.version}"` },
         idempotencyKey: crypto.randomUUID(),
-        body: jsonBody({ action: "meso", on, ...(clientId ? { clientId } : {}) }),
+        body: typedBody<"editPlan">({ action: "meso", on, clientId: clientId ?? undefined }),
       });
       load();
     } catch (err) { setActionError(err); } finally { setMesoBusy(false); }
@@ -205,6 +209,12 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
         <div className="button-row"><button className="button button-primary" disabled={mesoBusy} onClick={() => void toggleMeso(true)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_start_btn")}</button></div>
       </>}
     </Card>
+    {plan.changes.length > 0 && <Card tone="muted">
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_changes_eyebrow")}</span><h2>{t(lang, "plan_changes_title")}</h2></div><button className="text-button" onClick={() => setShowChanges((current) => !current)}>{showChanges ? t(lang, "close") : t(lang, "details_arrow")}</button></div>
+      {showChanges && <div className="record-list">{plan.changes.map((change, index) => <div className="record-row" key={`${change.at}-${index}`}>
+        <div><strong>{change.summary}</strong><small>{t(lang, `plan_change_src_${change.source}` as Key)} · {change.at.slice(0, 10)}</small></div>
+      </div>)}</div>}
+    </Card>}
     <p className="muted">{t(lang, "plan_editor_hint")}</p>
     {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
     {saved && <div className="save-note">{t(lang, "plan_updated")}</div>}
@@ -468,7 +478,7 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
   const [takenName, setTakenName] = useState<string | null>(null);
   const takeProgram = async (program: LibraryProgram) => {
     setTakingCode(program.code); setTakenName(null);
-    try { await api("/api/v2/library", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ code: program.code }) }); setTakenName(program.name); }
+    try { await api("/api/v2/library", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"takeLibraryProgram">({ code: program.code }) }); setTakenName(program.name); }
     catch (err) { setLibraryError(err); } finally { setTakingCode(null); }
   };
 
@@ -486,7 +496,7 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
     if (!Number.isFinite(id) || id <= 0) return;
     setTrainerBusy(true); setTrainerError(null); setTrainerSent(false);
     try {
-      await api("/api/v2/trainers", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ trainerId: id, ...(trainerNote.trim() ? { note: trainerNote.trim() } : {}) }) });
+      await api("/api/v2/trainers", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"requestTrainer">({ trainerId: id, ...(trainerNote.trim() ? { note: trainerNote.trim() } : {}) }) });
       setTrainerSent(true); setTrainerId(""); setTrainerNote("");
     } catch (err) { setTrainerError(err); } finally { setTrainerBusy(false); }
   };
@@ -521,7 +531,7 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
     if (!becomeName.trim()) return;
     setBecomeBusy(true); setBecomeError(null); setBecomeSent(false);
     try {
-      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ name: becomeName.trim(), specialization: becomeSpecialization.trim(), city: becomeCity.trim(), contact: becomeContact.trim(), bio: becomeBio.trim() }) });
+      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateTrainerProfile">({ name: becomeName.trim(), specialization: becomeSpecialization.trim(), city: becomeCity.trim(), contact: becomeContact.trim(), bio: becomeBio.trim() }) });
       setBecomeSent(true);
       loadTrainerApp();
     } catch (err) { setBecomeError(err); } finally { setBecomeBusy(false); }
@@ -676,5 +686,5 @@ export function App() {
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => { if (window.scrollY === 0) pullStart.current = event.touches[0]?.clientY ?? null; };
   const onTouchEnd = (event: React.TouchEvent<HTMLElement>) => { const start = pullStart.current; pullStart.current = null; const end = event.changedTouches[0]?.clientY ?? 0; if (start !== null && end - start > 72 && !loading) loadDashboard(); };
   const openPlan = (clientId?: number) => { setPlanClientId(clientId ?? null); setView("plan"); };
-  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content">{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} />}{view === "train" && <TrainView lang={lang} />}{view === "plan" && <PlanView lang={lang} clientId={planClientId} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} />}{view === "fuel" && <FuelView lang={lang} />}{view === "progress" && <ProgressView dashboard={dashboard} lang={lang} />}{view === "more" && <ExtrasView lang={lang} role={dashboard.viewer.role} />}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "settings" && <ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} />}</div><nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
+  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content">{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} />}{view === "train" && <TrainView lang={lang} gamification={dashboard.gamification} />}{view === "plan" && <PlanView lang={lang} clientId={planClientId} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} />}{view === "fuel" && <FuelView lang={lang} />}{view === "progress" && <ProgressView dashboard={dashboard} lang={lang} />}{view === "more" && <ExtrasView lang={lang} role={dashboard.viewer.role} />}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "settings" && <ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} />}</div><nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
 }

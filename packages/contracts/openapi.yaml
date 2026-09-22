@@ -65,7 +65,9 @@ paths:
             schema: {$ref: '#/components/schemas/SaveWorkoutRequest'}
       responses:
         '200':
-          description: Saved workout
+          description: >-
+            Saved workout, with the celebration payload saveWorkout() computes (SaveResult in
+            src/webapp/workout.ts): personal records hit, newly earned badges, and level state.
           content:
             application/json:
               schema:
@@ -75,8 +77,20 @@ paths:
                   properties:
                     data:
                       type: object
+                      required: [ok, prExercises, newBadges, level, leveledUp, totalWorkouts]
                       properties:
                         ok: {const: true}
+                        prExercises:
+                          type: array
+                          description: Exercises where this session set a new personal record.
+                          items: {type: string}
+                        newBadges:
+                          type: array
+                          description: Localized labels of achievements earned by this save.
+                          items: {type: string}
+                        level: {type: integer}
+                        leveledUp: {type: boolean}
+                        totalWorkouts: {type: integer}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '409': {$ref: '#/components/responses/Conflict'}
@@ -242,6 +256,28 @@ paths:
                         ok: {const: true}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
+    delete:
+      operationId: cancelRestTimer
+      description: >-
+        Cancels the caller's pending rest timer. Without this the minute-cron still delivers the
+        Telegram "rest is over" push for a rest the user skipped in the app.
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Rest timer cancelled (also returned when none was pending)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
   /api/v2/log:
     post:
       operationId: quickLog
@@ -298,12 +334,7 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [action]
-              additionalProperties: true
-              properties:
-                action: {type: string}
+            schema: {$ref: '#/components/schemas/NutritionRequest'}
       responses:
         '200':
           description: Updated nutrition day
@@ -360,14 +391,26 @@ paths:
                 action:
                   type: string
                   enum: [weight, sets, wmode, video, link, del, move, swap, add, meso]
-                value: {type: string, maxLength: 300}
-                name: {type: string, minLength: 2, maxLength: 80}
+                value:
+                  type: string
+                  maxLength: 300
+                  description: >-
+                    The edit's payload for every action, including the new exercise name for
+                    swap/add. This is what the Mini App sends; prefer it in new clients.
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 80
+                  deprecated: true
+                  description: >-
+                    Legacy spelling of `value` for swap/add only. The handler accepts it so older
+                    payloads keep working; do not use it in new clients.
                 expectName: {type: string, maxLength: 200}
                 dir:
                   type: string
                   enum: [up, down]
                 catalogId: {type: string, maxLength: 80}
-                true: {type: boolean, description: 'action=meso only: start/stop periodization'}
+                'on': {type: boolean, description: 'action=meso only: start/stop periodization'}
       responses:
         '200':
           description: Updated plan (or {ok:true} for the meso toggle, which has no weekday/index)
@@ -386,6 +429,18 @@ paths:
                           type: array
                           items: {$ref: '#/components/schemas/PlanDay'}
                         version: {type: string}
+                        changes:
+                          type: array
+                          description: The refreshed audit log, newest first, including this edit.
+                          items:
+                            type: object
+                            required: [source, summary, at]
+                            properties:
+                              source:
+                                type: string
+                                enum: [ai_coach, manual, injury_swap, trainer]
+                              summary: {type: string}
+                              at: {type: string, format: date-time}
                   required: [data]
         '409': {$ref: '#/components/responses/Conflict'}
   /api/v2/plan/catalog:
@@ -473,7 +528,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {type: object, additionalProperties: true}
+            schema: {$ref: '#/components/schemas/ProfileRequest'}
       responses:
         '200':
           description: Profile updated
@@ -517,7 +572,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {type: object, additionalProperties: true}
+            schema: {$ref: '#/components/schemas/SettingsRequest'}
       responses:
         '200':
           description: Settings updated
@@ -990,7 +1045,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {type: object, additionalProperties: true}
+            schema: {$ref: '#/components/schemas/TrainerProfileRequest'}
       responses:
         '200':
           description: Profile saved (or application submitted)
@@ -1055,7 +1110,9 @@ paths:
                 clientId: {type: integer, minimum: 1}
                 startsAt: {type: string, format: date-time}
                 durationMin: {type: integer, minimum: 5, maximum: 600}
-                price: {type: number, minimum: 0}
+                price:
+                  description: null means no price set; the handler treats it as a valid value, not a missing one.
+                  anyOf: [{type: number, minimum: 0}, {type: 'null'}]
                 note: {type: string, maxLength: 300}
                 status:
                   type: string
@@ -1668,20 +1725,154 @@ components:
             message: {type: string}
             requestId: {type: string}
             details: {type: object}
-    QuickLogRequest:
+    SettingsRequest:
+      description: >-
+        One action per request, each reading only its own fields
+        (src/webapp/settingsApi.ts). Was `additionalProperties: true`, which let any field name
+        through unchecked.
       type: object
-      required: [kind, text, ml, steps, name, sets, reps, weight]
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [remToggle, vacation, lang, cycle, compete, feedback, export, export_json, leaveTrainer, deleteAccount]
+        key: {type: string, description: 'action=remToggle: which reminder to flip'}
+        off: {type: boolean, description: 'action=vacation: end it now'}
+        days: {type: number, minimum: 1, maximum: 365, description: 'action=vacation'}
+        lang:
+          type: string
+          enum: [en, uk]
+          description: 'action=lang'
+        on: {type: boolean, description: 'action=cycle | compete'}
+        lastStart: {type: string, description: 'action=cycle: YYYY-MM-DD, not in the future'}
+        len: {type: number, minimum: 20, maximum: 45, description: 'action=cycle: cycle length in days'}
+        alias: {type: string, maxLength: 30, description: 'action=compete: leaderboard display name'}
+        text: {type: string, maxLength: 1500, description: 'action=feedback'}
+        confirm: {type: boolean, description: 'action=deleteAccount: must be true'}
+    ProfileRequest:
+      description: >-
+        Every field is an optional patch -- src/webapp/profileApi.ts applies only what is
+        present and valid. The goal/steps/water/quiet fields also accept null or "" to CLEAR
+        back to the derived default, which is why they are not plain numbers. Was
+        `additionalProperties: true`.
+      type: object
+      properties:
+        name: {type: string, maxLength: 80}
+        sex:
+          type: string
+          enum: [male, female]
+        age: {type: number, minimum: 13, maximum: 120}
+        heightCm: {type: number, minimum: 100, maximum: 250}
+        weightKg: {type: number, minimum: 30, maximum: 300}
+        goalWeight: {anyOf: [{type: number}, {type: 'null'}, {type: string, maxLength: 0}]}
+        goal: {type: string}
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        equipment: {type: string}
+        dietPrefs: {type: string}
+        limitations: {type: string, maxLength: 500}
+        lifestyle:
+          type: string
+          enum: [sedentary, moderate, active]
+        sleepSchedule:
+          type: string
+          enum: [morning, evening]
+        reminderHour: {type: number, minimum: 0, maximum: 23}
+        waterGoalMl: {anyOf: [{type: number}, {type: 'null'}, {type: string, maxLength: 0}]}
+        stepsGoal: {anyOf: [{type: number}, {type: 'null'}, {type: string, maxLength: 0}]}
+        waterEvery: {anyOf: [{type: number}, {type: 'null'}, {type: string, maxLength: 0}]}
+        quietFrom: {anyOf: [{type: number}, {type: 'null'}, {type: string, maxLength: 0}]}
+        quietTo: {anyOf: [{type: number}, {type: 'null'}, {type: string, maxLength: 0}]}
+        trainingWeekdays:
+          type: array
+          maxItems: 7
+          items: {type: integer, minimum: 1, maximum: 7}
+        share:
+          description: Client-only trainer-sharing consent; a falsy value is ignored by the handler.
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            properties:
+              body: {type: boolean}
+              health: {type: boolean}
+    TrainerProfileRequest:
+      description: >-
+        Create-or-update for the caller's own trainer profile (src/webapp/extrasApi.ts). Strings
+        are truncated server-side to the lengths below; out-of-range numbers are dropped rather
+        than rejected. `accepting` only applies to an existing profile. Was
+        `additionalProperties: true`.
+      type: object
+      properties:
+        name: {type: string, maxLength: 60}
+        bio: {type: string, maxLength: 600}
+        specialization: {type: string, maxLength: 120}
+        approach: {type: string, maxLength: 600}
+        city: {type: string, maxLength: 60}
+        contact: {type: string, maxLength: 120}
+        experienceYears:
+          anyOf: [{type: number, minimum: 0, maximum: 60}, {type: 'null'}]
+        priceOnline:
+          anyOf: [{type: number, minimum: 0, maximum: 100000}, {type: 'null'}]
+        accepting: {type: boolean, description: Taking new clients; ignored when creating.}
+    NutritionRequest:
+      description: >-
+        One action per request; each reads only its own fields (src/webapp/nutritionApi.ts).
+        `index` addresses a logged meal, while dayIndex/mealIndex/itemIndex address the nested
+        meal-PLAN shape (days[].meals[].items[]) -- they are different targets, which is why
+        both exist. Was `additionalProperties: true`.
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [del, scale, grams, macros, recipe, recover, readd, dbsearch, dbadd, barcode,
+                 grocery, grocery_send, mealplan_regen, mealplan_item_del, mealplan_item_scale,
+                 mealplan_item_grams]
+        index: {type: number, description: 'Logged-meal index: del | scale | grams | macros | recipe'}
+        factor: {type: number, enum: [0.5, 1.5, 2], description: 'scale | mealplan_item_scale'}
+        grams: {type: number, minimum: 1, maximum: 5000, description: 'grams | dbadd | mealplan_item_grams'}
+        kcal: {type: number, minimum: 0, maximum: 5000, description: 'action=macros'}
+        protein: {type: number, minimum: 0, maximum: 500, description: 'action=macros'}
+        fats: {type: number, minimum: 0, maximum: 500, description: 'action=macros'}
+        carbs: {type: number, minimum: 0, maximum: 500, description: 'action=macros'}
+        ri: {type: number, description: 'action=readd: index into the recent-foods list'}
+        q: {type: string, maxLength: 60, description: 'action=dbsearch'}
+        code: {type: string, maxLength: 32, description: 'action=barcode: digits only'}
+        name: {type: string, maxLength: 80, description: 'action=dbadd'}
+        per100:
+          type: object
+          description: 'action=dbadd: per-100g macros of the picked food.'
+          properties:
+            kcal: {type: number}
+            p: {type: number}
+            f: {type: number}
+            c: {type: number}
+        days: {type: number, minimum: 1, maximum: 14, description: 'grocery | grocery_send'}
+        dayIndex: {type: number, description: 'mealplan_item_*: index into mealPlan.days'}
+        mealIndex: {type: number, description: 'mealplan_item_*: index into that day.s meals'}
+        itemIndex: {type: number, description: 'mealplan_item_*: index into that meal.s items'}
+    QuickLogRequest:
+      description: >-
+        Only `kind` is always required; every other field is read solely by the branch that
+        needs it (src/webapp/quickLogApi.ts's QuickLogBody has them all optional). The spec
+        previously marked all eight required, which described no request the app ever sends.
+      type: object
+      required: [kind]
       properties:
         kind:
           type: string
           enum: [water, workout, steps, measure, checkin, food]
-        text: {type: string, maxLength: 500}
-        ml: {type: number, minimum: 1, maximum: 3000}
-        steps: {type: number, minimum: 0, maximum: 200000}
-        name: {type: string, maxLength: 80}
-        sets: {type: number, minimum: 1, maximum: 20}
-        reps: {type: number, minimum: 1, maximum: 1000}
-        weight: {type: number, minimum: 0, maximum: 1000}
+        text: {type: string, maxLength: 500, description: 'kind=measure | food'}
+        ml: {type: number, minimum: 1, maximum: 3000, description: 'kind=water'}
+        steps: {type: number, minimum: 0, maximum: 200000, description: 'kind=steps'}
+        name: {type: string, maxLength: 80, description: 'kind=workout'}
+        sets: {type: number, minimum: 1, maximum: 20, description: 'kind=workout'}
+        reps: {type: number, minimum: 1, maximum: 1000, description: 'kind=workout'}
+        weight: {type: number, minimum: 0, maximum: 1000, description: 'kind=workout'}
+        energy: {type: number, minimum: 1, maximum: 5, description: 'kind=checkin'}
+        sleep: {type: number, minimum: 1, maximum: 5, description: 'kind=checkin'}
+        stress: {type: number, minimum: 1, maximum: 5, description: 'kind=checkin'}
     OnboardingRequest:
       type: object
       required: [sex, age, heightCm, weightKg, goal, level, equipment, dietPrefs, trainingWeekdays, limitations]
@@ -1731,28 +1922,34 @@ components:
       properties:
         text: {type: string, minLength: 1, maxLength: 2000}
     SaveWorkoutRequest:
+      description: >-
+        Matches validateSaveBody (src/webapp/workout.ts): only reps+weight are required on a
+        set, since a reps exercise carries no seconds/meters and RPE is optional everywhere.
+        `date` is omitted for today and only sent when back-filling. The spec previously
+        required date and all five set fields, describing a request the app never sends.
       type: object
+      required: [entries]
       properties:
-        date: {type: string, format: date}
+        date: {type: string, format: date, description: Back-fill target; omit for today.}
         entries:
           type: array
           items:
             type: object
+            required: [name, sets]
             properties:
-              name: {type: string}
+              name: {type: string, maxLength: 80}
+              rpe: {type: number, minimum: 0, maximum: 10, description: Effort for the whole exercise.}
               sets:
                 type: array
                 items:
                   type: object
+                  required: [reps, weight]
                   properties:
-                    reps: {type: number}
-                    weight: {type: number}
-                    seconds: {type: number}
-                    meters: {type: number}
-                    rpe: {type: number}
-                  required: [reps, weight, seconds, meters, rpe]
-            required: [name, sets]
-      required: [date, entries]
+                    reps: {type: number, minimum: 0, maximum: 1000}
+                    weight: {type: number, minimum: 0, maximum: 1000}
+                    seconds: {type: number, minimum: 1, maximum: 86400}
+                    meters: {type: number, minimum: 1, maximum: 200000}
+                    rpe: {type: number, minimum: 0, maximum: 10}
     RecoveryFactor:
       type: object
       required: [code, count]
@@ -2156,7 +2353,7 @@ components:
         rpe: {type: number}
     Plan:
       type: object
-      required: [owner, editable, version, mesocycle, days]
+      required: [owner, editable, version, mesocycle, days, changes]
       properties:
         owner:
           type: object
@@ -2180,6 +2377,18 @@ components:
         days:
           type: array
           items: {$ref: '#/components/schemas/PlanDay'}
+        changes:
+          type: array
+          description: Recent plan-change audit entries, newest first (max 10).
+          items:
+            type: object
+            required: [source, summary, at]
+            properties:
+              source:
+                type: string
+                enum: [ai_coach, manual, injury_swap, trainer]
+              summary: {type: string}
+              at: {type: string, format: date-time}
     Nutrition:
       type: object
       required: [date, meals, totals]
@@ -2263,7 +2472,9 @@ components:
           properties:
             name: {type: string}
             goal: {type: string}
-            level: {type: string}
+            level:
+              type: string
+              enum: [beginner, intermediate, advanced]
             equipment: {type: string}
             dietPrefs: {type: string}
             limitations: {type: string}

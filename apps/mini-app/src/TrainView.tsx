@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { api, ApiError, jsonBody } from "./api";
-import type { WorkoutCopyExercise, WorkoutHistoryItem, WorkoutToday } from "./types";
+import { useEffect, useRef, useState } from "react";
+import { api, ApiError, jsonBody, typedBody } from "./api";
+import type { Dashboard, SaveResponse, WorkoutCopyExercise, WorkoutHistoryItem, WorkoutToday } from "./types";
 import { t, type Lang } from "./i18n";
 
 // ---- Local UI atoms: duplicated rather than imported from App.tsx on purpose (same convention
@@ -36,11 +36,117 @@ function isoDate(d: Date): string {
 // ---- Rest timer (mirrors the legacy vanilla logger's lgRest/REST_OPTS intent: a countdown that
 // starts once a set's numbers are in, dismissible/resettable) ----
 const DEFAULT_REST_SEC = 60;
+const REST_MIN_SEC = 30;
+const REST_MAX_SEC = 900;
+// Stop counting up eventually, so a rest left running while the user wandered off doesn't pin a
+// bar to the screen forever.
+const REST_OVERRUN_CAP_SEC = 300;
+const REST_ADJUST_SEC = 15;
 
 function fmtRest(sec: number): string {
   const m = Math.floor(sec / 60);
   const r = sec % 60;
   return `${m}:${r < 10 ? "0" : ""}${r}`;
+}
+
+function clampRest(seconds: number): number {
+  return Math.max(REST_MIN_SEC, Math.min(REST_MAX_SEC, Math.round(seconds || DEFAULT_REST_SEC)));
+}
+
+// Per-viewer rest preferences. The retired vanilla shell persisted the chosen rest length
+// (lgRestPref) and v2 dropped it, so a user who prefers 120s silently got 60s back every
+// session -- this restores that, keyed per metric since a timed hold and a heavy compound want
+// different rests. Same best-effort try/catch treatment as the workout draft above: storage can
+// be unavailable, and none of this is worth failing a workout over.
+type RestPrefs = { reps: number; time: number; distance: number; sound: boolean; auto: boolean };
+const REST_PREFS_KEY = "trix:v2:rest-prefs";
+const DEFAULT_REST_PREFS: RestPrefs = { reps: DEFAULT_REST_SEC, time: DEFAULT_REST_SEC, distance: DEFAULT_REST_SEC, sound: false, auto: true };
+
+function loadRestPrefs(): RestPrefs {
+  try {
+    const raw = localStorage.getItem(REST_PREFS_KEY);
+    if (!raw) return DEFAULT_REST_PREFS;
+    const parsed = JSON.parse(raw) as Partial<RestPrefs>;
+    return {
+      reps: clampRest(Number(parsed.reps) || DEFAULT_REST_SEC),
+      time: clampRest(Number(parsed.time) || DEFAULT_REST_SEC),
+      distance: clampRest(Number(parsed.distance) || DEFAULT_REST_SEC),
+      sound: parsed.sound === true,
+      auto: parsed.auto !== false,
+    };
+  } catch { return DEFAULT_REST_PREFS; }
+}
+
+function saveRestPrefs(prefs: RestPrefs): void {
+  try { localStorage.setItem(REST_PREFS_KEY, JSON.stringify(prefs)); } catch { /* storage is optional */ }
+}
+
+function restMetricKey(exercise: LoggerExercise): "reps" | "time" | "distance" {
+  return exercise.metric === "time" ? "time" : exercise.metric === "distance" ? "distance" : "reps";
+}
+
+// ---- Session quality: derived live, stored nowhere ----
+// A rest counts as "on target" if it ended within this of the planned length -- early enough to
+// be honest, loose enough that racking a bar doesn't break a streak.
+const REST_ON_TARGET_TOLERANCE_SEC = 15;
+
+interface SessionQuality {
+  restCount: number;      // rests actually taken this session
+  restTotalSec: number;   // wall-clock time spent resting
+  onTargetStreak: number; // consecutive rests ended within tolerance
+  bestStreak: number;
+}
+
+const EMPTY_QUALITY: SessionQuality = { restCount: 0, restTotalSec: 0, onTargetStreak: 0, bestStreak: 0 };
+
+// What saveWorkout() already returns (SaveResult, src/webapp/workout.ts) plus the locally
+// measured session quality. The server has always computed the PR/badge/level payload; the app
+// used to throw the whole response away and show a one-line "saved" note instead.
+interface SaveSummary {
+  prExercises: string[];
+  newBadges: string[];
+  level: number;
+  leveledUp: boolean;
+  totalWorkouts: number;
+  sets: number;
+  elapsedSec: number;
+  restTotalSec: number;
+  densityPct: number | null;
+  bestStreak: number;
+}
+
+/** Work-vs-rest split of the session so far, as a percentage of elapsed time spent working.
+ *  Deliberately derived from elapsed wall clock and measured rest -- nothing is persisted, so
+ *  this can never drift out of sync with a stored number or need a migration. */
+function density(startedAt: number | null, restTotalSec: number): number | null {
+  if (startedAt == null) return null;
+  const elapsed = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+  return Math.max(0, Math.min(100, Math.round((elapsed - restTotalSec) / elapsed * 100)));
+}
+
+// A short two-tone chirp so the phone can sit on the bench face-down. Built on demand and torn
+// down after: holding an AudioContext open across a whole session is what gets a webview's audio
+// throttled. Entirely best-effort -- autoplay policy may refuse it, and the haptic is the real
+// signal.
+function chirp(): void {
+  try {
+    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctor) return;
+    const ctx = new Ctor();
+    const play = (at: number, hz: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = hz;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + at);
+      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + at + 0.18);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + at); osc.stop(ctx.currentTime + at + 0.2);
+    };
+    play(0, 660); play(0.22, 880);
+    setTimeout(() => void ctx.close().catch(() => {}), 900);
+  } catch { /* audio is optional */ }
 }
 
 type LoggerExercise = WorkoutToday["exercises"][number];
@@ -77,7 +183,7 @@ function plannedSetsFor(exercise: LoggerExercise): LoggerSet[] {
   return Array.from({ length: exercise.sets || 1 }, () => exercise.metric === "reps" ? { weight: exercise.weightKg ?? 0, reps: exercise.reps ?? 0 } : exercise.metric === "time" ? { weight: 0, reps: 0, seconds: exercise.reps ?? 0 } : { weight: 0, reps: 0, meters: exercise.reps ?? 0 });
 }
 
-export function TrainView({ lang }: { lang: Lang }) {
+export function TrainView({ lang, gamification }: { lang: Lang; gamification?: Dashboard["gamification"] }) {
   const draftKey = "trix:v2:workout-draft";
   const [subview, setSubview] = useState<"today" | "history">("today");
   const [workout, setWorkout] = useState<WorkoutToday | null>(null);
@@ -103,6 +209,21 @@ export function TrainView({ lang }: { lang: Lang }) {
   const [restLeft, setRestLeft] = useState(0);
   const [restDone, setRestDone] = useState(false);
   const [restSeconds, setRestSeconds] = useState(DEFAULT_REST_SEC);
+  // The rest the running countdown was started with -- the ring needs the planned length, not
+  // the remaining time, and +15/-15 must not rescale the ring's own 100%.
+  const [restTarget, setRestTarget] = useState(DEFAULT_REST_SEC);
+  const [restOver, setRestOver] = useState(0); // seconds past zero; the number that says the session is drifting
+  const [restLabel, setRestLabel] = useState(""); // "Bench Press · set 2", so a pinned bar says what it belongs to
+  const [restPrefs, setRestPrefs] = useState<RestPrefs>(loadRestPrefs);
+  const [restEditFor, setRestEditFor] = useState<number | null>(null);
+  const [quality, setQuality] = useState<SessionQuality>(EMPTY_QUALITY);
+  const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
+  const [summary, setSummary] = useState<SaveSummary | null>(null);
+  // Refs, not state: these describe the rest currently open and are read inside callbacks, where
+  // a stale closure over state would silently mis-measure. They also change on every rest, and
+  // nothing renders directly from them.
+  const restStartedRef = useRef<number | null>(null);
+  const restTargetRef = useRef<number>(DEFAULT_REST_SEC);
   const [swapFor, setSwapFor] = useState<number | null>(null);
   const [swapChoices, setSwapChoices] = useState<Array<{ id: string; name: string }>>([]);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
@@ -117,16 +238,39 @@ export function TrainView({ lang }: { lang: Lang }) {
   // resumption immediate instead of waiting up to 500ms for the next interval tick, so a
   // rest-done haptic (or the done-note) that would otherwise only fire once the interval catches
   // up fires right when the user comes back.
+  //
+  // Past zero the timer does NOT disappear: it flips to counting up. A four-second "rest done"
+  // note used to erase the one number that tells a lifter the session is drifting, and it was
+  // gone before anyone scrolled back to it.
+  //
+  // `warned` and `fired` are effect-scoped locals, not state: the effect re-runs only when
+  // restEndAt changes (i.e. per rest), so they persist across this rest's ticks and reset for
+  // the next one, without re-render churn on every 500ms tick.
   useEffect(() => {
     if (restEndAt == null) return;
+    let warned = -1;
+    let fired = false;
     const tick = () => {
-      const left = Math.max(0, Math.round((restEndAt - Date.now()) / 1000));
-      setRestLeft(left);
-      if (left <= 0) {
-        setRestEndAt(null); setRestDone(true);
-        window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success");
-        setTimeout(() => setRestDone(false), 4000);
+      const deltaMs = restEndAt - Date.now();
+      if (deltaMs > 0) {
+        const left = Math.ceil(deltaMs / 1000);
+        setRestLeft(left); setRestOver(0);
+        // 3-2-1 countdown, one light tap per second, so the last seconds are felt not watched.
+        if (left <= 3 && left !== warned) {
+          warned = left;
+          window.Telegram?.WebApp.HapticFeedback?.impactOccurred("light");
+        }
+        return;
       }
+      const over = Math.floor(-deltaMs / 1000);
+      setRestLeft(0); setRestOver(over);
+      if (!fired) {
+        fired = true;
+        setRestDone(true);
+        window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success");
+        if (restPrefs.sound) chirp();
+      }
+      if (over >= REST_OVERRUN_CAP_SEC) { setRestEndAt(null); setRestDone(false); setRestOver(0); }
     };
     tick();
     const id = setInterval(tick, 500);
@@ -134,14 +278,74 @@ export function TrainView({ lang }: { lang: Lang }) {
     document.addEventListener("visibilitychange", onResume);
     window.addEventListener("focus", onResume);
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", onResume); window.removeEventListener("focus", onResume); };
-  }, [restEndAt]);
+  }, [restEndAt, restPrefs.sound]);
 
-  const startRest = (seconds: number) => {
-    const bounded = Math.max(30, Math.min(900, Math.round(seconds || DEFAULT_REST_SEC)));
-    setRestSeconds(bounded); setRestDone(false); setRestLeft(bounded); setRestEndAt(Date.now() + bounded * 1000);
-    void api("/api/v2/workout/rest", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ seconds: bounded }) }).catch(() => {});
+  // Measures the rest that was open (from armed until now -- the REAL rest, overrun included,
+  // not the planned length) and scores it against what was planned. Called when the next rest
+  // starts or when one is skipped, so every rest is counted exactly once.
+  const closeOpenRest = () => {
+    const startedAt = restStartedRef.current;
+    if (startedAt == null) return;
+    restStartedRef.current = null;
+    const actual = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+    const onTarget = Math.abs(actual - restTargetRef.current) <= REST_ON_TARGET_TOLERANCE_SEC;
+    setQuality((current) => {
+      const streak = onTarget ? current.onTargetStreak + 1 : 0;
+      return {
+        restCount: current.restCount + 1,
+        restTotalSec: current.restTotalSec + actual,
+        onTargetStreak: streak,
+        bestStreak: Math.max(current.bestStreak, streak),
+      };
+    });
   };
-  const stopRest = () => { setRestEndAt(null); setRestDone(false); };
+
+  // One place that arms both the local countdown and the server row, so they can never disagree
+  // about when this rest ends. setRestTimer upserts on accountId, so re-arming (a new set, or
+  // +15/-15 below) just moves dueAt rather than stacking rows.
+  const armRest = (seconds: number, label: string, target: number) => {
+    const bounded = clampRest(seconds);
+    closeOpenRest();
+    setSessionStartedAt((current) => current ?? Date.now());
+    restStartedRef.current = Date.now();
+    restTargetRef.current = target;
+    setRestSeconds(bounded); setRestTarget(target); setRestLabel(label);
+    setRestDone(false); setRestOver(0); setRestLeft(bounded);
+    setRestEndAt(Date.now() + bounded * 1000);
+    void api("/api/v2/workout/rest", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"startRestTimer">({ seconds: bounded }) }).catch(() => {});
+  };
+  const startRest = (seconds: number, label = "") => armRest(seconds, label, clampRest(seconds));
+  // Cancelling has to reach the server too: the pending v2_rest_timers row is what the
+  // minute-cron turns into a Telegram "rest is over" push, so clearing only local state left
+  // the user getting pinged for a rest they had just skipped.
+  const stopRest = () => {
+    closeOpenRest();
+    setRestEndAt(null); setRestDone(false); setRestOver(0); setRestLabel("");
+    void api("/api/v2/workout/rest", { method: "DELETE" }).catch(() => {});
+  };
+  // Nudge a running rest. Re-arms from the remaining time (not from the original length), and
+  // re-posts so the Telegram push moves with it; the ring keeps its original 100% so the bar
+  // reads as "more/less than planned" rather than silently rescaling.
+  const adjustRest = (delta: number) => {
+    if (restEndAt == null) return;
+    const remaining = Math.max(0, Math.round((restEndAt - Date.now()) / 1000));
+    const next = clampRest(remaining + delta);
+    setRestDone(false); setRestOver(0); setRestLeft(next);
+    setRestEndAt(Date.now() + next * 1000);
+    // Deliberately adjusting a rest moves the target with it -- otherwise tapping +15 would
+    // score as "missed the target" for doing exactly what the user intended.
+    const elapsed = restStartedRef.current == null ? 0 : Math.round((Date.now() - restStartedRef.current) / 1000);
+    restTargetRef.current = elapsed + next;
+    window.Telegram?.WebApp.HapticFeedback?.impactOccurred("light");
+    void api("/api/v2/workout/rest", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"startRestTimer">({ seconds: next }) }).catch(() => {});
+  };
+  const patchRestPrefs = (patch: Partial<RestPrefs>) => {
+    setRestPrefs((current) => { const next = { ...current, ...patch }; saveRestPrefs(next); return next; });
+  };
+  // What rest to use for an exercise: the plan's own value wins (a coach set it deliberately),
+  // then this viewer's remembered preference for that metric.
+  const restForExercise = (exercise: LoggerExercise): number => exercise.restSec ?? restPrefs[restMetricKey(exercise)];
+  const liveDensity = density(sessionStartedAt, quality.restTotalSec);
 
   const persistDraft = (next: WorkoutToday, nextLogDate: string | null, nextCopiedFrom: string | null) => {
     try { localStorage.setItem(draftKey, JSON.stringify({ ...next, logDate: nextLogDate, copiedFrom: nextCopiedFrom })); setDrafted(true); } catch { /* storage is optional */ }
@@ -229,12 +433,12 @@ export function TrainView({ lang }: { lang: Lang }) {
   // exercises/sets) overwrites the existing session instead of duplicating it, confirmed in
   // src/adapters/d1/v2Workouts.ts -- so this reuse is safe, not just convenient.
   const startMissedFromHistory = async (targetDate: string, sourceDate: string) => { setHistoryBusy(`fill:${sourceDate}`); try { const data = await api<{ exercises: WorkoutCopyExercise[] }>(`/api/v2/workout/past?date=${sourceDate}`); const next: WorkoutToday = { date: targetDate, weekday: isoWeekday(targetDate), exercises: copyToLoggerExercises(data.exercises) }; setWorkout(next); setLogDate(targetDate); setCopiedFrom(sourceDate); persistDraft(next, targetDate, sourceDate); setSubview("today"); } catch (err) { setHistoryError(err); } finally { setHistoryBusy(null); } };
-  const backToToday = () => { localStorage.removeItem(draftKey); load(); };
+  const backToToday = () => { localStorage.removeItem(draftKey); setSummary(null); setQuality(EMPTY_QUALITY); setSessionStartedAt(null); restStartedRef.current = null; load(); };
   const openSwap = async (index: number) => { setSwapFor(index); setActionBusy(`swap:${index}`); try { const data = await api<{ alternatives: Array<{ id: string; name: string }> }>(`/api/v2/workout/swap?index=${index}`); setSwapChoices(data.alternatives); } catch (err) { setActionError(err); } finally { setActionBusy(null); } };
   const applySwap = (name: string) => { if (swapFor === null) return; setWorkout((current) => { if (!current) return current; const next = { ...current, exercises: current.exercises.map((exercise) => exercise.index === swapFor ? { ...exercise, name, setsDone: [] } : exercise) }; persistDraft(next, logDate, copiedFrom); return next; }); setSwapFor(null); setSwapChoices([]); };
-  const addCustom = async () => { const name = customName.trim(); if (name.length < 2) return; setActionBusy("custom"); try { const result = await api<{ name: string; videoUrl?: string; videoTitle?: string }>("/api/v2/workout/custom", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ name }) }); setWorkout((current) => { if (!current) return current; const exercise: LoggerExercise = { index: current.exercises.length, name: result.name, metric: "reps", sets: 1, ...(result.videoUrl ? { videoUrl: result.videoUrl, videoTitle: result.videoTitle } : {}) }; const next = { ...current, exercises: [...current.exercises, exercise] }; persistDraft(next, logDate, copiedFrom); return next; }); setCustomName(""); setShowCustom(false); } catch (err) { setActionError(err); } finally { setActionBusy(null); } };
+  const addCustom = async () => { const name = customName.trim(); if (name.length < 2) return; setActionBusy("custom"); try { const result = await api<{ name: string; videoUrl?: string; videoTitle?: string }>("/api/v2/workout/custom", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"addCustomExercise">({ name }) }); setWorkout((current) => { if (!current) return current; const exercise: LoggerExercise = { index: current.exercises.length, name: result.name, metric: "reps", sets: 1, ...(result.videoUrl ? { videoUrl: result.videoUrl, videoTitle: result.videoTitle } : {}) }; const next = { ...current, exercises: [...current.exercises, exercise] }; persistDraft(next, logDate, copiedFrom); return next; }); setCustomName(""); setShowCustom(false); } catch (err) { setActionError(err); } finally { setActionBusy(null); } };
   const openInfo = async (exercise: LoggerExercise) => { if (infoFor === exercise.index) { setInfoFor(null); return; } setInfoFor(exercise.index); if (exercise.technique || exercise.videoUrl) { setInfo({ technique: exercise.technique ?? "", videoUrl: exercise.videoUrl, videoTitle: exercise.videoTitle }); return; } setActionBusy(`info:${exercise.index}`); try { setInfo(await api(`/api/v2/workout/exinfo?name=${encodeURIComponent(exercise.name)}`)); } catch { setInfo(null); } finally { setActionBusy(null); } };
-  const save = async () => { if (!workout) return; setSaving(true); setSaved(false); setActionError(null); const targetDate = logDate; try { await api("/api/v2/workout/save", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ entries: workout.exercises.filter((e) => e.setsDone?.some((set) => set.reps || set.seconds || set.meters)).map((e) => ({ name: e.name, sets: e.setsDone, ...(e.rpe !== undefined ? { rpe: e.rpe } : {}) })), ...(targetDate ? { date: targetDate } : {}) }) }); localStorage.removeItem(draftKey); setDrafted(false); setSaved(true); setSaveNoteDate(targetDate); window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success"); if (targetDate) { setHistory(null); load(); } } catch (err) {
+  const save = async () => { if (!workout) return; setSaving(true); setSaved(false); setActionError(null); const targetDate = logDate; try { const entries = workout.exercises.flatMap((e) => e.setsDone && e.setsDone.some((set) => set.reps || set.seconds || set.meters) ? [{ name: e.name, sets: e.setsDone, ...(e.rpe !== undefined ? { rpe: e.rpe } : {}) }] : []); const result = await api<SaveResponse>("/api/v2/workout/save", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"saveWorkout">({ entries, ...(targetDate ? { date: targetDate } : {}) }) }); closeOpenRest(); localStorage.removeItem(draftKey); setDrafted(false); setSaved(true); setSaveNoteDate(targetDate); setSummary({ prExercises: result.prExercises ?? [], newBadges: result.newBadges ?? [], level: result.level ?? 1, leveledUp: result.leveledUp === true, totalWorkouts: result.totalWorkouts ?? 0, sets: entries.reduce((total, e) => total + e.sets.filter((set) => set.reps || set.seconds || set.meters).length, 0), elapsedSec: sessionStartedAt == null ? 0 : Math.round((Date.now() - sessionStartedAt) / 1000), restTotalSec: quality.restTotalSec, densityPct: density(sessionStartedAt, quality.restTotalSec), bestStreak: quality.bestStreak }); window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success"); if (targetDate) { setHistory(null); load(); } } catch (err) {
     // A 409 here means the idempotency layer found this exact save still genuinely in-flight
     // (src/adapters/d1/v2Idempotency.ts's ClaimResult "cached: null" branch) -- typically a
     // network-level retry of the same request racing its own still-processing first attempt.
@@ -250,5 +454,17 @@ export function TrainView({ lang }: { lang: Lang }) {
   if (subview === "history") return <div className="view-stack"><div className="eyebrow">{t(lang, "history_eyebrow")}</div><div className="page-title"><h1>{t(lang, "history_title")}</h1></div>{tabs}{historyError !== null && <ErrorState lang={lang} error={historyError} retry={loadHistory} />}{historyError === null && history === null && <Loading />}{historyError === null && history !== null && (history.length === 0 ? <Empty title={t(lang, "history_empty_title")} detail={t(lang, "history_empty_detail")} /> : <div className="exercise-list">{history.map((item) => <Card key={item.date}><div className="exercise-head"><div><h2>{item.date}</h2></div><span className="tag">{t(lang, "history_row_exercises", { n: item.n })}</span></div><p className="muted">{item.title}</p><div className="button-row"><button className="button button-primary" disabled={historyBusy !== null} onClick={() => void repeatToday(item.date)}>{historyBusy === `repeat:${item.date}` ? t(lang, "saving_ellipsis") : t(lang, "repeat_btn")}</button><button className="button button-ghost" disabled={historyBusy !== null} onClick={() => void startMissedFromHistory(item.date, item.date)}>{historyBusy === `fill:${item.date}` ? t(lang, "saving_ellipsis") : t(lang, "train_edit_saved_btn")}</button>{item.date >= minMissedDate && item.date < todayDate && <button className="button button-ghost" disabled={historyBusy !== null} onClick={() => setMissedDate(item.date)}>{t(lang, "log_missed_btn")}</button>}</div></Card>)}</div>)}<Card tone="muted"><div className="section-head"><div><span className="eyebrow">{t(lang, "log_missed_eyebrow")}</span><h2>{t(lang, "log_missed_title")}</h2></div></div><p className="muted">{t(lang, "log_missed_detail")}</p><div className="input-row"><label className="form-field"><span>{t(lang, "pick_date_label")}</span><input type="date" min={minMissedDate} max={todayDate} value={missedDate} onChange={(event) => setMissedDate(event.target.value)} /></label></div>{missedDate && <div className="button-row"><button className="button button-primary" disabled={historyBusy !== null} onClick={() => void startMissedBlank(missedDate)}>{historyBusy === `blank:${missedDate}` ? t(lang, "saving_ellipsis") : t(lang, "start_blank_btn")}</button>{(history ?? []).filter((item) => item.date !== missedDate).slice(0, 3).map((item) => <button key={item.date} className="button button-ghost" disabled={historyBusy !== null} onClick={() => void startMissedFromHistory(missedDate, item.date)}>{historyBusy === `fill:${item.date}` ? t(lang, "saving_ellipsis") : `${t(lang, "use_these_exercises_btn")} (${item.date})`}</button>)}</div>}</Card></div>;
   if (!workout?.exercises?.length) return <div className="view-stack">{tabs}<Empty title={t(lang, "rest_day_title")} detail={t(lang, "rest_day_detail")} /></div>;
   const filled = workout.exercises.filter((exercise) => exercise.setsDone?.some((set) => set.reps || set.seconds || set.meters)).length;
-  return <div className="view-stack"><div className="eyebrow">{t(lang, "guided_logger_eyebrow", { date: logDate ?? workout.date })}</div><div className="page-title"><h1>{t(lang, "training_session_title")}</h1><span>{filled}/{workout.exercises.length}</span></div>{tabs}{actionError !== null && <Card tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}{(logDate || copiedFrom) &&<div className="button-row"><button className="text-button" onClick={backToToday}>{t(lang, "back_to_today")}</button></div>}{saved && <div className="save-note">{saveNoteDate ? t(lang, "session_saved_for_date", { date: saveNoteDate }) : t(lang, "session_saved")}</div>}{logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}{copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}{drafted && <div className="draft-note">{t(lang, "draft_saved_note")}</div>}<div className="progress-track session-progress"><span style={{ width: `${workout.exercises.length ? filled / workout.exercises.length * 100 : 0}%` }} /></div>{workout.exercises.length > 1 && <div className="button-row"><button className="button button-ghost" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button></div>}<div className="exercise-list">{workout.exercises.map((exercise) => { const restSec = exercise.restSec ?? restSeconds; const sets = exercise.setsDone ?? []; const completed = sets.some((set) => set.reps || set.seconds || set.meters); return <Card key={`${exercise.index}-${exercise.name}`} tone={completed ? "muted" : "default"}><div className="exercise-head"><div><span className="exercise-index">{String(exercise.index + 1).padStart(2, "0")}</span><h2>{completed ? "✓ " : ""}{exercise.name}</h2></div><div className="button-row"><span className="tag">{t(lang, exercise.metric === "reps" ? "metric_tag_reps" : exercise.metric === "time" ? "metric_tag_time" : "metric_tag_distance")}</span><button type="button" className="text-button" onClick={() => startRest(restSec)}>{t(lang, "train_start_rest_btn", { sec: restSec })}</button></div></div><p className="muted">{exercise.planSets ? `${exercise.planSets}${exercise.planWeight ? ` · ${exercise.planWeight}` : ""}` : t(lang, "exercise_sets_line", { n: exercise.sets, detail: exercise.metric === "reps" ? t(lang, "controlled_reps") : t(lang, "measured_effort") })}</p><div className="button-row exercise-actions"><button className="text-button" onClick={() => fillPlanned(exercise.index)}>{t(lang, "train_as_planned_btn")}</button>{exercise.last?.length ? <button className="text-button" onClick={() => fillLast(exercise.index)}>{t(lang, "train_repeat_last_btn")}</button> : null}<button className="text-button" onClick={() => void openSwap(exercise.index)}>{actionBusy === `swap:${exercise.index}` ? "…" : t(lang, "train_swap_btn")}</button><button className="text-button" onClick={() => void openInfo(exercise)}>{actionBusy === `info:${exercise.index}` ? "…" : t(lang, "train_info_btn")}</button></div>{swapFor === exercise.index && <div className="choice-list">{swapChoices.length ? swapChoices.map((choice) => <button className="choice-button" key={choice.id} onClick={() => applySwap(choice.name)}>{choice.name}</button>) : <span className="muted">{t(lang, "train_no_swaps")}</span>}</div>}{infoFor === exercise.index && info && <div className="info-box"><p>{info.technique || t(lang, "train_no_info")}</p>{info.videoUrl && <a href={info.videoUrl} target="_blank" rel="noreferrer">{info.videoTitle || t(lang, "train_watch_video")}</a>}</div>}<div className="set-list">{sets.map((set, setIndex) => <div className="set-row" key={setIndex}><span className="set-number">{setIndex + 1}</span>{exercise.metric === "reps" ? <><label><span>{t(lang, "field_load")}</span><input type="number" inputMode="decimal" value={set.weight || ""} placeholder={t(lang, "ph_kg")} onChange={(event) => updateSet(exercise.index, setIndex, "weight", Number(event.target.value))} /></label><label><span>{t(lang, "field_reps")}</span><input type="number" inputMode="numeric" value={set.reps || ""} placeholder={t(lang, "ph_reps")} onChange={(event) => updateSet(exercise.index, setIndex, "reps", Number(event.target.value))} onBlur={(event) => { if (Number(event.target.value) > 0) startRest(restSec); }} /></label></> : exercise.metric === "time" ? <label><span>{t(lang, "field_seconds")}</span><input type="number" inputMode="numeric" value={set.seconds || ""} placeholder={t(lang, "ph_sec")} onChange={(event) => updateSet(exercise.index, setIndex, "seconds", Number(event.target.value))} onBlur={(event) => { if (Number(event.target.value) > 0) startRest(restSec); }} /></label> : <label><span>{t(lang, "field_meters")}</span><input type="number" inputMode="decimal" value={set.meters || ""} placeholder={t(lang, "ph_m")} onChange={(event) => updateSet(exercise.index, setIndex, "meters", Number(event.target.value))} onBlur={(event) => { if (Number(event.target.value) > 0) startRest(restSec); }} /></label>}<div className="rpe-chips">{[6, 7, 8, 9, 10].map((rpe) => <button type="button" className={set.rpe === rpe ? "rpe-chip selected" : "rpe-chip"} key={rpe} onClick={() => updateSet(exercise.index, setIndex, "rpe", rpe)}>{rpe}</button>)}</div><button type="button" className="icon-button set-remove" onClick={() => removeSet(exercise.index, setIndex)} aria-label={t(lang, "train_remove_set_aria")}>×</button></div>)}</div><div className="button-row exercise-footer"><button className="button button-ghost" onClick={() => addSet(exercise.index)}>{t(lang, "train_add_set_btn")}</button><button className="text-button" onClick={() => moveExercise(exercise.index, -1)}>↑</button><button className="text-button" onClick={() => moveExercise(exercise.index, 1)}>↓</button><button className="text-button danger-button" onClick={() => removeExercise(exercise.index)}>{t(lang, "train_delete_btn")}</button></div></Card>; })}</div>{showCustom ? <Card tone="muted"><div className="input-row"><input value={customName} maxLength={80} placeholder={t(lang, "train_custom_ph")} onChange={(event) => setCustomName(event.target.value)} /><button className="button button-primary" disabled={actionBusy === "custom"} onClick={() => void addCustom()}>{actionBusy === "custom" ? "…" : t(lang, "train_add_custom_btn")}</button><button className="button button-ghost" onClick={() => setShowCustom(false)}>{t(lang, "cancel_btn")}</button></div></Card> : <button className="button button-ghost button-wide" onClick={() => setShowCustom(true)}>{t(lang, "train_add_exercise_btn")}</button>}{restEndAt != null && <div className="draft-note">{t(lang, "train_resting_label", { time: fmtRest(restLeft) })} <button type="button" className="text-button" onClick={stopRest}>{t(lang, "train_rest_stop_btn")}</button></div>}{restDone && <div className="save-note">{t(lang, "train_rest_done_note")}</div>}<button className="button button-primary button-wide" onClick={save} disabled={saving || filled === 0}>{saving ? t(lang, "saving_ellipsis") : logDate ? t(lang, "save_for_date", { date: logDate }) : t(lang, "save_session")}</button></div>;
+  return <div className="view-stack"><div className="eyebrow">{t(lang, "guided_logger_eyebrow", { date: logDate ?? workout.date })}</div><div className="page-title"><h1>{t(lang, "training_session_title")}</h1><span>{filled}/{workout.exercises.length}</span></div>{tabs}{gamification && !saved && <div className="train-progress"><span className="tag">{t(lang, "level_n", { n: gamification.level })}</span><div className="progress-track"><span style={{ width: `${gamification.needed ? Math.min(100, gamification.intoLevel / gamification.needed * 100) : 100}%` }} /></div>{gamification.streak ? <span className="tag">{t(lang, "streak_weeks", { n: gamification.streak })}</span> : null}</div>}{actionError !== null && <Card tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}{(logDate || copiedFrom) &&<div className="button-row"><button className="text-button" onClick={backToToday}>{t(lang, "back_to_today")}</button></div>}{saved && summary ? <Card tone="accent">
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "session_summary_eyebrow")}</span><h2>{saveNoteDate ? t(lang, "session_saved_for_date", { date: saveNoteDate }) : t(lang, "session_saved")}</h2></div><span className="tag">{t(lang, "level_n", { n: summary.level })}</span></div>
+      <div className="session-stats">
+        <div><strong>{summary.sets}</strong><small>{t(lang, "summary_sets")}</small></div>
+        <div><strong>{fmtRest(summary.elapsedSec)}</strong><small>{t(lang, "summary_elapsed")}</small></div>
+        {summary.densityPct !== null && <div><strong>{summary.densityPct}%</strong><small>{t(lang, "summary_density")}</small></div>}
+        {summary.bestStreak > 0 && <div><strong>🎯 {summary.bestStreak}</strong><small>{t(lang, "summary_rest_streak")}</small></div>}
+      </div>
+      {summary.leveledUp && <p className="summary-hit">{t(lang, "summary_level_up", { n: summary.level })}</p>}
+      {summary.prExercises.length > 0 && <p className="summary-hit">{t(lang, "summary_prs", { names: summary.prExercises.join(", ") })}</p>}
+      {summary.newBadges.length > 0 && <p className="summary-hit">{t(lang, "summary_badges", { names: summary.newBadges.join(", ") })}</p>}
+      <p className="muted">{t(lang, "summary_total_workouts", { n: summary.totalWorkouts })}</p>
+    </Card> : saved ? <div className="save-note">{saveNoteDate ? t(lang, "session_saved_for_date", { date: saveNoteDate }) : t(lang, "session_saved")}</div> : null}{logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}{copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}{drafted && <div className="draft-note">{t(lang, "draft_saved_note")}</div>}<div className="progress-track session-progress"><span style={{ width: `${workout.exercises.length ? filled / workout.exercises.length * 100 : 0}%` }} /></div>{workout.exercises.length > 1 && <div className="button-row"><button className="button button-ghost" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button></div>}<div className="exercise-list">{workout.exercises.map((exercise) => { const restSec = restForExercise(exercise); const sets = exercise.setsDone ?? []; const completed = sets.some((set) => set.reps || set.seconds || set.meters); return <Card key={`${exercise.index}-${exercise.name}`} tone={completed ? "muted" : "default"}><div className="exercise-head"><div><span className="exercise-index">{String(exercise.index + 1).padStart(2, "0")}</span><h2>{completed ? "✓ " : ""}{exercise.name}</h2></div><div className="button-row"><span className="tag">{t(lang, exercise.metric === "reps" ? "metric_tag_reps" : exercise.metric === "time" ? "metric_tag_time" : "metric_tag_distance")}</span><button type="button" className="text-button" onClick={() => startRest(restSec, exercise.name)}>{t(lang, "train_start_rest_btn", { sec: restSec })}</button><button type="button" className="text-button" aria-label={t(lang, "train_rest_prefs_aria")} onClick={() => setRestEditFor((current) => current === exercise.index ? null : exercise.index)}>⚙</button></div></div>{restEditFor === exercise.index && <div className="rest-prefs">{[45, 60, 90, 120, 180].map((sec) => <button type="button" key={sec} className={restPrefs[restMetricKey(exercise)] === sec ? "rest-chip selected" : "rest-chip"} onClick={() => patchRestPrefs({ [restMetricKey(exercise)]: sec })}>{sec}s</button>)}<button type="button" className={restPrefs.auto ? "rest-chip selected" : "rest-chip"} onClick={() => patchRestPrefs({ auto: !restPrefs.auto })}>{t(lang, "train_rest_auto")}</button><button type="button" className={restPrefs.sound ? "rest-chip selected" : "rest-chip"} onClick={() => patchRestPrefs({ sound: !restPrefs.sound })}>{t(lang, "train_rest_sound")}</button>{exercise.restSec != null && <small className="muted">{t(lang, "train_rest_plan_wins")}</small>}</div>}<p className="muted">{exercise.planSets ? `${exercise.planSets}${exercise.planWeight ? ` · ${exercise.planWeight}` : ""}` : t(lang, "exercise_sets_line", { n: exercise.sets, detail: exercise.metric === "reps" ? t(lang, "controlled_reps") : t(lang, "measured_effort") })}</p><div className="button-row exercise-actions"><button className="text-button" onClick={() => fillPlanned(exercise.index)}>{t(lang, "train_as_planned_btn")}</button>{exercise.last?.length ? <button className="text-button" onClick={() => fillLast(exercise.index)}>{t(lang, "train_repeat_last_btn")}</button> : null}<button className="text-button" onClick={() => void openSwap(exercise.index)}>{actionBusy === `swap:${exercise.index}` ? "…" : t(lang, "train_swap_btn")}</button><button className="text-button" onClick={() => void openInfo(exercise)}>{actionBusy === `info:${exercise.index}` ? "…" : t(lang, "train_info_btn")}</button></div>{swapFor === exercise.index && <div className="choice-list">{swapChoices.length ? swapChoices.map((choice) => <button className="choice-button" key={choice.id} onClick={() => applySwap(choice.name)}>{choice.name}</button>) : <span className="muted">{t(lang, "train_no_swaps")}</span>}</div>}{infoFor === exercise.index && info && <div className="info-box"><p>{info.technique || t(lang, "train_no_info")}</p>{info.videoUrl && <a href={info.videoUrl} target="_blank" rel="noreferrer">{info.videoTitle || t(lang, "train_watch_video")}</a>}</div>}<div className="set-list">{sets.map((set, setIndex) => <div className="set-row" key={setIndex}><span className="set-number">{setIndex + 1}</span>{exercise.metric === "reps" ? <><label><span>{t(lang, "field_load")}</span><input type="number" inputMode="decimal" value={set.weight || ""} placeholder={t(lang, "ph_kg")} onChange={(event) => updateSet(exercise.index, setIndex, "weight", Number(event.target.value))} /></label><label><span>{t(lang, "field_reps")}</span><input type="number" inputMode="numeric" value={set.reps || ""} placeholder={t(lang, "ph_reps")} onChange={(event) => updateSet(exercise.index, setIndex, "reps", Number(event.target.value))} onBlur={(event) => { if (restPrefs.auto && Number(event.target.value) > 0) startRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: setIndex + 1 })); }} /></label></> : exercise.metric === "time" ? <label><span>{t(lang, "field_seconds")}</span><input type="number" inputMode="numeric" value={set.seconds || ""} placeholder={t(lang, "ph_sec")} onChange={(event) => updateSet(exercise.index, setIndex, "seconds", Number(event.target.value))} onBlur={(event) => { if (restPrefs.auto && Number(event.target.value) > 0) startRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: setIndex + 1 })); }} /></label> : <label><span>{t(lang, "field_meters")}</span><input type="number" inputMode="decimal" value={set.meters || ""} placeholder={t(lang, "ph_m")} onChange={(event) => updateSet(exercise.index, setIndex, "meters", Number(event.target.value))} onBlur={(event) => { if (restPrefs.auto && Number(event.target.value) > 0) startRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: setIndex + 1 })); }} /></label>}<div className="rpe-chips">{[6, 7, 8, 9, 10].map((rpe) => <button type="button" className={set.rpe === rpe ? "rpe-chip selected" : "rpe-chip"} key={rpe} onClick={() => updateSet(exercise.index, setIndex, "rpe", rpe)}>{rpe}</button>)}</div><button type="button" className="icon-button set-remove" onClick={() => removeSet(exercise.index, setIndex)} aria-label={t(lang, "train_remove_set_aria")}>×</button></div>)}</div><div className="button-row exercise-footer"><button className="button button-ghost" onClick={() => addSet(exercise.index)}>{t(lang, "train_add_set_btn")}</button><button className="text-button" onClick={() => moveExercise(exercise.index, -1)}>↑</button><button className="text-button" onClick={() => moveExercise(exercise.index, 1)}>↓</button><button className="text-button danger-button" onClick={() => removeExercise(exercise.index)}>{t(lang, "train_delete_btn")}</button></div></Card>; })}</div>{showCustom ? <Card tone="muted"><div className="input-row"><input value={customName} maxLength={80} placeholder={t(lang, "train_custom_ph")} onChange={(event) => setCustomName(event.target.value)} /><button className="button button-primary" disabled={actionBusy === "custom"} onClick={() => void addCustom()}>{actionBusy === "custom" ? "…" : t(lang, "train_add_custom_btn")}</button><button className="button button-ghost" onClick={() => setShowCustom(false)}>{t(lang, "cancel_btn")}</button></div></Card> : <button className="button button-ghost button-wide" onClick={() => setShowCustom(true)}>{t(lang, "train_add_exercise_btn")}</button>}{restEndAt != null && <div className={restDone ? "rest-bar over" : "rest-bar"} role="status" aria-live="polite"><div className="rest-ring" style={{ ["--rest-pct" as string]: `${restTarget > 0 ? Math.min(100, Math.max(0, (restTarget - restLeft) / restTarget * 100)) : 100}%` }}><span>{restDone ? `+${fmtRest(restOver)}` : fmtRest(restLeft)}</span></div><div className="rest-meta"><strong>{restDone ? t(lang, "train_rest_over_label") : t(lang, "train_resting_label", { time: fmtRest(restLeft) })}</strong><small>{restLabel ? `${restLabel} · ` : ""}{liveDensity !== null ? t(lang, "rest_bar_density", { n: liveDensity }) : ""}{quality.onTargetStreak > 1 ? ` · 🎯 ${quality.onTargetStreak}` : ""}</small></div><div className="rest-actions"><button type="button" className="rest-adjust" onClick={() => adjustRest(-REST_ADJUST_SEC)} aria-label={t(lang, "train_rest_minus_aria", { sec: REST_ADJUST_SEC })}>−{REST_ADJUST_SEC}</button><button type="button" className="rest-adjust" onClick={() => adjustRest(REST_ADJUST_SEC)} aria-label={t(lang, "train_rest_plus_aria", { sec: REST_ADJUST_SEC })}>+{REST_ADJUST_SEC}</button><button type="button" className="rest-skip" onClick={stopRest}>{t(lang, "train_rest_skip_btn")}</button></div></div>}<button className="button button-primary button-wide" onClick={save} disabled={saving || filled === 0}>{saving ? t(lang, "saving_ellipsis") : logDate ? t(lang, "save_for_date", { date: logDate }) : t(lang, "save_session")}</button></div>;
 }

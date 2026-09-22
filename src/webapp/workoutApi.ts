@@ -1,6 +1,6 @@
 // Guided-logger Mini App APIs: /api/workout/(today|swap|rest|save). Same initData auth as the
 // dashboard; all routes act on the authenticated user only (no cross-user access).
-import { setRestTimer } from "../adapters/d1/v2Admin";
+import { deleteRestTimers, setRestTimer } from "../adapters/d1/v2Admin";
 import { getWorkoutLog, listStrength, recentWorkoutLogs, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
@@ -105,6 +105,14 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       if (name.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
       const result = await createCustomExercise(env, user, name);
       return Response.json(result);
+    }
+    // Cancelling a rest is a real server-side action, not just local UI state: the pending row
+    // is what the minute-cron turns into a Telegram "rest is over" push. Without this, tapping
+    // Stop/Skip in the app cleared the countdown but still let the push fire up to a minute
+    // later, for a rest the user had explicitly abandoned.
+    if (req.method === "DELETE" && path === "/api/workout/rest") {
+      await deleteRestTimers(env.DB, [user._id]);
+      return Response.json({ ok: true });
     }
     if (req.method === "POST" && path === "/api/workout/rest") {
       const parsed = await readJsonBody(req);
