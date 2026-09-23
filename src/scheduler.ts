@@ -1,5 +1,5 @@
 import { Bot, InlineKeyboard } from "grammy";
-import { deliverDueNotifications, enqueueAndDeliver } from "./schedulerOutbox";
+import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from "./schedulerOutbox";
 import { rollupDailyMetrics } from "./dailyMetricsRollup";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, PlanExercise, UserDoc, Weekday, WorkoutLogDoc } from "./types";
@@ -294,6 +294,8 @@ async function checkOwnerAlerts(db: D1Database, bot: Sender): Promise<void> {
   }
   if (alerts.length) {
     await setAlertState(db, state).catch(() => {});
+    // Deliberately a DIRECT send, not the outbox: this is the alert channel itself, and routing it
+    // through the delivery machinery it exists to monitor would hide an outbox failure behind it.
     await bot.api.sendMessage(ownerChatId, ["🛠 <b>Proactive alert</b>", ...alerts].join("\n"), { parse_mode: "HTML" }).catch(() => {});
   }
 }
@@ -349,6 +351,8 @@ async function runScheduleInner(env: Env): Promise<void> {
 
   // Rest-timer nudges — one-shot "rest over" pings scheduled from the guided logger.
   // Sends run in parallel (timeliness is the whole point) and the rows go in one DELETE.
+  // Deliberately DIRECT, not through the outbox: a "your rest is over" that arrives on a backoff
+  // minutes later is worse than one that never arrives at all — the set it refers to is long done.
   const rests = await dueRestTimers(db, new Date().toISOString()).catch(() => []);
   if (rests.length) {
     await Promise.allSettled(
@@ -537,9 +541,23 @@ async function runScheduleInner(env: Env): Promise<void> {
       continue;
     }
     try {
+      // Deliver BEFORE committing the state change. The old order marked the interview done and
+      // put the user in `comeback` mode first, so a failed send left them parked in a mode whose
+      // opening question they never saw -- their next message was then read as an answer to a
+      // question the bot never asked. Enqueue-and-deliver also means a transient failure retries
+      // from the outbox instead of being lost, and an un-marked user is simply picked up again on
+      // the next tick (a duplicate opener being the worst case, not a silent dead end).
+      const delivered = await enqueueAndDeliver(env, bot, {
+        userId: u._id,
+        chatId: u.chatId,
+        kind: "comeback_opener",
+        idempotencyKey: `${nowIso.slice(0, 10)}:comeback:${u._id}`,
+        text: `${t(u.lang, "vacation_ended")}\n\n${t(u.lang, "comeback_q_feel")}`,
+        extra: HTML,
+      });
+      if (delivered === "failed" || delivered === "blocked") continue;
       await updateUser(db, u._id, { session: { mode: "comeback", comeback: { step: 0, answers: {} } } });
       await markComebackDone(db, u._id, nowIso);
-      await bot.api.sendMessage(u.chatId, `${t(u.lang, "vacation_ended")}\n\n${t(u.lang, "comeback_q_feel")}`, HTML);
     } catch (err) {
       logSchedulerError(db, "comeback_opener", err, u._id);
     }
@@ -675,8 +693,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // silently dropped (roadmap item 3, see schedulerOutbox.ts). A 403 still means the user
   // blocked the bot → flag them so we stop trying for the rest of this invocation.
   let botBlocked = false;
-  const send = async (text: string, extra?: Parameters<typeof bot.api.sendMessage>[2]) => {
-    if (botBlocked) return;
+  const send = async (text: string, extra?: Parameters<typeof bot.api.sendMessage>[2]): Promise<DeliveryResult> => {
+    if (botBlocked) return "blocked";
     // Same message text to the same user on the same local day collapses to one outbox row —
     // defense in depth against a double-enqueue, not the primary dedup (that's the cutover
     // mutual-exclusion flag, durable/cutover.ts, which decides whether this call happens at all).
@@ -693,7 +711,35 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       return "failed" as const;
     });
     if (result === "blocked") botBlocked = true;
+    return result;
   };
+  // Sends to someone OTHER than the user this pass is about (their trainer, their inviter). The
+  // `send` closure above is bound to user.chatId, which is why these used to bypass the outbox
+  // entirely — enqueueAndDeliver takes the recipient explicitly, so they no longer have to.
+  // The idempotency key names the SUBJECT (this user), not the recipient: two different clients'
+  // at-risk alerts to the same trainer on the same day must not collapse into one row.
+  const sendTo = (
+    target: { _id: number; chatId: number },
+    kind: string,
+    text: string,
+    extra?: Parameters<typeof bot.api.sendMessage>[2],
+  ): Promise<DeliveryResult> =>
+    enqueueAndDeliver(env, bot, {
+      userId: target._id,
+      chatId: target.chatId,
+      kind,
+      idempotencyKey: `${date}:${kind}:${user._id}`,
+      text,
+      extra: extra ?? HTML,
+    }).catch((e) => {
+      console.error("notify enqueue error", target._id, kind, e);
+      return "failed" as const;
+    });
+  // A dedup key may only be written when the message is either delivered or DURABLY QUEUED.
+  // "retrying" counts: the outbox row persists and deliverDueNotifications drains it on a later
+  // tick. "failed"/"blocked" mean it is gone — writing the key there would consume the
+  // once-per-user-per-day slot for a message nobody ever received (the bug this closes).
+  const durable = (r: DeliveryResult) => r === "sent" || r === "retrying" || r === "duplicate";
   // Explicit reminderHour wins; otherwise derive from sleep schedule (early risers get a
   // morning nudge, night owls keep the 18:00 default).
   const reminderHour = user.profile.reminderHour ?? (user.profile.sleepSchedule === "morning" ? 8 : 18);
@@ -724,6 +770,19 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
 
   const already = (key: string) => sent[key] === date;
   const markSent = (key: string) => { dirty[key] = date; };
+  // send + dedup-key write as ONE operation, because they are one invariant: the key may only be
+  // written for a message that is durable (see `durable` above). Keeping the two separate is what
+  // let call sites drift into marking a dropped send as delivered. A terminal failure self-limits
+  // rather than looping: the next tick re-enqueues the same idempotencyKey, gets "duplicate"
+  // back — which is durable — and marks then.
+  // NOTE: this is only for keys that mean "this message was delivered". Keys written BEFORE a send
+  // to throttle expensive work (missed_day, weekly_narrative, activation, atrisk_check) are a
+  // different thing and must stay unconditional, or a send failure re-runs an AI call every tick.
+  const sendAndMark = async (key: string, text: string, extra?: Parameters<typeof bot.api.sendMessage>[2]) => {
+    const result = await send(text, extra);
+    if (durable(result)) markSent(key);
+    return result;
+  };
   // Send at most ONE user-facing reminder per tick. The cron runs every minute, so the rest fire
   // on subsequent ticks (a few minutes apart) instead of arriving as a 4-in-a-row burst.
   // Quiet hours: during the user's do-not-disturb window, suppress ALL personal nudges by
@@ -749,7 +808,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     if (inviter && !inviter.blocked) {
       await awardAchievement(db, inviter._id, "referral").catch(() => {});
       const name = user.profile.name ?? `id ${user._id}`;
-      await bot.api.sendMessage(inviter.chatId, t(inviter.lang, "ref_joined", { name }), HTML).catch(() => {});
+      await sendTo(inviter, "ref_joined", t(inviter.lang, "ref_joined", { name }));
     }
     markSent("ref_reward");
   }
@@ -783,12 +842,14 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         const name = user.profile.name ?? `id ${user._id}`;
         const kb = new InlineKeyboard().text(t(trainer.lang, "cc_message"), `cl:${user._id}:msg`);
         if (fireWorkout) {
-          await bot.api.sendMessage(trainer.chatId, t(trainer.lang, "atrisk_workout_alert", { name, d1: missed![0], d2: missed![1] }), { ...HTML, reply_markup: kb }).catch((e) => console.error("atrisk workout", e));
-          dirty["atrisk_workout"] = missed![1];
+          const r = await sendTo(trainer, "atrisk_workout", t(trainer.lang, "atrisk_workout_alert", { name, d1: missed![0], d2: missed![1] }), { ...HTML, reply_markup: kb });
+          // Keyed on the miss itself, so a dropped alert re-fires on the next pass rather than
+          // being suppressed forever by a 429 the trainer never saw.
+          if (durable(r)) dirty["atrisk_workout"] = missed![1];
         }
         if (fireNutrition) {
-          await bot.api.sendMessage(trainer.chatId, t(trainer.lang, "atrisk_nutrition_alert", { name, n: lapse!.gapDays }), { ...HTML, reply_markup: kb }).catch((e) => console.error("atrisk nutrition", e));
-          dirty["atrisk_nutrition"] = lapse!.lastLogged;
+          const r = await sendTo(trainer, "atrisk_nutrition", t(trainer.lang, "atrisk_nutrition_alert", { name, n: lapse!.gapDays }), { ...HTML, reply_markup: kb });
+          if (durable(r)) dirty["atrisk_nutrition"] = lapse!.lastLogged;
         }
       }
     }
@@ -807,7 +868,6 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       const done = (await workoutLogsSince(db, user._id, joined)).filter((l) => l.completed).length;
       const nudge = nextActivationStep({ joinedDate: joined, today: date, workouts: done, sentSteps: Object.keys(sent) });
       if (nudge) {
-        markSent(nudge.step);
         pinged = true;
         const key =
           nudge.step === "act_first" ? "act_first"
@@ -821,7 +881,9 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         else if (!nudge.onTrack) kb.text(t(lang, "act_btn_fewer"), "pday:open");
         const text = t(lang, key, { workouts: nudge.workouts, target: ACTIVATION_TARGET, day: nudge.dayIndex });
         const extra = kb.inline_keyboard.length ? { ...HTML, reply_markup: kb } : HTML;
-        await bot.api.sendMessage(user.chatId, text, extra).catch((e) => console.error("activation nudge", e));
+        // The step key is written only on a durable send: each activation beat fires once ever, so
+        // marking a dropped one would silently skip that beat for this user permanently.
+        await sendAndMark(nudge.step, text, extra);
       }
     }
   }
@@ -861,8 +923,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       const reminderKey = ignoredStreak >= 3 ? "reminder_workout_soft" : "reminder_workout";
       const text =
         t(lang, reminderKey, { group: day.muscleGroup }) + "\n\n" + renderDay(lang, day, undefined, "none");
-      await send(text, { ...HTML, reply_markup: kb });
-      markSent("workout");
+      await sendAndMark("workout", text, { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }
@@ -919,8 +980,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         if (kb.inline_keyboard[kb.inline_keyboard.length - 1]?.length) kb.row();
         kb.webApp(t(lang, "app_survey_btn"), surveyUrl);
       }
-      await send(t(lang, "survey_prompt"), { ...HTML, reply_markup: kb });
-      markSent("survey");
+      await sendAndMark("survey", t(lang, "survey_prompt"), { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }
@@ -935,8 +995,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     const done = await getDailyCheckin(db, user._id, date);
     if (!loggedToday && !done) {
       const kb = new InlineKeyboard().text(t(lang, "menu_checkin"), "checkin:start");
-      await send(t(lang, "reminder_wellbeing"), { ...HTML, reply_markup: kb });
-      markSent("wellbeing");
+      await sendAndMark("wellbeing", t(lang, "reminder_wellbeing"), { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }
@@ -983,7 +1042,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
             body += "\n\n" + t(lang, "missed_day_makeup");
             kb.text(t(lang, "log_done_btn"), "log:done");
           }
-          await bot.api.sendMessage(user.chatId, body, { ...HTML, reply_markup: kb }).catch((e) => console.error("missed_day notify", e));
+          await send(body, { ...HTML, reply_markup: kb });
           pinged = true;
         }
       }
@@ -1000,8 +1059,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     if (day) {
       const text =
         t(lang, "reminder_tomorrow", { group: day.muscleGroup }) + "\n\n" + renderDay(lang, day, undefined, "none");
-      await send(text);
-      markSent("tomorrow");
+      await sendAndMark("tomorrow", text);
       pinged = true;
     }
   }
@@ -1037,8 +1095,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         .text("⭐", "qr:1").text("⭐⭐", "qr:2").text("⭐⭐⭐", "qr:3")
         .row()
         .text("⭐⭐⭐⭐", "qr:4").text("⭐⭐⭐⭐⭐", "qr:5");
-      await send(t(lang, "reminder_quality"), { ...HTML, reply_markup: kb });
-      markSent("quality");
+      await sendAndMark("quality", t(lang, "reminder_quality"), { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }
@@ -1046,8 +1103,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // Weekly measurement check-in — Sunday at the user's reminder hour, once.
   if (!pinged && !remOff("measure") && weekday === 7 && hour >= reminderHour && !already("measure")) {
     const kb = new InlineKeyboard().text(t(lang, "menu_measure"), "menu:measure");
-    await send(t(lang, "reminder_measure"), { ...HTML, reply_markup: kb });
-    markSent("measure");
+    await sendAndMark("measure", t(lang, "reminder_measure"), { ...HTML, reply_markup: kb });
     pinged = true;
   }
 
@@ -1077,8 +1133,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       const kb = new InlineKeyboard()
         .text(t(lang, "menu_progress"), "menu:progress")
         .text(t(lang, "wcard_btn"), "share:week");
-      await send(parts.join("\n"), { ...HTML, reply_markup: kb });
-      markSent("digest");
+      await sendAndMark("digest", parts.join("\n"), { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }
@@ -1090,8 +1145,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     const stalled = stalledLifts(await listStrength(db, user._id), date);
     if (stalled.length) {
       const kb = new InlineKeyboard().text(t(lang, "menu_coach"), "menu:coach");
-      await send(t(lang, "plateau_nudge", { lifts: stalled.slice(0, 2).map(escapeHtml).join(", ") }), { ...HTML, reply_markup: kb });
-      markSent("plateau");
+      await sendAndMark("plateau", t(lang, "plateau_nudge", { lifts: stalled.slice(0, 2).map(escapeHtml).join(", ") }), { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }
@@ -1103,8 +1157,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     const needsSetup = !user.profile.cycleTracking || !user.profile.lastPeriodStart;
     if (needsSetup) {
       const kb = new InlineKeyboard().text(t(lang, "cycle_nudge_btn"), "set:cycle");
-      await send(t(lang, "cycle_nudge"), { ...HTML, reply_markup: kb });
-      markSent("cycle_nudge");
+      await sendAndMark("cycle_nudge", t(lang, "cycle_nudge"), { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }
@@ -1133,8 +1186,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         : false;
       if (calendarDue || adherenceDue) {
         const kb = new InlineKeyboard().text(t(lang, "menu_coach"), "menu:coach");
-        await send(t(lang, calendarDue && trainedRecently ? "deload_week" : "deload_adherence"), { ...HTML, reply_markup: kb });
-        markSent("deload");
+        await sendAndMark("deload", t(lang, calendarDue && trainedRecently ? "deload_week" : "deload_adherence"), { ...HTML, reply_markup: kb });
         pinged = true;
       }
     }
@@ -1200,12 +1252,13 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       const kb = new InlineKeyboard()
         .text(t(lang, "smart_hour_yes", { h: suggested }), `shour:yes:${suggested}`)
         .text(t(lang, "smart_hour_no"), "shour:no");
-      await send(t(lang, "smart_hour_offer", { habit: suggested + 1, cur: reminderHour, new: suggested }), {
+      // Cooldown runs from the offer, whatever the answer — but only once the offer actually
+      // got out, or a dropped send costs the user this prompt for another 30 days.
+      await sendAndMark("smart_hour", t(lang, "smart_hour_offer", { habit: suggested + 1, cur: reminderHour, new: suggested }), {
         ...HTML,
         reply_markup: kb,
       });
       pinged = true;
-      markSent("smart_hour"); // cooldown from the offer, whatever the answer
     }
   }
 
@@ -1216,11 +1269,10 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     if (plan) {
       const w = weeksSincePlan(plan.generatedAt.toISOString().slice(0, 10), date);
       if (w > 0 && w % 2 === 0) {
-        await send(t(lang, "adaptive_checkin_prompt"));
+        await sendAndMark("adaptive_checkin", t(lang, "adaptive_checkin_prompt"));
         // Persist the mode now — flushReminders no longer writes the session column.
         user.session = { ...user.session, mode: "checkin_adaptive" };
         await updateUser(db, user._id, { session: user.session });
-        markSent("adaptive_checkin");
         pinged = true;
       }
     }
@@ -1281,13 +1333,13 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
               .text(t(trainer.lang, "cc_edit"), `cl:${user._id}:edit`)
               .row()
               .text(t(trainer.lang, "cc_discard"), `cl:${user._id}:discard`);
-            await bot.api.sendMessage(trainer.chatId, text, { ...HTML, reply_markup: kb }).catch((e) => console.error("progression trainer notify", e));
+            await sendTo(trainer, "progression_trainer", text, { ...HTML, reply_markup: kb });
           }
         } else {
           await setActivePlan(db, updated);
           await recordAdjustment(db, user._id, week, JSON.stringify(prog.changes));
           const text = [t(lang, "progression_solo_header"), ...lineFor(lang), ...swapLines].join("\n");
-          await bot.api.sendMessage(user.chatId, text, HTML).catch((e) => console.error("progression notify", e));
+          await send(text);
         }
       } else if (prog.heldForConditioning && !isClient) {
         // Say WHY nothing moved. A silent hold reads as the bot losing interest; naming the
@@ -1296,14 +1348,14 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         // language: it's stored for THIS user's later /planchanges read, not a shared audit log.
         const heldText = t(lang, "progression_held_conditioning", { load: conditioningLoadLabel(lang, cond) });
         await recordAdjustment(db, user._id, week, JSON.stringify([{ reason: heldText }])).catch(() => {});
-        await bot.api.sendMessage(user.chatId, heldText, HTML).catch((e) => console.error("conditioning hold notify", e));
+        await send(heldText);
       } else if (prog.heldForWellbeing && !isClient) {
         // Same idea as the conditioning hold above, for the OTHER hold reason -- this one was
         // computed every week already (poorWellbeing gates all increases) but never surfaced:
         // a silent week reads as the bot forgetting about you, not as a deliberate call.
         const heldText = t(lang, "progression_held_wellbeing");
         await recordAdjustment(db, user._id, week, JSON.stringify([{ reason: heldText }])).catch(() => {});
-        await bot.api.sendMessage(user.chatId, heldText, HTML).catch((e) => console.error("wellbeing hold notify", e));
+        await send(heldText);
       }
 
       // Level-up offer (solo/trainer-own only, ≤ once / 30 days): the trainee has outgrown the
@@ -1313,8 +1365,9 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         const progWeeks = await countAdjustmentWeeksSince(db, user._id, isoDaysAgo(42));
         if (shouldLevelUp(user.profile.level ?? "beginner", rate, progWeeks)) {
           const kb = new InlineKeyboard().text(t(lang, "levelup_yes"), "levelup:yes").text(t(lang, "levelup_no"), "levelup:no");
-          await bot.api.sendMessage(user.chatId, t(lang, "levelup_prompt"), { ...HTML, reply_markup: kb }).catch((e) => console.error("levelup notify", e));
-          markSent("levelup");
+          // The key gates this offer for the next 30 DAYS — writing it for a send that never
+          // landed costs the user a month of the prompt they earned.
+          await sendAndMark("levelup", t(lang, "levelup_prompt"), { ...HTML, reply_markup: kb });
         }
       }
 
@@ -1326,8 +1379,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
           .map((b) => ({ date: b.date, weight: b.weight as number }));
         if (fatLossGoalReached(user.profile.goal, weights) || gainGoalReached(user.profile.goal, weights)) {
           const kb = new InlineKeyboard().text(t(lang, "goal_switch_yes"), "goal:maintain").text(t(lang, "levelup_no"), "goal:keep");
-          await bot.api.sendMessage(user.chatId, t(lang, "goal_reached_prompt"), { ...HTML, reply_markup: kb }).catch((e) => console.error("goalreached notify", e));
-          markSent("goalreached");
+          // Same 30-day gate as the level-up offer above.
+          await sendAndMark("goalreached", t(lang, "goal_reached_prompt"), { ...HTML, reply_markup: kb });
         }
       }
     }
@@ -1403,16 +1456,19 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       await updatePlanMesocycle(db, user._id, nextMeso).catch(() => {});
       if (nextMeso.phase !== prev.phase) {
         const g = phaseGuidance(nextMeso.phase);
-        await bot.api
-          .sendMessage(user.chatId, t(lang, "meso_advanced", { phase: t(lang, phaseKey(nextMeso.phase) as Parameters<typeof t>[1]), reps: g.reps, intensity: g.intensity }), HTML)
-          .catch(() => {});
+        await send(t(lang, "meso_advanced", { phase: t(lang, phaseKey(nextMeso.phase) as Parameters<typeof t>[1]), reps: g.reps, intensity: g.intensity }));
       }
     }
     const ownerChatId = await getOwnerChatId(db);
     if (ownerChatId !== undefined && user.chatId === ownerChatId) {
       try {
+        // Through the outbox like every other send, so a 429 at 17:00 (when the whole cohort's
+        // sends share one invocation's subrequest budget) backs off instead of losing the report.
+        // Caveat: the outbox gives no cross-row ordering guarantee, so if one chunk backs off and
+        // a later one doesn't, the owner sees them out of order. Acceptable here -- the report is
+        // re-runnable on demand via /ownerreport, and losing it entirely is the worse failure.
         for (const chunk of chunkReport(await buildOwnerReport(db, env))) {
-          await bot.api.sendMessage(user.chatId, chunk, HTML);
+          await send(chunk);
         }
       } catch (err) {
         logSchedulerError(db, "owner_report", err);
@@ -1453,7 +1509,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
             }),
           );
         }
-        await bot.api.sendMessage(user.chatId, lines.join("\n"), HTML).catch((e) => console.error("digest send", e));
+        await send(lines.join("\n"));
       }
     }
     } catch (err) {

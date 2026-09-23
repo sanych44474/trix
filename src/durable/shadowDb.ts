@@ -19,12 +19,24 @@ export interface ShadowWrite {
 }
 
 /** Known, honest limitation: a shadowed write never really executes, so `meta.changes` is
- * always 0 and any `RETURNING` clause always resolves to nothing — a caller that branches on
- * either would see "nothing happened," never a false "it worked." No call reachable from the
- * scheduler's per-user reminder path does either (checked: the two `RETURNING id` sites in this
- * codebase — injuries, trainer_templates — are both user-initiated bot commands, not scheduler
- * code). If a future write path needs shadowed RETURNING/meta fidelity, extend this rather than
- * silently trusting a fabricated value. */
+ * always 0 — a caller that branches on it sees "nothing happened," never a false "it worked."
+ *
+ * `INSERT ... RETURNING id` is the one exception, and it is deliberate. Once processUser's sends
+ * were routed through the notification outbox, `enqueueNotification` (INSERT ... RETURNING id)
+ * became reachable from the scheduler's per-user path: returning nothing made it read as "this was
+ * a duplicate, do not deliver", which silently dropped EVERY outbox-routed send from the dry-run
+ * log — the dry run would have under-reported exactly the thing the cutover comparison exists to
+ * measure. So a shadowed INSERT..RETURNING now yields a synthetic NEGATIVE id (see
+ * nextShadowId): real rowids are positive, so a fabricated one can never be mistaken for a real
+ * row, and any follow-up UPDATE keyed on it is itself shadowed.
+ *
+ * The residual inaccuracy is the opposite, safer direction: `ON CONFLICT DO NOTHING` cannot be
+ * evaluated without really inserting, so a genuine duplicate looks like a fresh insert and the dry
+ * run may log a send the real path would have suppressed. Over-reporting is the tolerable error
+ * here; under-reporting would make parity look clean while the live path sent more. */
+let shadowIdCounter = 0;
+const nextShadowId = () => --shadowIdCounter;
+const RETURNING_RE = /\bRETURNING\b/i;
 class ShadowPreparedStatement implements D1PreparedStatement {
   private params: unknown[] = [];
   constructor(
@@ -67,7 +79,12 @@ class ShadowPreparedStatement implements D1PreparedStatement {
   async first<T>(colName?: string): Promise<T | null> {
     if (this.isWrite()) {
       this.onWrite({ sql: this.sql, params: this.params });
-      return null;
+      if (!RETURNING_RE.test(this.sql)) return null;
+      // Only `id` is synthesized — that is the only RETURNING column any scheduler-reachable
+      // write asks for. A different column would come back undefined, which reads as "nothing
+      // happened" exactly as before, rather than as a wrong value.
+      const id = nextShadowId();
+      return (colName ? (colName === "id" ? id : null) : { id }) as T;
     }
     return colName ? this.realStmt().first<T>(colName) : this.realStmt().first<T>();
   }
