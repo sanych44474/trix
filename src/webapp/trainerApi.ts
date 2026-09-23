@@ -34,6 +34,7 @@ import { miniAppUser } from "./auth";
 import { buildClientCardPayload } from "./clientCard";
 import { readJsonBody } from "./validate";
 import type { BankPlan, Env, UserDoc } from "../types";
+import { apiFailure } from "./apiError";
 
 const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|photo-request|interview-nudge)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
@@ -270,7 +271,6 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     }
     return Response.json({ ok: true });
   } catch (err) {
-    console.error("api/trainer error", user._id, action, err);
-    return Response.json({ error: "error" }, { status: 500 });
+    return apiFailure(env, "api_trainer", err, { userId: user._id, action });
   }
 }

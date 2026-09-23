@@ -22,6 +22,7 @@ import {
 } from "./workout";
 import { localParts } from "../domain/progression";
 import type { Env, UserDoc } from "../types";
+import { apiFailure } from "./apiError";
 
 export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
@@ -150,8 +151,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
     }
     return Response.json({ error: "not found" }, { status: 404 });
   } catch (err) {
-    console.error("api/workout error", user._id, err);
-    return Response.json({ error: "error" }, { status: 500 });
+    return apiFailure(env, "api_workout", err, { userId: user._id });
   }
 }
 

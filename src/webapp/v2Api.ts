@@ -18,6 +18,7 @@ import { handleBuddyApi } from "./buddyApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./miscApi";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
+import { recordError } from "../adapters/d1/v2Admin";
 import { checkCronHeartbeat } from "../scheduler";
 import { logError } from "../log";
 import { V2_ERROR_CODES, type V2ErrorCode, type V2Response } from "../contracts/v2";
@@ -173,6 +174,14 @@ export async function handleV2Api(req: Request, url: URL, env: Env, ctx?: Execut
       return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded }, ...payload }, req);
     } catch (err) {
       logError("v2_dashboard_failed", err, { userId: user._id });
+      // Also the D1 sink, which is what /ownerreport's Errors section and the error-spike alert
+      // read — logError alone reaches Workers Logs and Analytics Engine but neither of those.
+      await recordError(env.DB, {
+        userId: user._id,
+        kind: "v2_dashboard_failed",
+        errorType: "exception",
+        message: String(err).slice(0, 200),
+      }).catch(() => {});
       return Response.json({ error: { code: "dependency_unavailable", message: "Dashboard unavailable" } }, { status: 503 });
     }
   }

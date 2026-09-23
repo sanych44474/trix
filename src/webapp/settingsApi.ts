@@ -17,6 +17,7 @@ import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env, Lang, UserDoc } from "../types";
+import { apiFailure } from "./apiError";
 
 type TKey = Parameters<typeof t>[1];
 
@@ -181,7 +182,6 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
     }
     return Response.json({ ok: true, state: state(user, user.lang) });
   } catch (err) {
-    console.error("api/settings", user._id, action, err);
-    return Response.json({ error: "error" }, { status: 500 });
+    return apiFailure(env, "api_settings", err, { userId: user._id, action });
   }
 }

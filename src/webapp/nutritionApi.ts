@@ -15,6 +15,7 @@ import { aiProductLookup, decodeEntities, fatSecretSearch } from "./foodDb";
 import { readJsonBody } from "./validate";
 import { logInfo } from "../log";
 import type { Env, MealEntry, NutritionTargets, UserDoc } from "../types";
+import { apiFailure } from "./apiError";
 
 // Same "the webview can't offer a file download, so push it to the viewer's own Telegram chat"
 // pattern extrasApi.ts/settingsApi.ts/trainerApi.ts already each define locally -- this endpoint
@@ -358,7 +359,6 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       totals: totals(meals),
     });
   } catch (err) {
-    console.error("api/nutrition", user._id, action, err);
-    return Response.json({ error: "error" }, { status: 500 });
+    return apiFailure(env, "api_nutrition", err, { userId: user._id, action });
   }
 }

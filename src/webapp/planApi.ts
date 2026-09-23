@@ -29,6 +29,7 @@ import { parseYouTubeId } from "../youtube";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env, ExerciseVideo, Lang, PlanDay, PlanExercise, UserDoc, Weekday } from "../types";
+import { apiFailure } from "./apiError";
 
 interface PlanExerciseView {
   index: number;
@@ -388,7 +389,6 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
       changes: freshChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
     });
   } catch (err) {
-    console.error("api/plan edit", user._id, action, err);
-    return Response.json({ error: "error" }, { status: 500 });
+    return apiFailure(env, "api_plan", err, { userId: user._id, action });
   }
 }
