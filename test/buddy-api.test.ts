@@ -16,7 +16,7 @@ function req(url: string) {
 
 test("handleBuddyApi: unauthorized without a resolvable user", async () => {
   const db = newDb();
-  const res = await handleBuddyApi(req("/api/buddy"), new URL("https://x/api/buddy"), { DB: db } as never);
+  const res = await handleBuddyApi(req("/api/buddy"), new URL("https://x/api/buddy"), { DB: db, ALLOW_DEBUG_USER: "1" } as never);
   assert.equal(res.status, 401);
 });
 
@@ -24,7 +24,7 @@ test("handleBuddyApi: no buddyId set → { buddy: null }, no error", async () =>
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "uk", "Ann");
   const url = new URL("https://x/api/buddy?debugUser=1");
-  const res = await handleBuddyApi(req(url.pathname + url.search), url, { DB: db } as never);
+  const res = await handleBuddyApi(req(url.pathname + url.search), url, { DB: db, ALLOW_DEBUG_USER: "1" } as never);
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { buddy: null });
 });
@@ -34,7 +34,7 @@ test("handleBuddyApi: buddyId points at a user that no longer exists → { buddy
   const me = (await getOrCreateUser(db, 1, 1, "uk", "Ann")) as unknown as UserDoc;
   await updateUser(db, 1, { profile: { ...me.profile, buddyId: 999 } });
   const url = new URL("https://x/api/buddy?debugUser=1");
-  const res = await handleBuddyApi(req(url.pathname + url.search), url, { DB: db } as never);
+  const res = await handleBuddyApi(req(url.pathname + url.search), url, { DB: db, ALLOW_DEBUG_USER: "1" } as never);
   assert.deepEqual(await res.json(), { buddy: null });
 });
 
@@ -63,7 +63,7 @@ test("handleBuddyApi: paired buddy returns level, streak and this-week sessions"
   );
 
   const url = new URL("https://x/api/buddy?debugUser=1");
-  const res = await handleBuddyApi(req(url.pathname + url.search), url, { DB: db } as never);
+  const res = await handleBuddyApi(req(url.pathname + url.search), url, { DB: db, ALLOW_DEBUG_USER: "1" } as never);
   const body = (await res.json()) as { buddy: Record<string, unknown> };
   assert.equal(body.buddy.name, mate.profile.name);
   assert.equal(body.buddy.weekWorkouts, 1);

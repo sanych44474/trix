@@ -98,8 +98,14 @@ dataset = "trix_events"
 # deploy workflow substitutes the real values from repo variables before `wrangler deploy`.
 [vars]
 # Public worker origin — powers the Mini App dashboard buttons (/app). Leave unset in local dev
-# (wrangler dev) to enable the ?debugUser= bypass and hide the buttons.
+# to hide the buttons (there is no URL yet to link them to).
 WORKER_URL = ""
+# Explicit opt-in for the ?debugUser= Mini App auth bypass (src/webapp/auth.ts). Previously this
+# rode `!WORKER_URL`, which meant an empty WORKER_URL -- including a blank/unset deploy-time repo
+# variable -- silently reopened a full auth bypass on every endpoint, including /api/v2/owner/*. A
+# security control should not be the contrapositive of a cosmetic "hide the buttons" setting. Set
+# to "1" only in .dev.vars for local dev; never set it here or in a deployed environment.
+ALLOW_DEBUG_USER = "0"
 # Enabled for all users [2026-09-16] once the v2 cutover (all 10 domains) landed and was verified
 # live against production data. Legacy /app bundle stays built and served as the rollback path.
 V2_APP_ENABLED = "1"

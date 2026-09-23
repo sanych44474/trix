@@ -8,7 +8,7 @@ import { handlePlanApi } from "../src/webapp/planApi";
 import type { Env, PlanDoc } from "../src/types";
 
 function env(db: ReturnType<typeof newDb>): Env {
-  return { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+  return { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
 }
 
 function plan(userId: number): PlanDoc {

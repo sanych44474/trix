@@ -24,7 +24,7 @@ async function call(
   body?: unknown,
 ) {
   const full = userId ? `${path}${path.includes("?") ? "&" : "?"}debugUser=${userId}` : path;
-  return handler(req(method, full, body), new URL(`https://x${full}`), { DB: db, TELEGRAM_BOT_TOKEN: "t" });
+  return handler(req(method, full, body), new URL(`https://x${full}`), { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" });
 }
 
 // ---------------- challenges ----------------

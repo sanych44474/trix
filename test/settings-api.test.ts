@@ -14,7 +14,7 @@ function req(method: string, path: string, body?: unknown) {
 }
 async function call(db: ReturnType<typeof newDb>, userId: number | null, method: string, path: string, body?: unknown) {
   const full = userId ? `${path}${path.includes("?") ? "&" : "?"}debugUser=${userId}` : path;
-  return handleSettingsApi(req(method, full, body), new URL(`https://x${full}`), { DB: db, TELEGRAM_BOT_TOKEN: "t" } as never);
+  return handleSettingsApi(req(method, full, body), new URL(`https://x${full}`), { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" } as never);
 }
 
 // Every action here that notifies someone goes through fetch(api.telegram.org/...); stub it so

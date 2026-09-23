@@ -134,7 +134,8 @@ placeholder in `wrangler.toml` or a secret.
 | `BOT_USERNAME` | yes | Your bot's `@username` without the `@`. Builds `t.me/…` invite and share links. |
 | `BOT_ID` | no | Numeric bot id. With `BOT_USERNAME` it lets the Worker skip a `getMe` call on every webhook. |
 | `BOT_NAME` | no | Display name used in the preset `botInfo`. |
-| `WORKER_URL` | no | Public origin of the deployed Worker. Enables the Mini App buttons; leave empty in local dev to unlock the `?debugUser=` bypass. |
+| `WORKER_URL` | no | Public origin of the deployed Worker. Enables the Mini App buttons; leave empty in local dev to hide them (there's no URL yet to link to). |
+| `ALLOW_DEBUG_USER` | no | Local-dev-only. Set to `1` in `.dev.vars` to unlock the `?debugUser=` Mini App auth bypass. **Never** set in a deployed environment — it is a full auth bypass, not tied to `WORKER_URL` on purpose so a blank deploy-time variable can't reopen it. |
 | `V2_APP_ENABLED` | no | Selects `/app-v2` in bot buttons when set to `1` (the committed default). `0` points buttons at `/app`, which now just redirects straight back to `/app-v2` — the legacy shell it used to serve is retired, so this no longer gives a distinct fallback UI. |
 
 `account_id` is deliberately **not** committed — wrangler reads `CLOUDFLARE_ACCOUNT_ID` from
@@ -195,6 +196,10 @@ Pushing to `main` runs CI, then queues a deploy that waits for a manual approval
 
 - **Environment secrets** (`production`): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `D1_DATABASE_ID`
 - **Repository variables**: `WORKER_URL`, `BOT_USERNAME`, and optionally `BOT_ID`, `BOT_NAME`
+
+`ALLOW_DEBUG_USER` is deliberately **not** among the deploy-time variables above: the committed
+`wrangler.toml` default (`"0"`) ships to production unchanged, and it is only ever set to `"1"` in
+a gitignored local `.dev.vars`.
 
 Worker secrets set with `wrangler secret put` survive deploys, so CI never needs them.
 

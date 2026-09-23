@@ -20,7 +20,7 @@ async function call(
   body?: unknown,
 ) {
   const full = userId ? `${path}${path.includes("?") ? "&" : "?"}debugUser=${userId}` : path;
-  return handler(req(method, full, body), new URL(`https://x${full}`), { DB: db, TELEGRAM_BOT_TOKEN: "t" });
+  return handler(req(method, full, body), new URL(`https://x${full}`), { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" });
 }
 
 test("handleProfileApi: unauthorized without a resolvable user", async () => {
@@ -93,7 +93,7 @@ test("handleProfileApi: malformed JSON body is a 400, not a crash", async () => 
   const res = await handleProfileApi(
     new Request("https://x/api/profile?debugUser=1", { method: "POST", body: "{not json", headers: { "content-type": "application/json" } }),
     new URL("https://x/api/profile?debugUser=1"),
-    { DB: db } as never,
+    { DB: db, ALLOW_DEBUG_USER: "1" } as never,
   );
   assert.equal(res.status, 400);
 });
@@ -142,7 +142,7 @@ test("handleProfileApi: GET includes a self-scoped referral link and a one-direc
   const res = await handleProfileApi(
     new Request("https://x/api/profile?debugUser=1"),
     new URL("https://x/api/profile?debugUser=1"),
-    { DB: db, TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "hack_limits_bot" },
+    { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "hack_limits_bot" },
   );
   const body = (await res.json()) as { referralLink: string; referredCount: number };
   assert.equal(res.status, 200);
@@ -154,7 +154,7 @@ test("handleProfileApi: GET includes a self-scoped referral link and a one-direc
   const inviteeRes = await handleProfileApi(
     new Request("https://x/api/profile?debugUser=2"),
     new URL("https://x/api/profile?debugUser=2"),
-    { DB: db, TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "hack_limits_bot" },
+    { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "hack_limits_bot" },
   );
   const inviteeBody = (await inviteeRes.json()) as { referredCount: number };
   assert.equal(inviteeBody.referredCount, 0);

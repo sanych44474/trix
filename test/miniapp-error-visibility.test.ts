@@ -17,7 +17,7 @@ const SINCE = "2000-01-01T00:00:00.000Z";
 test("apiFailure records a handler exception where the owner report can see it", async () => {
   const db = newDb();
   await getOrCreateUser(db, 8101, 8101, "en", "Test");
-  const env = { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+  const env = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
 
   const res = await apiFailure(env, "api_plan", new Error("boom"), { userId: 8101, action: "weight" });
 
@@ -34,7 +34,7 @@ test("apiFailure records a handler exception where the owner report can see it",
 test("apiFailure keeps surfaces distinguishable so the report says WHICH one is failing", async () => {
   const db = newDb();
   await getOrCreateUser(db, 8102, 8102, "en", "Test");
-  const env = { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+  const env = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
 
   await apiFailure(env, "api_workout", new Error("a"), { userId: 8102 });
   await apiFailure(env, "api_workout", new Error("b"), { userId: 8102 });
@@ -52,7 +52,7 @@ test("a failing v2 dashboard is recorded, not just logged", async () => {
   // Break the read the dashboard depends on, so the handler takes its catch path for real rather
   // than the test asserting against a stub.
   await db.prepare("DROP TABLE IF EXISTS v2_workout_sessions").run();
-  const env = { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env; // no WORKER_URL -> debugUser bypass
+  const env = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env; // no WORKER_URL -> debugUser bypass
 
   const request = new Request(`https://example.test/api/v2/dashboard?debugUser=${userId}`);
   const res = await handleV2Api(request, new URL(request.url), env);

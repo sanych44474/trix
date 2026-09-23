@@ -13,8 +13,11 @@ BOT_USERNAME=""
 BOT_ID=""
 BOT_NAME=""
 # Public origin of your deployed Worker, e.g. https://trix.<your-subdomain>.workers.dev.
-# Leave empty in local dev to enable the ?debugUser= bypass and hide the Mini App buttons.
+# Leave empty in local dev to hide the Mini App buttons (there is no URL yet to link them to).
 WORKER_URL=""
+# Explicit opt-in for the ?debugUser= Mini App auth bypass — set to "1" for local dev only.
+# Never set this in a deployed environment; see wrangler.toml's comment on the same var.
+ALLOW_DEBUG_USER="1"
 
 # --- Cloudflare ---
 # Wrangler reads this instead of an account_id committed to wrangler.toml.

@@ -43,7 +43,7 @@ test("v2 dashboard arms the cron dead-man switch when the heartbeat is stale", a
   // Older than checkCronHeartbeat's 10-minute threshold.
   await setSetting(db, "cron_heartbeat", new Date(Date.now() - 45 * 60_000).toISOString());
 
-  const env = { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env; // no WORKER_URL -> debugUser bypass
+  const env = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env; // no WORKER_URL -> debugUser bypass
   const ctx = ctxStub();
 
   await withStubbedNetwork(async (calls) => {
@@ -67,7 +67,7 @@ test("v2 dashboard does not alert while the cron heartbeat is fresh", async () =
   await setOwnerChatId(db, userId);
   await setSetting(db, "cron_heartbeat", new Date().toISOString());
 
-  const env = { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+  const env = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
   const ctx = ctxStub();
 
   await withStubbedNetwork(async (calls) => {
