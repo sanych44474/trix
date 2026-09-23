@@ -2,7 +2,10 @@
 // ctx-free save that mirrors the bot's finalizeWorkoutLog (log + strength records + badges +
 // level bookkeeping + trainer notify) so both surfaces stay in parity. Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
+import type { Api } from "grammy";
 import { applyWorkoutSave, muscleGroupToEnum, planRepsMid, planSetsCount, planWeight, type WorkoutSaveEntry } from "../bot";
+import { formatPrBest } from "../bot/workoutSave";
+import { announceSquadPr } from "../bot/squad";
 import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { exerciseMetric, formatSetEntry, getPlanDay, localParts, resolveWeightMode } from "../domain/progression";
@@ -278,6 +281,22 @@ export interface SaveResult {
 
 const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
 
+/** The `sendMessage`-only surface announceSquadPr needs, over the raw Bot API — same reason the
+ * trainer notify below uses fetch rather than grammY: this path is deliberately ctx-free and has
+ * no Bot instance. The result is never read; a failed post must not disturb the save. */
+function tgApi(env: Env): { sendMessage: Api["sendMessage"] } {
+  return {
+    sendMessage: (async (chatId: number | string, text: string, other?: Record<string, unknown>) => {
+      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text, ...other }),
+      });
+      return undefined as never;
+    }) as Api["sendMessage"],
+  };
+}
+
 /** Ctx-free mirror of finalizeWorkoutLog, sharing its record-keeping via applyWorkoutSave.
  * Idempotent by construction: the log upserts on (userId, date), records only ever improve,
  * badges are INSERT OR IGNORE, lastLevel is monotonic — so a network retry after a 401/timeout
@@ -332,6 +351,15 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
     }
   } catch {
     /* notify is best-effort */
+  }
+
+  // Twin of the bot path's announcement in src/bot/workoutSave.ts. This was missing: a PR logged
+  // in chat reached the user's squad, the SAME PR logged in the Mini App did not. Both surfaces
+  // are pinned together by test/squad-pr-parity.test.ts. Never allowed to fail the save — the
+  // rows are already committed by this point, and announceSquadPr swallows per-chat failures.
+  if (outcome.prHit) {
+    const pr = outcome.prHit;
+    await announceSquadPr(env.DB, tgApi(env), user._id, cleanAi(pr.name), formatPrBest(pr)).catch(() => {});
   }
 
   return {

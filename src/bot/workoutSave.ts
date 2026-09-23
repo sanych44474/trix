@@ -79,6 +79,14 @@ export interface PrHit {
   meters?: number;
 }
 
+/** How a PR reads in the squad announcement. Shared by both surfaces on purpose: the bot and the
+ * Mini App announce the SAME record, so formatting it in each would be one more thing to drift. */
+export function formatPrBest(pr: PrHit): string {
+  if (pr.metric === "time") return fmtDuration(pr.seconds ?? 0);
+  if (pr.metric === "distance") return fmtDistance(pr.meters ?? 0);
+  return `${pr.weight} kg × ${pr.reps}`;
+}
+
 export interface WorkoutSaveOutcome {
   exercises: LoggedExercise[];
   prExercises: string[];
@@ -262,13 +270,9 @@ async function celebrationLines(ctx: MyContext, outcome: WorkoutSaveOutcome): Pr
     kb = celebrationShareKb(lang);
     // …and if they're in a squad, the group hears about it without anyone having to brag. Sent
     // past the response: a group post must never be able to fail the workout save behind it.
-    const best =
-      prHit.metric === "time"
-        ? fmtDuration(prHit.seconds ?? 0)
-        : prHit.metric === "distance"
-          ? fmtDistance(prHit.meters ?? 0)
-          : `${prHit.weight} kg × ${prHit.reps}`;
-    ctx.waitUntil(announceSquadPr(ctx.db, ctx.api, ctx.user._id, cleanAi(prHit.name), best));
+    // Twin: src/webapp/workout.ts's saveWorkout does the same for a Mini App save — the two are
+    // pinned together by test/squad-pr-parity.test.ts.
+    ctx.waitUntil(announceSquadPr(ctx.db, ctx.api, ctx.user._id, cleanAi(prHit.name), formatPrBest(prHit)));
   }
   if (fresh.length) {
     lines.push(t(lang, "badge_unlocked", { badges: fresh.map((c) => badgeLabel(lang, c)).join(", ") }));
