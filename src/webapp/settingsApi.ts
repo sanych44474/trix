@@ -175,7 +175,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
     } else if (action === "deleteAccount") {
       // Hard delete, same as the bot's /deleteme after confirm. The app MUST confirm first.
       if (body.confirm !== true) return Response.json({ error: "bad request" }, { status: 400 });
-      await deleteUserData(env.DB, user._id);
+      await deleteUserData(env, user._id);
       return Response.json({ ok: true, deleted: true });
     } else {
       return Response.json({ error: "bad request" }, { status: 400 });

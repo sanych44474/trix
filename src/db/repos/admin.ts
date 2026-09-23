@@ -12,12 +12,15 @@ import type {
   AiUsageDoc,
   BodyLogDoc,
   DailyCheckinDoc,
+  Env,
   NutritionLogDoc,
   StepLogDoc,
   StrengthRecordDoc,
   UserProfile,
   WorkoutLogDoc,
 } from "../../types";
+import { r2Key } from "../../webapp/photoStorage";
+import { logError } from "../../log";
 import { nowIso, type DB } from "./shared";
 import { bodyLogsByUser, dailyCheckinsSince, stepLogsSince, waterLogsSince } from "./tracking";
 import { nutritionLogsSince } from "../../adapters/d1/v2Nutrition";
@@ -426,12 +429,30 @@ export async function pruneOldLogs(db: DB, beforeIso: string, beforeDay: string)
 
 // ---------- delete / health ----------
 
-export async function deleteUserData(db: DB, userId: number): Promise<void> {
+export async function deleteUserData(env: Env, userId: number): Promise<void> {
+  const db = env.DB;
   // If this account is a trainer, its remaining clients would otherwise be left forever pointing
   // at a now-nonexistent trainerId (role='client', nothing to route through) — unlink them first,
   // same as unlinkClient() does when a client leaves on their own.
   const clientRows = await db.prepare("SELECT id FROM users WHERE trainerId = ?").bind(userId).all<{ id: number }>();
   const clientIds = (clientRows.results ?? []).map((r) => r.id);
+
+  // Progress photos cached in R2 are addressed by v2_progress_photos.id, not by userId — the
+  // DELETE statement below removes the rows that NAME that id, but nothing removes the R2 object
+  // itself. Read the ids and clear the bucket BEFORE the batch deletes the rows that reveal them.
+  // Best-effort: an R2 outage must not block the rest of GDPR erasure, but it must not go unlogged
+  // either, or an orphaned photo becomes invisible instead of merely rare.
+  if (env.R2_PHOTOS) {
+    const photoRows = await db.prepare("SELECT id FROM v2_progress_photos WHERE accountId = ?").bind(userId).all<{ id: number }>();
+    const keys = (photoRows.results ?? []).map((r) => r2Key(r.id));
+    for (let i = 0; i < keys.length; i += 1000) {
+      // R2 batch delete caps at 1000 keys per call (photoStorage.ts's enforceStorageBudget uses
+      // the same chunking for the same reason).
+      await env.R2_PHOTOS.delete(keys.slice(i, i + 1000)).catch((e) =>
+        logError("delete_user_data_r2", e, { userId, keys: keys.length }),
+      );
+    }
+  }
 
   const statements = [
     db.prepare("DELETE FROM users WHERE id = ?").bind(userId),

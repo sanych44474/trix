@@ -540,7 +540,7 @@ export async function ownerUserAction(ctx: MyContext, userId: number, action: st
   } else if (action === "del") {
     await reply(ctx, t(lang, "owner_delete_ask", { name: uname }), ownerUserKb(lang, userId, true, !!target.blocked));
   } else if (action === "delok") {
-    await deleteUserData(ctx.db, userId);
+    await deleteUserData(ctx.env, userId);
     await reply(ctx, t(lang, "owner_deleted", { name: uname }), menuBtn(lang));
   }
 }

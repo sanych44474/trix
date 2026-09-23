@@ -19,8 +19,10 @@ import {
   upsertSquad,
   upsertWorkoutLog,
 } from "../src/db/repos";
+import type { Env } from "../src/types";
 
 const CHAT = -1001234;
+const testEnv = (db: ReturnType<typeof newDb>): Env => ({ DB: db } as unknown as Env);
 
 async function seed() {
   const db = newDb();
@@ -99,7 +101,7 @@ test("squadsDueForRecap: batched, and a recapped squad drops out until the next 
 
 test("deleting an account leaves the squad standing for everyone else", async () => {
   const db = await seed();
-  await deleteUserData(db, 1); // the creator leaves the product entirely
+  await deleteUserData(testEnv(db), 1); // the creator leaves the product entirely
   const squad = await getSquad(db, CHAT);
   assert.ok(squad, "squad survives its creator");
   assert.equal(squad!.createdBy, 0); // tombstoned, never left pointing at a ghost
@@ -109,6 +111,6 @@ test("deleting an account leaves the squad standing for everyone else", async ()
 test("deleting the last member also retires the empty squad", async () => {
   const db = await seed();
   await leaveSquad(db, CHAT, 2);
-  await deleteUserData(db, 1);
+  await deleteUserData(testEnv(db), 1);
   assert.equal(await getSquad(db, CHAT), null);
 });
