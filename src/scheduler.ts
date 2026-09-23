@@ -509,7 +509,8 @@ async function runScheduleInner(env: Env): Promise<void> {
     boardsByDay: new Map(),
   };
   // Instrumentation for the open question this loop carries: it iterates EVERY onboarded user in
-  // ONE hourly invocation, with no cap, and docs/SCALABILITY.md names that as a free-tier ceiling.
+  // ONE hourly invocation, with no cap, which is a free-tier ceiling (Workers caps external
+  // subrequests per invocation, and every Telegram send in the tick shares that budget).
   // The right cap depends on numbers nobody has yet, so measure before capping. Note the shape a
   // cap must take when the time comes: reminders gate on `hour === reminderHour`, so every user
   // still has to be visited once an hour -- a "first N users" cursor would starve the tail of the

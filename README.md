@@ -18,7 +18,6 @@ AI fallback chain that starts at Gemini and degrades gracefully all the way down
 Cloudflare's on-platform Workers AI, which needs no API key at all.
 
 > Full feature inventory: [`docs/features.md`](docs/features.md).
-> Scaling notes and free-tier limits: [`docs/SCALABILITY.md`](docs/SCALABILITY.md).
 
 ## Architecture
 
@@ -34,8 +33,7 @@ legacy vanilla-JS shell has been retired: `GET /app` is now a tiny static redire
 (`scripts/build-webapp.mjs`), not a functional fallback UI. Its source
 (`src/webapp/client/*`) and the unversioned `/api/*` routes it used stay in the tree as the
 rollback path — restore `build-webapp.mjs`'s previous assembly logic from git history if `/app-v2`
-ever needs to be rolled back. See [the v2 feature audit](docs/feature-audit-v2.md) and
-[ADR-0001](docs/adr/0001-v2-seams-and-staged-cutover.md).
+ever needs to be rolled back. See [ADR-0001](docs/adr/0001-v2-seams-and-staged-cutover.md).
 
 User and onboarding state live on the user row in D1 — no KV, no external session store.
 Free-text messages are routed by `user.session.mode`; inline keyboards carry their state in
