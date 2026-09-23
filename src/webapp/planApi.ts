@@ -28,6 +28,7 @@ import { exerciseVideoKey, weekdayName } from "../render";
 import { parseYouTubeId } from "../youtube";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
+import { buildVideoOpenLink } from "../domain/videoLink";
 import type { Env, ExerciseVideo, Lang, PlanDay, PlanExercise, UserDoc, Weekday } from "../types";
 import { apiFailure } from "./apiError";
 
@@ -70,8 +71,8 @@ async function resolveVideos(env: Env, userId: number, days: PlanDay[]): Promise
   const map = await getExerciseVideos(env.DB, keys).catch(() => new Map<string, ExerciseVideo>());
   const overrides = await getUserVideos(env.DB, userId, keys).catch(() => new Map<string, ExerciseVideo>());
   for (const [k, v] of overrides) map.set(k, v);
-  if (env.WORKER_URL) {
-    for (const [k, v] of map) if (v.url) map.set(k, { ...v, url: `${env.WORKER_URL}/v?u=${encodeURIComponent(v.url)}&uid=${userId}` });
+  for (const [k, v] of map) {
+    if (v.url) map.set(k, { ...v, url: await buildVideoOpenLink(env.WORKER_URL, v.url, userId, env.TELEGRAM_BOT_TOKEN) });
   }
   return map;
 }

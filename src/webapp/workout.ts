@@ -30,6 +30,7 @@ import { cleanAi, t } from "../locales/i18n";
 import { aiText } from "../ai/index";
 import { exerciseVideoKey } from "../render";
 import { lookupExerciseVideoCached } from "../youtube";
+import { buildVideoOpenLink } from "../domain/videoLink";
 import type { Env, ExerciseMetric, ExerciseVideo, LoggedExercise, PlanDoc, SetEntry, UserDoc, Weekday, WorkoutLogDoc } from "../types";
 
 export interface WorkoutTodayExercise {
@@ -150,7 +151,7 @@ export function assembleWorkoutCopy(log: WorkoutLogDoc): WorkoutCopyExercise[] {
     }));
 }
 
-export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, workerUrl?: string, dateOverride?: string): Promise<WorkoutTodayPayload> {
+export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, workerUrl: string | undefined, botToken: string, dateOverride?: string): Promise<WorkoutTodayPayload> {
   const local = localParts(user.profile.timezone);
   const date = dateOverride ?? local.date;
   const weekday = dateOverride ? isoWeekdayOfDate(dateOverride) : local.weekday;
@@ -167,10 +168,8 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
     videos = await getExerciseVideos(db, keys).catch(() => new Map<string, ExerciseVideo>());
     const overrides = await getUserVideos(db, user._id, keys).catch(() => new Map<string, ExerciseVideo>());
     for (const [k, v] of overrides) videos.set(k, v);
-    if (workerUrl) {
-      for (const [k, v] of videos) {
-        if (v.url) videos.set(k, { ...v, url: `${workerUrl}/v?u=${encodeURIComponent(v.url)}&uid=${user._id}` });
-      }
+    for (const [k, v] of videos) {
+      if (v.url) videos.set(k, { ...v, url: await buildVideoOpenLink(workerUrl, v.url, user._id, botToken) });
     }
   }
   const payload = assembleWorkoutToday(plan, date, weekday as Weekday, existing, videos);
@@ -398,7 +397,7 @@ export async function createCustomExercise(
 ): Promise<{ name: string; videoUrl?: string; videoTitle?: string }> {
   const video = await lookupExerciseVideoCached(env.DB, env, name).catch(() => undefined);
   let url = video?.url ?? undefined;
-  if (url && env.WORKER_URL) url = `${env.WORKER_URL}/v?u=${encodeURIComponent(url)}&uid=${user._id}`;
+  if (url) url = await buildVideoOpenLink(env.WORKER_URL, url, user._id, env.TELEGRAM_BOT_TOKEN);
   return { name, ...(url ? { videoUrl: url } : {}), ...(video?.title ? { videoTitle: video.title } : {}) };
 }
 
@@ -433,7 +432,7 @@ export async function lookupExerciseInfo(
   }
   const video = await lookupExerciseVideoCached(env.DB, env, name).catch(() => undefined);
   let url = video?.url ?? undefined;
-  if (url && env.WORKER_URL) url = `${env.WORKER_URL}/v?u=${encodeURIComponent(url)}&uid=${user._id}`;
+  if (url) url = await buildVideoOpenLink(env.WORKER_URL, url, user._id, env.TELEGRAM_BOT_TOKEN);
   return { technique, ...(url ? { videoUrl: url } : {}), ...(video?.title ? { videoTitle: video.title } : {}) };
 }
 

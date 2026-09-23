@@ -15,6 +15,7 @@ import {
 import { setActivePlan } from "./adapters/d1/v2Plans";
 import { getUser, updateUser } from "./adapters/d1/v2Users";
 import { miniAppUser } from "./webapp/auth";
+import { verifyVideoOpen } from "./domain/videoLink";
 import { buildDashboardPayload } from "./adapters/d1/dashboardReader";
 import { handleTrainerApi } from "./webapp/trainerApi";
 import { handleWorkoutApi } from "./webapp/workoutApi";
@@ -157,10 +158,11 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
     }
 
     // Video-open tracking: count the click, then 302 to the real (YouTube-only) target.
-    // GET /v?u=<encoded youtube url>&uid=<user id>
+    // GET /v?u=<encoded youtube url>&uid=<user id>&sig=<HMAC over uid+u, videoLink.ts>
     if (req.method === "GET" && url.pathname === "/v") {
       const target = url.searchParams.get("u") ?? "";
       const uid = Number(url.searchParams.get("uid"));
+      const sig = url.searchParams.get("sig") ?? "";
       let parsed: URL | null = null;
       try {
         parsed = new URL(target);
@@ -172,7 +174,11 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
       if (!parsed || parsed.protocol !== "https:" || !YT_HOSTS.has(parsed.hostname)) {
         return new Response("bad target", { status: 400 });
       }
-      if (uid > 0) {
+      // The redirect itself never depends on the signature -- a link minted before this landed,
+      // or a genuinely malformed sig, still takes the viewer to the video. Only the counter bump
+      // is gated: without it, `uid` was a free-form parameter anyone could set to inflate a
+      // stranger's count with no authentication at all.
+      if (uid > 0 && (await verifyVideoOpen(uid, target, sig, env.TELEGRAM_BOT_TOKEN))) {
         ctx.waitUntil(bumpEvent(env.DB, uid, "video_open", new Date().toISOString().slice(0, 10)).catch(() => {}));
       }
       return Response.redirect(parsed.toString(), 302);

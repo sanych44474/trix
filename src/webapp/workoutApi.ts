@@ -33,7 +33,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       const dateQ = url.searchParams.get("date");
       const dateErr = dateQ ? validateEditDate(dateQ, user) : null;
       if (dateErr) return Response.json({ error: dateErr }, { status: 400 });
-      const payload = await buildWorkoutTodayPayload(env.DB, user, env.WORKER_URL, dateQ ?? undefined);
+      const payload = await buildWorkoutTodayPayload(env.DB, user, env.WORKER_URL, env.TELEGRAM_BOT_TOKEN, dateQ ?? undefined);
       return Response.json(payload, { headers: { "cache-control": "no-store" } });
     }
     // Proactive AI insight: analyses the last 45 days of training (adherence, stalled lifts,
