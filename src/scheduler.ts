@@ -21,7 +21,8 @@ import {
   setSetting,
   recordPlanSource,
 } from "./adapters/d1/v2Admin";
-import { pruneNotificationOutbox } from "./adapters/d1/v2Notifications";
+import { countNotificationsSince, pruneNotificationOutbox } from "./adapters/d1/v2Notifications";
+import { logInfo } from "./log";
 import { pruneIdempotencyKeys } from "./adapters/d1/v2Idempotency";
 import { listStrength, allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
 import {
@@ -507,6 +508,17 @@ async function runScheduleInner(env: Env): Promise<void> {
     narrativeBudget: 5,
     boardsByDay: new Map(),
   };
+  // Instrumentation for the open question this loop carries: it iterates EVERY onboarded user in
+  // ONE hourly invocation, with no cap, and docs/SCALABILITY.md names that as a free-tier ceiling.
+  // The right cap depends on numbers nobody has yet, so measure before capping. Note the shape a
+  // cap must take when the time comes: reminders gate on `hour === reminderHour`, so every user
+  // still has to be visited once an hour -- a "first N users" cursor would starve the tail of the
+  // list out of its reminder window entirely. A send budget on SharedPass (like narrativeBudget
+  // above) is the safe shape, since an unsent user simply keeps its dedup key and fires next hour.
+  const passStartedAt = new Date().toISOString();
+  const passStartMs = Date.now();
+  let processed = 0;
+  let failed = 0;
   for (const user of users) {
     // Self-limiting bootstrap for the DO dry-run: only a user who has NEVER been woken gets a
     // wake attempt, so this stays bounded by new users per hour rather than the whole onboarded
@@ -526,9 +538,18 @@ async function runScheduleInner(env: Env): Promise<void> {
     if (userCutOver) continue;
     try {
       await processUser(env, bot, user, pass);
+      processed++;
     } catch (err) {
+      failed++;
       logSchedulerError(db, "schedule_user", err, user._id);
     }
+  }
+  if (!userCutOver) {
+    // `sends` counts outbox rows created during the pass — every user-facing send goes through it,
+    // so this is measured, not estimated. Rides logInfo, so it lands in Workers Logs AND Analytics
+    // Engine (src/log.ts) and one real 08:00 pass answers "how close are we to the ceiling".
+    const sends = await countNotificationsSince(db, passStartedAt).catch(() => -1);
+    logInfo("user_pass", { users: users.length, processed, failed, sends, durationMs: Date.now() - passStartMs });
   }
 
   // Vacation ended → run the comeback interview once. Set the session and send the opener + first
