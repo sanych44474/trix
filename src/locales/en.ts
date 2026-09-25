@@ -1314,6 +1314,7 @@ export const en = {
   client_card: "👤 <b>{name}</b> · {status}",
   client_not_found: "Client not found.",
   client_no_plan_trainer: "No plan for this client yet — tap ♻️ Generate draft.",
+  client_draft_only_trainer: "{name} has a draft plan that hasn't been assigned yet — tap ✅ Assign to activate it, then you can edit.",
   cc_plan: "📋 Plan",
   cc_schedule: "🗓 Schedule",
   cc_progress: "📈 Progress",
@@ -1339,6 +1340,9 @@ export const en = {
   client_plan_assigned: "🎉 Your trainer assigned your plan! See /plan and /today.",
   msg_prompt: "Type your message to {name}:",
   msg_sent: "✅ Sent.",
+  msg_queued: "⏳ Couldn't reach {name} right now — the message is queued and will retry automatically.",
+  msg_blocked: "🚫 {name} has blocked the bot, so this message could not be delivered.",
+  msg_failed: "⚠️ Could not deliver the message. Try again later.",
   msg_from_trainer: "👨‍🏫 <b>From your trainer:</b>\n{text}",
   // --- client questions to trainer ---
   trainer_question: "❓ <b>{name}</b> asks:\n{q}",
