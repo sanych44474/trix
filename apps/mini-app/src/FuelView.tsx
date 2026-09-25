@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "./api";
-import type { FoodSearchItem, Nutrition } from "./types";
+import type { FoodSearchItem, GroceryLine, Nutrition } from "./types";
 import { t, type Lang } from "./i18n";
 import type { RequestBody } from "./types";
 
@@ -32,7 +32,7 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value);
 }
 
-type GroceryLine = { food: string; grams: number; category: string };
+
 type MealPlanDays = NonNullable<Nutrition["mealPlan"]>["days"];
 
 export function FuelView({ lang }: { lang: Lang }) {

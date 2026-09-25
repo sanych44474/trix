@@ -2,7 +2,9 @@
 // bot's src/locales/i18n.ts (no HTML/markdown post-processing) -- this app renders plain text.
 export type Lang = "uk" | "en";
 
-const en = {
+// Exported for test/mini-app-i18n.test.ts, which checks what the type cannot: empty strings
+// and placeholder drift between the two catalogs.
+export const en = {
   // common
   retry: "Retry",
   close: "Close",
@@ -144,6 +146,21 @@ const en = {
   plan_unlink_btn: "Unlink",
   plan_superset_label: "Superset {group}",
   plan_editor_hint: "Adjust the session without rebuilding the whole plan.",
+  plan_days_eyebrow: "Week",
+  plan_day_add_title: "Add a training day",
+  plan_day_add_btn: "Add day",
+  plan_day_add_hint: "The new day is filled from the exercise catalog for that group — tweak it below.",
+  plan_day_remove_btn: "Remove day",
+  plan_day_week_full: "All seven weekdays already have a session.",
+  plan_day_weekday_label: "Weekday",
+  plan_day_group_label: "Focus",
+  plan_day_g_chest: "Chest",
+  plan_day_g_back: "Back",
+  plan_day_g_legs: "Legs",
+  plan_day_g_shoulders: "Shoulders",
+  plan_day_g_arms: "Arms",
+  plan_day_g_full: "Full body",
+  plan_day_g_core: "Core",
   plan_changes_eyebrow: "History",
   plan_changes_title: "Recent plan changes",
   plan_change_src_manual: "Edited here",
@@ -818,7 +835,7 @@ const en = {
   trainer_clients_count: "{n} client(s)",
 } as const;
 
-const uk: Record<keyof typeof en, string> = {
+export const uk: Record<keyof typeof en, string> = {
   // common
   retry: "Повторити",
   close: "Закрити",
@@ -960,6 +977,21 @@ const uk: Record<keyof typeof en, string> = {
   plan_unlink_btn: "Роз’єднати",
   plan_superset_label: "Суперсет {group}",
   plan_editor_hint: "Змінюй тренування без повної перебудови плану.",
+  plan_days_eyebrow: "Тиждень",
+  plan_day_add_title: "Додати день тренування",
+  plan_day_add_btn: "Додати день",
+  plan_day_add_hint: "Новий день заповнюється вправами з каталогу для цієї групи — далі зміни його нижче.",
+  plan_day_remove_btn: "Прибрати день",
+  plan_day_week_full: "Усі сім днів тижня вже зайняті тренуванням.",
+  plan_day_weekday_label: "День тижня",
+  plan_day_group_label: "Фокус",
+  plan_day_g_chest: "Груди",
+  plan_day_g_back: "Спина",
+  plan_day_g_legs: "Ноги",
+  plan_day_g_shoulders: "Плечі",
+  plan_day_g_arms: "Руки",
+  plan_day_g_full: "Усе тіло",
+  plan_day_g_core: "Кор",
   plan_changes_eyebrow: "Історія",
   plan_changes_title: "Останні зміни плану",
   plan_change_src_manual: "Змінено тут",

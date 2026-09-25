@@ -345,7 +345,34 @@ paths:
                 - {$ref: '#/components/schemas/Envelope'}
                 - type: object
                   properties:
-                    data: {type: object, additionalProperties: true}
+                    data:
+                      description: >-
+                        Which fields are present depends on the request's `action`
+                        (src/webapp/nutritionApi.ts). Was `additionalProperties: true`, which
+                        generated `data: {[key: string]: unknown}` and pushed every consumer
+                        into hand-declaring the shape.
+                      type: object
+                      properties:
+                        ok: {type: boolean, description: Mutating actions (del/scale/grams/macros/readd/dbadd/mealplan_item_*)}
+                        days:
+                          description: 'mealplan_regen | mealplan_item_* | grocery: the refreshed plan'
+                          type: array
+                          items: {$ref: '#/components/schemas/MealPlanDay'}
+                        lines:
+                          description: 'action=grocery'
+                          type: array
+                          items: {$ref: '#/components/schemas/GroceryLine'}
+                        items:
+                          description: 'dbsearch | barcode'
+                          type: array
+                          items: {$ref: '#/components/schemas/FoodSearchItem'}
+                        source:
+                          description: 'dbsearch | barcode: which backend answered'
+                          type: string
+                          enum: [off, ai, fatsecret]
+                        notFound: {type: boolean, description: 'action=barcode: code not in any database'}
+                        text: {type: string, description: 'recipe | recover: the AI answer, empty when unavailable'}
+                        done: {type: boolean, description: 'recipe | recover: nothing further to suggest'}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '409': {$ref: '#/components/responses/Conflict'}
@@ -390,7 +417,7 @@ paths:
                 index: {type: integer, minimum: -1, maximum: 12}
                 action:
                   type: string
-                  enum: [weight, sets, wmode, video, link, del, move, swap, add, meso]
+                  enum: [weight, sets, wmode, video, link, del, move, swap, add, meso, dayadd, daydel]
                 value:
                   type: string
                   maxLength: 300
@@ -410,6 +437,12 @@ paths:
                   type: string
                   enum: [up, down]
                 catalogId: {type: string, maxLength: 80}
+                group:
+                  description: >-
+                    action=dayadd only: which muscle-group template to fill the new day from.
+                    Same DAY_GROUPS table the bot's day picker uses (src/bot/planDays.ts).
+                  type: string
+                  enum: [chest, back, legs, shoulders, arms, full, core]
                 'on': {type: boolean, description: 'action=meso only: start/stop periodization'}
       responses:
         '200':
@@ -1815,6 +1848,38 @@ components:
         priceOnline:
           anyOf: [{type: number, minimum: 0, maximum: 100000}, {type: 'null'}]
         accepting: {type: boolean, description: Taking new clients; ignored when creating.}
+    MealPlanDay:
+      type: object
+      required: [label, meals]
+      properties:
+        label: {type: string}
+        meals:
+          type: array
+          items: {$ref: '#/components/schemas/Meal'}
+    GroceryLine:
+      description: One aggregated shopping-list row (src/domain/groceryList.ts).
+      type: object
+      required: [food, grams, category]
+      properties:
+        food: {type: string, description: Display name, already localized}
+        grams: {type: number}
+        category:
+          type: string
+          enum: [produce, protein, dairy, grains, pantry, other]
+    FoodSearchItem:
+      type: object
+      required: [name, per100]
+      properties:
+        name: {type: string}
+        brand: {type: string}
+        per100:
+          type: object
+          required: [kcal, p, f, c]
+          properties:
+            kcal: {type: number}
+            p: {type: number}
+            f: {type: number}
+            c: {type: number}
     NutritionRequest:
       description: >-
         One action per request; each reads only its own fields (src/webapp/nutritionApi.ts).
@@ -2434,14 +2499,7 @@ components:
             properties:
               days:
                 type: array
-                items:
-                  type: object
-                  properties:
-                    label: {type: string}
-                    meals:
-                      type: array
-                      items: {$ref: '#/components/schemas/Meal'}
-                  required: [label, meals]
+                items: {$ref: '#/components/schemas/MealPlanDay'}
             required: [days]
         recent:
           type: array
@@ -2532,8 +2590,8 @@ components:
             properties:
               key: {type: string}
               label: {type: string}
-              true: {type: boolean}
-            required: [key, label, true]
+              'on': {type: boolean}
+            required: [key, label, 'on']
         vacationUntil:
           type: [string, 'null']
         lang:
@@ -2547,17 +2605,17 @@ components:
           - {type: 'null'}
           - type: object
             properties:
-              true: {type: boolean}
+              'on': {type: boolean}
               lastStart:
                 type: [string, 'null']
               len: {type: integer}
-            required: [true, lastStart, len]
+            required: ['on', lastStart, len]
         compete:
           type: object
           properties:
-            true: {type: boolean}
+            'on': {type: boolean}
             alias: {type: string}
-          required: [true, alias]
+          required: ['on', alias]
     BuddyInfo:
       type: object
       properties:
@@ -3022,13 +3080,26 @@ components:
       required: [rows, feedback]
       properties:
         rows:
+          description: One row per user, exactly OwnerUserRow (src/bot/owner.ts:916).
           type: array
           items:
             type: object
-            additionalProperties: true
+            required: [id, name, nick, trainer, status, onb, w, c, n, s, last, total]
             properties:
               id: {type: integer}
               name: {type: string}
+              nick: {type: string, description: '@username, or empty'}
+              trainer: {type: string, description: Trainer's display name, or empty}
+              status:
+                type: string
+                enum: [banned, blocked, onboarding, active, draft, none]
+              onb: {type: string, description: 'Interview progress "filled/total" while onboarding, else empty'}
+              w: {type: integer, description: Workout events}
+              c: {type: integer, description: Check-in events}
+              n: {type: integer, description: Nutrition events}
+              s: {type: integer, description: Step events}
+              last: {type: string, description: 'lastSeenAt as MM-DD, or empty'}
+              total: {type: integer, description: w + c + n + s}
         feedback:
           type: array
           items:

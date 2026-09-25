@@ -8,7 +8,7 @@ import { handlePlanApi } from "../src/webapp/planApi";
 import type { Env, PlanDoc } from "../src/types";
 
 function env(db: ReturnType<typeof newDb>): Env {
-  return { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+  return { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
 }
 
 function plan(userId: number): PlanDoc {
@@ -218,6 +218,45 @@ test("plan editor: a trainer's edit to a client's plan is logged as 'trainer', a
   assert.equal(coachOwn?.n, 0);
   const clientOwn = await db.prepare("SELECT COUNT(*) AS n FROM v2_plan_changes WHERE accountId = 2").first<{ n: number }>();
   assert.equal(clientOwn?.n, 1);
+});
+
+// Whole-day editing: the Mini App could only edit exercises INSIDE existing days, while the bot
+// could add and remove whole training days. These mirror src/bot/planDays.ts and share its
+// DAY_GROUPS table, so a day added from either surface comes out the same.
+test("plan days: add a whole day from a muscle group, and delete one", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await setActivePlan(db, plan(1));
+  await upsertExercise(db, {
+    id: "bench", name: "Bench Press", muscle: "chest", equipments: ["barbell"],
+    instructions: "Set the shoulder blades.", safetyInfo: "Use a spotter.",
+  });
+
+  let current = await (await call(db, 1, "GET", "/api/plan")).json() as { version: string; days: Array<{ weekday: number }> };
+  assert.equal(current.days.length, 1, "fixture starts with one day");
+
+  const added = await call(db, 1, "POST", "/api/plan", { action: "dayadd", weekday: 3, group: "chest" }, { "if-match": `"${current.version}"` });
+  assert.equal(added.status, 200, `dayadd should succeed: ${await added.clone().text()}`);
+  current = await added.json() as typeof current;
+  assert.deepEqual(current.days.map((d) => d.weekday), [1, 3], "days stay sorted by weekday");
+
+  // The owner's training weekdays must follow the plan, or reminders fire on a day with no
+  // session (and stay silent on the new one).
+  const row = await db.prepare("SELECT profile FROM v2_profiles WHERE accountId = 1").first<{ profile: string }>();
+  assert.deepEqual(JSON.parse(row?.profile ?? "{}").trainingWeekdays, [1, 3]);
+
+  // Same weekday twice is a conflict, not a duplicate day.
+  const dup = await call(db, 1, "POST", "/api/plan", { action: "dayadd", weekday: 3, group: "back" }, { "if-match": `"${current.version}"` });
+  assert.equal(dup.status, 409);
+
+  const removed = await call(db, 1, "POST", "/api/plan", { action: "daydel", weekday: 3 }, { "if-match": `"${current.version}"` });
+  assert.equal(removed.status, 200);
+  current = await removed.json() as typeof current;
+  assert.deepEqual(current.days.map((d) => d.weekday), [1]);
+
+  // Deleting the only remaining day would leave a plan with no training days at all.
+  const lastOne = await call(db, 1, "POST", "/api/plan", { action: "daydel", weekday: 1 }, { "if-match": `"${current.version}"` });
+  assert.equal(lastOne.status, 400);
 });
 
 test("plan mesocycle: GET reflects null until started, POST toggles it, and it needs no weekday/index", async () => {

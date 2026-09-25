@@ -88,7 +88,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const target = await getUser(env.DB, targetId).catch(() => null);
     if (!target) return Response.json({ error: "not found" }, { status: 404 });
     if (action === "delete") {
-      await deleteUserData(env.DB, targetId);
+      await deleteUserData(env, targetId);
       return Response.json({ ok: true });
     }
     const blocked = action === "block";

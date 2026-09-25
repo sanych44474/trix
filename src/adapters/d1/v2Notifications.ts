@@ -99,6 +99,17 @@ export async function markPermanentFailure(db: DB, id: number, status: "blocked"
     .run();
 }
 
+/** How many notifications were enqueued since `sinceIso` — the scheduler's per-pass send count.
+ * Counting rows is what makes the number trustworthy: every user-facing send in processUser goes
+ * through the outbox, so this cannot drift from reality the way a hand-maintained counter would. */
+export async function countNotificationsSince(db: DB, sinceIso: string): Promise<number> {
+  const r = await db
+    .prepare("SELECT COUNT(*) AS n FROM v2_notifications WHERE createdAt >= ?")
+    .bind(sinceIso)
+    .first<{ n: number }>();
+  return r?.n ?? 0;
+}
+
 /** Telemetry-style cleanup, riding the same weekly prune pass as error_logs/ai_call_logs/
  * idempotency_keys (scheduler.ts's runGlobalJobs). */
 export async function pruneNotificationOutbox(db: DB, beforeIso: string): Promise<void> {

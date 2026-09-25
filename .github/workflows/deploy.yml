@@ -1,16 +1,21 @@
 name: Deploy
 
-# Two jobs in ONE workflow run, so GitHub shows them as a connected pipeline graph on the same
-# page instead of two disconnected workflow files linked by workflow_run (which is what this
-# replaced -- it worked, but read as "tests vanished" to anyone just looking at this workflow's
-# run history, since the test job lived entirely in a separate file/run):
-#   test   -- typecheck, both test pools, Mini App build, dependency audit. No gate.
+# Checks and deploy in ONE workflow run, so GitHub shows them as a connected pipeline graph on
+# the same page instead of two disconnected workflow files linked by workflow_run (which is what
+# this replaced -- it worked, but read as "tests vanished" to anyone just looking at this
+# workflow's run history, since the test job lived entirely in a separate file/run):
+#   test   -- calls ci.yml, whose three jobs (typecheck/build/audit, node:test, Workers-runtime
+#             tests) run in PARALLEL. No gate.
 #   deploy -- needs: test, so it can never start on a commit whose checks didn't pass, then waits
 #             for the `production` environment's required reviewer before touching anything live.
-# `needs:` also removes a whole class of complexity the old workflow_run version needed: both
-# jobs run against the exact same checkout of the exact same commit by construction, so there's
+# `needs:` also removes a whole class of complexity the old workflow_run version needed: every
+# job runs against the exact same checkout of the exact same commit by construction, so there's
 # no separate "pin the ref workflow_run defaulted away from" step and no "did the upstream run
 # actually conclude successfully" check to hand-roll.
+#
+# The checks themselves live in ci.yml and are CALLED rather than duplicated here: the two files
+# previously held byte-identical copies of the same step list, which is exactly the kind of pair
+# that drifts the moment one is edited alone.
 on:
   push:
     branches: [main]
@@ -28,51 +33,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The checks live in ci.yml and are CALLED here rather than copy-pasted, so a PR and a push to
+  # main can never drift apart. They still run as jobs inside THIS run's graph -- the reason the
+  # old workflow_run split was replaced -- and they run in parallel with each other, so the gate
+  # costs roughly its longest leg instead of the sum.
   test:
-    name: Test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Typecheck Mini App
-        run: npm run typecheck:webapp
-
-      - name: Test
-        run: npm test
-
-      # Runs against REAL D1 inside workerd (vitest.config.ts), separate from the
-      # node:test suite above -- covers D1 semantics (meta.changes, batch()) the
-      # node:sqlite-backed harness can't promise. Scoped to a D1-only binding (no
-      # [ai]), so it needs no Cloudflare credentials.
-      - name: Test (Workers runtime)
-        run: npm run test:workers
-
-      # Catches a broken shell.html marker or a client fragment that no longer parses —
-      # failures that would otherwise only surface at deploy time. build:webapp:all covers
-      # BOTH bundles (legacy public/app.html + the React public/app-v2/ build) -- build:webapp
-      # alone silently never built app-v2 at all, so /app-v2 404'd on every live deploy despite
-      # V2_APP_ENABLED being on and the Telegram menu button correctly pointing at it.
-      - name: Build Mini App shell
-        run: npm run build:webapp:all
-
-      # Runtime dependencies only. Dev-tool advisories (wrangler's transitive tree) never reach
-      # the deployed Worker and must not block a release.
-      - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
+    name: Checks
+    uses: ./.github/workflows/ci.yml
 
   deploy:
     name: Deploy to Cloudflare
@@ -86,55 +53,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Set up Node and install dependencies
+        uses: ./.github/actions/node-deps
 
       # wrangler.toml ships with placeholder identity so no deployment is baked into the source
       # tree. Values arrive as env vars (never interpolated straight into the script) and are
       # written in just before wrangler reads the file.
+      #
+      # This runs AFTER the dependency step on purpose: that step's cache key hashes the
+      # COMMITTED wrangler.toml, so both jobs share one cache entry. `wrangler types` bakes var
+      # values into worker-configuration.d.ts as literal types, so the restored copy here
+      # describes the placeholder values -- harmless, because this job builds and deploys but
+      # never typechecks. If a typecheck is ever added to this job, regenerate the types after
+      # this step rather than trusting the restored ones.
       - name: Inject deployment configuration
-        env:
-          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
-          WORKER_URL: ${{ vars.WORKER_URL }}
-          BOT_USERNAME: ${{ vars.BOT_USERNAME }}
-          BOT_ID: ${{ vars.BOT_ID }}
-          BOT_NAME: ${{ vars.BOT_NAME }}
-        run: |
-          set -euo pipefail
-          if [ -z "${D1_DATABASE_ID}" ]; then
-            echo "::error::D1_DATABASE_ID secret is not set for the production environment"
-            exit 1
-          fi
-          if [ -z "${WORKER_URL}" ]; then
-            echo "::error::WORKER_URL repository variable is not set"
-            exit 1
-          fi
-          python3 - <<'PY'
-          import os, re, pathlib
-          cfg = pathlib.Path("wrangler.toml")
-          text = cfg.read_text(encoding="utf-8")
-          replacements = {
-              "database_id": os.environ["D1_DATABASE_ID"],
-              "WORKER_URL": os.environ["WORKER_URL"],
-              "BOT_USERNAME": os.environ.get("BOT_USERNAME", ""),
-              "BOT_ID": os.environ.get("BOT_ID", ""),
-              "BOT_NAME": os.environ.get("BOT_NAME", ""),
-          }
-          for key, value in replacements.items():
-              pattern = rf'^({re.escape(key)}\s*=\s*)"[^"]*"$'
-              new, n = re.subn(pattern, lambda m: m.group(1) + '"' + value + '"', text, flags=re.M)
-              if n != 1:
-                  raise SystemExit(f"expected exactly one {key} assignment in wrangler.toml, found {n}")
-              text = new
-          cfg.write_text(text, encoding="utf-8")
-          print("wrangler.toml configured")
-          PY
+        uses: ./.github/actions/wrangler-config
+        with:
+          d1-database-id: ${{ secrets.D1_DATABASE_ID }}
+          worker-url: ${{ vars.WORKER_URL }}
+          bot-username: ${{ vars.BOT_USERNAME }}
+          bot-id: ${{ vars.BOT_ID }}
+          bot-name: ${{ vars.BOT_NAME }}
 
       - name: Build Mini App shell
         env:

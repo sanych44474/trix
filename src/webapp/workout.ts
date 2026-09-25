@@ -2,7 +2,10 @@
 // ctx-free save that mirrors the bot's finalizeWorkoutLog (log + strength records + badges +
 // level bookkeeping + trainer notify) so both surfaces stay in parity. Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
+import type { Api } from "grammy";
 import { applyWorkoutSave, muscleGroupToEnum, planRepsMid, planSetsCount, planWeight, type WorkoutSaveEntry } from "../bot";
+import { formatPrBest } from "../bot/workoutSave";
+import { announceSquadPr } from "../bot/squad";
 import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { exerciseMetric, formatSetEntry, getPlanDay, localParts, resolveWeightMode } from "../domain/progression";
@@ -27,6 +30,7 @@ import { cleanAi, t } from "../locales/i18n";
 import { aiText } from "../ai/index";
 import { exerciseVideoKey } from "../render";
 import { lookupExerciseVideoCached } from "../youtube";
+import { buildVideoOpenLink } from "../domain/videoLink";
 import type { Env, ExerciseMetric, ExerciseVideo, LoggedExercise, PlanDoc, SetEntry, UserDoc, Weekday, WorkoutLogDoc } from "../types";
 
 export interface WorkoutTodayExercise {
@@ -147,7 +151,7 @@ export function assembleWorkoutCopy(log: WorkoutLogDoc): WorkoutCopyExercise[] {
     }));
 }
 
-export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, workerUrl?: string, dateOverride?: string): Promise<WorkoutTodayPayload> {
+export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, workerUrl: string | undefined, botToken: string, dateOverride?: string): Promise<WorkoutTodayPayload> {
   const local = localParts(user.profile.timezone);
   const date = dateOverride ?? local.date;
   const weekday = dateOverride ? isoWeekdayOfDate(dateOverride) : local.weekday;
@@ -164,10 +168,8 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
     videos = await getExerciseVideos(db, keys).catch(() => new Map<string, ExerciseVideo>());
     const overrides = await getUserVideos(db, user._id, keys).catch(() => new Map<string, ExerciseVideo>());
     for (const [k, v] of overrides) videos.set(k, v);
-    if (workerUrl) {
-      for (const [k, v] of videos) {
-        if (v.url) videos.set(k, { ...v, url: `${workerUrl}/v?u=${encodeURIComponent(v.url)}&uid=${user._id}` });
-      }
+    for (const [k, v] of videos) {
+      if (v.url) videos.set(k, { ...v, url: await buildVideoOpenLink(workerUrl, v.url, user._id, botToken) });
     }
   }
   const payload = assembleWorkoutToday(plan, date, weekday as Weekday, existing, videos);
@@ -278,6 +280,22 @@ export interface SaveResult {
 
 const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
 
+/** The `sendMessage`-only surface announceSquadPr needs, over the raw Bot API — same reason the
+ * trainer notify below uses fetch rather than grammY: this path is deliberately ctx-free and has
+ * no Bot instance. The result is never read; a failed post must not disturb the save. */
+function tgApi(env: Env): { sendMessage: Api["sendMessage"] } {
+  return {
+    sendMessage: (async (chatId: number | string, text: string, other?: Record<string, unknown>) => {
+      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text, ...other }),
+      });
+      return undefined as never;
+    }) as Api["sendMessage"],
+  };
+}
+
 /** Ctx-free mirror of finalizeWorkoutLog, sharing its record-keeping via applyWorkoutSave.
  * Idempotent by construction: the log upserts on (userId, date), records only ever improve,
  * badges are INSERT OR IGNORE, lastLevel is monotonic — so a network retry after a 401/timeout
@@ -334,6 +352,15 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
     /* notify is best-effort */
   }
 
+  // Twin of the bot path's announcement in src/bot/workoutSave.ts. This was missing: a PR logged
+  // in chat reached the user's squad, the SAME PR logged in the Mini App did not. Both surfaces
+  // are pinned together by test/squad-pr-parity.test.ts. Never allowed to fail the save — the
+  // rows are already committed by this point, and announceSquadPr swallows per-chat failures.
+  if (outcome.prHit) {
+    const pr = outcome.prHit;
+    await announceSquadPr(env.DB, tgApi(env), user._id, cleanAi(pr.name), formatPrBest(pr)).catch(() => {});
+  }
+
   return {
     ok: true,
     prExercises: outcome.prExercises,
@@ -370,7 +397,7 @@ export async function createCustomExercise(
 ): Promise<{ name: string; videoUrl?: string; videoTitle?: string }> {
   const video = await lookupExerciseVideoCached(env.DB, env, name).catch(() => undefined);
   let url = video?.url ?? undefined;
-  if (url && env.WORKER_URL) url = `${env.WORKER_URL}/v?u=${encodeURIComponent(url)}&uid=${user._id}`;
+  if (url) url = await buildVideoOpenLink(env.WORKER_URL, url, user._id, env.TELEGRAM_BOT_TOKEN);
   return { name, ...(url ? { videoUrl: url } : {}), ...(video?.title ? { videoTitle: video.title } : {}) };
 }
 
@@ -405,7 +432,7 @@ export async function lookupExerciseInfo(
   }
   const video = await lookupExerciseVideoCached(env.DB, env, name).catch(() => undefined);
   let url = video?.url ?? undefined;
-  if (url && env.WORKER_URL) url = `${env.WORKER_URL}/v?u=${encodeURIComponent(url)}&uid=${user._id}`;
+  if (url) url = await buildVideoOpenLink(env.WORKER_URL, url, user._id, env.TELEGRAM_BOT_TOKEN);
   return { technique, ...(url ? { videoUrl: url } : {}), ...(video?.title ? { videoTitle: video.title } : {}) };
 }
 

@@ -1125,7 +1125,7 @@ export const CB_EXACT: Record<string, CbHandler> = {
   "wn:send": (ctx) => onWhatsNewSend(ctx),
   "chal:new": (ctx) => showChallengePicker(ctx),
   "del:confirm": async (ctx) => {
-    await deleteUserData(ctx.db, ctx.user._id);
+    await deleteUserData(ctx.env, ctx.user._id);
     await reply(ctx, t(ctx.user.lang, "deleteme_done"));
   },
   "del:cancel": (ctx) => reply(ctx, t(ctx.user.lang, "deleteme_cancelled")),

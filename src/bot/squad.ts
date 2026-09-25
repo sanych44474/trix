@@ -111,8 +111,17 @@ export async function postSquadDigest(db: D1Database, api: SquadApi, chatId: num
 }
 
 /** Tell a user's squads about a personal record. Fire-and-forget: a squad post must never be able
- * to fail the workout save that triggered it. */
-export async function announceSquadPr(db: D1Database, api: Api, userId: number, exercise: string, best: string): Promise<void> {
+ * to fail the workout save that triggered it.
+ *
+ * Takes only the `sendMessage` surface, not a whole grammY Api, so the Mini App's ctx-free save
+ * path can call it too (src/webapp/workout.ts) without constructing a Bot. */
+export async function announceSquadPr(
+  db: D1Database,
+  api: { sendMessage: Api["sendMessage"] },
+  userId: number,
+  exercise: string,
+  best: string,
+): Promise<void> {
   const chats = await squadsForUser(db, userId).catch(() => [] as number[]);
   if (!chats.length) return;
   const user = await getUser(db, userId).catch(() => null);

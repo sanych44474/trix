@@ -18,6 +18,8 @@ import { handleBuddyApi } from "./buddyApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./miscApi";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
+import { recordError } from "../adapters/d1/v2Admin";
+import { checkCronHeartbeat } from "../scheduler";
 import { logError } from "../log";
 import { V2_ERROR_CODES, type V2ErrorCode, type V2Response } from "../contracts/v2";
 import type { Env } from "../types";
@@ -163,11 +165,23 @@ export async function handleV2Api(req: Request, url: URL, env: Env, ctx?: Execut
     if (!user) {
       return Response.json({ error: { code: "unauthorized", message: "Authentication required" } }, { status: 401 });
     }
+    // Dead-man switch for the cron rides the hottest fetch path (detached, never blocks). The
+    // legacy /api/dashboard branch in index.ts has always done this, but every user is on the v2
+    // client now (V2_APP_ENABLED), so without this the alert could no longer fire at all.
+    if (ctx) ctx.waitUntil(checkCronHeartbeat(env));
     try {
       const payload = await createD1DashboardApplication(env.DB).getDashboard(user);
       return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded }, ...payload }, req);
     } catch (err) {
       logError("v2_dashboard_failed", err, { userId: user._id });
+      // Also the D1 sink, which is what /ownerreport's Errors section and the error-spike alert
+      // read — logError alone reaches Workers Logs and Analytics Engine but neither of those.
+      await recordError(env.DB, {
+        userId: user._id,
+        kind: "v2_dashboard_failed",
+        errorType: "exception",
+        message: String(err).slice(0, 200),
+      }).catch(() => {});
       return Response.json({ error: { code: "dependency_unavailable", message: "Dashboard unavailable" } }, { status: 503 });
     }
   }

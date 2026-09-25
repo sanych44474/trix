@@ -84,11 +84,9 @@ export interface WorkoutCopySet {
   m: number;
 }
 
-export interface FoodSearchItem {
-  name: string;
-  brand?: string;
-  per100: { kcal: number; p: number; f: number; c: number };
-}
+export type FoodSearchItem = Schemas["FoodSearchItem"];
+export type GroceryLine = Schemas["GroceryLine"];
+export type MealPlanDay = Schemas["MealPlanDay"];
 
 // Mirrors src/domain/analysis.ts / src/domain/progression.ts -- codes, not prose. Derived by
 // indexed access rather than hand-declared, so a new zone/group added to the domain and threaded

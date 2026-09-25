@@ -22,6 +22,7 @@ import {
 } from "./workout";
 import { localParts } from "../domain/progression";
 import type { Env, UserDoc } from "../types";
+import { apiFailure } from "./apiError";
 
 export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
@@ -32,7 +33,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       const dateQ = url.searchParams.get("date");
       const dateErr = dateQ ? validateEditDate(dateQ, user) : null;
       if (dateErr) return Response.json({ error: dateErr }, { status: 400 });
-      const payload = await buildWorkoutTodayPayload(env.DB, user, env.WORKER_URL, dateQ ?? undefined);
+      const payload = await buildWorkoutTodayPayload(env.DB, user, env.WORKER_URL, env.TELEGRAM_BOT_TOKEN, dateQ ?? undefined);
       return Response.json(payload, { headers: { "cache-control": "no-store" } });
     }
     // Proactive AI insight: analyses the last 45 days of training (adherence, stalled lifts,
@@ -150,8 +151,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
     }
     return Response.json({ error: "not found" }, { status: 404 });
   } catch (err) {
-    console.error("api/workout error", user._id, err);
-    return Response.json({ error: "error" }, { status: 500 });
+    return apiFailure(env, "api_workout", err, { userId: user._id });
   }
 }
 

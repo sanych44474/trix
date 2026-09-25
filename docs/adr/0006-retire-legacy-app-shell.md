@@ -39,6 +39,28 @@ the same `view`/`startapp` params the legacy shell used, with the same alias tab
   restore `build-webapp.mjs`'s previous assembly logic from git history (this commit), not from
   scratch.
 
+## Amendment, 2026-09-22 — the source is deleted, the routes get a date
+
+The clause above was self-defeating: it named **git history** as the rollback mechanism, and then
+kept 269 KB across 23 files in the working tree as well. Git history provides that rollback whether
+or not the files are also checked out, so keeping them bought nothing and cost a permanently
+confusing second copy of a retired UI.
+
+`src/webapp/client/*` is therefore **deleted**. Verified dead before removing: `build-webapp.mjs`
+stopped assembling it (it emits a 324-byte redirect stub), nothing under `src/`, `apps/`,
+`scripts/` or `test/` imports it, and `npm run typecheck` plus the build are unaffected. Restoring
+it means `git checkout <this ADR's commit>^ -- src/webapp/client`, which is the same operation the
+original clause described.
+
+The unversioned `/api/*` routes in `src/index.ts` are a different risk and are **kept for now**:
+they are still publicly served, and a webview that loaded the legacy bundle before the cutover and
+has never reloaded would still call them. That population shrinks to zero on its own.
+
+**Expiry: remove the unversioned `/api/*` routes after 2026-12-31**, unless request logs still show
+traffic on them. That is a real date rather than "later", which is what let this sit. The handlers
+themselves stay regardless — `/api/v2/*` dispatches to them internally by rewriting the pathname
+(`src/webapp/v2Api.ts`), so only the public route table entries go.
+
 ## Consequences
 
 - One less place for a `V2_APP_ENABLED`-unaware hardcoded `/app` to silently reappear: the

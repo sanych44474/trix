@@ -1,0 +1,71 @@
+name: Set up Node and install dependencies
+description: >-
+  Node from .nvmrc plus a restored node_modules, skipping `npm ci` entirely on a cache hit.
+  Shared by every job that needs the dependency tree (ci.yml, and both jobs in deploy.yml),
+  which previously each paid for a full install.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version-file: .nvmrc
+        # Caches the npm download cache (~/.npm), which only speeds up the `npm ci` below on a
+        # node_modules MISS. The cache step that follows is what removes the install entirely.
+        cache: npm
+
+    # `npm ci` here does more than install: postinstall runs `wrangler types` and
+    # `generate:contracts`, producing worker-configuration.d.ts and
+    # packages/contracts/generated.ts. Both are gitignored, so a restored node_modules without
+    # them would fail typecheck -- they are cached in the SAME entry, and the key covers their
+    # inputs so a restored pair can never be stale:
+    #   package-lock.json  -- the tree itself, and the wrangler version `wrangler types` runs
+    #   package.json       -- the pinned openapi-typescript version lives in the script string,
+    #                         not in the lockfile, so a version bump there must bust this
+    #   wrangler.toml      -- the bindings `wrangler types` reads
+    #   openapi.yaml       -- the contract `generate:contracts` reads
+    #   .nvmrc             -- native builds are per major Node version
+    # No restore-keys on purpose: a partial match would restore a tree built from a different
+    # lockfile or a generated file from a different spec, which is precisely the silent-staleness
+    # failure this project already avoids by not committing these two files at all.
+    - name: Restore dependencies and generated types
+      id: deps
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          node_modules
+          worker-configuration.d.ts
+          packages/contracts/generated.ts
+        key: node-deps-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json', 'wrangler.toml', 'packages/contracts/openapi.yaml', '.nvmrc') }}
+
+    - name: Install dependencies
+      if: steps.deps.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci
+
+    # A cache hit skips postinstall along with the install, so the two generated files come from
+    # the cache rather than being rebuilt. If an entry was ever saved without them (a run whose
+    # postinstall failed), regenerate rather than failing the build on a recoverable condition --
+    # then fail loudly if they are still missing, since every later step would otherwise die with
+    # a confusing type error instead of the real cause.
+    - name: Ensure generated types are present
+      shell: bash
+      run: |
+        set -euo pipefail
+        missing=0
+        for f in worker-configuration.d.ts packages/contracts/generated.ts; do
+          [ -s "$f" ] || missing=1
+        done
+        if [ "$missing" = "1" ]; then
+          echo "::warning::generated types missing after a cache hit; regenerating"
+          npm run types
+          npm run generate:contracts
+        fi
+        for f in worker-configuration.d.ts packages/contracts/generated.ts; do
+          if [ ! -s "$f" ]; then
+            echo "::error::$f is still missing after regeneration (cache-hit=${{ steps.deps.outputs.cache-hit }})"
+            exit 1
+          fi
+        done
+        echo "generated types present (cache-hit=${{ steps.deps.outputs.cache-hit }})"

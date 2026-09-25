@@ -10,7 +10,7 @@ const CLIENT = 8002;
 const OUTSIDER = 8003;
 const STRANGER = 8004; // a second trainer, to prove rows are scoped
 
-const testEnv = (db: unknown) => ({ DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env);
+const testEnv = (db: unknown) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env);
 let key = 0;
 const nextKey = () => `sched-test-${String(++key).padStart(4, "0")}`;
 

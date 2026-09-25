@@ -23,6 +23,7 @@
 type SecretKey =
   | "V2_APP_ENABLED"
   | "CUTOVER_LEGACY_FROZEN"
+  | "ALLOW_DEBUG_USER"
   | "TELEGRAM_BOT_TOKEN"
   | "TELEGRAM_WEBHOOK_SECRET"
   | "GEMINI_API_KEY"
@@ -57,6 +58,7 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   FATSECRET_CLIENT_SECRET?: string;
   V2_APP_ENABLED: string;
   CUTOVER_LEGACY_FROZEN: string;
+  ALLOW_DEBUG_USER?: string;
   // R2_PHOTOS (read-through cache for progress photos, webapp/photoStorage.ts) is NOT hand-
   // declared here -- wrangler.toml's [[r2_buckets]] binding makes Cloudflare.Env already provide
   // it, required. photoStorage.ts still treats it defensively (a real binding can still be

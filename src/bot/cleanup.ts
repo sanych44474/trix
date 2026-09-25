@@ -124,7 +124,7 @@ export async function deleteUserFully(ctx: MyContext, u: UserDoc) {
   if (u.role === "trainer") {
     for (const c of await listClients(ctx.db, u._id)) await unlinkClient(ctx.db, c._id).catch(() => {});
   }
-  await deleteUserData(ctx.db, u._id);
+  await deleteUserData(ctx.env, u._id);
 }
 
 export async function onCleanupDelete(ctx: MyContext, userId: number) {

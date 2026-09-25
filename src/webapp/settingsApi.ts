@@ -17,6 +17,7 @@ import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env, Lang, UserDoc } from "../types";
+import { apiFailure } from "./apiError";
 
 type TKey = Parameters<typeof t>[1];
 
@@ -174,14 +175,13 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
     } else if (action === "deleteAccount") {
       // Hard delete, same as the bot's /deleteme after confirm. The app MUST confirm first.
       if (body.confirm !== true) return Response.json({ error: "bad request" }, { status: 400 });
-      await deleteUserData(env.DB, user._id);
+      await deleteUserData(env, user._id);
       return Response.json({ ok: true, deleted: true });
     } else {
       return Response.json({ error: "bad request" }, { status: 400 });
     }
     return Response.json({ ok: true, state: state(user, user.lang) });
   } catch (err) {
-    console.error("api/settings", user._id, action, err);
-    return Response.json({ error: "error" }, { status: 500 });
+    return apiFailure(env, "api_settings", err, { userId: user._id, action });
   }
 }

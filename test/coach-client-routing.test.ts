@@ -11,7 +11,7 @@ const CLIENT_ID = 7002;
 
 // No WORKER_URL -> auth.ts's ?debugUser= bypass is live, so these exercise the real HTTP entry
 // point (handleV2Api -> forward -> handleCoachApi) rather than calling the handler directly.
-const testEnv = (db: unknown) => ({ DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env);
+const testEnv = (db: unknown) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env);
 
 async function pairedDb() {
   const db = newDb();

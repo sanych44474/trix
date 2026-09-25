@@ -16,6 +16,7 @@ import { aiJSON, aiText } from "./ai";
 import { computeTargets } from "./domain/mealplan";
 import * as P from "./ai/prompts";
 import { buildActivityCells, deloadDue, deloadSets, mesocyclePhase, getPlanDay, localParts, parseMeasurements, parseHeightWeight, parseSteps, parseWorkoutText, readinessAdvice, shouldDeload, weeksSincePlan, exerciseMetric, formatRecordBest } from "./domain/progression";
+import { buildVideoOpenLink } from "./domain/videoLink";
 import { e1rm, weekStartStr, weekStreak } from "./domain/records";
 import { conditioningLoadLabel, exerciseVideoKey, renderActivityGrid, renderBoard, renderPlan, renderSchedule, renderStrength, exerciseChart, wellbeingChart, renderToday, upcomingSessions, weekdayName } from "./render";
 import { strengthStandard, type StrengthLevel } from "./domain/standards";
@@ -399,10 +400,8 @@ export async function videosForDays(ctx: MyContext, days: PlanDay[]): Promise<Ma
   for (const [k, v] of overrides) map.set(k, v);
   // Route links through the Worker's /v redirect so opens are counted (video_open event).
   // Only when deployed (APP_URL set) — local dev keeps direct links.
-  if (APP_URL) {
-    for (const [k, v] of map) {
-      if (v.url) map.set(k, { ...v, url: `${APP_URL}/v?u=${encodeURIComponent(v.url)}&uid=${ctx.user._id}` });
-    }
+  for (const [k, v] of map) {
+    if (v.url) map.set(k, { ...v, url: await buildVideoOpenLink(APP_URL, v.url, ctx.user._id, ctx.env.TELEGRAM_BOT_TOKEN) });
   }
   if (ctx.env.YOUTUBE_API_KEY) {
     const missing = days.flatMap((d) => d.exercises).filter((e) => !map.has(exerciseVideoKey(e)));

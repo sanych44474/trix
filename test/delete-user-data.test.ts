@@ -22,7 +22,9 @@ import {
   setActivePlan,
   setClientNote,
 } from "../src/db/repos";
-import type { BankPlan, PlanDoc } from "../src/types";
+import type { BankPlan, Env, PlanDoc } from "../src/types";
+
+const testEnv = (db: ReturnType<typeof newDb>): Env => ({ DB: db } as unknown as Env);
 
 const bankPlan: BankPlan = {
   split: [{ weekday: 1, muscleGroup: "Push", exercises: [{ name: "Bench", sets: "3x8", startWeight: "50", technique: "" }] }],
@@ -43,7 +45,7 @@ test("deleteUserData: unlinks the deleted trainer's remaining clients instead of
   } as unknown as PlanDoc;
   await setActivePlan(db, plan);
 
-  await deleteUserData(db, 1);
+  await deleteUserData(testEnv(db), 1);
 
   const client = await getUser(db, 2);
   assert.equal(client?.role, "solo");
@@ -62,7 +64,7 @@ test("deleteUserData: clears authoredBy on plans the deleted trainer wrote (attr
   } as unknown as PlanDoc;
   await setActivePlan(db, plan);
 
-  await deleteUserData(db, 1);
+  await deleteUserData(testEnv(db), 1);
 
   const row = await db.prepare("SELECT authoredBy FROM plans WHERE userId = ?").bind(2).first<{ authoredBy: number | null }>();
   assert.equal(row?.authoredBy, null);
@@ -84,7 +86,7 @@ test("deleteUserData: removes trainer_templates, shared_programs, trainer_prospe
   assert.notEqual(await getProspect(db, "prosp1"), null);
   assert.equal((await listClientNoteHistory(db, 1, 2)).length, 1);
 
-  await deleteUserData(db, 1);
+  await deleteUserData(testEnv(db), 1);
 
   assert.equal(await getTrainerTemplate(db, 1, tplId), null);
   assert.equal(await getSharedProgram(db, "shr1"), null);
@@ -104,7 +106,7 @@ test("deleteUserData: removes the deleted user's scheduler_dryrun_log rows, and 
     .prepare("INSERT INTO scheduler_dryrun_log (source, entityId, kind, detail, createdAt) VALUES ('squad', 1, 'send', '{}', '2026-01-01')")
     .run();
 
-  await deleteUserData(db, 1);
+  await deleteUserData(testEnv(db), 1);
 
   const remaining = await db.prepare("SELECT source, entityId FROM scheduler_dryrun_log").all<{ source: string; entityId: number }>();
   assert.deepEqual(remaining.results.map((r) => [r.source, r.entityId]), [["squad", 1]]);
@@ -116,7 +118,7 @@ test("deleteUserData: removes the deleted user's own food_corrections", async ()
   await putUserFoodCorrection(db, 1, "banana", { kcal: 90, protein: 1, fats: 0, carbs: 23 });
   assert.notEqual(await getUserFoodCorrection(db, 1, "banana"), null);
 
-  await deleteUserData(db, 1);
+  await deleteUserData(testEnv(db), 1);
 
   assert.equal(await getUserFoodCorrection(db, 1, "banana"), null);
 });

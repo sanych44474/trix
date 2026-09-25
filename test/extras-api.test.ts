@@ -17,12 +17,12 @@ function u(path: string) {
   return new URL(`https://x${path}`);
 }
 async function asUser(db: ReturnType<typeof newDb>, id: number, method: string, path: string, body?: unknown) {
-  return handleExtrasApi(req(method, `${path}${path.includes("?") ? "&" : "?"}debugUser=${id}`, body), u(`${path}${path.includes("?") ? "&" : "?"}debugUser=${id}`), { DB: db, TELEGRAM_BOT_TOKEN: "t" } as never);
+  return handleExtrasApi(req(method, `${path}${path.includes("?") ? "&" : "?"}debugUser=${id}`, body), u(`${path}${path.includes("?") ? "&" : "?"}debugUser=${id}`), { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" } as never);
 }
 
 test("handleExtrasApi: unauthorized without a resolvable user", async () => {
   const db = newDb();
-  const res = await handleExtrasApi(req("GET", "/api/records"), u("/api/records"), { DB: db } as never);
+  const res = await handleExtrasApi(req("GET", "/api/records"), u("/api/records"), { DB: db, ALLOW_DEBUG_USER: "1" } as never);
   assert.equal(res.status, 401);
 });
 
@@ -170,7 +170,7 @@ test("/api/photocompare: sends the composed PNG to the user's chat, rejects bad 
     const res = await handleExtrasApi(
       new Request(`https://x${path}`, { method: "POST", body: fd }),
       u(path),
-      { DB: db, TELEGRAM_BOT_TOKEN: "t" } as never,
+      { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" } as never,
     );
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), { ok: true });
@@ -182,7 +182,7 @@ test("/api/photocompare: sends the composed PNG to the user's chat, rejects bad 
     const bad = await handleExtrasApi(
       new Request(`https://x${path}`, { method: "POST", body: new FormData() }),
       u(path),
-      { DB: db, TELEGRAM_BOT_TOKEN: "t" } as never,
+      { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" } as never,
     );
     assert.equal(bad.status, 400);
     // GET isn't a thing here.

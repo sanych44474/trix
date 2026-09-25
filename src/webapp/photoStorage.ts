@@ -13,7 +13,10 @@ import type { Env } from "../types";
 
 const KEY_PREFIX = "progress-photos/";
 
-function r2Key(photoId: number): string {
+// Exported so deleteUserData (db/repos/admin.ts) can address the same objects at erasure time
+// without reimplementing the key format — that duplication is exactly how the format and the
+// eraser would drift apart.
+export function r2Key(photoId: number): string {
   return `${KEY_PREFIX}${photoId}.jpg`;
 }
 

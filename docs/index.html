@@ -200,6 +200,7 @@
   .sec-lede { color: var(--ink-soft); max-width: 38rem; margin: 1rem 0 0; }
 
   .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; margin-top: 2.5rem; }
+  .grid4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.1rem; margin-top: 2.5rem; }
 
   .card {
     background: var(--surface); border: 1px solid var(--line);
@@ -263,6 +264,7 @@
   @media (max-width: 60rem) {
     .hero { grid-template-columns: 1fr; gap: 2.75rem; padding: 3rem 0; }
     .grid3 { grid-template-columns: 1fr; }
+    .grid4 { grid-template-columns: 1fr; }
     .vs { grid-template-columns: 1fr; }
   }
 
@@ -352,7 +354,7 @@
     <p class="sec-lede" data-uk="Щоденник чекає, поки ти принесеш йому програму і сам її відкриєш. Тут навпаки."
                         data-en="A log waits for you to bring it a program and open the app. This works the other way round.">Щоденник чекає, поки ти принесеш йому програму і сам її відкриєш. Тут навпаки.</p>
 
-    <div class="grid3">
+    <div class="grid4">
       <div class="card">
         <span class="ico" aria-hidden="true">📋</span>
         <h3 data-uk="Програму складає він" data-en="It writes the program">Програму складає він</h3>
@@ -368,8 +370,14 @@
       <div class="card">
         <span class="ico" aria-hidden="true">🔔</span>
         <h3 data-uk="Приходить першим" data-en="It comes to you first">Приходить першим</h3>
-        <p data-uk="Застосунок чекає, поки його відкриють. Бот з'являється в списку чатів у день тренування — і саме тому про нього не забувають."
-           data-en="An app waits to be opened. A bot shows up in your chat list on training day — which is exactly why it doesn't get forgotten.">Застосунок чекає, поки його відкриють. Бот з'являється в списку чатів у день тренування — і саме тому про нього не забувають.</p>
+        <p data-uk="Окремий застосунок чекає, поки його відкриють. Бот з'являється в списку чатів у день тренування — нагадує про підхід, відпочинок і вечірній підсумок. Саме тому про нього не забувають."
+           data-en="A separate app waits to be opened. The bot shows up in your chat list on training day — nudging you about the session, the rest between sets and the evening check-in. Which is exactly why it doesn't get forgotten.">Окремий застосунок чекає, поки його відкриють. Бот з'являється в списку чатів у день тренування — нагадує про підхід, відпочинок і вечірній підсумок. Саме тому про нього не забувають.</p>
+      </div>
+      <div class="card">
+        <span class="ico" aria-hidden="true">⏱</span>
+        <h3 data-uk="Екран для самого тренування" data-en="A screen for the session itself">Екран для самого тренування</h3>
+        <p data-uk="Міні-застосунок відкривається прямо в Telegram — встановлювати нічого не треба. Покроковий журнал підходів, таймер відпочинку з кільцем і кнопками ±15 с, графіки і календар. Після збереження — підсумок: скільки працював, скільки відпочивав і які рекорди побив."
+           data-en="The Mini App opens straight inside Telegram — nothing to install. A step-by-step set logger, a rest timer with a progress ring and ±15s controls, charts and a calendar. Saving shows a summary: how long you worked, how long you rested, and any records you hit.">Міні-застосунок відкривається прямо в Telegram — встановлювати нічого не треба. Покроковий журнал підходів, таймер відпочинку з кільцем і кнопками ±15 с, графіки і календар. Після збереження — підсумок: скільки працював, скільки відпочивав і які рекорди побив.</p>
       </div>
     </div>
 

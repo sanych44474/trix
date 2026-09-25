@@ -3,6 +3,7 @@
 
 import { GrammyError, InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
+import { enqueueAndDeliver, type DeliveryResult } from "../../schedulerOutbox";
 import type { BankPlan, Lang, PlanDoc, SetEntry, TrainerDoc, TrainerProfileInput, UserDoc, Weekday } from "../../types";
 import {
   eventCountsByUser, getOwnerChatId,
@@ -1182,6 +1183,16 @@ export async function showPlanEditPicker(ctx: MyContext, targetId: number, prefi
   const lang = ctx.user.lang;
   const plan = await getActivePlan(ctx.db, targetId);
   if (!plan || !plan.split.length) {
+    // The editor works on the ACTIVE plan only -- but cc_plan (viewing) already falls back to a
+    // draft, so a client sitting on an unassigned draft (or an active plan orphaned by a leave/
+    // rejoin, see unlinkClient in v2Trainer.ts) could be viewed but never edited. Offer to assign
+    // the draft right here instead of a dead-end "no plan" message.
+    const draft = await getDraftPlan(ctx.db, targetId);
+    if (draft && draft.split.length) {
+      const kb = new InlineKeyboard().text(t(lang, "cc_assign"), `${prefix}:${targetId}:assign`);
+      await reply(ctx, t(lang, "client_draft_only_trainer", { name: headerName }), kb);
+      return;
+    }
     await reply(ctx, t(lang, "client_no_plan_trainer"));
     return;
   }
@@ -1201,10 +1212,22 @@ export async function showPlanEditDay(ctx: MyContext, targetId: number, prefix: 
   await setEditOwner(ctx, targetId, prefix === "ou" ? "ou" : "cl");
   const target = await getUser(ctx.db, targetId).catch(() => null);
   let plan = await getActivePlan(ctx.db, targetId);
+  if (!plan) {
+    // Same fallback as showPlanEditPicker: reachable directly via a stale eday button (e.g. from
+    // an old chat message) even when the picker itself was never re-opened.
+    const draft = await getDraftPlan(ctx.db, targetId);
+    if (draft && draft.split.length) {
+      const kb = new InlineKeyboard().text(t(lang, "cc_assign"), `${prefix}:${targetId}:assign`);
+      await reply(ctx, t(lang, "client_draft_only_trainer", { name: target?.profile.name ?? `id ${targetId}` }), kb);
+      return;
+    }
+    await reply(ctx, t(lang, "client_no_plan_trainer"));
+    return;
+  }
   // Self-heal English names on view (a pre-localization template/shared assign), in the CLIENT's
   // language, and persist — so the client also sees the corrected plan, not just this editor.
-  if (plan) plan = await healPlanNamesForDisplay(ctx, plan, target?.lang ?? lang);
-  const day = plan ? getPlanDay(plan, wd) : undefined;
+  plan = await healPlanNamesForDisplay(ctx, plan, target?.lang ?? lang);
+  const day = getPlanDay(plan, wd);
   if (!day) { await reply(ctx, t(lang, "error_generic")); return; }
   // Editing a plan is NOT logging — suppress the "record workout" CTA and prefix the day with
   // whose plan this is, so a trainer with their own program never confuses it with a client's.
@@ -1702,6 +1725,22 @@ export async function handleClientLogEdit(ctx: MyContext, text: string) {
   await showClientLogDay(ctx, clientId, date);
 }
 
+// Maps an outbox delivery outcome to the SENDER's own feedback line, and marks the recipient's
+// botBlocked flag on a permanent block. Shared by handleTrainerMessage/handleClientReply so both
+// directions of the trainer<->client thread report delivery the same way — used to be a direct
+// ctx.api.sendMessage with the result swallowed (.catch(() => {})) and "✅ Sent." shown
+// unconditionally regardless of whether Telegram actually delivered anything.
+async function messageDeliveryFeedback(ctx: MyContext, result: DeliveryResult, recipientId: number, recipientName: string): Promise<string> {
+  const lang = ctx.user.lang;
+  if (result === "blocked") {
+    await updateUser(ctx.db, recipientId, { botBlocked: true }).catch(() => {});
+    return t(lang, "msg_blocked", { name: recipientName });
+  }
+  if (result === "retrying") return t(lang, "msg_queued", { name: recipientName });
+  if (result === "failed") return t(lang, "msg_failed");
+  return t(lang, "msg_sent"); // "sent" or "duplicate" (already delivered under this key)
+}
+
 export async function handleTrainerMessage(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;
   const clientId = ctx.user.session.targetId;
@@ -1712,8 +1751,17 @@ export async function handleTrainerMessage(ctx: MyContext, text: string) {
   await insertMessage(ctx.db, ctx.user._id, clientId, text);
   // Give the client a one-tap reply back to this trainer (threaded messaging).
   const replyKb = new InlineKeyboard().text(t(client.lang, "msg_reply_btn"), `msg:reply:${ctx.user._id}`);
-  await ctx.api.sendMessage(client.chatId, t(client.lang, "msg_from_trainer", { text: escapeHtml(text) }), { ...HTML, reply_markup: replyKb }).catch(() => {});
-  await reply(ctx, t(lang, "msg_sent"), menuBtn(lang));
+  // Through the outbox: a failed send now retries instead of vanishing, and the trainer is told
+  // what actually happened instead of an unconditional "Sent."
+  const result: DeliveryResult = await enqueueAndDeliver(ctx.env, { api: ctx.api }, {
+    userId: clientId,
+    chatId: client.chatId,
+    kind: "trainer_msg",
+    idempotencyKey: `trainer_msg:${ctx.user._id}:${Date.now()}`,
+    text: t(client.lang, "msg_from_trainer", { text: escapeHtml(text) }),
+    extra: { ...HTML, reply_markup: replyKb },
+  }).catch((e) => { console.error("trainer msg enqueue", e); return "failed" as const; });
+  await reply(ctx, await messageDeliveryFeedback(ctx, result, clientId, client.profile.name ?? `id ${clientId}`), menuBtn(lang));
 }
 
 // Client tapped "Reply" on a trainer message → deliver it back to the trainer with a reply
@@ -1731,10 +1779,15 @@ export async function handleClientReply(ctx: MyContext, text: string) {
   await insertMessage(ctx.db, ctx.user._id, trainerId, text);
   const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`);
   const kb = new InlineKeyboard().text(t(trainer.lang, "msg_reply_btn"), `cl:${ctx.user._id}:msg`);
-  await ctx.api
-    .sendMessage(trainer.chatId, t(trainer.lang, "msg_from_client", { name: who, text: escapeHtml(text) }), { ...HTML, reply_markup: kb })
-    .catch(() => {});
-  await reply(ctx, t(lang, "msg_sent"), menuBtn(lang));
+  const result: DeliveryResult = await enqueueAndDeliver(ctx.env, { api: ctx.api }, {
+    userId: trainerId,
+    chatId: trainer.chatId,
+    kind: "client_reply",
+    idempotencyKey: `client_reply:${ctx.user._id}:${Date.now()}`,
+    text: t(trainer.lang, "msg_from_client", { name: who, text: escapeHtml(text) }),
+    extra: { ...HTML, reply_markup: kb },
+  }).catch((e) => { console.error("client reply enqueue", e); return "failed" as const; });
+  await reply(ctx, await messageDeliveryFeedback(ctx, result, trainerId, trainer.profile.name ?? `id ${trainerId}`), menuBtn(lang));
 }
 
 // --- client question: trainer's reply actions ---

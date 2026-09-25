@@ -18,7 +18,6 @@ AI fallback chain that starts at Gemini and degrades gracefully all the way down
 Cloudflare's on-platform Workers AI, which needs no API key at all.
 
 > Full feature inventory: [`docs/features.md`](docs/features.md).
-> Scaling notes and free-tier limits: [`docs/SCALABILITY.md`](docs/SCALABILITY.md).
 
 ## Architecture
 
@@ -34,8 +33,7 @@ legacy vanilla-JS shell has been retired: `GET /app` is now a tiny static redire
 (`scripts/build-webapp.mjs`), not a functional fallback UI. Its source
 (`src/webapp/client/*`) and the unversioned `/api/*` routes it used stay in the tree as the
 rollback path — restore `build-webapp.mjs`'s previous assembly logic from git history if `/app-v2`
-ever needs to be rolled back. See [the v2 feature audit](docs/feature-audit-v2.md) and
-[ADR-0001](docs/adr/0001-v2-seams-and-staged-cutover.md).
+ever needs to be rolled back. See [ADR-0001](docs/adr/0001-v2-seams-and-staged-cutover.md).
 
 User and onboarding state live on the user row in D1 — no KV, no external session store.
 Free-text messages are routed by `user.session.mode`; inline keyboards carry their state in
@@ -136,7 +134,8 @@ placeholder in `wrangler.toml` or a secret.
 | `BOT_USERNAME` | yes | Your bot's `@username` without the `@`. Builds `t.me/…` invite and share links. |
 | `BOT_ID` | no | Numeric bot id. With `BOT_USERNAME` it lets the Worker skip a `getMe` call on every webhook. |
 | `BOT_NAME` | no | Display name used in the preset `botInfo`. |
-| `WORKER_URL` | no | Public origin of the deployed Worker. Enables the Mini App buttons; leave empty in local dev to unlock the `?debugUser=` bypass. |
+| `WORKER_URL` | no | Public origin of the deployed Worker. Enables the Mini App buttons; leave empty in local dev to hide them (there's no URL yet to link to). |
+| `ALLOW_DEBUG_USER` | no | Local-dev-only. Set to `1` in `.dev.vars` to unlock the `?debugUser=` Mini App auth bypass. **Never** set in a deployed environment — it is a full auth bypass, not tied to `WORKER_URL` on purpose so a blank deploy-time variable can't reopen it. |
 | `V2_APP_ENABLED` | no | Selects `/app-v2` in bot buttons when set to `1` (the committed default). `0` points buttons at `/app`, which now just redirects straight back to `/app-v2` — the legacy shell it used to serve is retired, so this no longer gives a distinct fallback UI. |
 
 `account_id` is deliberately **not** committed — wrangler reads `CLOUDFLARE_ACCOUNT_ID` from
@@ -197,6 +196,10 @@ Pushing to `main` runs CI, then queues a deploy that waits for a manual approval
 
 - **Environment secrets** (`production`): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `D1_DATABASE_ID`
 - **Repository variables**: `WORKER_URL`, `BOT_USERNAME`, and optionally `BOT_ID`, `BOT_NAME`
+
+`ALLOW_DEBUG_USER` is deliberately **not** among the deploy-time variables above: the committed
+`wrangler.toml` default (`"0"`) ships to production unchanged, and it is only ever set to `"1"` in
+a gitignored local `.dev.vars`.
 
 Worker secrets set with `wrangler secret put` survive deploys, so CI never needs them.
 

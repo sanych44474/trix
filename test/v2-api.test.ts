@@ -55,7 +55,7 @@ test("v2 workout save is not double-claimed by forward()'s own idempotency wrap"
   const db = newDb();
   const userId = 9001;
   await getOrCreateUser(db, userId, userId, "en", "Test");
-  const testEnv = { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env; // no WORKER_URL -> debugUser bypass live
+  const testEnv = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env; // no WORKER_URL -> debugUser bypass live
 
   const request = new Request(`https://example.test/api/v2/workout/save?debugUser=${userId}`, {
     method: "POST",
@@ -79,7 +79,7 @@ test("v2 workout rest: DELETE cancels the pending timer so the cron can't still 
   const db = newDb();
   const userId = 9002;
   await getOrCreateUser(db, userId, userId, "en", "Test");
-  const testEnv = { DB: db, TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+  const testEnv = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
 
   const start = new Request(`https://example.test/api/v2/workout/rest?debugUser=${userId}`, {
     method: "POST",

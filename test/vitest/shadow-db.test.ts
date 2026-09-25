@@ -34,17 +34,21 @@ describe("shadowD1", () => {
     expect(real?.lang).toBe("en");
   });
 
-  it("a write disguised as a read (RETURNING via .first()) is still intercepted", async () => {
+  it("a write disguised as a read (RETURNING via .first()) is intercepted and yields a synthetic negative id", async () => {
     const writes: unknown[] = [];
     const shadow = shadowD1(env.DB, (w) => writes.push(w));
     const row = await shadow
       .prepare("INSERT INTO users (id, chatId, lang, onboarded, profile, session, sessionMode, createdAt, updatedAt) VALUES (?, ?, ?, 0, '{}', '{}', 'idle', ?, ?) RETURNING id")
       .bind(103, 103, "en", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z")
       .first<{ id: number }>();
-    expect(row).toBeNull(); // never really ran, so there is no id to return
+    // Returning null here used to read as "that insert was a duplicate" to enqueueNotification,
+    // which silently dropped every outbox-routed send from the dry-run log. A negative id can
+    // never collide with a real rowid, so the caller proceeds without the shadow ever claiming a
+    // real row exists. See the contract note in src/durable/shadowDb.ts.
+    expect(row?.id).toBeLessThan(0);
     expect(writes).toHaveLength(1);
     const real = await env.DB.prepare("SELECT id FROM users WHERE id = ?").bind(103).first();
-    expect(real).toBeNull(); // confirms nothing was actually inserted
+    expect(real).toBeNull(); // confirms nothing was actually inserted — still the whole point
   });
 
   it("batch() intercepts every statement individually", async () => {

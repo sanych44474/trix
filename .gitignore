@@ -42,8 +42,15 @@ promt.txt
 products.md
 exercises.md
 README.uk.md
+
+# Planning, audit and capacity notes: working material, not part of the published project.
+# They go stale faster than the code and describe intent rather than what ships.
 docs/engagement-lifecycle-plan.md
 docs/miniapp-migration.md
+docs/plan-2026q4.md
+docs/roadmap-next.md
+docs/feature-audit-v2.md
+docs/SCALABILITY.md
 
 # Stray screenshots dropped in the repo root
 /*.png

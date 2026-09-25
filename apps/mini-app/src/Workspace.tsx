@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "./api";
-import type { Dashboard, RequestBody } from "./types";
+import type { ClientCardPayload, CoachThread, Dashboard, FinancePayload, InjuryPayload, OwnerUsers, RequestBody, SchedulePayload, TrainerProfile } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 
 type WorkspaceProps = { dashboard: Dashboard; lang: Lang; onOpenPlan?: (clientId?: number) => void };
@@ -40,34 +40,8 @@ type TrainerQuestions = { questions: Array<{ id: number; clientId: number; clien
 type TrainerRequests = { requests: Array<{ id: number; clientId: number; name: string; note: string }> };
 type TrainerTemplates = { templates: Array<{ id: number; name: string }> };
 type ClientSummary = NonNullable<Dashboard["trainer"]>["clients"][number];
-type ClientCardPayload = {
-  client: { id: number; name: string; onboarded: boolean; flagged: boolean };
-  cycle?: { phase: string; day: number };
-  note: string | null;
-  card: { healthNotes: string | null; personalNotes: string | null; birthday: string | null } | null;
-  shared: {
-    body?: { heightCm?: number; weightKg?: number; age?: number; sex?: string; goalWeight?: number; measurements?: Record<string, number> };
-    health?: { limitations?: string; injuries: Array<{ area: string; severity: string; since: string; lastScore?: number }> };
-  };
-  photos?: Array<{ id: number; takenAt: string }>;
-  noteHistory: Array<{ field: string; value: string; savedAt: string }>;
-  messages: Array<{ fromMe: boolean; text: string; createdAt: string }>;
-  dashboard: Dashboard;
-};
-type TrainerProfile = { status: string; name: string; bio: string; specialization: string; approach: string; experienceYears: number | null; priceOnline: number | null; city: string; contact: string; accepting: boolean; clients: number };
 type TrainerProfilePayload = { role: string; trainer: TrainerProfile | null };
-type CoachThread = {
-  trainer: { name: string } | null;
-  questions: Array<{ id: number; text: string; status: string; createdAt: string }>;
-  messages: Array<{ fromMe: boolean; text: string; createdAt: string }>;
-};
 type OwnerReport = { html: string };
-type OwnerUsers = { rows: Array<{ id?: number; name?: string; [key: string]: unknown }>; feedback: Array<{ who: string; date: string; text: string }> };
-type InjuryPayload = {
-  injuries: Array<{ area: string; severity: string; since: string; lastScore: number | null }>;
-  areas: Array<{ value: string; label: string }>;
-  severities: Array<{ value: string; label: string }>;
-};
 
 function Panel({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "accent" | "muted" }) {
   return <section className={`card card-${tone}`}>{children}</section>;
@@ -464,15 +438,6 @@ function AiCoachView({ lang, onBack, routed }: { lang: Lang; onBack: () => void;
 }
 
 type ScheduleClient = { id: number; name: string };
-type SchedulePayload = { from: string; to: string; clients: ScheduleClient[]; sessions: Array<{ id: number; clientId: number; clientName: string; startsAt: string; durationMin: number; status: string; price: number | null; note: string }> };
-type FinancePayload = {
-  currency: string;
-  defaultPrice: number | null;
-  clients: ScheduleClient[];
-  ledgers: Array<{ clientId: number; clientName: string; sessionsDone: number; sessionsPlanned: number; billed: number; paid: number; balance: number }>;
-  payments: Array<{ id: number; clientName: string; amount: number; currency: string; paidOn: string; note: string }>;
-  totals: { billed: number; paid: number; balance: number };
-};
 
 const statusKey = (status: string): Key =>
   status === "done" ? "session_status_done" : status === "cancelled" ? "session_status_cancelled" : status === "no_show" ? "session_status_no_show" : "session_status_planned";
