@@ -43,6 +43,16 @@ export function fmtRest(sec: number): string {
   return `${m}:${r < 10 ? "0" : ""}${r}`;
 }
 
+/** A whole-session length: "m:ss" under an hour, "h:mm:ss" past it (fmtRest would print "64:00"). */
+export function fmtDuration(sec: number): string {
+  const safe = Math.max(0, Math.floor(sec));
+  if (safe < 3600) return fmtRest(safe);
+  const h = Math.floor(safe / 3600);
+  const m = Math.floor((safe % 3600) / 60);
+  const r = safe % 60;
+  return `${h}:${m < 10 ? "0" : ""}${m}:${r < 10 ? "0" : ""}${r}`;
+}
+
 export function clampRest(seconds: number): number {
   return Math.max(REST_MIN_SEC, Math.min(REST_MAX_SEC, Math.round(seconds || DEFAULT_REST_SEC)));
 }

@@ -142,3 +142,10 @@ test("density reports the share of the session spent working", () => {
   const sameInstant = density(start, 0, start);
   assert.ok(Number.isFinite(sameInstant as number), `expected a finite value, got ${sameInstant}`);
 });
+
+test("fmtDuration switches to h:mm:ss past an hour", async () => {
+  const { fmtDuration } = await import("../apps/mini-app/src/logic/rest");
+  assert.equal(fmtDuration(164), "2:44");
+  assert.equal(fmtDuration(3600), "1:00:00");
+  assert.equal(fmtDuration(2 * 3600 + 5 * 60 + 7), "2:05:07");
+});
