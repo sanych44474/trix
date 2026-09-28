@@ -28,8 +28,9 @@ and a CodeQL scan. Please run them locally first — the test suite takes about 
 ## Conventions that will bite you
 
 **Locale catalogs must stay in sync.** The `Dict` type is derived from `src/locales/en.ts`, and
-`uk.ts` and `ru.ts` must satisfy it. Every new string key has to be added to **all three** files
-or `npm run typecheck` fails. That failure is the feature, not an obstacle.
+`uk.ts` must satisfy it; the Mini App's own catalog (`apps/mini-app/src/i18n.ts`) types `uk` as
+`Record<keyof typeof en, string>` the same way. Every new string key has to be added to **both**
+languages or the typecheck fails. That failure is the feature, not an obstacle.
 
 **Telegram has no tables.** Markdown tables and HTML `<table>` do not render in a Telegram
 message. The only table-like option is a monospace `<pre>` block with space-aligned columns.

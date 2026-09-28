@@ -1,222 +1,299 @@
 # trix — Feature Catalog
 
-Complete inventory of everything the product does, across both surfaces (Telegram bot chat and
-the Telegram Mini App) and all roles (solo athlete, trainer's client, trainer, owner).
-Infrastructure: Cloudflare Workers + D1 (SQLite), free tier only; AI chain
-Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. Bilingual UA/EN
-(full i18n, typecheck-enforced key parity).
+Everything the product does, across both surfaces (the Telegram chat and the Telegram Mini App)
+and all four roles (solo athlete, a trainer's client, trainer, owner). **One numbered line = one
+function**, so the total below is a count rather than a slogan.
+
+## Why it matters
+
+- **A coach, not a log.** Most fitness apps wait for you to bring a program and open them. trix
+  writes the program around your days, equipment and injuries, decides when to add weight, and
+  messages you first on training day, in the chat app you already have open.
+- **One place for everything that moves the needle**: the plan, the workout log, food and
+  macros, bodyweight and measurements, sleep/energy check-ins, injuries, and the reminders that
+  tie them together. No second app for nutrition, no spreadsheet for progress.
+- **Built for real trainers too.** A trainer gets client acquisition, a full plan editor per
+  client, templates, broadcasts, compliance digests and at-risk alerts, the tooling that
+  usually means a paid CRM plus a messenger plus a spreadsheet.
+- **Zero cost to run, zero cost to use.** Cloudflare Workers + D1 free tier and an AI chain that
+  falls back all the way to an on-platform model with no API key. No servers to pay for means
+  no subscription and no ads. The code is open (MIT): fork it and run your own coach.
+- **Nothing to install.** Telegram is the app; the Mini App opens inside it.
+
+## At a glance
+
+| | |
+|---|---|
+| Functions in this catalog | **172** across 11 areas |
+| Roles | 4 — solo athlete · trainer's client · trainer · owner |
+| Surfaces | 2 — Telegram chat (43 commands) and the Telegram Mini App |
+| Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
+| AI | 5 providers in a fallback chain; every provider receives the same input |
+| Backend | 64 typed API operations (OpenAPI 3.1), 81 forward-only D1 migrations |
+| Quality | ~1,000 automated tests (node:test + Workers runtime), CI on every pull request |
+| Cost | $0 — Cloudflare free tier, free AI tiers, no ads, no subscription |
+
+| Area | Functions |
+|---|---|
+| 1. Onboarding & roles | 12 |
+| 2. Training plan & programming | 27 |
+| 3. Workout logging | 26 |
+| 4. Nutrition | 14 |
+| 5. Body, recovery & activity | 14 |
+| 6. Gamification & community | 17 |
+| 7. Trainer tools | 22 |
+| 8. Mini App platform | 13 |
+| 9. Reminders & automation | 13 |
+| 10. Owner / admin | 9 |
+| 11. Engineering safeguards | 5 |
 
 ---
 
 ## 1. Onboarding & roles
 
-- **Role choice at /start**: solo (AI coach), find a trainer, or become a trainer.
-- **Button-driven intake wizard** (11 steps: sex, age, height/weight, goal, level, training
-  weekdays, equipment, lifestyle, sleep schedule, diet, limitations) — deterministic, no AI
-  per turn; also available as a **web form in the Mini App** for incomplete profiles.
-- **AI plan generation** on finish: bank-first (pre-built plan bank / templates → zero AI),
-  AI with provider fallback otherwise; async-safe (`plan_pending` recovery via cron survives
-  Worker timeouts).
-- **Stuck-onboarding recovery**: daily nudge resumes the exact unanswered question; owner can
-  bulk-ping everyone incomplete; typed answers are pulled back into the wizard even if the
-  session drifted (safety net + regression test).
-- **Referral program**: `/start ref_<id>` deep link; "👥 Invite a friend" button generates a
-  personal link; the inviter earns the 🤝 badge + a notification when the friend finishes
-  the interview (idempotent, no retro-claims).
+1. **Role choice at `/start`**: solo with the AI coach, find a trainer, or become a trainer.
+2. **Button-driven intake wizard**, 11 steps: sex, age, height/weight, goal, level, training
+   weekdays, equipment, lifestyle, sleep schedule, diet, limitations. Deterministic, no AI call
+   per step.
+3. **Intake as a web form in the Mini App** for profiles left incomplete.
+4. **Plan generated on finish**, bank-first: a pre-built plan bank and templates cost zero AI.
+5. **AI plan generation** with provider fallback when nothing in the bank fits.
+6. **Timeout-safe generation**: a `plan_pending` recovery sweep in the cron finishes plans a
+   Worker timeout interrupted.
+7. **Stuck-onboarding nudge**: a daily message resumes the exact unanswered question.
+8. **Owner bulk-ping** of everyone with an incomplete interview.
+9. **Drift safety net**: answers typed while the session drifted are pulled back into the wizard.
+10. **Referral deep link** (`/start ref_<id>`).
+11. **"👥 Invite a friend"** button that generates a personal link.
+12. **Referral reward**: the inviter earns the 🤝 badge and a notification when the friend
+    finishes the interview (idempotent, no retro-claims).
 
-## 2. Training plan
+## 2. Training plan & programming
 
-- **Weekly split plan** with per-exercise sets/reps, start weights, technique notes, RPE/RIR,
-  rest, tempo, role (primary/accessory), muscle tags.
-- **Supersets & circuits**: `supersetGroup` letters — AI can generate them, and both the user
-  and the trainer can link/unlink pairs with the 🔗 button in the Mini App plan editor;
-  rendered as 🔗A1/A2 chains in the app and "superset/circuit" labels in chat.
-- **Plan editing** (bot + Mini App, self + trainer-for-client): change weight/sets, swap
-  (catalog search or custom name with auto video lookup), add/delete exercises, reorder
-  (⬆️⬇️), add/delete whole days (weekday + muscle-group picker, auto-filled by level),
-  personal video override per exercise. Optimistic concurrency (version + expectName guards).
-- **Warm-up editor** with AI suggestion per day.
-- **Progression engine**: weekly difficulty adjustment (ok/up/down), plateau detection with
-  suggested fixes, level-up flow (beginner → intermediate → advanced regenerates volume),
-  goal-switch flow, per-set RPE/RIR capture feeding autoregulation.
-- **Scheduler redesign (in progress, dry-run phase)**: per-user Durable Objects
-  (`src/durable/userScheduler.ts`) are being phased in alongside the existing cron-driven
-  scheduler, to decouple each user's reminder delivery into its own invocation with its own
-  Workers-Free subrequest budget (the old design shares one 50-subrequest budget across every
-  user processed in the same hourly pass). Each user's DO alarm runs the SAME processUser
-  decision logic unmodified, against a write-intercepting D1 shadow (`shadowDb.ts`) and a
-  logging sender -- so it decides for real but neither sends nor writes for real yet. Results
-  land in `scheduler_dryrun_log` for comparison against what the still-live cron path actually
-  did. The cron path remains the sole real sender until a deliberate, separate cutover.
-- **Conditioning load**: cardio is scored as training load, not just logged. Weekly minutes,
-  sessions and distance are read against aerobic landmarks (~150 min/week baseline, ~300
-  min/week where cardio starts competing with strength), shown next to the per-muscle volume
-  bars in `/volume` and the Mini App. A week in the high zone holds the weekly strength
-  progression and says why; a hard session in the last two days softens the same-day
-  readiness advice even when the check-in looks clean. Distance logged without a duration is
-  flagged rather than guessed at.
-- **Shopping list** (`/grocery`, or a button under the menu): turns the meal plan into an
-  aisle-ordered tick-list for 3 / 5 / 7 days -- the stored menu is one day, so it is
-  multiplied out. Same food merged across meals, amounts rounded to buyable sizes, foods
-  sorted into supermarket aisles (produce / meat-fish-eggs / dairy / grains / pantry) from
-  both English and Ukrainian names. Read-only: never touches the stored menu.
-- **Squad mode** (bot in a group chat): `/squad` in a group with training friends registers a
-  squad and puts the sender on its board. The bot posts last week's sessions every Monday,
-  announces personal records as they happen, and `/squadboard` shows the current week on
-  demand. Members on zero stay ON the board -- unlike the global leaderboard, "nobody has
-  trained yet" is the useful signal in a group of friends. Membership is opt-in per user and
-  independent of the 1:1 buddy pairing; `/squadleave` removes you, and a chat that rejects
-  the post (bot kicked, group deleted) retires the squad. Group chats are handled entirely
-  by this path and never reach the private-chat handlers.
-- **Activation arc (first 14 days)**: a new account gets its own deliberate sequence instead of
-  the steady-state drip -- a low-barrier "just log the first two exercises" nudge if nothing
-  is logged by day 2, a first-win message that explains what the second session unlocks, a
-  week-one checkpoint, and a day-14 beat. Falling behind offers a SMALLER plan (drop a
-  training day / replan with the real constraints), never a louder one. Solo/trainer-own
-  only; each beat fires at most once, ever.
-- **Injury-aware planning**: report pain by area/severity → conflicting exercises are swapped
-  for safe ones; scheduled follow-ups with a 0–10 pain scale; auto-restore when recovered.
-- **"Not my gym today"**: one tap re-fits the whole session to what's actually on hand
-  (bodyweight only / dumbbells only / a resistance band) — every exercise gets a same-muscle
-  substitute for today's log only, the stored plan is untouched so tomorrow's session reverts
-  on its own.
-- **Strength standards**: big-lift classification (beginner→elite) relative to bodyweight,
-  with the load needed for the next tier.
-- **Plate & warm-up calculator**: working weight → plates per side + warm-up ramp.
+1. **Weekly split plan** with per-exercise sets/reps, starting weights and technique notes.
+2. **Intensity targets** per exercise: RPE/RIR, rest, tempo, primary/accessory role, muscle tags.
+3. **Exercise videos** attached to each movement, with a personal video override per exercise.
+4. **Supersets & circuits** (`supersetGroup` letters), generated by the AI or linked/unlinked by
+   the user or trainer with 🔗, and shown as A1/A2 chains.
+5. **Plan editor: change weight and sets** (bot and Mini App, self or trainer-for-client).
+6. **Plan editor: swap an exercise** from the catalog, or type a custom name (auto video lookup).
+7. **Plan editor: add and delete exercises.**
+8. **Plan editor: reorder** exercises (⬆️⬇️).
+9. **Plan editor: add/delete whole days** with a weekday + muscle-group picker, auto-filled by
+   level.
+10. **Safe concurrent editing**: optimistic concurrency (version + expected-name guards).
+11. **Warm-up editor** with an AI suggestion per day.
+12. **Weekly progression engine**: difficulty adjusts up, down, or holds.
+13. **Plateau detection** with suggested fixes.
+14. **Level-up flow** (beginner → intermediate → advanced) that regenerates volume.
+15. **Goal-switch flow.**
+16. **Autoregulation**: per-set RPE/RIR feeds the next prescription.
+17. **Conditioning load**: cardio is scored as training load, with weekly minutes, sessions and
+    distance read against aerobic landmarks (~150 and ~300 min/week).
+18. **Cardio-aware progression**: a week in the high cardio zone holds strength progression and
+    says why.
+19. **Cardio-aware readiness**: a hard session in the last two days softens same-day advice.
+20. **Weekly volume per muscle** (`/volume` and the Mini App) against MEV/MAV landmarks.
+21. **Injury-aware planning**: report pain by area and severity; conflicting exercises are swapped
+    for safe ones.
+22. **Injury follow-ups** on a 0–10 pain scale, with auto-restore when recovered.
+23. **"Not my gym today"**: one tap re-fits the session to bodyweight, dumbbells only or a band,
+    for today only. Tomorrow reverts on its own.
+24. **Strength standards**: big-lift classification (beginner → elite) relative to bodyweight,
+    with the load needed for the next tier.
+25. **Plate calculator**: working weight → plates per side.
+26. **Warm-up ramp** for a working weight.
+27. **Program library**: take a ready program into your own plan.
 
 ## 3. Workout logging
 
-- **Guided logger in the Mini App** (primary): today's exercises as cards with plan hints,
-  one-tap "✓ as planned" fill, per-set weight/reps (or time/distance for cardio), add/remove
-  sets, per-exercise RPE chips, on-the-fly swap (3 alternatives or catalog search/create),
-  add ad-hoc exercise, delete exercise from today (confirm if data typed), ⬆️⬇️ reorder,
-  technique + video dropdown per exercise.
-- **Session progress**: "3/6 ▰▰▰▱▱▱" header, ✅ on filled cards, auto-scroll to the next
-  exercise, local draft (survives connection loss), idempotent save.
-- **"Repeat last workout"**: per-exercise chip with what you actually did last time
-  (weights × reps) and a one-tap apply-to-all.
-- **Rest timer**: one footer button with a duration picker (0:30–3:00, remembered), countdown
-  in the button, server-side push when rest ends (survives screen lock).
-- **Edit a saved workout**: reopening a logged day prefills the saved sets ("Save changes");
-  past 7 days editable via date chips (14-day window; past edits don't ping the trainer).
-- **Bot fallbacks**: free-text logging ("80 8,7,6" / "80x8 75x10"), tappable set correction,
-  guided per-exercise chat flow, past-day logging, voice-note logging (Whisper), cardio menu
-  (rowing/bike/run/… by time & distance).
-- **Finish rewards**: new PRs 🏆, badges 🏅, level-ups ⬆️ shown immediately.
+1. **Guided logger in the Mini App**: today's exercises as cards with plan hints.
+2. **"✓ As planned"** one-tap fill per exercise.
+3. **"Fill all as planned"** for the whole session.
+4. **Per-set entry**: weight × reps, or time / distance for timed and cardio work.
+5. **Add and remove sets.**
+6. **Per-set RPE chips** (6–10).
+7. **In-session swap**: same-muscle alternatives filtered by the equipment you have.
+8. **Swaps are remembered**: shows "instead of …", saved with the plan exercise it replaced, and
+   restored into the same slot when the day is reopened.
+9. **Add a custom exercise** mid-session.
+10. **Delete an exercise** from today (asks first if data was typed).
+11. **Reorder** exercises (⬆️⬇️).
+12. **Technique + video dropdown** per exercise.
+13. **"Repeat last"**: fill an exercise with what you actually did last time.
+14. **Session progress**: "3/6" header, progress bar, ✓ on filled cards.
+15. **Rest timer** per exercise: the plan's rest wins, otherwise a remembered preference per
+    metric; optional auto-start after a set and a sound.
+16. **Pinned rest bar** with progress ring, ±15 s and skip, counting up past zero so drift shows.
+17. **Rest-done Telegram push** from the server, so it arrives with the screen locked.
+18. **Save dock**: pinned above the nav with live session time, save/draft status and one action:
+    Finish workout (asks first), Save changes, or Save for a past date.
+19. **Drafts that follow you**: unsaved work is kept on the phone instantly and synced to the
+    server seconds later, so it survives a cleared cache and opens on another device; the newest
+    of phone draft, server draft and saved log wins.
+20. **Measured session length**: from the first set or rest to "Finish", stored with the log and
+    shown in History.
+21. **History tab**: past sessions with duration; repeat one today or edit a saved day in place.
+22. **Log a missed day** (blank or from a past session) within a 14-day window; past edits don't
+    ping the trainer.
+23. **Chat logging in free text** ("80 8,7,6" / "80x8 75x10"), with tappable set correction.
+24. **Guided per-exercise chat flow** and past-day logging in chat.
+25. **Voice-note logging** (Whisper transcription) and a **cardio menu** (rowing / bike / run / …
+    by time and distance).
+26. **Finish summary**: sets, duration, % of time working vs resting and rests-on-target streak
+    (tap any number for what it means), plus new PRs 🏆, badges 🏅 and level-ups.
 
 ## 4. Nutrition
 
-- **AI food logging**: free text or photo (vision) → KBZHU estimate; portion fix buttons
-  (½ / 1.5× / 2× / exact grams); alcohol calories counted; item-level edit (re-weigh, replace
-  product, delete); frequent-foods quick re-log.
-- **Food database search** (Mini App): Open Food Facts proxy — exact per-100g macros, pick +
-  grams → precise entry; AI stays the free-text fallback.
-- **Daily targets**: goal-based calories/macros, separate rest-day targets, adaptive calories
-  (trend vs goal pace, ±150 kcal max, explained).
-- **Meal plan**: AI menu from allergies/likes/dislikes intake; "what to eat" suggestion for
-  the macros left today.
-- **Nutrition view in the Mini App**: today's meals, totals vs targets, meal plan, day editing.
+1. **AI food logging from text.**
+2. **AI food logging from a meal photo** (vision).
+3. **Portion fix buttons**: ½ / 1.5× / 2× / exact grams.
+4. **Alcohol calories** counted.
+5. **Item-level edit**: re-weigh, replace the product, delete.
+6. **Frequent foods** quick re-log.
+7. **Food database search** (Open Food Facts): exact per-100 g macros, pick + grams.
+8. **Goal-based daily calorie and macro targets.**
+9. **Separate rest-day targets.**
+10. **Adaptive calories**: trend vs goal pace, at most ±150 kcal, with the reason shown.
+11. **AI meal plan** from allergies, likes and dislikes.
+12. **"What to eat now"**: a suggestion for the macros left today.
+13. **Shopping list** (`/grocery`): the meal plan multiplied out to 3/5/7 days, merged, rounded to
+    buyable sizes and sorted by supermarket aisle (English and Ukrainian names).
+14. **Nutrition screen in the Mini App**: meals, totals vs targets, meal plan, day editing.
 
-## 5. Body & activity tracking
+## 5. Body, recovery & activity
 
-- **Weight & measurements** (waist/chest/hips/arm/thigh): free-text parsing in chat, quick
-  form in the app; trends charted in both surfaces (multi-line measurements chart in the app).
-- **Weight goal projection**: trend (kg/wk) + ETA, on/off-track flag.
-- **Steps, water** (one-tap +250/500/750), **daily wellbeing check-in** (energy/sleep/stress)
-  with trend chart and pre-workout readiness advice.
-- **Personal goals**: custom daily water (default 35 ml/kg) and steps (default 8000) targets.
-- **Activity rings** (Mini App home): workouts this week / water today / steps today.
-- **Progress photos**: trainer-requested or self-serve 📸; gallery in the app profile and on
-  the trainer's client card (authorized proxy — bot token never exposed).
-- **Menstrual-cycle tracking** (opt-in, female users): calendar date picker, phase-aware
-  coaching hints, deload/carb nudges; medical data gated behind trainer-consent.
+1. **Bodyweight logging** in chat (free text) or with a quick form in the app.
+2. **Measurements**: waist, chest, hips, arm, thigh.
+3. **Trend charts** for weight and measurements in both surfaces.
+4. **Weight goal projection**: kg/week trend, ETA, on/off-track flag.
+5. **Steps tracking.**
+6. **Water tracking** with one-tap +250 / 500 / 750 ml.
+7. **Personal daily goals**: water (default 35 ml/kg) and steps (default 8,000).
+8. **Daily wellbeing check-in**: energy, sleep, stress, with a trend chart.
+9. **Pre-workout readiness advice** from the check-in.
+10. **Activity rings** on the home screen: workouts this week, water today, steps today.
+11. **Progress photos**, self-serve or requested by the trainer.
+12. **Photo gallery** in the profile and on the trainer's client card (authorized proxy, the bot
+    token is never exposed).
+13. **Progress photo comparison** sent as a side-by-side.
+14. **Menstrual-cycle tracking** (opt-in): calendar date picker, phase-aware coaching hints and
+    deload/carb nudges, with medical data gated behind trainer consent.
 
-## 6. Gamification
+## 6. Gamification & community
 
-- **XP & levels** from every logged activity; visual XP progress bar + level in the app header.
-- **Week streak** with vacation freeze and an **automatic streak freeze** (one missed week
-  inside a ≥4-week streak is bridged, Duolingo-style).
-- **Badges** (12): first workout, 10/50/100 workouts, first PR, streak 4/12, balanced week,
-  level 5/10, referral 🤝 — catalog screen (earned ✅ / locked 🔒) + pop-in celebration
-  animation with haptics when a new one lands.
-- **Leaderboards** (opt-in, alias or anonymous): consistency, most improved, relative
-  strength, total volume — top-5 with medals + own rank; weekly rank digest with
-  **competitive pushes** ("X overtook you — strike back!").
-- **Challenges**: joinable consistency goals (e.g. 4 workouts/week) with progress bars.
-- **Quality rating & feedback**: recurring light "how's it going?" ask every 2 weeks.
+1. **XP and levels** from every logged activity, with a progress bar in the app.
+2. **Week streak.**
+3. **Vacation freeze** for planned breaks.
+4. **Automatic streak freeze**: one missed week inside a ≥4-week streak is bridged.
+5. **12 badges**: first workout, 10/50/100 workouts, first PR, streak 4/12, balanced week,
+   level 5/10, referral.
+6. **Badge catalog** (earned ✅ / locked 🔒).
+7. **Badge celebration** animation with haptics when one lands.
+8. **Personal records** list, tap for the e1RM history chart.
+9. **Opt-in leaderboards** under an alias or anonymously: consistency, most improved, relative
+   strength, total volume.
+10. **Top-5 with medals** plus your own rank.
+11. **Weekly rank digest.**
+12. **Competitive pushes** ("X overtook you — strike back!").
+13. **Challenges**: joinable consistency goals with progress bars.
+14. **Training buddy**: a 1:1 pairing with a weekly duel.
+15. **Squad mode** in a group chat: `/squad` registers the group, and the bot posts last week's
+    sessions every Monday.
+16. **Squad PR announcements** as they happen, and `/squadboard` on demand.
+17. **Shareable week card** for the week's training.
 
-## 7. Trainer features
+## 7. Trainer tools
 
-- **Client acquisition**: personal invite code/link (`t.me/<bot>?start=tr_<code>`), a client can
-  also type the code by hand, client requests inbox (accept/decline), client limit + waitlist,
-  trainer profile wizard (bio, tags, languages, photo, specializations). No public browsable
-  directory — at low trainer counts a catalog with ratings is moderation overhead for no
-  discovery benefit; a trainer's own profile card still renders their tags and languages.
-- **Client card** (bot + Mini App): compliance, charts, private notes, 🩺 health notes,
-  🎂 personal notes + birthday reminder, intake answers + "remind to finish" ping,
-  ⚡ 6-question mini-interview FOR the client → instant plan draft, progress photos,
-  consent-gated body/health data (client opt-in toggles).
-- **Plan management**: full plan editor for each client (same as self-edit incl. supersets
-  and day add/remove), reusable program templates (save/assign, weights auto-adapt),
-  program sharing (link / public library / direct assign to selected clients).
-- **Communication**: message a client, 📢 broadcast to all clients, ❓ client questions inbox
-  (answer/keep/skip), 📸 request a progress photo, forwardable client week card.
-- **Monitoring**: weekly digest (traffic-light per client), at-risk alerts (2 missed planned
-  sessions in a row / nutrition lapse), on-demand client report table (interview status,
-  plan/draft, W/C/N/S activity, last-active).
+1. **Personal invite code and link** (`t.me/<bot>?start=tr_<code>`), or the code typed by hand.
+2. **Client requests inbox**: accept or decline.
+3. **Client limit and waitlist.**
+4. **Trainer profile wizard**: bio, tags, languages, photo, specializations.
+5. **Client card** (bot and Mini App): compliance and charts.
+6. **Private notes and 🩺 health notes** per client.
+7. **🎂 Personal notes and birthday reminder.**
+8. **Intake answers** plus a "remind to finish" ping.
+9. **⚡ 6-question mini-interview for the client** → an instant plan draft.
+10. **Consent-gated body and health data** (the client toggles what is shared).
+11. **Full plan editor for each client**, including supersets and day add/remove.
+12. **Reusable program templates**: save and assign, with weights auto-adapted.
+13. **Program sharing**: link, public library, or direct assignment to selected clients.
+14. **Message a client** 1:1.
+15. **📢 Broadcast** to all clients.
+16. **❓ Client questions inbox**: answer, keep or skip.
+17. **📸 Request a progress photo.**
+18. **Weekly digest** with a traffic light per client.
+19. **At-risk alerts**: two missed planned sessions in a row, or a nutrition lapse.
+20. **Client report table**: interview status, plan/draft, activity, last active.
+21. **Session schedule** for in-person work: plan, reschedule, mark done / cancelled / no-show.
+22. **Payments ledger** per client, with the payment log.
 
 ## 8. Mini App platform
 
-- **Bottom tab bar** (🏠 Home / 🏋️ Workout / 📋 Plan / 🍽 Food / ⭐ More / 🛠 Owner) + 👤
-  profile; feels like a native app.
-- **Instant open**: last dashboard cached in localStorage (stale-while-revalidate), skeleton
-  shimmer on first run, pull-to-refresh, slide-in overlay animations, haptics on every tap.
-- **Dashboard**: level/XP/streak, activity rings, "Today's workout" hero card, quick log
-  (water/exercise/food/steps/measurements/check-in with per-control confirmation), weight +
-  goal forecast, measurements chart, interactive month calendar (taps → day detail), 12-week
-  heatmap, weekly volume vs MEV/MAV, e1RM by muscle group (top-3 lifts per group), macros vs
-  targets.
-- **"More" screen**: challenges, injury log/report, leaderboards, personal records (tap →
-  e1RM history chart), badges, week card, plate calculator, program library, find-a-trainer,
-  what's new.
-- **Profile & settings**: profile fields, water/steps goals, trainer-sharing consent,
-  reminders toggles, vacation mode, language, cycle tracking, compete opt-in + alias,
-  data export (Markdown via document push), leave trainer, delete account, progress photos,
-  onboarding form.
-- **Deep links**: reminder buttons open the exact screen (`?view=log|survey|…`,
-  `t.me/...?startapp=` supported).
-- **Reliability**: initData HMAC auth everywhere, client JS errors reported server-side
-  (deduped), CSP self-only, static assets on the edge, minified build.
+1. **Bottom tab bar**: Today · Train · Plan · Fuel · Progress · More, plus a role workspace for
+   trainers and the owner.
+2. **Instant open**: the last dashboard is cached and revalidated in the background.
+3. **Skeleton loading**, pull-to-refresh and haptics.
+4. **Dashboard**: level/XP/streak, activity rings, today's workout, quick log (water, exercise,
+   food, steps, measurements, check-in).
+5. **Interactive month calendar** (tap a day for its detail) and a 12-week heatmap.
+6. **Weekly volume vs MEV/MAV** and **e1RM by muscle group** (top-3 lifts per group).
+7. **"More" screen**: challenges, injuries, leaderboards, records, badges, week card, plate
+   calculator, program library, find a trainer, what's new.
+8. **Profile & settings**: profile fields, goals, reminder toggles, vacation mode, language,
+   cycle tracking, compete opt-in and alias.
+9. **Data export** (Markdown, pushed as a document).
+10. **Leave trainer / delete account** from the app.
+11. **Deep links**: reminder buttons open the exact screen (`?view=…`, `startapp=`).
+12. **Light and dark themes**, following Telegram's.
+13. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
+    (deduped), a strict Content-Security-Policy, static assets served from the edge.
 
-## 9. Reminders & automation (cron)
+## 9. Reminders & automation
 
-- Per-user timezone-aware scheduling; smart reminder-hour suggestion from actual training
-  times; every reminder individually togglable; vacation mode pauses everything.
-- Workout reminder (with plan preview + "log in the app" button), one combined **evening
-  check-in at 21:00** (water/steps/food/wellbeing checklist that re-shows remaining items),
-  tomorrow's training preview, pre-workout readiness check, injury follow-ups, weekly records
-  digest + rank-change pushes, Sunday week digest, trainer at-risk alerts, plan-generation
-  recovery sweep, hourly leaderboard cache, cron heartbeat (dead-man alert to the owner if the
-  cron stops).
+1. **Per-user timezone-aware scheduling.**
+2. **Smart reminder hour** suggested from when you actually train.
+3. **Every reminder individually togglable**; vacation mode pauses everything.
+4. **Workout reminder** with a plan preview and a "log in the app" button.
+5. **Combined evening check-in at 21:00**: water/steps/food/wellbeing checklist that re-shows only
+   what's left.
+6. **Tomorrow's training preview.**
+7. **Pre-workout readiness check.**
+8. **Weekly records digest** and rank-change pushes.
+9. **Sunday week digest.**
+10. **Activation arc for the first 14 days**: a low-barrier first nudge, a first-win message, a
+    week-one checkpoint and a day-14 beat. Falling behind offers a *smaller* plan, never a louder
+    one.
+11. **Recurring light feedback ask** every two weeks.
+12. **Plan-generation recovery sweep** and hourly leaderboard cache.
+13. **Cron heartbeat**: a dead-man alert to the owner if the scheduler stops.
 
 ## 10. Owner / admin
 
-- **Owner console in the Mini App** (🛠 tab, owner-only): all report sections rendered
-  in-app + one-tap "ask inactive 7d+ users for feedback" (their replies land in /feedback).
-- **/ownerreport**: pulse line + sections — Overview (funnel bars, DAU sparkline, WoW deltas,
-  attention list), AI health (traffic-light verdict, provider table, latency, plan-source
-  offload), Trainers, Onboarding (stage funnel, stuck users + fix path), Errors + audit
-  trail, Usage events (proportional bars), full Users table.
-- **User management**: per-user card (events timeline, continue interview, assign plan,
-  block/unblock, delete), cleanup of inactive users with confirmation, broadcast/announce,
-  release-notes broadcast with confirm gate, video moderation (set/refresh exercise videos),
-  daily AI-error report, proactive error-spike / provider-outage alerts.
+1. **Owner console in the Mini App**: every report section rendered in-app.
+2. **One-tap feedback ask** to users inactive 7+ days (replies land in `/feedback`).
+3. **`/ownerreport` overview**: funnel bars, DAU sparkline, week-over-week deltas, attention list.
+4. **AI health report**: traffic-light verdict, provider table, latency, plan-source offload.
+5. **Onboarding report**: stage funnel, stuck users and the fix path.
+6. **Errors + audit trail** and usage-event breakdowns.
+7. **Per-user card**: events timeline, continue interview, assign plan, block/unblock, delete.
+8. **Broadcasts**: announcements and release notes behind a confirm gate; inactive-user cleanup
+   with confirmation.
+9. **Proactive alerts**: daily AI-error report, error-spike and provider-outage alerts; exercise
+   video moderation.
 
 ## 11. Engineering safeguards (invisible features)
 
-- 825 unit/integration tests; typecheck-enforced bilingual catalogs; session-mode registry
-  with compile-time exhaustiveness; callback route tables with a prefix-conflict detector;
-  D1 migrations tracker (rebaselined, standard tooling); idempotent saves everywhere;
-  reminder dedup that survives crashes; scheduler mutex; AI input identical across fallback
-  providers; `cleanAi()` sanitizer against LaTeX/control-char artifacts; GDPR delete
-  (`/deleteme`) wipes every table including photos.
+1. **~1,000 automated tests** (node:test and the real Workers runtime) and typecheck-enforced
+   bilingual catalogs; CI gates every pull request.
+2. **Idempotent saves everywhere**: a retried request never double-logs or double-notifies.
+3. **Crash-safe reminders**: dedup that survives crashes and a scheduler mutex.
+4. **Graceful AI degradation**: identical input across the provider chain, and a sanitizer
+   against LaTeX/control-character artifacts in AI text.
+5. **Privacy**: GDPR delete (`/deleteme`) wipes every table including photos, and `/export`
+   gives a user all of their data.
+
+---
+
+Infrastructure: Cloudflare Workers + D1 (SQLite) on the free tier; AI chain Gemini → Groq →
+OpenRouter `:free` → Workers AI → Ollama Cloud with automatic fallback.

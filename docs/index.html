@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>trix — AI-тренер у Telegram</title>
-<meta name="description" content="Телеграм-бот, який складає програму тренувань під твої дні, обладнання й травми, веде щоденник, рахує КБЖУ і сам нагадує. Безкоштовно, без встановлення застосунків.">
+<meta name="description" content="Телеграм-бот і міні-застосунок: складає програму тренувань під твої дні, обладнання й травми, сам веде прогресію, рахує КБЖУ за фото, нагадує першим. Інструменти для тренерів і їхніх клієнтів. 172 функції, безкоштовно, відкритий код.">
 <link rel="canonical" href="https://sanych44474.github.io/trix/">
 
 <meta property="og:type" content="website">
@@ -246,6 +246,38 @@
     padding: .28rem .6rem; border-radius: 4px; border: 1px solid var(--line);
   }
 
+  /* numbers strip */
+  .stats {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px;
+    background: var(--line); border: 1px solid var(--line); border-radius: 9px; overflow: hidden;
+    margin: 0 0 4rem;
+  }
+  .stats > div { background: var(--surface); padding: 1.1rem 1rem; }
+  .stats b {
+    display: block; font-family: Archivo, sans-serif; font-weight: 800; font-size: 1.7rem;
+    line-height: 1.1; color: var(--accent); letter-spacing: -.03em;
+  }
+  .stats span { display: block; margin-top: .3rem; font-size: .84rem; color: var(--ink-soft); line-height: 1.35; }
+
+  /* audiences */
+  .card ul { margin: .9rem 0 0; padding-left: 1.1rem; color: var(--ink-soft); font-size: .94rem; }
+  .card li { margin-bottom: .4rem; }
+  .card li::marker { color: var(--accent); }
+
+  /* capability map */
+  .feat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; margin-top: 2.5rem; }
+  .feat .card { padding: 1.3rem 1.25rem; }
+  .feat h3 { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+  .feat .n {
+    font-family: "IBM Plex Mono", monospace; font-size: .72rem; font-weight: 500;
+    color: var(--accent); background: var(--accent-soft); padding: .12rem .45rem; border-radius: 4px;
+    white-space: nowrap;
+  }
+  .feat ul { margin: .6rem 0 0; padding-left: 1.05rem; color: var(--ink-soft); font-size: .92rem; }
+  .feat li { margin-bottom: .35rem; }
+  .feat li::marker { color: var(--muted); }
+  .more-link { margin: 2rem 0 0; font-family: Archivo, sans-serif; font-weight: 600; }
+
   /* final cta */
   .final { text-align: center; padding: 5rem 0; }
   .final h2 { max-width: 24rem; margin: 0 auto; }
@@ -264,8 +296,15 @@
   @media (max-width: 60rem) {
     .hero { grid-template-columns: 1fr; gap: 2.75rem; padding: 3rem 0; }
     .grid3 { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .feat { grid-template-columns: repeat(2, 1fr); }
     .grid4 { grid-template-columns: 1fr; }
     .vs { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 40rem) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .feat { grid-template-columns: 1fr; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -280,6 +319,7 @@
   <div class="bar">
     <a class="brand" href="./">tri<span>x</span></a>
     <nav>
+      <a class="ghost" href="#features" data-uk="Функції" data-en="Features">Функції</a>
       <button class="ghost" id="lang" type="button">EN</button>
       <button class="ghost" id="theme" type="button" aria-label="Змінити тему">◐</button>
       <a class="ghost" href="https://github.com/sanych44474/trix" rel="noopener">GitHub</a>
@@ -344,6 +384,15 @@
       </div>
     </div>
   </div>
+
+  <div class="stats" aria-label="Проєкт у цифрах">
+    <div><b>172</b><span data-uk="функції в каталозі" data-en="functions in the catalog">функції в каталозі</span></div>
+    <div><b>4</b><span data-uk="ролі: атлет, клієнт, тренер, власник" data-en="roles: athlete, client, trainer, owner">ролі: атлет, клієнт, тренер, власник</span></div>
+    <div><b>43</b><span data-uk="команди бота + міні-застосунок" data-en="bot commands + a Mini App">команди бота + міні-застосунок</span></div>
+    <div><b>2</b><span data-uk="мови: українська й англійська" data-en="languages: Ukrainian and English">мови: українська й англійська</span></div>
+    <div><b>~1000</b><span data-uk="автоматичних тестів" data-en="automated tests">автоматичних тестів</span></div>
+    <div><b>0 ₴</b><span data-uk="для користувача і для запуску" data-en="to use it and to run it">для користувача і для запуску</span></div>
+  </div>
 </div>
 
 <!-- ============ WHAT MAKES IT DIFFERENT ============ -->
@@ -376,8 +425,8 @@
       <div class="card">
         <span class="ico" aria-hidden="true">⏱</span>
         <h3 data-uk="Екран для самого тренування" data-en="A screen for the session itself">Екран для самого тренування</h3>
-        <p data-uk="Міні-застосунок відкривається прямо в Telegram — встановлювати нічого не треба. Покроковий журнал підходів, таймер відпочинку з кільцем і кнопками ±15 с, графіки і календар. Після збереження — підсумок: скільки працював, скільки відпочивав і які рекорди побив."
-           data-en="The Mini App opens straight inside Telegram — nothing to install. A step-by-step set logger, a rest timer with a progress ring and ±15s controls, charts and a calendar. Saving shows a summary: how long you worked, how long you rested, and any records you hit.">Міні-застосунок відкривається прямо в Telegram — встановлювати нічого не треба. Покроковий журнал підходів, таймер відпочинку з кільцем і кнопками ±15 с, графіки і календар. Після збереження — підсумок: скільки працював, скільки відпочивав і які рекорди побив.</p>
+        <p data-uk="Міні-застосунок відкривається прямо в Telegram — встановлювати нічого не треба. Покроковий журнал підходів, таймер відпочинку з кільцем і кнопками ±15 с, графіки і календар. Незбережене тренування зберігається саме — закрив застосунок чи взяв інший телефон, продовжуєш з того ж місця. Натиснув «Завершити» — підсумок: скільки тривало тренування, скільки відпочивав і які рекорди побив."
+           data-en="The Mini App opens straight inside Telegram — nothing to install. A step-by-step set logger, a rest timer with a progress ring and ±15s controls, charts and a calendar. A session in progress saves itself — close the app or pick up another phone and carry on where you left off. Tap “Finish” for a summary: how long the session took, how long you rested, and any records you hit.">Міні-застосунок відкривається прямо в Telegram — встановлювати нічого не треба. Покроковий журнал підходів, таймер відпочинку з кільцем і кнопками ±15 с, графіки і календар. Незбережене тренування зберігається саме — закрив застосунок чи взяв інший телефон, продовжуєш з того ж місця. Натиснув «Завершити» — підсумок: скільки тривало тренування, скільки відпочивав і які рекорди побив.</p>
       </div>
     </div>
 
@@ -403,6 +452,164 @@
         </ul>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ============ WHO IT'S FOR ============ -->
+<section>
+  <div class="wrap">
+    <p class="sec-kicker" data-uk="Для кого" data-en="Who it's for">Для кого</p>
+    <h2 data-uk="Один продукт — три різні користі" data-en="One product, three kinds of value">Один продукт — три різні користі</h2>
+    <div class="grid3">
+      <div class="card">
+        <span class="ico" aria-hidden="true">🏋️</span>
+        <h3 data-uk="Для того, хто тренується" data-en="For the person training">Для того, хто тренується</h3>
+        <p data-uk="Особистий тренер у кишені: програма, прогресія, харчування і нагадування — без підписки й без реклами." data-en="A personal coach in your pocket: program, progression, nutrition and reminders — no subscription, no ads.">Особистий тренер у кишені: програма, прогресія, харчування і нагадування — без підписки й без реклами.</p>
+        <ul>
+          <li data-uk="Програма під твої дні, обладнання і травми" data-en="A program around your days, equipment and injuries">Програма під твої дні, обладнання і травми</li>
+          <li data-uk="Сам вирішує, коли додати вагу, і пояснює чому" data-en="Decides when to add weight, and says why">Сам вирішує, коли додати вагу, і пояснює чому</li>
+          <li data-uk="КБЖУ за фото тарілки, список покупок з меню" data-en="Macros from a photo of your plate, a shopping list from the menu">КБЖУ за фото тарілки, список покупок з меню</li>
+          <li data-uk="Рекорди, рівні, бейджі, челенджі й рейтинги" data-en="Records, levels, badges, challenges and leaderboards">Рекорди, рівні, бейджі, челенджі й рейтинги</li>
+          <li data-uk="Тренування з друзями: напарник і групові «загони»" data-en="Train with friends: a buddy and group squads">Тренування з друзями: напарник і групові «загони»</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="ico" aria-hidden="true">🧑‍🏫</span>
+        <h3 data-uk="Для тренера" data-en="For the trainer">Для тренера</h3>
+        <p data-uk="Замість CRM, таблиці й месенджера окремо — один інструмент, який уже в Telegram у кожного клієнта." data-en="Instead of a CRM, a spreadsheet and a messenger — one tool, already in every client's Telegram.">Замість CRM, таблиці й месенджера окремо — один інструмент, який уже в Telegram у кожного клієнта.</p>
+        <ul>
+          <li data-uk="Посилання-запрошення, заявки, ліміт клієнтів і черга" data-en="Invite link, request inbox, client limit and waitlist">Посилання-запрошення, заявки, ліміт клієнтів і черга</li>
+          <li data-uk="Редактор програми для кожного клієнта, шаблони, бібліотека" data-en="A plan editor per client, templates, a program library">Редактор програми для кожного клієнта, шаблони, бібліотека</li>
+          <li data-uk="Щотижневий дайджест «світлофор» і тривоги про ризик" data-en="A weekly traffic-light digest and at-risk alerts">Щотижневий дайджест «світлофор» і тривоги про ризик</li>
+          <li data-uk="Розсилки, питання клієнтів, запит фото прогресу" data-en="Broadcasts, client questions, progress photo requests">Розсилки, питання клієнтів, запит фото прогресу</li>
+          <li data-uk="Розклад персональних тренувань і облік оплат" data-en="In-person session schedule and a payments ledger">Розклад персональних тренувань і облік оплат</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="ico" aria-hidden="true">🛠</span>
+        <h3 data-uk="Для того, хто хоче свого бота" data-en="For anyone who wants their own">Для того, хто хоче свого бота</h3>
+        <p data-uk="Відкритий код під MIT, працює повністю на безкоштовних тарифах — можна розгорнути власного тренера для свого залу чи спільноти." data-en="Open source under MIT, runs entirely on free tiers — deploy your own coach for your gym or community.">Відкритий код під MIT, працює повністю на безкоштовних тарифах — можна розгорнути власного тренера для свого залу чи спільноти.</p>
+        <ul>
+          <li data-uk="Cloudflare Workers + D1: жодного сервера, за який треба платити" data-en="Cloudflare Workers + D1: no server to pay for">Cloudflare Workers + D1: жодного сервера, за який треба платити</li>
+          <li data-uk="5 AI-провайдерів з автоматичним перемиканням" data-en="5 AI providers with automatic failover">5 AI-провайдерів з автоматичним перемиканням</li>
+          <li data-uk="Консоль власника: воронка, помилки, здоров'я AI" data-en="Owner console: funnel, errors, AI health">Консоль власника: воронка, помилки, здоров'я AI</li>
+          <li data-uk="Експорт і повне видалення даних (GDPR)" data-en="Data export and full deletion (GDPR)">Експорт і повне видалення даних (GDPR)</li>
+          <li data-uk="Деплой через CI з тестами на кожен PR" data-en="Deploy through CI with tests on every PR">Деплой через CI з тестами на кожен PR</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CAPABILITIES ============ -->
+<section id="features">
+  <div class="wrap">
+    <p class="sec-kicker" data-uk="Що вміє" data-en="What it does">Що вміє</p>
+    <h2 data-uk="172 функції в 11 напрямах" data-en="172 functions across 11 areas">172 функції в 11 напрямах</h2>
+    <p class="sec-lede" data-uk="Нижче — головне з кожного напряму. Повний перелік, де кожен рядок — одна функція, лежить у каталозі на GitHub."
+                        data-en="The highlights of each area are below. The full list, one function per line, is in the catalog on GitHub.">Нижче — головне з кожного напряму. Повний перелік, де кожен рядок — одна функція, лежить у каталозі на GitHub.</p>
+    <div class="feat">
+      <div class="card">
+        <h3><span data-uk="Онбординг і ролі" data-en="Onboarding & roles">Онбординг і ролі</span><span class="n">12</span></h3>
+        <ul>
+          <li data-uk="Інтерв'ю кнопками, 11 кроків" data-en="Button interview, 11 steps">Інтерв'ю кнопками, 11 кроків</li>
+          <li data-uk="Програма з банку або від AI" data-en="Plan from the bank or the AI">Програма з банку або від AI</li>
+          <li data-uk="Нагадує дописати анкету з того ж питання" data-en="Resumes an unfinished interview at the same question">Нагадує дописати анкету з того ж питання</li>
+          <li data-uk="Реферальне посилання з бейджем" data-en="Referral link with a badge">Реферальне посилання з бейджем</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Програма тренувань" data-en="Training plan">Програма тренувань</span><span class="n">27</span></h3>
+        <ul>
+          <li data-uk="Спліт з підходами, вагами, RPE/RIR, відпочинком, темпом" data-en="Split with sets, weights, RPE/RIR, rest, tempo">Спліт з підходами, вагами, RPE/RIR, відпочинком, темпом</li>
+          <li data-uk="Суперсети й кола, редактор днів і вправ" data-en="Supersets and circuits, day and exercise editor">Суперсети й кола, редактор днів і вправ</li>
+          <li data-uk="Прогресія, плато, підвищення рівня" data-en="Progression, plateaus, level-ups">Прогресія, плато, підвищення рівня</li>
+          <li data-uk="Кардіо як навантаження, об'єм на м'яз" data-en="Cardio as training load, volume per muscle">Кардіо як навантаження, об'єм на м'яз</li>
+          <li data-uk="Травми, «не мій зал сьогодні», силові нормативи" data-en="Injuries, “not my gym today”, strength standards">Травми, «не мій зал сьогодні», силові нормативи</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Запис тренування" data-en="Workout logging">Запис тренування</span><span class="n">26</span></h3>
+        <ul>
+          <li data-uk="Картки вправ, «за планом» в один дотик" data-en="Exercise cards, one-tap “as planned”">Картки вправ, «за планом» в один дотик</li>
+          <li data-uk="Заміна вправи, яку застосунок пам'ятає" data-en="Swaps the app remembers">Заміна вправи, яку застосунок пам'ятає</li>
+          <li data-uk="Таймер відпочинку + пуш у Telegram" data-en="Rest timer + a Telegram push">Таймер відпочинку + пуш у Telegram</li>
+          <li data-uk="Чернетка на сервері — продовжуй з іншого телефону" data-en="Server draft — carry on from another phone">Чернетка на сервері — продовжуй з іншого телефону</li>
+          <li data-uk="Текстом, голосом або кнопками" data-en="By text, voice or buttons">Текстом, голосом або кнопками</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Харчування" data-en="Nutrition">Харчування</span><span class="n">14</span></h3>
+        <ul>
+          <li data-uk="КБЖУ з тексту або фото" data-en="Macros from text or a photo">КБЖУ з тексту або фото</li>
+          <li data-uk="База продуктів Open Food Facts" data-en="Open Food Facts database">База продуктів Open Food Facts</li>
+          <li data-uk="Адаптивні калорії з поясненням" data-en="Adaptive calories with the reason">Адаптивні калорії з поясненням</li>
+          <li data-uk="Меню від AI і список покупок по відділах" data-en="AI meal plan and an aisle-sorted shopping list">Меню від AI і список покупок по відділах</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Тіло, відновлення, активність" data-en="Body, recovery & activity">Тіло, відновлення, активність</span><span class="n">14</span></h3>
+        <ul>
+          <li data-uk="Вага, заміри, прогноз до цілі" data-en="Weight, measurements, goal forecast">Вага, заміри, прогноз до цілі</li>
+          <li data-uk="Вода, кроки, самопочуття, готовність до тренування" data-en="Water, steps, wellbeing, readiness">Вода, кроки, самопочуття, готовність до тренування</li>
+          <li data-uk="Фото прогресу й порівняння" data-en="Progress photos and comparison">Фото прогресу й порівняння</li>
+          <li data-uk="Відстеження циклу (за бажанням)" data-en="Cycle tracking (opt-in)">Відстеження циклу (за бажанням)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Мотивація і спільнота" data-en="Motivation & community">Мотивація і спільнота</span><span class="n">17</span></h3>
+        <ul>
+          <li data-uk="XP, рівні, серія тижнів із «заморозкою»" data-en="XP, levels, week streak with a freeze">XP, рівні, серія тижнів із «заморозкою»</li>
+          <li data-uk="12 бейджів, рекорди з графіком e1RM" data-en="12 badges, records with an e1RM chart">12 бейджів, рекорди з графіком e1RM</li>
+          <li data-uk="Рейтинги, челенджі, напарник" data-en="Leaderboards, challenges, a buddy">Рейтинги, челенджі, напарник</li>
+          <li data-uk="Загін у груповому чаті" data-en="A squad in a group chat">Загін у груповому чаті</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Для тренера" data-en="Trainer tools">Для тренера</span><span class="n">22</span></h3>
+        <ul>
+          <li data-uk="Запрошення, заявки, черга" data-en="Invites, requests, waitlist">Запрошення, заявки, черга</li>
+          <li data-uk="Картка клієнта з нотатками й даними за згодою" data-en="Client card with notes and consented data">Картка клієнта з нотатками й даними за згодою</li>
+          <li data-uk="Шаблони програм і розсилки" data-en="Program templates and broadcasts">Шаблони програм і розсилки</li>
+          <li data-uk="Розклад і облік оплат" data-en="Schedule and payments ledger">Розклад і облік оплат</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Міні-застосунок" data-en="Mini App">Міні-застосунок</span><span class="n">13</span></h3>
+        <ul>
+          <li data-uk="Відкривається миттєво, працює як нативний" data-en="Opens instantly, feels native">Відкривається миттєво, працює як нативний</li>
+          <li data-uk="Календар, теплова карта, об'єм, e1RM" data-en="Calendar, heatmap, volume, e1RM">Календар, теплова карта, об'єм, e1RM</li>
+          <li data-uk="Експорт даних, видалення акаунта" data-en="Data export, account deletion">Експорт даних, видалення акаунта</li>
+          <li data-uk="Світла й темна тема" data-en="Light and dark themes">Світла й темна тема</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Нагадування" data-en="Reminders">Нагадування</span><span class="n">13</span></h3>
+        <ul>
+          <li data-uk="З урахуванням часового поясу і твого розкладу" data-en="Timezone-aware, fitted to when you train">З урахуванням часового поясу і твого розкладу</li>
+          <li data-uk="Вечірній чек-лист, дайджести тижня" data-en="Evening checklist, weekly digests">Вечірній чек-лист, дайджести тижня</li>
+          <li data-uk="Перші 14 днів — окремий сценарій" data-en="A dedicated first-14-days arc">Перші 14 днів — окремий сценарій</li>
+          <li data-uk="Кожне нагадування можна вимкнути" data-en="Every reminder can be switched off">Кожне нагадування можна вимкнути</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Для власника" data-en="Owner / admin">Для власника</span><span class="n">9</span></h3>
+        <ul>
+          <li data-uk="Звіт: воронка, DAU, помилки, здоров'я AI" data-en="Report: funnel, DAU, errors, AI health">Звіт: воронка, DAU, помилки, здоров'я AI</li>
+          <li data-uk="Картка користувача й модерація" data-en="User card and moderation">Картка користувача й модерація</li>
+          <li data-uk="Сповіщення про збої провайдерів" data-en="Provider outage alerts">Сповіщення про збої провайдерів</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span data-uk="Надійність" data-en="Engineering">Надійність</span><span class="n">5</span></h3>
+        <ul>
+          <li data-uk="~1000 автотестів, CI на кожен PR" data-en="~1,000 automated tests, CI on every PR">~1000 автотестів, CI на кожен PR</li>
+          <li data-uk="Ідемпотентні збереження — нічого не задвоїться" data-en="Idempotent saves — nothing doubles up">Ідемпотентні збереження — нічого не задвоїться</li>
+          <li data-uk="Повне видалення даних за запитом" data-en="Full data deletion on request">Повне видалення даних за запитом</li>
+        </ul>
+      </div>
+    </div>
+    <p class="more-link"><a href="https://github.com/sanych44474/trix/blob/main/docs/features.md" rel="noopener" data-uk="Повний каталог функцій →" data-en="The full feature catalog →">Повний каталог функцій →</a></p>
   </div>
 </section>
 
@@ -449,7 +656,8 @@
          data-en="The bot runs entirely on free tiers: Cloudflare Workers and D1 for compute and storage, and a ladder of AI providers that fails over automatically when one is unavailable. There are no servers to pay for, so there is no need to introduce a subscription. The code is open — read it, fork it, run your own.">Бот повністю працює на безкоштовних тарифах: обчислення й база — Cloudflare Workers та D1, а за текст відповідає каскад із кількох AI-провайдерів, який автоматично перемикається, якщо один із них недоступний. Немає серверів, за які треба платити, — тому немає й потреби вводити підписку. Код відкритий: його можна прочитати, форкнути й запустити власного бота.</p>
       <div class="stack">
         <span>Cloudflare Workers</span><span>D1 · SQLite</span><span>TypeScript</span>
-        <span>grammY</span><span>Telegram Mini App</span><span>Gemini · Groq · Workers AI</span><span>MIT</span>
+        <span>grammY</span><span>Telegram Mini App</span><span>React + Vite</span><span>Gemini · Groq · OpenRouter · Workers AI · Ollama</span>
+        <span>OpenAPI 3.1 · 64 ops</span><span>81 D1 migrations</span><span>~1000 tests</span><span>MIT</span>
       </div>
     </div>
   </div>

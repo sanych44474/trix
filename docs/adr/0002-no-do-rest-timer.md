@@ -13,7 +13,7 @@ out to be inaccurate: the rest timer already has real server-side delivery.
 `v2_rest_timers` via `setRestTimer` (`src/adapters/d1/v2Admin.ts`). The existing per-minute cron
 (`crons = ["* * * * *"]` in `wrangler.toml`, `src/scheduler.ts`) polls `dueRestTimers` every tick
 and sends a real Telegram "rest done" message, then clears the row via `deleteRestTimers`. The
-Mini App's client-side countdown (`apps/mini-app/src/TrainView.tsx`) is a local, resilient-to-
+Mini App's client-side countdown (`apps/mini-app/src/train/useSession.ts`) is a local, resilient-to-
 backgrounding *display* of the same deadline — it is not the only delivery mechanism, and losing
 it (app closed, phone locked) does not lose the notification.
 
