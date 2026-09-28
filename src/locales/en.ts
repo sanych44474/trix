@@ -1928,6 +1928,12 @@ export const en = {
   support_invoice_label: "Support",
   support_thanks: "Thank you for the {n} ⭐ — it genuinely helps keep trix free for everyone. 🙏",
   support_declined: "This payment can't be processed. Please try again from /support.",
+  strava_connected_title: "Strava connected",
+  strava_connected: "✅ Strava is connected. New runs, rides and swims will appear in your log automatically.",
+  strava_connected_synced: "✅ Strava is connected. Imported {n} activities from the last 30 days — new ones will appear automatically.",
+  strava_connect_failed_title: "Couldn't connect Strava",
+  strava_connect_failed_body: "The link expired or access was declined. Open the app and try again from Progress → Strava.",
+  strava_scope_missing: "trix needs permission to read your activities. Please try again and keep “View data about your activities” ticked.",
   support_paysupport: "Payments here are voluntary tips in Telegram Stars; nothing is sold or unlocked. If something went wrong with a payment, just reply in this chat and describe it — the owner will sort it out, including a refund.",
 };
 

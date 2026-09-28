@@ -188,6 +188,12 @@ export function parseWorkoutText(text: string): ParsedSet[] {
 const TIME_NAME_RE = /планк|вис(?![а-яії])|утриман|статичн|холлоу|\b(?:plank|dead ?hang|bar hang|hang|wall ?sit|hollow ?hold|l-?sit|iso(?:metric)? ?hold)\b/iu;
 const DISTANCE_NAME_RE = /гребл|гребн|веслуванн|біг|пробіжк|доріж|велотренаж|велосипед|еліпт|еліпс|степер|плаванн|\b(?:rowing machine|row(?:ing)? erg|rower|ergometer|treadmill|running|run|jog(?:ging)?|cycling|spin bike|bike|elliptical|ski ?erg|stair ?(?:climber|master)|swimming|swim)\b/iu;
 
+// Whole-name cardio that the word patterns above must not match inside longer names: the bot's own
+// cardio menu logs "Rowing"/"Walking" (and Strava imports "Hiking"), but "Barbell Rowing" is a
+// back lift and "Farmer's walk" a loaded carry. Without this, English-language cardio from the
+// menu never counted as conditioning load.
+const CARDIO_EXACT_NAME_RE = /^\s*(?:rowing|walking|walk|hiking|hike|ходьба|прогулянка|похід)\s*$/iu;
+
 /** Classify how an exercise is measured: explicit `metric` → unit in `sets` → name signature → reps. */
 export function exerciseMetric(ex: { metric?: ExerciseMetric; sets?: string; name?: string }): ExerciseMetric {
   if (ex.metric) return ex.metric;
@@ -195,7 +201,7 @@ export function exerciseMetric(ex: { metric?: ExerciseMetric; sets?: string; nam
   if (/\d\s*(?:km|км|m|м)(?![\p{L}])/iu.test(s)) return "distance";
   if (/(?:\d\s*(?:s|с|sec|сек|min|хв|мин)(?![\p{L}])|\d:[0-5]\d)/iu.test(s)) return "time";
   const n = ex.name ?? "";
-  if (DISTANCE_NAME_RE.test(n)) return "distance";
+  if (DISTANCE_NAME_RE.test(n) || CARDIO_EXACT_NAME_RE.test(n)) return "distance";
   if (TIME_NAME_RE.test(n)) return "time";
   return "reps";
 }

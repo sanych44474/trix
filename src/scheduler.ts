@@ -104,6 +104,9 @@ import { buildOwnerReport, computeBoards, finalizeOnboardingPlan, retryInterview
 import { APP_VERSION } from "./webapp/appVersion";
 import { enforceStorageBudget } from "./webapp/photoStorage";
 import { purgeExpiredStories } from "./webapp/storyMedia";
+import { stravaAccountsDue } from "./adapters/d1/v2Strava";
+import { syncStrava } from "./features/strava/stravaSync";
+import { stravaConfig } from "./webapp/stravaApi";
 import { advanceMesocycle, phaseGuidance, phaseKey } from "./domain/mesocycle";
 
 const HTML = { parse_mode: "HTML" as const, link_preview_options: { is_disabled: true } };
@@ -462,6 +465,18 @@ async function runScheduleInner(env: Env): Promise<void> {
   if (!lastStorySweep || Date.parse(lastStorySweep) < Date.now() - 86_400_000) {
     await purgeExpiredStories(env).catch((e) => logSchedulerError(db, "story_sweep", e));
     await setSetting(db, "last_story_sweep", new Date().toISOString()).catch(() => {});
+  }
+
+  // Strava cardio import: a few linked accounts per hourly tick, each at most every 12 h. Small
+  // batches keep one invocation inside the Workers subrequest budget (2-3 Strava calls each).
+  const strava = stravaConfig(env, env.WORKER_URL || "");
+  if (strava) {
+    const due = await stravaAccountsDue(db, new Date(Date.now() - 12 * 3_600_000).toISOString(), 3).catch(() => [] as number[]);
+    for (const accountId of due) {
+      const owner = await getUser(db, accountId).catch(() => null);
+      if (!owner) continue;
+      await syncStrava(db, strava, accountId, owner.lang).catch((e) => logSchedulerError(db, "strava_sync", e));
+    }
   }
 
   // Weekly buddy duels — compare last week's completed-workout counts for every paired buddy,

@@ -237,3 +237,4 @@ button { cursor: pointer; }
 .body-map-legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; color: var(--muted); font-size: 12px; }
 .body-map-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; vertical-align: -1px; }
 .body-map-detail { margin: 0; text-align: center; font-size: 13px; }
+.strava-button { justify-self: start; background: #fc4c02; color: #fff; }

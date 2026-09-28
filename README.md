@@ -186,6 +186,10 @@ the environment. `database_id` in `wrangler.toml` is a placeholder you replace w
 | `YOUTUBE_API_KEY` | optional | Exercise-technique shorts (cache-first) |
 | `USDA_FDC_API_KEY` | optional | Raises the nutrition-lookup limit above the shared `DEMO_KEY` |
 | `EXERCISES_API_KEY` | optional | Used only by `scripts/seed-exercises.mjs`, never at runtime |
+| `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` | optional | Strava cardio import. Create an API app at strava.com/settings/api and set its **Authorization Callback Domain** to your Worker's domain (the callback is `<WORKER_URL>/strava/callback`). Unset = the Strava card is hidden. |
+
+Telegram Stars support needs no secret, but the webhook must receive `pre_checkout_query`
+updates: re-run `node scripts/setup-telegram.mjs` once after deploying this version.
 
 D1 and Workers AI need no secret — they are bound via `[[d1_databases]]` and `[ai]`.
 

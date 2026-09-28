@@ -999,6 +999,96 @@ paths:
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '503': {description: Telegram unavailable}
+  /api/v2/strava:
+    get:
+      operationId: getStravaStatus
+      description: Strava cardio-import link status. available=false when the Worker has no Strava app configured.
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Link status
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [available, connected]
+                      properties:
+                        available: {type: boolean}
+                        connected: {type: boolean}
+                        lastSyncAt: {type: [string, 'null']}
+                        lastError: {type: [string, 'null']}
+                  required: [data]
+    delete:
+      operationId: disconnectStrava
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Revoked and forgotten
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+  /api/v2/strava/connect:
+    post:
+      operationId: startStravaConnect
+      description: Strava authorize URL (signed state, 15 min) to open in the external browser.
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Authorize URL
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [url]
+                      properties:
+                        url: {type: string}
+                  required: [data]
+  /api/v2/strava/sync:
+    post:
+      operationId: syncStrava
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Imported activities
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [imported, days]
+                      properties:
+                        imported: {type: integer}
+                        days: {type: integer}
+                  required: [data]
+        '503': {description: Strava unavailable}
   /api/v2/plates:
     get:
       operationId: getPlates

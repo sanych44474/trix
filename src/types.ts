@@ -38,7 +38,9 @@ type SecretKey =
   | "EXERCISES_API_KEY"
   | "USDA_FDC_API_KEY"
   | "FATSECRET_CLIENT_ID"
-  | "FATSECRET_CLIENT_SECRET";
+  | "FATSECRET_CLIENT_SECRET"
+  | "STRAVA_CLIENT_ID"
+  | "STRAVA_CLIENT_SECRET";
 
 export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   TELEGRAM_BOT_TOKEN: string;
@@ -56,6 +58,8 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   USDA_FDC_API_KEY?: string;
   FATSECRET_CLIENT_ID?: string; // FatSecret OAuth2 — food database search (primary, OFF fallback)
   FATSECRET_CLIENT_SECRET?: string;
+  STRAVA_CLIENT_ID?: string; // Strava API app -- cardio import (features/strava); both unset = feature hidden
+  STRAVA_CLIENT_SECRET?: string;
   V2_APP_ENABLED: string;
   CUTOVER_LEGACY_FROZEN: string;
   ALLOW_DEBUG_USER?: string;

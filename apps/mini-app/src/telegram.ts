@@ -77,3 +77,10 @@ export function showMainButton(state: MainButtonState, onClick: () => void): () 
     try { button.offClick(onClick); button.hideProgress(); button.setParams({ is_visible: false }); } catch { /* unsupported client */ }
   };
 }
+
+/** Opens a URL in the external browser (an OAuth page must not run inside the webview). */
+export function openExternal(url: string): void {
+  const tg = webApp();
+  try { if (tg?.initData && tg.openLink) { tg.openLink(url); return; } } catch { /* fall through */ }
+  window.open(url, "_blank", "noopener");
+}
