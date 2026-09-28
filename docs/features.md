@@ -24,25 +24,25 @@ function**, so the total below is a count rather than a slogan.
 
 | | |
 |---|---|
-| Functions in this catalog | **172** across 11 areas |
+| Functions in this catalog | **180** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
-| Surfaces | 2 — Telegram chat (43 commands) and the Telegram Mini App |
+| Surfaces | 2 — Telegram chat (45 commands) and the Telegram Mini App |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
 | AI | 5 providers in a fallback chain; every provider receives the same input |
-| Backend | 64 typed API operations (OpenAPI 3.1), 81 forward-only D1 migrations |
+| Backend | 70 typed API operations (OpenAPI 3.1), 83 forward-only D1 migrations |
 | Quality | ~1,000 automated tests (node:test + Workers runtime), CI on every pull request |
 | Cost | $0 — Cloudflare free tier, free AI tiers, no ads, no subscription |
 
 | Area | Functions |
 |---|---|
 | 1. Onboarding & roles | 12 |
-| 2. Training plan & programming | 27 |
-| 3. Workout logging | 26 |
+| 2. Training plan & programming | 28 |
+| 3. Workout logging | 28 |
 | 4. Nutrition | 14 |
-| 5. Body, recovery & activity | 14 |
-| 6. Gamification & community | 17 |
+| 5. Body, recovery & activity | 15 |
+| 6. Gamification & community | 18 |
 | 7. Trainer tools | 22 |
-| 8. Mini App platform | 13 |
+| 8. Mini App platform | 16 |
 | 9. Reminders & automation | 13 |
 | 10. Owner / admin | 9 |
 | 11. Engineering safeguards | 5 |
@@ -104,6 +104,8 @@ function**, so the total below is a count rather than a slogan.
 25. **Plate calculator**: working weight → plates per side.
 26. **Warm-up ramp** for a working weight.
 27. **Program library**: take a ready program into your own plan.
+28. **Block periodization** (opt-in): hypertrophy → strength → peak → deload blocks, advanced
+    weekly, shown in the app and passed to plan regeneration.
 
 ## 3. Workout logging
 
@@ -142,6 +144,10 @@ function**, so the total below is a count rather than a slogan.
     by time and distance).
 26. **Finish summary**: sets, duration, % of time working vs resting and rests-on-target streak
     (tap any number for what it means), plus new PRs 🏆, badges 🏅 and level-ups.
+27. **Native Telegram button**: inside Telegram, "Finish workout" / "Save changes" is Telegram's
+    own bottom button, with a progress state while saving.
+28. **Strava import**: connect once; runs, rides, swims, walks and rows appear in the log by
+    themselves (twice a day or on demand), count toward cardio load and are never added twice.
 
 ## 4. Nutrition
 
@@ -164,7 +170,7 @@ function**, so the total below is a count rather than a slogan.
 ## 5. Body, recovery & activity
 
 1. **Bodyweight logging** in chat (free text) or with a quick form in the app.
-2. **Measurements**: waist, chest, hips, arm, thigh.
+2. **Measurements**: waist, chest, hips, arm, thigh, neck.
 3. **Trend charts** for weight and measurements in both surfaces.
 4. **Weight goal projection**: kg/week trend, ETA, on/off-track flag.
 5. **Steps tracking.**
@@ -179,6 +185,8 @@ function**, so the total below is a count rather than a slogan.
 13. **Progress photo comparison** sent as a side-by-side.
 14. **Menstrual-cycle tracking** (opt-in): calendar date picker, phase-aware coaching hints and
     deload/carb nudges, with medical data gated behind trainer consent.
+15. **Body-fat estimate** from waist, neck (and hips for women), U.S. Navy method, shown with its
+    ±3–4 % error band.
 
 ## 6. Gamification & community
 
@@ -201,7 +209,8 @@ function**, so the total below is a count rather than a slogan.
 15. **Squad mode** in a group chat: `/squad` registers the group, and the bot posts last week's
     sessions every Monday.
 16. **Squad PR announcements** as they happen, and `/squadboard` on demand.
-17. **Shareable week card** for the week's training.
+17. **Shareable week card** for the week's training, sent to your chat or posted as a Telegram story.
+18. **Share to story**: a finished session or a new record becomes a 9:16 story card in one tap.
 
 ## 7. Trainer tools
 
@@ -246,7 +255,12 @@ function**, so the total below is a count rather than a slogan.
 10. **Leave trainer / delete account** from the app.
 11. **Deep links**: reminder buttons open the exact screen (`?view=…`, `startapp=`).
 12. **Light and dark themes**, following Telegram's.
-13. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
+13. **Weekly load body map**: front/back silhouettes coloured by each region's sets vs MEV/MAV;
+    tap a muscle for its numbers.
+14. **Feels installed**: add trix to the phone's home screen, or open it full screen.
+15. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
+    unlocked by it, and `/paysupport` handles payment questions.
+16. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
     (deduped), a strict Content-Security-Policy, static assets served from the edge.
 
 ## 9. Reminders & automation
