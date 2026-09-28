@@ -146,6 +146,8 @@ interface V2SessionRow {
   rawText: string | null;
   createdAt: string;
   updatedAt: string;
+  durationSec?: number | null;
+  restTotalSec?: number | null;
 }
 
 interface V2ExerciseRow {
@@ -156,6 +158,7 @@ interface V2ExerciseRow {
   metric: string;
   skipped: number;
   rpe: number | null;
+  planName?: string | null;
 }
 
 interface V2SetRow {
@@ -174,6 +177,7 @@ function toLoggedExercise(row: V2ExerciseRow, sets: V2SetRow[]): LoggedExercise 
     name: row.name,
     skipped: !!row.skipped,
     rpe: row.rpe ?? undefined,
+    ...(row.planName ? { planName: row.planName } : {}),
     setsDone: sets
       .slice()
       .sort((a, b) => a.position - b.position)
@@ -196,6 +200,9 @@ function toWorkoutLog(session: V2SessionRow, exercises: LoggedExercise[]): Worko
     completed: !!session.completed,
     notes: session.rawText ?? undefined,
     createdAt: new Date(session.createdAt),
+    updatedAt: new Date(session.updatedAt),
+    ...(session.durationSec != null ? { durationSec: session.durationSec } : {}),
+    ...(session.restTotalSec != null ? { restTotalSec: session.restTotalSec } : {}),
   };
 }
 
@@ -269,8 +276,8 @@ async function writeExercises(db: DB, sessionId: number, exercises: WorkoutLogDo
         : "reps";
     statements.push(
       db
-        .prepare("INSERT INTO v2_workout_exercises (id, sessionId, position, name, metric, skipped, rpe) VALUES (?, ?, ?, ?, ?, ?, ?)")
-        .bind(exerciseId, sessionId, position, exercise.name, metric, exercise.skipped ? 1 : 0, exercise.rpe ?? null),
+        .prepare("INSERT INTO v2_workout_exercises (id, sessionId, position, name, metric, skipped, rpe, planName) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(exerciseId, sessionId, position, exercise.name, metric, exercise.skipped ? 1 : 0, exercise.rpe ?? null, exercise.planName ?? null),
     );
     exercise.setsDone.forEach((set, setPosition) => {
       statements.push(
@@ -293,16 +300,20 @@ export async function upsertWorkoutLog(
   exercises: WorkoutLogDoc["exercises"],
   completed: boolean,
   notes?: string,
+  timing?: { durationSec?: number; restTotalSec?: number },
 ): Promise<void> {
   const now = nowIso();
+  // COALESCE: only the Mini App measures a session. A later save from a path that doesn't (a chat
+  // edit, the quick-log API) must not wipe the length the app already recorded for that day.
   await db
     .prepare(
-      `INSERT INTO v2_workout_sessions (accountId, date, weekday, completed, rawText, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO v2_workout_sessions (accountId, date, weekday, completed, rawText, createdAt, updatedAt, durationSec, restTotalSec)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(accountId, date) DO UPDATE SET
-         weekday = excluded.weekday, completed = excluded.completed, rawText = excluded.rawText, updatedAt = excluded.updatedAt`,
+         weekday = excluded.weekday, completed = excluded.completed, rawText = excluded.rawText, updatedAt = excluded.updatedAt,
+         durationSec = COALESCE(excluded.durationSec, durationSec), restTotalSec = COALESCE(excluded.restTotalSec, restTotalSec)`,
     )
-    .bind(userId, date, weekday, completed ? 1 : 0, notes ?? null, now, now)
+    .bind(userId, date, weekday, completed ? 1 : 0, notes ?? null, now, now, timing?.durationSec ?? null, timing?.restTotalSec ?? null)
     .run();
   // ON CONFLICT DO UPDATE doesn't reliably surface last_row_id across drivers -- same two-step
   // shape v2Projection.ts's projectWorkout already uses (insert/upsert, then re-select the id).
@@ -364,4 +375,28 @@ export async function countCompletedWorkoutsBetween(db: DB, from: string, toExcl
     .bind(from, toExclusive)
     .first<{ c: number }>();
   return r?.c ?? 0;
+}
+
+// ---------- in-progress logger drafts (Mini App) ----------
+// The body is the client's own JSON, stored opaquely: the server never interprets it, it only
+// hands it back to the same account for the same day. Size is capped by the API layer.
+
+export async function getWorkoutDraft(db: DB, userId: number, date: string): Promise<{ body: string; updatedAt: string } | null> {
+  return db.prepare("SELECT body, updatedAt FROM v2_workout_drafts WHERE accountId = ? AND date = ?").bind(userId, date).first<{ body: string; updatedAt: string }>();
+}
+
+export async function putWorkoutDraft(db: DB, userId: number, date: string, body: string): Promise<string> {
+  const now = nowIso();
+  await db
+    .prepare(
+      `INSERT INTO v2_workout_drafts (accountId, date, body, updatedAt) VALUES (?, ?, ?, ?)
+       ON CONFLICT(accountId, date) DO UPDATE SET body = excluded.body, updatedAt = excluded.updatedAt`,
+    )
+    .bind(userId, date, body, now)
+    .run();
+  return now;
+}
+
+export async function deleteWorkoutDraft(db: DB, userId: number, date: string): Promise<void> {
+  await db.prepare("DELETE FROM v2_workout_drafts WHERE accountId = ? AND date = ?").bind(userId, date).run();
 }
