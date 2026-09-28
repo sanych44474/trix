@@ -7,6 +7,7 @@ import { normalizeVideoKey } from "./youtube";
 import { phaseGuidance, phaseKey } from "./domain/mesocycle";
 import { GROCERY_ORDER, formatGrams, type GroceryCategory, type GroceryLine } from "./domain/groceryList";
 import type { ConditioningWeek } from "./domain/conditioning";
+import { planBalance } from "./domain/muscleLoad";
 
 /** Human-readable weekly conditioning load: "3 cardio sessions - ~180 min", or the session count
  * alone when nothing carried a duration (a distance-only log has real work the minutes can't see,
@@ -340,6 +341,27 @@ export function renderSchedule(lang: Lang, items: SessionItem[], videos?: Map<st
   return lines.join("\n");
 }
 
+/** The plan-balance note (domain/muscleLoad.ts planBalance), or "" when the plan is balanced. */
+export function renderPlanBalance(lang: Lang, split: PlanDay[]): string {
+  const issues = planBalance(split);
+  if (!issues.length) return "";
+  const muscle = (slug: string) => t(lang, `bal_m_${slug.replace("-", "_")}` as Parameters<typeof t>[1]);
+  const lines = issues.map((issue) => {
+    const s = issue.suggestion;
+    const day = s ? weekdayName(lang, s.weekday as Weekday) : "";
+    const exercise = s ? s[lang] : "";
+    if (issue.kind === "imbalance" && issue.other && s) {
+      const name = muscle(issue.slug);
+      const num = (n: number) => (lang === "uk" ? String(n).replace(".", ",") : String(n));
+      return t(lang, "plan_balance_imbalance", { muscle: name.charAt(0).toUpperCase() + name.slice(1), weak: num(issue.sets), strong: num(issue.other.sets), other: muscle(issue.other.slug), exercise, day });
+    }
+    return s
+      ? t(lang, "plan_balance_missing", { muscle: muscle(issue.slug), exercise, day })
+      : t(lang, "plan_balance_missing_nosuggest", { muscle: muscle(issue.slug) });
+  });
+  return [t(lang, "plan_balance_header"), ...lines].join("\n");
+}
+
 export function renderPlan(lang: Lang, plan: PlanDoc, videos?: Map<string, ExerciseVideo>): string {
   const parts: string[] = [t(lang, "plan_header"), ""];
   if (plan.mesocycle) {
@@ -367,6 +389,9 @@ export function renderPlan(lang: Lang, plan: PlanDoc, videos?: Map<string, Exerc
   if (plan.movementAudit) {
     parts.push(`🧭 <i>${escapeHtml(cleanAi(plan.movementAudit))}</i>`, "");
   }
+
+  const balance = renderPlanBalance(lang, plan.split);
+  if (balance) parts.push(balance, "");
 
   const n = plan.nutrition;
   parts.push(t(lang, "nutrition_block"));

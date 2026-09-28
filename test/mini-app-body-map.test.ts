@@ -74,3 +74,16 @@ test("whole-day mode: every day keeps its full exercise list, muscles are merged
   assert.deepEqual(monday.unknown, []);
   assert.deepEqual(dayMuscles(groups[1]!.dayNames, musclesForExercise).unknown, ["Йога-потік"]);
 });
+
+test("week and recovery parts: per-muscle zone colours, every tracked muscle painted by recovery", async () => {
+  const { muscleWeekParts, recoveryParts, RECOVERY_COLORS, ZONE_COLORS } = await import("../apps/mini-app/src/logic/bodyMap");
+  const { muscleRecovery, weeklyMuscleSets, TRACKED_MUSCLES } = await import("../src/domain/muscleLoad");
+  const logs = [{ date: "2026-09-27", done: true, ex: [{ n: "Жим лежачи", s: 12 }] }];
+  const week = muscleWeekParts(weeklyMuscleSets(logs, "2026-09-22"));
+  assert.deepEqual(week.find((p) => p.slug === "chest"), { slug: "chest", color: ZONE_COLORS.optimal });
+  assert.ok(!week.some((p) => p.slug === "quadriceps"), "untrained muscles stay the base colour");
+  const rec = recoveryParts(muscleRecovery(logs, "2026-09-28"));
+  assert.equal(rec.length, TRACKED_MUSCLES.length);
+  assert.equal(rec.find((p) => p.slug === "chest")?.color, RECOVERY_COLORS.recovering);
+  assert.equal(rec.find((p) => p.slug === "quadriceps")?.color, RECOVERY_COLORS.ready);
+});

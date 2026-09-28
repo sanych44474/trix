@@ -81,7 +81,9 @@ export function swapExercise(exercises: LoggerExercise[], index: number, name: s
   return exercises.map((exercise) => {
     if (exercise.index !== index) return exercise;
     const planName = exercise.planName ?? exercise.name;
-    const { planName: _drop, ...rest } = exercise;
+    // The plan's technique notes, video and catalog name describe the old exercise, not this one
+    // (the info panel looks the new one up by name instead).
+    const { planName: _drop, technique: _t, videoUrl: _v, videoTitle: _vt, canonicalName: _c, ...rest } = exercise;
     return { ...rest, name, setsDone: [], ...(planName !== name ? { planName } : {}) };
   });
 }

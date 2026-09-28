@@ -1,6 +1,8 @@
 // Body map on the Progress screen (react-muscle-highlighter, MIT): anatomical front/back figures
-// for the user's sex. Three modes:
-//   - "Week": each region coloured by where its weekly working sets sit against MEV/MAV.
+// for the user's sex. Four modes:
+//   - "Week": each muscle coloured by its fractional weekly sets (primary 1, assisting ½) against
+//     its own MEV/MAV; tapping one lists the exercises and sets behind it.
+//   - "Recovery": each muscle by days since it was last loaded (red / yellow / green).
 //   - a plan day: every muscle that day's exercises drive (strong) or assist (light).
 //   - an exercise: its primary movers strong, its helpers light (./logic/exerciseMuscles.ts).
 // The dropdown lists the plan by training day ("whole day" first, then its exercises), then recent extras.
@@ -9,10 +11,10 @@ import { api } from "./api";
 import type { Plan } from "./types";
 import Body, { type ExtendedBodyPart } from "react-muscle-highlighter";
 import { t, type Key, type Lang } from "./i18n";
-import { dayMuscles, exerciseParts, pickerGroups, PRIMARY_COLOR, regionOfMuscle, SECONDARY_COLOR, weekParts, ZONE_COLORS, type Part } from "./logic/bodyMap";
+import { dayMuscles, exerciseParts, muscleWeekParts, pickerGroups, PRIMARY_COLOR, RECOVERY_COLORS, recoveryParts, SECONDARY_COLOR, ZONE_COLORS, type Part } from "./logic/bodyMap";
+import { lopsidedPairs, muscleRecovery, weeklyMuscleSets, type LoggedDay } from "./logic/muscleLoad";
 import { musclesForExercise, type ExerciseMuscles } from "./logic/exerciseMuscles";
 
-type Volume = Array<{ group: string; sets: number; mev: number; mav: number; zone: string }>;
 
 // The figure takes plain colours (SVG attributes, where CSS variables don't resolve), so the
 // theme's base/outline colours are read once from the page.
@@ -33,19 +35,30 @@ const MUSCLES = new Set(["abs", "adductors", "biceps", "calves", "chest", "delto
 const WEEKDAY_KEYS: Record<number, Key> = { 1: "weekday_mon", 2: "weekday_tue", 3: "weekday_wed", 4: "weekday_thu", 5: "weekday_fri", 6: "weekday_sat", 7: "weekday_sun" };
 const muscleLabel = (lang: Lang, slug: string) => t(lang, `muscle_${slug.replace("-", "_")}` as Key);
 
+function daysAgoLabel(lang: Lang, days: number): string {
+  return days === 0 ? t(lang, "days_ago_0") : days === 1 ? t(lang, "days_ago_1") : t(lang, "days_ago_n", { n: days });
+}
+
 function listNames(lang: Lang, slugs: string[]): string {
   return slugs.map((s) => muscleLabel(lang, s)).join(", ");
 }
 
-type Selection = { kind: "week" } | { kind: "day"; weekday: number } | { kind: "exercise"; name: string };
-const selectionValue = (s: Selection) => (s.kind === "day" ? `d:${s.weekday}` : s.kind === "exercise" ? `e:${s.name}` : "");
+type Selection = { kind: "week" } | { kind: "recovery" } | { kind: "day"; weekday: number } | { kind: "exercise"; name: string };
+const selectionValue = (s: Selection) => (s.kind === "day" ? `d:${s.weekday}` : s.kind === "exercise" ? `e:${s.name}` : s.kind === "recovery" ? "r" : "");
 function parseSelection(value: string): Selection {
+  if (value === "r") return { kind: "recovery" };
   if (value.startsWith("d:")) return { kind: "day", weekday: Number(value.slice(2)) };
   if (value.startsWith("e:")) return { kind: "exercise", name: value.slice(2) };
   return { kind: "week" };
 }
 
-export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: Volume; sex?: "male" | "female"; exercises: string[] }) {
+function isoDaysBefore(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+export function BodyMap({ lang, logs, today, sex, exercises }: { lang: Lang; logs: LoggedDay[]; today: string; sex?: "male" | "female"; exercises: string[] }) {
   const [selection, setSelection] = useState<Selection>({ kind: "week" });
   const [tapped, setTapped] = useState<string | null>(null);
   const [planDays, setPlanDays] = useState<Plan["days"]>([]);
@@ -54,6 +67,10 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
   // it loads with the (lazy) body map. Without a plan the dropdown still lists recent exercises.
   useEffect(() => { api<Plan>("/api/v2/plan").then((plan) => setPlanDays(plan.days ?? [])).catch(() => {}); }, []);
   const groups = useMemo(() => pickerGroups(planDays, exercises), [planDays, exercises]);
+  // Same 7-day window as the dashboard's weekly volume (today and the six days before).
+  const week = useMemo(() => weeklyMuscleSets(logs, isoDaysBefore(today, 6), musclesForExercise), [logs, today]);
+  const recovery = useMemo(() => muscleRecovery(logs, today, musclesForExercise), [logs, today]);
+  const num = (n: number) => (lang === "uk" ? String(n).replace(".", ",") : String(n));
 
   const exercise = selection.kind === "exercise" ? selection.name : null;
   const day = selection.kind === "day" ? groups.find((g) => g.weekday === selection.weekday) ?? null : null;
@@ -61,7 +78,9 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
     group.weekday ? `${t(lang, WEEKDAY_KEYS[group.weekday])}${group.title ? ` · ${group.title}` : ""}` : t(lang, "body_map_recent_group");
   const dayData = day ? dayMuscles(day.dayNames, musclesForExercise) : null;
   const muscles: ExerciseMuscles | null = exercise ? musclesForExercise(exercise) : dayData;
-  const parts: Part[] = selection.kind === "week" ? weekParts(volume) : muscles ? exerciseParts(muscles) : [];
+  const parts: Part[] = selection.kind === "week" ? muscleWeekParts(week)
+    : selection.kind === "recovery" ? recoveryParts(recovery)
+      : muscles ? exerciseParts(muscles) : [];
   // Every part gets an explicit colour: the library's own assets hard-code a dark "#3f3f3f" on
   // each part, which wins over its `defaultFill`, so un-highlighted muscles ignored the theme.
   const highlighted = new Map(parts.map((p) => [p.slug as string, p.color]));
@@ -102,13 +121,34 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
         ? t(lang, "body_map_exercise_detail", { primary: listNames(lang, muscles.primary), secondary: listNames(lang, muscles.secondary) })
         : t(lang, "body_map_exercise_primary_only", { primary: listNames(lang, muscles.primary) });
     }
+    if (selection.kind === "recovery") {
+      if (tapped) {
+        const m = recovery.find((r) => r.slug === tapped);
+        if (!m) return muscleLabel(lang, tapped);
+        const status = t(lang, `recovery_${m.status}` as Key);
+        if (m.daysAgo === null) return t(lang, "recovery_detail_none", { muscle: muscleLabel(lang, tapped) });
+        return t(lang, m.role === "primary" ? "recovery_detail_primary" : "recovery_detail_secondary", {
+          muscle: muscleLabel(lang, tapped), when: daysAgoLabel(lang, m.daysAgo), exercises: m.exercises.join(", "), status,
+        });
+      }
+      const tired = recovery.filter((m) => m.status === "recovering").map((m) => m.slug);
+      const almost = recovery.filter((m) => m.status === "almost").map((m) => m.slug);
+      if (!tired.length && !almost.length) return t(lang, "recovery_all_ready");
+      return [
+        tired.length ? t(lang, "recovery_summary_tired", { list: listNames(lang, tired) }) : "",
+        almost.length ? t(lang, "recovery_summary_almost", { list: listNames(lang, almost) }) : "",
+      ].filter(Boolean).join(" ");
+    }
     if (tapped) {
-      const region = regionOfMuscle(tapped);
-      const row = region ? volume.find((v) => v.group === region) : undefined;
-      if (!region) return muscleLabel(lang, tapped);
-      return row
-        ? t(lang, "body_map_detail", { group: t(lang, `mg_${region}` as Key), n: row.sets, mev: row.mev, mav: row.mav })
-        : t(lang, "body_map_untrained", { group: t(lang, `mg_${region}` as Key) });
+      const m = week.find((w) => w.slug === tapped);
+      if (!m) return muscleLabel(lang, tapped);
+      if (!m.sets) return t(lang, "week_muscle_none", { muscle: muscleLabel(lang, tapped) });
+      const list = m.exercises.map((e) => `${e.name} ×${e.sets}${e.role === "secondary" ? ` (${t(lang, "week_muscle_assist_short")})` : ""}`).join(", ");
+      return t(lang, m.mev > 0 ? "week_muscle_detail" : "week_muscle_detail_nomev", { muscle: muscleLabel(lang, tapped), n: num(m.sets), mev: m.mev, mav: m.mav, list });
+    }
+    const lopsided = lopsidedPairs((slug) => week.find((w) => w.slug === slug)?.sets ?? 0);
+    if (lopsided.length) {
+      return lopsided.map((p) => t(lang, "week_lopsided", { weak: muscleLabel(lang, p.weak), weakSets: num(p.weakSets), strong: muscleLabel(lang, p.strong), strongSets: num(p.strongSets) })).join(" ");
     }
     return t(lang, "body_map_hint");
   })();
@@ -134,6 +174,7 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
         <span>{t(lang, "body_map_pick_label")}</span>
         <select value={selectionValue(selection)} onChange={(event) => pick(parseSelection(event.target.value))}>
           <option value="">{t(lang, "body_map_mode_week")}</option>
+          <option value="r">{t(lang, "body_map_mode_recovery")}</option>
           {groups.map((group) => (
             <optgroup key={group.weekday ?? "recent"} label={dayLabel(group)}>
               {group.weekday !== null && (
@@ -148,7 +189,11 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
       </label>
       <div className="body-map-figures">{figure("front")}{figure("back")}</div>
       <div className="body-map-legend">
-        {selection.kind !== "week"
+        {selection.kind === "recovery"
+          ? (["recovering", "almost", "ready"] as const).map((status) => (
+              <span key={status}><i style={{ background: RECOVERY_COLORS[status] }} />{t(lang, `recovery_legend_${status}` as Key)}</span>
+            ))
+          : selection.kind !== "week"
           ? <>
               <span><i style={{ background: PRIMARY_COLOR }} />{t(lang, "body_map_primary")}</span>
               <span><i style={{ background: SECONDARY_COLOR }} />{t(lang, "body_map_secondary")}</span>

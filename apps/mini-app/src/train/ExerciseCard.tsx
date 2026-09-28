@@ -1,3 +1,4 @@
+import { TechniqueFrames } from "./TechniqueFrames";
 import { t, type Lang } from "../i18n";
 import { restMetricKey, type RestPrefs } from "../logic/rest";
 import { isExerciseFilled, type LoggerExercise, type LoggerSet } from "../logic/logger";
@@ -86,6 +87,7 @@ export function ExerciseCard(props: ExerciseCardProps) {
       )}
       {props.info && (
         <div className="info-box">
+          <TechniqueFrames lang={lang} name={exercise.name} canonicalName={exercise.canonicalName} />
           <p>{props.info.technique || t(lang, "train_no_info")}</p>
           {props.info.videoUrl && <a href={props.info.videoUrl} target="_blank" rel="noreferrer">{props.info.videoTitle || t(lang, "train_watch_video")}</a>}
         </div>

@@ -43,6 +43,7 @@ export interface WorkoutTodayExercise {
   planSets: string; // raw plan display, e.g. "4 × 8–10"
   planWeight: string; // raw plan display, e.g. "50 kg"
   technique?: string; // localized technique notes from the plan (info dropdown)
+  canonicalName?: string; // English catalog name, for matching technique pictures
   videoUrl?: string; // tracked /v redirect (or direct URL in local dev)
   videoTitle?: string;
   // What the user actually did LAST time for this exercise (most recent completed log) —
@@ -95,6 +96,7 @@ export function assembleWorkoutToday(
       ...(ex.supersetGroup ? { ssGroup: ex.supersetGroup } : {}),
       wmode: resolveWeightMode(ex.name, ex.weightMode),
       ...(technique ? { technique } : {}),
+      ...(ex.canonicalName && ex.canonicalName !== ex.name ? { canonicalName: ex.canonicalName } : {}),
       ...(video?.url ? { videoUrl: video.url } : {}),
       ...(video?.title ? { videoTitle: video.title } : {}),
       ...(restSec > 0 ? { restSec } : {}),

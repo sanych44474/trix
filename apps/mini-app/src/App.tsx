@@ -9,6 +9,7 @@ import { ProgressView } from "./ProgressView";
 import { TrainView } from "./TrainView";
 import { FuelView } from "./FuelView";
 import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
+import { planBalance } from "./logic/muscleLoad";
 
 type View = "today" | "train" | "plan" | "fuel" | "progress" | "role" | "more" | "settings";
 
@@ -222,6 +223,11 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
     }
   };
 
+  // Recomputed from the live days, so adding the suggested exercise clears its line straight away.
+  const balance = useMemo(() => planBalance(plan?.days ?? []), [plan?.days]);
+  const fmtSets = (n: number) => (lang === "uk" ? String(n).replace(".", ",") : String(n));
+  const muscleName = (slug: string) => t(lang, `muscle_${slug.replace("-", "_")}` as Key);
+
   if (error) return <ErrorState lang={lang} error={error} retry={load} />;
   if (!plan) return <Loading />;
   if (!plan.days.length) return <Empty title={t(lang, "no_plan_title")} detail={t(lang, "no_plan_detail")} />;
@@ -245,6 +251,21 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
       {showChanges && <div className="record-list">{plan.changes.map((change, index) => <div className="record-row" key={`${change.at}-${index}`}>
         <div><strong>{change.summary}</strong><small>{t(lang, `plan_change_src_${change.source}` as Key)} · {change.at.slice(0, 10)}</small></div>
       </div>)}</div>}
+    </Card>}
+    {balance.length > 0 && <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_balance_eyebrow")}</span><h2>{t(lang, "plan_balance_title")}</h2></div></div>
+      <div className="balance-list">{balance.map((issue) => <div className="balance-row" key={`${issue.kind}-${issue.slug}`}>
+        <div>
+          <strong>{muscleName(issue.slug)}</strong>
+          <small>{issue.kind === "imbalance" && issue.other
+            ? t(lang, "plan_balance_imbalance", { weak: fmtSets(issue.sets), strong: fmtSets(issue.other.sets), other: muscleName(issue.other.slug) })
+            : t(lang, "plan_balance_missing")}</small>
+        </div>
+        {issue.suggestion && <button className="button button-ghost" disabled={saving !== null} onClick={() => void edit(issue.suggestion!.weekday, -1, "add", issue.suggestion![lang])}>
+          {saving === `${issue.suggestion.weekday}:-1:add` ? "…" : t(lang, "plan_balance_add", { exercise: issue.suggestion[lang], day: t(lang, WEEKDAY_KEYS[issue.suggestion.weekday - 1]) })}
+        </button>}
+      </div>)}</div>
+      <p className="muted">{t(lang, "plan_balance_hint")}</p>
     </Card>}
     <Card tone="muted">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_days_eyebrow")}</span><h2>{t(lang, "plan_day_add_title")}</h2></div></div>

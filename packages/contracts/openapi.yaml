@@ -2572,6 +2572,9 @@ components:
               planSets: {type: string}
               planWeight: {type: string}
               technique: {type: string}
+              canonicalName:
+                type: string
+                description: The exercise's English catalog name (matches technique pictures); absent for custom exercises.
               videoUrl: {type: string}
               videoTitle: {type: string}
               last:
