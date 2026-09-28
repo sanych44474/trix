@@ -21,19 +21,19 @@ Cloudflare's on-platform Workers AI, which needs no API key at all.
 
 ## What it can do
 
-**183 functions across 11 areas**, one per line in the
+**188 functions across 11 areas**, one per line in the
 [feature catalog](docs/features.md). The short version:
 
 | Area | Highlights |
 |---|---|
-| Training plan (29) | Split around your days, equipment and injuries; sets, weights, RPE/RIR, rest, tempo; supersets; a muscle-balance check with one-tap fixes; weekly progression, plateau detection, level-ups; cardio counted as load; "not my gym today" |
-| Workout logging (29) | Mini App logger with one-tap "as planned", technique pictures, swaps it remembers, rest timer with a Telegram push, drafts synced across devices, measured session length, Telegram's native button, Strava import; or log by text / voice in chat |
+| Training plan (31) | Split around your days, equipment and injuries; sets, weights, RPE/RIR, rest, tempo; supersets; self-balancing plans and one-tap fixes; a day swap when muscles aren't recovered; weekly progression, plateau detection, level-ups; cardio counted as load; "not my gym today" |
+| Workout logging (30) | Mini App logger with one-tap "as planned", technique pictures and steps, AI form check from a video, swaps it remembers, rest timer with a Telegram push, drafts synced across devices, measured session length, Telegram's native button, Strava import; or log by text / voice in chat |
 | Nutrition (14) | Macros from text or a meal photo, Open Food Facts search, adaptive calories, AI meal plan, aisle-sorted shopping list |
 | Body & recovery (15) | Weight, measurements, body-fat estimate, goal forecast, water, steps, wellbeing check-in and readiness, progress photos, opt-in cycle tracking |
 | Motivation & community (18) | XP, levels, streaks with freezes, 12 badges, records with e1RM charts, leaderboards, challenges, buddy duels, group-chat squads, share to Telegram stories |
 | Trainer tools (22) | Invite link, request inbox and waitlist, client cards, per-client plan editor, templates, broadcasts, traffic-light digest, at-risk alerts, schedule and payments |
 | Reminders (13) | Timezone-aware and fitted to when you train, evening checklist, weekly digests, a dedicated first-14-days arc |
-| Onboarding (12), Mini App (17), Owner (9), Safeguards (5) | Button interview, instant plan; app with a per-muscle body map and recovery map, calendar, heatmap, home-screen shortcut, export and voluntary Stars support; owner console; idempotent saves, GDPR delete |
+| Onboarding (12), Mini App (19), Owner (9), Safeguards (5) | Button interview, instant plan; app with a per-muscle body map, recovery map and 12-week muscle trends, calendar, heatmap, home-screen shortcut, export and voluntary Stars support; owner console; idempotent saves, GDPR delete |
 
 **Why it matters:** it is a coach, not a log. It writes the program, decides when to add weight,
 and messages you first, inside the app you already use. Trainers get the tooling that usually
