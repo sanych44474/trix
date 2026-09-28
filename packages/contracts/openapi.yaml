@@ -148,6 +148,11 @@ paths:
         in: query
         required: true
         schema: {type: integer, minimum: 0, maximum: 50}
+      - name: name
+        in: query
+        required: false
+        description: The plan exercise to find alternatives for; wins over index when it matches.
+        schema: {type: string, maxLength: 80}
       responses:
         '200':
           description: Safe exercise alternatives
@@ -211,6 +216,64 @@ paths:
       responses:
         '200':
           description: Custom exercise
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+  /api/v2/workout/draft:
+    parameters:
+    - {name: date, in: query, required: true, schema: {type: string, format: date}}
+    put:
+      operationId: putWorkoutDraft
+      description: >-
+        Autosave of the unsaved logger for one day, so a half-logged session survives a cleared
+        cache or a switch of device. The body is the client's own JSON, stored opaquely; it is
+        returned as WorkoutToday.draft and deleted when the session is saved.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: {type: string, maxLength: 60000}
+      responses:
+        '200':
+          description: Draft stored
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok, updatedAt]
+                      properties:
+                        ok: {const: true}
+                        updatedAt: {type: string}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+    delete:
+      operationId: deleteWorkoutDraft
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Draft discarded
           content:
             application/json:
               schema:
@@ -1996,6 +2059,8 @@ components:
       required: [entries]
       properties:
         date: {type: string, format: date, description: Back-fill target; omit for today.}
+        durationSec: {type: number, minimum: 1, maximum: 18000, description: Measured session length; dropped if out of range.}
+        restTotalSec: {type: number, minimum: 0, description: Measured rest inside the session; ignored without durationSec.}
         entries:
           type: array
           items:
@@ -2003,6 +2068,7 @@ components:
             required: [name, sets]
             properties:
               name: {type: string, maxLength: 80}
+              planName: {type: string, maxLength: 80, description: The plan exercise this entry replaced via an in-session swap.}
               rpe: {type: number, minimum: 0, maximum: 10, description: Effort for the whole exercise.}
               sets:
                 type: array
@@ -2375,6 +2441,7 @@ components:
             properties:
               name: {type: string}
               rpe: {type: number}
+              planName: {type: string}
               sets:
                 type: array
                 items:
@@ -2386,6 +2453,16 @@ components:
                     m: {type: number}
                   required: [w, r, sec, m]
             required: [name, rpe, sets]
+        savedAt: {type: string, description: When the saved log for this date was last written.}
+        durationSec: {type: number, description: The saved session's measured length, if measured.}
+        restTotalSec: {type: number}
+        draft:
+          type: object
+          description: Server copy of an unsaved logger for this date (see putWorkoutDraft).
+          required: [body, updatedAt]
+          properties:
+            body: {type: string}
+            updatedAt: {type: string}
         recentDates:
           type: array
           items: {type: string}
@@ -2397,6 +2474,7 @@ components:
         date: {type: string}
         title: {type: string}
         n: {type: integer}
+        durationSec: {type: integer, description: Measured session length, when the app measured one.}
     WorkoutCopyExercise:
       type: object
       required: [name, metric, sets, rpe]

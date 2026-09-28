@@ -1,7 +1,7 @@
 // Guided-logger Mini App APIs: /api/workout/(today|swap|rest|save). Same initData auth as the
 // dashboard; all routes act on the authenticated user only (no cross-user access).
 import { deleteRestTimers, setRestTimer } from "../adapters/d1/v2Admin";
-import { getWorkoutLog, listStrength, recentWorkoutLogs, workoutLogsSince } from "../adapters/d1/v2Workouts";
+import { deleteWorkoutDraft, getWorkoutLog, listStrength, putWorkoutDraft, recentWorkoutLogs, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { miniAppUser } from "./auth";
@@ -80,8 +80,9 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       if (!Number.isInteger(index) || index < 0 || index > 50) {
         return Response.json({ error: "bad request" }, { status: 400 });
       }
+      const planName = (url.searchParams.get("name") ?? "").trim().slice(0, 80) || undefined;
       const plan = await getActivePlan(env.DB, user._id);
-      const alternatives = await workoutSwapAlternatives(env.DB, user, plan, index);
+      const alternatives = await workoutSwapAlternatives(env.DB, user, plan, index, planName);
       if (alternatives === null) return Response.json({ error: "bad request" }, { status: 400 });
       return Response.json({ alternatives });
     }
@@ -145,15 +146,36 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       // action always gets a fresh key, so this never blocks a genuine second workout that day.
       const { status, body: out } = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => ({
         status: 200,
-        body: await saveWorkout(env, user, v.entries, dateB ?? undefined),
+        body: await saveWorkout(env, user, v.entries, dateB ?? undefined, v.timing),
       }));
       return Response.json(out, { status });
+    }
+    // Unsaved-logger autosave. Last write wins by design: it is one person's own form, and the
+    // client only ever sends its latest state. The body is opaque to the server (never parsed
+    // beyond the size cap) and only ever handed back to this same account for this same date.
+    if ((req.method === "PUT" || req.method === "DELETE") && path === "/api/workout/draft") {
+      const dateQ = (url.searchParams.get("date") ?? "").trim();
+      const dateErr = validateEditDate(dateQ, user);
+      if (dateErr) return Response.json({ error: dateErr }, { status: 400 });
+      if (req.method === "DELETE") {
+        await deleteWorkoutDraft(env.DB, user._id, dateQ);
+        return Response.json({ ok: true });
+      }
+      const parsed = await readJsonBody(req);
+      if (!parsed.ok) return parsed.response;
+      const v = validateBody(parsed.body, object({ body: str({ max: MAX_DRAFT_CHARS }) }));
+      if (!v.ok) return v.response;
+      const updatedAt = await putWorkoutDraft(env.DB, user._id, dateQ, v.value.body);
+      return Response.json({ ok: true, updatedAt });
     }
     return Response.json({ error: "not found" }, { status: 404 });
   } catch (err) {
     return apiFailure(env, "api_workout", err, { userId: user._id });
   }
 }
+
+// 30 exercises x 20 sets of JSON fits comfortably; anything bigger is not a real logger state.
+const MAX_DRAFT_CHARS = 60_000;
 
 // Edit window guard: only a real calendar date, today or up to 14 days back (user's timezone).
 function validateEditDate(date: string, user: UserDoc): string | null {

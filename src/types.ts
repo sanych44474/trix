@@ -555,6 +555,7 @@ export interface LoggedExercise {
   setsDone: SetEntry[];
   skipped: boolean;
   rpe?: number; // logged session RPE (rate of perceived exertion), drives autoregulation
+  planName?: string; // the plan exercise this one replaced via an in-session swap (Mini App only)
 }
 
 export interface WorkoutLogDoc {
@@ -565,6 +566,9 @@ export interface WorkoutLogDoc {
   completed: boolean;
   notes?: string;
   createdAt: Date;
+  updatedAt?: Date; // last write -- lets a client tell whether its local copy is older than the server's
+  durationSec?: number; // measured session length (Mini App only; absent = not measured)
+  restTotalSec?: number; // total measured rest inside that session
 }
 
 export interface MealEntry {

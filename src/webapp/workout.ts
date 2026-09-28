@@ -12,7 +12,7 @@ import { exerciseMetric, formatSetEntry, getPlanDay, localParts, resolveWeightMo
 import {
   userStatCounts,
 } from "../adapters/d1/v2Admin";
-import { getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
+import { deleteWorkoutDraft, getWorkoutDraft, getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import {
@@ -61,7 +61,12 @@ export interface WorkoutTodayPayload {
   muscleGroup?: string;
   exercises: WorkoutTodayExercise[];
   // The saved log for this date (edit mode prefill) + past dates that have a log to fix.
-  saved?: { name: string; rpe?: number; sets: { w: number; r: number; sec: number; m: number }[] }[];
+  saved?: { name: string; rpe?: number; planName?: string; sets: { w: number; r: number; sec: number; m: number }[] }[];
+  savedAt?: string; // when that log was last written -- the client compares it against its local copy
+  durationSec?: number; // the saved session's measured length, if the app measured one
+  restTotalSec?: number;
+  // The server copy of an unsaved logger for this date (another device, or a cleared cache).
+  draft?: { body: string; updatedAt: string };
   recentDates?: string[];
 }
 
@@ -111,6 +116,7 @@ export interface WorkoutHistoryItem {
   date: string;
   title: string; // first few exercise names, for the picker
   n: number; // exercise count
+  durationSec?: number; // measured session length (Mini App sessions only)
 }
 export interface WorkoutCopyExercise {
   name: string;
@@ -135,7 +141,7 @@ export function assembleWorkoutHistory(logs: WorkoutLogDoc[], today: string): Wo
     .map((l) => {
       const names = l.exercises.filter((e) => !e.skipped && e.setsDone.length > 0).map((e) => e.name);
       const title = names.slice(0, 3).join(", ") + (names.length > 3 ? "…" : "");
-      return { date: l.date, title, n: names.length };
+      return { date: l.date, title, n: names.length, ...(l.durationSec ? { durationSec: l.durationSec } : {}) };
     });
 }
 
@@ -155,9 +161,10 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
   const local = localParts(user.profile.timezone);
   const date = dateOverride ?? local.date;
   const weekday = dateOverride ? isoWeekdayOfDate(dateOverride) : local.weekday;
-  const [plan, existing] = await Promise.all([
+  const [plan, existing, draft] = await Promise.all([
     getActivePlan(db, user._id),
     getWorkoutLog(db, user._id, date),
+    getWorkoutDraft(db, user._id, date).catch(() => null),
   ]);
   // Video links, same resolution as the bot's videosForDays: shared videos + the user's own
   // overrides, routed through the /v redirect (when deployed) so opens are counted.
@@ -180,9 +187,14 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
       .map((ex) => ({
         name: ex.name,
         ...(ex.rpe !== undefined ? { rpe: ex.rpe } : {}),
+        ...(ex.planName ? { planName: ex.planName } : {}),
         sets: ex.setsDone.map((st) => ({ w: st.weight || 0, r: st.reps || 0, sec: st.seconds || 0, m: st.meters || 0 })),
       }));
+    if (existing.updatedAt) payload.savedAt = existing.updatedAt.toISOString();
+    if (existing.durationSec !== undefined) payload.durationSec = existing.durationSec;
+    if (existing.restTotalSec !== undefined) payload.restTotalSec = existing.restTotalSec;
   }
+  if (draft) payload.draft = draft;
   // "Repeat last time": for each of today's exercises, the sets from the most recent completed
   // log that contains it (scan newest-first, 60-day window).
   if (payload.exercises.length) {
@@ -219,8 +231,17 @@ function isoWeekdayOfDate(date: string): Weekday {
 export interface SaveEntry {
   name: string;
   rpe?: number; // entry-level effort (same as the bot's one-tap srpe buttons)
+  planName?: string; // the plan exercise this one replaced (in-session swap)
   sets: SetEntry[];
 }
+
+export interface SaveTiming {
+  durationSec?: number;
+  restTotalSec?: number;
+}
+
+// A measured session longer than this is a stale clock, not a workout; it is dropped, not clamped.
+const MAX_SESSION_SEC = 5 * 3600;
 
 const MAX_ENTRIES = 30;
 const MAX_SETS = 20;
@@ -231,7 +252,7 @@ function num(v: unknown, lo: number, hi: number): number | undefined {
 
 /** Validate + normalize the save body. Empty sets and set-less exercises are dropped silently
  * (the UI sends the whole grid; untouched rows aren't an error). */
-export function validateSaveBody(body: unknown): { entries: SaveEntry[] } | { error: string } {
+export function validateSaveBody(body: unknown): { entries: SaveEntry[]; timing: SaveTiming } | { error: string } {
   const raw = (body as { entries?: unknown } | null)?.entries;
   if (!Array.isArray(raw) || raw.length < 1 || raw.length > MAX_ENTRIES) return { error: "entries" };
   const entries: SaveEntry[] = [];
@@ -258,10 +279,19 @@ export function validateSaveBody(body: unknown): { entries: SaveEntry[] } | { er
     }
     if (!sets.length) continue; // exercise never started
     const rpe = num(e.rpe, 0, 10);
-    entries.push({ name, sets, ...(rpe !== undefined ? { rpe } : {}) });
+    const planName = typeof e.planName === "string" ? e.planName.trim().slice(0, 80) : "";
+    entries.push({ name, sets, ...(rpe !== undefined ? { rpe } : {}), ...(planName && planName !== name ? { planName } : {}) });
   }
   if (!entries.length) return { error: "empty" };
-  return { entries };
+  // Timing is optional and advisory: a bad value is dropped rather than failing the whole save.
+  const b = body as { durationSec?: unknown; restTotalSec?: unknown };
+  const durationSec = num(b.durationSec, 1, MAX_SESSION_SEC);
+  const restTotalSec = durationSec !== undefined ? num(b.restTotalSec, 0, durationSec) : undefined;
+  const timing: SaveTiming = {
+    ...(durationSec !== undefined ? { durationSec: Math.round(durationSec) } : {}),
+    ...(restTotalSec !== undefined ? { restTotalSec: Math.round(restTotalSec) } : {}),
+  };
+  return { entries, timing };
 }
 
 /** Same human-readable raw text the bot stores as workout_logs.notes (logFinish format). */
@@ -301,14 +331,16 @@ function tgApi(env: Env): { sendMessage: Api["sendMessage"] } {
  * badges are INSERT OR IGNORE, lastLevel is monotonic — so a network retry after a 401/timeout
  * is safe. Celebrations are returned to the app instead of being sent to chat; the trainer
  * notification still goes out. */
-export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[], dateOverride?: string): Promise<SaveResult> {
+export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[], dateOverride?: string, timing?: SaveTiming): Promise<SaveResult> {
   const local = localParts(user.profile.timezone);
   const date = dateOverride ?? local.date;
   const weekday = (dateOverride ? isoWeekdayOfDate(dateOverride) : local.weekday) as Weekday;
   const isPastEdit = date !== local.date;
 
-  const saveEntries: WorkoutSaveEntry[] = entries.map((e) => ({ name: e.name, sets: e.sets, rpe: e.rpe }));
-  const outcome = await applyWorkoutSave(env.DB, user, saveEntries, date, weekday, buildRawText(entries), isPastEdit);
+  const saveEntries: WorkoutSaveEntry[] = entries.map((e) => ({ name: e.name, sets: e.sets, rpe: e.rpe, ...(e.planName ? { planName: e.planName } : {}) }));
+  const outcome = await applyWorkoutSave(env.DB, user, saveEntries, date, weekday, buildRawText(entries), isPastEdit, timing);
+  // The unsaved-logger copy for this day is now superseded by the real log.
+  await deleteWorkoutDraft(env.DB, user._id, date).catch(() => {});
   const fresh = [...outcome.freshBadges];
 
   // Level bookkeeping — same decision as maybeCelebrateLevel, minus the chat message (the app
@@ -444,10 +476,14 @@ export async function workoutSwapAlternatives(
   user: UserDoc,
   plan: PlanDoc | null,
   index: number,
+  planName?: string,
 ): Promise<{ id: string; name: string }[] | null> {
   const { weekday } = localParts(user.profile.timezone);
   const day = plan ? getPlanDay(plan, weekday as Weekday) : undefined;
-  const current = day?.exercises[index];
+  // By name first: the logger's list can be reordered (moved exercises, a re-opened saved day
+  // lists what was logged first), so its position no longer has to match the plan's.
+  const byName = planName ? day?.exercises.find((e) => e.name === planName) : undefined;
+  const current = byName ?? day?.exercises[index];
   if (!day || !current) return null;
   const level = user.profile.level;
   let candidates: Awaited<ReturnType<typeof listCandidatesByMuscles>> = [];

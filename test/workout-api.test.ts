@@ -174,3 +174,29 @@ test("assembleWorkoutCopy: maps sets to logger shape and infers metric", () => {
   assert.equal(copy[2].metric, "distance");
   assert.equal(copy[2].sets[0].m, 1000);
 });
+
+test("validateSaveBody: keeps swap origin and session timing, drops bad timing", () => {
+  const v = validateSaveBody({
+    durationSec: 5400.4,
+    restTotalSec: 2000,
+    entries: [
+      { name: "Hammer Curl", planName: " Preacher Curl ", sets: [{ reps: 10, weight: 14 }] },
+      { name: "Bench", planName: "Bench", sets: [{ reps: 8, weight: 60 }] },
+    ],
+  });
+  assert.ok(!("error" in v));
+  if ("error" in v) return;
+  assert.equal(v.entries[0].planName, "Preacher Curl");
+  assert.equal(v.entries[1].planName, undefined, "planName equal to name is not a swap");
+  assert.deepEqual(v.timing, { durationSec: 5400, restTotalSec: 2000 });
+
+  const stale = validateSaveBody({ durationSec: 9 * 3600, restTotalSec: 100, entries: [{ name: "A", sets: [{ reps: 1, weight: 0 }] }] });
+  assert.ok(!("error" in stale));
+  if ("error" in stale) return;
+  assert.deepEqual(stale.timing, {}, "a clock past 5h is a stale leftover, not a session");
+
+  const restOver = validateSaveBody({ durationSec: 600, restTotalSec: 900, entries: [{ name: "A", sets: [{ reps: 1, weight: 0 }] }] });
+  assert.ok(!("error" in restOver));
+  if ("error" in restOver) return;
+  assert.deepEqual(restOver.timing, { durationSec: 600 }, "rest longer than the session is dropped");
+});

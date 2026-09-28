@@ -10,7 +10,10 @@ import {
   countCompletedWorkouts,
   countCompletedWorkoutsBetween,
   countWorkoutsSince,
+  deleteWorkoutDraft,
+  getWorkoutDraft,
   getWorkoutLog,
+  putWorkoutDraft,
   allWorkoutLogsSince,
   listStrength,
   recentWorkoutLogs,
@@ -244,4 +247,41 @@ test("allWorkoutLogsSince: chunks the exercise/set lookup past D1's bound-parame
   assert.equal(sample.exercises.length, 2);
   assert.equal(sample.exercises[0].name, "Bench Press");
   assert.equal(sample.exercises[0].setsDone.length, 2);
+});
+
+test("upsertWorkoutLog: session timing is stored and a later untimed save keeps it", async () => {
+  const db = newDb();
+  seedAccount(db, 301);
+  await upsertWorkoutLog(db, 301, "2026-09-25", 5 as Weekday, makeExercises(), true, undefined, { durationSec: 5400, restTotalSec: 2100 });
+  let log = await getWorkoutLog(db, 301, "2026-09-25");
+  assert.equal(log?.durationSec, 5400);
+  assert.equal(log?.restTotalSec, 2100);
+  assert.ok(log?.updatedAt instanceof Date);
+  // A chat edit / quick-log of the same day measures nothing and must not erase the length.
+  await upsertWorkoutLog(db, 301, "2026-09-25", 5 as Weekday, makeExercises(), true, "edited");
+  log = await getWorkoutLog(db, 301, "2026-09-25");
+  assert.equal(log?.durationSec, 5400);
+  assert.equal(log?.notes, "edited");
+});
+
+test("upsertWorkoutLog: a swapped exercise keeps the plan exercise it replaced", async () => {
+  const db = newDb();
+  seedAccount(db, 302);
+  const exercises: LoggedExercise[] = [{ name: "Hammer Curl", planName: "Preacher Curl", skipped: false, setsDone: [{ reps: 10, weight: 14 }] }];
+  await upsertWorkoutLog(db, 302, "2026-09-25", 5 as Weekday, exercises, true);
+  const log = await getWorkoutLog(db, 302, "2026-09-25");
+  assert.equal(log?.exercises[0].planName, "Preacher Curl");
+});
+
+test("workout drafts: put overwrites, get is per account+date, delete clears", async () => {
+  const db = newDb();
+  seedAccount(db, 303);
+  seedAccount(db, 304);
+  await putWorkoutDraft(db, 303, "2026-09-25", '{"v":1}');
+  await putWorkoutDraft(db, 303, "2026-09-25", '{"v":2}');
+  assert.equal((await getWorkoutDraft(db, 303, "2026-09-25"))?.body, '{"v":2}');
+  assert.equal(await getWorkoutDraft(db, 304, "2026-09-25"), null, "another account never sees it");
+  assert.equal(await getWorkoutDraft(db, 303, "2026-09-26"), null);
+  await deleteWorkoutDraft(db, 303, "2026-09-25");
+  assert.equal(await getWorkoutDraft(db, 303, "2026-09-25"), null);
 });

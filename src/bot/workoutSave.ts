@@ -68,6 +68,7 @@ export interface WorkoutSaveEntry {
   name: string;
   sets: SetEntry[];
   rpe?: number;
+  planName?: string; // Mini App swap: the plan exercise this entry replaced
 }
 
 export interface PrHit {
@@ -108,18 +109,20 @@ export async function applyWorkoutSave(
   weekday: Weekday,
   rawText: string,
   isPastEdit = false, // true when `date` is a backfilled day, not today (Mini App only -- the chat path always logs today)
+  timing?: { durationSec?: number; restTotalSec?: number }, // Mini App only: the measured session clock
 ): Promise<WorkoutSaveOutcome> {
   const exercises: LoggedExercise[] = entries.map((e) => ({
     name: e.name,
     setsDone: e.sets,
     skipped: false,
     ...(e.rpe !== undefined ? { rpe: e.rpe } : {}),
+    ...(e.planName ? { planName: e.planName } : {}),
   }));
   // Checked BEFORE the save: if this user already had a completed workout, today's save (new or
   // an edit of an already-logged day -- upsertWorkoutLog's ON CONFLICT means either is possible)
   // is never their first. A pre-save count of 0 means it unambiguously is, no further check needed.
   const isFirstEver = (await countCompletedWorkouts(db, user._id).catch(() => 1)) === 0;
-  await upsertWorkoutLog(db, user._id, date, weekday, exercises, true, rawText);
+  await upsertWorkoutLog(db, user._id, date, weekday, exercises, true, rawText, timing);
   logInfo("workout_completed", { exerciseCount: entries.length, pastDate: isPastEdit }); // shared by both surfaces on purpose (see this function's own doc comment)
   if (isFirstEver) logInfo("first_workout_completed", {});
 
