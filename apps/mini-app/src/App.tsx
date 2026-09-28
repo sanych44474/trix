@@ -8,6 +8,7 @@ import { ProfileView } from "./ProfileView";
 import { ProgressView } from "./ProgressView";
 import { TrainView } from "./TrainView";
 import { FuelView } from "./FuelView";
+import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
 
 type View = "today" | "train" | "plan" | "fuel" | "progress" | "role" | "more" | "settings";
 
@@ -617,6 +618,7 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
         <div className="button-row" style={{ marginTop: 12 }}>
           <button className="button button-ghost" onClick={generateWeekCard}>{t(lang, "weekcard_generate_btn")}</button>
           {weekCanvasUrl && <button className="button button-primary" disabled={weekBusy} onClick={() => void sendWeekCard()}>{weekBusy ? t(lang, "saving_ellipsis") : t(lang, "weekcard_send_btn")}</button>}
+          <WeekStoryButton lang={lang} stats={week.stats} />
         </div>
         {weekCanvasUrl && <img src={weekCanvasUrl} alt="" style={{ marginTop: 10, width: "100%", borderRadius: 12 }} />}
         {weekSent && <div className="save-note">{t(lang, "weekcard_sent_note")}</div>}
@@ -710,6 +712,8 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
         <p className="muted" style={{ marginTop: 6 }}>{s.silent > 0 ? t(lang, "squads_silent_hint", { n: s.silent, total: s.total }) : t(lang, "squads_all_in_hint", { total: s.total })}</p>
       </div>)}
     </Card>
+    <AppShortcutsCard lang={lang} />
+    <SupportCard lang={lang} />
   </div>;
 }
 

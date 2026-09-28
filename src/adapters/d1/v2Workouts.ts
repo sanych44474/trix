@@ -31,9 +31,21 @@ interface V2StrengthRow {
   updatedAt: string;
 }
 
+/** One entry per date, keeping the last one written. Saving the same day again used to append
+ * another entry every time, so a session saved three times charted as three identical points.
+ * Applied on read as well, which collapses rows written before the fix without a data migration. */
+export function oneEntryPerDate<T extends { date: string }>(history: T[]): T[] {
+  const byDate = new Map<string, T>();
+  for (const entry of history) {
+    byDate.delete(entry.date); // re-insert so the surviving entry keeps the position of the latest write
+    byDate.set(entry.date, entry);
+  }
+  return [...byDate.values()];
+}
+
 function toStrength(r: V2StrengthRow): StrengthRecordDoc {
   let history: StrengthRecordDoc["history"] = [];
-  try { history = JSON.parse(r.history); } catch { history = []; }
+  try { history = oneEntryPerDate(JSON.parse(r.history)); } catch { history = []; }
   return {
     userId: r.accountId,
     exercise: r.exercise,
@@ -93,8 +105,9 @@ export async function upsertStrengthRecord(
       .run();
     return { isPR: false };
   }
-  const history = JSON.parse(row.history) as { date: string; weight: number; reps: number; seconds?: number; meters?: number; rpe?: number }[];
-  history.push(entry);
+  const stored = JSON.parse(row.history) as { date: string; weight: number; reps: number; seconds?: number; meters?: number; rpe?: number }[];
+  // A re-save of the same day replaces that day's entry instead of adding another one.
+  const history = oneEntryPerDate([...stored, entry]);
   // "Better" and PR-worthiness are judged on the exercise's native axis. Time/distance PRs count
   // even at bodyweight; weight×reps PRs require external load (bodyweight reps don't rank).
   let better: boolean;

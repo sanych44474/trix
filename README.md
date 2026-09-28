@@ -21,19 +21,19 @@ Cloudflare's on-platform Workers AI, which needs no API key at all.
 
 ## What it can do
 
-**172 functions across 11 areas**, one per line in the
+**180 functions across 11 areas**, one per line in the
 [feature catalog](docs/features.md). The short version:
 
 | Area | Highlights |
 |---|---|
-| Training plan (27) | Split around your days, equipment and injuries; sets, weights, RPE/RIR, rest, tempo; supersets; weekly progression, plateau detection, level-ups; cardio counted as load; "not my gym today" |
-| Workout logging (26) | Mini App logger with one-tap "as planned", swaps it remembers, rest timer with a Telegram push, drafts synced across devices, measured session length; or log by text / voice in chat |
+| Training plan (28) | Split around your days, equipment and injuries; sets, weights, RPE/RIR, rest, tempo; supersets; weekly progression, plateau detection, level-ups; cardio counted as load; "not my gym today" |
+| Workout logging (28) | Mini App logger with one-tap "as planned", swaps it remembers, rest timer with a Telegram push, drafts synced across devices, measured session length, Telegram's native button, Strava import; or log by text / voice in chat |
 | Nutrition (14) | Macros from text or a meal photo, Open Food Facts search, adaptive calories, AI meal plan, aisle-sorted shopping list |
-| Body & recovery (14) | Weight, measurements, goal forecast, water, steps, wellbeing check-in and readiness, progress photos, opt-in cycle tracking |
-| Motivation & community (17) | XP, levels, streaks with freezes, 12 badges, records with e1RM charts, leaderboards, challenges, buddy duels, group-chat squads |
+| Body & recovery (15) | Weight, measurements, body-fat estimate, goal forecast, water, steps, wellbeing check-in and readiness, progress photos, opt-in cycle tracking |
+| Motivation & community (18) | XP, levels, streaks with freezes, 12 badges, records with e1RM charts, leaderboards, challenges, buddy duels, group-chat squads, share to Telegram stories |
 | Trainer tools (22) | Invite link, request inbox and waitlist, client cards, per-client plan editor, templates, broadcasts, traffic-light digest, at-risk alerts, schedule and payments |
 | Reminders (13) | Timezone-aware and fitted to when you train, evening checklist, weekly digests, a dedicated first-14-days arc |
-| Onboarding (12), Mini App (13), Owner (9), Safeguards (5) | Button interview, instant plan; native-feeling app with calendar, heatmap and export; owner console; idempotent saves, GDPR delete |
+| Onboarding (12), Mini App (16), Owner (9), Safeguards (5) | Button interview, instant plan; app with a weekly-load body map, calendar, heatmap, home-screen shortcut, export and voluntary Stars support; owner console; idempotent saves, GDPR delete |
 
 **Why it matters:** it is a coach, not a log. It writes the program, decides when to add weight,
 and messages you first, inside the app you already use. Trainers get the tooling that usually
@@ -42,9 +42,9 @@ takes a CRM, a spreadsheet and a messenger. Running it costs nothing, so using i
 | | |
 |---|---|
 | Roles | solo athlete · trainer's client · trainer · owner |
-| Surfaces | Telegram chat (43 commands) + Telegram Mini App |
+| Surfaces | Telegram chat (45 commands) + Telegram Mini App |
 | Languages | Ukrainian, English (~1,700 strings each, parity enforced by the type checker) |
-| Backend | 64 typed API operations (OpenAPI 3.1), 81 D1 migrations, ~48k lines of TypeScript |
+| Backend | 70 typed API operations (OpenAPI 3.1), 83 D1 migrations, ~50k lines of TypeScript |
 | Tests | ~1,000 (node:test + Workers runtime), CI on every pull request |
 | Cost | $0 — no ads, no subscription |
 
@@ -186,6 +186,10 @@ the environment. `database_id` in `wrangler.toml` is a placeholder you replace w
 | `YOUTUBE_API_KEY` | optional | Exercise-technique shorts (cache-first) |
 | `USDA_FDC_API_KEY` | optional | Raises the nutrition-lookup limit above the shared `DEMO_KEY` |
 | `EXERCISES_API_KEY` | optional | Used only by `scripts/seed-exercises.mjs`, never at runtime |
+| `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` | optional | Strava cardio import. Create an API app at strava.com/settings/api and set its **Authorization Callback Domain** to your Worker's domain (the callback is `<WORKER_URL>/strava/callback`). Unset = the Strava card is hidden. |
+
+Telegram Stars support needs no secret, but the webhook must receive `pre_checkout_query`
+updates: re-run `node scripts/setup-telegram.mjs` once after deploying this version.
 
 D1 and Workers AI need no secret — they are bound via `[[d1_databases]]` and `[ai]`.
 

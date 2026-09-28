@@ -36,6 +36,9 @@ import { miniAppUser } from "./auth";
 import { logInfo } from "../log";
 import { num, object, oneOf, optional, readJsonBody, str, validateBody } from "./validate";
 import type { Env } from "../types";
+import { putStoryImage } from "./storyMedia";
+import { isSupportAmount } from "../adapters/d1/v2Support";
+import { supportInvoice } from "../bot/support";
 
 async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
   await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -131,6 +134,34 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     tgForm.append("photo", file, "progress.png");
     const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: "POST", body: tgForm }).catch(() => null);
     return Response.json({ ok: !!res?.ok });
+  }
+
+  // ---- Story image upload (shareToStory needs a public URL; see storyMedia.ts) ----
+  if (path === "/api/story") {
+    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    const form = await req.formData().catch(() => null);
+    const file = form?.get("photo");
+    if (!(file instanceof Blob)) return bad();
+    const stored = await putStoryImage(env, user._id, await file.arrayBuffer(), file.type || "image/png").catch(() => null);
+    if (!stored) return Response.json({ error: "unavailable" }, { status: 503 });
+    return Response.json({ url: `${(env.WORKER_URL || url.origin).replace(/\/$/, "")}${stored}` });
+  }
+
+  // ---- Voluntary support in Telegram Stars: an invoice link the app opens with openInvoice ----
+  if (path === "/api/support/invoice") {
+    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const stars = Number((parsed.body as { stars?: unknown } | null)?.stars);
+    if (!isSupportAmount(stars)) return bad();
+    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/createInvoiceLink`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(supportInvoice(lang, stars)),
+    }).catch(() => null);
+    const data = res ? ((await res.json().catch(() => null)) as { ok?: boolean; result?: string } | null) : null;
+    if (!data?.ok || !data.result) return Response.json({ error: "unavailable" }, { status: 503 });
+    return Response.json({ link: data.result });
   }
 
   // ---- What's new ----

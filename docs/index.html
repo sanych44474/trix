@@ -4,13 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>trix — AI-тренер у Telegram</title>
-<meta name="description" content="Телеграм-бот і міні-застосунок: складає програму тренувань під твої дні, обладнання й травми, сам веде прогресію, рахує КБЖУ за фото, нагадує першим. Інструменти для тренерів і їхніх клієнтів. 172 функції, безкоштовно, відкритий код.">
+<meta name="description" content="Телеграм-бот і міні-застосунок: складає програму тренувань під твої дні, обладнання й травми, сам веде прогресію, рахує КБЖУ за фото, нагадує першим. Інструменти для тренерів і їхніх клієнтів. 180 функцій, безкоштовно, відкритий код.">
 <link rel="canonical" href="https://sanych44474.github.io/trix/">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="trix — AI-тренер у Telegram">
 <meta property="og:description" content="Складає програму під твої дні, обладнання й травми. Веде щоденник, рахує КБЖУ і нагадує сам. Безкоштовно.">
 <meta property="og:url" content="https://sanych44474.github.io/trix/">
+<meta property="og:image" content="https://sanych44474.github.io/trix/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="trix — AI-тренер у Telegram: екран тренування">
+<meta name="twitter:image" content="https://sanych44474.github.io/trix/og.png">
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
@@ -278,6 +283,17 @@
   .feat li::marker { color: var(--muted); }
   .more-link { margin: 2rem 0 0; font-family: Archivo, sans-serif; font-weight: 600; }
 
+  /* real app screens */
+  .screens { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6rem; margin-top: 2.5rem; }
+  .screens figure { margin: 0; }
+  .screens img {
+    display: block; width: 100%; height: auto; aspect-ratio: 390 / 844; object-fit: cover; object-position: top;
+    border: 1px solid var(--line); border-radius: 22px; background: var(--surface);
+    box-shadow: 0 24px 60px -30px rgba(0,0,0,.6);
+  }
+  .screens figcaption { margin-top: .8rem; color: var(--ink-soft); font-size: .93rem; }
+  .screens figcaption b { display: block; color: var(--ink); font-family: Archivo, sans-serif; margin-bottom: .15rem; }
+
   /* final cta */
   .final { text-align: center; padding: 5rem 0; }
   .final h2 { max-width: 24rem; margin: 0 auto; }
@@ -298,6 +314,7 @@
     .grid3 { grid-template-columns: 1fr; }
     .stats { grid-template-columns: repeat(3, 1fr); }
     .feat { grid-template-columns: repeat(2, 1fr); }
+    .screens { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .9rem; }
     .grid4 { grid-template-columns: 1fr; }
     .vs { grid-template-columns: 1fr; }
   }
@@ -305,6 +322,7 @@
   @media (max-width: 40rem) {
     .stats { grid-template-columns: repeat(2, 1fr); }
     .feat { grid-template-columns: 1fr; }
+    .screens { grid-template-columns: 1fr; max-width: 20rem; margin-left: auto; margin-right: auto; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -386,9 +404,9 @@
   </div>
 
   <div class="stats" aria-label="Проєкт у цифрах">
-    <div><b>172</b><span data-uk="функції в каталозі" data-en="functions in the catalog">функції в каталозі</span></div>
+    <div><b>180</b><span data-uk="функції в каталозі" data-en="functions in the catalog">функції в каталозі</span></div>
     <div><b>4</b><span data-uk="ролі: атлет, клієнт, тренер, власник" data-en="roles: athlete, client, trainer, owner">ролі: атлет, клієнт, тренер, власник</span></div>
-    <div><b>43</b><span data-uk="команди бота + міні-застосунок" data-en="bot commands + a Mini App">команди бота + міні-застосунок</span></div>
+    <div><b>45</b><span data-uk="команди бота + міні-застосунок" data-en="bot commands + a Mini App">команди бота + міні-застосунок</span></div>
     <div><b>2</b><span data-uk="мови: українська й англійська" data-en="languages: Ukrainian and English">мови: українська й англійська</span></div>
     <div><b>~1000</b><span data-uk="автоматичних тестів" data-en="automated tests">автоматичних тестів</span></div>
     <div><b>0 ₴</b><span data-uk="для користувача і для запуску" data-en="to use it and to run it">для користувача і для запуску</span></div>
@@ -455,6 +473,28 @@
   </div>
 </section>
 
+<!-- ============ SCREENS ============ -->
+<section id="screens">
+  <div class="wrap">
+    <p class="sec-kicker" data-uk="Як це виглядає" data-en="What it looks like">Як це виглядає</p>
+    <h2 data-uk="Справжні екрани міні-застосунку" data-en="Real Mini App screens">Справжні екрани міні-застосунку</h2>
+    <div class="screens">
+      <figure>
+        <img src="img/app-train.png" alt="" width="390" height="844" loading="lazy" decoding="async">
+        <figcaption><b data-uk="Тренування в процесі" data-en="A session in progress">Тренування в процесі</b><span data-uk="Підходи в один дотик, таймер відпочинку з кільцем, живий час тренування. Незбережене зберігається саме." data-en="One-tap sets, a rest timer with a ring, live session time. Unsaved work saves itself.">Підходи в один дотик, таймер відпочинку з кільцем, живий час тренування. Незбережене зберігається саме.</span></figcaption>
+      </figure>
+      <figure>
+        <img src="img/app-summary.png" alt="" width="390" height="844" loading="lazy" decoding="async">
+        <figcaption><b data-uk="Підсумок і рекорди" data-en="Summary and records">Підсумок і рекорди</b><span data-uk="Підходи, тривалість, частка часу в роботі, новий рекорд — і одним дотиком у сторіс." data-en="Sets, duration, share of time working, a new record — and one tap to a story.">Підходи, тривалість, частка часу в роботі, новий рекорд — і одним дотиком у сторіс.</span></figcaption>
+      </figure>
+      <figure>
+        <img src="img/app-progress.png" alt="" width="390" height="844" loading="lazy" decoding="async">
+        <figcaption><b data-uk="Навантаження на тілі" data-en="Load on a body map">Навантаження на тілі</b><span data-uk="Кожна група м'язів забарвлена за тижневим обсягом: нижче норми, оптимально, вище." data-en="Each muscle group coloured by its weekly volume: below, optimal, above.">Кожна група м'язів забарвлена за тижневим обсягом: нижче норми, оптимально, вище.</span></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
 <!-- ============ WHO IT'S FOR ============ -->
 <section>
   <div class="wrap">
@@ -505,7 +545,7 @@
 <section id="features">
   <div class="wrap">
     <p class="sec-kicker" data-uk="Що вміє" data-en="What it does">Що вміє</p>
-    <h2 data-uk="172 функції в 11 напрямах" data-en="172 functions across 11 areas">172 функції в 11 напрямах</h2>
+    <h2 data-uk="180 функцій в 11 напрямах" data-en="180 functions across 11 areas">180 функцій в 11 напрямах</h2>
     <p class="sec-lede" data-uk="Нижче — головне з кожного напряму. Повний перелік, де кожен рядок — одна функція, лежить у каталозі на GitHub."
                         data-en="The highlights of each area are below. The full list, one function per line, is in the catalog on GitHub.">Нижче — головне з кожного напряму. Повний перелік, де кожен рядок — одна функція, лежить у каталозі на GitHub.</p>
     <div class="feat">
@@ -519,23 +559,24 @@
         </ul>
       </div>
       <div class="card">
-        <h3><span data-uk="Програма тренувань" data-en="Training plan">Програма тренувань</span><span class="n">27</span></h3>
+        <h3><span data-uk="Програма тренувань" data-en="Training plan">Програма тренувань</span><span class="n">28</span></h3>
         <ul>
           <li data-uk="Спліт з підходами, вагами, RPE/RIR, відпочинком, темпом" data-en="Split with sets, weights, RPE/RIR, rest, tempo">Спліт з підходами, вагами, RPE/RIR, відпочинком, темпом</li>
           <li data-uk="Суперсети й кола, редактор днів і вправ" data-en="Supersets and circuits, day and exercise editor">Суперсети й кола, редактор днів і вправ</li>
-          <li data-uk="Прогресія, плато, підвищення рівня" data-en="Progression, plateaus, level-ups">Прогресія, плато, підвищення рівня</li>
+          <li data-uk="Прогресія, плато, мезоцикли з розвантаженням" data-en="Progression, plateaus, mesocycles with deloads">Прогресія, плато, мезоцикли з розвантаженням</li>
           <li data-uk="Кардіо як навантаження, об'єм на м'яз" data-en="Cardio as training load, volume per muscle">Кардіо як навантаження, об'єм на м'яз</li>
           <li data-uk="Травми, «не мій зал сьогодні», силові нормативи" data-en="Injuries, “not my gym today”, strength standards">Травми, «не мій зал сьогодні», силові нормативи</li>
         </ul>
       </div>
       <div class="card">
-        <h3><span data-uk="Запис тренування" data-en="Workout logging">Запис тренування</span><span class="n">26</span></h3>
+        <h3><span data-uk="Запис тренування" data-en="Workout logging">Запис тренування</span><span class="n">28</span></h3>
         <ul>
           <li data-uk="Картки вправ, «за планом» в один дотик" data-en="Exercise cards, one-tap “as planned”">Картки вправ, «за планом» в один дотик</li>
           <li data-uk="Заміна вправи, яку застосунок пам'ятає" data-en="Swaps the app remembers">Заміна вправи, яку застосунок пам'ятає</li>
           <li data-uk="Таймер відпочинку + пуш у Telegram" data-en="Rest timer + a Telegram push">Таймер відпочинку + пуш у Telegram</li>
           <li data-uk="Чернетка на сервері — продовжуй з іншого телефону" data-en="Server draft — carry on from another phone">Чернетка на сервері — продовжуй з іншого телефону</li>
           <li data-uk="Текстом, голосом або кнопками" data-en="By text, voice or buttons">Текстом, голосом або кнопками</li>
+          <li data-uk="Імпорт кардіо зі Strava" data-en="Cardio imported from Strava">Імпорт кардіо зі Strava</li>
         </ul>
       </div>
       <div class="card">
@@ -548,21 +589,23 @@
         </ul>
       </div>
       <div class="card">
-        <h3><span data-uk="Тіло, відновлення, активність" data-en="Body, recovery & activity">Тіло, відновлення, активність</span><span class="n">14</span></h3>
+        <h3><span data-uk="Тіло, відновлення, активність" data-en="Body, recovery & activity">Тіло, відновлення, активність</span><span class="n">15</span></h3>
         <ul>
           <li data-uk="Вага, заміри, прогноз до цілі" data-en="Weight, measurements, goal forecast">Вага, заміри, прогноз до цілі</li>
           <li data-uk="Вода, кроки, самопочуття, готовність до тренування" data-en="Water, steps, wellbeing, readiness">Вода, кроки, самопочуття, готовність до тренування</li>
           <li data-uk="Фото прогресу й порівняння" data-en="Progress photos and comparison">Фото прогресу й порівняння</li>
           <li data-uk="Відстеження циклу (за бажанням)" data-en="Cycle tracking (opt-in)">Відстеження циклу (за бажанням)</li>
+          <li data-uk="Відсоток жиру за замірами" data-en="Body fat from a tape measure">Відсоток жиру за замірами</li>
         </ul>
       </div>
       <div class="card">
-        <h3><span data-uk="Мотивація і спільнота" data-en="Motivation & community">Мотивація і спільнота</span><span class="n">17</span></h3>
+        <h3><span data-uk="Мотивація і спільнота" data-en="Motivation & community">Мотивація і спільнота</span><span class="n">18</span></h3>
         <ul>
           <li data-uk="XP, рівні, серія тижнів із «заморозкою»" data-en="XP, levels, week streak with a freeze">XP, рівні, серія тижнів із «заморозкою»</li>
           <li data-uk="12 бейджів, рекорди з графіком e1RM" data-en="12 badges, records with an e1RM chart">12 бейджів, рекорди з графіком e1RM</li>
           <li data-uk="Рейтинги, челенджі, напарник" data-en="Leaderboards, challenges, a buddy">Рейтинги, челенджі, напарник</li>
           <li data-uk="Загін у груповому чаті" data-en="A squad in a group chat">Загін у груповому чаті</li>
+          <li data-uk="Рекорди й тиждень — у сторіс Telegram" data-en="Records and your week as Telegram stories">Рекорди й тиждень — у сторіс Telegram</li>
         </ul>
       </div>
       <div class="card">
@@ -575,12 +618,13 @@
         </ul>
       </div>
       <div class="card">
-        <h3><span data-uk="Міні-застосунок" data-en="Mini App">Міні-застосунок</span><span class="n">13</span></h3>
+        <h3><span data-uk="Міні-застосунок" data-en="Mini App">Міні-застосунок</span><span class="n">16</span></h3>
         <ul>
           <li data-uk="Відкривається миттєво, працює як нативний" data-en="Opens instantly, feels native">Відкривається миттєво, працює як нативний</li>
           <li data-uk="Календар, теплова карта, об'єм, e1RM" data-en="Calendar, heatmap, volume, e1RM">Календар, теплова карта, об'єм, e1RM</li>
           <li data-uk="Експорт даних, видалення акаунта" data-en="Data export, account deletion">Експорт даних, видалення акаунта</li>
-          <li data-uk="Світла й темна тема" data-en="Light and dark themes">Світла й темна тема</li>
+          <li data-uk="Схема тіла з навантаженням за тиждень" data-en="A body map of the week's load">Схема тіла з навантаженням за тиждень</li>
+          <li data-uk="Іконка на головному екрані телефона" data-en="An icon on your phone's home screen">Іконка на головному екрані телефона</li>
         </ul>
       </div>
       <div class="card">
@@ -657,7 +701,7 @@
       <div class="stack">
         <span>Cloudflare Workers</span><span>D1 · SQLite</span><span>TypeScript</span>
         <span>grammY</span><span>Telegram Mini App</span><span>React + Vite</span><span>Gemini · Groq · OpenRouter · Workers AI · Ollama</span>
-        <span>OpenAPI 3.1 · 64 ops</span><span>81 D1 migrations</span><span>~1000 tests</span><span>MIT</span>
+        <span>OpenAPI 3.1 · 70 ops</span><span>83 D1 migrations</span><span>Strava API</span><span>Telegram Stars</span><span>~1000 tests</span><span>MIT</span>
       </div>
     </div>
   </div>

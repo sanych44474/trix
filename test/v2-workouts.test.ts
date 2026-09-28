@@ -285,3 +285,26 @@ test("workout drafts: put overwrites, get is per account+date, delete clears", a
   await deleteWorkoutDraft(db, 303, "2026-09-25");
   assert.equal(await getWorkoutDraft(db, 303, "2026-09-25"), null);
 });
+
+test("upsertStrengthRecord: saving the same day again replaces that day's entry, not appends", async () => {
+  const db = newDb();
+  seedAccount(db, 305);
+  const best = { metric: "reps" as const, weight: 14, reps: 10 };
+  await upsertStrengthRecord(db, 305, "Hammer Curl", best, "2026-09-24");
+  await upsertStrengthRecord(db, 305, "Hammer Curl", best, "2026-09-25");
+  await upsertStrengthRecord(db, 305, "Hammer Curl", best, "2026-09-25");
+  const second = await upsertStrengthRecord(db, 305, "Hammer Curl", { ...best, reps: 12 }, "2026-09-25");
+  assert.equal(second.isPR, true, "a better set in a corrected re-save still counts");
+  const [record] = await listStrength(db, 305);
+  assert.deepEqual(record.history.map((h) => [h.date, h.reps]), [["2026-09-24", 10], ["2026-09-25", 12]]);
+});
+
+test("strength history already stored with duplicate dates is collapsed on read", async () => {
+  const db = newDb();
+  seedAccount(db, 306);
+  const dup = [{ date: "2026-09-25", weight: 14, reps: 10 }, { date: "2026-09-25", weight: 14, reps: 10 }, { date: "2026-09-25", weight: 14, reps: 11 }];
+  db.prepare("INSERT INTO v2_strength_records (accountId, exercise, bestWeight, bestReps, bestSeconds, bestMeters, metric, history, updatedAt) VALUES (?, ?, ?, ?, 0, 0, 'reps', ?, ?)")
+    .bind(306, "Curl", 14, 11, JSON.stringify(dup), new Date().toISOString()).run();
+  const [record] = await listStrength(db, 306);
+  assert.deepEqual(record.history, [{ date: "2026-09-25", weight: 14, reps: 11 }]);
+});

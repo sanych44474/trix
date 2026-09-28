@@ -43,6 +43,7 @@
 // comment on allBuddyPairs already documents) and does not touch v2_buddies at all — same
 // documented-and-left-alone treatment v2Tracking.ts gave v2_activity_days. Flagging this as the
 // one genuine design ambiguity in this domain rather than silently guessing a bigger rewrite.
+import { oneEntryPerDate } from "./v2Workouts";
 import type { ExerciseMetric, StrengthRecordDoc } from "../../types";
 import { nowIso, type DB } from "../../db/repos/shared";
 
@@ -224,7 +225,7 @@ interface V2StrengthRow {
 
 function toStrength(r: V2StrengthRow): StrengthRecordDoc {
   let history: StrengthRecordDoc["history"] = [];
-  try { history = JSON.parse(r.history); } catch { history = []; }
+  try { history = oneEntryPerDate(JSON.parse(r.history)); } catch { history = []; }
   return {
     userId: r.accountId,
     exercise: r.exercise,

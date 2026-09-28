@@ -356,7 +356,7 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
         </Card>
       )}
       {(logDate || copiedFrom) && <div className="button-row"><button className="text-button" onClick={() => void backToToday()}>{t(lang, "back_to_today")}</button></div>}
-      {summary ? <SessionSummary lang={lang} summary={summary} title={savedTitle} /> : saved && dayLogged ? <div className="save-note">{savedTitle}</div> : null}
+      {summary ? <SessionSummary lang={lang} summary={summary} title={savedTitle} date={summaryDate ?? workout.date} /> : saved && dayLogged ? <div className="save-note">{savedTitle}</div> : null}
       {restoredFrom === "server-draft" && drafted && <div className="draft-note">{t(lang, "restored_other_device_note")}</div>}
       {logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}
       {copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}

@@ -1,7 +1,11 @@
-import { useMemo, useRef, useState } from "react";
+import { StravaCard } from "./StravaCard";
+import { useMemo, useRef, useState, lazy, Suspense } from "react";
 import { api, ApiError, jsonBody } from "./api";
 import type { Dashboard, MuscleGroup, VolumeZone, WorkoutToday } from "./types";
 import { t, type Key, type Lang } from "./i18n";
+
+// The body-map figure is ~35 kB of SVG paths; loaded only when the Progress screen is opened.
+const BodyMap = lazy(() => import("./BodyMap").then((m) => ({ default: m.BodyMap })));
 
 // dashboard.volume/conditioning send stable codes (src/domain/analysis.ts), never prose -- the
 // raw group/zone strings were being interpolated straight into an otherwise-localized sentence
@@ -87,6 +91,7 @@ const MEASURE_LABEL_KEY: Record<string, Key> = {
   hips: "measure_key_hips",
   arm: "measure_key_arm",
   thigh: "measure_key_thigh",
+  neck: "measure_key_neck",
 };
 
 export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: Lang }) {
@@ -186,6 +191,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
     <div className="metric-grid">
       <Metric label={t(lang, "metric_current_weight")} value={latest ? `${formatNumber(latest.kg)} kg` : "—"} detail={dashboard.weight.goal ? t(lang, "goal_kg", { n: formatNumber(dashboard.weight.goal) }) : t(lang, "add_weighin")} />
       <Metric label={t(lang, "metric_recovery")} value={`${dashboard.recovery.score}`} detail={dashboard.recovery.label} />
+      <Metric label={t(lang, "metric_body_fat")} value={dashboard.bodyFat ? `${formatNumber(dashboard.bodyFat.pct)}%` : "—"} detail={dashboard.bodyFat ? t(lang, "body_fat_detail") : t(lang, "body_fat_hint")} />
       <Metric label={t(lang, "metric_conditioning")} value={t(lang, "min_value", { n: dashboard.conditioning.minutes })} detail={t(lang, "zone_load", { zone: zoneLabel(lang, dashboard.conditioning.zone) })} />
     </div>
 
@@ -265,6 +271,8 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
       {photoNotice && <div className="save-note">{photoNotice}</div>}
     </Card>
 
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "weekly_volume_eyebrow")}</span><h2>{t(lang, "strength_load_title")}</h2></div><button className="text-button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>{t(lang, "top_btn")}</button></div>{dashboard.volume.length ? <div className="volume-list">{dashboard.volume.map((item) => <div className="volume-row" key={item.group}><div><strong>{muscleGroupLabel(lang, item.group)}</strong><small>{t(lang, "volume_row_detail", { n: item.sets, zone: zoneLabel(lang, item.zone) })}</small></div><div className="bar"><span style={{ width: `${Math.min(100, (item.sets / Math.max(item.mav, 1)) * 100)}%` }} /></div></div>)}</div> : <Empty title={t(lang, "no_volume_title")} detail={t(lang, "no_volume_detail")} />}</Card>
+    <StravaCard lang={lang} />
+
+    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "weekly_volume_eyebrow")}</span><h2>{t(lang, "strength_load_title")}</h2></div><button className="text-button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>{t(lang, "top_btn")}</button></div>{dashboard.volume.length ? <><Suspense fallback={<div className="skeleton" />}><BodyMap lang={lang} volume={dashboard.volume} /></Suspense><div className="volume-list">{dashboard.volume.map((item) => <div className="volume-row" key={item.group}><div><strong>{muscleGroupLabel(lang, item.group)}</strong><small>{t(lang, "volume_row_detail", { n: item.sets, zone: zoneLabel(lang, item.zone) })}</small></div><div className="bar"><span style={{ width: `${Math.min(100, (item.sets / Math.max(item.mav, 1)) * 100)}%` }} /></div></div>)}</div></> : <Empty title={t(lang, "no_volume_title")} detail={t(lang, "no_volume_detail")} />}</Card>
   </div>;
 }

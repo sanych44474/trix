@@ -26,7 +26,10 @@
 body { margin: 0; min-width: 320px; overflow-x: hidden; background: radial-gradient(circle at 90% -10%, rgba(255,95,61,.14), transparent 34%), var(--bg); color: var(--text); }
 button, input { font: inherit; }
 button { cursor: pointer; }
-.app-shell { width: min(100%, 680px); min-height: 100vh; margin: 0 auto; padding: env(safe-area-inset-top) 18px calc(96px + env(safe-area-inset-bottom)); }
+/* --safe-top/--safe-bottom: the device inset, or -- in Telegram's full-screen mode -- the device
+   inset plus Telegram's own header/controls (telegram-web-app.js sets the --tg-* variables). */
+:root { --safe-top: max(env(safe-area-inset-top), calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px))); --safe-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-area-inset-bottom, 0px)); }
+.app-shell { width: min(100%, 680px); min-height: 100vh; margin: 0 auto; padding: var(--safe-top) 18px calc(96px + var(--safe-bottom)); }
 .topbar > div { min-width: 0; }.topbar { display: flex; align-items: center; gap: 12px; padding: 18px 0 24px; }
 .topbar > div:nth-child(2) { display: grid; gap: 3px; flex: 1; }
 .topbar strong { font-size: 14px; letter-spacing: .02em; }
@@ -133,7 +136,7 @@ button { cursor: pointer; }
 /* Rest bar: pinned just above the bottom nav so a running rest is visible wherever the user
    has scrolled to. Replaces a line of muted text at the very end of the exercise list, which
    nobody mid-session was looking at. The ring is a conic-gradient driven by --rest-pct. */
-.train-dock { position: fixed; z-index: 11; right: 12px; bottom: calc(66px + env(safe-area-inset-bottom)); left: 12px; display: grid; gap: 6px; width: min(calc(100% - 24px), 656px); margin: 0 auto; }
+.train-dock { position: fixed; z-index: 11; right: 12px; bottom: calc(66px + var(--safe-bottom)); left: 12px; display: grid; gap: 6px; width: min(calc(100% - 24px), 656px); margin: 0 auto; }
 /* Save state + the one action that matters, pinned with the rest bar above the bottom nav.
    The old save button sat at the end of the list while its confirmation rendered at the top. */
 .save-dock { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(11,13,17,.96); box-shadow: 0 8px 24px rgba(0,0,0,.35); backdrop-filter: blur(18px); }
@@ -173,7 +176,7 @@ button { cursor: pointer; }
 .summary-hit { margin: 4px 0; font-size: 13px; font-weight: 700; }
 .train-progress { display: flex; gap: 8px; align-items: center; }
 .train-progress .progress-track { flex: 1 1 auto; }
-.bottom-nav { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; display: flex; gap: 2px; padding: 8px 6px calc(8px + env(safe-area-inset-bottom)); background: rgba(11,13,17,.92); border-top: 1px solid var(--line); backdrop-filter: blur(18px); }.nav-item { display: grid; gap: 3px; flex: 1 1 0; min-width: 0; padding: 5px 2px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 10px; line-height: 1.15; text-align: center; }.nav-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }.nav-icon { font-size: 19px; line-height: 1; }.nav-item.active { background: var(--accent-soft); color: var(--accent); }
+.bottom-nav { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; display: flex; gap: 2px; padding: 8px 6px calc(8px + var(--safe-bottom)); background: rgba(11,13,17,.92); border-top: 1px solid var(--line); backdrop-filter: blur(18px); }.nav-item { display: grid; gap: 3px; flex: 1 1 0; min-width: 0; padding: 5px 2px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 10px; line-height: 1.15; text-align: center; }.nav-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }.nav-icon { font-size: 19px; line-height: 1; }.nav-item.active { background: var(--accent-soft); color: var(--accent); }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (min-width: 640px) { .hero { grid-template-columns: 1fr auto; align-items: end; }.hero .button { margin-bottom: 2px; }.bottom-nav { right: auto; left: 50%; width: 640px; transform: translateX(-50%); border-right: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: 18px 18px 0 0; } }
 @media (max-width: 420px) { .set-row { grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) 22px; }.rpe-chips { grid-column: 2 / -1; justify-content: flex-start; }.set-remove { grid-column: 4; grid-row: 1; }.exercise-head { align-items: flex-start; }.exercise-head .button-row { justify-content: flex-end; } }
@@ -220,3 +223,18 @@ button { cursor: pointer; }
 .macro-donut-legend { display: grid; gap: 6px; flex: 1; font-size: 12px; color: var(--muted); }
 .macro-donut-legend span { display: flex; align-items: center; gap: 6px; }
 .macro-donut-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.stack-card { display: grid; gap: 10px; }.stack-card .section-head { margin-bottom: 0; }
+/* Weekly-load body map (BodyMap.tsx). */
+:root { --body-map-base: #2a3140; }
+:root[data-theme="light"] { --body-map-base: #d8dee7; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --body-map-base: #d8dee7; } }
+.body-map { display: grid; gap: 8px; margin: 6px 0 12px; }
+.body-map-figures { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.body-map-figures figure { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.body-map-figures figure > div { width: 100%; max-width: 180px; }
+.body-map-figures figcaption { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.body-map-figures polygon { cursor: pointer; }
+.body-map-legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; color: var(--muted); font-size: 12px; }
+.body-map-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; vertical-align: -1px; }
+.body-map-detail { margin: 0; text-align: center; font-size: 13px; }
+.strava-button { justify-self: start; background: #fc4c02; color: #fff; }
