@@ -24,7 +24,7 @@ function**, so the total below is a count rather than a slogan.
 
 | | |
 |---|---|
-| Functions in this catalog | **180** across 11 areas |
+| Functions in this catalog | **183** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
 | Surfaces | 2 — Telegram chat (45 commands) and the Telegram Mini App |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
@@ -36,13 +36,13 @@ function**, so the total below is a count rather than a slogan.
 | Area | Functions |
 |---|---|
 | 1. Onboarding & roles | 12 |
-| 2. Training plan & programming | 28 |
-| 3. Workout logging | 28 |
+| 2. Training plan & programming | 29 |
+| 3. Workout logging | 29 |
 | 4. Nutrition | 14 |
 | 5. Body, recovery & activity | 15 |
 | 6. Gamification & community | 18 |
 | 7. Trainer tools | 22 |
-| 8. Mini App platform | 16 |
+| 8. Mini App platform | 17 |
 | 9. Reminders & automation | 13 |
 | 10. Owner / admin | 9 |
 | 11. Engineering safeguards | 5 |
@@ -106,6 +106,10 @@ function**, so the total below is a count rather than a slogan.
 27. **Program library**: take a ready program into your own plan.
 28. **Block periodization** (opt-in): hypertrophy → strength → peak → deload blocks, advanced
     weekly, shown in the app and passed to plan regeneration.
+29. **Plan balance check**: counts each muscle's weekly sets in the plan (main movers in full,
+    assisting muscles as half) and flags a muscle nothing trains or one under half its opposite
+    (chest/back, quads/hamstrings, biceps/triceps), with one exercise to add on the day that fits.
+    Shown under the plan in the bot and as a card with an "add" button in the Mini App.
 
 ## 3. Workout logging
 
@@ -148,6 +152,9 @@ function**, so the total below is a count rather than a slogan.
     own bottom button, with a progress state while saving.
 28. **Strava import**: connect once; runs, rides, swims, walks and rows appear in the log by
     themselves (twice a day or on demand), count toward cardio load and are never added twice.
+29. **Technique pictures**: the info panel shows the start and finish position of the exercise
+    (free-exercise-db, 750 exercises), matched by the English catalog name or, for Ukrainian names,
+    by movement; a merely similar exercise is labelled as such.
 
 ## 4. Nutrition
 
@@ -256,12 +263,16 @@ function**, so the total below is a count rather than a slogan.
 11. **Deep links**: reminder buttons open the exact screen (`?view=…`, `startapp=`).
 12. **Light and dark themes**, following Telegram's.
 13. **Body map**: anatomical front/back figures (male or female, from the profile). "This week"
-    colours each region by its sets vs MEV/MAV; picking an exercise (recent ones as chips, or
-    search any name) lights up its primary movers and, lighter, the assisting muscles.
-14. **Feels installed**: add trix to the phone's home screen, or open it full screen.
-15. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
+    colours each of 15 muscles by its weekly sets vs its own MEV/MAV (main movers count a full
+    set, assisting muscles half) and calls out lopsided pairs; tapping a muscle lists the
+    exercises and sets behind it. Picking a plan day or an exercise from the dropdown lights up
+    the main movers and, lighter, the assisting muscles.
+14. **Recovery map**: every muscle coloured by the days since it was last loaded — red under
+    48 h, yellow 48–72 h, green ready — so it is clear what can be trained today.
+15. **Feels installed**: add trix to the phone's home screen, or open it full screen.
+16. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
     unlocked by it, and `/paysupport` handles payment questions.
-16. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
+17. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
     (deduped), a strict Content-Security-Policy, static assets served from the edge.
 
 ## 9. Reminders & automation
