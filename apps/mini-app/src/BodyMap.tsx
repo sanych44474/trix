@@ -1,14 +1,15 @@
 // Body map on the Progress screen (react-muscle-highlighter, MIT): anatomical front/back figures
-// for the user's sex. Two modes:
+// for the user's sex. Three modes:
 //   - "Week": each region coloured by where its weekly working sets sit against MEV/MAV.
+//   - a plan day: every muscle that day's exercises drive (strong) or assist (light).
 //   - an exercise: its primary movers strong, its helpers light (./logic/exerciseMuscles.ts).
-// The exercise dropdown lists the plan's exercises by training day, then recent extras.
+// The dropdown lists the plan by training day ("whole day" first, then its exercises), then recent extras.
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import type { Plan } from "./types";
 import Body, { type ExtendedBodyPart } from "react-muscle-highlighter";
 import { t, type Key, type Lang } from "./i18n";
-import { exerciseParts, pickerGroups, PRIMARY_COLOR, regionOfMuscle, SECONDARY_COLOR, weekParts, ZONE_COLORS, type Part } from "./logic/bodyMap";
+import { dayMuscles, exerciseParts, pickerGroups, PRIMARY_COLOR, regionOfMuscle, SECONDARY_COLOR, weekParts, ZONE_COLORS, type Part } from "./logic/bodyMap";
 import { musclesForExercise, type ExerciseMuscles } from "./logic/exerciseMuscles";
 
 type Volume = Array<{ group: string; sets: number; mev: number; mav: number; zone: string }>;
@@ -36,8 +37,16 @@ function listNames(lang: Lang, slugs: string[]): string {
   return slugs.map((s) => muscleLabel(lang, s)).join(", ");
 }
 
+type Selection = { kind: "week" } | { kind: "day"; weekday: number } | { kind: "exercise"; name: string };
+const selectionValue = (s: Selection) => (s.kind === "day" ? `d:${s.weekday}` : s.kind === "exercise" ? `e:${s.name}` : "");
+function parseSelection(value: string): Selection {
+  if (value.startsWith("d:")) return { kind: "day", weekday: Number(value.slice(2)) };
+  if (value.startsWith("e:")) return { kind: "exercise", name: value.slice(2) };
+  return { kind: "week" };
+}
+
 export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: Volume; sex?: "male" | "female"; exercises: string[] }) {
-  const [exercise, setExercise] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection>({ kind: "week" });
   const [tapped, setTapped] = useState<string | null>(null);
   const [planDays, setPlanDays] = useState<Plan["days"]>([]);
   const colors = useMemo(themeColors, []);
@@ -46,8 +55,13 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
   useEffect(() => { api<Plan>("/api/v2/plan").then((plan) => setPlanDays(plan.days ?? [])).catch(() => {}); }, []);
   const groups = useMemo(() => pickerGroups(planDays, exercises), [planDays, exercises]);
 
-  const muscles: ExerciseMuscles | null = exercise ? musclesForExercise(exercise) : null;
-  const parts: Part[] = exercise ? (muscles ? exerciseParts(muscles) : []) : weekParts(volume);
+  const exercise = selection.kind === "exercise" ? selection.name : null;
+  const day = selection.kind === "day" ? groups.find((g) => g.weekday === selection.weekday) ?? null : null;
+  const dayLabel = (group: { weekday: number | null; title: string }) =>
+    group.weekday ? `${t(lang, WEEKDAY_KEYS[group.weekday])}${group.title ? ` · ${group.title}` : ""}` : t(lang, "body_map_recent_group");
+  const dayData = day ? dayMuscles(day.dayNames, musclesForExercise) : null;
+  const muscles: ExerciseMuscles | null = exercise ? musclesForExercise(exercise) : dayData;
+  const parts: Part[] = selection.kind === "week" ? weekParts(volume) : muscles ? exerciseParts(muscles) : [];
   // Every part gets an explicit colour: the library's own assets hard-code a dark "#3f3f3f" on
   // each part, which wins over its `defaultFill`, so un-highlighted muscles ignored the theme.
   const highlighted = new Map(parts.map((p) => [p.slug as string, p.color]));
@@ -56,9 +70,28 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
     color: highlighted.get(slug) ?? (slug === "hair" ? colors.border : colors.base),
   }));
 
-  const pick = (name: string | null) => { setExercise(name); setTapped(null); };
+  const pick = (next: Selection) => { setSelection(next); setTapped(null); };
 
   const detail = (() => {
+    if (day && dayData) {
+      if (tapped) {
+        // Which of the day's exercises drive / assist the tapped muscle.
+        const by = (role: "primary" | "secondary") => day.dayNames.filter((n) => (musclesForExercise(n)?.[role] ?? []).includes(tapped as never));
+        const drive = by("primary");
+        const assist = by("secondary").filter((n) => !drive.includes(n));
+        if (!drive.length && !assist.length) return `${muscleLabel(lang, tapped)} — ${t(lang, "body_map_role_none")}`;
+        return `${muscleLabel(lang, tapped)}: ${[
+          drive.length ? t(lang, "body_map_day_drives", { names: drive.join(", ") }) : "",
+          assist.length ? t(lang, "body_map_day_assists", { names: assist.join(", ") }) : "",
+        ].filter(Boolean).join("; ")}.`;
+      }
+      const head = t(lang, "body_map_day_detail", { day: dayLabel(day), n: day.dayNames.length });
+      const body = !dayData.primary.length ? "" : dayData.secondary.length
+        ? t(lang, "body_map_exercise_detail", { primary: listNames(lang, dayData.primary), secondary: listNames(lang, dayData.secondary) })
+        : t(lang, "body_map_exercise_primary_only", { primary: listNames(lang, dayData.primary) });
+      const unknown = dayData.unknown.length ? t(lang, "body_map_day_unknown", { names: dayData.unknown.join(", ") }) : "";
+      return [head, body, unknown].filter(Boolean).join(" ");
+    }
     if (exercise) {
       if (!muscles) return t(lang, "body_map_unknown_exercise", { name: exercise });
       if (tapped) {
@@ -99,21 +132,23 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
     <div className="body-map">
       <label className="body-map-select">
         <span>{t(lang, "body_map_pick_label")}</span>
-        <select value={exercise ?? ""} onChange={(event) => pick(event.target.value || null)}>
+        <select value={selectionValue(selection)} onChange={(event) => pick(parseSelection(event.target.value))}>
           <option value="">{t(lang, "body_map_mode_week")}</option>
           {groups.map((group) => (
-            <optgroup
-              key={group.weekday ?? "recent"}
-              label={group.weekday ? `${t(lang, WEEKDAY_KEYS[group.weekday])}${group.title ? ` · ${group.title}` : ""}` : t(lang, "body_map_recent_group")}
-            >
-              {group.names.map((name) => <option key={name} value={name}>{name}</option>)}
+            <optgroup key={group.weekday ?? "recent"} label={dayLabel(group)}>
+              {group.weekday !== null && (
+                <option value={selectionValue({ kind: "day", weekday: group.weekday })}>
+                  {t(lang, "body_map_whole_day", { day: dayLabel(group) })}
+                </option>
+              )}
+              {group.names.map((name) => <option key={name} value={selectionValue({ kind: "exercise", name })}>{name}</option>)}
             </optgroup>
           ))}
         </select>
       </label>
       <div className="body-map-figures">{figure("front")}{figure("back")}</div>
       <div className="body-map-legend">
-        {exercise
+        {selection.kind !== "week"
           ? <>
               <span><i style={{ background: PRIMARY_COLOR }} />{t(lang, "body_map_primary")}</span>
               <span><i style={{ background: SECONDARY_COLOR }} />{t(lang, "body_map_secondary")}</span>

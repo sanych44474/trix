@@ -53,3 +53,24 @@ test("exercise dropdown: plan days in weekday order, then recent extras, no dupl
     [null, ["Біг"]],
   ]);
 });
+
+test("whole-day mode: every day keeps its full exercise list, muscles are merged", async () => {
+  const { pickerGroups, dayMuscles } = await import("../apps/mini-app/src/logic/bodyMap");
+  const { musclesForExercise } = await import("../apps/mini-app/src/logic/exerciseMuscles");
+  const groups = pickerGroups(
+    [
+      { weekday: 1, muscleGroup: "Ноги", exercises: [{ name: "Присідання" }, { name: "Румунська тяга" }] },
+      { weekday: 4, muscleGroup: "Ноги 2", exercises: [{ name: "Присідання" }, { name: "Йога-потік" }] },
+    ],
+    [],
+  );
+  assert.deepEqual(groups.map((g) => [g.weekday, g.names, g.dayNames]), [
+    [1, ["Присідання", "Румунська тяга"], ["Присідання", "Румунська тяга"]],
+    [4, ["Йога-потік"], ["Присідання", "Йога-потік"]],
+  ]);
+  const monday = dayMuscles(groups[0]!.dayNames, musclesForExercise);
+  assert.deepEqual(monday.primary, ["quadriceps", "gluteal", "hamstring"]);
+  assert.ok(!monday.secondary.some((s) => monday.primary.includes(s)), "hamstring is primary, not also secondary");
+  assert.deepEqual(monday.unknown, []);
+  assert.deepEqual(dayMuscles(groups[1]!.dayNames, musclesForExercise).unknown, ["Йога-потік"]);
+});

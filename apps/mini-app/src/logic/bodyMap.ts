@@ -37,6 +37,21 @@ export function exerciseParts(muscles: ExerciseMuscles): Part[] {
   ];
 }
 
+/** A whole training day on the figure: a muscle is primary if any exercise drives it, secondary if
+ *  it only assists. Names with no muscle data are returned so the UI can say what it left out. */
+export function dayMuscles(names: string[], lookup: (name: string) => ExerciseMuscles | null): ExerciseMuscles & { unknown: string[] } {
+  const primary: Slug[] = [];
+  const secondary: Slug[] = [];
+  const unknown: string[] = [];
+  for (const name of names) {
+    const m = lookup(name);
+    if (!m) { unknown.push(name); continue; }
+    for (const slug of m.primary) if (!primary.includes(slug)) primary.push(slug);
+    for (const slug of m.secondary) if (!secondary.includes(slug)) secondary.push(slug);
+  }
+  return { primary, secondary: secondary.filter((slug) => !primary.includes(slug)), unknown };
+}
+
 export function regionOfMuscle(slug: string): Region | null {
   for (const [region, slugs] of Object.entries(REGION_MUSCLES) as Array<[Region, Slug[]]>) {
     if (slugs.includes(slug as Slug)) return region;
@@ -63,7 +78,8 @@ export function recentExerciseNames(logs: Array<{ date: string; ex: Array<{ n: s
 export interface PickerGroup {
   weekday: number | null; // ISO 1..7 for a plan day; null for "recent, not in the plan"
   title: string; // the plan day's name / muscle group, empty for the recent group
-  names: string[];
+  names: string[]; // exercises not already listed under an earlier day
+  dayNames: string[]; // every exercise of the plan day (for "whole day"); empty for the recent group
 }
 
 /** The body map's exercise dropdown: the plan's exercises grouped by training day (Mon..Sun),
@@ -81,9 +97,12 @@ export function pickerGroups(
   };
   const groups: PickerGroup[] = [...days]
     .sort((a, b) => a.weekday - b.weekday)
-    .map((day) => ({ weekday: day.weekday, title: day.muscleGroup || day.name || "", names: day.exercises.map((e) => e.name.trim()).filter(take) }))
-    .filter((group) => group.names.length > 0);
+    .map((day) => {
+      const dayNames = [...new Set(day.exercises.map((e) => e.name.trim()).filter(Boolean))];
+      return { weekday: day.weekday, title: day.muscleGroup || day.name || "", names: dayNames.filter(take), dayNames };
+    })
+    .filter((group) => group.dayNames.length > 0);
   const extra = recent.filter(take);
-  if (extra.length) groups.push({ weekday: null, title: "", names: extra });
+  if (extra.length) groups.push({ weekday: null, title: "", names: extra, dayNames: [] });
   return groups;
 }
