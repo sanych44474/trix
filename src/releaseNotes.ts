@@ -4,8 +4,8 @@ import { escapeHtml, mdToHtml } from "./locales/i18n";
 // Versioned, bilingual release notes — the last 2 only. Newest first. Bodies use the same
 // *bold*/_italic_ markers as the locale catalog; keep them author-controlled (no raw <, >, & —
 // they're HTML-escaped first). The owner broadcasts the latest entry to every user (each in
-// their own language) with a confirm gate. Older history lives in GitHub Releases, not in the
-// Worker bundle — /whatsnew only ever needs the current and previous version.
+// their own language) with a confirm gate. Older history lives in docs/release-notes.md (add each
+// new entry there too), not in the Worker bundle — /whatsnew only needs the current and previous version.
 export interface ReleaseNote {
   version: string; // YYYY-MM-DD (also the display tag)
   en: string;
@@ -13,6 +13,43 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_NOTES: ReleaseNote[] = [
+  {
+    version: "2026-09-28",
+    en: `🎉 *What's new in trix*
+
+🫀 *Body map* — an anatomical figure (front and back) on the Progress screen: your week muscle by muscle, a *recovery map* (🔴 still recovering, 🟡 almost, 🟢 ready), any plan day or single exercise lit up, and a *12-week trend* for each muscle. Share it to your story in one tap.
+
+⚖️ *Balanced plans* — new AI plans check themselves: if the back, hamstrings or any key muscle is missing or far behind, the right exercise is added before you ever see the plan. Existing plans get a "worth adding" card with a one-tap fix.
+
+🔋 *Recovery-aware days* — if today's muscles are still tired from the last session, trix offers to swap today with a later day whose muscles are ready.
+
+📸 *Technique pictures* — the start and finish position of each exercise, with 3–5 short steps, right in the logger.
+
+🎥 *Form check* — send a short video of a set in the chat and get 2–3 concrete technique cues.
+
+🏃 *Strava import* — runs, rides and swims land in your log by themselves.
+
+💾 *Reliable logging* — the save button is always in view, drafts sync between devices, and the real session length is recorded.
+
+Tap *Menu → 📱 Dashboard*! 💪`,
+    uk: `🎉 *Що нового в trix*
+
+🫀 *Карта тіла* — анатомічна фігура (спереду і ззаду) на екрані прогресу: твій тиждень по кожному м'язу, *карта відновлення* (🔴 ще відновлюються, 🟡 майже, 🟢 готові), підсвітка будь-якого дня плану чи окремої вправи і *тренд за 12 тижнів* для кожного м'яза. Можна поділитися в сторіс одним тапом.
+
+⚖️ *Збалансовані плани* — нові AI-плани перевіряють себе самі: якщо бракує спини, біцепса стегна чи іншого ключового м'яза, потрібна вправа додається ще до того, як ти побачиш план. Для наявних планів — картка «Варто додати» з виправленням в один тап.
+
+🔋 *Дні з урахуванням відновлення* — якщо сьогоднішні м'язи ще втомлені після минулого тренування, trix запропонує поміняти день із пізнішим, де м'язи вже готові.
+
+📸 *Фото техніки* — початок і кінець руху для кожної вправи та 3–5 коротких кроків прямо в логері.
+
+🎥 *Перевірка техніки* — надішли в чат коротке відео підходу й отримай 2–3 конкретні підказки.
+
+🏃 *Імпорт зі Strava* — біг, велосипед і плавання потрапляють у журнал самі.
+
+💾 *Надійний запис* — кнопка збереження завжди на екрані, чернетки синхронізуються між пристроями, а тривалість тренування записується точно.
+
+Тисни *Меню → 📱 Дашборд*! 💪`,
+  },
   {
     version: "2026-09-09",
     en: `🎉 *What's new in trix*
@@ -39,39 +76,6 @@ Tap *Menu → 📱 Dashboard*! 💪`,
 🧹 *Охайніший профіль* — налаштування тепер згортаються в секції замість суцільної стіни карток.
 
 👆 *Чіткіші тапи* — кнопки тепер дають легкий відгук при натисканні по всьому застосунку.
-
-Тисни *Меню → 📱 Дашборд*! 💪`,
-  },
-  {
-    version: "2026-08-01",
-    en: `🎉 *What's new in trix*
-
-🏆 *Bigger record celebrations* — beat a lift and you get a full-screen 💥 banner, a trophy pop and a punchy haptic. New badges for *10* and *25* personal records, plus a *Perfect day* badge for hitting all three daily quests.
-
-🤝 *Buddy, expanded* — tap your buddy's card to see their progress (level/streak), this week's workouts and their plan, plus a weekly *you-vs-them duel*.
-
-📅 *Weekly recap & quick start* — a tidy "this week" card with a share button, and a friendly get-started guide for new athletes.
-
-⚡ *Level-up celebration* — a ⚡ pop when you reach a new level.
-
-🧊 *Protected streak* — at a 4-week streak, one missed week no longer breaks it (shown on your level card).
-
-🩹 *Smarter plateau detection* — adding weight with a rep reset is now correctly read as progress, not a plateau, so you won't get false "you've stalled" nudges.
-
-Tap *Menu → 📱 Dashboard*! 💪`,
-    uk: `🎉 *Що нового в trix*
-
-🏆 *Більше свята за рекорди* — поб'єш вагу — і отримаєш повноекранний 💥 банер, кубок і потужний хаптик. Нові бейджі за *10* та *25* особистих рекордів і бейдж *Ідеальний день* за виконання всіх трьох щоденних квестів.
-
-🤝 *Напарник — детальніше* — тапни картку напарника й побач його прогрес (рівень/серія), тренування цього тижня та його план, а ще тижневу *дуель ти-проти-нього*.
-
-📅 *Тижневий підсумок і швидкий старт* — акуратна картка «цього тижня» з кнопкою поділитися і привітний гайд для новачків.
-
-⚡ *Святкування нового рівня* — ⚡ вікно, коли досягаєш нового рівня.
-
-🧊 *Захищена серія* — на серії 4 тижні один пропущений тиждень більше її не ламає (видно на картці рівня).
-
-🩹 *Розумніше визначення плато* — додавання ваги зі скиданням повторів тепер правильно читається як прогрес, а не плато — жодних хибних «ти застопорився».
 
 Тисни *Меню → 📱 Дашборд*! 💪`,
   },
