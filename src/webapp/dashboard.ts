@@ -54,6 +54,7 @@ export interface DashboardPayload {
   measurements?: { key: string; points: { date: string; v: number }[] }[];
   // U.S. Navy tape-measure estimate from the newest waist/neck(/hips) -- see domain/bodyFat.ts.
   bodyFat?: { date: string; pct: number };
+  sex?: "male" | "female"; // picks the male/female figure of the body map
   exercises: { name: string; group: string; points: { date: string; e1rm: number }[] }[];
   macros: {
     targets?: NutritionTargets;
@@ -249,6 +250,7 @@ export function assemblePayload(
     recovery,
     ...(measurements.length ? { measurements } : {}),
     ...(bodyFat ? { bodyFat } : {}),
+    ...(user.profile.sex ? { sex: user.profile.sex } : {}),
     exercises,
     macros: {
       ...(user.nutrition ? { targets: user.nutrition } : {}),

@@ -48,7 +48,9 @@ export async function handleStravaApi(req: Request, url: URL, env: Env): Promise
 }
 
 function page(title: string, body: string, botUsername?: string): Response {
-  const back = botUsername ? `<p><a href="https://t.me/${escapeHtml(botUsername)}">Telegram →</a></p>` : "";
+  // Only a well-formed Telegram username reaches the href: escapeHtml doesn't escape quotes, so
+  // an attribute must never receive anything outside [A-Za-z0-9_].
+  const back = botUsername && /^[A-Za-z0-9_]{3,64}$/.test(botUsername) ? `<p><a href="https://t.me/${encodeURIComponent(botUsername)}">Telegram →</a></p>` : "";
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0d11;color:#eef1f6;font:17px/1.5 system-ui,sans-serif}main{max-width:26rem;padding:2rem}h1{font-size:1.5rem}a{color:#fc4c02}small{color:#8f99aa}</style></head>
 <body><main><h1>${escapeHtml(title)}</h1><p>${body}</p>${back}<small>Powered by Strava</small></main></body></html>`;

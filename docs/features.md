@@ -255,8 +255,9 @@ function**, so the total below is a count rather than a slogan.
 10. **Leave trainer / delete account** from the app.
 11. **Deep links**: reminder buttons open the exact screen (`?view=…`, `startapp=`).
 12. **Light and dark themes**, following Telegram's.
-13. **Weekly load body map**: front/back silhouettes coloured by each region's sets vs MEV/MAV;
-    tap a muscle for its numbers.
+13. **Body map**: anatomical front/back figures (male or female, from the profile). "This week"
+    colours each region by its sets vs MEV/MAV; picking an exercise (recent ones as chips, or
+    search any name) lights up its primary movers and, lighter, the assisting muscles.
 14. **Feels installed**: add trix to the phone's home screen, or open it full screen.
 15. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
     unlocked by it, and `/paysupport` handles payment questions.

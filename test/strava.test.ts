@@ -112,3 +112,13 @@ test("an expired access token is refreshed before syncing", async () => {
   assert.equal(strava.calls.filter((c) => c.endsWith("/oauth/token")).length, 2, "code exchange + one refresh");
   assert.equal((await getStravaLink(db, 502, cfg.clientSecret))?.tokens.access, "acc2");
 });
+
+test("callback page never puts an unvalidated bot username into an attribute", async () => {
+  const { handleStravaCallback } = await import("../src/webapp/stravaApi");
+  const env = { STRAVA_CLIENT_ID: "1", STRAVA_CLIENT_SECRET: "s3cret", WORKER_URL: "https://w.example", BOT_USERNAME: 'x" onmouseover="alert(1)', DB: newDb() } as never;
+  const res = await handleStravaCallback(new URL("https://w.example/strava/callback?state=bad&code=c"), env);
+  const html = await res.text();
+  assert.ok(!html.includes("onmouseover"), "a malformed username is dropped, not escaped into the href");
+  const ok = await handleStravaCallback(new URL("https://w.example/strava/callback?state=bad&code=c"), { ...(env as object), BOT_USERNAME: "trix_bot" } as never);
+  assert.ok((await ok.text()).includes('href="https://t.me/trix_bot"'));
+});
