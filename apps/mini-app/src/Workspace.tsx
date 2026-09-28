@@ -686,6 +686,16 @@ const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster">; tab: K
   { id: "errors", tab: "owner_tab_errors", eyebrow: "errors_report_eyebrow", title: "errors_report_title" },
   { id: "events", tab: "owner_tab_events", eyebrow: "events_report_eyebrow", title: "events_report_title" },
 ];
+// Tab strip order and icons: the roster (people) first, then the reports.
+const OWNER_TABS: Array<{ id: OwnerSection; tab: Key; icon: string }> = [
+  { id: "overview", tab: "owner_tab_overview", icon: "📊" },
+  { id: "roster", tab: "owner_tab_roster", icon: "👥" },
+  { id: "ai", tab: "owner_tab_ai", icon: "🤖" },
+  { id: "trainers", tab: "owner_tab_trainers", icon: "🧑‍🏫" },
+  { id: "onboarding", tab: "owner_tab_onboarding", icon: "🚪" },
+  { id: "errors", tab: "owner_tab_errors", icon: "⚠️" },
+  { id: "events", tab: "owner_tab_events", icon: "📈" },
+];
 // The backend already renders each section as Telegram-HTML (<b>/<i>/<pre>/<code> + newlines);
 // stripped to plain text and dropped into a monospace <pre>, alignment/tables survive untouched
 // (same approach the existing overview panel used before this got split into tabs).
@@ -741,10 +751,17 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
     <div className="page-title"><h1>{t(lang, "system_pulse_title")}</h1><span>{t(lang, "n_users", { n: users.rows.length })}</span></div>
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <ReleaseBroadcastPanel lang={lang} />
-    <div className="button-row tabs-scroll">
-      {OWNER_REPORT_SECTIONS.map((s) => <button key={s.id} className={section === s.id ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== s.id} onClick={() => selectSection(s.id)}>{t(lang, s.tab)}</button>)}
-      <button className={section === "roster" ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== "roster"} onClick={() => selectSection("roster")}>{t(lang, "owner_tab_roster")}</button>
-    </div>
+    {/* All sections at once as a grid of icon chips -- the old one-line scroller hid the last
+        tabs off-screen on a phone. */}
+    <nav className="owner-tabs" aria-label={t(lang, "owner_ops_eyebrow")}>
+      {OWNER_TABS.map((s) => (
+        <button key={s.id} type="button" aria-current={section === s.id ? "page" : undefined}
+          className={section === s.id ? "owner-tab active" : "owner-tab"}
+          disabled={sectionBusy && section !== s.id} onClick={() => selectSection(s.id)}>
+          <span aria-hidden="true">{s.icon}</span>{t(lang, s.tab)}
+        </button>
+      ))}
+    </nav>
 
     {section === "roster" && <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "roster_eyebrow")}</span><h2>{t(lang, "recent_users_title")}</h2></div></div>
