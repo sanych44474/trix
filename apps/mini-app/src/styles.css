@@ -224,3 +224,16 @@ button { cursor: pointer; }
 .macro-donut-legend span { display: flex; align-items: center; gap: 6px; }
 .macro-donut-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
 .stack-card { display: grid; gap: 10px; }.stack-card .section-head { margin-bottom: 0; }
+/* Weekly-load body map (BodyMap.tsx). */
+:root { --body-map-base: #2a3140; }
+:root[data-theme="light"] { --body-map-base: #d8dee7; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --body-map-base: #d8dee7; } }
+.body-map { display: grid; gap: 8px; margin: 6px 0 12px; }
+.body-map-figures { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.body-map-figures figure { margin: 0; display: grid; gap: 4px; justify-items: center; }
+.body-map-figures figure > div { width: 100%; max-width: 180px; }
+.body-map-figures figcaption { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.body-map-figures polygon { cursor: pointer; }
+.body-map-legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; color: var(--muted); font-size: 12px; }
+.body-map-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; vertical-align: -1px; }
+.body-map-detail { margin: 0; text-align: center; font-size: 13px; }
