@@ -956,6 +956,7 @@ const FIELD_WORDS: Record<keyof BodyMeasurements | "weight", string[]> = {
   hips: ["hips", "hip", "стегна", "бедра", "бёдра"],
   arm: ["arm", "biceps", "рука", "біцепс", "бицепс"],
   thigh: ["thigh", "нога", "бедро"],
+  neck: ["neck", "шия", "шея"],
 };
 
 /** Parse "weight 73, waist 82, arm 38" (EN/UA/RU keywords) into weight + measurements. */

@@ -11,6 +11,7 @@ import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning"
 import { recoveryScore, type RecoveryFactor, type RecoveryLabel } from "../domain/recovery";
 import { muscleGroupOf } from "../domain/progression";
 import { e1rm } from "../domain/records";
+import { latestBodyFat } from "../domain/bodyFat";
 import type {
   BodyLogDoc,
   DailyCheckinDoc,
@@ -49,8 +50,10 @@ export interface DashboardPayload {
   // Combines the daily check-in with what the app already knows from logged training -- see
   // domain/recovery.ts for why HRV/pulse are deliberately not inputs (no wearable integration).
   recovery: { score: number; label: RecoveryLabel; factors: RecoveryFactor[] };
-  // Body measurements (cm) with >=2 points — waist/chest/hips/arm/thigh trend lines.
+  // Body measurements (cm) with >=2 points — waist/chest/hips/arm/thigh/neck trend lines.
   measurements?: { key: string; points: { date: string; v: number }[] }[];
+  // U.S. Navy tape-measure estimate from the newest waist/neck(/hips) -- see domain/bodyFat.ts.
+  bodyFat?: { date: string; pct: number };
   exercises: { name: string; group: string; points: { date: string; e1rm: number }[] }[];
   macros: {
     targets?: NutritionTargets;
@@ -121,13 +124,15 @@ export function assemblePayload(
     : null;
 
   // Measurement trends (same body_logs rows as the weight chart).
-  const MEAS_KEYS = ["waist", "chest", "hips", "arm", "thigh"] as const;
+  const MEAS_KEYS = ["waist", "chest", "hips", "arm", "thigh", "neck"] as const;
   const measurements = MEAS_KEYS.map((k) => ({
     key: k as string,
     points: bodyLogs
       .filter((b) => typeof b.measurements?.[k] === "number" && (b.measurements[k] as number) > 0)
       .map((b) => ({ date: b.date, v: b.measurements![k] as number })),
   })).filter((m) => m.points.length >= 2);
+
+  const bodyFat = latestBodyFat(bodyLogs, { sex: user.profile.sex, heightCm: user.profile.heightCm });
 
   // 12-week calendar: done / missed (planned weekday in the past, no completed log) / rest.
   const planned = new Set<Weekday>(
@@ -243,6 +248,7 @@ export function assemblePayload(
     conditioning,
     recovery,
     ...(measurements.length ? { measurements } : {}),
+    ...(bodyFat ? { bodyFat } : {}),
     exercises,
     macros: {
       ...(user.nutrition ? { targets: user.nutrition } : {}),

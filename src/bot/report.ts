@@ -139,6 +139,7 @@ export const BODY_FIELDS: { key: keyof NonNullable<BodyLogDoc["measurements"]>; 
   { key: "arm", en: "arm", uk: "рука" },
   { key: "hips", en: "hips", uk: "стегна" },
   { key: "thigh", en: "thigh", uk: "нога" },
+  { key: "neck", en: "neck", uk: "шия" },
 ];
 
 // Localized label for a body-measurement field.

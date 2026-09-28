@@ -2269,6 +2269,13 @@ components:
               type: array
               items: {$ref: '#/components/schemas/RecoveryFactor'}
           required: [score, label, factors]
+        bodyFat:
+          type: object
+          description: U.S. Navy tape-measure body-fat estimate from the newest waist/neck(/hips); about ±3-4 pp.
+          properties:
+            date: {type: string}
+            pct: {type: number}
+          required: [date, pct]
         measurements:
           type: array
           items:

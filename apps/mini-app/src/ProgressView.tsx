@@ -87,6 +87,7 @@ const MEASURE_LABEL_KEY: Record<string, Key> = {
   hips: "measure_key_hips",
   arm: "measure_key_arm",
   thigh: "measure_key_thigh",
+  neck: "measure_key_neck",
 };
 
 export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: Lang }) {
@@ -186,6 +187,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
     <div className="metric-grid">
       <Metric label={t(lang, "metric_current_weight")} value={latest ? `${formatNumber(latest.kg)} kg` : "—"} detail={dashboard.weight.goal ? t(lang, "goal_kg", { n: formatNumber(dashboard.weight.goal) }) : t(lang, "add_weighin")} />
       <Metric label={t(lang, "metric_recovery")} value={`${dashboard.recovery.score}`} detail={dashboard.recovery.label} />
+      <Metric label={t(lang, "metric_body_fat")} value={dashboard.bodyFat ? `${formatNumber(dashboard.bodyFat.pct)}%` : "—"} detail={dashboard.bodyFat ? t(lang, "body_fat_detail") : t(lang, "body_fat_hint")} />
       <Metric label={t(lang, "metric_conditioning")} value={t(lang, "min_value", { n: dashboard.conditioning.minutes })} detail={t(lang, "zone_load", { zone: zoneLabel(lang, dashboard.conditioning.zone) })} />
     </div>
 

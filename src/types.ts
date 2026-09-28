@@ -187,6 +187,7 @@ export interface BodyMeasurements {
   hips?: number;
   arm?: number;
   thigh?: number;
+  neck?: number; // enables the U.S. Navy body-fat estimate (domain/bodyFat.ts)
 }
 
 export interface TranscriptTurn {
