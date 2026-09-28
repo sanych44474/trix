@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { t, type Key, type Lang } from "../i18n";
 import { fmtDuration } from "../logic/rest";
+import { canShareStory } from "../telegram";
+import { shareStoryCard } from "../storyCard";
 import { Card } from "./ui";
 
 // What saveWorkout() returns (SaveResult, src/webapp/workout.ts) plus the locally measured
@@ -21,8 +23,28 @@ type Stat = { id: string; value: string; label: Key; help: Key };
 
 /** The post-save card. Each number is tappable and explains itself: "18% роботи" with no
  *  explanation read as a bug report rather than a statistic. */
-export function SessionSummary({ lang, summary, title }: { lang: Lang; summary: SaveSummary; title: string }) {
+export function SessionSummary({ lang, summary, title, date }: { lang: Lang; summary: SaveSummary; title: string; date: string }) {
   const [helpFor, setHelpFor] = useState<string | null>(null);
+  const [sharing, setSharing] = useState<"idle" | "busy" | "failed">("idle");
+  // A finished session (or a new record) as a Telegram story: free reach, one tap.
+  const shareStory = async () => {
+    setSharing("busy");
+    try {
+      await shareStoryCard({
+        eyebrow: date,
+        title: summary.prExercises.length ? t(lang, "story_pr_title") : t(lang, "story_session_title"),
+        ...(summary.prExercises.length ? { highlight: summary.prExercises.join(" · ") } : {}),
+        rows: [
+          [t(lang, "summary_sets"), String(summary.sets)],
+          ...(summary.elapsedSec > 0 ? [[t(lang, "summary_elapsed"), fmtDuration(summary.elapsedSec)] as [string, string]] : []),
+          ...(summary.densityPct !== null ? [[t(lang, "summary_density"), `${summary.densityPct}%`] as [string, string]] : []),
+          [t(lang, "level_n", { n: summary.level }), "⭐"],
+        ],
+        footer: t(lang, "story_footer"),
+      });
+      setSharing("idle");
+    } catch { setSharing("failed"); }
+  };
   const stats: Stat[] = [
     { id: "sets", value: String(summary.sets), label: "summary_sets", help: "summary_sets_help" },
     ...(summary.elapsedSec > 0 ? [{ id: "elapsed", value: fmtDuration(summary.elapsedSec), label: "summary_elapsed" as Key, help: "summary_elapsed_help" as Key }] : []),
@@ -49,6 +71,12 @@ export function SessionSummary({ lang, summary, title }: { lang: Lang; summary: 
       {summary.prExercises.length > 0 && <p className="summary-hit">{t(lang, "summary_prs", { names: summary.prExercises.join(", ") })}</p>}
       {summary.newBadges.length > 0 && <p className="summary-hit">{t(lang, "summary_badges", { names: summary.newBadges.join(", ") })}</p>}
       <p className="muted">{t(lang, "summary_total_workouts", { n: summary.totalWorkouts })}</p>
+      {canShareStory() && (
+        <div className="button-row">
+          <button type="button" className="button button-light" disabled={sharing === "busy"} onClick={() => void shareStory()}>{sharing === "busy" ? "…" : t(lang, "share_story_btn")}</button>
+          {sharing === "failed" && <small>{t(lang, "share_story_failed")}</small>}
+        </div>
+      )}
     </Card>
   );
 }

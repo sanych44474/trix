@@ -53,3 +53,21 @@ export function jsonBody(value: unknown): BodyInit {
 export function typedBody<Op extends keyof operations>(value: RequestBody<Op>): BodyInit {
   return JSON.stringify(value);
 }
+
+/** Multipart upload with the same auth/envelope handling as api(). api() forces a JSON
+ *  Content-Type, which breaks a FormData body (the browser must set its own boundary). */
+export async function apiForm<T>(path: string, form: FormData): Promise<T> {
+  const requestHeaders = new Headers();
+  const initData = window.Telegram?.WebApp?.initData ?? "";
+  if (initData) requestHeaders.set("Authorization", `tma ${initData}`);
+  requestHeaders.set("Accept", "application/json");
+  const response = await fetch(appendDebugQuery(path), { method: "POST", headers: requestHeaders, body: form });
+  let body: unknown = null;
+  try { body = await response.json(); } catch { /* empty response */ }
+  if (!response.ok) {
+    const failure = body as V2Failure | null;
+    throw new ApiError(failure?.error?.code ?? "dependency_unavailable", failure?.error?.message ?? "Request failed", response.status);
+  }
+  if (body && typeof body === "object" && "data" in body) return (body as V2Envelope<T>).data;
+  return body as T;
+}

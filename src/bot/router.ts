@@ -2,6 +2,7 @@
 // text-mode handlers, and createBot(). Extracted from bot.ts (god-file split); behavior unchanged.
 // Handlers are imported from "../bot"; nothing in bot.ts's handler bodies depends on this module
 // except four symbols re-imported back, so the dependency is essentially one-way.
+import { cmdPaySupport, cmdSupport, onPreCheckout, onSuccessfulPayment, onSupportAmount } from "./support";
 import { Bot, InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import { type InlineImage, RateLimitError, aiJSON, aiTranscribe } from "../ai";
@@ -224,6 +225,11 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
   bot.command(["squad", "squadboard", "squadleave"], (ctx) =>
     reply(ctx, t(ctx.user.lang, "squad_private_hint"), menuBtn(ctx.user.lang)));
   bot.command("export", cmdExport);
+  bot.command("support", cmdSupport);
+  bot.command("paysupport", cmdPaySupport);
+  // Telegram Stars tip jar (bot/support.ts). pre_checkout_query must be answered within 10 s.
+  bot.on("pre_checkout_query", onPreCheckout);
+  bot.on("message:successful_payment", onSuccessfulPayment);
   bot.command("deleteme", cmdDeleteMe);
   bot.command("admin", async (ctx) => {
     await cmdAdmin(ctx as MyContext, ctx.match.trim());
@@ -1166,6 +1172,7 @@ export async function setMesocycle(ctx: MyContext, on: boolean) {
 
 export const CB_PREFIX: [string, CbHandler][] = [
   ["orep:", (ctx, rest) => sendOwnerSection(ctx, rest)],
+  ["support:", (ctx, rest) => onSupportAmount(ctx, rest)],
   ["ob:", (ctx, rest) => onboardingButton(ctx, rest)],
   ["tw:", (ctx, _r, data) => trainerWizardButton(ctx, data)],
   ["twf:", (ctx, rest) => twEditField(ctx, rest)],

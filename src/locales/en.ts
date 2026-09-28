@@ -1922,6 +1922,13 @@ export const en = {
   wa_decline: "❌ Decline",
   wa_accepted: "Accepted ✓",
   wa_declined: "Declined",
+  support_intro: "trix is free, with no ads and no subscription, and it stays that way. If it helps you train, you can chip in a few Telegram Stars ⭐ — it keeps the lights on. Totally optional.",
+  support_invoice_title: "Support trix",
+  support_invoice_desc: "A voluntary tip for the free AI coach. Nothing is unlocked — everything is already free.",
+  support_invoice_label: "Support",
+  support_thanks: "Thank you for the {n} ⭐ — it genuinely helps keep trix free for everyone. 🙏",
+  support_declined: "This payment can't be processed. Please try again from /support.",
+  support_paysupport: "Payments here are voluntary tips in Telegram Stars; nothing is sold or unlocked. If something went wrong with a payment, just reply in this chat and describe it — the owner will sort it out, including a refund.",
 };
 
 export type Dict = typeof en;

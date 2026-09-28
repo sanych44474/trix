@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { canUseMainButton, showMainButton } from "../telegram";
 import { t, type Lang } from "../i18n";
 import { fmtDuration } from "../logic/rest";
 import { sessionElapsedSec, type SessionClock } from "../logic/logger";
@@ -35,6 +36,14 @@ export function SaveDock({ lang, action, saving, disabled, savedAt, drafted, syn
   restBar: React.ReactNode;
   onPress: () => void;
 }) {
+  // Inside Telegram the action moves to the native bottom button (outside the webview, always
+  // visible, looks like Telegram itself); the dock keeps the timer and the save status. The
+  // handler goes through a ref so the button isn't re-bound on every render of the timer.
+  const [native] = useState(canUseMainButton);
+  const pressRef = useRef(onPress);
+  pressRef.current = onPress;
+  const buttonDisabled = disabled || saving || action.kind === "saved";
+
   // Re-render once a second only while the clock is actually running.
   const [now, setNow] = useState(() => Date.now());
   const running = Boolean(clock && !clock.endedAt);
@@ -58,6 +67,11 @@ export function SaveDock({ lang, action, saving, disabled, savedAt, drafted, syn
       : action.kind === "update" ? t(lang, "save_changes_btn")
         : action.kind === "backfill" ? t(lang, "save_for_date", { date: action.date })
           : t(lang, "saved_btn");
+  useEffect(() => {
+    if (!native) return;
+    return showMainButton({ text: label, active: !buttonDisabled, progress: saving }, () => { if (!buttonDisabled) pressRef.current(); });
+  }, [native, label, buttonDisabled, saving]);
+
   return (
     <div className="train-dock">
       {restBar}
@@ -66,7 +80,7 @@ export function SaveDock({ lang, action, saving, disabled, savedAt, drafted, syn
           {elapsed > 0 && <strong>⏱ {fmtDuration(elapsed)}</strong>}
           {status && <small>{status}</small>}
         </div>
-        <button type="button" className="button button-primary" disabled={disabled || saving || action.kind === "saved"} onClick={onPress}>{label}</button>
+        {!native && <button type="button" className="button button-primary" disabled={buttonDisabled} onClick={onPress}>{label}</button>}
       </div>
     </div>
   );
