@@ -167,7 +167,18 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
   // ---- What's new ----
   if (req.method === "GET" && path === "/api/whatsnew") {
     const note = latestRelease();
-    return Response.json({ version: note.version, html: releaseBody(lang, note) }, noStore);
+    return Response.json({ version: note.version, html: releaseBody(lang, note), text: lang === "en" ? note.en : note.uk }, noStore);
+  }
+  // The in-app "What's new" card was dismissed: remember the version so it shows only once, on
+  // any device (domain/releaseDelivery.ts). Read-modify-write of the fresh row, since the
+  // scheduler keeps its own dedup marks in the same reminders object.
+  if (req.method === "POST" && path === "/api/whatsnew/seen") {
+    const note = latestRelease();
+    const fresh = await getUser(env.DB, user._id);
+    if (fresh && fresh.reminders?.releaseSeen !== note.version) {
+      await updateUser(env.DB, user._id, { reminders: { ...fresh.reminders, releaseSeen: note.version } });
+    }
+    return Response.json({ ok: true, version: note.version });
   }
 
   // ---- Plates calculator ----

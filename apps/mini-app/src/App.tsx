@@ -10,6 +10,7 @@ import { TrainView } from "./TrainView";
 import { FuelView } from "./FuelView";
 import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
 import { planBalance } from "./logic/muscleLoad";
+import { ReleaseItems, WhatsNewCard } from "./WhatsNew";
 
 type View = "today" | "train" | "plan" | "fuel" | "progress" | "role" | "more" | "settings";
 
@@ -108,6 +109,7 @@ function TodayView({ dashboard, lang, onOpen, onReload }: { dashboard: Dashboard
       <div><span className="eyebrow hero-eyebrow">{t(lang, "today_hero_eyebrow")}</span><h1>{dashboard.name ? t(lang, "today_greeting", { name: dashboard.name }) : t(lang, "today_ready")}</h1><p>{hasExercises ? t(lang, "today_exercises_waiting", { n: dashboard.logForm!.exercises.length }) : t(lang, "today_momentum")}</p></div>
       <button className="button button-light" onClick={() => onOpen("train")}>{hasExercises ? t(lang, "start_session") : t(lang, "open_training")}</button>
     </div>
+    {dashboard.whatsnew && <WhatsNewCard lang={lang} version={dashboard.whatsnew.version} text={dashboard.whatsnew.text} />}
     {dashboard.recoverySwap && <RecoverySwapCard lang={lang} swap={dashboard.recoverySwap} onDone={onReload} />}
     <div className="metric-grid">
       <Metric label={t(lang, "metric_recovery")} value={`${recovery.score}`} detail={recoveryLabel(lang, recovery.label)} />
@@ -637,8 +639,8 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
   // /api/v2/whatsnew was registered in v2Api.ts but nothing ever called it -- the release note
   // was reachable only through the bot's /whatsnew command. It's Telegram-HTML, so it's stripped
   // to plain text the same way the owner report is.
-  const [whatsnew, setWhatsnew] = useState<{ version: string; html: string } | null>(null);
-  useEffect(() => { api<{ version: string; html: string }>("/api/v2/whatsnew").then(setWhatsnew).catch(() => setWhatsnew(null)); }, []);
+  const [whatsnew, setWhatsnew] = useState<{ version: string; html: string; text?: string } | null>(null);
+  useEffect(() => { api<{ version: string; html: string; text?: string }>("/api/v2/whatsnew").then(setWhatsnew).catch(() => setWhatsnew(null)); }, []);
 
   const [squads, setSquads] = useState<SquadInfo[] | null>(null);
   const [squadsError, setSquadsError] = useState<unknown>(null);
@@ -730,7 +732,7 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
 
     {whatsnew && <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "whatsnew_eyebrow")}</span><h2>{t(lang, "whatsnew_title")}</h2></div><span className="tag">{t(lang, "whatsnew_version", { v: whatsnew.version })}</span></div>
-      <pre className="owner-report">{whatsnew.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")}</pre>
+      {whatsnew.text ? <ReleaseItems text={whatsnew.text} /> : <pre className="owner-report">{whatsnew.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")}</pre>}
     </Card>}
 
     {trainerApp !== undefined && (trainerApp !== null || role === "solo") && <Card>

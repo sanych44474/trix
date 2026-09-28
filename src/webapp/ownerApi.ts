@@ -1,6 +1,8 @@
 // Owner console in the Mini App: the /ownerreport sections rendered in-app (they're already
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
+import { broadcastRelease, pendingReleaseRecipients } from "../bot/releaseBroadcast";
+import { latestRelease } from "../releaseNotes";
 import { getOwnerChatId } from "../adapters/d1/v2Admin";
 import { getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { deleteUserData } from "../db/repos";
@@ -11,6 +13,7 @@ import { miniAppUser } from "./auth";
 import type { Env } from "../types";
 
 const FB_ASK_COOLDOWN_DAYS = 14;
+const RELEASE_BATCH = 25;
 const USER_ACTION_ROUTE = /^\/api\/owner\/user\/(\d+)\/(block|unblock|delete)$/;
 
 export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<Response> {
@@ -36,6 +39,15 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     else if (section === "users") html = await orUsers(env.DB);
     else html = await orOverview(env.DB);
     return Response.json({ html }, { headers: { "cache-control": "no-store" } });
+  }
+
+  // Release notes to every chat, in batches small enough for one Worker request's subrequest
+  // budget; each tap continues where the last stopped (bot/releaseBroadcast.ts marks deliveries).
+  if (req.method === "GET" && path === "/api/owner/release") {
+    return Response.json({ version: latestRelease().version, pending: await pendingReleaseRecipients(env) }, { headers: { "cache-control": "no-store" } });
+  }
+  if (req.method === "POST" && path === "/api/owner/release/send") {
+    return Response.json(await broadcastRelease(env, user._id, RELEASE_BATCH));
   }
 
   // Feedback ask to users quiet for 7+ days: pushes a "what's missing?" question and parks

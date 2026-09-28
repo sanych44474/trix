@@ -1887,6 +1887,55 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/OwnerUsers'}
                   required: [data]
+  /api/v2/owner/release:
+    get:
+      operationId: getOwnerRelease
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: The latest release-note version and how many chats are still owed it
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        version: {type: string}
+                        pending: {type: integer}
+                      required: [version, pending]
+                  required: [data]
+  /api/v2/owner/release/send:
+    post:
+      operationId: sendOwnerRelease
+      description: Sends the latest release note to the next batch of chats not yet sent it (resumable).
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '200':
+          description: Batch result
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        version: {type: string}
+                        sent: {type: integer}
+                        failed: {type: integer}
+                        remaining: {type: integer}
+                      required: [version, sent, failed, remaining]
+                  required: [data]
   /api/v2/owner/ask-inactive:
     post:
       operationId: askInactiveUsers
@@ -2421,6 +2470,13 @@ components:
                       required: [n, s]
                 required: [date, done, ex]
           required: [days, split, logs]
+        whatsnew:
+          type: object
+          description: The latest release note (raw *bold* text in the user's language) until the user dismisses it in the app or already got it in the chat.
+          properties:
+            version: {type: string}
+            text: {type: string}
+          required: [version, text]
         recoverySwap:
           type: object
           description: Today's planned muscles are still recovering and a later plan day's are ready -- offer swapping the two days.

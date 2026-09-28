@@ -740,6 +740,7 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
     <div className="eyebrow">{t(lang, "owner_ops_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "system_pulse_title")}</h1><span>{t(lang, "n_users", { n: users.rows.length })}</span></div>
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
+    <ReleaseBroadcastPanel lang={lang} />
     <div className="button-row tabs-scroll">
       {OWNER_REPORT_SECTIONS.map((s) => <button key={s.id} className={section === s.id ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== s.id} onClick={() => selectSection(s.id)}>{t(lang, s.tab)}</button>)}
       <button className={section === "roster" ? "button button-primary" : "button button-ghost"} disabled={sectionBusy && section !== "roster"} onClick={() => selectSection("roster")}>{t(lang, "owner_tab_roster")}</button>
@@ -775,6 +776,43 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
       {activeReport.id === "overview" && sent !== null && <div className="save-note">{t(lang, "sent_to_n_users", { n: sent })}</div>}
     </Panel>}
   </div>;
+}
+
+// Release notes to every chat from the console (bot/releaseBroadcast.ts): shows how many chats are
+// still owed the latest version, asks once, then sends a batch per tap -- resumable, never twice.
+function ReleaseBroadcastPanel({ lang }: { lang: Lang }) {
+  const [info, setInfo] = useState<{ version: string; pending: number } | null>(null);
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ sent: number; failed: number; remaining: number } | null>(null);
+  const [error, setError] = useState(false);
+  const load = () => api<{ version: string; pending: number }>("/api/v2/owner/release").then(setInfo).catch(() => setError(true));
+  useEffect(() => { void load(); }, []);
+  if (!info) return null;
+  const send = async () => {
+    setBusy(true); setError(false);
+    try {
+      const r = await api<{ version: string; sent: number; failed: number; remaining: number }>("/api/v2/owner/release/send", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
+      setResult(r);
+      setInfo({ version: r.version, pending: r.remaining });
+      setConfirm(false);
+    } catch { setError(true); } finally { setBusy(false); }
+  };
+  return <Panel>
+    <div className="section-head"><div><span className="eyebrow">{t(lang, "owner_release_eyebrow")}</span><h2>{t(lang, "owner_release_title")}</h2></div></div>
+    <p className="muted">{info.pending > 0 ? t(lang, "owner_release_pending", { v: info.version, n: info.pending }) : t(lang, "owner_release_none", { v: info.version })}</p>
+    {result && <p>{t(lang, "owner_release_result", result)}</p>}
+    {error && <p className="muted">{t(lang, "generic_error")}</p>}
+    {info.pending > 0 && <div className="button-row">
+      {confirm
+        ? <>
+            <button className="button button-primary" disabled={busy} onClick={() => void send()}>{busy ? "…" : t(lang, "owner_release_confirm", { n: Math.min(25, info.pending) })}</button>
+            <button className="button button-ghost" disabled={busy} onClick={() => setConfirm(false)}>{t(lang, "close")}</button>
+          </>
+        : <button className="button button-ghost" onClick={() => setConfirm(true)}>{t(lang, "owner_release_send", { n: Math.min(25, info.pending) })}</button>}
+    </div>}
+    <p className="muted">{t(lang, "owner_release_hint")}</p>
+  </Panel>;
 }
 
 type Space = "social" | "trainer" | "owner";

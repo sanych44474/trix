@@ -308,6 +308,8 @@ export interface UserReminders {
   lastVacation?: { from: string; until: string }; // most recent vacation window (freezes the week streak)
   lastRank?: number; // last weekly consistency-board rank — rank-change pushes compare against it
   workoutIgnoredStreak?: number; // consecutive workout reminders with nothing logged since — softens the tone, never the frequency
+  releaseSent?: string; // release-note version the bot delivered to this chat (domain/releaseDelivery.ts)
+  releaseSeen?: string; // release-note version dismissed in the Mini App's "What's new" card
 }
 
 export interface UserDoc {

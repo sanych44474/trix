@@ -318,7 +318,9 @@ function**, so the total below is a count rather than a slogan.
 5. **Onboarding report**: stage funnel, stuck users and the fix path.
 6. **Errors + audit trail** and usage-event breakdowns.
 7. **Per-user card**: events timeline, continue interview, assign plan, block/unblock, delete.
-8. **Broadcasts**: announcements and release notes behind a confirm gate; inactive-user cleanup
+8. **Broadcasts**: announcements and release notes behind a confirm gate (release notes also from
+   the Mini App owner console, in resumable batches -- nobody gets the same note twice), plus a
+   one-time "What's new" card in the Mini App for everyone who hasn't got it in the chat; inactive-user cleanup
    with confirmation.
 9. **Proactive alerts**: daily AI-error report, error-spike and provider-outage alerts; exercise
    video moderation.

@@ -1,6 +1,7 @@
 // Owner / admin section — extracted verbatim from src/bot.ts (mechanical split).
 
-import { GrammyError, InlineKeyboard } from "grammy";
+import { broadcastRelease, pendingReleaseRecipients } from "./releaseBroadcast";
+import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
 import { deleteUserData } from "../db/repos";
@@ -324,7 +325,7 @@ export async function cmdWhatsNew(ctx: MyContext) {
   const header = `<b>${t(lang, "whatsnew_tag", { version: note.version })}</b>\n\n`;
   let kb = menuBtn(lang);
   if (await isOwner(ctx)) {
-    const n = (await listOnboardedUsers(ctx.db)).filter((u) => !u.blocked && !u.botBlocked).length;
+    const n = await pendingReleaseRecipients(ctx.env);
     kb = new InlineKeyboard().text(t(lang, "whatsnew_send_btn", { n }), "wn:ask").row().text(t(lang, "menu_open"), "menu:open");
   }
   await reply(ctx, header + releaseBody(lang, note), kb);
@@ -335,7 +336,7 @@ export async function showWhatsNewConfirm(ctx: MyContext) {
   const lang = ctx.user.lang;
   if (!(await isOwner(ctx))) { await reply(ctx, t(lang, "admin_only")); return; }
   const note = latestRelease();
-  const n = (await listOnboardedUsers(ctx.db)).filter((u) => !u.blocked && !u.botBlocked).length;
+  const n = await pendingReleaseRecipients(ctx.env);
   const kb = new InlineKeyboard()
     .text(t(lang, "whatsnew_confirm_btn"), "wn:send")
     .text(t(lang, "whatsnew_cancel"), "menu:open");
@@ -347,24 +348,11 @@ export async function showWhatsNewConfirm(ctx: MyContext) {
 export async function onWhatsNewSend(ctx: MyContext) {
   const lang = ctx.user.lang;
   if (!(await isOwner(ctx))) { await reply(ctx, t(lang, "admin_only")); return; }
-  const note = latestRelease();
-  const recipients = (await listOnboardedUsers(ctx.db)).filter((u) => !u.blocked && !u.botBlocked);
-  await reply(ctx, t(lang, "whatsnew_sending", { n: recipients.length }));
-  let ok = 0;
-  let fail = 0;
-  for (const u of recipients) {
-    try {
-      await ctx.api.sendMessage(u.chatId, releaseBody(u.lang, note), HTML);
-      ok++;
-    } catch (err) {
-      fail++;
-      if (err instanceof GrammyError && err.error_code === 403) {
-        await updateUser(ctx.db, u._id, { botBlocked: true }).catch(() => {});
-      }
-    }
-  }
-  await recordAudit(ctx.db, ctx.user._id, "release_notes", undefined, `${note.version} ${ok}/${recipients.length}`);
-  await reply(ctx, t(lang, "announce_done", { ok, total: recipients.length, fail }), menuBtn(lang));
+  const pending = await pendingReleaseRecipients(ctx.env);
+  await reply(ctx, t(lang, "whatsnew_sending", { n: pending }));
+  // Resumable: whoever already got this version (from here or the Mini App console) is skipped.
+  const result = await broadcastRelease(ctx.env, ctx.user._id, pending);
+  await reply(ctx, t(lang, "announce_done", { ok: result.sent, total: pending, fail: result.failed }), menuBtn(lang));
 }
 
 // Owner: list users (most recently active first) → per-user admin card.
