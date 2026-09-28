@@ -14,7 +14,7 @@
 
 - [ ] `npm run typecheck` passes
 - [ ] `npm test` passes
-- [ ] New user-facing strings added to **all three** locale catalogs (`en`, `uk`, `ru`)
+- [ ] New user-facing strings added in **both** languages (`en`, `uk`), in the bot and/or Mini App catalog
 - [ ] New domain logic lives in `src/domain/` and is unit-tested
 - [ ] Any new migration has a unique sequential number and is a real schema change
       (one-off data patches belong in `scripts/`)

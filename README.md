@@ -17,7 +17,36 @@ opt-in **global leaderboard**. Two surfaces share one backend: the Telegram chat
 AI fallback chain that starts at Gemini and degrades gracefully all the way down to
 Cloudflare's on-platform Workers AI, which needs no API key at all.
 
-> Full feature inventory: [`docs/features.md`](docs/features.md).
+**Landing page:** [sanych44474.github.io/trix](https://sanych44474.github.io/trix/)
+
+## What it can do
+
+**172 functions across 11 areas**, one per line in the
+[feature catalog](docs/features.md). The short version:
+
+| Area | Highlights |
+|---|---|
+| Training plan (27) | Split around your days, equipment and injuries; sets, weights, RPE/RIR, rest, tempo; supersets; weekly progression, plateau detection, level-ups; cardio counted as load; "not my gym today" |
+| Workout logging (26) | Mini App logger with one-tap "as planned", swaps it remembers, rest timer with a Telegram push, drafts synced across devices, measured session length; or log by text / voice in chat |
+| Nutrition (14) | Macros from text or a meal photo, Open Food Facts search, adaptive calories, AI meal plan, aisle-sorted shopping list |
+| Body & recovery (14) | Weight, measurements, goal forecast, water, steps, wellbeing check-in and readiness, progress photos, opt-in cycle tracking |
+| Motivation & community (17) | XP, levels, streaks with freezes, 12 badges, records with e1RM charts, leaderboards, challenges, buddy duels, group-chat squads |
+| Trainer tools (22) | Invite link, request inbox and waitlist, client cards, per-client plan editor, templates, broadcasts, traffic-light digest, at-risk alerts, schedule and payments |
+| Reminders (13) | Timezone-aware and fitted to when you train, evening checklist, weekly digests, a dedicated first-14-days arc |
+| Onboarding (12), Mini App (13), Owner (9), Safeguards (5) | Button interview, instant plan; native-feeling app with calendar, heatmap and export; owner console; idempotent saves, GDPR delete |
+
+**Why it matters:** it is a coach, not a log. It writes the program, decides when to add weight,
+and messages you first, inside the app you already use. Trainers get the tooling that usually
+takes a CRM, a spreadsheet and a messenger. Running it costs nothing, so using it costs nothing.
+
+| | |
+|---|---|
+| Roles | solo athlete · trainer's client · trainer · owner |
+| Surfaces | Telegram chat (43 commands) + Telegram Mini App |
+| Languages | Ukrainian, English (~1,700 strings each, parity enforced by the type checker) |
+| Backend | 64 typed API operations (OpenAPI 3.1), 81 D1 migrations, ~48k lines of TypeScript |
+| Tests | ~1,000 (node:test + Workers runtime), CI on every pull request |
+| Cost | $0 — no ads, no subscription |
 
 ## Architecture
 
@@ -78,7 +107,7 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 | `src/domain/` | **Pure**, unit-tested logic: progression, records, analysis, standards, plan bank |
 | `src/ai/` | Orchestrator + provider clients (shared `http.ts`) + prompts + nutrition DB |
 | `src/render.ts` | HTML + chart rendering for the chat surface |
-| `src/locales/` | `en` / `uk` / `ru` catalogs, `t()` with HTML escaping, `cleanAi()` sanitizer |
+| `src/locales/` | `en` / `uk` catalogs, `t()` with HTML escaping, `cleanAi()` sanitizer |
 | `migrations/` | Forward-only D1 migrations |
 
 ## Quickstart — run your own bot
