@@ -2,6 +2,7 @@
 // single exercise's muscles (./exerciseMuscles.ts), both turned into coloured parts for the figure
 // (react-muscle-highlighter). Pure, so the mapping is unit-tested (test/mini-app-body-map.test.ts).
 import type { ExerciseMuscles, Slug } from "./exerciseMuscles";
+import type { MuscleRecovery, MuscleWeek, RecoveryStatus } from "./muscleLoad";
 
 export type Region = "chest" | "back" | "legs" | "shoulders" | "arms" | "core";
 export type Zone = "below" | "optimal" | "above";
@@ -28,6 +29,18 @@ export function weekParts(volume: Array<{ group: string; sets: number; zone: str
     if (!slugs || !color || item.sets <= 0) return [];
     return slugs.map((slug) => ({ slug, color }));
   });
+}
+
+/** Week mode: each muscle by where its fractional weekly sets sit against its own MEV/MAV. */
+export function muscleWeekParts(week: MuscleWeek[]): Part[] {
+  return week.flatMap((m) => (m.sets > 0 && m.zone !== "none" ? [{ slug: m.slug, color: ZONE_COLORS[m.zone] }] : []));
+}
+
+export const RECOVERY_COLORS: Record<RecoveryStatus, string> = { recovering: "#ef4444", almost: "#f5b301", ready: "#22c55e" };
+
+/** Recovery mode: every tracked muscle painted by how rested it is. */
+export function recoveryParts(rec: MuscleRecovery[]): Part[] {
+  return rec.map((m) => ({ slug: m.slug, color: RECOVERY_COLORS[m.status] }));
 }
 
 export function exerciseParts(muscles: ExerciseMuscles): Part[] {

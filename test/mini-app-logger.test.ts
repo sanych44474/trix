@@ -30,6 +30,16 @@ test("swap remembers the plan exercise, and swapping back forgets it", () => {
   assert.equal(back[0].planName, undefined);
 });
 
+test("a swap drops the old exercise's technique, video and catalog name", () => {
+  const withInfo = plan().map((e, i) => (i === 0 ? { ...e, technique: "Elbows on the pad", videoUrl: "https://x/v", videoTitle: "Preacher", canonicalName: "Preacher Curl Machine" } : e));
+  const swapped = swapExercise(withInfo, 0, "Hammer Curl")[0];
+  assert.equal(swapped.technique, undefined);
+  assert.equal(swapped.videoUrl, undefined);
+  assert.equal(swapped.videoTitle, undefined);
+  assert.equal(swapped.canonicalName, undefined);
+  assert.equal(swapped.restSec, 90, "plan timing still applies");
+});
+
 test("save entries carry the swap origin and skip untouched exercises", () => {
   const exercises = swapExercise(plan(), 0, "Hammer Curl").map((e, i) => i === 0 ? done(e) : e);
   assert.deepEqual(buildSaveEntries(exercises), [{ name: "Hammer Curl", sets: [{ weight: 12, reps: 10 }], planName: "Preacher Curl" }]);

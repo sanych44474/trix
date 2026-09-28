@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { musclesForExercise } from "../apps/mini-app/src/logic/exerciseMuscles";
+import { musclesForExercise } from "../src/domain/exerciseMuscles";
 
 const primary = (name: string) => musclesForExercise(name)?.primary;
 
