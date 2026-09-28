@@ -6,6 +6,8 @@
 // file — now lives in src/adapters/d1/dashboardReader.ts, the concrete v2-native adapter for the
 // `DashboardReader` application seam (src/application/dashboard.ts, Domain 10 of the v2 cutover —
 // see docs/adr/0001-v2-seams-and-staged-cutover.md). This file has no D1 access at all.
+import { releaseDueInApp } from "../domain/releaseDelivery";
+import { latestRelease } from "../releaseNotes";
 import { projectWeight, weeklyVolume } from "../domain/analysis";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
 import { recoveryScore, type RecoveryFactor, type RecoveryLabel } from "../domain/recovery";
@@ -47,6 +49,8 @@ export interface DashboardPayload {
   volume: { group: string; sets: number; mev: number; mav: number; zone: string }[];
   // Today's planned muscles are still recovering and a later plan day's are ready: offer to swap
   // the two days (domain/recoverySwap.ts). Absent when there's nothing to suggest.
+  // The latest release note, until the user dismisses it or already got it in the chat.
+  whatsnew?: { version: string; text: string };
   recoverySwap?: { weekday: number; other: number; todayGroup: string; otherGroup: string; tired: string[]; because: string[] };
   // Conditioning (cardio) load for the same 7-day window — the other half of training volume,
   // which the strength bars above have never been able to show.
@@ -157,6 +161,7 @@ export function assemblePayload(
 
   // Weekly volume vs MEV/MAV (last 7 days of completed sets).
   const volume = weeklyVolume(workouts, isoDaysBefore(today, 6)).map((v) => ({ ...v }));
+  const release = latestRelease();
   const swap = recoverySwapFor(plan, workouts, today, isoWeekdayOf(today));
   const cw = conditioningWeek(workouts, isoDaysBefore(today, 6));
 
@@ -252,6 +257,7 @@ export function assemblePayload(
     },
     volume,
     ...(swap ? { recoverySwap: swap } : {}),
+    ...(releaseDueInApp(user, release.version) ? { whatsnew: { version: release.version, text: user.lang === "en" ? release.en : release.uk } } : {}),
     conditioning,
     recovery,
     ...(measurements.length ? { measurements } : {}),
