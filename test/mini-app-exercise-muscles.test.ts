@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { musclesForExercise } from "../apps/mini-app/src/logic/exerciseMuscles";
 
 const primary = (name: string) => musclesForExercise(name)?.primary;
@@ -39,4 +40,37 @@ test("secondary muscles never repeat a primary one; unknown names fall back or r
   }
   assert.deepEqual(primary("Моя вправа на груди"), ["chest"]);
   assert.equal(musclesForExercise("Йога-потік"), null);
+});
+
+test("names the old rules missed or got wrong light up the right muscles", () => {
+  // "у сторони" (not only "в сторони"), and Cyrillic word boundaries: \w and \b are ASCII-only in JS.
+  assert.deepEqual(primary("Розведення гантелей у сторони"), ["deltoids"]);
+  assert.deepEqual(primary("Махи гантелями в сторони"), ["deltoids"]);
+  assert.deepEqual(primary("Розведення гантелей в сторони нахилившись"), ["deltoids", "upper-back"], "rear delts");
+  assert.deepEqual(primary("Ягідний місток"), ["gluteal"]);
+  assert.deepEqual(primary("Close-grip pull-down"), ["upper-back"], "not a close-grip bench");
+  assert.deepEqual(primary("Glute Kickback"), ["gluteal"], "not a triceps kickback");
+  assert.deepEqual(primary("Махи ногою назад на сідниці"), ["gluteal"], "not a lateral raise");
+  assert.deepEqual(primary("Тяга блоку до обличчя"), ["deltoids", "upper-back"]);
+  assert.deepEqual(primary("Розведення гантелей лежачи"), ["chest"]);
+  assert.deepEqual(primary("Махи гантеллю"), ["gluteal", "hamstring"]);
+  assert.deepEqual(primary("Seated Cable Rows"), ["upper-back"]);
+  assert.deepEqual(primary("Cable Crossover"), ["chest"]);
+  assert.deepEqual(primary("Зведення рук у кросовері"), ["chest"]);
+  assert.deepEqual(primary("Front Dumbbell Raise"), ["deltoids"]);
+  assert.deepEqual(primary("Decline Barbell Bench Press"), ["chest"]);
+  assert.deepEqual(primary("Зворотні віджимання від лави"), ["triceps"]);
+  assert.deepEqual(primary("Bench Dips"), ["triceps"]);
+  assert.deepEqual(primary("Жим Арнольда"), ["deltoids"]);
+  assert.deepEqual(primary("Ходьба фермера"), ["forearm"], "not a walk");
+  assert.deepEqual(primary("Жим гантелей лежа"), ["chest"]);
+  assert.deepEqual(primary("Обертання стегнами"), ["gluteal"]);
+});
+
+test("every exercise in the plan bank maps to some muscles", () => {
+  const sql = readFileSync(new URL("../migrations/0017_plan_bank.sql", import.meta.url), "utf8");
+  const names = [...new Set([...sql.matchAll(/"name":"([^"\\]+)/g)].map((m) => m[1]))];
+  assert.ok(names.length > 50, "plan bank parsed");
+  const missing = names.filter((name) => !musclesForExercise(name));
+  assert.deepEqual(missing, []);
 });
