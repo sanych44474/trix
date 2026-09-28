@@ -22,7 +22,8 @@ Cloudflare's on-platform Workers AI, which needs no API key at all.
 ## What it can do
 
 **188 functions across 11 areas**, one per line in the
-[feature catalog](docs/features.md). The short version:
+[feature catalog](docs/features.md); what changed in each release is in the
+[release notes](docs/release-notes.md). The short version:
 
 | Area | Highlights |
 |---|---|
