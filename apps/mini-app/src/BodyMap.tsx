@@ -2,11 +2,13 @@
 // for the user's sex. Two modes:
 //   - "Week": each region coloured by where its weekly working sets sit against MEV/MAV.
 //   - an exercise: its primary movers strong, its helpers light (./logic/exerciseMuscles.ts).
-// The exercise list is what the user actually logged recently; any other name can be typed.
-import { useId, useMemo, useState } from "react";
+// The exercise dropdown lists the plan's exercises by training day, then recent extras.
+import { useEffect, useMemo, useState } from "react";
+import { api } from "./api";
+import type { Plan } from "./types";
 import Body, { type ExtendedBodyPart } from "react-muscle-highlighter";
 import { t, type Key, type Lang } from "./i18n";
-import { exerciseParts, PRIMARY_COLOR, regionOfMuscle, SECONDARY_COLOR, weekParts, ZONE_COLORS, type Part } from "./logic/bodyMap";
+import { exerciseParts, pickerGroups, PRIMARY_COLOR, regionOfMuscle, SECONDARY_COLOR, weekParts, ZONE_COLORS, type Part } from "./logic/bodyMap";
 import { musclesForExercise, type ExerciseMuscles } from "./logic/exerciseMuscles";
 
 type Volume = Array<{ group: string; sets: number; mev: number; mav: number; zone: string }>;
@@ -27,6 +29,7 @@ const FIGURE_PARTS = [
   "hands", "hair", "head", "knees", "lower-back", "neck", "obliques", "quadriceps", "tibialis", "trapezius", "triceps", "upper-back",
 ] as const;
 const MUSCLES = new Set(["abs", "adductors", "biceps", "calves", "chest", "deltoids", "forearm", "gluteal", "hamstring", "lower-back", "neck", "obliques", "quadriceps", "tibialis", "trapezius", "triceps", "upper-back"]);
+const WEEKDAY_KEYS: Record<number, Key> = { 1: "weekday_mon", 2: "weekday_tue", 3: "weekday_wed", 4: "weekday_thu", 5: "weekday_fri", 6: "weekday_sat", 7: "weekday_sun" };
 const muscleLabel = (lang: Lang, slug: string) => t(lang, `muscle_${slug.replace("-", "_")}` as Key);
 
 function listNames(lang: Lang, slugs: string[]): string {
@@ -35,10 +38,13 @@ function listNames(lang: Lang, slugs: string[]): string {
 
 export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: Volume; sex?: "male" | "female"; exercises: string[] }) {
   const [exercise, setExercise] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
   const [tapped, setTapped] = useState<string | null>(null);
-  const listId = useId();
+  const [planDays, setPlanDays] = useState<Plan["days"]>([]);
   const colors = useMemo(themeColors, []);
+  // The plan is fetched here rather than added to the dashboard: only this card needs it, and
+  // it loads with the (lazy) body map. Without a plan the dropdown still lists recent exercises.
+  useEffect(() => { api<Plan>("/api/v2/plan").then((plan) => setPlanDays(plan.days ?? [])).catch(() => {}); }, []);
+  const groups = useMemo(() => pickerGroups(planDays, exercises), [planDays, exercises]);
 
   const muscles: ExerciseMuscles | null = exercise ? musclesForExercise(exercise) : null;
   const parts: Part[] = exercise ? (muscles ? exerciseParts(muscles) : []) : weekParts(volume);
@@ -50,8 +56,7 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
     color: highlighted.get(slug) ?? (slug === "hair" ? colors.border : colors.base),
   }));
 
-  const pick = (name: string | null) => { setExercise(name); setTapped(null); if (name === null) setQuery(""); };
-  const onSearch = (value: string) => { setQuery(value); setTapped(null); setExercise(value.trim().length >= 3 ? value.trim() : null); };
+  const pick = (name: string | null) => { setExercise(name); setTapped(null); };
 
   const detail = (() => {
     if (exercise) {
@@ -92,21 +97,20 @@ export function BodyMap({ lang, volume, sex, exercises }: { lang: Lang; volume: 
 
   return (
     <div className="body-map">
-      <div className="body-map-picker">
-        <button type="button" className={exercise === null ? "rest-chip selected" : "rest-chip"} onClick={() => pick(null)}>{t(lang, "body_map_mode_week")}</button>
-        {exercises.map((name) => (
-          <button type="button" key={name} className={exercise === name ? "rest-chip selected" : "rest-chip"} onClick={() => { setQuery(""); pick(name); }}>{name}</button>
-        ))}
-      </div>
-      <input
-        className="body-map-search"
-        type="search"
-        list={listId}
-        value={query}
-        placeholder={t(lang, "body_map_search_ph")}
-        onChange={(event) => onSearch(event.target.value)}
-      />
-      <datalist id={listId}>{exercises.map((name) => <option key={name} value={name} />)}</datalist>
+      <label className="body-map-select">
+        <span>{t(lang, "body_map_pick_label")}</span>
+        <select value={exercise ?? ""} onChange={(event) => pick(event.target.value || null)}>
+          <option value="">{t(lang, "body_map_mode_week")}</option>
+          {groups.map((group) => (
+            <optgroup
+              key={group.weekday ?? "recent"}
+              label={group.weekday ? `${t(lang, WEEKDAY_KEYS[group.weekday])}${group.title ? ` · ${group.title}` : ""}` : t(lang, "body_map_recent_group")}
+            >
+              {group.names.map((name) => <option key={name} value={name}>{name}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </label>
       <div className="body-map-figures">{figure("front")}{figure("back")}</div>
       <div className="body-map-legend">
         {exercise

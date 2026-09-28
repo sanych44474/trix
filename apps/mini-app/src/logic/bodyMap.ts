@@ -59,3 +59,31 @@ export function recentExerciseNames(logs: Array<{ date: string; ex: Array<{ n: s
   }
   return out;
 }
+
+export interface PickerGroup {
+  weekday: number | null; // ISO 1..7 for a plan day; null for "recent, not in the plan"
+  title: string; // the plan day's name / muscle group, empty for the recent group
+  names: string[];
+}
+
+/** The body map's exercise dropdown: the plan's exercises grouped by training day (Mon..Sun),
+ *  then anything logged recently that the plan doesn't contain. Each name appears once. */
+export function pickerGroups(
+  days: Array<{ weekday: number; name?: string; muscleGroup?: string; exercises: Array<{ name: string }> }>,
+  recent: string[],
+): PickerGroup[] {
+  const seen = new Set<string>();
+  const take = (name: string) => {
+    const key = name.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  };
+  const groups: PickerGroup[] = [...days]
+    .sort((a, b) => a.weekday - b.weekday)
+    .map((day) => ({ weekday: day.weekday, title: day.muscleGroup || day.name || "", names: day.exercises.map((e) => e.name.trim()).filter(take) }))
+    .filter((group) => group.names.length > 0);
+  const extra = recent.filter(take);
+  if (extra.length) groups.push({ weekday: null, title: "", names: extra });
+  return groups;
+}

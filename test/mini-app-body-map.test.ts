@@ -36,3 +36,20 @@ test("recent exercise names: newest first, deduplicated, capped", () => {
   ], 3);
   assert.deepEqual(names, ["Присідання", "жим лежачи", "Тяга"]);
 });
+
+test("exercise dropdown: plan days in weekday order, then recent extras, no duplicates", async () => {
+  const { pickerGroups } = await import("../apps/mini-app/src/logic/bodyMap");
+  const groups = pickerGroups(
+    [
+      { weekday: 5, muscleGroup: "Руки", exercises: [{ name: "Згинання рук на лаві Скотта" }, { name: "Розгинання на блоці" }] },
+      { weekday: 1, muscleGroup: "Ноги", exercises: [{ name: "Присідання" }, { name: "Жим ногами" }] },
+      { weekday: 3, muscleGroup: "Порожньо", exercises: [] },
+    ],
+    ["Присідання", "Біг", "згинання рук на лаві скотта"],
+  );
+  assert.deepEqual(groups.map((g) => [g.weekday, g.names]), [
+    [1, ["Присідання", "Жим ногами"]],
+    [5, ["Згинання рук на лаві Скотта", "Розгинання на блоці"]],
+    [null, ["Біг"]],
+  ]);
+});

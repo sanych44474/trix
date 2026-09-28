@@ -233,11 +233,9 @@ button { cursor: pointer; }
 .body-map-figures figure { margin: 0; display: grid; gap: 4px; justify-items: center; }
 .body-map-figures svg { width: 100% !important; max-width: 200px; height: auto !important; }
 .body-map-figures svg path { transition: fill .25s ease; }
-.body-map-picker { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
-.body-map-picker::-webkit-scrollbar { display: none; }
-.body-map-picker .rest-chip { flex: 0 0 auto; white-space: nowrap; }
-.body-map-search { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--text); outline: none; font-size: 14px; }
-.body-map-search:focus { border-color: var(--accent); }
+.body-map-select { display: grid; gap: 5px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.body-map-select select { width: 100%; min-width: 0; padding: 11px 36px 11px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ff5f3d' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 14px center; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; appearance: none; outline: none; }
+.body-map-select select:focus { border-color: var(--accent); }
 .body-map-figures figcaption { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
 .body-map-figures path { cursor: pointer; }
 .body-map-legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; color: var(--muted); font-size: 12px; }
