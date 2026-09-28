@@ -173,7 +173,7 @@ export const SUGGESTED_EXERCISE: Partial<Record<Slug, { uk: string; en: string }
   hamstring: { uk: "Румунська тяга", en: "Romanian deadlift" },
   gluteal: { uk: "Ягідний місток", en: "Glute bridge" },
   biceps: { uk: "Згинання рук з гантелями", en: "Dumbbell curl" },
-  triceps: { uk: "Розгинання рук на блоці", en: "Triceps pushdown" },
+  triceps: { uk: "Зворотні віджимання від лави", en: "Bench dips" },
   abs: { uk: "Планка", en: "Plank" },
 };
 
@@ -261,4 +261,28 @@ export function planBalance(days: PlanDayLike[], lookup: Lookup = musclesForExer
     issues.push({ kind: "imbalance", slug: pair.weak, sets: pair.weakSets, other: { slug: pair.strong, sets: pair.strongSets }, suggestion: suggest(pair.weak) });
   }
   return issues;
+}
+
+/** Fractional sets per muscle for each of the last `weeks` 7-day windows ending `today` (oldest
+ *  first) -- the Progress screen's per-muscle trend. Same counting as weeklyMuscleSets. */
+export function weeklyMuscleSeries(logs: LoggedDay[], today: string, weeks = 12, lookup: Lookup = musclesForExercise): { weekEnds: string[]; series: Record<string, number[]> } {
+  const dayMs = 86_400_000;
+  const end = Date.parse(`${today}T00:00:00Z`);
+  const weekEnds = Array.from({ length: weeks }, (_, i) => new Date(end - (weeks - 1 - i) * 7 * dayMs).toISOString().slice(0, 10));
+  const series: Record<string, number[]> = Object.fromEntries(TRACKED_MUSCLES.map((s) => [s, new Array<number>(weeks).fill(0)]));
+  for (const log of logs) {
+    if (!log.done) continue;
+    const age = Math.round((end - Date.parse(`${log.date}T00:00:00Z`)) / dayMs);
+    if (age < 0) continue;
+    const bucket = weeks - 1 - Math.floor(age / 7);
+    if (bucket < 0) continue;
+    for (const e of log.ex) {
+      if (!(e.s > 0)) continue;
+      const m = lookup(e.n);
+      if (!m) continue;
+      for (const slug of m.primary) if (series[slug]) series[slug]![bucket]! += e.s;
+      for (const slug of m.secondary) if (series[slug]) series[slug]![bucket]! += e.s / 2;
+    }
+  }
+  return { weekEnds, series };
 }

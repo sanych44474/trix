@@ -2,6 +2,7 @@
 // trainer's client via ?clientId=); POST applies one edit op (weight / sets / delete / move /
 // swap / add), mirroring the bot's day editor. All writes go through updateActivePlanSplit, so
 // the client and the bot editor stay in sync. Same initData auth as every other webapp API.
+import { swapPlanDays } from "../domain/recoverySwap";
 import {
   getActivePlan,
   listPlanChanges,
@@ -201,6 +202,32 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
   if (body.action === "meso") {
     await updatePlanMesocycle(env.DB, owner._id, body.on ? defaultMesocycle() : null);
     return Response.json({ ok: true });
+  }
+
+  // Two days trade weekdays (the recovery-swap suggestion on the Today screen, or a manual
+  // reorder): the set of training weekdays is unchanged, so reminders need no resync.
+  if (body.action === "dayswap") {
+    const a = Number(body.weekday);
+    const b = Number(body.other);
+    const valid = (n: number) => Number.isInteger(n) && n >= 1 && n <= 7;
+    if (!valid(a) || !valid(b)) return Response.json({ error: "bad request" }, { status: 400 });
+    const split = swapPlanDays(plan.split, a as Weekday, b as Weekday);
+    if (!split) return Response.json({ error: "not found" }, { status: 404 });
+    await updateActivePlanSplit(env.DB, owner._id, split);
+    await recordPlanChange(
+      env.DB,
+      owner._id,
+      owner._id === user._id ? "manual" : "trainer",
+      `swapped days: ${weekdayName(owner.lang, a as Weekday)} ↔ ${weekdayName(owner.lang, b as Weekday)}`,
+    ).catch(() => {});
+    const swapVideos = await resolveVideos(env, owner._id, split);
+    const swapChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
+    return Response.json({
+      ok: true,
+      days: toView(split, swapVideos, owner.lang),
+      version: plan.generatedAt.toISOString(),
+      changes: swapChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
+    });
   }
 
   // Whole-day add/delete. Mirrors the bot's day manager (createPlanDay/deletePlanDay in

@@ -1,3 +1,4 @@
+import { offerRecoverySwap } from "./bot/recoverySwap";
 import { InlineKeyboard, InputFile } from "grammy";
 import { logInfo } from "./log";
 import type { CatalogExercise, ExerciseMetric, ExerciseVideo, Lang, PlanDay, PlanDoc, PlanExercise, UserDoc, Weekday } from "./types";
@@ -1032,6 +1033,7 @@ export async function cmdToday(ctx: MyContext) {
       }
     }
     await reply(ctx, phaseLine + notice + readinessLine + renderToday(lang, day, todays.label, undefined, await videosForDays(ctx, [day])), todayWorkoutKeyboard(lang, todays.weekday));
+    await offerRecoverySwap(ctx, plan, recentLogs, today, todays.weekday).catch(() => {});
     return;
   } else {
     // Rest day or already logged → show the dated schedule then next session with action buttons.

@@ -66,7 +66,33 @@ function mesoGuidance(phase: MesoPhase): { reps: string; intensity: string } {
   }
 }
 
-function TodayView({ dashboard, lang, onOpen }: { dashboard: Dashboard; lang: Lang; onOpen: (view: View) => void }) {
+// "Chest is still recovering -- swap today with Thursday's legs?" (dashboard.recoverySwap, computed
+// server-side from the plan and recent logs). One tap trades the two plan days' weekdays.
+function RecoverySwapCard({ lang, swap, onDone }: { lang: Lang; swap: NonNullable<Dashboard["recoverySwap"]>; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  const muscles = swap.tired.map((slug) => t(lang, `muscle_${slug.replace("-", "_")}` as Key).toLowerCase()).join(", ");
+  const apply = async () => {
+    setBusy(true); setError(null);
+    try {
+      await api("/api/v2/plan", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editPlan">({ action: "dayswap", weekday: swap.weekday, other: swap.other }) });
+      onDone();
+    } catch (err) { setError(err); } finally { setBusy(false); }
+  };
+  return <Card tone="accent">
+    <div className="section-head"><div><span className="eyebrow">{t(lang, "rswap_eyebrow")}</span><h2>{t(lang, "rswap_title", { muscles })}</h2></div></div>
+    <p>{t(lang, "rswap_body", { because: swap.because.join(", "), other: t(lang, WEEKDAY_KEYS[swap.other - 1]), otherGroup: swap.otherGroup, todayGroup: swap.todayGroup })}</p>
+    {error !== null && <p className="muted">{t(lang, "generic_error")}</p>}
+    <div className="button-row">
+      <button className="button button-primary" disabled={busy} onClick={() => void apply()}>{busy ? t(lang, "saving_ellipsis") : t(lang, "rswap_btn", { other: t(lang, WEEKDAY_KEYS[swap.other - 1]) })}</button>
+      <button className="button button-ghost" disabled={busy} onClick={() => setDismissed(true)}>{t(lang, "rswap_keep")}</button>
+    </div>
+  </Card>;
+}
+
+function TodayView({ dashboard, lang, onOpen, onReload }: { dashboard: Dashboard; lang: Lang; onOpen: (view: View) => void; onReload: () => void }) {
   const stats = dashboard.todayStats;
   const recovery = dashboard.recovery;
   const workoutCount = dashboard.calendar.logs.filter((log) => log.date === dashboard.today && log.done).length;
@@ -82,6 +108,7 @@ function TodayView({ dashboard, lang, onOpen }: { dashboard: Dashboard; lang: La
       <div><span className="eyebrow hero-eyebrow">{t(lang, "today_hero_eyebrow")}</span><h1>{dashboard.name ? t(lang, "today_greeting", { name: dashboard.name }) : t(lang, "today_ready")}</h1><p>{hasExercises ? t(lang, "today_exercises_waiting", { n: dashboard.logForm!.exercises.length }) : t(lang, "today_momentum")}</p></div>
       <button className="button button-light" onClick={() => onOpen("train")}>{hasExercises ? t(lang, "start_session") : t(lang, "open_training")}</button>
     </div>
+    {dashboard.recoverySwap && <RecoverySwapCard lang={lang} swap={dashboard.recoverySwap} onDone={onReload} />}
     <div className="metric-grid">
       <Metric label={t(lang, "metric_recovery")} value={`${recovery.score}`} detail={recoveryLabel(lang, recovery.label)} />
       <Metric label={t(lang, "metric_streak")} value={t(lang, "streak_weeks", { n: dashboard.gamification?.streak ?? 0 })} detail={t(lang, "level_n", { n: dashboard.gamification?.level ?? 1 })} />
@@ -758,5 +785,5 @@ export function App() {
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => { if (window.scrollY === 0) pullStart.current = event.touches[0]?.clientY ?? null; };
   const onTouchEnd = (event: React.TouchEvent<HTMLElement>) => { const start = pullStart.current; pullStart.current = null; const end = event.changedTouches[0]?.clientY ?? 0; if (start !== null && end - start > 72 && !loading) loadDashboard(); };
   const openPlan = (clientId?: number) => { setPlanClientId(clientId ?? null); setView("plan"); };
-  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content">{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} />}{view === "train" && <TrainView lang={lang} gamification={dashboard.gamification} />}{view === "plan" && <PlanView lang={lang} clientId={planClientId} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} />}{view === "fuel" && <FuelView lang={lang} />}{view === "progress" && <ProgressView dashboard={dashboard} lang={lang} />}{view === "more" && <ExtrasView lang={lang} role={dashboard.viewer.role} />}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "settings" && <ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} />}</div><nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
+  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content">{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onReload={loadDashboard} />}{view === "train" && <TrainView lang={lang} gamification={dashboard.gamification} />}{view === "plan" && <PlanView lang={lang} clientId={planClientId} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} />}{view === "fuel" && <FuelView lang={lang} />}{view === "progress" && <ProgressView dashboard={dashboard} lang={lang} />}{view === "more" && <ExtrasView lang={lang} role={dashboard.viewer.role} />}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "settings" && <ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} />}</div><nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
 }

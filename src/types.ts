@@ -686,7 +686,7 @@ export interface FeedbackDoc {
 }
 
 export type AiProvider = "gemini" | "groq" | "ollama" | "openrouter" | "workersai";
-export type AiKind = "interview" | "plan" | "translate" | "nutrition" | "nutrition_photo" | "coach" | "progress" | "report" | "meal_plan";
+export type AiKind = "interview" | "plan" | "translate" | "nutrition" | "nutrition_photo" | "coach" | "progress" | "report" | "meal_plan" | "form_check";
 
 // AI nutritionist: a generated day menu grounded in USDA/OFF.
 export interface MealItem {

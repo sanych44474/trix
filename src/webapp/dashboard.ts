@@ -12,6 +12,7 @@ import { recoveryScore, type RecoveryFactor, type RecoveryLabel } from "../domai
 import { muscleGroupOf } from "../domain/progression";
 import { e1rm } from "../domain/records";
 import { latestBodyFat } from "../domain/bodyFat";
+import { recoverySwapFor } from "../domain/recoverySwap";
 import type {
   BodyLogDoc,
   DailyCheckinDoc,
@@ -44,6 +45,9 @@ export interface DashboardPayload {
     logs: { date: string; done: boolean; ex: { n: string; s: number }[] }[]; // what was actually done that day
   };
   volume: { group: string; sets: number; mev: number; mav: number; zone: string }[];
+  // Today's planned muscles are still recovering and a later plan day's are ready: offer to swap
+  // the two days (domain/recoverySwap.ts). Absent when there's nothing to suggest.
+  recoverySwap?: { weekday: number; other: number; todayGroup: string; otherGroup: string; tired: string[]; because: string[] };
   // Conditioning (cardio) load for the same 7-day window — the other half of training volume,
   // which the strength bars above have never been able to show.
   conditioning: { sessions: number; minutes: number; meters: number; untimedSets: number; zone: string; targetMin: number; highMin: number };
@@ -153,6 +157,7 @@ export function assemblePayload(
 
   // Weekly volume vs MEV/MAV (last 7 days of completed sets).
   const volume = weeklyVolume(workouts, isoDaysBefore(today, 6)).map((v) => ({ ...v }));
+  const swap = recoverySwapFor(plan, workouts, today, isoWeekdayOf(today));
   const cw = conditioningWeek(workouts, isoDaysBefore(today, 6));
 
   // Recovery score: combines the check-in with what's already been computed above (conditioning
@@ -246,6 +251,7 @@ export function assemblePayload(
         })),
     },
     volume,
+    ...(swap ? { recoverySwap: swap } : {}),
     conditioning,
     recovery,
     ...(measurements.length ? { measurements } : {}),

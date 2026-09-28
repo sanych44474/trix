@@ -2,6 +2,7 @@
 // heal / translate, dynamic progression regeneration. Extracted from bot.ts (god-file split);
 // behavior unchanged. Values imported from "../bot" are referenced only inside function bodies,
 // so the value-cycle with bot.ts is load-safe.
+import { autoBalanceSplit } from "../domain/planAutoBalance";
 import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Env, Lang, PlanDay, PlanExercise, PlanDoc, UserDoc, Weekday } from "../types";
 import type { AiPlan, MyContext } from "../bot";
@@ -523,7 +524,12 @@ export async function buildPlanDocRaw(
   // Translate exercise fields (name/technique/muscles/muscleGroup) from English to the
   // user's language. The plan prompt always outputs these in English for best catalog
   // ID matching; translation runs as a fast second step.
-  const translatedSplit = await translatePlanExercises(env, lang, split, db, forUserId);
+  const translatedSplitRaw = await translatePlanExercises(env, lang, split, db, forUserId);
+  // A lopsided plan (no back work, hamstrings far behind the quads...) is fixed here, before it
+  // is saved, rather than only warned about under the plan (domain/planAutoBalance.ts).
+  const balanced = autoBalanceSplit(translatedSplitRaw, lang, limits.max);
+  if (balanced.added.length) logInfo("plan_autobalanced", { added: balanced.added.map((a) => `${a.issue}:${a.slug}`).join(",") });
+  const translatedSplit = balanced.split;
   // Translate plan-level text fields (methodology and nutrition notes) — they come from the AI
   // in English and are not covered by the exercise-translation pass.
   const { methodology: translatedMethodology, nutritionNotes: translatedNutNotes } =
