@@ -87,22 +87,37 @@ Gemini → Groq → OpenRouter `:free` → Workers AI with automatic fallback. B
 ## 3. Workout logging
 
 - **Guided logger in the Mini App** (primary): today's exercises as cards with plan hints,
-  one-tap "✓ as planned" fill, per-set weight/reps (or time/distance for cardio), add/remove
-  sets, per-exercise RPE chips, on-the-fly swap (3 alternatives or catalog search/create),
-  add ad-hoc exercise, delete exercise from today (confirm if data typed), ⬆️⬇️ reorder,
-  technique + video dropdown per exercise.
-- **Session progress**: "3/6 ▰▰▰▱▱▱" header, ✅ on filled cards, auto-scroll to the next
-  exercise, local draft (survives connection loss), idempotent save.
-- **"Repeat last workout"**: per-exercise chip with what you actually did last time
-  (weights × reps) and a one-tap apply-to-all.
-- **Rest timer**: one footer button with a duration picker (0:30–3:00, remembered), countdown
-  in the button, server-side push when rest ends (survives screen lock).
-- **Edit a saved workout**: reopening a logged day prefills the saved sets ("Save changes");
-  past 7 days editable via date chips (14-day window; past edits don't ping the trainer).
+  one-tap "✓ as planned" fill (per exercise or all at once), per-set weight/reps (or
+  time/distance for cardio), add/remove sets, per-set RPE chips, on-the-fly swap (alternatives
+  for the same muscle, filtered by the user's equipment) or add a custom exercise, delete
+  (confirm if data typed), ⬆️⬇️ reorder, technique + video dropdown per exercise.
+- **Swaps are remembered**: a swapped-in exercise shows "instead of …" and is saved with the plan
+  exercise it replaced, so reopening the day puts it back in the same slot.
+- **Session progress**: "3/6" header with a progress bar, ✓ on filled cards.
+- **Save dock**: pinned above the bottom nav — live session time, save/draft state, and one
+  action: **Finish workout** (asks first, stops the session clock), **Save changes** on an
+  already-saved day, or **Save for {date}** when back-filling. Saves are idempotent.
+- **Drafts that follow you**: unsaved work is kept on the phone instantly and synced to the
+  server a few seconds after each change (and when the app is minimised), so a half-logged
+  session survives a cleared Telegram cache and opens on another device. On open, the newest of
+  the phone's draft, the server's draft and the saved log wins.
+- **Session length**: measured from the first logged set or rest to "Finish workout", stored
+  with the log and shown in History (a clock older than 5 h is treated as stale and ignored).
+- **"Repeat last"**: per-exercise chip with what you actually did last time
+  (weights × reps).
+- **Rest timer**: per-exercise rest button (the plan's rest wins, otherwise a remembered
+  preference per metric), optional auto-start after a set and sound; a bar pinned above the
+  save dock with a progress ring, ±15 s and skip, counting up past zero; server-side Telegram
+  push when rest ends (survives screen lock).
+- **History tab**: past sessions with duration; repeat one today, edit a saved day in place, or
+  log a missed day (blank or from a past session) within a 14-day window — past edits don't
+  ping the trainer.
 - **Bot fallbacks**: free-text logging ("80 8,7,6" / "80x8 75x10"), tappable set correction,
   guided per-exercise chat flow, past-day logging, voice-note logging (Whisper), cardio menu
   (rowing/bike/run/… by time & distance).
-- **Finish rewards**: new PRs 🏆, badges 🏅, level-ups ⬆️ shown immediately.
+- **Finish rewards**: a summary card with sets, duration, % of time working vs resting and
+  rests-on-target streak (tap any number for what it means), plus new PRs 🏆, badges 🏅 and
+  level-ups ⬆️.
 
 ## 4. Nutrition
 

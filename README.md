@@ -69,6 +69,8 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 | `src/scheduler.ts` | Cron: reminders, check-ins, weekly digests, trainer digests, owner report |
 | `src/webapp/` | Mini App: `client/` static shell fragments + per-screen JSON APIs |
 | `apps/mini-app/` | React + Vite v2 Mini App shell and dark sports design system |
+| `apps/mini-app/src/train/` | Workout logger screen pieces: exercise card, rest bar, save dock, summary, history, `useSession` (rest timer + session clock) |
+| `apps/mini-app/src/logic/` | **Pure**, unit-tested client logic: logger state and draft reconciliation, saved-log hydration, rest timing |
 | `src/application/` | Deep application interfaces shared by adapters |
 | `src/adapters/d1/` | D1 application adapters and legacy-to-v2 projections |
 | `packages/contracts/` | OpenAPI 3.1 contract for `/api/v2/*` |
@@ -180,7 +182,8 @@ npm run typecheck   # tsc --noEmit
 npm run typecheck:webapp
 npm run build:webapp:v2
 npm run verify-v2-backfill # local D1; add --remote for an explicit remote check
-npm test            # node --test (825 unit/integration tests)
+npm test            # node --test (~930 unit/integration tests)
+npm run test:workers # vitest in the Workers runtime (workerd)
 npm run deploy      # build the Mini App shell + wrangler deploy
 npm run tail        # stream live Worker logs
 ```
