@@ -92,3 +92,57 @@ export async function shareStoryCard(card: StoryCard, caption?: string): Promise
   const { url } = await apiForm<{ url: string }>("/api/v2/story", form);
   shareToStory(url, caption);
 }
+
+/** An on-screen SVG (the body map figure) as an image the story canvas can draw. */
+async function svgImage(svg: SVGSVGElement): Promise<HTMLImageElement> {
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  const box = svg.viewBox?.baseVal;
+  const w = box?.width || svg.clientWidth || 200;
+  const h = box?.height || svg.clientHeight || 400;
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.setAttribute("width", String(w));
+  clone.setAttribute("height", String(h));
+  clone.removeAttribute("style"); // the page's CSS sizing doesn't apply off-page
+  const img = new Image();
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(clone))}`;
+  await img.decode();
+  return img;
+}
+
+/** The body map as a story: the card's header and footer, the front/back figures in the middle,
+ *  and up to three short lines under them (top muscles, or what's still recovering). */
+export async function drawBodyMapStory(card: Omit<StoryCard, "rows">, figures: SVGSVGElement[], lines: string[]): Promise<HTMLCanvasElement> {
+  const canvas = drawStoryCard({ ...card, rows: [] });
+  const g = canvas.getContext("2d")!;
+  const images = await Promise.all(figures.slice(0, 2).map(svgImage));
+  // Figures between the header and the text lines; the lines end above Telegram's own controls
+  // and the "trix" footer (drawStoryCard puts it at H - 200).
+  const top = 580;
+  const boxH = 760;
+  const gap = 40;
+  const boxW = (W - 96 * 2 - gap) / Math.max(1, images.length);
+  images.forEach((img, i) => {
+    const scale = Math.min(boxW / img.width, boxH / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    g.drawImage(img, 96 + i * (boxW + gap) + (boxW - w) / 2, top + (boxH - h) / 2, w, h);
+  });
+  let y = top + boxH + 80;
+  g.fillStyle = "#ffffff";
+  g.font = `600 44px ${FONT}`;
+  for (const line of lines.slice(0, 3)) {
+    for (const part of wrap(g, line, W - 96 * 2).slice(0, 2)) { g.fillText(part, 96, y); y += 58; }
+    y += 10;
+  }
+  return canvas;
+}
+
+export async function shareBodyMapStory(card: Omit<StoryCard, "rows">, figures: SVGSVGElement[], lines: string[], caption?: string): Promise<void> {
+  const canvas = await drawBodyMapStory(card, figures, lines);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) throw new Error("canvas export failed");
+  const form = new FormData();
+  form.append("photo", blob, "story.png");
+  const { url } = await apiForm<{ url: string }>("/api/v2/story", form);
+  shareToStory(url, caption);
+}

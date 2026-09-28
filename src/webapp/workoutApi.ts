@@ -1,5 +1,6 @@
 // Guided-logger Mini App APIs: /api/workout/(today|swap|rest|save). Same initData auth as the
 // dashboard; all routes act on the authenticated user only (no cross-user access).
+import { techniqueSteps } from "./techniqueSteps";
 import { deleteRestTimers, setRestTimer } from "../adapters/d1/v2Admin";
 import { deleteWorkoutDraft, getWorkoutLog, listStrength, putWorkoutDraft, recentWorkoutLogs, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
@@ -91,6 +92,13 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       if (name.length < 2 || name.length > 80) return Response.json({ error: "bad request" }, { status: 400 });
       const info = await lookupExerciseInfo(env, user, name);
       return Response.json(info, { headers: { "cache-control": "no-store" } });
+    }
+    if (req.method === "GET" && path === "/api/workout/steps") {
+      const id = (url.searchParams.get("id") ?? "").trim();
+      if (!id || id.length > 120) return Response.json({ error: "bad request" }, { status: 400 });
+      const result = await techniqueSteps(env, user, id).catch(() => ({ steps: [] as string[] }));
+      if (!result) return Response.json({ error: "not found" }, { status: 404 });
+      return Response.json(result, { headers: { "cache-control": "private, max-age=86400" } });
     }
     if (req.method === "GET" && path === "/api/workout/search") {
       const q = (url.searchParams.get("q") ?? "").trim();

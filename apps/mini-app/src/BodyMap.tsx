@@ -6,7 +6,9 @@
 //   - a plan day: every muscle that day's exercises drive (strong) or assist (light).
 //   - an exercise: its primary movers strong, its helpers light (./logic/exerciseMuscles.ts).
 // The dropdown lists the plan by training day ("whole day" first, then its exercises), then recent extras.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { shareBodyMapStory } from "./storyCard";
+import { canShareStory } from "./telegram";
 import { api } from "./api";
 import type { Plan } from "./types";
 import Body, { type ExtendedBodyPart } from "react-muscle-highlighter";
@@ -90,6 +92,33 @@ export function BodyMap({ lang, logs, today, sex, exercises }: { lang: Lang; log
   }));
 
   const pick = (next: Selection) => { setSelection(next); setTapped(null); };
+
+  // Week and recovery views can go to a Telegram story: the figures as drawn, plus three lines.
+  const figuresRef = useRef<HTMLDivElement>(null);
+  const [storyState, setStoryState] = useState<"idle" | "busy" | "failed">("idle");
+  const storyable = canShareStory() && (selection.kind === "week" || selection.kind === "recovery");
+  const shareStory = async () => {
+    const svgs = [...(figuresRef.current?.querySelectorAll("svg") ?? [])] as SVGSVGElement[];
+    if (!svgs.length) return;
+    const lines = selection.kind === "recovery"
+      ? [
+          ...(recovery.some((m) => m.status === "recovering") ? [t(lang, "recovery_summary_tired", { list: listNames(lang, recovery.filter((m) => m.status === "recovering").map((m) => m.slug)) })] : []),
+          t(lang, "story_ready_line", { list: listNames(lang, recovery.filter((m) => m.status === "ready" && m.daysAgo !== null).map((m) => m.slug).slice(0, 5)) || "—" }),
+        ]
+      : [...week].filter((m) => m.sets > 0).sort((a, b) => b.sets - a.sets).slice(0, 3)
+          .map((m) => t(lang, "story_muscle_line", { muscle: muscleLabel(lang, m.slug), n: num(m.sets) }));
+    setStoryState("busy");
+    try {
+      await shareBodyMapStory({
+        eyebrow: `${isoDaysBefore(today, 6).slice(5)} → ${today.slice(5)}`,
+        title: t(lang, selection.kind === "recovery" ? "story_recovery_title" : "story_bodymap_title"),
+        footer: t(lang, "story_footer"),
+      }, svgs, lines);
+      setStoryState("idle");
+    } catch {
+      setStoryState("failed");
+    }
+  };
 
   const detail = (() => {
     if (day && dayData) {
@@ -187,7 +216,7 @@ export function BodyMap({ lang, logs, today, sex, exercises }: { lang: Lang; log
           ))}
         </select>
       </label>
-      <div className="body-map-figures">{figure("front")}{figure("back")}</div>
+      <div className="body-map-figures" ref={figuresRef}>{figure("front")}{figure("back")}</div>
       <div className="body-map-legend">
         {selection.kind === "recovery"
           ? (["recovering", "almost", "ready"] as const).map((status) => (
@@ -203,6 +232,11 @@ export function BodyMap({ lang, logs, today, sex, exercises }: { lang: Lang; log
             ))}
       </div>
       <p className="muted body-map-detail" aria-live="polite">{detail}</p>
+      {storyable && (
+        <button className="button button-ghost" disabled={storyState === "busy"} onClick={() => void shareStory()}>
+          {storyState === "busy" ? t(lang, "saving_ellipsis") : storyState === "failed" ? t(lang, "share_story_failed") : t(lang, "share_story_btn")}
+        </button>
+      )}
     </div>
   );
 }

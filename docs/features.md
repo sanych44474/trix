@@ -24,7 +24,7 @@ function**, so the total below is a count rather than a slogan.
 
 | | |
 |---|---|
-| Functions in this catalog | **183** across 11 areas |
+| Functions in this catalog | **188** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
 | Surfaces | 2 — Telegram chat (45 commands) and the Telegram Mini App |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
@@ -36,13 +36,13 @@ function**, so the total below is a count rather than a slogan.
 | Area | Functions |
 |---|---|
 | 1. Onboarding & roles | 12 |
-| 2. Training plan & programming | 29 |
-| 3. Workout logging | 29 |
+| 2. Training plan & programming | 31 |
+| 3. Workout logging | 30 |
 | 4. Nutrition | 14 |
 | 5. Body, recovery & activity | 15 |
 | 6. Gamification & community | 18 |
 | 7. Trainer tools | 22 |
-| 8. Mini App platform | 17 |
+| 8. Mini App platform | 19 |
 | 9. Reminders & automation | 13 |
 | 10. Owner / admin | 9 |
 | 11. Engineering safeguards | 5 |
@@ -110,6 +110,13 @@ function**, so the total below is a count rather than a slogan.
     assisting muscles as half) and flags a muscle nothing trains or one under half its opposite
     (chest/back, quads/hamstrings, biceps/triceps), with one exercise to add on the day that fits.
     Shown under the plan in the bot and as a card with an "add" button in the Mini App.
+30. **Self-balancing AI plans**: a freshly generated plan runs the same check before it is saved;
+    whatever it flags gets the suggested exercise as an accessory on the best-fitting day (bumped
+    to 5 sets when one accessory can't close the gap), so lopsided plans never reach the user.
+31. **Recovery-aware day swap**: when most of today's planned sets land on muscles still
+    recovering from the last session, the bot (under /today) and the Mini App's Today screen offer
+    to swap today with the nearest later plan day whose muscles are ready; one tap trades the two
+    days in the plan and logs the change.
 
 ## 3. Workout logging
 
@@ -152,9 +159,13 @@ function**, so the total below is a count rather than a slogan.
     own bottom button, with a progress state while saving.
 28. **Strava import**: connect once; runs, rides, swims, walks and rows appear in the log by
     themselves (twice a day or on demand), count toward cardio load and are never added twice.
-29. **Technique pictures**: the info panel shows the start and finish position of the exercise
-    (free-exercise-db, 750 exercises), matched by the English catalog name or, for Ukrainian names,
-    by movement; a merely similar exercise is labelled as such.
+29. **Technique pictures and steps**: the info panel shows the start and finish position of the
+    exercise (free-exercise-db, 750 exercises), matched by the English catalog name or, for
+    Ukrainian names, by movement (a merely similar exercise is labelled as such), with 3–5 short
+    steps under it, condensed/translated by the AI once per exercise and language and cached.
+30. **Video form check**: send a short video of a set (or a round video note) in the chat; the AI
+    coach names the exercise and gives 2–3 concrete cues, only on what is visible, never medical
+    advice (five checks a day, clips up to 60 s).
 
 ## 4. Nutrition
 
@@ -269,10 +280,14 @@ function**, so the total below is a count rather than a slogan.
     the main movers and, lighter, the assisting muscles.
 14. **Recovery map**: every muscle coloured by the days since it was last loaded — red under
     48 h, yellow 48–72 h, green ready — so it is clear what can be trained today.
-15. **Feels installed**: add trix to the phone's home screen, or open it full screen.
-16. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
+15. **Muscle trend**: weekly sets for any muscle over 12 weeks against its working range, opening
+    on the muscle lagging furthest behind; tap a week for its number, with the last 4 weeks
+    compared to the 4 before.
+16. **Body map to stories**: the week or recovery view, figures included, as a Telegram story.
+17. **Feels installed**: add trix to the phone's home screen, or open it full screen.
+18. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
     unlocked by it, and `/paysupport` handles payment questions.
-17. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
+19. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
     (deduped), a strict Content-Security-Policy, static assets served from the edge.
 
 ## 9. Reminders & automation

@@ -170,6 +170,36 @@ paths:
                           type: array
                           items: {type: string}
                   required: [data]
+  /api/v2/workout/steps:
+    get:
+      operationId: getTechniqueSteps
+      description: >-
+        Short step-by-step technique for a free-exercise-db exercise (the logger's technique
+        pictures), in the caller's language; condensed/translated once and cached.
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: query
+        required: true
+        schema: {type: string, minLength: 1, maxLength: 120}
+      responses:
+        '200':
+          description: The steps (empty when the source has none or the AI was unavailable)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        steps: {type: array, items: {type: string}}
+                      required: [steps]
+                  required: [data]
+        '404': {description: Not a free-exercise-db id}
   /api/v2/workout/exinfo:
     get:
       operationId: getExerciseInfo
@@ -480,7 +510,7 @@ paths:
                 index: {type: integer, minimum: -1, maximum: 12}
                 action:
                   type: string
-                  enum: [weight, sets, wmode, video, link, del, move, swap, add, meso, dayadd, daydel]
+                  enum: [weight, sets, wmode, video, link, del, move, swap, add, meso, dayadd, daydel, dayswap]
                 value:
                   type: string
                   maxLength: 300
@@ -507,6 +537,7 @@ paths:
                   type: string
                   enum: [chest, back, legs, shoulders, arms, full, core]
                 'on': {type: boolean, description: 'action=meso only: start/stop periodization'}
+                other: {type: integer, minimum: 1, maximum: 7, description: 'action=dayswap only: the plan day that trades weekdays with `weekday`'}
       responses:
         '200':
           description: Updated plan (or {ok:true} for the meso toggle, which has no weekday/index)
@@ -2390,6 +2421,17 @@ components:
                       required: [n, s]
                 required: [date, done, ex]
           required: [days, split, logs]
+        recoverySwap:
+          type: object
+          description: Today's planned muscles are still recovering and a later plan day's are ready -- offer swapping the two days.
+          properties:
+            weekday: {type: integer}
+            other: {type: integer}
+            todayGroup: {type: string}
+            otherGroup: {type: string}
+            tired: {type: array, items: {type: string}}
+            because: {type: array, items: {type: string}}
+          required: [weekday, other, todayGroup, otherGroup, tired, because]
         volume:
           type: array
           items:

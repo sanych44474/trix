@@ -93,3 +93,20 @@ test("renderPlanBalance: a localized note for the bot's plan message, empty when
   assert.match(renderPlanBalance("en", split), /Dumbbell row/);
   assert.equal(renderPlanBalance("uk", [day(2, [["Біг"]])] as unknown as PlanDay[]), "");
 });
+
+test("weekly series: 7-day buckets ending today, oldest first, unfinished workouts left out", async () => {
+  const { weeklyMuscleSeries } = await import("../src/domain/muscleLoad");
+  const { weekEnds, series } = weeklyMuscleSeries([
+    { date: "2026-09-28", done: true, ex: [{ n: "Жим лежачи", s: 4 }] }, // this week
+    { date: "2026-09-22", done: true, ex: [{ n: "Жим лежачи", s: 3 }] }, // 6 days ago: still this week
+    { date: "2026-09-21", done: true, ex: [{ n: "Жим лежачи", s: 5 }] }, // 7 days ago: last week
+    { date: "2026-09-27", done: false, ex: [{ n: "Жим лежачи", s: 9 }] },
+    { date: "2026-06-01", done: true, ex: [{ n: "Жим лежачи", s: 9 }] }, // older than 12 weeks
+  ], "2026-09-28", 12);
+  assert.equal(weekEnds.length, 12);
+  assert.equal(weekEnds[11], "2026-09-28");
+  assert.equal(weekEnds[10], "2026-09-21");
+  assert.deepEqual(series.chest!.slice(-2), [5, 7]);
+  assert.equal(series.triceps![11], 3.5, "bench helps triceps: 7 → 3.5");
+  assert.equal(series.chest!.slice(0, 10).reduce((a, b) => a + b, 0), 0);
+});

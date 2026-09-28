@@ -2,6 +2,8 @@
 // text-mode handlers, and createBot(). Extracted from bot.ts (god-file split); behavior unchanged.
 // Handlers are imported from "../bot"; nothing in bot.ts's handler bodies depends on this module
 // except four symbols re-imported back, so the dependency is essentially one-way.
+import { handleFormVideo } from "./formCheck";
+import { applyRecoverySwap } from "./recoverySwap";
 import { cmdPaySupport, cmdSupport, onPreCheckout, onSuccessfulPayment, onSupportAmount } from "./support";
 import { Bot, InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
@@ -386,6 +388,22 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
       await handlePhotoMeal(ctx, [image]);
     } catch (err) {
       await onError(ctx, err, "photo");
+    }
+  });
+
+  // A video of a set → AI form check (bot/formCheck.ts). Round video notes too.
+  bot.on(["message:video", "message:video_note"], async (ctx) => {
+    try {
+      const v = ctx.message.video ?? ctx.message.video_note;
+      if (!v) return;
+      await handleFormVideo(ctx, {
+        fileId: v.file_id,
+        bytes: v.file_size,
+        seconds: v.duration,
+        mimeType: "mime_type" in v ? v.mime_type : "video/mp4",
+      });
+    } catch (err) {
+      await onError(ctx, err, "form_check");
     }
   });
 
@@ -1183,6 +1201,8 @@ export const CB_PREFIX: [string, CbHandler][] = [
   ["lset:", (ctx, _r, data) => { const [, ei, si] = data.split(":"); return startSetEdit(ctx, Number(ei), Number(si)); }],
   ["srpe:", (ctx, _r, data) => { const [, ei, r] = data.split(":"); return setEntryRpe(ctx, Number(ei), Number(r)); }],
   ["logpast:", (ctx, rest) => startPastLog(ctx, rest)],
+  // Recovery swap under /today: trade today's plan day with a later one (bot/recoverySwap.ts).
+  ["rswap:", (ctx, _r, data) => { const [, a, b] = data.split(":"); return applyRecoverySwap(ctx, Number(a), Number(b)); }],
   ["skip:", (ctx, rest) => handleSkipReason(ctx, rest)],
   ["rest:", (ctx, rest) => onRestTimer(ctx, Number(rest))],
   ["msg:reply:", async (ctx, rest) => {

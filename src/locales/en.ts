@@ -22,6 +22,7 @@ export const en = {
     "📝 No plan needed — you can */log* a workout anytime (even an unplanned session) and I'll track it.\n" +
     "📊 */report* — progress summary · 📏 */measure* — log weight & volumes · 📦 */export* — your data.\n" +
     "📥 */import* — bring your history over from Strong or Hevy (CSV export).\n" +
+    "🎥 Send a *video of a set* (up to 60 s) — I'll check your form and give 2–3 cues.\n" +
     "💬 You can also just *write to me normally* — by default I answer as your coach.\n" +
     "⚙️ */settings* — reminder time, training days, timezone, regenerate plan, language.",
 
@@ -146,6 +147,32 @@ export const en = {
   bal_m_biceps: "biceps",
   bal_m_triceps: "triceps",
   bal_m_abs: "abs",
+  mus_chest: "chest",
+  mus_upper_back: "back",
+  mus_trapezius: "traps",
+  mus_lower_back: "lower back",
+  mus_deltoids: "shoulders",
+  mus_biceps: "biceps",
+  mus_triceps: "triceps",
+  mus_forearm: "forearms",
+  mus_abs: "abs",
+  mus_obliques: "obliques",
+  mus_quadriceps: "quads",
+  mus_hamstring: "hamstrings",
+  mus_gluteal: "glutes",
+  mus_adductors: "adductors",
+  mus_calves: "calves",
+  rswap_msg: "🔋 Your *{muscles}* are still recovering (last time: {because}). {day} trains muscles that are ready — *{group}*. Swap the two days in your plan?",
+  rswap_btn: "🔄 Swap with {day}",
+  rswap_done: "✅ Swapped: {a} ↔ {b}. Tap /today to see today's session.",
+  rswap_stale: "The plan changed in the meantime — open /today again.",
+  form_check_watching: "🎥 Watching your set… this takes up to a minute.",
+  form_check_header: "🎥 *Form check*",
+  form_check_footer: "_Film from the side at hip height, whole body in frame, for the clearest check._",
+  form_check_failed: "I couldn't analyse this video right now — try again in a bit.",
+  form_check_too_big: "That video is too large for me. Send a shorter clip (one set, up to {sec} s).",
+  form_check_too_long: "Send a clip of one set, up to {sec} seconds.",
+  form_check_limit: "That's {n} form checks today — the limit. Send the next one tomorrow.",
   plan_healed: "🛠 Your plan was incomplete, so I rebuilt it into full sessions. Here's the updated version:",
   plan_regen_ai: "✨ Generate with AI",
   meal_regen_ai: "✨ Generate with AI",

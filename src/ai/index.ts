@@ -268,10 +268,14 @@ async function run(
   // Fast conversational kinds lead with Groq (sub-300 ms, reliable); plan/translate keep
   // Gemini first for native-schema structured output. (translate has its own chain.)
   const hasImages = !!(input.images && input.images.length);
-  const chain =
+  // Video (the form check) is Gemini-only: it's the one provider in the chain that accepts
+  // inline video; the others would reject it or silently look at nothing.
+  const hasVideo = !!input.images?.some((i) => i.mimeType.startsWith("video/"));
+  const fullChain =
     o.kind === "translate"
       ? translateProviders(env, geminiModel, hasImages)
       : providers(env, hasImages, geminiModel, !isPlanLike);
+  const chain = hasVideo ? fullChain.filter((p) => p.name === "gemini") : fullChain;
   // Cache lookup — a hit returns instantly with zero provider calls. The stored text
   // passed validation when written; re-validate anyway (cheap) so a stale-schema entry
   // falls through to a live generation instead of crashing downstream.
@@ -399,6 +403,11 @@ export async function aiJSON<T>(env: Env, o: CallOpts): Promise<T> {
       },
     ),
   );
+}
+
+/** Free-text answer about images or a short video (the form check). */
+export async function aiVisionText(env: Env, o: CallOpts): Promise<string> {
+  return run(env, { system: o.system, user: o.user, images: o.images, temperature: o.temperature ?? 0.3 }, o);
 }
 
 export async function aiVisionJSON<T>(env: Env, o: CallOpts): Promise<T> {
