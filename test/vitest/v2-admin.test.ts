@@ -10,7 +10,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { dashboardExtrasBatch } from "../../src/adapters/d1/v2Admin";
 import { enqueueNotification } from "../../src/adapters/d1/v2Notifications";
-import { recordQuestsDone } from "../../src/adapters/d1/v2Gamification";
+import { countCompletedSeasons, recordQuestsDone } from "../../src/adapters/d1/v2Gamification";
 
 async function seedAccount(id: number): Promise<void> {
   const now = new Date().toISOString();
@@ -46,6 +46,15 @@ describe("v2Admin: dashboardExtrasBatch — one db.batch() round trip, SELECTs i
     expect(await recordQuestsDone(env.DB, 809, "2026-09-28", ["workouts", "muscle_sets:chest"])).toEqual(["muscle_sets:chest"]);
     expect(await recordQuestsDone(env.DB, 809, "2026-10-05", ["workouts"])).toEqual(["workouts"]);
     expect((await dashboardExtrasBatch(env.DB, 809, "2026-10-05")).statCounts.quests).toBe(4);
+  });
+
+  it("seasonal wins count only completed season_YYYY_MM challenges", async () => {
+    await seedAccount(810);
+    const now = new Date().toISOString();
+    const row = (code: string, done: boolean) =>
+      env.DB.prepare("INSERT INTO v2_challenges (accountId, code, startDate, endDate, joinedAt, completedAt) VALUES (810, ?, '2026-10-01', '2026-10-31', ?, ?)").bind(code, now, done ? now : null);
+    await env.DB.batch([row("season_2026_09", true), row("season_2026_10", false), row("w4", true), row("seasonXcheat", true)]);
+    expect(await countCompletedSeasons(env.DB, 810)).toBe(1);
   });
 
   it("an account with no activity gets all-zero/empty results, not a thrown error", async () => {

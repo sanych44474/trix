@@ -7,20 +7,20 @@
 import { InlineKeyboard } from "grammy";
 import type { Lang } from "../../types";
 import {
-  activeChallengeCodes, activeChallenges, awardAchievement, countCompletedChallenges, joinChallenge, markChallengeDone,
+  activeChallengeCodes, activeChallenges, awardAchievement, countCompletedChallenges, countCompletedSeasons, joinChallenge, markChallengeDone,
 } from "../../adapters/d1/v2Gamification";
 import { workoutLogsSince } from "../../adapters/d1/v2Workouts";
 import { stepLogsSince, waterLogsSince } from "../../adapters/d1/v2Tracking";
 import { nutritionLogsSince } from "../../adapters/d1/v2Nutrition";
 import {
-  CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindowCounts, progressBar,
-  type ChallengeData, type ChallengeTemplate,
+  CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindow, challengeWindowCounts, progressBar,
+  seasonalChallenge, seasonMilestones, type ChallengeData, type ChallengeTemplate,
 } from "../../domain/challenges";
+import { challengeTitleText } from "../../render";
 import { challengeMilestones } from "../../domain/records";
 import { localParts } from "../../domain/progression";
 import { escapeHtml, t } from "../../locales/i18n";
-import { isoDateMinus } from "./boards";
-import { type MyContext, type TKey, clearEditOwner, reply } from "../../adapters/telegram/context";
+import { type MyContext, clearEditOwner, reply } from "../../adapters/telegram/context";
 import { menuBtn, waterGoalFor } from "../../bot";
 
 // Gather the raw counts a challenge needs, over its [startDate, endDate] window. Progress is always
@@ -37,7 +37,7 @@ export async function challengeData(ctx: MyContext, startDate: string, endDate: 
 }
 
 export function challengeTitle(lang: Lang, tpl: ChallengeTemplate): string {
-  return `${tpl.emoji} ${t(lang, `chal_${tpl.code}_title` as TKey)}`;
+  return `${tpl.emoji} ${challengeTitleText(lang, tpl)}`;
 }
 
 export async function cmdChallenges(ctx: MyContext) {
@@ -47,6 +47,7 @@ export async function cmdChallenges(ctx: MyContext) {
   const active = await activeChallenges(ctx.db, ctx.user._id, date);
   const blocks: string[] = [];
   const completedNow: string[] = [];
+  let seasonWon = false;
   for (const ch of active) {
     const tpl = challengeByCode(ch.code);
     if (!tpl) continue;
@@ -59,6 +60,7 @@ export async function cmdChallenges(ctx: MyContext) {
       // those (a challenge win is its own kind of achievement, not just more workouts/PRs).
       await markChallengeDone(ctx.db, ch.id);
       completedNow.push(challengeTitle(lang, tpl));
+      if (tpl.season) seasonWon = true;
       continue;
     }
     const daysLeft = Math.max(0, Math.round((Date.parse(ch.endDate) - Date.parse(date)) / 86_400_000));
@@ -69,6 +71,9 @@ export async function cmdChallenges(ctx: MyContext) {
   const won = await countCompletedChallenges(ctx.db, ctx.user._id);
   if (completedNow.length) {
     for (const code of challengeMilestones(won)) await awardAchievement(ctx.db, ctx.user._id, code);
+    if (seasonWon) {
+      for (const code of seasonMilestones(await countCompletedSeasons(ctx.db, ctx.user._id))) await awardAchievement(ctx.db, ctx.user._id, code);
+    }
   }
   const parts: string[] = [t(lang, "chal_title")];
   for (const c of completedNow) parts.push(t(lang, "chal_completed_now", { title: c }));
@@ -83,7 +88,8 @@ export async function showChallengePicker(ctx: MyContext) {
   const lang = ctx.user.lang;
   const { date } = localParts(ctx.user.profile.timezone);
   const taken = await activeChallengeCodes(ctx.db, ctx.user._id, date);
-  const available = CHALLENGES.filter((c) => !taken.has(c.code));
+  // This month's seasonal challenge leads the list.
+  const available = [seasonalChallenge(date), ...CHALLENGES].filter((c) => !taken.has(c.code));
   if (!available.length) { await reply(ctx, t(lang, "chal_all_joined"), menuBtn(lang)); return; }
   const kb = new InlineKeyboard();
   for (const tpl of available) {
@@ -100,8 +106,10 @@ export async function onChallengeJoin(ctx: MyContext, code: string) {
   const { date } = localParts(ctx.user.profile.timezone);
   const taken = await activeChallengeCodes(ctx.db, ctx.user._id, date);
   if (taken.has(code)) { await reply(ctx, t(lang, "chal_already")); await cmdChallenges(ctx); return; }
-  const endDate = isoDateMinus(date, -(tpl.windowDays - 1)); // start + (windowDays - 1) days, inclusive
-  await joinChallenge(ctx.db, ctx.user._id, code, date, endDate);
-  await reply(ctx, t(lang, "chal_joined", { title: challengeTitle(lang, tpl), days: tpl.windowDays }));
+  const win = challengeWindow(tpl, date); // a seasonal one runs over its calendar month
+  if (win.end < date) { await showChallengePicker(ctx); return; } // an old month's season
+  await joinChallenge(ctx.db, ctx.user._id, code, win.start, win.end);
+  const daysLeft = Math.round((Date.parse(win.end) - Date.parse(date)) / 86_400_000) + 1;
+  await reply(ctx, t(lang, "chal_joined", { title: challengeTitle(lang, tpl), days: daysLeft }));
   await cmdChallenges(ctx);
 }

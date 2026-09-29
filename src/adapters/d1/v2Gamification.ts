@@ -309,6 +309,15 @@ export async function markChallengeDone(db: DB, id: number): Promise<void> {
   await db.prepare("UPDATE v2_challenges SET completedAt = ? WHERE id = ? AND completedAt IS NULL").bind(nowIso(), id).run();
 }
 
+/** Completed monthly seasonal challenges (codes season_YYYY_MM) — the season_win/season_3 badges. */
+export async function countCompletedSeasons(db: DB, userId: number): Promise<number> {
+  const r = await db
+    .prepare("SELECT COUNT(*) AS c FROM v2_challenges WHERE accountId = ? AND completedAt IS NOT NULL AND code LIKE 'season\\_%' ESCAPE '\\'")
+    .bind(userId)
+    .first<{ c: number }>();
+  return r?.c ?? 0;
+}
+
 export async function countCompletedChallenges(db: DB, userId: number): Promise<number> {
   const r = await db
     .prepare("SELECT COUNT(*) AS c FROM v2_challenges WHERE accountId = ? AND completedAt IS NOT NULL")
