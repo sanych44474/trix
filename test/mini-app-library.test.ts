@@ -22,3 +22,14 @@ test("library filters: muscle + equipment, and Ukrainian words search English na
   const first = filterLibrary(all, { muscle: "biceps" })[0]!;
   assert.equal(first.level, "b", "beginner exercises first");
 });
+
+test("library: every exercise has a distinct Ukrainian name, and search reads it", () => {
+  assert.deepEqual(all.filter((e) => e.titleUk === e.title || !/[а-яіїєґ]/i.test(e.titleUk)).map((e) => e.id), []);
+  assert.equal(new Set(all.map((e) => e.titleUk)).size, all.length);
+  assert.equal(all.find((e) => e.id === "Romanian_Deadlift")?.titleUk, "Румунська тяга");
+  const goblet = filterLibrary(all, { query: "кубковий" });
+  assert.deepEqual(goblet.map((e) => e.id), ["Goblet_Squat"]);
+  // Inflected forms still match: "гантелями" / "гантелі" share a stem.
+  assert.ok(filterLibrary(all, { query: "жим гантелей лежачи" }).some((e) => e.id === "Dumbbell_Bench_Press"));
+  assert.ok(filterLibrary(all, { query: "Farmers" }).some((e) => e.id === "Farmers_Walk"));
+});
