@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "./api";
 import type { RequestBody, Dashboard, LibraryProgram, LibraryResponse, MesoPhase, Plan, PlatesResponse, ProfilePhoto, RecoveryFactor, RecoveryLabel, SquadInfo, TrainerProfile, WeekCardResponse } from "./types";
 import { guessLang, t, type Key, type Lang } from "./i18n";
@@ -11,14 +11,15 @@ import { FuelView } from "./FuelView";
 import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
 import { planBalance } from "./logic/muscleLoad";
 import { ReleaseItems, WhatsNewCard } from "./WhatsNew";
+const LibraryView = lazy(() => import("./Library").then((m) => ({ default: m.LibraryView })));
 
-type View = "today" | "train" | "plan" | "fuel" | "progress" | "role" | "more" | "settings";
+type View = "today" | "train" | "plan" | "fuel" | "progress" | "role" | "more" | "settings" | "library";
 
 function viewFromLocation(): View {
   const raw = new URLSearchParams(window.location.search).get("view") ?? new URLSearchParams(window.location.search).get("startapp");
   const aliases: Record<string, View> = { home: "today", log: "train", workout: "train", survey: "progress", nutrition: "fuel", food: "fuel", profile: "settings", owner: "role" };
   const value = raw ? aliases[raw] ?? (raw as View) : "today";
-  return ["today", "train", "plan", "fuel", "progress", "role", "more", "settings"].includes(value) ? value : "today";
+  return ["today", "train", "plan", "fuel", "progress", "role", "more", "settings", "library"].includes(value) ? value : "today";
 }
 
 function navLabel(lang: Lang, view: View): string {
@@ -137,7 +138,7 @@ const DAY_GROUPS: DayGroup[] = ["chest", "back", "legs", "shoulders", "arms", "f
 // Same order/keys Onboarding.tsx uses, index 0 = Monday = weekday 1.
 const WEEKDAY_KEYS: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed", "weekday_thu", "weekday_fri", "weekday_sat", "weekday_sun"];
 
-function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: number | null; onBack?: () => void }) {
+function PlanView({ lang, clientId = null, onBack, onOpenLibrary }: { lang: Lang; clientId?: number | null; onBack?: () => void; onOpenLibrary?: () => void }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<unknown>(null);
   // Separate from `error` on purpose: `error` means "couldn't load the plan, nothing to show" and
@@ -314,6 +315,7 @@ function PlanView({ lang, clientId = null, onBack }: { lang: Lang; clientId?: nu
       </>}
     </Card>
     <p className="muted">{t(lang, "plan_editor_hint")}</p>
+    {onOpenLibrary && clientId === null && <button className="button button-ghost" onClick={onOpenLibrary}>📚 {t(lang, "library_open_btn")}</button>}
     {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
     {saved && <div className="save-note">{t(lang, "plan_updated")}</div>}
     {plan.days.map((day) => <Card key={day.weekday}>
@@ -494,7 +496,7 @@ function drawWeekCard(lang: Lang, stats: NonNullable<WeekCardResponse["stats"]>,
   return canvas;
 }
 
-function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["role"] }) {
+function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Dashboard["viewer"]["role"]; onOpenLibrary: () => void }) {
   // week card
   const [week, setWeek] = useState<WeekCardResponse | null>(null);
   const [weekError, setWeekError] = useState<unknown>(null);
@@ -651,6 +653,12 @@ function ExtrasView({ lang, role }: { lang: Lang; role: Dashboard["viewer"]["rol
     <div className="eyebrow">{t(lang, "extras_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "extras_title")}</h1></div>
 
+    <Card tone="accent">
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "exlib_eyebrow")}</span><h2>{t(lang, "library_card_title")}</h2></div><span className="action-arrow">📚</span></div>
+      <p>{t(lang, "library_card_body")}</p>
+      <div className="button-row"><button className="button button-light" onClick={onOpenLibrary}>{t(lang, "library_open_btn")}</button></div>
+    </Card>
+
     <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "weekcard_eyebrow")}</span><h2>{t(lang, "weekcard_title")}</h2></div></div>
       {weekError !== null ? <ErrorState lang={lang} error={weekError} retry={loadWeek} /> : !week ? <div className="skeleton" /> : !week.stats ? <Empty title={t(lang, "weekcard_empty_title")} detail={t(lang, "weekcard_empty_detail")} /> : <>
@@ -787,5 +795,5 @@ export function App() {
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => { if (window.scrollY === 0) pullStart.current = event.touches[0]?.clientY ?? null; };
   const onTouchEnd = (event: React.TouchEvent<HTMLElement>) => { const start = pullStart.current; pullStart.current = null; const end = event.changedTouches[0]?.clientY ?? 0; if (start !== null && end - start > 72 && !loading) loadDashboard(); };
   const openPlan = (clientId?: number) => { setPlanClientId(clientId ?? null); setView("plan"); };
-  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content">{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onReload={loadDashboard} />}{view === "train" && <TrainView lang={lang} gamification={dashboard.gamification} />}{view === "plan" && <PlanView lang={lang} clientId={planClientId} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} />}{view === "fuel" && <FuelView lang={lang} />}{view === "progress" && <ProgressView dashboard={dashboard} lang={lang} />}{view === "more" && <ExtrasView lang={lang} role={dashboard.viewer.role} />}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "settings" && <ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} />}</div><nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
+  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content">{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onReload={loadDashboard} />}{view === "train" && <TrainView lang={lang} gamification={dashboard.gamification} />}{view === "plan" && <PlanView lang={lang} clientId={planClientId} onOpenLibrary={() => setView("library")} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} />}{view === "fuel" && <FuelView lang={lang} />}{view === "progress" && <ProgressView dashboard={dashboard} lang={lang} />}{view === "more" && <ExtrasView lang={lang} role={dashboard.viewer.role} onOpenLibrary={() => setView("library")} />}{view === "library" && <Suspense fallback={<Loading />}><LibraryView lang={lang} onBack={() => setView("more")} /></Suspense>}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "settings" && <ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} />}</div><nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
 }

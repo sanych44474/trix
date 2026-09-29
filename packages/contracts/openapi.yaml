@@ -197,7 +197,8 @@ paths:
                       type: object
                       properties:
                         steps: {type: array, items: {type: string}}
-                      required: [steps]
+                        name: {type: string, description: "The exercise's name in the caller's language (English title for en)"}
+                      required: [steps, name]
                   required: [data]
         '404': {description: Not a free-exercise-db id}
   /api/v2/workout/exinfo:
@@ -530,6 +531,7 @@ paths:
                   type: string
                   enum: [up, down]
                 catalogId: {type: string, maxLength: 80}
+                freeExerciseId: {type: string, maxLength: 120, description: 'action=add from the exercise library: the free-exercise-db id (sets canonicalName, reuses cached steps)'}
                 group:
                   description: >-
                     action=dayadd only: which muscle-group template to fill the new day from.

@@ -275,3 +275,17 @@ button { cursor: pointer; }
 .owner-tab span { font-size: 18px; }
 .owner-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .owner-tab:disabled { opacity: .55; }
+.library-filters { display: grid; gap: 8px; }
+.library-filters input, .library-filters select, .library-add select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--text); font: inherit; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 13px; cursor: pointer; }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.library-list { display: grid; gap: 8px; }
+.library-card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.library-row { display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: center; width: 100%; padding: 8px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.library-row img { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; background: #fff; }
+.library-row strong { display: block; line-height: 1.25; }
+.library-row small { color: var(--muted); }
+.library-detail { padding: 0 10px 12px; display: grid; gap: 10px; }
+.library-add { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.library-credit { font-size: 12px; }

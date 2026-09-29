@@ -15,6 +15,7 @@ import Body, { type ExtendedBodyPart } from "react-muscle-highlighter";
 import { t, type Key, type Lang } from "./i18n";
 import { dayMuscles, exerciseParts, muscleWeekParts, pickerGroups, PRIMARY_COLOR, RECOVERY_COLORS, recoveryParts, SECONDARY_COLOR, ZONE_COLORS, type Part } from "./logic/bodyMap";
 import { lopsidedPairs, muscleRecovery, weeklyMuscleSets, type LoggedDay } from "./logic/muscleLoad";
+import { weeklyReport } from "./logic/weeklyReport";
 import { musclesForExercise, type ExerciseMuscles } from "./logic/exerciseMuscles";
 
 
@@ -72,6 +73,7 @@ export function BodyMap({ lang, logs, today, sex, exercises }: { lang: Lang; log
   // Same 7-day window as the dashboard's weekly volume (today and the six days before).
   const week = useMemo(() => weeklyMuscleSets(logs, isoDaysBefore(today, 6), musclesForExercise), [logs, today]);
   const recovery = useMemo(() => muscleRecovery(logs, today, musclesForExercise), [logs, today]);
+  const balance = useMemo(() => weeklyReport(logs, isoDaysBefore(today, 6), musclesForExercise), [logs, today]);
   const num = (n: number) => (lang === "uk" ? String(n).replace(".", ",") : String(n));
 
   const exercise = selection.kind === "exercise" ? selection.name : null;
@@ -176,10 +178,12 @@ export function BodyMap({ lang, logs, today, sex, exercises }: { lang: Lang; log
       return t(lang, m.mev > 0 ? "week_muscle_detail" : "week_muscle_detail_nomev", { muscle: muscleLabel(lang, tapped), n: num(m.sets), mev: m.mev, mav: m.mav, list });
     }
     const lopsided = lopsidedPairs((slug) => week.find((w) => w.slug === slug)?.sets ?? 0);
+    // The week's balance score (same as the Sunday digest) leads whenever there's anything logged.
+    const score = balance.trainedSets > 0 ? t(lang, "week_balance_score", { score: balance.balance }) + " " : "";
     if (lopsided.length) {
-      return lopsided.map((p) => t(lang, "week_lopsided", { weak: muscleLabel(lang, p.weak), weakSets: num(p.weakSets), strong: muscleLabel(lang, p.strong), strongSets: num(p.strongSets) })).join(" ");
+      return score + lopsided.map((p) => t(lang, "week_lopsided", { weak: muscleLabel(lang, p.weak), weakSets: num(p.weakSets), strong: muscleLabel(lang, p.strong), strongSets: num(p.strongSets) })).join(" ");
     }
-    return t(lang, "body_map_hint");
+    return score + t(lang, "body_map_hint");
   })();
 
   const figure = (side: "front" | "back") => (

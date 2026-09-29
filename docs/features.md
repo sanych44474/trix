@@ -24,7 +24,7 @@ function**, so the total below is a count rather than a slogan.
 
 | | |
 |---|---|
-| Functions in this catalog | **188** across 11 areas |
+| Functions in this catalog | **190** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
 | Surfaces | 2 — Telegram chat (45 commands) and the Telegram Mini App |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
@@ -40,9 +40,9 @@ function**, so the total below is a count rather than a slogan.
 | 3. Workout logging | 30 |
 | 4. Nutrition | 14 |
 | 5. Body, recovery & activity | 15 |
-| 6. Gamification & community | 18 |
+| 6. Gamification & community | 19 |
 | 7. Trainer tools | 22 |
-| 8. Mini App platform | 19 |
+| 8. Mini App platform | 20 |
 | 9. Reminders & automation | 13 |
 | 10. Owner / admin | 9 |
 | 11. Engineering safeguards | 5 |
@@ -212,8 +212,10 @@ function**, so the total below is a count rather than a slogan.
 2. **Week streak.**
 3. **Vacation freeze** for planned breaks.
 4. **Automatic streak freeze**: one missed week inside a ≥4-week streak is bridged.
-5. **12 badges**: first workout, 10/50/100 workouts, first PR, streak 4/12, balanced week,
-   level 5/10, referral.
+5. **23 badges**: workouts (1/10/50/100), records (1/10/25), streaks (4/12), perfect day,
+   balanced week, levels 5/10, referral, buddy duels, challenges, and the muscle-map ones —
+   full-body week, every key muscle at its minimum, 4 balanced weeks in a row — plus first form
+   check and first exercise from the library.
 6. **Badge catalog** (earned ✅ / locked 🔒).
 7. **Badge celebration** animation with haptics when one lands.
 8. **Personal records** list, tap for the e1RM history chart.
@@ -229,6 +231,8 @@ function**, so the total below is a count rather than a slogan.
 16. **Squad PR announcements** as they happen, and `/squadboard` on demand.
 17. **Shareable week card** for the week's training, sent to your chat or posted as a Telegram story.
 18. **Share to story**: a finished session or a new record becomes a 9:16 story card in one tap.
+19. **Week balance score** (0–100): how close each key muscle came to its weekly minimum, on the
+    body map and in the Sunday digest, with the badges above for full-body and balanced weeks.
 
 ## 7. Trainer tools
 
@@ -284,10 +288,13 @@ function**, so the total below is a count rather than a slogan.
     on the muscle lagging furthest behind; tap a week for its number, with the last 4 weeks
     compared to the 4 before.
 16. **Body map to stories**: the week or recovery view, figures included, as a Telegram story.
-17. **Feels installed**: add trix to the phone's home screen, or open it full screen.
-18. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
+17. **Exercise library**: 750 exercises with start/finish pictures, filtered by muscle and
+    equipment or searched (Ukrainian words too); each opens with short steps in your language and
+    goes onto a plan day in one tap.
+18. **Feels installed**: add trix to the phone's home screen, or open it full screen.
+19. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
     unlocked by it, and `/paysupport` handles payment questions.
-19. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
+20. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
     (deduped), a strict Content-Security-Policy, static assets served from the edge.
 
 ## 9. Reminders & automation
@@ -301,7 +308,8 @@ function**, so the total below is a count rather than a slogan.
 6. **Tomorrow's training preview.**
 7. **Pre-workout readiness check.**
 8. **Weekly records digest** and rank-change pushes.
-9. **Sunday week digest.**
+9. **Sunday week digest** with a picture of the week's body map (drawn in the Worker) and 2–3
+   takeaways: balance score, what lagged, records, one exercise to focus on next week, new badges.
 10. **Activation arc for the first 14 days**: a low-barrier first nudge, a first-win message, a
     week-one checkpoint and a day-14 beat. Falling behind offers a *smaller* plan, never a louder
     one.

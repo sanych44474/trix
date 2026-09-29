@@ -4,6 +4,7 @@ export { SquadSchedulerDO } from "./durable/squadScheduler";
 export { GlobalSchedulerDO } from "./durable/globalScheduler";
 import { createBot, buildOwnerMetrics, buildPlanDocRaw, ownerUsersData, pingIncompleteOnboarding } from "./bot";
 import { checkCronHeartbeat, runSchedule } from "./scheduler";
+import { serveWeekMap } from "./webapp/weekMap";
 import {
   bumpEvent,
   deleteSetting,
@@ -164,6 +165,10 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
     // Public, short-lived story images for Telegram's shareToStory (webapp/storyMedia.ts).
     if (req.method === "GET" && url.pathname.startsWith("/story/")) {
       return (await serveStoryImage(env, url.pathname)) ?? new Response("Not found", { status: 404 });
+    }
+    // The weekly digest's body map picture, fetched by Telegram from a link the bot signed.
+    if (req.method === "GET" && url.pathname === "/weekmap.png") {
+      return serveWeekMap(url, env);
     }
     if (req.method === "GET" && url.pathname === "/strava/callback") {
       return handleStravaCallback(url, env);

@@ -162,7 +162,7 @@ export function lopsidedPairs(sets: (slug: Slug) => number, minStrong = 6): Arra
 }
 
 /** Muscles a general strength plan should reach at least once a week. */
-const KEY_MUSCLES: Slug[] = ["chest", "upper-back", "deltoids", "quadriceps", "hamstring", "gluteal", "biceps", "triceps", "abs"];
+export const KEY_MUSCLES: Slug[] = ["chest", "upper-back", "deltoids", "quadriceps", "hamstring", "gluteal", "biceps", "triceps", "abs"];
 
 /** One well-known, equipment-light exercise per muscle, to suggest when it's missing. */
 export const SUGGESTED_EXERCISE: Partial<Record<Slug, { uk: string; en: string }>> = {

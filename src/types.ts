@@ -310,6 +310,7 @@ export interface UserReminders {
   workoutIgnoredStreak?: number; // consecutive workout reminders with nothing logged since — softens the tone, never the frequency
   releaseSent?: string; // release-note version the bot delivered to this chat (domain/releaseDelivery.ts)
   releaseSeen?: string; // release-note version dismissed in the Mini App's "What's new" card
+  balanceWeeks?: number; // consecutive weeks with every key muscle in range (weekly digest, domain/weeklyReport.ts)
 }
 
 export interface UserDoc {

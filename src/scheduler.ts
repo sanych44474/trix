@@ -81,7 +81,10 @@ import {
   shouldLevelUp,
   weeksSincePlan,
 } from "./domain/progression";
-import { isoWeekKey, rankOf, streakMilestones, streakRisk, weekRangeOffset, weekStartStr, weekStreak } from "./domain/records";
+import { isoWeekKey, rankOf, recentPrCount, streakMilestones, streakRisk, weekRangeOffset, weekStartStr, weekStreak } from "./domain/records";
+import { nextBalanceStreak, weeklyReport } from "./domain/weeklyReport";
+import { toLoggedDays } from "./domain/recoverySwap";
+import { weekMapUrl } from "./webapp/weekMap";
 import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
 import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
@@ -97,7 +100,7 @@ import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
 import { isoWeekday, lastPlannedDates, missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
 import { rankMissedDayOptions, recentMissRate } from "./domain/missedDay";
 import { cleanAi, escapeHtml, t } from "./locales/i18n";
-import { chunkReport, conditioningLoadLabel, renderDay } from "./render";
+import { chunkReport, conditioningLoadLabel, renderDay, renderWeeklyMuscleLines } from "./render";
 import { aiText } from "./ai/index";
 import { weeklyNarrativeSystem } from "./ai/prompts";
 import { buildOwnerReport, computeBoards, finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
@@ -1175,10 +1178,40 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         const d = +(recentBody[1].weight! - recentBody[0].weight!).toFixed(1);
         parts.push(t(lang, "wdigest_weight", { w: recentBody[1].weight!, delta: d > 0 ? `+${d}` : `${d}` }));
       }
+      // The muscle week (domain/weeklyReport.ts): balance score, what lagged, records, one focus,
+      // and the badges it earns -- plus the body map as the digest's picture.
+      const report = weeklyReport(toLoggedDays(wl), since);
+      let photoUrl: string | null = null;
+      if (report.trainedSets > 0) {
+        const newBadges: string[] = [];
+        const award = async (code: string) => { if (await awardAchievement(db, user._id, code).catch(() => false)) newBadges.push(code); };
+        if (report.fullBody) await award("full_body_week");
+        if (report.allInRange) await award("all_in_range");
+        const balanceWeeks = nextBalanceStreak(user.reminders?.balanceWeeks, report.allInRange);
+        if (balanceWeeks >= 4) await award("balance_streak_4");
+        user.reminders = { ...user.reminders, balanceWeeks };
+        await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
+        const prs = recentPrCount(await listStrength(db, user._id).catch(() => []), since);
+        parts.push("", ...renderWeeklyMuscleLines(lang, report, prs, newBadges));
+        photoUrl = await weekMapUrl(env.WORKER_URL, user.profile.sex, report.zones, env.TELEGRAM_BOT_TOKEN).catch(() => null);
+      }
       const kb = new InlineKeyboard()
         .text(t(lang, "menu_progress"), "menu:progress")
         .text(t(lang, "wcard_btn"), "share:week");
-      await sendAndMark("digest", parts.join("\n"), { ...HTML, reply_markup: kb });
+      // With a picture: Telegram fetches the map from the signed link (drawn in its own request),
+      // the text rides as the caption. Any failure there falls back to the plain text digest.
+      let sentAsPhoto = false;
+      if (photoUrl && !botBlocked) {
+        sentAsPhoto = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: user.chatId, photo: photoUrl, caption: parts.join("\n").slice(0, 1024), parse_mode: "HTML", reply_markup: { inline_keyboard: kb.inline_keyboard } }),
+        })
+          .then(async (res) => res.ok && ((await res.json()) as { ok?: boolean }).ok === true)
+          .catch(() => false);
+        if (sentAsPhoto) markSent("digest");
+      }
+      if (!sentAsPhoto) await sendAndMark("digest", parts.join("\n"), { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }

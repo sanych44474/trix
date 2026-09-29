@@ -2,6 +2,8 @@
 // trainer's client via ?clientId=); POST applies one edit op (weight / sets / delete / move /
 // swap / add), mirroring the bot's day editor. All writes go through updateActivePlanSplit, so
 // the client and the bot editor stay in sync. Same initData auth as every other webapp API.
+import { FREE_EXERCISE_IDS } from "../../apps/mini-app/src/data/freeExerciseIds";
+import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { swapPlanDays } from "../domain/recoverySwap";
 import {
   getActivePlan,
@@ -126,6 +128,8 @@ function changeSummary(action: string, before: string, after: PlanExercise | und
   if (action === "add") return `added: ${after?.name ?? "?"}`;
   return action;
 }
+
+const FREE_EXERCISE_ID_SET = new Set(FREE_EXERCISE_IDS);
 
 export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
@@ -372,6 +376,12 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
       if (name.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
       const catalogId = body.catalogId ? String(body.catalogId) : undefined;
       const cat = catalogId ? await getCatalogExercise(env.DB, catalogId).catch(() => null) : null;
+      // Picked from the Mini App's exercise library (free-exercise-db): keep its English name as the
+      // canonical one (technique pictures match it exactly) and reuse the cached translated steps.
+      const libId = typeof body.freeExerciseId === "string" && FREE_EXERCISE_ID_SET.has(body.freeExerciseId) ? body.freeExerciseId : undefined;
+      const libSteps = libId
+        ? await env.DB.prepare("SELECT steps FROM v2_technique_steps WHERE exerciseId = ? AND lang = ?").bind(libId, owner.lang === "en" ? "en" : "uk").first<{ steps: string }>().catch(() => null)
+        : null;
       let localName = cat?.name ?? name;
       if (cat && owner.lang !== "en") {
         const tr = await getExerciseTranslation(env.DB, cat.id, owner.lang).catch(() => null);
@@ -381,9 +391,11 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
         name: cat ? localName : name,
         sets: action === "add" ? "3 × 8–12" : ex!.sets,
         startWeight: action === "add" ? "—" : (ex!.startWeight || "—"),
-        technique: cat?.instructions ?? "",
+        technique: cat?.instructions ?? (libSteps ? (JSON.parse(libSteps.steps) as string[]).join(" ") : ""),
         ...(cat ? { exerciseId: cat.id, canonicalName: cat.name, muscles: cat.muscle } : {}),
+        ...(!cat && libId ? { canonicalName: libId.replace(/_/g, " ") } : {}),
       };
+      if (libId && action === "add" && owner._id === user._id) await awardAchievement(env.DB, user._id, "library_first").catch(() => {});
       if (action === "add") {
         if (day.exercises.length >= MAX_EX_PER_DAY) return Response.json({ error: "full" }, { status: 400 });
         day.exercises.push(built);
