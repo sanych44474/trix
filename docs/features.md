@@ -24,12 +24,12 @@ function**, so the total below is a count rather than a slogan.
 
 | | |
 |---|---|
-| Functions in this catalog | **190** across 11 areas |
+| Functions in this catalog | **194** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
 | Surfaces | 2 — Telegram chat (45 commands) and the Telegram Mini App |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
 | AI | 5 providers in a fallback chain; every provider receives the same input |
-| Backend | 70 typed API operations (OpenAPI 3.1), 83 forward-only D1 migrations |
+| Backend | 70 typed API operations (OpenAPI 3.1), 86 forward-only D1 migrations |
 | Quality | ~1,000 automated tests (node:test + Workers runtime), CI on every pull request |
 | Cost | $0 — Cloudflare free tier, free AI tiers, no ads, no subscription |
 
@@ -40,11 +40,11 @@ function**, so the total below is a count rather than a slogan.
 | 3. Workout logging | 30 |
 | 4. Nutrition | 14 |
 | 5. Body, recovery & activity | 15 |
-| 6. Gamification & community | 19 |
+| 6. Gamification & community | 21 |
 | 7. Trainer tools | 22 |
-| 8. Mini App platform | 20 |
+| 8. Mini App platform | 21 |
 | 9. Reminders & automation | 13 |
-| 10. Owner / admin | 9 |
+| 10. Owner / admin | 10 |
 | 11. Engineering safeguards | 5 |
 
 ---
@@ -212,12 +212,13 @@ function**, so the total below is a count rather than a slogan.
 2. **Week streak.**
 3. **Vacation freeze** for planned breaks.
 4. **Automatic streak freeze**: one missed week inside a ≥4-week streak is bridged.
-5. **23 badges**: workouts (1/10/50/100), records (1/10/25), streaks (4/12), perfect day,
+5. **26 badges**: workouts (1/10/50/100), records (1/10/25), streaks (4/12), perfect day,
    balanced week, levels 5/10, referral, buddy duels, challenges, and the muscle-map ones —
    full-body week, every key muscle at its minimum, 4 balanced weeks in a row — plus first form
-   check and first exercise from the library.
+   check, first exercise from the library, every quest of a week, and seasonal wins (1 and 3).
 6. **Badge catalog** (earned ✅ / locked 🔒).
-7. **Badge celebration** animation with haptics when one lands.
+7. **Badge celebration** animation with haptics when one lands — including badges earned while
+   the app was closed (the Sunday digest, a quest sweep, the chat), shown once on the next open.
 8. **Personal records** list, tap for the e1RM history chart.
 9. **Opt-in leaderboards** under an alias or anonymously: consistency, most improved, relative
    strength, total volume.
@@ -233,6 +234,11 @@ function**, so the total below is a count rather than a slogan.
 18. **Share to story**: a finished session or a new record becomes a 9:16 story card in one tap.
 19. **Week balance score** (0–100): how close each key muscle came to its weekly minimum, on the
     body map and in the Sunday digest, with the badges above for full-body and balanced weeks.
+20. **Weekly quests**: three goals a week picked from your own data — workouts from the plan, sets
+    for the muscle that lagged last week, one rotating habit (water, food log or steps) — +50 XP
+    each; the Sunday digest previews next week's.
+21. **Seasonal challenge**: a new challenge every calendar month (rotating goals), announced by the
+    bot on its first days with a one-tap join, with its own badges.
 
 ## 7. Trainer tools
 
@@ -288,13 +294,15 @@ function**, so the total below is a count rather than a slogan.
     on the muscle lagging furthest behind; tap a week for its number, with the last 4 weeks
     compared to the 4 before.
 16. **Body map to stories**: the week or recovery view, figures included, as a Telegram story.
-17. **Exercise library**: 750 exercises with start/finish pictures, filtered by muscle and
-    equipment or searched (Ukrainian words too); each opens with short steps in your language and
-    goes onto a plan day in one tap.
-18. **Feels installed**: add trix to the phone's home screen, or open it full screen.
-19. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
+17. **Exercise library**: 750 exercises with start/finish pictures and Ukrainian names, filtered by
+    muscle and equipment or searched in either language; each opens with short steps in your
+    language and goes onto a plan day in one tap.
+18. **This week on Today**: the balance score so far, the run of balanced weeks towards its badge,
+    and the week's quests with progress bars.
+19. **Feels installed**: add trix to the phone's home screen, or open it full screen.
+20. **Voluntary support in Telegram Stars** (50/100/250 ⭐) from the app or `/support`; nothing is
     unlocked by it, and `/paysupport` handles payment questions.
-20. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
+21. **Hardened delivery**: initData HMAC auth on every call, client errors reported server-side
     (deduped), a strict Content-Security-Policy, static assets served from the edge.
 
 ## 9. Reminders & automation
@@ -309,7 +317,8 @@ function**, so the total below is a count rather than a slogan.
 7. **Pre-workout readiness check.**
 8. **Weekly records digest** and rank-change pushes.
 9. **Sunday week digest** with a picture of the week's body map (drawn in the Worker) and 2–3
-   takeaways: balance score, what lagged, records, one exercise to focus on next week, new badges.
+   takeaways: balance score, what lagged, records, one exercise to focus on next week, new badges,
+   and next week's quests.
 10. **Activation arc for the first 14 days**: a low-barrier first nudge, a first-win message, a
     week-one checkpoint and a day-14 beat. Falling behind offers a *smaller* plan, never a louder
     one.
@@ -332,6 +341,9 @@ function**, so the total below is a count rather than a slogan.
    with confirmation.
 9. **Proactive alerts**: daily AI-error report, error-spike and provider-outage alerts; exercise
    video moderation.
+10. **Retention by signup week**: for each weekly cohort, the share who trained in their week
+    1 / 2 / 4 / 8, an all-users row and the steepest drop — where people fall off, not just how
+    many are active.
 
 ## 11. Engineering safeguards (invisible features)
 

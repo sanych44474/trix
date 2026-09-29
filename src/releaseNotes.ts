@@ -14,6 +14,39 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "2026-09-29",
+    en: `🎉 *What's new in trix*
+
+📚 *Exercise library* — 750 exercises with start and finish pictures, in Ukrainian and English: filter by muscle and equipment, search by name, add any to a plan day in one tap.
+
+🖼 *Sunday report with a picture* — your week on a body map, a balance score out of 100, what lagged, records and one focus for next week.
+
+🎯 *Weekly quests* — three small goals each week picked from your own training (workouts, the muscle that lagged, one habit), +50 XP each.
+
+⚖️ *This week on Today* — the balance score so far and your run of balanced weeks.
+
+🗓 *Seasonal challenge* — a new challenge every month with its own badges; join with one tap.
+
+🏅 *New badges* — for a full-body week, every key muscle at its minimum, 4 balanced weeks in a row, a form check, all quests of a week and seasons won. New ones pop up the next time you open the app.
+
+Tap *Menu → 📱 Dashboard*! 💪`,
+    uk: `🎉 *Що нового в trix*
+
+📚 *Бібліотека вправ* — 750 вправ із фото початку й кінця руху, українською та англійською: фільтр за м'язом і обладнанням, пошук за назвою, додавання в день плану одним дотиком.
+
+🖼 *Недільний звіт з картинкою* — твій тиждень на карті тіла, оцінка балансу зі 100, що відстало, рекорди й один фокус на наступний тиждень.
+
+🎯 *Квести тижня* — три невеликі цілі щотижня з твоїх же тренувань (тренування, відсталий м'яз, одна звичка), +50 XP за кожну.
+
+⚖️ *Цей тиждень на головній* — баланс тижня і серія збалансованих тижнів.
+
+🗓 *Сезонний челендж* — щомісяця новий челендж зі своїми бейджами; приєднатися — одним дотиком.
+
+🏅 *Нові бейджі* — за тиждень на все тіло, мінімум для кожного ключового м'яза, 4 збалансовані тижні поспіль, перевірку техніки, усі квести тижня та виграні сезони. Нові з'являються при наступному відкритті застосунку.
+
+Тисни *Меню → 📱 Дашборд*! 💪`,
+  },
+  {
     version: "2026-09-28",
     en: `🎉 *What's new in trix*
 
@@ -50,35 +83,7 @@ Tap *Menu → 📱 Dashboard*! 💪`,
 
 Тисни *Меню → 📱 Дашборд*! 💪`,
   },
-  {
-    version: "2026-09-09",
-    en: `🎉 *What's new in trix*
 
-🏅 *Two new leaderboards* — 🧊 longest active streak and 🏆 most PRs this month, alongside the existing four.
-
-🥊 *Buddy duels* — a running weekly win/loss tally against your accountability buddy, plus new badges for a first duel win and a 4-week win streak.
-
-🎯 *More challenges* — 4 new goals to join, including an easy *2 workouts a week* for getting back into it, plus 2 new badges for winning a challenge.
-
-🧹 *Tidier profile* — settings are now collapsible sections instead of one long wall of cards.
-
-👆 *Snappier taps* — buttons give a little press feedback everywhere in the app now.
-
-Tap *Menu → 📱 Dashboard*! 💪`,
-    uk: `🎉 *Що нового в trix*
-
-🏅 *Два нових лідерборди* — 🧊 найдовший активний streak і 🏆 найбільше рекордів за місяць, поруч із чотирма попередніми.
-
-🥊 *Баддi-дуелі* — постійний тижневий рахунок перемог/поразок із твоїм напарником, а ще нові бейджі за першу перемогу в дуелі та серію з 4 перемог поспіль.
-
-🎯 *Більше челленджів* — 4 нові цілі, серед них легкий *2 тренування на тиждень* для повернення в ритм, і 2 нових бейджі за перемогу в челленджі.
-
-🧹 *Охайніший профіль* — налаштування тепер згортаються в секції замість суцільної стіни карток.
-
-👆 *Чіткіші тапи* — кнопки тепер дають легкий відгук при натисканні по всьому застосунку.
-
-Тисни *Меню → 📱 Дашборд*! 💪`,
-  },
 ];
 
 export function latestRelease(): ReleaseNote {

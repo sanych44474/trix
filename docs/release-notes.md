@@ -2,6 +2,44 @@
 
 What users were told in each release, newest first — the same text the bot broadcasts and shows in *What's new* (`/whatsnew`). The Worker bundle keeps only the latest two (`src/releaseNotes.ts`); this file is the full history.
 
+## 2026-09-29
+
+### English
+
+🎉 **What's new in trix**
+
+📚 **Exercise library** — 750 exercises with start and finish pictures, in Ukrainian and English: filter by muscle and equipment, search by name, add any to a plan day in one tap.
+
+🖼 **Sunday report with a picture** — your week on a body map, a balance score out of 100, what lagged, records and one focus for next week.
+
+🎯 **Weekly quests** — three small goals each week picked from your own training (workouts, the muscle that lagged, one habit), +50 XP each.
+
+⚖️ **This week on Today** — the balance score so far and your run of balanced weeks.
+
+🗓 **Seasonal challenge** — a new challenge every month with its own badges; join with one tap.
+
+🏅 **New badges** — for a full-body week, every key muscle at its minimum, 4 balanced weeks in a row, a form check, all quests of a week and seasons won. New ones pop up the next time you open the app.
+
+Tap **Menu → 📱 Dashboard**! 💪
+
+### Українською
+
+🎉 **Що нового в trix**
+
+📚 **Бібліотека вправ** — 750 вправ із фото початку й кінця руху, українською та англійською: фільтр за м'язом і обладнанням, пошук за назвою, додавання в день плану одним дотиком.
+
+🖼 **Недільний звіт з картинкою** — твій тиждень на карті тіла, оцінка балансу зі 100, що відстало, рекорди й один фокус на наступний тиждень.
+
+🎯 **Квести тижня** — три невеликі цілі щотижня з твоїх же тренувань (тренування, відсталий м'яз, одна звичка), +50 XP за кожну.
+
+⚖️ **Цей тиждень на головній** — баланс тижня і серія збалансованих тижнів.
+
+🗓 **Сезонний челендж** — щомісяця новий челендж зі своїми бейджами; приєднатися — одним дотиком.
+
+🏅 **Нові бейджі** — за тиждень на все тіло, мінімум для кожного ключового м'яза, 4 збалансовані тижні поспіль, перевірку техніки, усі квести тижня та виграні сезони. Нові з'являються при наступному відкритті застосунку.
+
+Тисни **Меню → 📱 Дашборд**! 💪
+
 ## 2026-09-28
 
 ### English
