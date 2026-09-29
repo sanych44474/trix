@@ -3,6 +3,7 @@
 // inline video in the provider chain (ai/index.ts filters the rest out), the clip must fit its
 // inline request limit, and each user gets a few checks a day -- video is the costliest AI call
 // the bot makes. The remarks are coaching cues, never a diagnosis; the prompt says so.
+import { awardAchievement } from "../adapters/d1/v2Gamification";
 import type { Lang } from "../types";
 import { aiVisionText } from "../ai/index";
 import { cleanAi, t } from "../locales/i18n";
@@ -75,5 +76,6 @@ export async function handleFormVideo(ctx: MyContext, video: { fileId: string; b
     });
     const text = cleanAi(answer).trim().slice(0, 1200);
     await reply(ctx, text ? `${t(lang, "form_check_header")}\n\n${text}\n\n${t(lang, "form_check_footer")}` : t(lang, "form_check_failed"));
+    if (text) await awardAchievement(ctx.db, ctx.user._id, "form_check_first").catch(() => {});
   });
 }

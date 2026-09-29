@@ -21,7 +21,7 @@ Cloudflare's on-platform Workers AI, which needs no API key at all.
 
 ## What it can do
 
-**188 functions across 11 areas**, one per line in the
+**190 functions across 11 areas**, one per line in the
 [feature catalog](docs/features.md); what changed in each release is in the
 [release notes](docs/release-notes.md). The short version:
 
@@ -31,10 +31,10 @@ Cloudflare's on-platform Workers AI, which needs no API key at all.
 | Workout logging (30) | Mini App logger with one-tap "as planned", technique pictures and steps, AI form check from a video, swaps it remembers, rest timer with a Telegram push, drafts synced across devices, measured session length, Telegram's native button, Strava import; or log by text / voice in chat |
 | Nutrition (14) | Macros from text or a meal photo, Open Food Facts search, adaptive calories, AI meal plan, aisle-sorted shopping list |
 | Body & recovery (15) | Weight, measurements, body-fat estimate, goal forecast, water, steps, wellbeing check-in and readiness, progress photos, opt-in cycle tracking |
-| Motivation & community (18) | XP, levels, streaks with freezes, 12 badges, records with e1RM charts, leaderboards, challenges, buddy duels, group-chat squads, share to Telegram stories |
+| Motivation & community (19) | XP, levels, streaks with freezes, 23 badges, a weekly muscle-balance score, records with e1RM charts, leaderboards, challenges, buddy duels, group-chat squads, share to Telegram stories |
 | Trainer tools (22) | Invite link, request inbox and waitlist, client cards, per-client plan editor, templates, broadcasts, traffic-light digest, at-risk alerts, schedule and payments |
 | Reminders (13) | Timezone-aware and fitted to when you train, evening checklist, weekly digests, a dedicated first-14-days arc |
-| Onboarding (12), Mini App (19), Owner (9), Safeguards (5) | Button interview, instant plan; app with a per-muscle body map, recovery map and 12-week muscle trends, calendar, heatmap, home-screen shortcut, export and voluntary Stars support; owner console; idempotent saves, GDPR delete |
+| Onboarding (12), Mini App (20), Owner (9), Safeguards (5) | Button interview, instant plan; app with an exercise library (750 with pictures), a per-muscle body map, recovery map and 12-week muscle trends, calendar, heatmap, home-screen shortcut, export and voluntary Stars support; owner console; idempotent saves, GDPR delete |
 
 **Why it matters:** it is a coach, not a log. It writes the program, decides when to add weight,
 and messages you first, inside the app you already use. Trainers get the tooling that usually
