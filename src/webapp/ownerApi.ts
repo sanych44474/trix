@@ -6,7 +6,7 @@ import { latestRelease } from "../releaseNotes";
 import { getOwnerChatId } from "../adapters/d1/v2Admin";
 import { getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { deleteUserData } from "../db/repos";
-import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orTrainers, orUsers, ownerUsersData } from "../bot/owner";
+import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/owner";
 import { switchMode } from "../domain/session";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
@@ -37,6 +37,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     else if (section === "errors") html = await orErrors(env.DB);
     else if (section === "events") html = await orEngagement(env.DB);
     else if (section === "users") html = await orUsers(env.DB);
+    else if (section === "retention") html = await orRetention(env.DB);
     else html = await orOverview(env.DB);
     return Response.json({ html }, { headers: { "cache-control": "no-store" } });
   }

@@ -2490,6 +2490,39 @@ components:
             tired: {type: array, items: {type: string}}
             because: {type: array, items: {type: string}}
           required: [weekday, other, todayGroup, otherGroup, tired, because]
+        week:
+          type: object
+          description: This week so far -- muscle balance score, balanced-week run towards the balance_streak_4 badge, and the weekly quests with live progress.
+          properties:
+            weekStart: {type: string}
+            balance: {type: integer}
+            balanceStreak: {type: integer}
+            balanceGoal: {type: integer}
+            questXp: {type: integer}
+            quests:
+              type: array
+              items:
+                type: object
+                properties:
+                  code: {type: string}
+                  kind:
+                    type: string
+                    enum: [workouts, muscle_sets, balance, water_days, food_days, steps_days]
+                  target: {type: number}
+                  current: {type: number}
+                  done: {type: boolean}
+                  muscle: {type: string}
+                required: [code, kind, target, current, done]
+          required: [weekStart, balance, balanceStreak, balanceGoal, questXp, quests]
+        badges:
+          type: array
+          description: Every earned badge; the app celebrates the ones it has not shown before.
+          items:
+            type: object
+            properties:
+              code: {type: string}
+              label: {type: string}
+            required: [code, label]
         volume:
           type: array
           items:

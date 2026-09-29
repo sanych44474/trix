@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { parseReleaseNote, releaseDueInApp, releaseRecipients } from "../src/domain/releaseDelivery";
 import { latestRelease, RELEASE_NOTES } from "../src/releaseNotes";
 
-const V = "2026-09-28";
+const V = "2026-09-29";
 const user = (extra: Record<string, unknown> = {}) => ({ onboarded: true, createdAt: new Date("2026-08-01T10:00:00Z"), ...extra });
 
 test("in-app card: once per release, not after the chat got it, not for people who joined later", () => {
@@ -32,11 +32,11 @@ test("parseReleaseNote: one card per paragraph, greeting and bot-only closing li
   const note = RELEASE_NOTES.find((n) => n.version === V)!;
   for (const text of [note.uk, note.en]) {
     const items = parseReleaseNote(text);
-    assert.equal(items.length, 7);
+    assert.equal(items.length, 6);
     assert.ok(items.every((i) => i.icon && i.title && i.body), "every paragraph has the emoji *Title* — text shape");
     assert.ok(!items.some((i) => /\*/.test(i.title + i.body)), "markers stripped");
   }
-  assert.equal(parseReleaseNote(note.uk)[0]!.title, "Карта тіла");
+  assert.equal(parseReleaseNote(note.uk)[0]!.title, "Бібліотека вправ");
   assert.equal(latestRelease().version, V);
   assert.deepEqual(parseReleaseNote("Hi\n\nPlain paragraph with no title."), [{ icon: "", title: "", body: "Plain paragraph with no title." }]);
 });

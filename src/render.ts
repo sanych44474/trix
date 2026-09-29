@@ -9,6 +9,9 @@ import { GROCERY_ORDER, formatGrams, type GroceryCategory, type GroceryLine } fr
 import type { ConditioningWeek } from "./domain/conditioning";
 import { planBalance } from "./domain/muscleLoad";
 import type { WeeklyReport } from "./domain/weeklyReport";
+import type { Quest } from "./domain/quests";
+import { challengeTitleParts, type ChallengeTemplate } from "./domain/challenges";
+import { QUEST_XP } from "./domain/gamification";
 
 /** Human-readable weekly conditioning load: "3 cardio sessions - ~180 min", or the session count
  * alone when nothing carried a duration (a distance-only log has real work the minutes can't see,
@@ -357,6 +360,26 @@ export function renderWeeklyMuscleLines(lang: Lang, r: WeeklyReport, prs: number
     : t(lang, "wreport_focus_keep"));
   if (newBadges.length) lines.push(t(lang, "wreport_badges", { list: newBadges.map((c) => t(lang, `badge_${c}` as Parameters<typeof t>[1])).join(", ") }));
   return lines;
+}
+
+/** A challenge's display title without its emoji (seasonal ones name their month). */
+export function challengeTitleText(lang: Lang, tpl: ChallengeTemplate): string {
+  const { key, vars } = challengeTitleParts(tpl);
+  const month = typeof vars.month === "number" ? t(lang, "wa_d_months").split(",")[vars.month - 1] ?? "" : undefined;
+  return t(lang, key as Parameters<typeof t>[1], { ...vars, ...(month !== undefined ? { month } : {}) });
+}
+
+/** Next week's quests for the Sunday digest (domain/quests.ts), as "• …" lines under a header. */
+export function renderQuestLines(lang: Lang, quests: Quest[]): string[] {
+  if (!quests.length) return [];
+  const text = (q: Quest) => q.kind === "muscle_sets"
+    ? t(lang, "quest_muscle_sets", { n: q.target, muscle: capitalize(t(lang, `mus_${(q.muscle ?? "").replace("-", "_")}` as Parameters<typeof t>[1])) })
+    : t(lang, `quest_${q.kind}` as Parameters<typeof t>[1], { n: q.target });
+  return [t(lang, "wreport_quests", { xp: QUEST_XP }), ...quests.map((q) => `• ${text(q)}`)];
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /** The plan-balance note (domain/muscleLoad.ts planBalance), or "" when the plan is balanced. */

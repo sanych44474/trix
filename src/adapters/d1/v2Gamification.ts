@@ -309,6 +309,15 @@ export async function markChallengeDone(db: DB, id: number): Promise<void> {
   await db.prepare("UPDATE v2_challenges SET completedAt = ? WHERE id = ? AND completedAt IS NULL").bind(nowIso(), id).run();
 }
 
+/** Completed monthly seasonal challenges (codes season_YYYY_MM) — the season_win/season_3 badges. */
+export async function countCompletedSeasons(db: DB, userId: number): Promise<number> {
+  const r = await db
+    .prepare("SELECT COUNT(*) AS c FROM v2_challenges WHERE accountId = ? AND completedAt IS NOT NULL AND code LIKE 'season\\_%' ESCAPE '\\'")
+    .bind(userId)
+    .first<{ c: number }>();
+  return r?.c ?? 0;
+}
+
 export async function countCompletedChallenges(db: DB, userId: number): Promise<number> {
   const r = await db
     .prepare("SELECT COUNT(*) AS c FROM v2_challenges WHERE accountId = ? AND completedAt IS NOT NULL")
@@ -475,4 +484,18 @@ export async function deleteSquad(db: DB, chatId: number): Promise<void> {
     db.prepare("DELETE FROM v2_squads WHERE chatId = ?").bind(chatId),
     db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'squad' AND entityId = ?").bind(chatId),
   ]);
+}
+
+// ---------------------------------------------------------------------------
+// Weekly quests (domain/quests.ts) — only completion is stored; the XP formula counts the rows.
+// ---------------------------------------------------------------------------
+
+/** Records finished quests for the week; returns the codes that were newly recorded. */
+export async function recordQuestsDone(db: DB, userId: number, weekStart: string, codes: string[]): Promise<string[]> {
+  if (!codes.length) return [];
+  const now = nowIso();
+  const res = await db.batch(codes.map((code) =>
+    db.prepare("INSERT OR IGNORE INTO v2_quests (accountId, weekStart, code, completedAt) VALUES (?, ?, ?, ?)").bind(userId, weekStart, code, now),
+  ));
+  return codes.filter((_, i) => (res[i]?.meta?.changes ?? 0) > 0);
 }

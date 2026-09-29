@@ -2,16 +2,20 @@
 // tables, no state to migrate). The same numbers render in /progress, the week card and the
 // Mini-App, so the formula must stay deterministic from counts alone.
 
+/** XP per completed weekly quest (domain/quests.ts). */
+export const QUEST_XP = 50;
+
 export interface XpCounts {
   workouts: number; // completed workout logs
   nutrition: number; // days with a food log
   checkins: number; // wellbeing check-ins
   steps: number; // days with a step log
   badges: number; // earned achievements
+  quests?: number; // weekly quests completed (domain/quests.ts)
 }
 
 export function computeXp(c: XpCounts): number {
-  return c.workouts * 50 + c.nutrition * 10 + c.checkins * 5 + c.steps * 5 + c.badges * 100;
+  return c.workouts * 50 + c.nutrition * 10 + c.checkins * 5 + c.steps * 5 + c.badges * 100 + (c.quests ?? 0) * QUEST_XP;
 }
 
 /** Level L starts at 250·L·(L−1) XP → L2 at 500, L3 at 1500, L4 at 3000, L5 at 5000… */

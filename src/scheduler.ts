@@ -27,6 +27,7 @@ import { pruneIdempotencyKeys } from "./adapters/d1/v2Idempotency";
 import { listStrength, allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
 import {
   allBuddyPairs,
+  activeChallengeCodes,
   awardAchievement,
   buddyDuelHistory,
   buddyWinCount,
@@ -83,6 +84,8 @@ import {
 } from "./domain/progression";
 import { isoWeekKey, rankOf, recentPrCount, streakMilestones, streakRisk, weekRangeOffset, weekStartStr, weekStreak } from "./domain/records";
 import { nextBalanceStreak, weeklyReport } from "./domain/weeklyReport";
+import { pickQuests, plannedDayCount } from "./domain/quests";
+import { seasonalChallenge } from "./domain/challenges";
 import { toLoggedDays } from "./domain/recoverySwap";
 import { weekMapUrl } from "./webapp/weekMap";
 import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
@@ -100,7 +103,7 @@ import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
 import { isoWeekday, lastPlannedDates, missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
 import { rankMissedDayOptions, recentMissRate } from "./domain/missedDay";
 import { cleanAi, escapeHtml, t } from "./locales/i18n";
-import { chunkReport, conditioningLoadLabel, renderDay, renderWeeklyMuscleLines } from "./render";
+import { chunkReport, conditioningLoadLabel, renderDay, challengeTitleText, renderQuestLines, renderWeeklyMuscleLines } from "./render";
 import { aiText } from "./ai/index";
 import { weeklyNarrativeSystem } from "./ai/prompts";
 import { buildOwnerReport, computeBoards, finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
@@ -1195,6 +1198,12 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         parts.push("", ...renderWeeklyMuscleLines(lang, report, prs, newBadges));
         photoUrl = await weekMapUrl(env.WORKER_URL, user.profile.sex, report.zones, env.TELEGRAM_BOT_TOKEN).catch(() => null);
       }
+      // Next week's quests (domain/quests.ts): the same pick the Mini App's Today card will show
+      // from Monday, so the digest's promise and the app agree.
+      const nextMonday = isoDateMinus(date, -1);
+      const plan = await getActivePlan(db, user._id).catch(() => null);
+      const quests = pickQuests(nextMonday, toLoggedDays(wl), plannedDayCount(user.profile.trainingWeekdays, plan?.split));
+      parts.push("", ...renderQuestLines(lang, quests));
       const kb = new InlineKeyboard()
         .text(t(lang, "menu_progress"), "menu:progress")
         .text(t(lang, "wcard_btn"), "share:week");
@@ -1214,6 +1223,19 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       if (!sentAsPhoto) await sendAndMark("digest", parts.join("\n"), { ...HTML, reply_markup: kb });
       pinged = true;
     }
+  }
+
+  // Seasonal challenge — the month's own challenge (domain/challenges.ts seasonalChallenge),
+  // announced once a month on its first three days with a one-tap join. Rides the digest's
+  // on/off switch (both are the "what's happening this week/month" pings), skips anyone already in.
+  if (!pinged && !remOff("digest") && user.onboarded && Number(date.slice(8, 10)) <= 3 && hour >= reminderHour && (sent["season"] ?? "").slice(0, 7) !== date.slice(0, 7)) {
+    const season = seasonalChallenge(date);
+    const joined = await activeChallengeCodes(db, user._id, date).catch(() => new Set<string>());
+    if (!joined.has(season.code)) {
+      const kb = new InlineKeyboard().text(t(lang, "chal_season_join_btn"), `chal:join:${season.code}`);
+      await sendAndMark("season", t(lang, "chal_season_announce", { title: escapeHtml(`${season.emoji} ${challengeTitleText(lang, season)}`) }), { ...HTML, reply_markup: kb });
+      pinged = true;
+    } else markSent("season");
   }
 
   // Plateau heads-up — Monday, at most once every 2 weeks (a genuine plateau takes weeks to

@@ -10,6 +10,7 @@ import {
   activeChallenges,
   awardAchievement,
   countCompletedChallenges,
+  countCompletedSeasons,
   friendIds,
   joinChallenge,
   markChallengeDone,
@@ -18,7 +19,8 @@ import { addProgressPhoto, createInjury, getProgressPhoto, listActiveInjuries, s
 import { getUser } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { computeBoards } from "../bot";
-import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindowCounts, resolveWaterGoal } from "../domain/challenges";
+import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindow, challengeWindowCounts, resolveWaterGoal, seasonalChallenge, seasonMilestones } from "../domain/challenges";
+import { challengeTitleText } from "../render";
 import { checkAfterDate } from "../domain/injury";
 import { localParts } from "../domain/progression";
 import { challengeMilestones, rankOf } from "../domain/records";
@@ -60,23 +62,29 @@ export async function handleChallengesApi(req: Request, url: URL, env: Env): Pro
     const joinedCodes = new Set(active.map((c) => c.code));
     const activeOut = [];
     let completedNow = 0;
+    let seasonWon = false;
     for (const ch of active) {
       const tpl = challengeByCode(ch.code);
       if (!tpl) continue;
       const st = challengeStatus(tpl, challengeCurrent(tpl, await windowData(env, user, ch.startDate, ch.endDate)));
       const daysLeft = Math.max(0, Math.round((Date.parse(ch.endDate) - Date.parse(date)) / 86_400_000));
-      activeOut.push({ code: ch.code, emoji: tpl.emoji, title: t(lang, `chal_${ch.code}_title` as TKey), current: st.current, target: st.target, pct: st.pct, done: st.done, daysLeft });
+      activeOut.push({ code: ch.code, emoji: tpl.emoji, title: challengeTitleText(lang, tpl), current: st.current, target: st.target, pct: st.pct, done: st.done, daysLeft });
       // Same completion bookkeeping the bot's /challenges already does — previously missing here
       // entirely, so a Mini-App-only user's completed challenge never got its completedAt set
       // (and never counted toward countCompletedChallenges/badges) unless they also opened the
       // bot command at least once.
-      if (st.done) { await markChallengeDone(env.DB, ch.id); completedNow++; }
+      if (st.done) { await markChallengeDone(env.DB, ch.id); completedNow++; if (tpl.season) seasonWon = true; }
     }
     if (completedNow) {
       const won = await countCompletedChallenges(env.DB, user._id).catch(() => 0);
       for (const code of challengeMilestones(won)) await awardAchievement(env.DB, user._id, code).catch(() => {});
+      if (seasonWon) {
+        const seasons = await countCompletedSeasons(env.DB, user._id).catch(() => 0);
+        for (const code of seasonMilestones(seasons)) await awardAchievement(env.DB, user._id, code).catch(() => {});
+      }
     }
-    const available = CHALLENGES.filter((c) => !joinedCodes.has(c.code)).map((c) => ({ code: c.code, emoji: c.emoji, title: t(lang, `chal_${c.code}_title` as TKey), target: c.target, windowDays: c.windowDays }));
+    // This month's seasonal challenge leads the list.
+    const available = [seasonalChallenge(date), ...CHALLENGES].filter((c) => !joinedCodes.has(c.code)).map((c) => ({ code: c.code, emoji: c.emoji, title: challengeTitleText(lang, c), target: c.target, windowDays: c.windowDays }));
     const won = await countCompletedChallenges(env.DB, user._id).catch(() => 0);
     return Response.json({ active: activeOut, available, won }, { headers: { "cache-control": "no-store" } });
   }
@@ -89,8 +97,9 @@ export async function handleChallengesApi(req: Request, url: URL, env: Env): Pro
   if (!tpl) return Response.json({ error: "bad request" }, { status: 400 });
   const active = await activeChallenges(env.DB, user._id, date).catch(() => []);
   if (active.some((c) => c.code === tpl.code)) return Response.json({ ok: true }); // already joined
-  const end = new Date(Date.parse(date) + tpl.windowDays * 86_400_000).toISOString().slice(0, 10);
-  await joinChallenge(env.DB, user._id, tpl.code, date, end);
+  const win = challengeWindow(tpl, date); // a seasonal one runs over its calendar month
+  if (win.end < date) return Response.json({ error: "bad request" }, { status: 400 });
+  await joinChallenge(env.DB, user._id, tpl.code, win.start, win.end);
   return Response.json({ ok: true });
 }
 

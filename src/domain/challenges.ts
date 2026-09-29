@@ -10,6 +10,8 @@ export interface ChallengeTemplate {
   target: number;
   windowDays: number;
   emoji: string;
+  // Seasonal (monthly) challenges run over the calendar month, whenever one joins.
+  season?: { month: string; start: string; end: string }; // month = YYYY-MM
 }
 
 // Order = display order in the "join" list. w2 leads on purpose — an easy first win for
@@ -26,8 +28,65 @@ export const CHALLENGES: ChallengeTemplate[] = [
   { code: "water20", metric: "water_days", target: 20, windowDays: 30, emoji: "🌊" },
 ];
 
+// The monthly seasonal challenge: one per calendar month, rotating through these, announced by
+// the bot on the month's first days (scheduler.ts) with its own badges (season_win, season_3).
+// Targets are per month; progress counts from the 1st, so joining late isn't a penalty.
+const SEASONS: Array<{ metric: ChallengeMetric; target: number; emoji: string }> = [
+  { metric: "workouts", target: 12, emoji: "🗓" },
+  { metric: "water_days", target: 20, emoji: "💧" },
+  { metric: "steps_sum", target: 200_000, emoji: "👟" },
+  { metric: "nutrition_days", target: 20, emoji: "🥗" },
+];
+const SEASON_CODE = /^season_(\d{4})_(\d{2})$/;
+
+/** The seasonal challenge of the month `date` (YYYY-MM-DD) falls in. */
+export function seasonalChallenge(date: string): ChallengeTemplate {
+  const y = Number(date.slice(0, 4));
+  const m = Number(date.slice(5, 7));
+  const pick = SEASONS[(y * 12 + (m - 1)) % SEASONS.length]!;
+  const month = date.slice(0, 7);
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return {
+    code: `season_${month.replace("-", "_")}`,
+    ...pick,
+    windowDays: days,
+    season: { month, start: `${month}-01`, end: `${month}-${String(days).padStart(2, "0")}` },
+  };
+}
+
+export function isSeasonCode(code: string): boolean {
+  return SEASON_CODE.test(code);
+}
+
 export function challengeByCode(code: string): ChallengeTemplate | undefined {
+  const season = SEASON_CODE.exec(code);
+  if (season) {
+    const month = Number(season[2]);
+    return month >= 1 && month <= 12 ? seasonalChallenge(`${season[1]}-${season[2]}-01`) : undefined;
+  }
   return CHALLENGES.find((c) => c.code === code);
+}
+
+/** [start, end] (inclusive) a challenge joined on `today` runs over. */
+export function challengeWindow(tpl: ChallengeTemplate, today: string): { start: string; end: string } {
+  if (tpl.season) return { start: tpl.season.start, end: tpl.season.end };
+  const end = new Date(Date.parse(`${today}T00:00:00Z`) + (tpl.windowDays - 1) * 86_400_000).toISOString().slice(0, 10);
+  return { start: today, end };
+}
+
+/** Title key + vars for a template: the fixed ones have their own key, seasons one per metric
+ * (`month` is 1–12; render.ts's challengeTitleText turns it into the month's name). */
+export function challengeTitleParts(tpl: ChallengeTemplate): { key: string; vars: Record<string, string | number> } {
+  if (!tpl.season) return { key: `chal_${tpl.code}_title`, vars: {} };
+  return { key: `chal_season_${tpl.metric}_title`, vars: { n: tpl.target.toLocaleString("en-US").replace(/,/g, " "), month: Number(tpl.season.month.slice(5)) } };
+}
+
+/** Seasonal badges earned at a lifetime count of seasonal wins. */
+export function seasonMilestones(wins: number): Array<"season_win" | "season_3"> {
+  const out: Array<"season_win" | "season_3"> = [];
+  if (wins >= 1) out.push("season_win");
+  if (wins >= 3) out.push("season_3");
+  return out;
 }
 
 /** Raw counts computed by the repo layer over a challenge's [startDate, endDate] window. */

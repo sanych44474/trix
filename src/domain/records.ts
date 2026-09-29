@@ -336,6 +336,10 @@ export const BADGES = [
   "balance_streak_4",
   "form_check_first",
   "library_first",
+  // Weekly quests (domain/quests.ts) and the monthly seasonal challenge (domain/challenges.ts):
+  "quest_sweep",
+  "season_win",
+  "season_3",
 ] as const;
 export type BadgeCode = (typeof BADGES)[number];
 

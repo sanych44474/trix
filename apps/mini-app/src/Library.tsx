@@ -1,8 +1,8 @@
 // Exercise library: the 750 free-exercise-db exercises with pictures, filtered by muscle and
-// equipment or searched (English names, plus Ukrainian movement words mapped to English ones).
-// Opening one shows both frames, short steps and its name in the user's language (translated once
-// server-side), and "add to plan" puts it on a plan day with its English canonical name, so the
-// logger's technique pictures match it exactly. Data and matcher load lazily with this view.
+// equipment or searched by its Ukrainian or English name (Ukrainian movement words also map to English).
+// Names show in the user's language (Ukrainian ones are baked into the data); opening one shows
+// both frames and short steps (translated once server-side), and "add to plan" puts it on a plan
+// day under that name with the English one as canonical, so the logger's pictures match exactly. Data and matcher load lazily with this view.
 import { useEffect, useMemo, useState } from "react";
 import { api, typedBody } from "./api";
 import { t, type Key, type Lang } from "./i18n";
@@ -67,7 +67,7 @@ function LibraryCard({ lang, ex, open, onToggle, muscleLabel }: { lang: Lang; ex
     api<{ steps: string[]; name: string }>(`/api/v2/workout/steps?id=${encodeURIComponent(ex.id)}`).then(setDetails).catch(() => setDetails({ steps: [], name: ex.title }));
     api<Plan>("/api/v2/plan").then((p) => { setPlan(p); setDays(p.days ?? []); setDay(p.days?.[0]?.weekday ?? null); }).catch(() => setDays([]));
   }, [open, details, ex.id, ex.title]);
-  const name = details?.name ?? ex.title;
+  const name = lang === "en" ? ex.title : ex.titleUk;
   const add = async () => {
     if (!plan || day === null) return;
     setState("busy");

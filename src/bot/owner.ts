@@ -6,7 +6,7 @@ import { logInfo } from "../log";
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
 import { deleteUserData } from "../db/repos";
 import {
-  aiCallStatsSince, aiTokensByKindSince, aiUsageSince, countAdjustmentsSince,
+  aiCallStatsSince, aiTokensByKindSince, aiUsageSince, cohortMembersSince, countAdjustmentsSince,
   countPlanSourcesSince,
   dailyActiveUsers, engagementSince, errorStatsSince,
   eventCountsByUser, eventStatsSince,
@@ -31,6 +31,7 @@ import {
 } from "../adapters/d1/v2Users";
 import { formatRecordBest, getPlanDay } from "../domain/progression";
 import { weekStartStr } from "../domain/records";
+import { biggestDrop, cohortRetention, RETENTION_WEEKS } from "../domain/cohorts";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { latestRelease, releaseBody } from "../releaseNotes";
 import { chunkReport, renderPlan, weekdayName } from "../render";
@@ -80,6 +81,8 @@ export function ownerReportHub(lang: Lang): InlineKeyboard {
     .text(t(lang, "or_sec_events"), "orep:events")
     .row()
     .text(t(lang, "or_sec_users"), "orep:users")
+    .text(t(lang, "or_sec_retention"), "orep:retention")
+    .row()
     .text(t(lang, "or_sec_full"), "orep:full");
 }
 
@@ -116,6 +119,7 @@ export async function sendOwnerSection(ctx: MyContext, section: string) {
   else if (section === "errors") text = await orErrors(ctx.db);
   else if (section === "events") text = await orEngagement(ctx.db);
   else if (section === "users") text = await orUsers(ctx.db);
+  else if (section === "retention") text = await orRetention(ctx.db);
   else text = await buildOwnerReport(ctx.db, ctx.env); // "full"
   const back = new InlineKeyboard().text(t(lang, "or_back"), "menu:ownerreport");
   const chunks = chunkReport(text);
@@ -687,6 +691,27 @@ export async function orEngagement(db: D1Database): Promise<string> {
   return parts.join("\n");
 }
 
+// 🧲 Retention by signup week: of those who joined that week, the share who completed a workout
+// in their week 1/2/4/8 (domain/cohorts.ts). Shows where people drop off, which the funnel and
+// DAU (how many are active now) can't. Last 16 weeks of signups, newest cohort first.
+export async function orRetention(db: D1Database): Promise<string> {
+  const today = new Date().toISOString().slice(0, 10);
+  const since = new Date(Date.now() - 16 * 7 * 86_400_000).toISOString();
+  const members = await cohortMembersSince(db, since).catch(() => [] as Array<{ joined: string; trainedWeeks: number[] }>);
+  const rows = cohortRetention(members, today, 10);
+  if (!rows.length) return "🧲 <b>Retention by signup week</b>\nNo signups in the last 16 weeks.";
+  const cell = (r: number | null) => (r === null ? "—" : `${r}%`).padStart(4);
+  const header = `cohort  users ${RETENTION_WEEKS.map((w) => `  w${w}`).join(" ")}`;
+  const lines = rows.map((r) => `${(r.cohort === "all" ? "all" : r.cohort.slice(5)).padEnd(6)} ${String(r.size).padStart(5)} ${r.rates.map(cell).join(" ")}`);
+  const drop = biggestDrop(rows.find((r) => r.cohort === "all"));
+  return [
+    "🧲 <b>Retention by signup week</b> — share who logged a workout in their week 1 / 2 / 4 / 8",
+    `<pre>${escapeHtml([header, ...lines].join("\n"))}</pre>`,
+    drop ? `📉 Biggest drop: week ${drop.from} → week ${drop.to} (${drop.fromRate}% → ${drop.toRate}%).` : "",
+    "<i>— = the cohort hasn't lived through that week yet.</i>",
+  ].filter(Boolean).join("\n");
+}
+
 // 🤖 AI: provider usage, calls by task, latency/fallback, and plan-source offload.
 export async function orAI(db: D1Database, env?: Env): Promise<string> {
   const { since7Iso } = ownerReportWindows();
@@ -1018,6 +1043,7 @@ export async function buildOwnerReport(db: D1Database, env?: Env): Promise<strin
     orOnboarding(db),
     orErrors(db),
     orEngagement(db),
+    orRetention(db),
     orUsers(db),
   ]);
   // A light rule between sections so the seven blocks read as distinct cards, not one wall of
