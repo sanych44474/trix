@@ -8,7 +8,7 @@
 - **Category:** Health & Fitness (Здоров'я і спорт)
 - **Languages:** Ukrainian, English
 - **Price:** Free
-- **Icon:** [img/avatar-512.png](img/avatar-512.png) · **Cover / screenshots:** [img/](img/), `docs/img/app-*.png`
+- **Icon:** [img/avatar-512.png](img/avatar-512.png) · **Screenshots:** `docs/img/app-*.png`
 
 **Short (UA, ~150):** Безкоштовний AI-тренер у Telegram: програма під твої дні й обладнання, прогресія, карта м'язів і КБЖУ за фото.
 

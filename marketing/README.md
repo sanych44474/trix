@@ -8,15 +8,12 @@ way when editing.
 |---|---|
 | [botfather.md](botfather.md) | Bot profile in Telegram (@BotFather) |
 | [catalogs.md](catalogs.md) | Telegram bot / Mini App catalogs, GitHub topics and awesome lists |
-| [producthunt.md](producthunt.md) | Product Hunt launch |
-| [reddit.md](reddit.md) | Reddit posts |
-| [ua-media.md](ua-media.md) | Ukrainian IT media and Telegram channels |
-| [img/](img/) | Avatar, BotFather picture, Product Hunt thumbnail and gallery |
+| [img/](img/) | Bot avatar and BotFather description picture |
 
 Images are rendered from HTML by [build-images.mjs](build-images.mjs) (needs Playwright), so they
 can be regenerated after new screenshots land in `docs/img/`.
 
-## Order (about an hour in total, once)
+## Order (about half an hour, once)
 
 1. **Bot profile (5 min).** Run `node scripts/setup-telegram.mjs <worker-url>` once after the next
    deploy: it now also sets the bot's description and short description (uk + en). Then in
@@ -28,8 +25,6 @@ can be regenerated after new screenshots land in `docs/img/`.
    [Bing Webmaster Tools](https://www.bing.com/webmasters) (it can import from Search Console).
 3. **GitHub (5 min).** Add the repo topics and the website link from catalogs.md.
 4. **Catalogs (15 min).** Submit to the catalogs in catalogs.md.
-5. **Launch week.** Product Hunt on a Tuesday–Thursday, Reddit posts spread over the following
-   days (not all at once), Ukrainian media pitch the same week.
 
 ## robots.txt
 

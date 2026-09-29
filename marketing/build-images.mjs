@@ -45,29 +45,6 @@ const IMAGES = [
       <img class="phone" src="${shot("app-train.png")}" style="position:relative;width:170px;margin:4px 0 0 auto">
     </div>`,
   },
-  {
-    file: "producthunt-thumbnail-240.png", w: 240, h: 240,
-    html: `<div style="width:240px;height:240px;display:grid;place-items:center;background:radial-gradient(circle at 30% 25%,#2a2210,#0E121A 70%)">
-      <div style="text-align:center"><div style="font-size:78px;line-height:1">🏋️</div><div class="logo" style="font-size:52px;font-weight:800">tri<span>x</span></div></div></div>`,
-  },
-  ...[
-    ["gallery-1-coach.png", "A free AI personal trainer <em>inside Telegram</em>", "A plan around your days, equipment and injuries. It logs your sets and decides when to add weight.", "app-train.png"],
-    ["gallery-2-body-map.png", "See every muscle's <em>week, recovery and trend</em>", "A body map of weekly load, what's still recovering and a 12-week trend — plus plans that balance themselves.", "app-progress.png"],
-    ["gallery-3-summary.png", "It comes to you <em>first</em>", "Reminders on training days, a rest timer that pings you, and a summary with your records after every session.", "app-summary.png"],
-  ].map(([file, title, sub, img]) => ({
-    // Product Hunt gallery: 1270×760.
-    file, w: 1270, h: 760,
-    html: `<div style="position:relative;width:1270px;height:760px;padding:70px 90px;display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center">
-      <div class="glow"></div>
-      <div style="position:relative">
-        <div class="logo" style="font-size:38px;font-weight:800">tri<span>x</span></div>
-        <h1 style="font-size:66px;line-height:1.03;margin:22px 0 22px">${title}</h1>
-        <div style="font-size:26px;color:#B6BECD;line-height:1.4">${sub}</div>
-        <div style="margin-top:28px;font-size:22px;color:#F0B429;font-weight:600">Free · no ads · open source</div>
-      </div>
-      <img class="phone" src="${shot(img)}" style="position:relative;width:300px;margin:0 auto">
-    </div>`,
-  })),
 ];
 
 const browser = await chromium.launch();
