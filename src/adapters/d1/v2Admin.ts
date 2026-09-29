@@ -573,6 +573,27 @@ export async function userStatCounts(
   return r ?? { workouts: 0, nutrition: 0, checkins: 0, steps: 0, badges: 0, quests: 0 };
 }
 
+/** Accounts that signed up since `sinceIso`, each with the week offsets (0 = first 7 days) in
+ *  which they completed a workout — the owner's cohort retention (domain/cohorts.ts). One query,
+ *  aggregated in SQL so the rows stay one per account. */
+export async function cohortMembersSince(db: DB, sinceIso: string): Promise<Array<{ joined: string; trainedWeeks: number[] }>> {
+  const r = await db
+    .prepare(
+      `SELECT substr(a.createdAt, 1, 10) AS joined,
+        GROUP_CONCAT(DISTINCT CAST((julianday(w.date) - julianday(substr(a.createdAt, 1, 10))) / 7 AS INTEGER)) AS weeks
+      FROM v2_accounts a
+      LEFT JOIN v2_workout_sessions w ON w.accountId = a.id AND w.completed = 1 AND w.date >= substr(a.createdAt, 1, 10)
+      WHERE a.createdAt >= ?
+      GROUP BY a.id`,
+    )
+    .bind(sinceIso)
+    .all<{ joined: string; weeks: string | null }>();
+  return (r.results ?? []).map((x) => ({
+    joined: x.joined,
+    trainedWeeks: x.weeks ? x.weeks.split(",").map(Number).filter((n) => Number.isFinite(n)) : [],
+  }));
+}
+
 /** Distinct active users per day (from usage counters) — owner dashboard DAU chart. */
 export async function dailyActiveUsers(db: DB, sinceDay: string): Promise<{ date: string; n: number }[]> {
   const r = await db

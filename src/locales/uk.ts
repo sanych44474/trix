@@ -941,6 +941,7 @@ export const uk: Dict = {
   or_sec_onboarding: "🚧 Онбординг",
   or_sec_errors: "🐞 Помилки",
   or_sec_users: "👤 Користувачі",
+  or_sec_retention: "🧲 Утримання",
   or_sec_full: "📄 Повний звіт",
   or_back: "⬅️ Меню звіту",
   or_sec_events: "📊 Події",

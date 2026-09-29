@@ -677,9 +677,10 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   </div>;
 }
 
-type OwnerSection = "overview" | "roster" | "ai" | "trainers" | "onboarding" | "errors" | "events";
+type OwnerSection = "overview" | "roster" | "retention" | "ai" | "trainers" | "onboarding" | "errors" | "events";
 const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster">; tab: Key; eyebrow: Key; title: Key }> = [
   { id: "overview", tab: "owner_tab_overview", eyebrow: "overview_eyebrow", title: "live_report_title" },
+  { id: "retention", tab: "owner_tab_retention", eyebrow: "retention_report_eyebrow", title: "retention_report_title" },
   { id: "ai", tab: "owner_tab_ai", eyebrow: "ai_stats_eyebrow", title: "ai_stats_title" },
   { id: "trainers", tab: "owner_tab_trainers", eyebrow: "trainers_report_eyebrow", title: "trainers_report_title" },
   { id: "onboarding", tab: "owner_tab_onboarding", eyebrow: "onboarding_funnel_eyebrow", title: "onboarding_funnel_title" },
@@ -690,6 +691,7 @@ const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster">; tab: K
 const OWNER_TABS: Array<{ id: OwnerSection; tab: Key; icon: string }> = [
   { id: "overview", tab: "owner_tab_overview", icon: "📊" },
   { id: "roster", tab: "owner_tab_roster", icon: "👥" },
+  { id: "retention", tab: "owner_tab_retention", icon: "🧲" },
   { id: "ai", tab: "owner_tab_ai", icon: "🤖" },
   { id: "trainers", tab: "owner_tab_trainers", icon: "🧑‍🏫" },
   { id: "onboarding", tab: "owner_tab_onboarding", icon: "🚪" },

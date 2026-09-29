@@ -936,6 +936,7 @@ export const en = {
   or_sec_onboarding: "🚧 Onboarding",
   or_sec_errors: "🐞 Errors",
   or_sec_users: "👤 Users",
+  or_sec_retention: "🧲 Retention",
   or_sec_full: "📄 Full report",
   or_back: "⬅️ Report menu",
   or_sec_events: "📊 Events",
