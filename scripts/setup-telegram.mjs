@@ -1,4 +1,5 @@
-// Registers the Telegram webhook (with secret token) and the command menu.
+// Registers the Telegram webhook (with secret token), the command menu and the bot's profile
+// description (the text a new user sees before tapping Start).
 // Usage: node scripts/setup-telegram.mjs https://trix.<subdomain>.workers.dev [ownerChatId]
 // Reads TELEGRAM_BOT_TOKEN / TELEGRAM_WEBHOOK_SECRET / OWNER_CHAT_ID from env or .dev.vars.
 // If an owner chat id is provided, the owner-only commands (/users, /ownerreport, /admin)
@@ -63,6 +64,40 @@ await post("setWebhook", {
 // Default menu (English) for everyone, plus a Ukrainian override (uk clients get uk).
 await post("setMyCommands", { commands: toList(COMMANDS, "en") });
 await post("setMyCommands", { commands: toList(COMMANDS, "uk"), language_code: "uk" });
+
+// Bot profile texts (also in marketing/botfather.md): the description is what a new user sees
+// in the empty chat before tapping Start (max 512 chars), the short description shows on the
+// profile page and in shares/search (max 120). English default plus a Ukrainian override.
+const PROFILE = {
+  en: {
+    short: "Free AI personal trainer: a workout plan for your days and gear, progression, macros from a photo. 💪",
+    description:
+      "🏋️ trix is a free AI personal trainer in Telegram.\n\n" +
+      "• A workout plan for your days, equipment and injuries — at home or in the gym\n" +
+      "• Log sets in one tap; it decides when to add weight\n" +
+      "• Body map: weekly load, recovery and 12-week trend per muscle\n" +
+      "• Technique pictures and a form check from a video\n" +
+      "• Macros from a photo of your plate\n\n" +
+      "No subscription, no ads. Tap Start — a 2-minute interview and your plan is ready.",
+  },
+  uk: {
+    short: "Безкоштовний AI-тренер: програма під твої дні й обладнання, прогресія, КБЖУ за фото. 💪",
+    description:
+      "🏋️ trix — безкоштовний AI-тренер у Telegram.\n\n" +
+      "• Програма під твої дні, обладнання й травми — вдома чи в залі\n" +
+      "• Запис підходів в один дотик, сам вирішує, коли додати вагу\n" +
+      "• Карта тіла: навантаження, відновлення і тренд кожного м'яза\n" +
+      "• Фото техніки й перевірка техніки за відео\n" +
+      "• КБЖУ за фото тарілки\n\n" +
+      "Без підписки й реклами. Натисни «Старт» — 2 хвилини інтерв'ю, і план готовий.",
+  },
+};
+for (const [lang, p] of Object.entries(PROFILE)) {
+  if (p.description.length > 512 || p.short.length > 120) throw new Error(`profile text too long (${lang})`);
+  const language_code = lang === "en" ? undefined : lang;
+  await post("setMyDescription", { description: p.description, ...(language_code ? { language_code } : {}) });
+  await post("setMyShortDescription", { short_description: p.short, ...(language_code ? { language_code } : {}) });
+}
 
 // Persistent chat menu button → the Mini App dashboard (text is global, not per-language).
 // Path follows V2_APP_ENABLED (matches src/bot.ts's setAppUrl) so this stays in sync with
