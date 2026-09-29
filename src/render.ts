@@ -8,6 +8,7 @@ import { phaseGuidance, phaseKey } from "./domain/mesocycle";
 import { GROCERY_ORDER, formatGrams, type GroceryCategory, type GroceryLine } from "./domain/groceryList";
 import type { ConditioningWeek } from "./domain/conditioning";
 import { planBalance } from "./domain/muscleLoad";
+import type { WeeklyReport } from "./domain/weeklyReport";
 
 /** Human-readable weekly conditioning load: "3 cardio sessions - ~180 min", or the session count
  * alone when nothing carried a duration (a distance-only log has real work the minutes can't see,
@@ -339,6 +340,23 @@ export function renderSchedule(lang: Lang, items: SessionItem[], videos?: Map<st
     lines.push("", `🏋️ <b>${escapeHtml(next.label)} — ${escapeHtml(next.day.muscleGroup)}</b>`, renderDay(lang, next.day, undefined, "brief", videos));
   }
   return lines.join("\n");
+}
+
+/** The weekly digest's muscle lines (domain/weeklyReport.ts): balance score, what lagged, records,
+ *  one focus for next week and any badges the week just earned. */
+export function renderWeeklyMuscleLines(lang: Lang, r: WeeklyReport, prs: number, newBadges: string[]): string[] {
+  const muscle = (slug: string) => t(lang, `mus_${slug.replace("-", "_")}` as Parameters<typeof t>[1]);
+  const num = (n: number) => (lang === "uk" ? String(Math.round(n * 2) / 2).replace(".", ",") : String(Math.round(n * 2) / 2));
+  const lines = [t(lang, "wreport_balance", { score: r.balance })];
+  if (r.lagging.length) {
+    lines.push(t(lang, "wreport_lagging", { list: r.lagging.map((l) => `${muscle(l.slug)} (${num(l.sets)}/${l.mev})`).join(", ") }));
+  }
+  if (prs > 0) lines.push(t(lang, "wreport_prs", { n: prs }));
+  lines.push(r.focus
+    ? t(lang, "wreport_focus", { muscle: muscle(r.focus.slug), exercise: r.focus.exercise[lang] })
+    : t(lang, "wreport_focus_keep"));
+  if (newBadges.length) lines.push(t(lang, "wreport_badges", { list: newBadges.map((c) => t(lang, `badge_${c}` as Parameters<typeof t>[1])).join(", ") }));
+  return lines;
 }
 
 /** The plan-balance note (domain/muscleLoad.ts planBalance), or "" when the plan is balanced. */
