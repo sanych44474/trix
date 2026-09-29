@@ -52,6 +52,16 @@ export interface DashboardPayload {
   // The latest release note, until the user dismisses it or already got it in the chat.
   whatsnew?: { version: string; text: string };
   recoverySwap?: { weekday: number; other: number; todayGroup: string; otherGroup: string; tired: string[]; because: string[] };
+  // This week so far: the muscle balance score (domain/weeklyReport.ts), the run of balanced weeks
+  // towards the balance_streak_4 badge, and the week's quests with live progress (domain/quests.ts).
+  week?: {
+    weekStart: string;
+    balance: number;
+    balanceStreak: number;
+    balanceGoal: number;
+    quests: Array<{ code: string; kind: "workouts" | "muscle_sets" | "balance" | "water_days" | "food_days" | "steps_days"; target: number; current: number; done: boolean; muscle?: string }>;
+    questXp: number;
+  };
   // Conditioning (cardio) load for the same 7-day window — the other half of training volume,
   // which the strength bars above have never been able to show.
   conditioning: { sessions: number; minutes: number; meters: number; untimedSets: number; zone: string; targetMin: number; highMin: number };

@@ -10,6 +10,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { dashboardExtrasBatch } from "../../src/adapters/d1/v2Admin";
 import { enqueueNotification } from "../../src/adapters/d1/v2Notifications";
+import { recordQuestsDone } from "../../src/adapters/d1/v2Gamification";
 
 async function seedAccount(id: number): Promise<void> {
   const now = new Date().toISOString();
@@ -39,10 +40,18 @@ describe("v2Admin: dashboardExtrasBatch — one db.batch() round trip, SELECTs i
     expect(extras.steps).toBe(5000);
   });
 
+  it("finished weekly quests are recorded once per week and counted for XP", async () => {
+    await seedAccount(809);
+    expect(await recordQuestsDone(env.DB, 809, "2026-09-28", ["workouts", "water_days"])).toEqual(["workouts", "water_days"]);
+    expect(await recordQuestsDone(env.DB, 809, "2026-09-28", ["workouts", "muscle_sets:chest"])).toEqual(["muscle_sets:chest"]);
+    expect(await recordQuestsDone(env.DB, 809, "2026-10-05", ["workouts"])).toEqual(["workouts"]);
+    expect((await dashboardExtrasBatch(env.DB, 809, "2026-10-05")).statCounts.quests).toBe(4);
+  });
+
   it("an account with no activity gets all-zero/empty results, not a thrown error", async () => {
     await seedAccount(802);
     const extras = await dashboardExtrasBatch(env.DB, 802, "2026-09-01");
-    expect(extras.statCounts).toEqual({ workouts: 0, nutrition: 0, checkins: 0, steps: 0, badges: 0 });
+    expect(extras.statCounts).toEqual({ workouts: 0, nutrition: 0, checkins: 0, steps: 0, badges: 0, quests: 0 });
     expect(extras.achievements).toEqual([]);
     expect(extras.waterMl).toBe(0);
     expect(extras.steps).toBe(0);

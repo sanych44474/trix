@@ -557,7 +557,7 @@ export async function eventStatsSince(db: DB, sinceDay: string, limit = 20): Pro
 export async function userStatCounts(
   db: DB,
   userId: number,
-): Promise<{ workouts: number; nutrition: number; checkins: number; steps: number; badges: number }> {
+): Promise<{ workouts: number; nutrition: number; checkins: number; steps: number; badges: number; quests: number }> {
   const r = await db
     .prepare(
       `SELECT
@@ -565,11 +565,12 @@ export async function userStatCounts(
         (SELECT COUNT(*) FROM v2_nutrition_days WHERE accountId = ?1) AS nutrition,
         (SELECT COUNT(*) FROM v2_wellbeing WHERE accountId = ?1) AS checkins,
         (SELECT COUNT(*) FROM v2_step_logs WHERE accountId = ?1) AS steps,
-        (SELECT COUNT(*) FROM v2_achievements WHERE accountId = ?1) AS badges`,
+        (SELECT COUNT(*) FROM v2_achievements WHERE accountId = ?1) AS badges,
+        (SELECT COUNT(*) FROM v2_quests WHERE accountId = ?1) AS quests`,
     )
     .bind(userId)
-    .first<{ workouts: number; nutrition: number; checkins: number; steps: number; badges: number }>();
-  return r ?? { workouts: 0, nutrition: 0, checkins: 0, steps: 0, badges: 0 };
+    .first<{ workouts: number; nutrition: number; checkins: number; steps: number; badges: number; quests: number }>();
+  return r ?? { workouts: 0, nutrition: 0, checkins: 0, steps: 0, badges: 0, quests: 0 };
 }
 
 /** Distinct active users per day (from usage counters) — owner dashboard DAU chart. */
@@ -639,7 +640,7 @@ export async function dashboardExtrasBatch(
   userId: number,
   today: string,
 ): Promise<{
-  statCounts: { workouts: number; nutrition: number; checkins: number; steps: number; badges: number };
+  statCounts: { workouts: number; nutrition: number; checkins: number; steps: number; badges: number; quests: number };
   achievements: string[];
   waterMl: number;
   steps: number;
@@ -652,14 +653,15 @@ export async function dashboardExtrasBatch(
           (SELECT COUNT(*) FROM v2_nutrition_days WHERE accountId = ?1) AS nutrition,
           (SELECT COUNT(*) FROM v2_wellbeing WHERE accountId = ?1) AS checkins,
           (SELECT COUNT(*) FROM v2_step_logs WHERE accountId = ?1) AS steps,
-          (SELECT COUNT(*) FROM v2_achievements WHERE accountId = ?1) AS badges`,
+          (SELECT COUNT(*) FROM v2_achievements WHERE accountId = ?1) AS badges,
+        (SELECT COUNT(*) FROM v2_quests WHERE accountId = ?1) AS quests`,
       )
       .bind(userId),
     db.prepare("SELECT code FROM v2_achievements WHERE accountId = ? ORDER BY earnedAt ASC").bind(userId),
     db.prepare("SELECT ml FROM v2_water_logs WHERE accountId = ? AND date = ?").bind(userId, today),
     db.prepare("SELECT steps FROM v2_step_logs WHERE accountId = ? AND date = ?").bind(userId, today),
   ]);
-  const c = (counts.results?.[0] ?? {}) as Partial<{ workouts: number; nutrition: number; checkins: number; steps: number; badges: number }>;
+  const c = (counts.results?.[0] ?? {}) as Partial<{ workouts: number; nutrition: number; checkins: number; steps: number; badges: number; quests: number }>;
   return {
     statCounts: {
       workouts: c.workouts ?? 0,
@@ -667,6 +669,7 @@ export async function dashboardExtrasBatch(
       checkins: c.checkins ?? 0,
       steps: c.steps ?? 0,
       badges: c.badges ?? 0,
+      quests: c.quests ?? 0,
     },
     achievements: ((ach.results ?? []) as { code: string }[]).map((x) => x.code),
     waterMl: ((water.results?.[0] as { ml?: number } | undefined)?.ml) ?? 0,

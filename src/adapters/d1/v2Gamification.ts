@@ -476,3 +476,17 @@ export async function deleteSquad(db: DB, chatId: number): Promise<void> {
     db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'squad' AND entityId = ?").bind(chatId),
   ]);
 }
+
+// ---------------------------------------------------------------------------
+// Weekly quests (domain/quests.ts) — only completion is stored; the XP formula counts the rows.
+// ---------------------------------------------------------------------------
+
+/** Records finished quests for the week; returns the codes that were newly recorded. */
+export async function recordQuestsDone(db: DB, userId: number, weekStart: string, codes: string[]): Promise<string[]> {
+  if (!codes.length) return [];
+  const now = nowIso();
+  const res = await db.batch(codes.map((code) =>
+    db.prepare("INSERT OR IGNORE INTO v2_quests (accountId, weekStart, code, completedAt) VALUES (?, ?, ?, ?)").bind(userId, weekStart, code, now),
+  ));
+  return codes.filter((_, i) => (res[i]?.meta?.changes ?? 0) > 0);
+}

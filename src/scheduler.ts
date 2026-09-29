@@ -83,6 +83,7 @@ import {
 } from "./domain/progression";
 import { isoWeekKey, rankOf, recentPrCount, streakMilestones, streakRisk, weekRangeOffset, weekStartStr, weekStreak } from "./domain/records";
 import { nextBalanceStreak, weeklyReport } from "./domain/weeklyReport";
+import { pickQuests, plannedDayCount } from "./domain/quests";
 import { toLoggedDays } from "./domain/recoverySwap";
 import { weekMapUrl } from "./webapp/weekMap";
 import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
@@ -100,7 +101,7 @@ import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
 import { isoWeekday, lastPlannedDates, missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
 import { rankMissedDayOptions, recentMissRate } from "./domain/missedDay";
 import { cleanAi, escapeHtml, t } from "./locales/i18n";
-import { chunkReport, conditioningLoadLabel, renderDay, renderWeeklyMuscleLines } from "./render";
+import { chunkReport, conditioningLoadLabel, renderDay, renderQuestLines, renderWeeklyMuscleLines } from "./render";
 import { aiText } from "./ai/index";
 import { weeklyNarrativeSystem } from "./ai/prompts";
 import { buildOwnerReport, computeBoards, finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
@@ -1195,6 +1196,12 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         parts.push("", ...renderWeeklyMuscleLines(lang, report, prs, newBadges));
         photoUrl = await weekMapUrl(env.WORKER_URL, user.profile.sex, report.zones, env.TELEGRAM_BOT_TOKEN).catch(() => null);
       }
+      // Next week's quests (domain/quests.ts): the same pick the Mini App's Today card will show
+      // from Monday, so the digest's promise and the app agree.
+      const nextMonday = isoDateMinus(date, -1);
+      const plan = await getActivePlan(db, user._id).catch(() => null);
+      const quests = pickQuests(nextMonday, toLoggedDays(wl), plannedDayCount(user.profile.trainingWeekdays, plan?.split));
+      parts.push("", ...renderQuestLines(lang, quests));
       const kb = new InlineKeyboard()
         .text(t(lang, "menu_progress"), "menu:progress")
         .text(t(lang, "wcard_btn"), "share:week");

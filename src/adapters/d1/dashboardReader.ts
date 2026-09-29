@@ -30,10 +30,13 @@ import {
   getOwnerChatId,
 } from "./v2Admin";
 import { allWorkoutLogsSince, listStrength, workoutLogsSince } from "./v2Workouts";
-import { awardAchievement } from "./v2Gamification";
+import { awardAchievement, recordQuestsDone } from "./v2Gamification";
 import { getActivePlan, listActivePlans } from "./v2Plans";
 import { listClients } from "./v2Trainer";
-import { bodyLogsByUser, getDailyCheckin } from "./v2Tracking";
+import { bodyLogsByUser, getDailyCheckin, stepLogsSince, waterLogsSince } from "./v2Tracking";
+import { pickQuests, plannedDayCount, questProgress, QUEST_XP } from "../../domain/quests";
+import { weeklyReport } from "../../domain/weeklyReport";
+import { toLoggedDays } from "../../domain/recoverySwap";
 import { countActiveSince, countOnboarded, countUsers, getUser } from "./v2Users";
 import { allNutritionDatesSince, nutritionLogsSince } from "./v2Nutrition";
 import {
@@ -210,6 +213,42 @@ export async function buildDashboardPayload(db: D1Database, user: UserDoc): Prom
         const mLogs = await workoutLogsSince(db, mate._id, weekStartStr(today)).catch(() => []);
         payload.buddy = { name: mate.profile.name ?? "Buddy", workouts: mLogs.filter((l) => l.completed).length };
       }
+    }
+    // The week so far: balance score, balanced-week run and the week's quests. Finished quests are
+    // recorded here (idempotent per week), which is what adds their XP; all of them earns a badge.
+    try {
+      const weekStart = weekStartStr(today);
+      const [water, steps] = await Promise.all([
+        waterLogsSince(db, user._id, weekStart).catch(() => []),
+        stepLogsSince(db, user._id, weekStart).catch(() => []),
+      ]);
+      const logs = toLoggedDays(workouts);
+      const quests = questProgress(
+        pickQuests(weekStart, logs, plannedDayCount(user.profile.trainingWeekdays, plan?.split)),
+        weekStart,
+        {
+          logs,
+          waterDays: water.filter((w) => w.ml >= resolveWaterGoal(user.profile)).length,
+          foodDays: new Set(nutrition.filter((n) => n.date >= weekStart && n.meals.length > 0).map((n) => n.date)).size,
+          stepsDays: steps.filter((s) => s.steps >= resolveStepsGoal(user.profile)).length,
+        },
+      );
+      const done = quests.filter((q) => q.done).map((q) => q.code);
+      const fresh = await recordQuestsDone(db, user._id, weekStart, done).catch(() => [] as string[]);
+      if (fresh.length) payload.gamification = { ...payload.gamification, ...levelFromXp(computeXp({ ...extras.statCounts, quests: extras.statCounts.quests + fresh.length })) };
+      if (quests.length && done.length === quests.length && fresh.length) {
+        if (await awardAchievement(db, user._id, "quest_sweep").catch(() => false)) payload.badges.push({ code: "quest_sweep", label: t(user.lang, "badge_quest_sweep") });
+      }
+      payload.week = {
+        weekStart,
+        balance: weeklyReport(logs, weekStart).balance,
+        balanceStreak: user.reminders?.balanceWeeks ?? 0,
+        balanceGoal: 4,
+        quests,
+        questXp: QUEST_XP,
+      };
+    } catch {
+      /* best-effort: the Today card just doesn't show */
     }
     // Perfect-day badge (one-time): all three daily quests met today — workout + water goal + protein target.
     try {
