@@ -1,0 +1,34 @@
+/* Topic pages (docs/<slug>/, built by scripts/build-seo-pages.mjs): the landing's tokens and type,
+   one readable column. System fonts only, so the pages render fast without the webfont request. */
+:root { --ground:#0E121A; --surface:#161C27; --ink:#EDEFF3; --ink-soft:#B6BECD; --muted:#7D879B; --line:#252D3B; --accent:#F0B429; --accent-ink:#0E121A; }
+@media (prefers-color-scheme: light) {
+  :root { --ground:#F4F5F7; --surface:#FFFFFF; --ink:#0E121A; --ink-soft:#3E4657; --muted:#6B7488; --line:#DCE0E7; --accent:#8A6100; --accent-ink:#FFFFFF; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.62 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 44rem; margin: 0 auto; padding: 0 1rem; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+h1, h2 { font-family: Archivo, "Helvetica Neue", Arial, sans-serif; letter-spacing: -.02em; line-height: 1.15; text-wrap: balance; }
+h1 { font-size: clamp(2rem, 6vw, 2.9rem); margin: .2rem 0 1rem; }
+h2 { font-size: 1.35rem; margin: 2.2rem 0 .5rem; }
+.bar { display: flex; align-items: center; padding: 1.1rem 0; border-bottom: 1px solid var(--line); }
+.brand { font-weight: 800; font-size: 1.15rem; color: var(--ink); text-decoration: none; }
+.brand span { color: var(--accent); }
+.bar nav { margin-left: auto; }
+.ghost { border: 1px solid var(--line); color: var(--ink-soft); font-size: .82rem; padding: .3rem .7rem; border-radius: 4px; text-decoration: none; }
+.crumbs { font-size: .85rem; color: var(--muted); padding: .9rem 0 0; }
+.crumbs a { color: var(--muted); }
+.kicker { font-family: ui-monospace, "IBM Plex Mono", monospace; font-size: .74rem; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 2rem 0 0; }
+.lead { font-size: 1.12rem; color: var(--ink-soft); }
+.cta { display: inline-block; background: var(--accent); color: var(--accent-ink); font-weight: 700; padding: .75rem 1.2rem; border-radius: 8px; text-decoration: none; margin: .4rem .6rem .4rem 0; }
+.note { display: block; color: var(--muted); font-size: .9rem; }
+.shot { margin: 2rem auto; max-width: 300px; }
+.shot img { width: 100%; height: auto; border-radius: 22px; border: 1px solid var(--line); display: block; }
+section p { color: var(--ink-soft); margin: 0; }
+.faq details { border-bottom: 1px solid var(--line); padding: .8rem 0; }
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq details p { margin-top: .5rem; }
+.more ul { padding-left: 1.1rem; }
+footer { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--line); margin-top: 3rem; padding: 1.4rem 0 2rem; }
+footer a { color: var(--muted); }
