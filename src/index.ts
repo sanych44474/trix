@@ -4,6 +4,8 @@ export { SquadSchedulerDO } from "./durable/squadScheduler";
 export { GlobalSchedulerDO } from "./durable/globalScheduler";
 import { createBot, buildOwnerMetrics, buildPlanDocRaw, ownerUsersData, pingIncompleteOnboarding } from "./bot";
 import { checkCronHeartbeat, runSchedule } from "./scheduler";
+import { activityRaw } from "./adapters/d1/activityMetrics";
+import { buildActivityMetrics } from "./domain/activityMetrics";
 import { serveWeekMap } from "./webapp/weekMap";
 import {
   bumpEvent,
@@ -148,6 +150,20 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
         return new Response("unauthorized", { status: 401 });
       }
       return Response.json(await buildOwnerMetrics(env.DB));
+    }
+
+    // User activity as JSON, for the Grafana "trix — user activity" dashboard (grafana/user-activity.json):
+    // DAU and what people did per day, WAU/MAU/stickiness, feature adoption, top events, cohort
+    // retention, most active users. GET /admin/metrics/activity?days=30 (7–90), X-Admin-Secret header.
+    if (req.method === "GET" && url.pathname === "/admin/metrics/activity") {
+      if (!isAdmin(req, env)) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      const days = Math.min(90, Math.max(7, Math.round(Number(url.searchParams.get("days")) || 30)));
+      const today = new Date().toISOString().slice(0, 10);
+      const before = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+      const raw = await activityRaw(env.DB, before(days - 1), before(6), before(29));
+      return Response.json(buildActivityMetrics(raw, today, days), { headers: { "cache-control": "no-store" } });
     }
 
     // Per-user roster (name, trainer, status, activity counts) as JSON, for the same Grafana
