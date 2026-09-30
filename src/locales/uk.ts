@@ -886,6 +886,7 @@ export const uk: Dict = {
   trainer_status_listed: "🟢 Профіль у каталозі тренерів.",
   trainer_status_hidden: "🔴 Ще не в каталозі — заповни профіль, щоб з'явитися.",
   trainer_invite_link: "🔗 Твоє посилання-запрошення: {link}",
+  trainer_share_text: "💪 Тренуйся зі мною в trix — {name}. План під тебе, записи тренувань і зв'язок зі мною прямо в Telegram.",
   trainer_invite_prospect_btn: "➕ Особисте запрошення",
   trainer_prospects_pending: "⏳ Очікують приєднання: {names}",
   trainer_prospect_name_prompt: "Як звати цю людину? (вона отримає особисте посилання)",

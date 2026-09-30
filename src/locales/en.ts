@@ -881,6 +881,7 @@ export const en = {
   trainer_status_listed: "🟢 Listed in the trainer directory.",
   trainer_status_hidden: "🔴 Not listed yet — complete your profile to appear in the directory.",
   trainer_invite_link: "🔗 Your invite link: {link}",
+  trainer_share_text: "💪 Train with me in trix — {name}. A plan made for you, workout logging and a direct line to me, right in Telegram.",
   trainer_invite_prospect_btn: "➕ Personal invite",
   trainer_prospects_pending: "⏳ Waiting to join: {names}",
   trainer_prospect_name_prompt: "What's this person's name? (they'll get a personal invite link)",

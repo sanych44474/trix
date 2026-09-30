@@ -14,12 +14,14 @@ import {
   applyTrainer,
   bumpSharedTaken,
   countClientsOf,
+  createProspect,
   createRequest,
   getClientForTrainer,
   getRequest,
   getSharedProgram,
   getTrainer,
   linkClient,
+  listProspects,
   listPublicPrograms,
   pendingRequestsForTrainer,
   setRequestStatus,
@@ -39,6 +41,8 @@ import type { Env } from "../types";
 import { putStoryImage } from "./storyMedia";
 import { isSupportAmount } from "../adapters/d1/v2Support";
 import { supportInvoice } from "../bot/support";
+import { botDeepLink } from "../bot/links";
+import { shortCode } from "../features/trainer/trainer";
 
 async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
   await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -292,6 +296,41 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     await updateUser(env.DB, user._id, { onboarded: true, nutrition: plan.nutrition });
     await bumpSharedTaken(env.DB, sp.code).catch(() => {});
     return Response.json({ ok: true, name: sp.name });
+  }
+
+  // ---- Trainer invites: the shareable tr_<code> link + single-use personal invites ----
+  // Same links the bot's /trainer card and "➕ Personal invite" hand out, so a trainer can share
+  // them from the app (Telegram's share sheet or copy) without going through the chat.
+  if (path === "/api/trainer/invite") {
+    const tr = await getTrainer(env.DB, user._id).catch(() => null);
+    if (!tr) return Response.json({ error: "not a trainer" }, { status: 403 });
+    if (req.method === "GET") {
+      const [clients, prospects] = await Promise.all([
+        countClientsOf(env.DB, user._id).catch(() => 0),
+        listProspects(env.DB, user._id).catch(() => []),
+      ]);
+      const approved = tr.status === "approved" && !!tr.inviteCode;
+      return Response.json({
+        link: approved ? botDeepLink(env, `tr_${tr.inviteCode}`) : "",
+        shareText: t(user.lang, "trainer_share_text", { name: tr.name }),
+        approved,
+        accepting: !!tr.accepting,
+        clients,
+        maxClients: tr.maxClients ?? null,
+        prospects: prospects.slice(0, 20).map((p) => ({ name: p.name, link: botDeepLink(env, `trp_${p.code}`), createdAt: p.createdAt })),
+      }, noStore);
+    }
+    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (tr.status !== "approved") return Response.json({ error: "not approved" }, { status: 409 });
+    const parsedInvite = await readJsonBody(req);
+    if (!parsedInvite.ok) return parsedInvite.response;
+    const v = validateBody(parsedInvite.body, object({ name: str({ max: 60 }) }));
+    if (!v.ok) return v.response;
+    const name = v.value.name.trim();
+    if (name.length < 2) return bad();
+    const code = shortCode();
+    await createProspect(env.DB, code, user._id, name);
+    return Response.json({ name, link: botDeepLink(env, `trp_${code}`), createdAt: new Date().toISOString() });
   }
 
   // ---- Become a trainer / edit trainer profile ----

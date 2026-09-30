@@ -46,6 +46,7 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/settings", legacy: "/api/settings", handler: handleSettingsApi },
   { prefix: "/api/v2/log", legacy: "/api/log", handler: handleQuickLogApi },
   { prefix: "/api/v2/trainer/profile", legacy: "/api/trainer/profile", handler: handleExtrasApi },
+  { prefix: "/api/v2/trainer/invite", legacy: "/api/trainer/invite", handler: handleExtrasApi },
   { prefix: "/api/v2/trainer/sessions", legacy: "/api/trainer/sessions", handler: handleTrainerScheduleApi },
   { prefix: "/api/v2/trainer/finance", legacy: "/api/trainer/finance", handler: handleTrainerScheduleApi },
   { prefix: "/api/v2/trainer", legacy: "/api/trainer", handler: handleTrainerApi },
