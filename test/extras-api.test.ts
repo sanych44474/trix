@@ -191,3 +191,34 @@ test("/api/photocompare: sends the composed PNG to the user's chat, rejects bad 
     globalThis.fetch = realFetch;
   }
 });
+
+test("/api/trainer/invite: 403 for a non-trainer; pending trainer gets no link and can't create invites", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  assert.equal((await asUser(db, 1, "GET", "/api/trainer/invite")).status, 403);
+  await getOrCreateUser(db, 20, 20, "uk", "Coach");
+  await applyTrainer(db, 20, { name: "Coach" });
+  const pending = (await (await asUser(db, 20, "GET", "/api/trainer/invite")).json()) as { link: string; approved: boolean };
+  assert.deepEqual([pending.link, pending.approved], ["", false]);
+  assert.equal((await asUser(db, 20, "POST", "/api/trainer/invite", { name: "Olha" })).status, 409);
+});
+
+test("/api/trainer/invite: approved trainer gets the tr_ link and makes named single-use invites", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 21, 21, "uk", "Coach");
+  await applyTrainer(db, 21, { name: "Coach Ira" });
+  await approveTrainer(db, 21, "IRA1");
+  const env = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "@trix_bot" } as never;
+  const call = (method: string, body?: unknown) =>
+    handleExtrasApi(req(method, "/api/trainer/invite?debugUser=21", body), u("/api/trainer/invite?debugUser=21"), env);
+  const first = (await (await call("GET")).json()) as { link: string; shareText: string; approved: boolean; prospects: unknown[] };
+  assert.equal(first.link, "https://t.me/trix_bot?start=tr_IRA1");
+  assert.ok(first.approved && first.shareText.includes("Coach Ira"));
+  assert.deepEqual(first.prospects, []);
+  assert.equal((await call("POST", { name: " " })).status, 400);
+  const made = (await (await call("POST", { name: " Olha " })).json()) as { name: string; link: string };
+  assert.equal(made.name, "Olha");
+  assert.match(made.link, /^https:\/\/t\.me\/trix_bot\?start=trp_[0-9a-f]{8}$/);
+  const after = (await (await call("GET")).json()) as { prospects: Array<{ name: string; link: string }> };
+  assert.deepEqual(after.prospects.map((p) => [p.name, p.link]), [["Olha", made.link]]);
+});

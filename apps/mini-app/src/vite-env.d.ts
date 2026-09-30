@@ -27,6 +27,7 @@ interface TelegramWebApp {
   isFullscreen?: boolean;
   openInvoice?(url: string, callback?: (status: "paid" | "cancelled" | "failed" | "pending") => void): void; // 6.1+
   openLink?(url: string, options?: { try_instant_view?: boolean }): void;
+  openTelegramLink?(url: string): void; // t.me links (e.g. the share sheet) inside Telegram
   onEvent?(event: string, handler: () => void): void;
   offEvent?(event: string, handler: () => void): void;
   HapticFeedback?: {

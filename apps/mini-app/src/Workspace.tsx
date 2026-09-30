@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "./api";
+import { TrainerInviteCard } from "./TrainerInvite";
 import type { ClientCardPayload, CoachThread, Dashboard, FinancePayload, InjuryPayload, OwnerUsers, RequestBody, SchedulePayload, TrainerProfile } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 
@@ -641,6 +642,8 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
       <button className="button button-ghost" onClick={() => setSubview("finance")}>{t(lang, "workspace_tab_finance")}</button>
     </div>
 
+    {/* No clients yet: inviting is the first job, so the card leads; otherwise it follows the pulse. */}
+    {clients.length === 0 && <TrainerInviteCard lang={lang} />}
     <Panel tone="accent">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "client_pulse_eyebrow")}</span><h2>{t(lang, "needs_attention_title")}</h2></div></div>
       <div className="client-list">{clients.slice(0, 8).map((client) => <div className="client-row" key={client.id}>
@@ -651,6 +654,8 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
         </div>
       </div>)}</div>
     </Panel>
+
+    {clients.length > 0 && <TrainerInviteCard lang={lang} />}
 
     <Panel><div className="section-head"><div><span className="eyebrow">{t(lang, "requests_eyebrow")}</span><h2>{t(lang, "new_requests_title")}</h2></div><span className="tag">{requests?.requests.length ?? 0}</span></div>{requests?.requests.length ? <div className="client-list">{requests.requests.map((request) => <div className="client-row" key={request.id}><div><strong>{request.name}</strong><small>{request.note || t(lang, "no_note")}</small></div><div className="button-row"><button className="button button-primary" disabled={busy !== null} onClick={() => void act(`req-accept:${request.id}`, "/api/v2/requests", { id: request.id, action: "accept" })}>{t(lang, "accept_btn")}</button><button className="button button-ghost" disabled={busy !== null} onClick={() => void act(`req-decline:${request.id}`, "/api/v2/requests", { id: request.id, action: "decline" })}>{t(lang, "decline_btn")}</button></div></div>)}</div> : <p className="muted">{t(lang, "no_pending_requests")}</p>}</Panel>
 

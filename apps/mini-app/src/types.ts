@@ -39,6 +39,8 @@ export interface V2Failure {
 }
 
 export type Dashboard = Schemas["Dashboard"];
+export type TrainerInvite = Schemas["TrainerInvite"];
+export type TrainerProspectInvite = Schemas["TrainerProspectInvite"];
 export type WorkoutToday = Schemas["WorkoutToday"];
 export type WorkoutHistoryItem = Schemas["WorkoutHistoryItem"];
 export type WorkoutCopyExercise = Schemas["WorkoutCopyExercise"];

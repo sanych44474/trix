@@ -1348,6 +1348,53 @@ paths:
                         ok: {const: true}
                         pending: {type: boolean}
                   required: [data]
+  /api/v2/trainer/invite:
+    get:
+      operationId: getTrainerInvite
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: The trainer's shareable invite link (t.me/<bot>?start=tr_<code>) and the personal invites still waiting to be opened. link is "" until the profile is approved (no invite code yet) or when the deployment has no BOT_USERNAME.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/TrainerInvite'}
+                  required: [data]
+        '403':
+          description: The caller is not a trainer
+    post:
+      operationId: createTrainerInvite
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      description: A single-use personal invite for a named person. Opening it pairs them with the trainer and pre-fills that name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string, minLength: 2, maxLength: 60}
+              required: [name]
+      responses:
+        '200':
+          description: The new personal invite
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/TrainerProspectInvite'}
+                  required: [data]
   /api/v2/trainer/sessions:
     get:
       operationId: getTrainerSessions
@@ -3242,6 +3289,26 @@ components:
         contact: {type: string}
         accepting: {type: boolean}
         clients: {type: integer}
+    TrainerInvite:
+      type: object
+      required: [link, shareText, approved, accepting, clients, prospects]
+      properties:
+        link: {type: string}
+        shareText: {type: string}
+        approved: {type: boolean}
+        accepting: {type: boolean}
+        clients: {type: integer}
+        maxClients: {type: [integer, 'null']}
+        prospects:
+          type: array
+          items: {$ref: '#/components/schemas/TrainerProspectInvite'}
+    TrainerProspectInvite:
+      type: object
+      required: [name, link, createdAt]
+      properties:
+        name: {type: string}
+        link: {type: string}
+        createdAt: {type: string}
     TrainerQuestion:
       type: object
       required: [id, clientId, client, text, draft, status]

@@ -242,7 +242,9 @@ function**, so the total below is a count rather than a slogan.
 
 ## 7. Trainer tools
 
-1. **Personal invite code and link** (`t.me/<bot>?start=tr_<code>`), or the code typed by hand.
+1. **Personal invite code and link** (`t.me/<bot>?start=tr_<code>`), or the code typed by hand —
+   shared from the Mini App through Telegram's share sheet or copied, alongside single-use named
+   invites that pair the person on open.
 2. **Client requests inbox**: accept or decline.
 3. **Client limit and waitlist.**
 4. **Trainer profile wizard**: bio, tags, languages, photo, specializations.
