@@ -3562,6 +3562,7 @@ components:
               s: {type: integer, description: Step events}
               last: {type: string, description: 'lastSeenAt as MM-DD, or empty'}
               total: {type: integer, description: w + c + n + s}
+              lastSeen: {type: string, format: date-time, description: Last interaction (ISO); absent when never seen}
         feedback:
           type: array
           items:

@@ -76,3 +76,28 @@ test("handleOwnerApi: ask-inactive is a no-op when nobody qualifies", async () =
   assert.equal(body.total, 0);
   assert.equal(body.sent, 0);
 });
+
+test("handleOwnerApi: nudge resumes an unfinished onboarding at the first unanswered step; 409 once onboarded", async () => {
+  const db = newDb();
+  const { getUser } = await import("../src/adapters/d1/v2Users");
+  await getOrCreateUser(db, 5, 5, "uk", "Owner");
+  await setOwnerChatId(db, 5);
+  await getOrCreateUser(db, 8, 8, "uk", "Stuck");
+  const sent: Array<{ chat_id: number; text: string }> = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => { sent.push(JSON.parse(String(init?.body))); return new Response("{}", { status: 200 }); }) as typeof fetch;
+  try {
+    const res = await call(db, 5, "POST", "/api/owner/user/8/nudge", {});
+    assert.equal(res.status, 200);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0]!.chat_id, 8);
+    assert.match(sent[0]!.text, /Залишилось кілька питань/);
+    assert.equal((await getUser(db, 8))!.session.mode, "onboarding");
+    await updateUser(db, 8, { onboarded: true });
+    assert.equal((await call(db, 5, "POST", "/api/owner/user/8/nudge", {})).status, 409);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  const users = (await (await call(db, 5, "GET", "/api/owner/users")).json()) as { rows: Array<{ id: number; total: number }> };
+  assert.ok(users.rows.every((r) => typeof r.total === "number"));
+});

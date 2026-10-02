@@ -930,6 +930,7 @@ export interface OwnerUserRow {
   id: number; name: string; nick: string; trainer: string;
   status: "banned" | "blocked" | "onboarding" | "active" | "draft" | "none";
   onb: string; w: number; c: number; n: number; s: number; last: string; total: number;
+  lastSeen?: string; // full ISO timestamp of the last interaction (absent = never seen)
 }
 export async function ownerUsersData(
   db: D1Database,
@@ -969,6 +970,7 @@ export async function ownerUsersData(
       w: ev.workouts, c: ev.checkins, n: ev.nutrition, s: ev.steps,
       last: u.lastSeenAt ? u.lastSeenAt.slice(5, 10) : "",
       total: ev.workouts + ev.checkins + ev.nutrition + ev.steps,
+      ...(u.lastSeenAt ? { lastSeen: u.lastSeenAt } : {}),
     };
   });
   const fb = feedback.map((f) => ({ who: f.username ? `@${f.username}` : `id ${f.userId}`, date: f.date, text: f.text }));

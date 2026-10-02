@@ -29,7 +29,7 @@ import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { logInfo } from "../log";
 import { adaptPlan } from "../domain/planAdapt";
 import { escapeHtml, t } from "../locales/i18n";
-import { obKeyboard, obProgress, obSteps } from "../bot";
+import { nudgeOnboarding } from "./onboardingNudge";
 import { miniAppUser } from "./auth";
 import { buildClientCardPayload } from "./clientCard";
 import { readJsonBody } from "./validate";
@@ -254,21 +254,8 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     // interview transcript if one is in progress, else resume/restart the button wizard at the
     // first unanswered step. A no-op (ok:true, alreadyOnboarded:true) once the client is done —
     // the bot's own action just shows the summary at that point, nothing to nudge.
-    if (client.onboarded) return Response.json({ ok: true, alreadyOnboarded: true });
-    const prefix = t(client.lang, "cc_intv_remind_text");
-    const transcript = client.session.transcript;
-    if (client.session.mode === "onboarding" && transcript?.length) {
-      const lastQ = [...transcript].reverse().find((entry) => entry.role === "assistant");
-      await tgSend(env, client.chatId, `${prefix}\n\n${escapeHtml(lastQ?.text ?? "")}`.trim());
-    } else {
-      const step = client.session.mode === "onboarding" && typeof client.session.step === "number" ? client.session.step : obProgress(client.profile).next;
-      await updateUser(env.DB, clientId, { session: { mode: "onboarding", step } });
-      const steps = obSteps(client.lang);
-      const idx = Math.max(0, Math.min(step, steps.length - 1));
-      const stepDef = steps[idx];
-      const text = `${prefix}\n\n(${idx + 1}/${steps.length}) ${t(client.lang, stepDef.q)}`;
-      await tgSend(env, client.chatId, text, obKeyboard(client.lang, stepDef, client.profile.trainingWeekdays ?? [], idx > 0));
-    }
+    const nudged = await nudgeOnboarding(env, client, "cc_intv_remind_text");
+    if (nudged.alreadyOnboarded) return Response.json({ ok: true, alreadyOnboarded: true });
     return Response.json({ ok: true });
   } catch (err) {
     return apiFailure(env, "api_trainer", err, { userId: user._id, action });
