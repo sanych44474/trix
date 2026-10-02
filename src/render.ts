@@ -10,6 +10,7 @@ import type { ConditioningWeek } from "./domain/conditioning";
 import { planBalance } from "./domain/muscleLoad";
 import type { WeeklyReport } from "./domain/weeklyReport";
 import type { Quest } from "./domain/quests";
+import { isSelfSelectWeight } from "./domain/startWeights";
 import { challengeTitleParts, type ChallengeTemplate } from "./domain/challenges";
 import { QUEST_XP } from "./domain/gamification";
 
@@ -79,6 +80,8 @@ function startWeightLabel(raw: string, lang: Lang): string {
   const w = (raw || "").trim();
   if (!w || w === "—" || w === "-") return "";
   if (/^(bodyweight|власна вага|своя вага)$/i.test(w)) return lang === "uk" ? "власна вага" : "bodyweight";
+  // "pick a weight" (domain/startWeights.ts): say how to pick it, right where the number would be.
+  if (isSelfSelectWeight(w)) return lang === "uk" ? "вагу підбери: 2–3 повтори в запасі" : "pick a weight: 2–3 reps in reserve";
   return w;
 }
 

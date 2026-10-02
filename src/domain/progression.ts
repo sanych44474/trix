@@ -515,6 +515,9 @@ export function evaluateProgressionRate(logs: WorkoutLogDoc[]): ProgressionRate 
  * "50 kg" → {kg:50, suffix:" kg"}; "60" → {kg:60, suffix:""}; "Bodyweight"/"BW"/"власна" → bodyweight. */
 function parsePlanWeight(s: string): { kg: number; bodyweight: boolean; suffix: string } {
   const lower = s.toLowerCase();
+  // "pick a weight" (domain/startWeights.ts): loaded, just not chosen yet — the logged weight
+  // becomes the plan weight, it must not fall into the bodyweight rep-progression branch.
+  if (/підбер|подбер|pick a weight|choose a weight/.test(lower)) return { kg: 0, bodyweight: false, suffix: " kg" };
   if (/body|^bw\b|власн|собствен|свое/.test(lower)) return { kg: 0, bodyweight: true, suffix: "" };
   const m = /(\d+(?:[.,]\d+)?)\s*(.*)$/.exec(s.trim());
   if (!m) return { kg: 0, bodyweight: true, suffix: "" };

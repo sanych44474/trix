@@ -4,6 +4,7 @@
 // the client and the bot editor stay in sync. Same initData auth as every other webapp API.
 import { FREE_EXERCISE_IDS } from "../../apps/mini-app/src/data/freeExerciseIds";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
+import { fitSplitToKit, kitFromEquipment, kitMismatches } from "../domain/equipmentFit";
 import { swapPlanDays } from "../domain/recoverySwap";
 import {
   getActivePlan,
@@ -60,6 +61,9 @@ export interface PlanPayload {
   days: PlanDayView[];
   mesocycle: Mesocycle | null; // opt-in block periodization overlay, see src/domain/mesocycle.ts
   changes: PlanChangeView[]; // recent audit trail; a trainer reading a client's plan sees the same list
+  // The owner's equipment and how many plan exercises need gear outside it (domain/equipmentFit.ts);
+  // > 0 shows the "fit my plan to my equipment" offer.
+  kit: { equipment: string; mismatches: number };
 }
 
 interface PlanChangeView {
@@ -169,6 +173,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
       days: toView(plan.split, videos, owner.lang),
       mesocycle: plan.mesocycle ?? null,
       changes: changes.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
+      kit: { equipment: owner.profile.equipment ?? "", mismatches: kitMismatches(plan.split, kitFromEquipment(owner.profile.equipment)) },
     };
     return Response.json(payload, { headers: { "cache-control": "no-store", etag: `"${payload.version}"` } });
   }
@@ -206,6 +211,30 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
   if (body.action === "meso") {
     await updatePlanMesocycle(env.DB, owner._id, body.on ? defaultMesocycle() : null);
     return Response.json({ ok: true });
+  }
+
+  // Fit the whole plan to the owner's equipment (optionally changing it first): every exercise
+  // needing gear they don't have becomes a same-muscle one they can do (domain/equipmentFit.ts).
+  if (body.action === "fitkit") {
+    const EQUIPMENT = ["full gym", "home basics (dumbbells, bands)", "dumbbells only", "bodyweight only"];
+    if (typeof body.equipment === "string" && EQUIPMENT.includes(body.equipment) && body.equipment !== owner.profile.equipment) {
+      owner.profile = { ...owner.profile, equipment: body.equipment };
+      await updateUser(env.DB, owner._id, { profile: owner.profile });
+    }
+    const { split, swaps, dropped } = fitSplitToKit(plan.split, kitFromEquipment(owner.profile.equipment), owner.lang === "en" ? "en" : "uk");
+    if (swaps.length || dropped.length) {
+      await updateActivePlanSplit(env.DB, owner._id, split);
+      await recordPlanChange(env.DB, owner._id, owner._id === user._id ? "manual" : "trainer", `fitted to equipment: ${swaps.length} swapped, ${dropped.length} removed`).catch(() => {});
+    }
+    const fitVideos = await resolveVideos(env, owner._id, split);
+    const fitChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
+    return Response.json({
+      ok: true,
+      days: toView(split, fitVideos, owner.lang),
+      version: plan.generatedAt.toISOString(),
+      changes: fitChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
+      swapped: swaps.length + dropped.length,
+    });
   }
 
   // Two days trade weekdays (the recovery-swap suggestion on the Today screen, or a manual

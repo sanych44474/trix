@@ -140,6 +140,25 @@ const DAY_GROUPS: DayGroup[] = ["chest", "back", "legs", "shoulders", "arms", "f
 // Same order/keys Onboarding.tsx uses, index 0 = Monday = weekday 1.
 const WEEKDAY_KEYS: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed", "weekday_thu", "weekday_fri", "weekday_sat", "weekday_sun"];
 
+// The plan has exercises needing gear outside the owner's equipment (a dumbbells-only person with
+// barbell work): one tap swaps them all for same-muscle ones they can do, or changes the
+// equipment first if the profile answer was wrong.
+const EQUIPMENT_CHOICES: Array<[NonNullable<PlanEditBody["equipment"]>, Key]> = [["full gym", "equip_full_gym"], ["home basics (dumbbells, bands)", "equip_home_basics"], ["dumbbells only", "equip_dumbbells_only"], ["bodyweight only", "equip_bodyweight_only"]];
+function KitFitCard({ lang, kit, busy, onFit }: { lang: Lang; kit: NonNullable<Plan["kit"]>; busy: boolean; onFit: (equipment?: PlanEditBody["equipment"]) => void }) {
+  const current = EQUIPMENT_CHOICES.find(([value]) => value === kit.equipment);
+  const [choice, setChoice] = useState<PlanEditBody["equipment"]>(current?.[0] ?? "dumbbells only");
+  return <Card tone="accent">
+    <div className="section-head"><div><span className="eyebrow">{t(lang, "kitfit_eyebrow")}</span><h2>{t(lang, "kitfit_title", { n: kit.mismatches })}</h2></div></div>
+    <p>{t(lang, "kitfit_body", { equipment: current ? t(lang, current[1]) : kit.equipment })}</p>
+    <div className="button-row">
+      <select value={choice} onChange={(event) => setChoice(event.target.value as PlanEditBody["equipment"])} aria-label={t(lang, "field_equipment")}>
+        {EQUIPMENT_CHOICES.map(([value, key]) => <option key={value} value={value}>{t(lang, key)}</option>)}
+      </select>
+      <button className="button button-light" disabled={busy} onClick={() => onFit(choice !== kit.equipment ? choice : undefined)}>{busy ? t(lang, "saving_ellipsis") : t(lang, "kitfit_btn")}</button>
+    </div>
+  </Card>;
+}
+
 function PlanView({ lang, clientId = null, onBack, onOpenLibrary }: { lang: Lang; clientId?: number | null; onBack?: () => void; onOpenLibrary?: () => void }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -208,7 +227,7 @@ function PlanView({ lang, clientId = null, onBack, onOpenLibrary }: { lang: Lang
         idempotencyKey: crypto.randomUUID(),
         body: typedBody<"editPlan">({ ...body, clientId: clientId ?? undefined }),
       });
-      setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}) });
+      setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}), ...(key === "fitkit" && plan.kit ? { kit: { equipment: body.equipment ?? plan.kit.equipment, mismatches: 0 } } : {}) });
       setSaved(key);
     } catch (err) { setActionError(err); } finally { setDayBusy(null); }
   };
@@ -284,6 +303,7 @@ function PlanView({ lang, clientId = null, onBack, onOpenLibrary }: { lang: Lang
         <div><strong>{change.summary}</strong><small>{t(lang, `plan_change_src_${change.source}` as Key)} · {change.at.slice(0, 10)}</small></div>
       </div>)}</div>}
     </Card>}
+    {plan.kit && plan.kit.mismatches > 0 && <KitFitCard lang={lang} kit={plan.kit} busy={dayBusy === "fitkit"} onFit={(equipment) => void mutateDay("fitkit", { action: "fitkit", ...(equipment ? { equipment } : {}) })} />}
     {balance.length > 0 && <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_balance_eyebrow")}</span><h2>{t(lang, "plan_balance_title")}</h2></div></div>
       <div className="balance-list">{balance.map((issue) => <div className="balance-row" key={`${issue.kind}-${issue.slug}`}>

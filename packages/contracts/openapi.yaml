@@ -511,7 +511,7 @@ paths:
                 index: {type: integer, minimum: -1, maximum: 12}
                 action:
                   type: string
-                  enum: [weight, sets, wmode, video, link, del, move, swap, add, meso, dayadd, daydel, dayswap]
+                  enum: [weight, sets, wmode, video, link, del, move, swap, add, meso, dayadd, daydel, dayswap, fitkit]
                 value:
                   type: string
                   maxLength: 300
@@ -540,6 +540,10 @@ paths:
                   enum: [chest, back, legs, shoulders, arms, full, core]
                 'on': {type: boolean, description: 'action=meso only: start/stop periodization'}
                 other: {type: integer, minimum: 1, maximum: 7, description: 'action=dayswap only: the plan day that trades weekdays with `weekday`'}
+                equipment:
+                  type: string
+                  enum: ['full gym', 'home basics (dumbbells, bands)', 'dumbbells only', 'bodyweight only']
+                  description: 'action=fitkit only: change the profile equipment first, then fit the plan to it'
       responses:
         '200':
           description: Updated plan (or {ok:true} for the meso toggle, which has no weekday/index)
@@ -558,6 +562,7 @@ paths:
                           type: array
                           items: {$ref: '#/components/schemas/PlanDay'}
                         version: {type: string}
+                        swapped: {type: integer, description: 'action=fitkit only: exercises swapped or removed'}
                         changes:
                           type: array
                           description: The refreshed audit log, newest first, including this edit.
@@ -2309,6 +2314,7 @@ components:
           maxItems: 7
           items: {type: integer, minimum: 1, maximum: 7}
         limitations: {type: string, maxLength: 500}
+        baselineLifts: {type: string, maxLength: 200, description: 'Optional current lifts, e.g. "bench 60kg, squat 80kg, deadlift 100kg" — sets starting weights'}
     ChallengeRequest:
       type: object
       required: [code]
@@ -2847,8 +2853,15 @@ components:
         rpe: {type: number}
     Plan:
       type: object
-      required: [owner, editable, version, mesocycle, days, changes]
+      required: [owner, editable, version, mesocycle, days, changes, kit]
       properties:
+        kit:
+          type: object
+          description: The owner's equipment and how many plan exercises need gear outside it.
+          properties:
+            equipment: {type: string}
+            mismatches: {type: integer}
+          required: [equipment, mismatches]
         owner:
           type: object
           properties:

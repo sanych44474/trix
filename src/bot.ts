@@ -1,4 +1,5 @@
 import { offerRecoverySwap } from "./bot/recoverySwap";
+import { kitFitButton } from "./bot/kitFit";
 import { InlineKeyboard, InputFile } from "grammy";
 import { logInfo } from "./log";
 import type { CatalogExercise, ExerciseMetric, ExerciseVideo, Lang, PlanDay, PlanDoc, PlanExercise, UserDoc, Weekday } from "./types";
@@ -437,7 +438,10 @@ export async function cmdPlan(ctx: MyContext) {
   }
   plan = await healPlanIfDegenerate(ctx, plan);
   plan = await healPlanNamesForDisplay(ctx, plan, lang);
-  await reply(ctx, renderPlan(lang, plan, await videosForDays(ctx, plan.split)), planViewKb(lang));
+  // Exercises needing equipment they don't have → a one-tap fix leads the keyboard (bot/kitFit.ts).
+  const kb = planViewKb(lang);
+  const fit = await kitFitButton(ctx).catch(() => null);
+  await reply(ctx, renderPlan(lang, plan, await videosForDays(ctx, plan.split)), fit ? new InlineKeyboard().text(fit.text, fit.data).row().append(kb) : kb);
 }
 
 // Instructions + safety for an exercise in the user's language. English is served straight

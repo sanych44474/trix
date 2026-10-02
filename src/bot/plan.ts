@@ -19,7 +19,9 @@ import { countExercises, getCatalogExercise, getExerciseTranslation, listCandida
 import { getUser, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
 import { sanitizeBodyMetrics } from "./onboarding";
 import { trainerStyleBlock } from "../features/trainer/trainer";
-import { adaptPlan } from "../domain/planAdapt";
+import { adaptPlan, finishGeneratedSplit } from "../domain/planAdapt";
+import { fitsKit, kitFromEquipment } from "../domain/equipmentFit";
+import { fitsEquipmentPreset } from "../domain/gymSwap";
 import { PLAN_SCHEMA_VERSION, parseAiPlanResponse } from "../domain/plan-schema";
 import { exerciseCountLimits } from "../domain/plan-lint";
 import { MATCH_THRESHOLD, selectBest } from "../domain/planBank";
@@ -114,7 +116,7 @@ async function bankFallbackPlan(
   if (!match) return null;
   const bankPlan = match.entry.plan[lang === "en" ? "en" : "uk"];
   const replacements = await resolveDislikedSwaps(db, lang, bankPlan.split, profile).catch(() => new Map());
-  const plan = adaptPlan(bankPlan, profile, userId, { replacements, authoredBy });
+  const plan = adaptPlan(bankPlan, profile, userId, { replacements, authoredBy, finishFor: lang === "en" ? "en" : "uk" });
   await recordPlanSource(db, userId, "workout", "bank").catch(() => {});
   return plan;
 }
@@ -474,8 +476,13 @@ export async function buildPlanDocRaw(
 ): Promise<PlanDoc> {
   // Ground the plan in real catalog exercises when the catalog is seeded; otherwise the
   // candidate list is empty and the prompt is identical to the legacy AI-invent behavior.
+  // Only exercises the person can do with their equipment are offered to the model.
+  const kit = kitFromEquipment(profile.equipment);
   const candidates = (await countExercises(db))
-    ? await listCandidatesByMuscles(db, [...API_MUSCLES], { level: profile.level, perMuscle: 20, total: 320 })
+    ? (await listCandidatesByMuscles(db, [...API_MUSCLES], { level: profile.level, perMuscle: 20, total: 320 }))
+        .filter((c) => kit === "gym" || (fitsKit({ name: c.name }, kit) && (kit === "bodyweight"
+          ? fitsEquipmentPreset(c.equipments, "bodyweight")
+          : fitsEquipmentPreset(c.equipments, "dumbbells") || (kit === "home" && fitsEquipmentPreset(c.equipments, "band")))))
     : [];
   const candidateIds = new Set(candidates.map((c) => c.id));
   // Same phase computation coachContext() already uses for the chat coach — give the initial
@@ -529,7 +536,9 @@ export async function buildPlanDocRaw(
   // is saved, rather than only warned about under the plan (domain/planAutoBalance.ts).
   const balanced = autoBalanceSplit(translatedSplitRaw, lang, limits.max);
   if (balanced.added.length) logInfo("plan_autobalanced", { added: balanced.added.map((a) => `${a.issue}:${a.slug}`).join(",") });
-  const translatedSplit = balanced.split;
+  // Then keep it inside their equipment and set starting weights from their level and stated
+  // lifts — the model is told both, but doesn't reliably obey (domain/planAdapt.ts).
+  const translatedSplit = finishGeneratedSplit(balanced.split, profile, lang === "en" ? "en" : "uk");
   // Translate plan-level text fields (methodology and nutrition notes) — they come from the AI
   // in English and are not covered by the exercise-translation pass.
   const { methodology: translatedMethodology, nutritionNotes: translatedNutNotes } =
@@ -653,7 +662,7 @@ export async function buildPlanForUser(
   const fromBank = async (): Promise<{ plan: PlanDoc; source: "bank" }> => {
     const bankPlan = match!.entry.plan[lang === "en" ? "en" : "uk"];
     const replacements = await resolveDislikedSwaps(ctx.db, lang, bankPlan.split, profile).catch(() => new Map());
-    const plan = adaptPlan(bankPlan, profile, forUserId, { prs: opts.prs, replacements, authoredBy: opts.authoredBy });
+    const plan = adaptPlan(bankPlan, profile, forUserId, { prs: opts.prs, replacements, authoredBy: opts.authoredBy, finishFor: lang === "en" ? "en" : "uk" });
     await localizePlanNames(ctx, plan, lang);
     await recordPlanSource(ctx.db, forUserId, "workout", "bank").catch(() => {});
     return { plan, source: "bank" };

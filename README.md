@@ -21,13 +21,13 @@ Cloudflare's on-platform Workers AI, which needs no API key at all.
 
 ## What it can do
 
-**194 functions across 11 areas**, one per line in the
+**196 functions across 11 areas**, one per line in the
 [feature catalog](docs/features.md); what changed in each release is in the
 [release notes](docs/release-notes.md). The short version:
 
 | Area | Highlights |
 |---|---|
-| Training plan (31) | Split around your days, equipment and injuries; sets, weights, RPE/RIR, rest, tempo; supersets; self-balancing plans and one-tap fixes; a day swap when muscles aren't recovered; weekly progression, plateau detection, level-ups; cardio counted as load; "not my gym today" |
+| Training plan (33) | Split around your days, equipment and injuries — and kept inside your equipment; honest starting weights (pick by feel, or from your stated lifts); sets, weights, RPE/RIR, rest, tempo; supersets; self-balancing plans and one-tap fixes; a day swap when muscles aren't recovered; weekly progression, plateau detection, level-ups; cardio counted as load; "not my gym today" |
 | Workout logging (30) | Mini App logger with one-tap "as planned", technique pictures and steps, AI form check from a video, swaps it remembers, rest timer with a Telegram push, drafts synced across devices, measured session length, Telegram's native button, Strava import; or log by text / voice in chat |
 | Nutrition (14) | Macros from text or a meal photo, Open Food Facts search, adaptive calories, AI meal plan, aisle-sorted shopping list |
 | Body & recovery (15) | Weight, measurements, body-fat estimate, goal forecast, water, steps, wellbeing check-in and readiness, progress photos, opt-in cycle tracking |

@@ -6,7 +6,8 @@
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { ExerciseMetric, Lang, LoggedExercise, PlanDay, SetEntry, UserDoc, Weekday } from "../types";
-import { getActivePlan } from "../adapters/d1/v2Plans";
+import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { adoptLoggedWeights } from "../domain/startWeights";
 import {
   countCompletedWorkouts, listStrength,
   upsertStrengthRecord, upsertWorkoutLog, workoutLogsSince,
@@ -145,6 +146,17 @@ export async function applyWorkoutSave(
       if (!prHit) prHit = { name: e.name, metric, weight: best.weight, reps: best.reps, seconds: best.seconds, meters: best.meters };
     }
   }
+
+  // "pick a weight" exercises (beginners' first sessions) take the weight just logged as their plan
+  // weight. Best-effort: a failure here must not fail the save the user already made.
+  try {
+    const plan = await getActivePlan(db, user._id);
+    if (plan && !isPastEdit) {
+      const logged = entries.map((e) => ({ name: e.planName ?? e.name, weight: Math.max(0, ...e.sets.map((x) => x.weight ?? 0)) }));
+      const { split, adopted } = adoptLoggedWeights(plan.split, logged);
+      if (adopted) await updateActivePlanSplit(db, user._id, split);
+    }
+  } catch { /* keep the marker; the weekly progression adopts it later */ }
 
   const fresh: string[] = [];
   const total = await countCompletedWorkouts(db, user._id);

@@ -221,3 +221,18 @@ test("buildTemplateMealDay is deterministic for a fixed seed", () => {
   const b = buildTemplateMealDay(4, { goal: "muscle", excluded: [], seed: 7 });
   assert.deepEqual(a, b);
 });
+
+test("selectBest: equipment is a hard filter — a home user never gets a gym archetype while a home one exists", () => {
+  const home: UserProfile = { ...muscleProfile, equipment: "dumbbells only" };
+  // The gym entry matches every other dimension; the home one is a worse fit on goal/level/days.
+  const entries = [entry("gym-exact", {}), entry("home-far", { equipment: "home", goal: "fatloss", level: "beginner", daysBucket: "d23" })];
+  assert.equal(selectBest(entries, home, 1)!.entry.id, "home-far");
+  assert.equal(selectBest([entry("gym-only", {})], home, 1)!.entry.id, "gym-only", "with no home entry at all, the nearest is still used (and fitted afterwards)");
+});
+
+test("equipmentBucket: every onboarding answer but 'full gym' is home", () => {
+  assert.equal(equipmentBucket({ equipment: "full gym" }), "gym");
+  assert.equal(equipmentBucket({ equipment: "home basics (dumbbells, bands)" }), "home");
+  assert.equal(equipmentBucket({ equipment: "dumbbells only" }), "home");
+  assert.equal(equipmentBucket({ equipment: "bodyweight only" }), "home");
+});

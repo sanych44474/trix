@@ -3,6 +3,7 @@
 // Handlers are imported from "../bot"; nothing in bot.ts's handler bodies depends on this module
 // except four symbols re-imported back, so the dependency is essentially one-way.
 import { handleFormVideo } from "./formCheck";
+import { applyKitFit } from "./kitFit";
 import { applyRecoverySwap } from "./recoverySwap";
 import { cmdPaySupport, cmdSupport, onPreCheckout, onSuccessfulPayment, onSupportAmount } from "./support";
 import { Bot, InlineKeyboard } from "grammy";
@@ -1189,6 +1190,7 @@ export async function setMesocycle(ctx: MyContext, on: boolean) {
 }
 
 export const CB_PREFIX: [string, CbHandler][] = [
+  ["kitfit:", (ctx, rest) => applyKitFit(ctx, rest)],
   ["orep:", (ctx, rest) => sendOwnerSection(ctx, rest)],
   ["support:", (ctx, rest) => onSupportAmount(ctx, rest)],
   ["ob:", (ctx, rest) => onboardingButton(ctx, rest)],

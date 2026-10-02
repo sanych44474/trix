@@ -1,6 +1,8 @@
 import type { BankPlan, PlanDay, PlanDoc, PlanExercise, UserProfile, Weekday } from "../types";
 import { computeTargets } from "./mealplan";
 import { PLAN_SCHEMA_VERSION } from "./plan-schema";
+import { fitSplitToKit, kitFromEquipment } from "./equipmentFit";
+import { applyStartWeights } from "./startWeights";
 
 // Pure per-user adapter: turns a generic bank plan into a personalized PlanDoc — remaps the
 // training days to the client's chosen weekdays, scales starting weights to their bodyweight
@@ -49,6 +51,9 @@ export interface AdaptOpts {
    * RPE and role are preserved. */
   replacements?: Map<string, Partial<PlanExercise>>;
   authoredBy?: number;
+  /** Bank plans for the person themselves: fit their equipment and starting weights
+   * (finishGeneratedSplit). Off for a trainer's template, which is the trainer's call. */
+  finishFor?: "uk" | "en";
 }
 
 /** Adapt a bank plan to a specific user. Returns a ready-to-save PlanDoc. */
@@ -83,6 +88,7 @@ export function adaptPlan(
     return { ...day, weekday, exercises };
   });
 
+  const finalSplit = opts.finishFor ? finishGeneratedSplit(split, profile, opts.finishFor) : split;
   const nutrition = computeTargets(profile);
   // Rest-day macros: keep protein, trim carbs ~30% and calories ~12% (mirrors the AI plan rule).
   const restDayNutrition = {
@@ -97,7 +103,7 @@ export function adaptPlan(
     active: false,
     status: "active",
     authoredBy: opts.authoredBy,
-    split,
+    split: finalSplit,
     nutrition,
     restDayNutrition,
     supplements: [],
@@ -107,4 +113,14 @@ export function adaptPlan(
     schemaVersion: PLAN_SCHEMA_VERSION,
     ...(typeof bank.stepsTarget === "number" ? { stepsTarget: bank.stepsTarget } : {}),
   };
+}
+
+/**
+ * The last step for any plan the app generates for someone (bank or AI, not a trainer's own
+ * template): keep it inside their equipment (domain/equipmentFit.ts), then set starting weights
+ * from their level and stated lifts (domain/startWeights.ts).
+ */
+export function finishGeneratedSplit(split: PlanDay[], profile: UserProfile, lang: "uk" | "en"): PlanDay[] {
+  const fitted = fitSplitToKit(split, kitFromEquipment(profile.equipment), lang).split;
+  return applyStartWeights(fitted, profile, lang).split;
 }
