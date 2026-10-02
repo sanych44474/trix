@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "./api";
 import { TrainerInviteCard } from "./TrainerInvite";
+import { OwnerRoster, type RosterAction } from "./OwnerRoster";
 import type { ClientCardPayload, CoachThread, Dashboard, FinancePayload, InjuryPayload, OwnerUsers, RequestBody, SchedulePayload, TrainerProfile } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 
@@ -720,7 +721,7 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
   // must not blank the whole console out from under the owner mid-action; it shows inline instead.
   const [actionError, setActionError] = useState(false);
   const [rosterBusy, setRosterBusy] = useState<string | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const [nudged, setNudged] = useState<Set<number>>(new Set());
 
   const loadUsers = () => { setError(false); return api<OwnerUsers>("/api/v2/owner/users").then(setUsers).catch(() => setError(true)); };
   const loadSection = (id: OwnerSection, force = false) => {
@@ -739,11 +740,11 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
   // Block/unblock/delete ANY user. Delete is a two-tap gate matching the bot's own ownerUserKb
   // confirm (ou:*:del shows confirm/cancel, only ou:*:delok deletes) -- pendingDelete tracks which
   // row is mid-confirm; a second explicit tap on "Yes, delete" is what actually calls the route.
-  const userAction = async (id: number, action: "block" | "unblock" | "delete") => {
+  const userAction = async (id: number, action: RosterAction) => {
     setRosterBusy(`${action}:${id}`);
     try {
       await api(`/api/v2/owner/user/${id}/${action}`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
-      if (action === "delete") setPendingDelete(null);
+      if (action === "nudge") { setNudged((current) => new Set(current).add(id)); return; }
       await loadUsers();
     } catch { setActionError(true); } finally { setRosterBusy(null); }
   };
@@ -771,24 +772,8 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
     </nav>
 
     {section === "roster" && <Panel>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "roster_eyebrow")}</span><h2>{t(lang, "recent_users_title")}</h2></div></div>
-      <div className="client-list">{users.rows.slice(0, 12).map((user, index) => {
-        const id = typeof user.id === "number" ? user.id : undefined;
-        const blocked = user.status === "banned";
-        const name = String(user.name ?? user.id ?? t(lang, "user_fallback_name", { n: index + 1 }));
-        return <div className="client-row" key={`${user.id ?? index}-${index}`}>
-          <div><strong>{name}</strong><small>{String(user.status ?? "")}</small></div>
-          {id !== undefined && (pendingDelete === id
-            ? <div className="button-row">
-                <button className="button button-ghost" disabled={rosterBusy === `delete:${id}`} onClick={() => void userAction(id, "delete")}>{rosterBusy === `delete:${id}` ? "…" : t(lang, "owner_delete_confirm_btn")}</button>
-                <button className="text-button" onClick={() => setPendingDelete(null)}>{t(lang, "cancel_btn")}</button>
-              </div>
-            : <div className="button-row">
-                <button className="button button-ghost" disabled={rosterBusy === `${blocked ? "unblock" : "block"}:${id}`} onClick={() => void userAction(id, blocked ? "unblock" : "block")}>{rosterBusy === `${blocked ? "unblock" : "block"}:${id}` ? "…" : t(lang, blocked ? "owner_unblock_btn" : "owner_block_btn")}</button>
-                <button className="text-button" onClick={() => setPendingDelete(id)}>{t(lang, "owner_delete_btn")}</button>
-              </div>)}
-        </div>;
-      })}</div>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "roster_eyebrow")}</span><h2>{t(lang, "recent_users_title")}</h2></div><span className="tag">{users.rows.length}</span></div>
+      <OwnerRoster lang={lang} rows={users.rows} busy={rosterBusy} nudged={nudged} onAction={(id, action) => void userAction(id, action)} />
     </Panel>}
 
     {activeReport && <Panel>

@@ -124,6 +124,7 @@ export const en = {
   cc_intv_remind_btn: "🔔 Remind to finish",
   cc_intv_reminded: "🔔 Reminder sent to {name}.",
   cc_intv_remind_text: "🔔 Your trainer asks you to finish the interview so your plan fits you. Let's continue:",
+  owner_intv_remind_text: "👋 Just a few questions left and I'll build your training plan. Let's continue:",
   tr_menu_report: "📊 Report",
   tr_report_noclients: "No clients yet.",
   tr_report_legend: "👥 *Clients* — stat=interview (ok / filled-of-total) · pln=active plan · drf=pending draft · W=workouts C=check-ins N=nutrition S=steps · last=last active (MM-DD) · blk=blocked the bot. 🔔 below = remind to finish the interview.",

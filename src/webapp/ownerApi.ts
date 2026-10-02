@@ -10,11 +10,12 @@ import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, or
 import { switchMode } from "../domain/session";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
+import { nudgeOnboarding } from "./onboardingNudge";
 import type { Env } from "../types";
 
 const FB_ASK_COOLDOWN_DAYS = 14;
 const RELEASE_BATCH = 25;
-const USER_ACTION_ROUTE = /^\/api\/owner\/user\/(\d+)\/(block|unblock|delete)$/;
+const USER_ACTION_ROUTE = /^\/api\/owner\/user\/(\d+)\/(block|unblock|delete|nudge)$/;
 
 export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
@@ -92,7 +93,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
   if (um) {
     if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
     const targetId = Number(um[1]);
-    const action = um[2] as "block" | "unblock" | "delete";
+    const action = um[2] as "block" | "unblock" | "delete" | "nudge";
     // The owner can't block/delete their own account through this console — self-lockout has no
     // recovery path in the Mini App (unlike the bot, which has no such guard but also isn't the
     // only door: /admin re-claims ownership by chat). Not present in the bot's own flow, but a
@@ -103,6 +104,13 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     if (action === "delete") {
       await deleteUserData(env, targetId);
       return Response.json({ ok: true });
+    }
+    // Push someone stuck in onboarding back to the first unanswered question (same message the
+    // trainer's client card sends, worded as coming from trix rather than a trainer).
+    if (action === "nudge") {
+      const r = await nudgeOnboarding(env, target, "owner_intv_remind_text");
+      if (r.alreadyOnboarded) return Response.json({ error: "already onboarded" }, { status: 409 });
+      return Response.json({ ok: true, sent: r.sent });
     }
     const blocked = action === "block";
     await updateUser(env.DB, targetId, blocked ? { blocked: true } : { blocked: false, botBlocked: false });
