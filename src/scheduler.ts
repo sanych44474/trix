@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from "grammy";
 import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from "./schedulerOutbox";
 import { rollupDailyMetrics } from "./dailyMetricsRollup";
+import { sweepStaleDrafts } from "./staleDrafts";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, PlanExercise, UserDoc, Weekday, WorkoutLogDoc } from "./types";
 import {
@@ -235,6 +236,11 @@ export async function runGlobalJobs(db: D1Database, bot: Sender): Promise<void> 
   } catch (e) {
     logSchedulerError(db, "boards_cache", e);
   }
+
+  // Trainer clients stuck on an unassigned first-plan draft: remind the trainer after a day,
+  // activate it after three (staleDrafts.ts).
+  await sweepStaleDrafts(db, (chatId, text, extra) => bot.api.sendMessage(chatId, text, extra))
+    .catch((e) => logSchedulerError(db, "stale_drafts", e));
 
   // AI-error stats are no longer auto-pushed (the every-minute cron + minute<5 window sent the
   // same report ~5× → spam). They are now part of the on-demand owner report (buildOwnerReport).
