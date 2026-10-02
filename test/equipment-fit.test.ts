@@ -84,3 +84,10 @@ test("classic barbell lifts named without 'barbell' count as barbell work — un
   assert.deepEqual(gearFor("Присідання без ваги"), []);
   assert.deepEqual(gearFor("Жим гантелей лежачи", "20 kg"), ["dumbbell"]);
 });
+
+test("kitFromEquipment: a home gym with a barbell is a gym; 'only dumbbells' is dumbbells", () => {
+  assert.equal(kitFromEquipment("домашній зал зі штангою і стійкою"), "gym");
+  assert.equal(kitFromEquipment("only dumbbells"), "dumbbells");
+  assert.equal(kitFromEquipment("home basics (dumbbells, bands)"), "home");
+  assert.equal(kitFromEquipment("без штанги, лише гантелі"), "dumbbells");
+});

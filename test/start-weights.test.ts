@@ -59,3 +59,15 @@ test("after a session, 'pick a weight' exercises adopt the logged weight; others
   assert.equal(r.adopted, 1);
   assert.deepEqual(r.split[0]!.exercises.map((e) => e.startWeight), ["16 kg", "підбери вагу", "14 kg"]);
 });
+
+test("parseBaselineLifts: look-alike lifts are not baselines", () => {
+  assert.deepEqual(parseBaselineLifts("жим ногами 150, підтягування 10, тяга блоку 50"), {});
+  assert.deepEqual(parseBaselineLifts("жим гантелей 24"), {});
+  assert.equal(parseBaselineLifts("тяга 120").deadlift, 120);
+  assert.equal(parseBaselineLifts("жим 80").bench, 80);
+});
+
+test("a barbell split squat is not calibrated as a full squat", () => {
+  const w = weightFromBaseline("Bulgarian Split Squat (barbell)", "3 x 8", { squat: 100 })!;
+  assert.ok(w <= 35, `got ${w}`);
+});

@@ -15,7 +15,9 @@ type Gear = "barbell" | "machine" | "cable" | "kettlebell" | "dumbbell" | "band"
 export function kitFromEquipment(equipment: string | undefined): Kit {
   const e = (equipment ?? "").toLowerCase();
   if (/bodyweight|власн\p{L}* ваг|без інвентар|без обладн|калістен|calisthen/u.test(e)) return "bodyweight";
-  if (/dumbbells only|тільки гантел|лише гантел|только гантел/.test(e)) return "dumbbells";
+  if (/dumbbells only|only dumbbells|тільки гантел|лише гантел|только гантел/.test(e)) return "dumbbells";
+  // "домашній зал зі штангою" / "home gym with a rack" is a gym, not "home basics".
+  if (/штанг|barbell|тренажер|machine|\brack\b|стійк|сміт|smith/u.test(e) && !/без (штанг|тренажер)|no (barbell|machine)/u.test(e)) return "gym";
   if (/home|вдома|дома|band|гум|резин|dumbbell|гантел/.test(e)) return "home";
   return "gym";
 }
@@ -158,7 +160,10 @@ export function fitSplitToKit<D extends { weekday: number; exercises: E[] }, E e
     }
     // Never leave a training day empty: if everything was dropped, keep the plank.
     if (!exercises.length && day.exercises.length) {
-      exercises.push({ ...day.exercises[0]!, name: lang === "en" ? "Plank" : "Планка", canonicalName: "Plank", startWeight: BODYWEIGHT_LABEL[lang], technique: "" });
+      const plank: E = { ...day.exercises[0]!, name: lang === "en" ? "Plank" : "Планка", canonicalName: "Plank", startWeight: BODYWEIGHT_LABEL[lang], technique: "" };
+      delete plank.exerciseId; // it described the dropped movement (images, technique)
+      delete plank.muscles;
+      exercises.push(plank);
     }
     return { ...day, exercises };
   });
