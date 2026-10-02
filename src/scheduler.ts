@@ -3,6 +3,7 @@ import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from 
 import { rollupDailyMetrics } from "./dailyMetricsRollup";
 import { sweepStaleDrafts } from "./staleDrafts";
 import { weeklyModelCheck } from "./aiModelWatch";
+import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, PlanExercise, UserDoc, Weekday, WorkoutLogDoc } from "./types";
 import {
@@ -1401,6 +1402,13 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       if (rate !== user.progressionRate) await setProgressionRate(db, user._id, rate);
     }
     markSent("progression_rate");
+  }
+
+  // Monday: record the quests finished last week, whether or not the Mini App was opened to see
+  // them (questClose.ts). Silent; idempotent per week and code.
+  if (weekday === 1 && !already("quest_close")) {
+    markSent("quest_close");
+    await closeQuestWeek(db, user, isoDateMinus(date, 7)).catch((e) => logSchedulerError(db, "quest_close", e, user._id));
   }
 
   // Weekly dynamic progression — Monday, silent. Analyses the last 3 weeks of logs + recent

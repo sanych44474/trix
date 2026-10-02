@@ -26,14 +26,26 @@ export function isEquipmentTalk(text: string): boolean {
 }
 
 /** The kit a message states outright ("лише гантелі", "тільки власна вага", "only dumbbells"),
- *  or null when it only mentions equipment in passing. */
+ *  or null when it only mentions equipment in passing ("сьогодні тренувався вдома", "є штанга і
+ *  гантелі" — someone with a barbell must not be downgraded to dumbbells). */
 export function statedKit(text: string): Kit | null {
   const n = text.toLowerCase();
   if (!/тільки|лише|только|only|є\s|маю|у мене|в мене|вдома|дома|at home|нема\p{L}* залу|без залу/u.test(n)) return null;
   if (/власн\p{L}* ваг|без (обладнан|інвентар)|нічого немає|bodyweight/u.test(n)) return "bodyweight";
-  if (/гантел|dumbbell/u.test(n)) return /гум|резин|band/u.test(n) ? "home" : "dumbbells";
-  if (/вдома|дома|at home|нема\p{L}* залу|без залу/u.test(n)) return "home";
+  const bands = /гум|резин|band/u.test(n);
+  if (/(тільки|лише|только|only)\s+(\p{L}+\s+)?(гантел|dumbbell)/u.test(n)) return bands ? "home" : "dumbbells";
+  const bigKit = /штанг|barbell|тренажер|machine|кросовер|cable|блок/u.test(n) && !/(без|нема\p{L}*|no)\s+(штанг|тренажер|barbell|machine)/u.test(n);
+  if (bigKit) return null;
+  if (/гантел|dumbbell/u.test(n)) return bands || /вдома|дома|at home/u.test(n) ? "home" : "dumbbells";
+  // Training at home as a habit or a constraint, not "trained at home today".
+  if (/(тренуюс|займаюс)\p{L}*\s+(вдома|дома)|(тільки|лише|only)\s+(вдома|дома|at home)|train\p{L}* at home|нема\p{L}* залу|без залу|не ходжу в зал|no gym/u.test(n)) return "home";
   return null;
+}
+
+/** An explicit ask to change exercises for the equipment (vs. a question that merely mentions it,
+ *  like "як робити жим гантелей?", which the AI coach should answer). */
+function asksToReplace(text: string): boolean {
+  return /замін|заміни|поміняй|replace|swap|не можу|не маю|нема|немає|don.?t have|no (barbell|gym|machine)/iu.test(text);
 }
 
 async function ownerOf(ctx: MyContext): Promise<UserDoc | null> {
@@ -43,9 +55,10 @@ async function ownerOf(ctx: MyContext): Promise<UserDoc | null> {
 
 /** Plan-view button when the plan doesn't fit the equipment; null when it does. */
 export async function kitFitButton(ctx: MyContext): Promise<{ text: string; data: string } | null> {
-  const plan = await getActivePlan(ctx.db, ctx.user._id).catch(() => null);
-  if (!plan) return null;
-  const kit = kitFromEquipment(ctx.user.profile.equipment);
+  const owner = await ownerOf(ctx);
+  const plan = owner ? await getActivePlan(ctx.db, owner._id).catch(() => null) : null;
+  if (!owner || !plan) return null;
+  const kit = kitFromEquipment(owner.profile.equipment);
   const n = kitMismatches(plan.split, kit);
   return n ? { text: t(ctx.user.lang, "kitfit_btn", { n }), data: `kitfit:${kit}` } : null;
 }
@@ -54,11 +67,13 @@ export async function kitFitButton(ctx: MyContext): Promise<{ text: string; data
  *  exercises outside it. Returns true when it answered (the AI coach is then skipped). */
 export async function offerKitFit(ctx: MyContext, text: string): Promise<boolean> {
   if (!isEquipmentTalk(text)) return false;
+  const stated = statedKit(text);
+  if (!stated && !asksToReplace(text)) return false;
   const owner = await ownerOf(ctx);
   if (!owner) return false;
   const plan = await getActivePlan(ctx.db, owner._id).catch(() => null);
   if (!plan) return false;
-  const kit = statedKit(text) ?? kitFromEquipment(owner.profile.equipment);
+  const kit = stated ?? kitFromEquipment(owner.profile.equipment);
   const n = kitMismatches(plan.split, kit);
   if (!n) return false;
   const lang = ctx.user.lang;
