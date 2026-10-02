@@ -9,15 +9,17 @@ const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 //   gemini-3.5-flash-lite    6/6  789ms      gemini-3.8-flash       3/6  1455ms (503-throttled)
 //   gemini-2.5-flash         6/6  770ms      gemini-flash-latest    3/6  1239ms (503-throttled)
 //   gemini-3.5-flash         5/6  7652ms (far too slow for the 8s fast-kind attempt cap)
-// The newest "flash" tiers are the WORST choice here despite being newest: on the free tier they
-// 503 about half the time. The lite tiers are the reliable ones, and 3.5-flash-lite is a real
-// generational upgrade at the same latency. The 503-heavy newest model stays last: worth trying
-// when everything above is exhausted (plan-like kinds walk the whole ladder), never first.
+// [2026-10-02] 3.5-flash-lite now leads: same latency and reliability as 2.5-flash-lite in the
+// benchmark above, a generation newer, and Google's recommended flash-lite; since 2026-09-18 the
+// 2.5 models are only served to keys that already used them, so a fresh key or a fork can't
+// count on them — they stay as the reliable tail. 3.1-flash-lite (shutdown 2027-05-07) keeps its
+// extra quota bucket. The 503-heavy newest flash stays last: tried when everything above is
+// exhausted (plan-like kinds walk the whole ladder), never first.
 const DEFAULT_GEMINI_MODELS = [
-  "gemini-2.5-flash-lite",
   "gemini-3.5-flash-lite",
-  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
   "gemini-3.1-flash-lite",
+  "gemini-2.5-flash",
   "gemini-3.8-flash",
 ];
 

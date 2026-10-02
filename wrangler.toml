@@ -140,9 +140,13 @@ BOT_NAME = ""
 # models LAST. Benchmark showed 3.5-flash/2.5-flash fail FAST (503) under load while
 # 3-flash-preview / 3.1-flash-lite TIME OUT — so they sit at the tail to not starve the
 # Groq fallback. (Gemini 3 Flash + Gemma 4 31B are both present, per request.)
+# [2026-10-02] Light model → gemini-3.5-flash-lite (Google's recommended flash-lite, same
+# latency as 2.5 in the 2026-09-09 benchmark in src/ai/gemini.ts); 2.5 models are now only served
+# to keys that already used them, so they moved behind it. gemini-3-flash-preview dropped from the
+# fallbacks: preview ids get shut down, and gemini.ts's built-in ladder already ends on 3.8-flash.
 GEMINI_MODEL = "gemini-3.5-flash"
-GEMINI_LIGHT_MODEL = "gemini-2.5-flash-lite"
-GEMINI_FALLBACK_MODELS = "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3.1-flash-lite,gemini-3-flash-preview,gemma-4-26b-a4b-it"
+GEMINI_LIGHT_MODEL = "gemini-3.5-flash-lite"
+GEMINI_FALLBACK_MODELS = "gemini-3.5-flash-lite,gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3.1-flash-lite,gemma-4-26b-a4b-it"
 # Groq Cloud — fast, reliable JSON, generous free tier; LEADS for fast conversational kinds.
 # [2026-09-10] Re-verified against GET /openai/v1/models. The previous values had rotted: of the
 # five ids configured here, FOUR were gone (llama-3.3-70b-versatile — the primary! — plus
@@ -154,8 +158,13 @@ GEMINI_FALLBACK_MODELS = "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3.1-flas
 GROQ_MODEL = "openai/gpt-oss-120b"
 GROQ_FALLBACK_MODELS = "qwen/qwen3.8-27b,qwen/qwen3.6-27b,openai/gpt-oss-20b"
 GROQ_VISION_MODEL = ""
+# Workers AI (on-platform, keyless): src/ai/workersai.ts tries WORKERSAI_MODEL (default
+# @cf/openai/gpt-oss-120b), then these. [2026-10-02] Llama 3.3 70B — the previous default — is the
+# fallback, so an unverified new primary can't take the tier down.
+WORKERSAI_FALLBACK_MODELS = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 # Ollama Cloud — text-only fallback after Groq (free tier: gpt-oss:120b).
 OLLAMA_MODEL = "gpt-oss:120b"
+OLLAMA_FALLBACK_MODELS = "gpt-oss:20b"
 # OpenRouter free models (tertiary fallback). The :free roster rotates constantly — as of
 # [2026-09-10] all three previously configured ids (openai/gpt-oss-120b:free and
 # meta-llama/llama-3.2-11b-vision-instruct:free) were 404, i.e. this whole fallback tier was
@@ -164,3 +173,6 @@ OLLAMA_MODEL = "gpt-oss:120b"
 OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 OPENROUTER_TRANSLATE_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 OPENROUTER_VISION_MODEL = "google/gemma-4-31b-it:free"
+# [2026-10-02] Text fallback inside the OpenRouter tier (src/ai/openrouter.ts walks primary →
+# these), so one :free model leaving the roster no longer takes the tier down.
+OPENROUTER_FALLBACK_MODELS = "google/gemma-4-31b-it:free"
