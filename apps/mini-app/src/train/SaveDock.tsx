@@ -23,7 +23,7 @@ function hhmm(epochMs: number): string {
  * confirmation rendered at the very top, so a successful save looked like nothing happened --
  * and got tapped three more times.
  */
-export function SaveDock({ lang, action, saving, disabled, savedAt, drafted, sync, clock, filledSets, restBar, onPress }: {
+export function SaveDock({ lang, action, saving, disabled, savedAt, drafted, sync, queued, clock, filledSets, restBar, onPress }: {
   lang: Lang;
   action: DockAction;
   saving: boolean;
@@ -31,6 +31,7 @@ export function SaveDock({ lang, action, saving, disabled, savedAt, drafted, syn
   savedAt: number | undefined;
   drafted: boolean;
   sync: SyncState;
+  queued?: boolean;
   clock: SessionClock | undefined;
   filledSets: number;
   restBar: React.ReactNode;
@@ -56,7 +57,9 @@ export function SaveDock({ lang, action, saving, disabled, savedAt, drafted, syn
   const elapsed = sessionElapsedSec(clock, running ? now : Date.now());
   const status = saving
     ? t(lang, "saving_ellipsis")
-    : action.kind === "saved" && savedAt
+    : action.kind === "saved" && queued
+      ? t(lang, "dock_saved_offline")
+      : action.kind === "saved" && savedAt
       ? t(lang, "dock_saved_at", { time: hhmm(savedAt) })
       : drafted
         ? sync === "synced" ? t(lang, "dock_draft_synced") : sync === "offline" ? t(lang, "dock_draft_offline") : t(lang, "dock_draft_local")

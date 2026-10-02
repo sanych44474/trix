@@ -12,6 +12,7 @@ import {
   emptyLoggerSet, isExerciseFilled, isoDate, isoWeekday, parseDraft, plannedSetsFor, sessionElapsedSec, swapExercise,
   type LoggerDraft, type LoggerExercise, type LoggerWorkout, type StartSource,
 } from "./logic/logger";
+import { cachedToday, cacheToday, enqueueSave, isNetworkError } from "./logic/offlineSaves";
 import { useSession } from "./train/useSession";
 import { ExerciseCard, type SetField } from "./train/ExerciseCard";
 import { HistoryPanel } from "./train/HistoryPanel";
@@ -63,6 +64,7 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
   const [saved, setSaved] = useState(false); // what is shown is exactly what the server has
   const [drafted, setDrafted] = useState(false); // there is unsaved work
   const [savedAt, setSavedAt] = useState<number | undefined>(undefined);
+  const [queued, setQueued] = useState(false); // saved on the phone, waiting for the network
   const [editedAt, setEditedAt] = useState(0);
   const [restoredFrom, setRestoredFrom] = useState<StartSource | null>(null);
   const [sync, setSync] = useState<SyncState>("idle");
@@ -123,7 +125,13 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
 
   const load = () => {
     setLoading(true); setError(null);
-    api<WorkoutToday>("/api/v2/workout/today").then((raw) => {
+    api<WorkoutToday>("/api/v2/workout/today").catch((err: unknown) => {
+      // No signal in the gym: open with the last plan for today this phone has seen.
+      const cached = isNetworkError(err, navigator.onLine) ? cachedToday<WorkoutToday>(localStorage) : null;
+      if (!cached) throw err;
+      return { ...cached, offline: true };
+    }).then((raw) => {
+      if (!("offline" in raw)) cacheToday(localStorage, raw);
       const start = chooseStart(raw, readLocalDraft());
       setServer(raw);
       setWorkout({ ...raw, exercises: start.exercises });
@@ -141,7 +149,7 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
   /** Every edit goes through here: it marks the work unsaved and hides a stale summary. */
   const mutate = (change: (exercises: LoggerExercise[]) => LoggerExercise[]) => {
     setWorkout((current) => current ? { ...current, exercises: change(current.exercises) } : current);
-    setEditedAt(Date.now()); setSaved(false); setDrafted(true); setSummary(null);
+    setEditedAt(Date.now()); setSaved(false); setDrafted(true); setSummary(null); setQueued(false);
   };
   const mapExercise = (index: number, change: (exercise: LoggerExercise) => LoggerExercise) =>
     mutate((exercises) => exercises.map((exercise) => exercise.index === index ? change(exercise) : exercise));
@@ -272,15 +280,17 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
       const ok = await confirmDialog(elapsed ? t(lang, "finish_confirm", { sets, time: fmtDuration(elapsed) }) : t(lang, "finish_confirm_no_time", { sets }));
       if (!ok) return;
     }
-    setSaving(true); setActionError(null);
+    setSaving(true); setActionError(null); setQueued(false);
     const targetDate = logDate;
+    // One key per logical save, reused if it has to wait for the network (logic/offlineSaves.ts).
+    const idempotencyKey = crypto.randomUUID();
+    const timing = final && elapsed > 0 ? { durationSec: elapsed, restTotalSec: Math.min(final.quality.restTotalSec, elapsed) } : {};
     try {
       pendingDraftRef.current = null;
       await inflightRef.current?.catch(() => {});
-      const timing = final && elapsed > 0 ? { durationSec: elapsed, restTotalSec: Math.min(final.quality.restTotalSec, elapsed) } : {};
       const result = await api<SaveResponse>("/api/v2/workout/save", {
         method: "POST",
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey,
         body: typedBody<"saveWorkout">({ entries, ...(targetDate ? { date: targetDate } : {}), ...timing }),
       });
       const doneAt = Date.now();
@@ -305,6 +315,17 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
       }
       if (targetDate) { writeLocalDraft(null); loadedRef.current = false; setHistory(null); load(); }
     } catch (err) {
+      if (isNetworkError(err, navigator.onLine)) {
+        // Offline: keep the save on the phone and send it when the network is back
+        // (OfflineSync in App.tsx). The session counts as finished; the celebration waits.
+        const date = targetDate ?? workout.date;
+        enqueueSave(localStorage, { key: idempotencyKey, date, body: { entries, date, ...timing }, queuedAt: Date.now() });
+        window.dispatchEvent(new Event("trix:offline-save"));
+        if (action.kind === "finish") session.finish(final);
+        setSaved(true); setDrafted(false); setSavedAt(Date.now()); setQueued(true); setRestoredFrom(null);
+        window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("warning");
+        return;
+      }
       // A 409 means the idempotency layer found this exact save still in flight; it clears within
       // ~30s and a retry (fresh key, same form data -- the draft is kept) then succeeds.
       setActionError(err);
@@ -412,6 +433,7 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
         savedAt={savedAt}
         drafted={drafted}
         sync={sync}
+        queued={queued}
         clock={logDate ? undefined : session.clock}
         filledSets={filledSets}
         onPress={() => void save()}
