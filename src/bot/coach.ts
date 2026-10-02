@@ -6,6 +6,7 @@
 // Extracted from bot.ts (god-file split; same barrel seam via bot.ts's
 // `export * from "./bot/coach"`).
 import { InlineKeyboard } from "grammy";
+import { offerKitFit } from "./kitFit";
 import type { UserDoc, Weekday } from "../types";
 import { aiJSON, aiText } from "../ai";
 import * as P from "../ai/prompts";
@@ -134,6 +135,9 @@ export async function handleCoach(ctx: MyContext, text: string) {
     await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
     return;
   }
+  // "I only have dumbbells, replace the barbell exercises" → the one-tap plan fix, not an AI list
+  // of what to replace followed by "which day?" (bot/kitFit.ts).
+  if (await offerKitFit(ctx, text).catch(() => false)) return;
   await ctx.replyWithChatAction("typing").catch(() => {});
   // The coach can also propose plan edits (add/cardio, harder/easier, swap) as buttons.
   // Deferred past the webhook response — the AI chain must not block the update.

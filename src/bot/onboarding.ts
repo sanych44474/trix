@@ -171,7 +171,12 @@ export async function obApplyAndAdvance(ctx: MyContext, step: ObStep, raw: strin
   if (step.field === "daysPerWeek") profile.daysPerWeek = Number(raw);
   else if (step.field === "age") profile.age = Number(raw);
   else if (step.field === "sex") profile.sex = raw === "female" ? "female" : "male";
-  else if (step.field === "level") profile.level = raw as UserProfile["level"];
+  else if (step.field === "level") {
+    profile.level = raw as UserProfile["level"];
+    // A beginner has no working weights to tell: skip that question (they pick weights by feel in
+    // the first session — domain/startWeights.ts), but keep any numbers already given.
+    if (profile.level === "beginner" && profile.baselineLifts === undefined) profile.baselineLifts = "none";
+  }
   else if (step.field === "lifestyle") profile.lifestyle = raw as UserProfile["lifestyle"];
   else if (step.field === "sleepSchedule") profile.sleepSchedule = raw as UserProfile["sleepSchedule"];
   else if (step.field === "goal") profile.goal = String(raw);
@@ -180,7 +185,8 @@ export async function obApplyAndAdvance(ctx: MyContext, step: ObStep, raw: strin
   else if (step.field === "limitations") profile.limitations = String(raw);
   else if (step.field === "baselineLifts") profile.baselineLifts = String(raw);
   else if (step.field === "sessionMinutes") profile.sessionMinutes = Number(raw);
-  const next = (ctx.user.session.step ?? 0) + 1;
+  let next = (ctx.user.session.step ?? 0) + 1;
+  if (step.field === "level" && profile.level === "beginner" && obSteps(ctx.user.lang)[next]?.field === "baselineLifts") next++;
   ctx.user.profile = profile;
   ctx.user.session = { ...ctx.user.session, step: next, awaitText: undefined };
   await updateUser(ctx.db, ctx.user._id, { profile, session: ctx.user.session });

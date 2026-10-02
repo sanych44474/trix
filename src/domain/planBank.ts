@@ -7,6 +7,8 @@ import type {
   UserProfile,
 } from "../types";
 
+import { kitFromEquipment } from "./equipmentFit";
+
 // Pure plan-bank selection: map a client profile to a bank key, then pick the best-matching
 // pre-generated plan. No DB/AI here — the caller fetches candidate rows and passes them in.
 
@@ -40,11 +42,13 @@ export function daysBucket(profile: UserProfile): DaysBucket {
   return "d56";
 }
 
-const HOME = /(home|вдома|дім|дома|bodyweight|власн|калістен|calisthen|no gym|без зал|dumbbell only|тільки гантел)/i;
+const HOME = /(home|вдома|дім|дома|bodyweight|власн|калістен|calisthen|no gym|без зал|тільки гантел)/i;
 
-/** Equipment text → gym vs home/minimal. */
+/** Equipment text → gym vs home/minimal. The onboarding answer "dumbbells only" used to fall
+ *  through to "gym" (the pattern only knew "dumbbell only"), so dumbbell users got gym plans;
+ *  the kit reading shared with the plan fitter (domain/equipmentFit.ts) is the source of truth. */
 export function equipmentBucket(profile: UserProfile): "gym" | "home" {
-  return HOME.test(profile.equipment ?? "") ? "home" : "gym";
+  return HOME.test(profile.equipment ?? "") || kitFromEquipment(profile.equipment) !== "gym" ? "home" : "gym";
 }
 
 export function mapProfileToKey(profile: UserProfile): PlanBankKey {
@@ -120,8 +124,11 @@ export function selectBest(entries: PlanBankEntry[], profile: UserProfile, seed:
     exact.sort((a, b) => a.variant - b.variant);
     return { entry: exact[Math.abs(seed) % exact.length], score: 1 };
   }
+  // Equipment is a hard constraint, not a weighted preference: a home/dumbbell user never gets a
+  // gym archetype while any home one exists (the rest of the plan is fitted afterwards anyway).
+  const pool = entries.some((e) => e.equipment === key.equipment) ? entries.filter((e) => e.equipment === key.equipment) : entries;
   let best: BankMatch | null = null;
-  for (const e of entries) {
+  for (const e of pool) {
     const score = scoreEntry(key, e);
     if (!best || score > best.score) best = { entry: e, score };
   }

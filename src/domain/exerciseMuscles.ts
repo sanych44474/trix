@@ -32,7 +32,7 @@ const RULES: Rule[] = [
   [/elliptical|еліпт|еліпс|stair|степер/iu, ["quadriceps", "gluteal"], ["calves", "hamstring"]],
 
   // ---- legs / hips ----
-  [/kettlebell swing|dumbbell swing|\bswing\b|махи гир|махи гантел(ею|лю|ями)(?!.*сторон)/iu, ["gluteal", "hamstring"], ["lower-back", "deltoids"]],
+  [/kettlebell swing|dumbbell swing|\bswing\b|махи гир|махи гантел(ею|лю|ями)(?!.*(сторон|бок))/iu, ["gluteal", "hamstring"], ["lower-back", "deltoids"]],
   // Glute isolation before anything that shares a word: "Glute Kickback" isn't a triceps kickback,
   // "Махи ногою назад" aren't lateral raises.
   [/glute kickback|donkey kick|fire hydrant|гідрант|гидрант|махи ног|відведення ноги|отведение ноги/iu, ["gluteal"], ["hamstring"]],
@@ -46,7 +46,7 @@ const RULES: Rule[] = [
   [/squat|присід|присед|гакк|hack/iu, ["quadriceps", "gluteal"], ["adductors", "hamstring", "lower-back"]],
   [/leg extension|розгинання ніг|разгибание ног|розгинання ног/iu, ["quadriceps"], []],
   [/leg curl|hamstring curl|nordic|згинання ніг|сгибание ног|згинання ног/iu, ["hamstring"], ["calves"]],
-  [/calf|литк|икр|носк/iu, ["calves"], []],
+  [/calf|литк|икр|носк|носок/iu, ["calves"], []],
   [/adduct|привод|зведення ніг|сведение ног/iu, ["adductors"], []],
   [/abduct|відвод|відведення ніг|розведення ніг|разведение ног|отведение ног/iu, ["gluteal"], []],
 
@@ -61,7 +61,11 @@ const RULES: Rule[] = [
 
   // ---- chest ----
   // Triceps isolation before the chest presses: "Французький жим лежачи" is not a bench press.
-  [/triceps|трицепс|pushdown|push-?down|skull|french|французьк|французск|kickback|розгинання рук|разгибание рук|розгинання на блоці|разгибание на блоке|розгинання з-за голов/iu, ["triceps"], []],
+  [/triceps|трицепс|pushdown|push-?down|skull|french|французьк|французск|kickback|розгинання рук|разгибание рук|розгинання на блоці|разгибание на блоке|розгинання з-за голов|розгинання гантел|кікбек/iu, ["triceps"], []],
+  // Bodyweight stand-ins (domain/equipmentFit.ts) whose words would otherwise hit the press rules below.
+  [/superman|супермен|човник/iu, ["lower-back"], ["gluteal", "hamstring"]],
+  [/pike push|пайк/iu, ["deltoids"], ["triceps", "chest"]],
+  [/side bend|нахил\p{L}* в бік|наклон\p{L}* в сторону/iu, ["obliques"], ["abs"]],
   [/bench dip|від лави|от скамьи|зворотн\p{L}* віджиман|обратн\p{L}* отжиман/iu, ["triceps"], ["chest", "deltoids"]],
   [/dip|бруси|брусья|брусьях|брусах/iu, ["chest", "triceps"], ["deltoids"]],
   [/(close[- ]?grip|вузьким хват|узким хват).*(bench|press|жим)|(bench|press|жим).*(close[- ]?grip|вузьким хват|узким хват)/iu, ["triceps", "chest"], ["deltoids"]],

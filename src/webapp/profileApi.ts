@@ -142,6 +142,9 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env): Pro
   if (body.lifestyle === "sedentary" || body.lifestyle === "moderate" || body.lifestyle === "active") patch.lifestyle = body.lifestyle;
   if (body.sleepSchedule === "morning" || body.sleepSchedule === "evening") patch.sleepSchedule = body.sleepSchedule;
   if (typeof body.limitations === "string") patch.limitations = body.limitations.trim().slice(0, 500) || "none";
+  // Current lifts (optional, non-beginners): starting weights are calibrated from them (domain/startWeights.ts).
+  if (typeof body.baselineLifts === "string") patch.baselineLifts = body.baselineLifts.trim().slice(0, 200) || "none";
+  else if (patch.level === "beginner") patch.baselineLifts = "none";
   if (Array.isArray(body.trainingWeekdays)) {
     const wd = [...new Set(body.trainingWeekdays.map(Number).filter((n) => n >= 1 && n <= 7))].sort((a, b) => a - b) as Weekday[];
     if (wd.length) { patch.trainingWeekdays = wd; patch.daysPerWeek = wd.length; }

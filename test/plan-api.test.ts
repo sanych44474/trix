@@ -294,3 +294,22 @@ test("plan mesocycle: a trainer can toggle it for a client via clientId, scoped 
   const clientPlan = await (await call(db, 11, "GET", "/api/plan")).json() as { mesocycle: { phase: string } | null };
   assert.equal(clientPlan.mesocycle?.phase, "hypertrophy");
 });
+
+test("plan API: kit mismatches are reported and fitkit swaps them (optionally changing the equipment)", async () => {
+  const db = newDb();
+  const { updateUser, getUser } = await import("../src/adapters/d1/v2Users");
+  await getOrCreateUser(db, 7, 7, "en", "Dee");
+  const u = (await getUser(db, 7))!;
+  await updateUser(db, 7, { profile: { ...u.profile, equipment: "full gym" } });
+  await setActivePlan(db, plan(7));
+  const before = (await (await call(db, 7, "GET", "/api/plan")).json()) as { kit: { equipment: string; mismatches: number } };
+  assert.deepEqual(before.kit, { equipment: "full gym", mismatches: 0 });
+  const fitted = await call(db, 7, "POST", "/api/plan", { action: "fitkit", equipment: "dumbbells only" });
+  assert.equal(fitted.status, 200);
+  const body = (await fitted.json()) as { swapped: number; days: Array<{ exercises: Array<{ name: string }> }> };
+  assert.equal(body.swapped, 2);
+  assert.deepEqual(body.days[0]!.exercises.map((e) => e.name), ["Dumbbell Floor Press", "One-Arm Dumbbell Row"]);
+  assert.equal((await getUser(db, 7))!.profile.equipment, "dumbbells only");
+  const after = (await (await call(db, 7, "GET", "/api/plan")).json()) as { kit: { mismatches: number } };
+  assert.equal(after.kit.mismatches, 0);
+});

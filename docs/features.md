@@ -24,7 +24,7 @@ function**, so the total below is a count rather than a slogan.
 
 | | |
 |---|---|
-| Functions in this catalog | **194** across 11 areas |
+| Functions in this catalog | **196** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
 | Surfaces | 2 — Telegram chat (45 commands) and the Telegram Mini App |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
@@ -36,7 +36,7 @@ function**, so the total below is a count rather than a slogan.
 | Area | Functions |
 |---|---|
 | 1. Onboarding & roles | 12 |
-| 2. Training plan & programming | 31 |
+| 2. Training plan & programming | 33 |
 | 3. Workout logging | 30 |
 | 4. Nutrition | 14 |
 | 5. Body, recovery & activity | 15 |
@@ -117,6 +117,14 @@ function**, so the total below is a count rather than a slogan.
     recovering from the last session, the bot (under /today) and the Mini App's Today screen offer
     to swap today with the nearest later plan day whose muscles are ready; one tap trades the two
     days in the plan and logs the change.
+32. **Plans stay inside your equipment**: a home, dumbbells-only or bodyweight-only plan never
+    carries barbell, machine or cable work — anything outside the equipment is swapped for a
+    same-muscle exercise you can do, for new plans automatically and for an existing one in one tap
+    (plan screen, Mini App, or just telling the coach "I only have dumbbells").
+33. **Honest starting weights**: a beginner picks loads by feel in the first session (2–3 reps in
+    reserve) and the plan takes the logged weight from there; anyone who states their bench, squat
+    and deadlift gets every related exercise calibrated from those numbers; the rest are capped to
+    a realistic share of bodyweight for their level.
 
 ## 3. Workout logging
 

@@ -5,6 +5,7 @@
 // `export * from "./bot/guidedLog"`) — this was filed under the "Reorder exercises" banner in
 // bot.ts, an unrelated concept it happened to follow.
 import { InlineKeyboard } from "grammy";
+import { isSelfSelectWeight } from "../domain/startWeights";
 import type { Lang, PlanDay, SetEntry, UserDoc, Weekday } from "../types";
 import { setRestTimer } from "../adapters/d1/v2Admin";
 import { getWorkoutLog, upsertWorkoutLog } from "../adapters/d1/v2Workouts";
@@ -236,7 +237,9 @@ export async function logPickExercise(ctx: MyContext, index: number) {
   const w = planWeight(ex.startWeight);
   const n = planSetsCount(ex.sets) || 3;
   const r = planRepsMid(ex.sets) || 8;
-  const hint = w ? `${w} ${Array.from({ length: n }, () => r).join(",")}` : Array.from({ length: n }, () => r).join(",");
+  // "pick a weight": show the format with a placeholder load so they know to type the weight first.
+  const reps = Array.from({ length: n }, () => r).join(",");
+  const hint = w ? `${w} ${reps}` : isSelfSelectWeight(ex.startWeight) ? `20 ${reps}` : reps;
   await reply(ctx, t(lang, "log_ask_line", { name: effectiveName, sets: ex.sets, hint }));
 }
 
@@ -372,7 +375,7 @@ export async function handleLogDraftInput(ctx: MyContext, text: string): Promise
   // One-line compact entry (reps metric): the whole exercise in a single message.
   if (cur.field === "line") {
     const ex = await planEx();
-    const bodyweight = !planWeight(ex?.startWeight ?? "");
+    const bodyweight = !planWeight(ex?.startWeight ?? "") && !isSelfSelectWeight(ex?.startWeight);
     const parsed = parseSetLine(text, { defaultSets: planSetsCount(ex?.sets ?? "") || 3, bodyweight });
     if (!parsed) {
       await reply(ctx, t(lang, "log_line_bad"));

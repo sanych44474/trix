@@ -631,3 +631,12 @@ test("inQuietHours: wrapping past midnight (22→7)", () => {
   assert.equal(inQuietHours(7, 22, 7), false); // end exclusive
   assert.equal(inQuietHours(12, 22, 7), false);
 });
+
+test("computePlanProgression: a 'pick a weight' exercise takes the logged weight, not bodyweight reps", () => {
+  const plan = planWith({ name: "Goblet Squat", sets: "3 × 10–12", startWeight: "підбери вагу" });
+  const logs = [progLog("2026-02-10", "Goblet Squat", 10, 16, 7), progLog("2026-02-12", "Goblet Squat", 11, 16, 7)];
+  const r = computePlanProgression(plan, logs, []);
+  assert.equal(r.changes.length, 1);
+  assert.equal(r.changes[0].field, "weight");
+  assert.equal(r.changes[0].to, "16 kg");
+});
