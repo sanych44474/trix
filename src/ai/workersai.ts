@@ -5,7 +5,34 @@ import { RateLimitError, type GenInput } from "./errors";
 // defaults instead of hand-maintained copies that can drift out of sync — index.ts used to
 // duplicate WORKERSAI_DEFAULT_MODEL verbatim.
 export const WORKERSAI_DEFAULT_TRANSCRIBE_MODEL = "@cf/openai/whisper-large-v3-turbo";
-export const WORKERSAI_DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+// [2026-10-02] gpt-oss-120b leads (Workers AI's strongest general model; it accepts Chat
+// Completions-style messages since 2026-02-17), the long-serving Llama 3.3 70B stays right behind
+// it — workersaiGenerate walks the list, so a model that errors or returns unusable output (e.g.
+// all of max_tokens spent on reasoning) falls to the next one instead of out of the provider.
+export const WORKERSAI_DEFAULT_MODEL = "@cf/openai/gpt-oss-120b";
+export const WORKERSAI_DEFAULT_FALLBACK_MODELS = ["@cf/meta/llama-3.3-70b-instruct-fp8-fast"];
+
+/** Models to try in order: WORKERSAI_MODEL (or the default), then WORKERSAI_FALLBACK_MODELS (or
+ *  the default fallbacks). Exported for scripts/check-ai-models.mjs and tests. */
+export function workersaiModels(env: { WORKERSAI_MODEL?: string; WORKERSAI_FALLBACK_MODELS?: string }): string[] {
+  const configured = (env.WORKERSAI_FALLBACK_MODELS ?? "").split(",").map((m) => m.trim()).filter(Boolean);
+  return [...new Set([env.WORKERSAI_MODEL || WORKERSAI_DEFAULT_MODEL, ...(configured.length ? configured : WORKERSAI_DEFAULT_FALLBACK_MODELS)])];
+}
+
+/** The text out of a Workers AI response: classic `{response}`, Chat Completions `{choices}`, or
+ *  the Responses-style `{output:[{content:[{text}]}]}` some OpenAI-family models return. */
+export function workersaiText(res: unknown): string {
+  const r = res as {
+    response?: unknown;
+    choices?: Array<{ message?: { content?: unknown } }>;
+    output?: Array<{ type?: string; content?: Array<{ type?: string; text?: unknown }> }>;
+  };
+  if (typeof r?.response === "string") return r.response.trim();
+  const choice = r?.choices?.[0]?.message?.content;
+  if (typeof choice === "string") return choice.trim();
+  const out = (r?.output ?? []).filter((o) => o.type !== "reasoning").flatMap((o) => o.content ?? []);
+  return out.map((c) => (typeof c.text === "string" ? c.text : "")).join("").trim();
+}
 
 // Chunked base64 of an ArrayBuffer (avoids call-stack blowups on large audio).
 function abToB64(buf: ArrayBuffer): string {
@@ -47,19 +74,28 @@ export async function workersaiTranscribe(env: Env, audio: ArrayBuffer, lang?: s
 }
 
 // Cloudflare Workers AI — free, on-platform, no external key. Text-only here
-// (vision fallback is handled by OpenRouter). Uses the `AI` binding.
+// (vision fallback is handled by OpenRouter). Uses the `AI` binding; walks workersaiModels().
 export async function workersaiGenerate(env: Env, input: GenInput): Promise<string> {
   if (!env.AI) throw new Error("Workers AI binding not configured");
   if (input.images && input.images.length) {
     throw new Error("Workers AI provider is text-only here");
   }
-  const model = env.WORKERSAI_MODEL || WORKERSAI_DEFAULT_MODEL;
+  let lastErr: unknown;
+  for (const model of workersaiModels(env)) {
+    try {
+      return await workersaiCall(env, input, model);
+    } catch (err) {
+      lastErr = err;
+      if (err instanceof RateLimitError) break; // the platform is saturated — every model is
+    }
+  }
+  throw lastErr ?? new Error("no Workers AI model available");
+}
 
+async function workersaiCall(env: Env, input: GenInput, model: string): Promise<string> {
   // Loose cast: the typed `run` overloads are model-specific; we pass a dynamic model id.
   // NOTE: call on `ai` (not a detached method) so `this` is preserved.
-  const ai = env.AI as unknown as {
-    run: (m: string, o: unknown) => Promise<{ response?: string }>;
-  };
+  const ai = env.AI as unknown as { run: (m: string, o: unknown) => Promise<unknown> };
 
   // `ai.run` doesn't accept an AbortSignal, so race it against a timer to bound the call —
   // otherwise a hung Workers AI request could eat the whole fallback-chain budget.
@@ -72,16 +108,17 @@ export async function workersaiGenerate(env: Env, input: GenInput): Promise<stri
           { role: "system", content: input.system },
           { role: "user", content: input.user },
         ],
-        max_tokens: 1024,
+        // Reasoning models (gpt-oss) spend part of the budget thinking before they answer.
+        max_tokens: /gpt-oss/.test(model) ? 4096 : 1024,
         temperature: input.temperature ?? 0.7,
       }),
       new Promise<never>((_, rej) => {
         timer = setTimeout(() => rej(new Error(`Workers AI timeout after ${timeoutMs}ms`)), timeoutMs);
       }),
     ]);
-    const text = res.response?.trim();
-    if (!text) throw new Error("Workers AI returned no text");
-    input.validate?.(text); // reject unusable output → orchestrator falls through
+    const text = workersaiText(res);
+    if (!text) throw new Error(`Workers AI ${model} returned no text`);
+    input.validate?.(text); // reject unusable output → next model / orchestrator falls through
     return text;
   } catch (err) {
     // Capacity / rate errors → let the orchestrator fall through.

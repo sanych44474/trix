@@ -8,7 +8,10 @@
 // hand-copying them here, so this can never silently drift out of sync with what production
 // actually uses — see the "Exported (not just a local literal)" comments in those files.
 //
-// Run: npm run check:ai-models
+// Run: npm run check:ai-models            (every configured model, fallbacks included)
+//      npm run check:ai-models -- --catalog (also list what each provider offers right now:
+//      Gemini/Gemma models, Groq models, OpenRouter's :free roster with vision flags, Ollama
+//      Cloud models — and flag configured ids that are no longer listed)
 // Reads keys from .dev.vars (same convention as scripts/test-providers.mjs). Any provider whose
 // key is unset is skipped, not failed — this is meant to run against whatever's actually
 // configured, local dev or otherwise. Exits non-zero if any checked model failed, so it can be
@@ -17,11 +20,11 @@ import { readFileSync } from "node:fs";
 import { geminiFallbackModels } from "../src/ai/gemini.ts";
 import { GROQ_DEFAULT_MODEL } from "../src/ai/groq.ts";
 import {
-  OPENROUTER_DEFAULT_MODEL,
   OPENROUTER_DEFAULT_TRANSLATE_MODEL,
   OPENROUTER_DEFAULT_VISION_MODEL,
+  openrouterTextModels,
 } from "../src/ai/openrouter.ts";
-import { OLLAMA_DEFAULT_MODEL } from "../src/ai/ollama.ts";
+import { ollamaModels } from "../src/ai/ollama.ts";
 
 function readDevVars() {
   try {
@@ -96,24 +99,26 @@ if (GEMINI) {
   for (const m of geminiFallbackModels(vars)) targets.push(["gemini", m, () => checkGemini(m)]);
 } else console.log("skip: gemini (no GEMINI_API_KEY in .dev.vars)");
 
+const list = (raw) => (raw ?? "").split(",").map((m) => m.trim()).filter(Boolean);
+const groqModels = [...new Set([vars.GROQ_MODEL || GROQ_DEFAULT_MODEL, ...list(vars.GROQ_FALLBACK_MODELS)])];
+const orText = openrouterTextModels(vars);
+const orVision = vars.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL;
+const orTranslate = vars.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL;
+const ollama = ollamaModels(vars);
+
 if (GROQ) {
-  const m = vars.GROQ_MODEL || GROQ_DEFAULT_MODEL;
-  targets.push(["groq", m, () => checkOpenAiStyle("https://api.groq.com/openai/v1/chat/completions", GROQ, m)]);
+  for (const m of groqModels) targets.push(["groq", m, () => checkOpenAiStyle("https://api.groq.com/openai/v1/chat/completions", GROQ, m)]);
 } else console.log("skip: groq (no GROQ_API_KEY)");
 
 if (OPENROUTER) {
   const chat = "https://openrouter.ai/api/v1/chat/completions";
-  const m1 = vars.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL;
-  const m2 = vars.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL;
-  const m3 = vars.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL;
-  targets.push(["openrouter", m1, () => checkOpenAiStyle(chat, OPENROUTER, m1)]);
-  targets.push(["openrouter (vision)", m2, () => checkOpenAiStyle(chat, OPENROUTER, m2)]);
-  targets.push(["openrouter (translate)", m3, () => checkOpenAiStyle(chat, OPENROUTER, m3)]);
+  for (const m of orText) targets.push(["openrouter", m, () => checkOpenAiStyle(chat, OPENROUTER, m)]);
+  targets.push(["openrouter (vision)", orVision, () => checkOpenAiStyle(chat, OPENROUTER, orVision)]);
+  if (!orText.includes(orTranslate)) targets.push(["openrouter (translate)", orTranslate, () => checkOpenAiStyle(chat, OPENROUTER, orTranslate)]);
 } else console.log("skip: openrouter (no OPENROUTER_API_KEY)");
 
 if (OLLAMA) {
-  const m = vars.OLLAMA_MODEL || OLLAMA_DEFAULT_MODEL;
-  targets.push(["ollama", m, () => checkOpenAiStyle("https://ollama.com/v1/chat/completions", OLLAMA, m)]);
+  for (const m of ollama) targets.push(["ollama", m, () => checkOpenAiStyle("https://ollama.com/v1/chat/completions", OLLAMA, m)]);
 } else console.log("skip: ollama (no OLLAMA_API_KEY)");
 
 console.log(
@@ -131,6 +136,43 @@ for (const [provider, model, check] of targets) {
     failed++;
     console.log(`FAIL — ${String(e.message ?? e).slice(0, 150)}`);
   }
+}
+
+// --catalog: what each provider offers right now, newest first, and which configured ids are gone.
+if (process.argv.includes("--catalog")) {
+  const getJson = async (url, headers = {}) => {
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT) });
+    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 120)}`);
+    return res.json();
+  };
+  const report = (title, ids, configured, notes = new Map()) => {
+    console.log(`\n== ${title}: ${ids.length} model(s)`);
+    for (const id of ids.slice(0, 40)) console.log(`  ${configured.includes(id) ? "*" : " "} ${id}${notes.get(id) ? `  ${notes.get(id)}` : ""}`);
+    const gone = configured.filter((id) => !ids.includes(id));
+    if (gone.length) console.log(`  !! configured but NOT listed: ${gone.join(", ")}`);
+  };
+  const safe = async (label, fn) => { try { await fn(); } catch (e) { console.log(`\n== ${label}: catalog unavailable — ${String(e.message ?? e).slice(0, 120)}`); } };
+  if (GEMINI) await safe("gemini", async () => {
+    const data = await getJson("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { "X-goog-api-key": GEMINI });
+    const ids = (data.models ?? []).filter((m) => (m.supportedGenerationMethods ?? []).includes("generateContent")).map((m) => m.name.replace(/^models\//, "")).filter((id) => /gemini|gemma/.test(id)).sort().reverse();
+    report("gemini (generateContent)", ids, geminiFallbackModels(vars));
+  });
+  if (GROQ) await safe("groq", async () => {
+    const data = await getJson("https://api.groq.com/openai/v1/models", { Authorization: `Bearer ${GROQ}` });
+    const rows = (data.data ?? []).sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+    report("groq", rows.map((m) => m.id), groqModels, new Map(rows.map((m) => [m.id, m.context_window ? `ctx ${m.context_window}` : ""])));
+  });
+  if (OPENROUTER) await safe("openrouter", async () => {
+    const data = await getJson("https://openrouter.ai/api/v1/models");
+    const free = (data.data ?? []).filter((m) => m.id.endsWith(":free")).sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+    const notes = new Map(free.map((m) => [m.id, [`ctx ${m.context_length}`, (m.architecture?.input_modalities ?? []).includes("image") ? "vision" : ""].filter(Boolean).join(", ")]));
+    report("openrouter :free", free.map((m) => m.id), [...orText, orVision, orTranslate], notes);
+  });
+  if (OLLAMA) await safe("ollama", async () => {
+    const data = await getJson("https://ollama.com/v1/models", { Authorization: `Bearer ${OLLAMA}` });
+    report("ollama cloud", (data.data ?? []).map((m) => m.id).sort(), ollama);
+  });
+  console.log("\n(* = configured in wrangler.toml / defaults)");
 }
 
 if (targets.length === 0) {

@@ -24,15 +24,35 @@ const URL = "https://openrouter.ai/api/v1/chat/completions";
 export const OPENROUTER_DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
 export const OPENROUTER_DEFAULT_VISION_MODEL = "google/gemma-4-31b-it:free";
 export const OPENROUTER_DEFAULT_TRANSLATE_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
+// [2026-10-02] A text fallback inside the tier: the :free roster churns (it has already lost every
+// model once), so one 404 no longer drops the whole OpenRouter tier. Gemma 4 31B is the verified
+// vision pick above and answers text just as well. OPENROUTER_FALLBACK_MODELS overrides.
+export const OPENROUTER_DEFAULT_FALLBACK_MODELS = ["google/gemma-4-31b-it:free"];
+
+/** Text models to try in order (primary, then fallbacks). Exported for the model check script. */
+export function openrouterTextModels(env: { OPENROUTER_MODEL?: string; OPENROUTER_FALLBACK_MODELS?: string }): string[] {
+  const configured = (env.OPENROUTER_FALLBACK_MODELS ?? "").split(",").map((m) => m.trim()).filter(Boolean);
+  return [...new Set([env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL, ...(configured.length ? configured : OPENROUTER_DEFAULT_FALLBACK_MODELS)])];
+}
 
 // OpenRouter — OpenAI-compatible. Uses free (`:free`) models. Supports vision via a
 // vision-capable free model when images are present.
 export async function openrouterGenerate(env: Env, input: GenInput): Promise<string> {
   const hasImages = !!(input.images && input.images.length);
-  const model = hasImages
-    ? env.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL
-    : env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL;
+  const models = hasImages ? [env.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL] : openrouterTextModels(env);
+  let lastErr: unknown;
+  for (const model of models) {
+    try {
+      return await openrouterCall(env, input, model);
+    } catch (err) {
+      lastErr = err; // gone from the free roster, rate-limited, or unusable output → next model
+    }
+  }
+  throw lastErr ?? new Error("no OpenRouter model available");
+}
 
+async function openrouterCall(env: Env, input: GenInput, model: string): Promise<string> {
+  const hasImages = !!(input.images && input.images.length);
   const content: Record<string, unknown>[] = [{ type: "text", text: input.user }];
   for (const img of input.images ?? []) {
     content.push({
@@ -54,7 +74,7 @@ export async function openrouterGenerate(env: Env, input: GenInput): Promise<str
 
   return withKeys(
     splitKeys(env.OPENROUTER_API_KEY),
-    (key) => openaiCompatChat(URL, key, body, "OpenRouter", input.timeoutMs, { "X-Title": "trix-bot" }, input.onUsage),
+    (key) => openaiCompatChat(URL, key, body, `OpenRouter ${model}`, input.timeoutMs, { "X-Title": "trix-bot" }, input.onUsage),
     { attempts: input.attemptsPerKey, validate: input.validate },
   );
 }
