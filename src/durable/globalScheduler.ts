@@ -67,7 +67,7 @@ export class GlobalSchedulerDO {
       // unexpected exception here still reaches error_logs/owner-report instead of only a raw
       // uncaught exception in Workers Logs.
       const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
-      await runGlobalJobs(this.env.DB, bot).catch((err) => logSchedulerError(this.env.DB, "global_jobs", err));
+      await runGlobalJobs(this.env.DB, bot, this.env).catch((err) => logSchedulerError(this.env.DB, "global_jobs", err));
       return;
     }
 
