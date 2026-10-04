@@ -138,3 +138,19 @@ test("stalledLifts: ignores lifts with too few recent sessions and non-rep metri
   ], "time");
   assert.deepEqual(stalledLifts([timed], "2026-06-28"), []);
 });
+
+test("weeklyVolume agrees with the body map (Denis's week: chest flyes on a bench were read as shoulders)", async () => {
+  const { weeklyMuscleSets } = await import("../src/domain/muscleLoad");
+  const { toLoggedDays } = await import("../src/domain/recoverySwap");
+  const logs = [wlog("2026-09-28", true, [
+    { name: "Розведення гантелей у сторони лежачи на лаві", sets: 3 },
+    { name: "Віджимання широким хватом", sets: 3 },
+    { name: "Підйом гантелей перед собою", sets: 3 },
+    { name: "Жим гантелей з підлоги", sets: 3 },
+  ])];
+  const chest = weeklyVolume(logs, "2026-09-27").find((v) => v.group === "chest")!;
+  const mapChest = weeklyMuscleSets(toLoggedDays(logs), "2026-09-27").find((m) => m.slug === "chest")!;
+  assert.equal(chest.sets, 10.5); // 3 flyes + 3 push-ups + 3 floor press + ½ × 3 front raises
+  assert.equal(chest.sets, mapChest.sets);
+  assert.equal(chest.zone, "optimal");
+});
