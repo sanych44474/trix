@@ -2584,7 +2584,7 @@ components:
               group:
                 type: string
                 enum: [legs, back, chest, shoulders, arms, core]
-              sets: {type: integer}
+              sets: {type: number, description: "Working sets; an assisting muscle counts half a set, so it can end in .5"}
               mev: {type: integer}
               mav: {type: integer}
               zone:

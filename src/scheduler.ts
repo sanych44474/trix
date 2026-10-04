@@ -1,6 +1,9 @@
 import { Bot, InlineKeyboard } from "grammy";
 import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from "./schedulerOutbox";
 import { rollupDailyMetrics } from "./dailyMetricsRollup";
+import { sweepStaleDrafts } from "./staleDrafts";
+import { weeklyModelCheck } from "./aiModelWatch";
+import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, PlanExercise, UserDoc, Weekday, WorkoutLogDoc } from "./types";
 import {
@@ -222,7 +225,7 @@ async function applySwaps(
  * and telemetry pruning. Extracted so the still-live cron path (below) and the dry-run
  * GlobalSchedulerDO (durable/globalScheduler.ts) run the EXACT same logic, not two copies that
  * can drift. Each sub-job already catches its own errors — one failing must not skip the rest. */
-export async function runGlobalJobs(db: D1Database, bot: Sender): Promise<void> {
+export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Promise<void> {
   // Proactive owner alerts — error spikes / AI provider outages, deduped to once per hour each.
   await checkOwnerAlerts(db, bot).catch((e) => logSchedulerError(db, "owner_alerts", e));
 
@@ -234,6 +237,18 @@ export async function runGlobalJobs(db: D1Database, bot: Sender): Promise<void> 
     await setSetting(db, "boards_cache", JSON.stringify({ computedAt: new Date().toISOString(), boards }));
   } catch (e) {
     logSchedulerError(db, "boards_cache", e);
+  }
+
+  // Trainer clients stuck on an unassigned first-plan draft: remind the trainer after a day,
+  // activate it after three (staleDrafts.ts).
+  await sweepStaleDrafts(db, (chatId, text, extra) => bot.api.sendMessage(chatId, text, extra))
+    .catch((e) => logSchedulerError(db, "stale_drafts", e));
+
+  // Weekly: alert the owner when a configured AI model id vanished from its provider's catalog
+  // (aiModelWatch.ts). Needs the real env for the API keys; the shadow dry-run pass has none.
+  if (env) {
+    await weeklyModelCheck(env, (chatId, text) => bot.api.sendMessage(chatId, text, { parse_mode: "HTML" }))
+      .catch((e) => logSchedulerError(db, "ai_model_check", e));
   }
 
   // AI-error stats are no longer auto-pushed (the every-minute cron + minute<5 window sent the
@@ -449,7 +464,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   // path into the hourly pass — rows live at most ~2h instead of ~1h, which is harmless.
   await pruneSeenUpdates(db, new Date(Date.now() - 3_600_000).toISOString()).catch(() => {});
 
-  if (!(await isCutOver(db, "global"))) await runGlobalJobs(db, bot);
+  if (!(await isCutOver(db, "global"))) await runGlobalJobs(db, bot, env);
   await wakeGlobalScheduler(env).catch((e) => logSchedulerError(db, "global_scheduler_wake", e));
 
   // R2 photo-cache budget: always the real env here (runSchedule is only ever invoked with the
@@ -1387,6 +1402,13 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       if (rate !== user.progressionRate) await setProgressionRate(db, user._id, rate);
     }
     markSent("progression_rate");
+  }
+
+  // Monday: record the quests finished last week, whether or not the Mini App was opened to see
+  // them (questClose.ts). Silent; idempotent per week and code.
+  if (weekday === 1 && !already("quest_close")) {
+    markSent("quest_close");
+    await closeQuestWeek(db, user, isoDateMinus(date, 7)).catch((e) => logSchedulerError(db, "quest_close", e, user._id));
   }
 
   // Weekly dynamic progression — Monday, silent. Analyses the last 3 weeks of logs + recent

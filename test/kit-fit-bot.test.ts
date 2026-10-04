@@ -13,3 +13,12 @@ test("coach chat: equipment talk and the kit a message states", () => {
   assert.equal(statedKit("I only have dumbbells"), "dumbbells");
   assert.ok(!isEquipmentTalk("як покращити сон?"));
 });
+
+test("statedKit: a passing mention or a barbell owner is not a kit change", () => {
+  assert.equal(statedKit("сьогодні тренувався вдома, все ок"), null);
+  assert.equal(statedKit("в мене є штанга і гантелі"), null);
+  assert.equal(statedKit("у мене вдома гантелі"), "home");
+  assert.equal(statedKit("я тренуюсь вдома"), "home");
+  assert.equal(statedKit("нема залу поруч"), "home");
+  assert.equal(statedKit("маю гантелі, без штанги"), "dumbbells");
+});

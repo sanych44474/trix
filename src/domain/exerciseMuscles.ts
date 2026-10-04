@@ -69,10 +69,10 @@ const RULES: Rule[] = [
   [/bench dip|від лави|от скамьи|зворотн\p{L}* віджиман|обратн\p{L}* отжиман/iu, ["triceps"], ["chest", "deltoids"]],
   [/dip|бруси|брусья|брусьях|брусах/iu, ["chest", "triceps"], ["deltoids"]],
   [/(close[- ]?grip|вузьким хват|узким хват).*(bench|press|жим)|(bench|press|жим).*(close[- ]?grip|вузьким хват|узким хват)/iu, ["triceps", "chest"], ["deltoids"]],
-  [/\bfly|flyes|флай|cross-?over|кросовер|кроссовер|pec deck|butterfly|батерфляй|зведення рук|сведение рук|розведення гантелей лежачи|розведення рук лежачи|разведение гантелей лежа/iu, ["chest"], ["deltoids"]],
+  [/\bfly|flyes|флай|cross-?over|кросовер|кроссовер|pec deck|butterfly|батерфляй|зведення рук|сведение рук|розведення гантелей лежачи|розведення рук лежачи|розведен\p{L}*\s.*лежачи|разведение гантелей лежа/iu, ["chest"], ["deltoids"]],
   [/decline|нахилом вниз|головою вниз/iu, ["chest"], ["triceps", "deltoids"]],
   [/incline|під кутом|похил|наклонн/iu, ["chest", "deltoids"], ["triceps"]],
-  [/bench|chest press|жим лежачи|жим лежа|жим від грудей|жим .*на лаві|лежачи|лежа(?!\p{L})/iu, ["chest"], ["triceps", "deltoids"]],
+  [/bench|chest press|floor press|жим лежачи|жим лежа|жим від грудей|жим .*на лаві|жим\p{L}*\s.*(з|на|від|с) (підлог|пол)|лежачи|лежа(?!\p{L})/iu, ["chest"], ["triceps", "deltoids"]],
   [/push-?up|віджим|отжим/iu, ["chest", "triceps"], ["deltoids", "abs"]],
 
   // ---- shoulders ----

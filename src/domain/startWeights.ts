@@ -23,9 +23,13 @@ const LIFT_WORDS: Array<[Lift, RegExp]> = [
   ["ohp", /жим\s*(штанги\s*)?(стоячи|сидячи|над\s*голов)|армійськ|армейск|overhead|\bohp\b|military|shoulder press/iu],
   ["row", /тяг\p{L}*\s*(штанги\s*)?в\s*нахил|тяга штанги|\brows?\b/iu],
   ["bench", /жим|bench/iu],
-  ["squat", /присід|присед|squat|сід/iu],
-  ["deadlift", /станов|deadlift|тяг|\bdl\b/iu],
+  ["squat", /присід|присед|squat/iu],
+  // "тяга 120" is gym slang for the deadlift; pull-ups ("підтягування") and cable/dumbbell pulls
+  // are not.
+  ["deadlift", /станов|deadlift|\bdl\b|(?<!під)тяг(?!\p{L}*\s+(блок|верхн|нижн|горизонт|гантел|до\s))/iu],
 ];
+// Lifts that share a word with the big ones but are not them ("жим ногами 150" is not a bench).
+const NOT_A_BASELINE = /ногами|leg press|гакк|hack|тренажер|machine|гантел|dumbbell/iu;
 
 /** "жим 60, присід 80х5, станова 100 кг" → estimated 1RMs. A number with reps uses Epley; a bare
  *  number is taken as a max (the conservative reading: the plan starts lighter, never heavier). */
@@ -34,6 +38,7 @@ export function parseBaselineLifts(text: string | undefined): Baseline {
   const t = (text ?? "").trim();
   if (!t || /^(none|ні|нема|немає|нет|no|-)$/i.test(t)) return out;
   for (const part of t.split(/[,;\n]+|\s(?:і|и|and)\s/i)) {
+    if (NOT_A_BASELINE.test(part)) continue;
     const lift = LIFT_WORDS.find(([, re]) => re.test(part))?.[0];
     if (!lift || out[lift]) continue;
     const nums = part.match(/\d+(?:[.,]\d+)?/g);
@@ -66,7 +71,7 @@ export function familyOf(name: string): Family | null {
   if (/(bent over.*row|barbell row|тяга штанги в нахилі|тяга штанги)/u.test(n) && !db) return { lift: "row", ratio: 1 };
   if (/(dumbbell row|тяга гантел)/u.test(n)) return { lift: "row", ratio: 0.42, dumbbell: true };
   if (/(goblet|кубков)/u.test(n)) return { lift: "squat", ratio: 0.35, dumbbell: true };
-  if (/(lunge|split squat|випад|спліт)/u.test(n) && db) return { lift: "squat", ratio: 0.18, dumbbell: true };
+  if (/(lunge|split squat|випад|спліт)/u.test(n)) return db ? { lift: "squat", ratio: 0.18, dumbbell: true } : { lift: "squat", ratio: 0.4 };
   if (/(leg press|жим ногами)/u.test(n)) return { lift: "squat", ratio: 1.5 };
   if (/(front squat|фронтальн)/u.test(n)) return { lift: "squat", ratio: 0.8 };
   if (/(squat|присідання|присід)/u.test(n) && !db && !/(bodyweight|без ваги|jump|стриб)/u.test(n)) return { lift: "squat", ratio: 1 };
