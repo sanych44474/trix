@@ -47,3 +47,10 @@ test("cachedToday only returns today's plan", () => {
   assert.deepEqual(cachedToday(s, "2026-10-02"), { date: "2026-10-02" });
   assert.equal(cachedToday(s, "2026-10-03"), null);
 });
+
+test("flushQueue keeps a save the server refused for missing login data (opened offline)", async () => {
+  const s = memStore();
+  enqueueSave(s, save("k", "2026-10-05"));
+  assert.deepEqual(await flushQueue(s, async () => { throw httpErr(401); }), { sent: 0, dropped: 0, remaining: 1 });
+  assert.deepEqual(await flushQueue(s, async () => {}), { sent: 1, dropped: 0, remaining: 0 });
+});
