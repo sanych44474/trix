@@ -684,6 +684,7 @@ export const en = {
 
   feedback_prompt:
     "✍️ Write your feedback or suggestion in one message — it goes straight to the bot owner. 🙏",
+  feedback_done_user: "✅ <b>Your feedback made it in!</b>\nYou wrote: “{text}”\nWe've done it — thanks for helping make the bot better. 🙏",
   feedback_saved: "Thank you! Your feedback has been sent. 🙏",
 
   admin_claimed:

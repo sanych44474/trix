@@ -3,6 +3,7 @@ import { api, ApiError, jsonBody, typedBody } from "./api";
 import { TrainerInviteCard } from "./TrainerInvite";
 import { FirstClientChecklist } from "./FirstClient";
 import { CoachChat } from "./CoachChat";
+import { OwnerFeedback } from "./OwnerFeedback";
 import { OwnerRoster, type RosterAction } from "./OwnerRoster";
 import type { ClientCardPayload, CoachThread, Dashboard, FinancePayload, InjuryPayload, OwnerUsers, RequestBody, SchedulePayload, TrainerProfile } from "./types";
 import { t, type Key, type Lang } from "./i18n";
@@ -687,8 +688,8 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   </div>;
 }
 
-type OwnerSection = "overview" | "roster" | "retention" | "ai" | "trainers" | "onboarding" | "errors" | "events";
-const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster">; tab: Key; eyebrow: Key; title: Key }> = [
+type OwnerSection = "overview" | "roster" | "feedback" | "retention" | "ai" | "trainers" | "onboarding" | "errors" | "events";
+const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster" | "feedback">; tab: Key; eyebrow: Key; title: Key }> = [
   { id: "overview", tab: "owner_tab_overview", eyebrow: "overview_eyebrow", title: "live_report_title" },
   { id: "retention", tab: "owner_tab_retention", eyebrow: "retention_report_eyebrow", title: "retention_report_title" },
   { id: "ai", tab: "owner_tab_ai", eyebrow: "ai_stats_eyebrow", title: "ai_stats_title" },
@@ -701,6 +702,7 @@ const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster">; tab: K
 const OWNER_TABS: Array<{ id: OwnerSection; tab: Key; icon: string }> = [
   { id: "overview", tab: "owner_tab_overview", icon: "📊" },
   { id: "roster", tab: "owner_tab_roster", icon: "👥" },
+  { id: "feedback", tab: "owner_tab_feedback", icon: "✍️" },
   { id: "retention", tab: "owner_tab_retention", icon: "🧲" },
   { id: "ai", tab: "owner_tab_ai", icon: "🤖" },
   { id: "trainers", tab: "owner_tab_trainers", icon: "🧑‍🏫" },
@@ -729,7 +731,7 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
 
   const loadUsers = () => { setError(false); return api<OwnerUsers>("/api/v2/owner/users").then(setUsers).catch(() => setError(true)); };
   const loadSection = (id: OwnerSection, force = false) => {
-    if (id === "roster" || (!force && reports[id] !== undefined)) return;
+    if (id === "roster" || id === "feedback" || (!force && reports[id] !== undefined)) return;
     setSectionBusy(true);
     api<OwnerReport>(`/api/v2/owner/report?section=${id}`)
       .then((result) => setReports((current) => ({ ...current, [id]: result.html })))
@@ -755,7 +757,7 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
   if (error) return <WorkspaceError lang={lang} onRetry={retry} />;
   if (!users) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
 
-  const activeReport = section === "roster" ? undefined : OWNER_REPORT_SECTIONS.find((s) => s.id === section);
+  const activeReport = section === "roster" || section === "feedback" ? undefined : OWNER_REPORT_SECTIONS.find((s) => s.id === section);
   const activeHtml = activeReport ? reports[activeReport.id] : undefined;
 
   return <div className="view-stack">
@@ -778,6 +780,11 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
     {section === "roster" && <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "roster_eyebrow")}</span><h2>{t(lang, "recent_users_title")}</h2></div><span className="tag">{users.rows.length}</span></div>
       <OwnerRoster lang={lang} rows={users.rows} busy={rosterBusy} nudged={nudged} onAction={(id, action) => void userAction(id, action)} />
+    </Panel>}
+
+    {section === "feedback" && <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "fbt_eyebrow")}</span><h2>{t(lang, "fbt_title")}</h2></div></div>
+      <OwnerFeedback lang={lang} />
     </Panel>}
 
     {activeReport && <Panel>

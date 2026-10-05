@@ -271,7 +271,7 @@ paths:
                             type: object
                             properties:
                               id: {type: integer}
-                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression]}
+                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression, feedback_done]}
                               params: {type: object, additionalProperties: true}
                               createdAt: {type: string}
                               read: {type: boolean}
@@ -2105,6 +2105,88 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/OwnerUsers'}
                   required: [data]
+  /api/v2/owner/feedback:
+    get:
+      operationId: listOwnerFeedback
+      description: Feedback triage list (newest first) with per-status counts.
+      security:
+      - telegramInitData: []
+      parameters:
+      - {name: status, in: query, schema: {type: string, enum: [new, done, wontfix, all]}}
+      responses:
+        '200':
+          description: Feedback rows
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        rows:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id: {type: integer}
+                              userId: {type: integer}
+                              username: {type: string}
+                              name: {type: string}
+                              text: {type: string}
+                              date: {type: string}
+                              category: {type: string, enum: [bug, idea, complaint, praise, rating, other]}
+                              status: {type: string, enum: [new, done, wontfix]}
+                            required: [id, userId, text, date, category, status]
+                        counts:
+                          type: object
+                          properties:
+                            new: {type: integer}
+                            done: {type: integer}
+                            wontfix: {type: integer}
+                          required: [new, done, wontfix]
+                      required: [rows, counts]
+                  required: [data]
+  /api/v2/owner/feedback/{id}:
+    post:
+      operationId: updateOwnerFeedback
+      description: Set a feedback row's status and/or category; notify:true on the move to done tells the author it shipped.
+      security:
+      - telegramInitData: []
+      parameters:
+      - {name: id, in: path, required: true, schema: {type: integer}}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: {type: string, enum: [new, done, wontfix]}
+                category: {type: string, enum: [bug, idea, complaint, praise, rating, other]}
+                notify: {type: boolean}
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        notified: {type: boolean}
+                      required: [ok, notified]
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/owner/release:
     get:
       operationId: getOwnerRelease
