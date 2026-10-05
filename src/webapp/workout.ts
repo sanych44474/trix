@@ -2,6 +2,7 @@
 // ctx-free save that mirrors the bot's finalizeWorkoutLog (log + strength records + badges +
 // level bookkeeping + trainer notify) so both surfaces stay in parity. Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
+import { learnExerciseMuscles } from "../exerciseMuscleLearning";
 import type { Api } from "grammy";
 import { applyWorkoutSave, muscleGroupToEnum, planRepsMid, planSetsCount, planWeight, type WorkoutSaveEntry } from "../bot";
 import { formatPrBest } from "../bot/workoutSave";
@@ -429,11 +430,15 @@ export async function createCustomExercise(
   env: Env,
   user: UserDoc,
   name: string,
-): Promise<{ name: string; videoUrl?: string; videoTitle?: string }> {
-  const video = await lookupExerciseVideoCached(env.DB, env, name).catch(() => undefined);
+): Promise<{ name: string; videoUrl?: string; videoTitle?: string; muscles?: { primary: string[]; secondary: string[] } }> {
+  // The video and the muscles (so the body map counts it from the first set) in parallel.
+  const [video, muscles] = await Promise.all([
+    lookupExerciseVideoCached(env.DB, env, name).catch(() => undefined),
+    learnExerciseMuscles(env, name).catch(() => null),
+  ]);
   let url = video?.url ?? undefined;
   if (url) url = await buildVideoOpenLink(env.WORKER_URL, url, user._id, env.TELEGRAM_BOT_TOKEN);
-  return { name, ...(url ? { videoUrl: url } : {}), ...(video?.title ? { videoTitle: video.title } : {}) };
+  return { name, ...(url ? { videoUrl: url } : {}), ...(video?.title ? { videoTitle: video.title } : {}), ...(muscles ? { muscles } : {}) };
 }
 
 // Lazy technique + video for ANY exercise name (custom/swapped exercises have neither in the

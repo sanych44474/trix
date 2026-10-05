@@ -3,46 +3,46 @@ import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from 
 import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "./types";
-import { getOwnerChatId, acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTimers, pruneSeenUpdates, getSetting, setSetting } from "./adapters/d1/v2Admin";
+import { acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTimers, pruneSeenUpdates, getSetting, setSetting } from "./adapters/d1/v2Admin";
 import { countNotificationsSince } from "./adapters/d1/v2Notifications";
 import { logInfo } from "./log";
 import { listStrength, allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
-import { activeChallengeCodes, awardAchievement, competitorWorkoutDates, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
-import { getActivePlan, listActivePlans, setProgressionRate, updatePlanMesocycle } from "./adapters/d1/v2Plans";
-import { listClients } from "./adapters/d1/v2Trainer";
-import { bodyLogsByUser, dailyCheckinsSince, getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked } from "./adapters/d1/v2Tracking";
+import { activeChallengeCodes, awardAchievement, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
+import { getActivePlan, listActivePlans, setProgressionRate } from "./adapters/d1/v2Plans";
+import { bodyLogsByUser, getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked } from "./adapters/d1/v2Tracking";
 import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, listVacationEnded, markComebackDone, updateUser } from "./adapters/d1/v2Users";
-import { nutritionLogsSince } from "./adapters/d1/v2Nutrition";
 import { resolveWaterGoal } from "./domain/challenges";
-import { adherenceDeloadDue, computePlanProgression, deloadWeekDue, evaluateProgressionRate, inQuietHours, localParts, deloadSets, getPlanDay, poorWellbeing, weeksSincePlan } from "./domain/progression";
-import { isoWeekKey, rankOf, streakMilestones, streakRisk, weekStartStr, weekStreak } from "./domain/records";
+import { adherenceDeloadDue, deloadWeekDue, evaluateProgressionRate, inQuietHours, localParts, getPlanDay, weeksSincePlan } from "./domain/progression";
+import { isoWeekKey, streakRisk } from "./domain/records";
 import { seasonalChallenge } from "./domain/challenges";
 import { stalledLifts } from "./domain/analysis";
-import { recentConditioningStrain } from "./domain/conditioning";
 import { wakeUserScheduler } from "./durable/userScheduler";
 import { wakeSquadScheduler } from "./durable/squadScheduler";
 import { wakeGlobalScheduler } from "./durable/globalScheduler";
 import { isCutOver } from "./durable/cutover";
-import { ACTIVATION_LAST_DAY, ACTIVATION_TARGET, activationDay, nextActivationStep } from "./domain/activation";
-import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalories";
-import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
-import { isoWeekday, lastPlannedDates, missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
-import { rankMissedDayOptions, recentMissRate } from "./domain/missedDay";
+import { ADJUST_COOLDOWN_DAYS } from "./domain/adaptiveCalories";
+import { daysBetween } from "./domain/reminderTiming";
 import { escapeHtml, t } from "./locales/i18n";
-import { chunkReport, renderDay, challengeTitleText } from "./render";
-import { aiText } from "./ai/index";
-import { weeklyNarrativeSystem } from "./ai/prompts";
-import { buildOwnerReport, computeBoards, finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
+import { renderDay, challengeTitleText } from "./render";
+import { finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
 import { APP_VERSION } from "./webapp/appVersion";
 import { enforceStorageBudget } from "./webapp/photoStorage";
 import { purgeExpiredStories } from "./webapp/storyMedia";
 import { stravaAccountsDue } from "./adapters/d1/v2Strava";
 import { syncStrava } from "./features/strava/stravaSync";
 import { stravaConfig } from "./webapp/stravaApi";
-import { advanceMesocycle, phaseGuidance, phaseKey } from "./domain/mesocycle";
 import { runGlobalJobs } from "./schedulerJobs/global";
 import { postSquadRecaps, processBuddyDuels, SQUAD_RECAP_HOUR_UTC, SQUAD_RECAP_BATCH } from "./schedulerJobs/social";
 import { weeklyDigest } from "./schedulerJobs/weeklyDigest";
+import type { UserPass } from "./schedulerJobs/userPass";
+import { adaptiveCalories } from "./schedulerJobs/adaptiveCalories";
+import { smartReminderHour } from "./schedulerJobs/smartReminderHour";
+import { trainerAtRiskAlert } from "./schedulerJobs/trainerAtRisk";
+import { activationNudge } from "./schedulerJobs/activation";
+import { workoutReminder } from "./schedulerJobs/workoutReminder";
+import { missedDay } from "./schedulerJobs/missedDay";
+import { weeklyNarrative } from "./schedulerJobs/weeklyNarrative";
+import { weeklyReport } from "./schedulerJobs/weeklyReport";
 import { weeklyProgression } from "./schedulerJobs/weeklyProgression";
 import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
 // Public surface kept here so existing `from "./scheduler"` imports keep working.
@@ -484,6 +484,15 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   let pinged = inQuietHours(hour, user.profile.quietFrom, user.profile.quietTo);
   // Per-user reminder preferences: a type the user switched off in Settings is never sent.
   const remOff = (key: string) => user.profile.remindersOff?.includes(key) ?? false;
+  let w21p: Promise<WorkoutLogDoc[]> | undefined;
+  const workouts21 = () => (w21p ??= workoutLogsSince(db, user._id, isoDaysAgo(21)));
+  let bodyAllP: Promise<BodyLogDoc[]> | undefined;
+  const bodyAll = () => (bodyAllP ??= bodyLogsByUser(db, user._id).catch(() => []));
+  // Everything the reminder blocks in schedulerJobs/* need (schedulerJobs/userPass.ts).
+  const p: UserPass = {
+    env, bot, user, pass, db, lang, tz, date, weekday, hour, reminderHour, activePlan, planDays, trainsOn, isTrainingDay,
+    loggedToday, sent, already, markSent, setSent: (key, value) => { dirty[key] = value; }, remOff, send, sendTo, sendAndMark, durable, appView, workouts21, bodyAll,
+  };
   const flushReminders = async () => {
     if (Object.keys(dirty).length === 0) return;
     const merged = { ...sent, ...dirty };
@@ -511,41 +520,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // At-risk state (missed consecutive days / nutrition lapse) changes at DAY granularity, so the
   // two 21-day reads only need to run once per day, not every hour>=10 pass (~14×/day → 1×/day).
   if (user.role === "client" && user.trainerId && hour >= 10 && !already("atrisk_check")) {
-    markSent("atrisk_check");
-    const [wl, nl] = await Promise.all([
-      workoutLogsSince(db, user._id, isoDaysAgo(21)),
-      nutritionLogsSince(db, user._id, isoDaysAgo(21)),
-    ]);
-    // Workout at-risk needs an ACTIVE (assigned) plan — a client with only a draft has nothing to
-    // follow. Floor the window to the later of plan-start / join date so a new client is never
-    // credited with "missing" sessions that predate them (the false-alert bug).
-    let missed: [string, string] | null = null;
-    if (activePlan?.split.length) {
-      const genD = activePlan.generatedAt.toISOString().slice(0, 10);
-      const joinD = user.createdAt.toISOString().slice(0, 10);
-      const floor = genD > joinD ? genD : joinD;
-      missed = missedConsecutiveWorkouts(activePlan.split.map((d) => d.weekday), wl.filter((l) => l.completed).map((l) => l.date), date, floor);
-    }
-    const lapse = nutritionLapse(nl.map((l) => l.date), date);
-    const fireWorkout = missed && sent["atrisk_workout"] !== missed[1];
-    const fireNutrition = lapse && sent["atrisk_nutrition"] !== lapse.lastLogged;
-    if (fireWorkout || fireNutrition) {
-      const trainer = await getUser(db, user.trainerId);
-      if (trainer) {
-        const name = user.profile.name ?? `id ${user._id}`;
-        const kb = new InlineKeyboard().text(t(trainer.lang, "cc_message"), `cl:${user._id}:msg`);
-        if (fireWorkout) {
-          const r = await sendTo(trainer, "atrisk_workout", t(trainer.lang, "atrisk_workout_alert", { name, d1: missed![0], d2: missed![1] }), { ...HTML, reply_markup: kb });
-          // Keyed on the miss itself, so a dropped alert re-fires on the next pass rather than
-          // being suppressed forever by a 429 the trainer never saw.
-          if (durable(r)) dirty["atrisk_workout"] = missed![1];
-        }
-        if (fireNutrition) {
-          const r = await sendTo(trainer, "atrisk_nutrition", t(trainer.lang, "atrisk_nutrition_alert", { name, n: lapse!.gapDays }), { ...HTML, reply_markup: kb });
-          if (durable(r)) dirty["atrisk_nutrition"] = lapse!.lastLogged;
-        }
-      }
-    }
+    await trainerAtRiskAlert(p);
   }
 
   // Activation arc — the first 14 days. Fewer than three sessions in that window is the single
@@ -554,71 +529,12 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // new user's decisive beat wins the one-nudge-per-tick budget. Solo/trainer-own only — a client
   // has a human driving them, and "train fewer days" is not this bot's call to make for them.
   if (!pinged && user.onboarded && user.role !== "client" && hour >= reminderHour && !already("activation")) {
-    const joined = user.createdAt.toISOString().slice(0, 10);
-    const dayIndex = activationDay(joined, date);
-    if (dayIndex >= 2 && dayIndex <= ACTIVATION_LAST_DAY) {
-      markSent("activation"); // one evaluation per day, not one per cron minute
-      const done = (await workoutLogsSince(db, user._id, joined)).filter((l) => l.completed).length;
-      const nudge = nextActivationStep({ joinedDate: joined, today: date, workouts: done, sentSteps: Object.keys(sent) });
-      if (nudge) {
-        pinged = true;
-        const key =
-          nudge.step === "act_first" ? "act_first"
-          : nudge.step === "act_win" ? "act_win"
-          : nudge.step === "act_week" ? (nudge.onTrack ? "act_week_on" : "act_week_behind")
-          : nudge.onTrack ? "act_locked_on" : "act_locked_behind";
-        const kb = new InlineKeyboard();
-        // The behind branches offer a SMALLER commitment, not a louder one: someone missing
-        // sessions in week one has too much plan, not too little willpower.
-        if (nudge.step === "act_first") kb.text(t(lang, "act_btn_today"), "act:today");
-        else if (!nudge.onTrack) kb.text(t(lang, "act_btn_fewer"), "pday:open");
-        const text = t(lang, key, { workouts: nudge.workouts, target: ACTIVATION_TARGET, day: nudge.dayIndex });
-        const extra = kb.inline_keyboard.length ? { ...HTML, reply_markup: kb } : HTML;
-        // The step key is written only on a durable send: each activation beat fires once ever, so
-        // marking a dropped one would silently skip that beat for this user permanently.
-        await sendAndMark(nudge.step, text, extra);
-      }
-    }
+    if (await activationNudge(p)) pinged = true;
   }
 
   // Workout reminder — fires at user's chosen hour on training days if not logged yet.
   if (!pinged && !remOff("workout") && hour >= reminderHour && isTrainingDay && !already("workout")) {
-    const plan = activePlan;
-    const day = plan ? getPlanDay(plan, weekday) : undefined;
-    if (day && !loggedToday) {
-      // Adaptive TONE (never frequency — cutting touchpoints is exactly wrong when someone's
-      // lapsing). If the previous workout reminder went unanswered (nothing completed since),
-      // extend the streak; a completed workout since then resets it. After 3 in a row, switch to
-      // a softer, no-pressure variant instead of repeating the identical nag indefinitely.
-      const prevSent = sent["workout"];
-      let ignoredStreak = user.reminders?.workoutIgnoredStreak ?? 0;
-      if (prevSent && prevSent !== date) {
-        const sinceLogs = await workoutLogsSince(db, user._id, prevSent).catch(() => []);
-        const actedOn = sinceLogs.some((l) => l.completed);
-        ignoredStreak = actedOn ? 0 : ignoredStreak + 1;
-        if (ignoredStreak !== (user.reminders?.workoutIgnoredStreak ?? 0)) {
-          // Mutate the in-memory object (not just the DB row) — flushReminders() below rebuilds
-          // `reminders` from this same object at the end of processUser, and would otherwise
-          // clobber this write back to its stale value (same pattern as `lastRank` further down).
-          user.reminders = { ...user.reminders, workoutIgnoredStreak: ignoredStreak };
-          await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
-        }
-      }
-      const wd = weekday;
-      const kb = new InlineKeyboard()
-        .text(t(lang, "log_done"), "log:done")
-        .text(t(lang, "log_skip"), "log:skip")
-        .row()
-        .text(t(lang, "swap_btn"), `swap:${wd}`).row()
-        .text(t(lang, "plan_diff_edit_weight"), `wt:open:${wd}`);
-      const logUrl = appView("log");
-      if (logUrl) kb.row().webApp(t(lang, "app_log_btn"), logUrl);
-      const reminderKey = ignoredStreak >= 3 ? "reminder_workout_soft" : "reminder_workout";
-      const text =
-        t(lang, reminderKey, { group: day.muscleGroup }) + "\n\n" + renderDay(lang, day, undefined, "none");
-      await sendAndMark("workout", text, { ...HTML, reply_markup: kb });
-      pinged = true;
-    }
+    if (await workoutReminder(p)) pinged = true;
   }
 
   // Water reminders on a schedule (opt-in via profile.waterEvery = 2/3/4h). Fire at 9:00–20:00
@@ -699,47 +615,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // day the most recent planned date is still unlogged, offering the option ranked by how busy
   // the last stretch has been and whether today's own recovery signals are already poor.
   if (!pinged && user.role !== "client" && hour >= reminderHour && !already("missed_day")) {
-    const plan = activePlan;
-    if (plan && plan.split.length) {
-      const planWeekdays = plan.split.map((d) => d.weekday);
-      const notBefore = plan.generatedAt.toISOString().slice(0, 10);
-      const lastPlanned = lastPlannedDates(planWeekdays, date, 1, notBefore)[0];
-      if (lastPlanned) {
-        // workouts21() (the memoized per-invocation closure) isn't defined until later in this
-        // function -- a direct read here, not the shared cache, since this block only ever runs
-        // once (gated by already("missed_day")).
-        const logs21 = await workoutLogsSince(db, user._id, isoDaysAgo(21));
-        const completedDates = new Set(logs21.filter((l) => l.completed).map((l) => l.date));
-        if (!completedDates.has(lastPlanned)) {
-          markSent("missed_day");
-          const recentPlanned = lastPlannedDates(planWeekdays, date, 5, notBefore);
-          const missRate = recentMissRate(recentPlanned, completedDates);
-          const checkins = await dailyCheckinsSince(db, user._id, isoDaysAgo(7)).catch(() => []);
-          const strained = recentConditioningStrain(logs21, date, 2);
-          const ranked = rankMissedDayOptions({ recentMissRate: missRate, poorRecovery: poorWellbeing(checkins) || strained });
-          const lead = ranked[0];
-          const kb = new InlineKeyboard();
-          let body = t(lang, "missed_day_header", { date: lastPlanned });
-          if (lead === "deload") {
-            body += "\n\n" + t(lang, "missed_day_deload");
-            kb.text(t(lang, "menu_coach"), "menu:coach");
-          } else if (lead === "shorten") {
-            const missedDay = getPlanDay(plan, isoWeekday(lastPlanned) as Weekday);
-            const preview = (missedDay?.exercises ?? [])
-              .slice(0, 6)
-              .map((e) => `${escapeHtml(e.name)}: ${escapeHtml(deloadSets(e.sets))}`)
-              .join("\n");
-            body += "\n\n" + t(lang, "missed_day_shorten") + (preview ? `\n${preview}` : "");
-            kb.text(t(lang, "log_done_btn"), "log:done");
-          } else {
-            body += "\n\n" + t(lang, "missed_day_makeup");
-            kb.text(t(lang, "log_done_btn"), "log:done");
-          }
-          await send(body, { ...HTML, reply_markup: kb });
-          pinged = true;
-        }
-      }
-    }
+    if (await missedDay(p)) pinged = true;
   }
 
   // Day-before heads-up: in the evening, if TOMORROW is a training day.
@@ -844,10 +720,6 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
 
   // The Monday weekly blocks below each re-read the same 21-day workout log and the full
   // body-log history; fetch each at most once per tick and reuse (sliced in memory per block).
-  let w21p: Promise<WorkoutLogDoc[]> | undefined;
-  const workouts21 = () => (w21p ??= workoutLogsSince(db, user._id, isoDaysAgo(21)));
-  let bodyAllP: Promise<BodyLogDoc[]> | undefined;
-  const bodyAll = () => (bodyAllP ??= bodyLogsByUser(db, user._id).catch(() => []));
 
   // Deload autopilot — Monday morning. Calendar trigger (~every 7th week) OR an adherence
   // trigger: several recent missed/grinding sessions → propose a lighter recovery week early.
@@ -885,35 +757,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     user.nutrition &&
     daysBetween(sent["cal_adjust"], date) >= ADJUST_COOLDOWN_DAYS
   ) {
-    const windowDays = 21;
-    const [bodyLogs, nLogs] = await Promise.all([
-      bodyAll(),
-      nutritionLogsSince(db, user._id, isoDaysAgo(windowDays)),
-    ]);
-    const since = isoDaysAgo(windowDays);
-    const adj = calorieAdjustment({
-      currentCalories: user.nutrition.calories,
-      goalWeight: user.profile.goalWeight,
-      weights: bodyLogs
-        .filter((b) => b.date >= since && typeof b.weight === "number" && (b.weight as number) > 0)
-        .map((b) => ({ date: b.date, weight: b.weight as number })),
-      loggedNutritionDays: new Set(nLogs.map((l) => l.date)).size,
-      windowDays,
-    });
-    if (adj) {
-      await updateUser(db, user._id, { nutrition: { ...user.nutrition, calories: adj.newCalories } });
-      await send(
-        t(lang, adj.deltaKcal < 0 ? "cal_adjust_down" : "cal_adjust_up", {
-          old: user.nutrition.calories,
-          new: adj.newCalories,
-          trend: Math.abs(adj.slopePerWeek).toFixed(2),
-          target: Math.abs(adj.targetPerWeek).toFixed(2),
-        }),
-      );
-      pinged = true;
-    }
-    // Cooldown runs from the last EVALUATION (even a no-op), so a borderline trend isn't re-tested daily.
-    markSent("cal_adjust");
+    if (await adaptiveCalories(p)) pinged = true;
   }
 
   // Smart reminder timing — Monday, re-offered at most every 30 days. If the user consistently
@@ -925,21 +769,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     hour >= reminderHour &&
     daysBetween(sent["smart_hour"], date) >= 30
   ) {
-    const recentLogs = (await workoutLogsSince(db, user._id, isoDaysAgo(45))).filter((l) => l.completed);
-    const hours = recentLogs.map((l) => localParts(tz, l.createdAt).hour);
-    const suggested = suggestReminderHour(hours, reminderHour);
-    if (suggested !== null) {
-      const kb = new InlineKeyboard()
-        .text(t(lang, "smart_hour_yes", { h: suggested }), `shour:yes:${suggested}`)
-        .text(t(lang, "smart_hour_no"), "shour:no");
-      // Cooldown runs from the offer, whatever the answer — but only once the offer actually
-      // got out, or a dropped send costs the user this prompt for another 30 days.
-      await sendAndMark("smart_hour", t(lang, "smart_hour_offer", { habit: suggested + 1, cur: reminderHour, new: suggested }), {
-        ...HTML,
-        reply_markup: kb,
-      });
-      pinged = true;
-    }
+    if (await smartReminderHour(p)) pinged = true;
   }
 
   // Bi-weekly adaptive check-in — Monday of every 2nd plan week. DMs the user and parks
@@ -988,182 +818,13 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // same-tz cohorts grow large, add a per-invocation cap (like the plan-pending recovery above)
   // to stay under Cloudflare's subrequest limit.
   if (weekday === 1 && hour >= 11 && user.role !== "client" && !already("weekly_narrative") && pass.narrativeBudget > 0) {
-    const since = isoDaysAgo(7);
-    const wl = (await workouts21()).filter((l) => l.date >= since); // 7-day slice of the 21-day pull
-    if (wl.length) {
-      pass.narrativeBudget--;
-      markSent("weekly_narrative");
-      const nl = await nutritionLogsSince(db, user._id, since);
-      const recentBody = (await bodyAll()).filter((b) => typeof b.weight === "number" && b.date >= since);
-      const weightDelta =
-        recentBody.length >= 2
-          ? +(((recentBody[recentBody.length - 1].weight as number) - (recentBody[0].weight as number)).toFixed(1))
-          : 0;
-      // Periodization context the app already decided on its own this week (mesocycle phase,
-      // an autopilot deload, a plateau swap) — folded into the SAME narrative call as the "why"
-      // behind what the user saw, instead of leaving those as unexplained separate pings. Cheap:
-      // pure date/array math plus one extra checkins read, reusing the already-cached plan/logs.
-      const plan = activePlan;
-      const mesocyclePhase = plan?.mesocycle
-        ? `${plan.mesocycle.phase}, week ${plan.mesocycle.weekInBlock}/${plan.mesocycle.blockLength}`
-        : undefined;
-      let deloadThisWeek = false;
-      let plateauExercises: string[] = [];
-      if (plan) {
-        const logs21 = await workouts21();
-        deloadThisWeek =
-          deloadWeekDue(plan.generatedAt.toISOString().slice(0, 10), date) || adherenceDeloadDue(logs21);
-        if (plan.split.length) {
-          const checkins = await dailyCheckinsSince(db, user._id, isoDaysAgo(7)).catch(() => []);
-          plateauExercises = computePlanProgression(plan, logs21, checkins).plateau;
-        }
-      }
-      const summary = {
-        workoutsDone: wl.filter((l) => l.completed).length,
-        workoutsSkipped: wl.filter((l) => !l.completed).length,
-        nutritionDaysLogged: nl.length,
-        weightDeltaKg: weightDelta,
-        ...(mesocyclePhase ? { mesocyclePhase } : {}),
-        ...(deloadThisWeek ? { deloadThisWeek } : {}),
-        ...(plateauExercises.length ? { plateauExercises } : {}),
-      };
-      try {
-        const text = await aiText(env, {
-          system: weeklyNarrativeSystem(lang),
-          user: JSON.stringify(summary),
-          temperature: 0.6,
-          kind: "report",
-          db,
-          userId: user._id,
-        });
-        await send(`${t(lang, "weekly_narrative_header")}\n\n${escapeHtml(text)}`);
-      } catch (err) {
-        logSchedulerError(db, "weekly_narrative", err, user._id);
-      }
-    }
+    await weeklyNarrative(p);
   }
 
   // Weekly report at 17:00 local time on Monday — trainer gets client digest,
   // owner gets full report, competitors get leaderboard nudge.
   if (weekday === 1 && hour >= 17 && !already("weekly_report")) {
-    // Block periodization: advance the active plan's mesocycle one week (Monday, once).
-    if (activePlan?.mesocycle) {
-      const prev = activePlan.mesocycle;
-      const nextMeso = advanceMesocycle(prev);
-      await updatePlanMesocycle(db, user._id, nextMeso).catch(() => {});
-      if (nextMeso.phase !== prev.phase) {
-        const g = phaseGuidance(nextMeso.phase);
-        await send(t(lang, "meso_advanced", { phase: t(lang, phaseKey(nextMeso.phase) as Parameters<typeof t>[1]), reps: g.reps, intensity: g.intensity }));
-      }
-    }
-    const ownerChatId = await getOwnerChatId(db);
-    if (ownerChatId !== undefined && user.chatId === ownerChatId) {
-      try {
-        // Through the outbox like every other send, so a 429 at 17:00 (when the whole cohort's
-        // sends share one invocation's subrequest budget) backs off instead of losing the report.
-        // Caveat: the outbox gives no cross-row ordering guarantee, so if one chunk backs off and
-        // a later one doesn't, the owner sees them out of order. Acceptable here -- the report is
-        // re-runnable on demand via /ownerreport, and losing it entirely is the worse failure.
-        for (const chunk of chunkReport(await buildOwnerReport(db, env))) {
-          await send(chunk);
-        }
-      } catch (err) {
-        logSchedulerError(db, "owner_report", err);
-      }
-    }
-    // Each of these two blocks is independently try/catch'd (like the owner report above) so a
-    // transient D1/send failure in one doesn't stop markSent below — without it, the whole
-    // weekly_report block (including the non-idempotent mesocycle advance above) re-runs on
-    // every later tick this same Monday.
-    try {
-    if (user.role === "trainer") {
-      const clients = await listClients(db, user._id);
-      if (clients.length) {
-        const cutoff = isoDaysAgo(7);
-        const lines = [t(lang, "digest_header")];
-        for (const c of clients) {
-          const plan = pass.planByUser.get(c._id) ?? null;
-          const streakLogs = await workoutLogsSince(db, c._id, isoDaysAgo(45));
-          const logs = streakLogs.filter((l) => l.date >= cutoff); // 7-day slice of the 45-day pull
-          const done = logs.filter((l) => l.completed).length;
-          const skipped = logs.filter((l) => !l.completed).length;
-          const planned = plan?.split.length ?? 0;
-          const planWeekdays = new Set((plan?.split ?? []).map((d) => d.weekday));
-          const offPlan = logs.filter((l) => l.completed && planWeekdays.size > 0 && !planWeekdays.has(l.weekday)).length;
-          const streak = weekStreak(streakLogs.filter((l) => l.completed).map((l) => l.date), date, c.reminders?.lastVacation);
-          // Traffic-light at a glance: hit the plan / partial / nothing.
-          const emoji = planned > 0 ? (done >= planned ? "🟢" : done >= 1 ? "🟡" : "🔴") : done >= 1 ? "🟢" : "⚪";
-          const who = (c.flagged ? "⚠️ " : "") + escapeHtml(c.profile.name ?? `id ${c._id}`);
-          lines.push(
-            t(lang, "digest_line", {
-              emoji,
-              name: who,
-              done,
-              planned: planned || done,
-              skipped,
-              streak,
-              offplan: offPlan > 0 ? t(lang, "digest_offplan", { n: offPlan }) : "",
-            }),
-          );
-        }
-        await send(lines.join("\n"));
-      }
-    }
-    } catch (err) {
-      logSchedulerError(db, "trainer_digest", err, user._id);
-    }
-    try {
-    if (user.competeOptIn) {
-      let boardsP = pass.boardsByDay.get(date);
-      if (!boardsP) {
-        boardsP = computeBoards(db, tz);
-        pass.boardsByDay.set(date, boardsP);
-      }
-      const boards = await boardsP;
-      const dates = await competitorWorkoutDates(db);
-      const today = date;
-      const weekStart = weekStartStr(today);
-      const userDates = dates.filter((d) => d.userId === user._id).map((d) => d.date);
-      const streak = weekStreak(userDates, today, user.reminders?.lastVacation);
-      for (const code of streakMilestones(streak)) await awardAchievement(db, user._id, code);
-      if (userDates.some((dt) => dt >= weekStart)) {
-        const nut = await nutritionLogsSince(db, user._id, weekStart);
-        if (nut.length) await awardAchievement(db, user._id, "balanced_week");
-      }
-      const rank = rankOf(boards.consistency, user._id);
-      // Competitive hook: compare with last week's stored rank and call out the change —
-      // "X overtook you" stings (in a good way), "you climbed" rewards. Opt-in users only.
-      let rankLine = "";
-      const prevRank = user.reminders?.lastRank;
-      if (rank && prevRank && rank !== prevRank) {
-        if (rank < prevRank) {
-          rankLine = "\n" + t(lang, "rank_up", { prev: prevRank, rank });
-        } else {
-          const above = boards.consistency[rank - 2];
-          const who = above ? (above.name || t(lang, "anon")) : "";
-          rankLine = "\n" + (who ? t(lang, "rank_down", { name: who, rank }) : "");
-        }
-      }
-      if (rank) {
-        user.reminders = { ...user.reminders, lastRank: rank };
-        await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
-      }
-      // Only send when there is something real behind it. `rank` exists only if they logged a
-      // session THIS week (the consistency board drops zero-count entries), and `streak > 0`
-      // means they trained recently — with neither, the message would read
-      // "🏆 you're #— · 🔥 0-week streak. One more session keeps it alive!" to somebody who has
-      // not trained at all. Re-engaging those users is the at-risk/activation machinery's job;
-      // a leaderboard nudge congratulating nothing just teaches them to ignore the bot.
-      if (rank || streak > 0) {
-        await bot.api
-          .sendMessage(user.chatId, t(lang, "weekly_nudge", { rank: rank || "—", streak }) + rankLine, HTML)
-          .catch((e) => console.error("nudge send", e));
-      }
-    }
-    } catch (err) {
-      logSchedulerError(db, "weekly_nudge", err, user._id);
-    }
-    markSent("weekly_report");
+    await weeklyReport(p);
   }
   } finally {
     await flushReminders();

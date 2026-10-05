@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Confetti, CountUp } from "./Celebrate";
+import { api, typedBody } from "../api";
 import { t, type Key, type Lang } from "../i18n";
 import { fmtDuration } from "../logic/rest";
 import { canShareStory } from "../telegram";
@@ -26,6 +28,17 @@ type Stat = { id: string; value: string; label: Key; help: Key };
 export function SessionSummary({ lang, summary, title, date }: { lang: Lang; summary: SaveSummary; title: string; date: string }) {
   const [helpFor, setHelpFor] = useState<string | null>(null);
   const [sharing, setSharing] = useState<"idle" | "busy" | "failed">("idle");
+  // "How did it go?" -- one tap, read by next Monday's progression (domain/sessionFeel.ts).
+  const [feel, setFeel] = useState<"easy" | "ok" | "hard" | null>(null);
+  const [feelState, setFeelState] = useState<"idle" | "busy" | "done" | "failed">("idle");
+  const sendFeel = async (value: "easy" | "ok" | "hard") => {
+    setFeel(value); setFeelState("busy");
+    try {
+      await api("/api/v2/workout/feel", { method: "POST", body: typedBody<"setWorkoutFeel">({ date, feel: value }) });
+      setFeelState("done");
+      window.Telegram?.WebApp.HapticFeedback?.impactOccurred("light");
+    } catch { setFeelState("failed"); }
+  };
   // A finished session (or a new record) as a Telegram story: free reach, one tap.
   const shareStory = async () => {
     setSharing("busy");
@@ -54,6 +67,7 @@ export function SessionSummary({ lang, summary, title, date }: { lang: Lang; sum
   const open = stats.find((stat) => stat.id === helpFor);
   return (
     <Card tone="accent">
+      {(summary.prExercises.length > 0 || summary.leveledUp || summary.newBadges.length > 0) && <Confetti />}
       <div className="section-head">
         <div><span className="eyebrow">{t(lang, "session_summary_eyebrow")}</span><h2>{title}</h2></div>
         <span className="tag">{t(lang, "level_n", { n: summary.level })}</span>
@@ -61,7 +75,7 @@ export function SessionSummary({ lang, summary, title, date }: { lang: Lang; sum
       <div className="session-stats">
         {stats.map((stat) => (
           <button type="button" key={stat.id} className={helpFor === stat.id ? "selected" : ""} aria-expanded={helpFor === stat.id} onClick={() => setHelpFor((current) => current === stat.id ? null : stat.id)}>
-            <strong>{stat.value}</strong>
+            <strong><CountUp value={stat.value} /></strong>
             <small>{t(lang, stat.label)}</small>
           </button>
         ))}
@@ -70,6 +84,18 @@ export function SessionSummary({ lang, summary, title, date }: { lang: Lang; sum
       {summary.leveledUp && <p className="summary-hit">{t(lang, "summary_level_up", { n: summary.level })}</p>}
       {summary.prExercises.length > 0 && <p className="summary-hit">{t(lang, "summary_prs", { names: summary.prExercises.join(", ") })}</p>}
       {summary.newBadges.length > 0 && <p className="summary-hit">{t(lang, "summary_badges", { names: summary.newBadges.join(", ") })}</p>}
+      <div className="feel-block">
+        <strong>{t(lang, "feel_question")}</strong>
+        <div className="feel-row" role="group" aria-label={t(lang, "feel_question")}>
+          {(["easy", "ok", "hard"] as const).map((value) => (
+            <button type="button" key={value} className={feel === value ? "feel-chip selected" : "feel-chip"} disabled={feelState === "busy" || feelState === "done"} aria-pressed={feel === value} onClick={() => void sendFeel(value)}>
+              <span aria-hidden="true">{value === "easy" ? "😌" : value === "ok" ? "💪" : "🥵"}</span>{t(lang, `feel_${value}`)}
+            </button>
+          ))}
+        </div>
+        {feelState === "done" && <small className="feel-note">{t(lang, `feel_done_${feel ?? "ok"}`)}</small>}
+        {feelState === "failed" && <small className="feel-note">{t(lang, "generic_error")}</small>}
+      </div>
       <p className="muted">{t(lang, "summary_total_workouts", { n: summary.totalWorkouts })}</p>
       {canShareStory() && (
         <div className="button-row">

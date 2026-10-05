@@ -109,5 +109,55 @@ export function musclesForExercise(name: string): ExerciseMuscles | null {
   for (const [re, primary] of REGION_FALLBACK) {
     if (re.test(n)) return { primary, secondary: [] };
   }
-  return null;
+  return LEARNED.get(normalizeExerciseName(name)) ?? null;
+}
+
+// ---- Learned muscles: exercises the rules above don't recognise ----
+// Someone's own exercise ("Тяга Т-грифа з упором", a club-specific machine) used to drop out of
+// the body map, the region list and the muscle quests. Such names are classified once (catalog
+// match, else AI; src/exerciseMuscleLearning.ts), stored in v2_exercise_muscles, and registered
+// here by the server and the Mini App, so every caller of musclesForExercise sees them. The
+// rules always win: a learned entry only fills a gap.
+const LEARNED = new Map<string, ExerciseMuscles>();
+
+export const ALL_SLUGS: readonly Slug[] = [
+  "abs", "adductors", "biceps", "calves", "chest", "deltoids", "forearm", "gluteal",
+  "hamstring", "lower-back", "neck", "obliques", "quadriceps", "tibialis", "trapezius",
+  "triceps", "upper-back",
+];
+
+export function normalizeExerciseName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Keep only known muscle slugs (an AI answer or a stored row may carry anything). */
+export function cleanSlugs(list: unknown): Slug[] {
+  if (!Array.isArray(list)) return [];
+  return [...new Set(list.filter((x): x is Slug => typeof x === "string" && (ALL_SLUGS as readonly string[]).includes(x)))];
+}
+
+export function registerLearnedMuscles(entries: Array<{ name: string; primary: unknown; secondary?: unknown }>): void {
+  for (const e of entries) {
+    const primary = cleanSlugs(e.primary);
+    if (!primary.length) continue; // a "couldn't classify" marker teaches nothing
+    LEARNED.set(normalizeExerciseName(e.name), { primary, secondary: cleanSlugs(e.secondary).filter((s) => !primary.includes(s)) });
+  }
+}
+
+/** Whether the rules alone (not a learned entry) recognise the name. */
+export function knownByRules(name: string): boolean {
+  const n = name.toLowerCase();
+  return RULES.some(([re]) => re.test(n)) || REGION_FALLBACK.some(([re]) => re.test(n));
+}
+
+// free-exercise-db / catalog muscle enum → body-map muscle.
+const CATALOG_TO_SLUG: Record<string, Slug> = {
+  chest: "chest", lats: "upper-back", "middle back": "upper-back", "lower back": "lower-back",
+  traps: "trapezius", shoulders: "deltoids", biceps: "biceps", triceps: "triceps",
+  forearms: "forearm", abdominals: "abs", quadriceps: "quadriceps", hamstrings: "hamstring",
+  glutes: "gluteal", calves: "calves", adductors: "adductors", abductors: "gluteal", neck: "neck",
+};
+
+export function slugForCatalogMuscle(muscle: string | null | undefined): Slug | null {
+  return CATALOG_TO_SLUG[(muscle ?? "").trim().toLowerCase()] ?? null;
 }

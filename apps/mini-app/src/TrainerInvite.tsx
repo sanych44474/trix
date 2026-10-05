@@ -50,7 +50,7 @@ export function TrainerInviteCard({ lang }: { lang: Lang }) {
   const full = data.maxClients != null && data.clients >= data.maxClients;
   const personalText = (who: string) => t(lang, "tinvite_personal_text", { name: who });
 
-  return <section className="card card-default trainer-invite">
+  return <section id="trainer-invite" className="card card-default trainer-invite">
     <div className="section-head"><div><span className="eyebrow">{t(lang, "tinvite_eyebrow")}</span><h2>{t(lang, "tinvite_title")}</h2></div>
       <span className="tag">{data.maxClients != null ? `${data.clients}/${data.maxClients}` : `${data.clients}`}</span></div>
     {!data.approved ? <p>{t(lang, "tinvite_pending")}</p> : !data.link ? <p>{t(lang, "tinvite_no_bot")}</p> : <>

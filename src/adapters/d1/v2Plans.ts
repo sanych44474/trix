@@ -30,6 +30,7 @@
 // id, batch the children) — each phase is atomic on its own via db.batch(), but a crash between
 // phases could in principle leave a plan row with no days yet. Accepted as consistent with that
 // existing precedent rather than a new risk introduced here.
+import { recordInbox } from "./v2Inbox";
 import type {
   ExerciseMetric,
   PlanAdjustmentDoc,
@@ -395,6 +396,7 @@ export async function assignDraftPlan(db: DB, userId: number): Promise<boolean> 
     db.prepare("UPDATE v2_plans SET active = 0 WHERE accountId = ? AND active = 1").bind(userId),
     db.prepare("UPDATE v2_plans SET active = 1, status = 'active', updatedAt = ? WHERE accountId = ? AND status = 'draft'").bind(now, userId),
   ]);
+  await recordInbox(db, userId, "plan_assigned");
   return true;
 }
 
@@ -498,6 +500,8 @@ export async function recordPlanChange(db: DB, userId: number, source: PlanChang
     .prepare("INSERT INTO v2_plan_changes (accountId, actorId, source, summary, createdAt) VALUES (?, NULL, ?, ?, ?)")
     .bind(userId, source, summary, nowIso())
     .run();
+  // The client sees their trainer's edits in the Mini App feed (their own edits they made themselves).
+  if (source === "trainer") await recordInbox(db, userId, "plan_changed", { summary: summary.slice(0, 120) });
 }
 
 export async function listPlanChanges(db: DB, userId: number, limit = 20): Promise<PlanChangeLogEntry[]> {

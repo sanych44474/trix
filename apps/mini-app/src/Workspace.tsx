@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "./api";
 import { TrainerInviteCard } from "./TrainerInvite";
+import { FirstClientChecklist } from "./FirstClient";
 import { OwnerRoster, type RosterAction } from "./OwnerRoster";
 import type { ClientCardPayload, CoachThread, Dashboard, FinancePayload, InjuryPayload, OwnerUsers, RequestBody, SchedulePayload, TrainerProfile } from "./types";
 import { t, type Key, type Lang } from "./i18n";
@@ -643,6 +644,7 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
       <button className="button button-ghost" onClick={() => setSubview("finance")}>{t(lang, "workspace_tab_finance")}</button>
     </div>
 
+    <FirstClientChecklist lang={lang} clients={clients} onOpenPlan={(id) => onOpenPlan?.(id)} onInvite={() => document.getElementById("trainer-invite")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
     {/* No clients yet: inviting is the first job, so the card leads; otherwise it follows the pulse. */}
     {clients.length === 0 && <TrainerInviteCard lang={lang} />}
     <Panel tone="accent">

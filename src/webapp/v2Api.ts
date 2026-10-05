@@ -56,6 +56,7 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/weekcard", legacy: "/api/weekcard", handler: handleExtrasApi },
   { prefix: "/api/v2/story", legacy: "/api/story", handler: handleExtrasApi },
   { prefix: "/api/v2/support", legacy: "/api/support", handler: handleExtrasApi },
+  { prefix: "/api/v2/inbox", legacy: "/api/inbox", handler: handleExtrasApi },
   { prefix: "/api/v2/strava", legacy: "/api/strava", handler: handleStravaApi },
   { prefix: "/api/v2/photocompare", legacy: "/api/photocompare", handler: handleExtrasApi },
   { prefix: "/api/v2/whatsnew", legacy: "/api/whatsnew", handler: handleExtrasApi },

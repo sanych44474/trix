@@ -48,6 +48,7 @@
 // `UPDATE v2_plans SET active = 0 WHERE accountId = ? AND active = 1` shape for its own
 // deactivation). Same side effect legacy trainer.ts always ran against `plans`, just folded into
 // this module's atomic batch.
+import { recordInbox } from "./v2Inbox";
 import type {
   BankPlan,
   ClientCardDoc,
@@ -545,6 +546,9 @@ export async function listQuestionsForClient(db: DB, clientId: number, limit = 2
 export async function insertMessage(db: DB, fromId: number, toId: number, text: string): Promise<void> {
   await db.prepare("INSERT INTO v2_messages (fromAccountId, toAccountId, text, createdAt) VALUES (?, ?, ?, ?)")
     .bind(fromId, toId, text, nowIso()).run();
+  let from: { name: string | null } | null = null;
+  try { from = await db.prepare("SELECT name FROM v2_profiles WHERE accountId = ?").bind(fromId).first<{ name: string | null }>(); } catch { /* name is optional */ }
+  await recordInbox(db, toId, "message", { fromId, fromName: from?.name ?? "", preview: text.slice(0, 120) });
 }
 
 export interface MessageEntry {

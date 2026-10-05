@@ -23,7 +23,9 @@ concurrency:
 jobs:
   checks:
     name: Typecheck, build, audit
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest (which moves to Ubuntu 26 from 2026-10-19), here and in
+    # every workflow, so a runner image change is a deliberate edit, not a surprise red build.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -51,7 +53,7 @@ jobs:
 
   unit:
     name: Test (node:test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -65,7 +67,7 @@ jobs:
 
   workers:
     name: Test (Workers runtime)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout

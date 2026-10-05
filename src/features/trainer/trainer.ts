@@ -626,6 +626,207 @@ export async function cmdTrainerQuestions(ctx: MyContext) {
   await reply(ctx, lines.join("\n"), kb);
 }
 
+/** clientCardAction "card". */
+async function showClientCard(ctx: MyContext, client: UserDoc, clientId: number, cname: string, lang: Lang) {
+  await clearEditOwner(ctx);
+  // 7-day compliance: % of scheduled workouts done + % of days food was logged.
+  const cutoff = localCutoff(client.profile.timezone, 7);
+  const [wl, nl] = await Promise.all([
+    workoutLogsSince(ctx.db, clientId, cutoff),
+    nutritionLogsSince(ctx.db, clientId, cutoff),
+  ]);
+  const comp = complianceScore({
+    completedWorkouts: wl.filter((l) => l.completed).length,
+    scheduledWorkouts: (client.profile.trainingWeekdays ?? []).length,
+    nutritionDays: nl.length,
+    windowDays: 7,
+  });
+  const note = await getClientNote(ctx.db, ctx.user._id, clientId);
+  // Cycle phase — shown to the trainer when the client is female (helps them adjust the
+  // session on the fly without having to ask). Menstrual data is medical, so it also
+  // requires the client's explicit health-sharing consent.
+  let cycleLine = "";
+  if (client.profile.sex === "female" && trainerCanSee(client.profile, "health")) {
+    const clientDate = localParts(client.profile.timezone ?? "UTC").date;
+    const cycleInfo = computeCyclePhase(client.profile, clientDate);
+    if (cycleInfo) {
+      const phaseLabel = t(lang, `cycle_phase_${cycleInfo.phase}` as Parameters<typeof t>[1]);
+      cycleLine = "\n" + t(lang, "cc_cycle_phase", { phase: phaseLabel, day: cycleInfo.day, len: cycleInfo.cycleLength });
+    } else {
+      cycleLine = "\n" + t(lang, "cc_cycle_no_data");
+    }
+  }
+  const card =
+    t(lang, "client_card", { name: cname, status: client.onboarded ? "✅" : "⏳" }) +
+    "\n" +
+    t(lang, "cc_compliance_line", { workoutPct: comp.workoutPct, nutritionPct: comp.nutritionPct }) +
+    cycleLine +
+    (note ? `\n\n📝 <i>${escapeHtml(note)}</i>` : "");
+  await reply(ctx, card, clientCardKb(lang, clientId));
+}
+
+/** clientCardAction "thread". */
+async function showClientThread(ctx: MyContext, clientId: number, cname: string, lang: Lang) {
+  // Messages were previously write-only (sent once as a Telegram push, never readable again).
+  const msgs = await listMessages(ctx.db, ctx.user._id, clientId, 20);
+  const kb = new InlineKeyboard()
+    .text(t(lang, "cc_message"), `cl:${clientId}:msg`)
+    .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
+  if (!msgs.length) {
+    await reply(ctx, t(lang, "cc_thread_empty", { name: cname }), kb);
+  } else {
+    const lines = msgs.map((m) => `${m.createdAt.slice(0, 16).replace("T", " ")} ${m.fromId === ctx.user._id ? "→" : "←"} ${escapeHtml(m.text)}`);
+    await reply(ctx, `${t(lang, "cc_thread_title", { name: cname })}\n\n${lines.join("\n")}`, kb);
+  }
+}
+
+/** clientCardAction "note". */
+async function showClientNote(ctx: MyContext, clientId: number, cname: string, lang: Lang) {
+  const note = await getClientNote(ctx.db, ctx.user._id, clientId);
+  const history = await listClientNoteHistory(ctx.db, ctx.user._id, clientId, "note");
+  let body = note ? `📝 ${cname}\n\n${escapeHtml(note)}` : t(lang, "cc_note_empty", { name: cname });
+  if (history.length) {
+    body += `\n\n<i>${t(lang, "cc_note_history_hdr")}</i>\n` +
+      history.slice(0, 5).map((h) => `• ${h.savedAt.slice(0, 10)}: ${escapeHtml(h.value)}`).join("\n");
+  }
+  const kb = new InlineKeyboard()
+    .text(t(lang, "cc_note_edit"), `cl:${clientId}:noteedit`)
+    .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
+  await reply(ctx, body, kb);
+}
+
+/** clientCardAction "health". */
+async function showClientHealth(ctx: MyContext, client: UserDoc, clientId: number, cname: string, lang: Lang) {
+  // Trainer-authored health notes first; the client's self-reported limitations/injuries
+  // only when the client shares health data.
+  const card = await getClientCard(ctx.db, ctx.user._id, clientId);
+  const lines = [t(lang, "cc_health_title", { name: cname })];
+  lines.push(card?.healthNotes ? escapeHtml(card.healthNotes) : t(lang, "cc_health_none"));
+  if (trainerCanSee(client.profile, "health")) {
+    if (client.profile.limitations) {
+      lines.push("", t(lang, "cc_client_limitations", { text: client.profile.limitations }));
+    }
+    const injuries = await listActiveInjuries(ctx.db, clientId);
+    if (injuries.length) {
+      lines.push("", t(lang, "cc_injuries_hdr"));
+      for (const inj of injuries) {
+        const area = t(lang, `inj_area_${inj.area}` as TKey);
+        const sev = t(lang, `inj_sev_${inj.severity}` as TKey);
+        const last = inj.checkinsHistory[inj.checkinsHistory.length - 1];
+        const pain = last ? ` · ${last.score}/10 (${last.date})` : "";
+        lines.push(`• ${area} — ${sev} · ${inj.reportedAt.slice(0, 10)}${pain}`);
+      }
+    }
+  } else {
+    lines.push("", t(lang, "cc_share_locked", { name: cname }));
+  }
+  const healthHistory = await listClientNoteHistory(ctx.db, ctx.user._id, clientId, "healthNotes");
+  if (healthHistory.length) {
+    lines.push("", `<i>${t(lang, "cc_health_history_hdr")}</i>`);
+    for (const h of healthHistory.slice(0, 5)) lines.push(`• ${h.savedAt.slice(0, 10)}: ${escapeHtml(h.value)}`);
+  }
+  const kb = new InlineKeyboard()
+    .text(t(lang, "cc_health_edit"), `cl:${clientId}:healthedit`)
+    .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
+  await reply(ctx, lines.join("\n"), kb);
+}
+
+/** clientCardAction "pers". */
+async function showClientPersonal(ctx: MyContext, clientId: number, cname: string, lang: Lang) {
+  const card = await getClientCard(ctx.db, ctx.user._id, clientId);
+  const lines = [t(lang, "cc_personal_title", { name: cname })];
+  if (card?.birthday) {
+    const info = birthdayInfo(card.birthday, new Date().toISOString().slice(0, 10));
+    let bday = t(lang, "cc_bday_line", { date: info.display, age: info.age !== undefined ? ` (${info.age})` : "" });
+    if (info.daysUntil <= 7) bday += t(lang, "cc_bday_soon", { days: info.daysUntil });
+    lines.push(bday);
+  }
+  lines.push(card?.personalNotes ? escapeHtml(card.personalNotes) : t(lang, "cc_personal_none"));
+  const kb = new InlineKeyboard()
+    .text(t(lang, "cc_personal_edit"), `cl:${clientId}:persedit`)
+    .text(t(lang, "cc_bday_btn"), `cl:${clientId}:bday`)
+    .row()
+    .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
+  await reply(ctx, lines.join("\n"), kb);
+}
+
+/** clientCardAction "intv". */
+async function showClientIntake(ctx: MyContext, client: UserDoc, clientId: number, cname: string, lang: Lang) {
+  // Interview summary: onboarding answers straight from the client's profile (no backfill
+  // needed — both the button wizard and the AI interview write there), consent-gated where
+  // the data is body/health sensitive.
+  const p = obProgress(client.profile);
+  const lines = [t(lang, "cc_intv_title", { name: cname })];
+  lines.push(client.onboarded ? t(lang, "cc_intv_done") : t(lang, "cc_intv_progress", { n: p.answered, total: p.total }));
+  lines.push("");
+  const before = lines.length;
+  const add = (key: TKey, v?: string) => { if (v) lines.push(`${t(lang, key)}: ${v}`); };
+  add("cc_intv_goal", intvLabel(lang, client.profile.goal));
+  add("cc_intv_level", intvLabel(lang, client.profile.level));
+  add("cc_intv_history", client.profile.trainingHistory ? escapeHtml(client.profile.trainingHistory) : undefined);
+  const days = client.profile.trainingWeekdays ?? [];
+  if (days.length) lines.push(`${t(lang, "cc_intv_days")}: ${days.map((w) => weekdayName(lang, w)).join(", ")}`);
+  add("cc_intv_equipment", intvLabel(lang, client.profile.equipment));
+  add("cc_intv_lifestyle", intvLabel(lang, client.profile.lifestyle));
+  add("cc_intv_sleep", intvLabel(lang, client.profile.sleepSchedule));
+  add("cc_intv_diet", intvLabel(lang, client.profile.dietPrefs));
+  add("cc_intv_allergies", client.profile.allergies ? escapeHtml(client.profile.allergies) : undefined);
+  add("cc_intv_food_likes", client.profile.foodLikes ? escapeHtml(client.profile.foodLikes) : undefined);
+  add("cc_intv_food_dislikes", client.profile.foodDislikes ? escapeHtml(client.profile.foodDislikes) : undefined);
+  add("cc_intv_fav_ex", client.profile.favoriteExercises ? escapeHtml(client.profile.favoriteExercises) : undefined);
+  add("cc_intv_dis_ex", client.profile.dislikedExercises ? escapeHtml(client.profile.dislikedExercises) : undefined);
+  if (lines.length === before) lines.push(t(lang, "cc_intv_empty"));
+  const anthro = anthroBlock(lang, client, cname);
+  if (anthro) lines.push("", anthro);
+  if (trainerCanSee(client.profile, "health") && client.profile.limitations) {
+    lines.push("", t(lang, "cc_client_limitations", { text: client.profile.limitations }));
+  }
+  const kb = new InlineKeyboard();
+  if (!client.onboarded) {
+    kb.text(t(lang, "cc_intv_remind_btn"), `cl:${clientId}:intvping`)
+      .text(t(lang, "cc_mini_btn"), `mi:${clientId}`)
+      .row();
+  }
+  kb.text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
+  await reply(ctx, lines.join("\n"), kb);
+}
+
+/** clientCardAction "intvping". */
+async function pingClientIntake(ctx: MyContext, client: UserDoc, clientId: number, cname: string, lang: Lang) {
+  // Nudge the client to finish the interview: resume the exact question they stopped at.
+  if (client.onboarded) { await clientCardAction(ctx, clientId, "intv"); return; }
+  const prefix = t(client.lang, "cc_intv_remind_text");
+  const transcript = client.session.transcript;
+  if (client.session.mode === "onboarding" && transcript?.length) {
+    // AI-interview user — re-send the last unanswered question (same as the cron nudge).
+    const lastQ = [...transcript].reverse().find((m) => m.role === "assistant");
+    await ctx.api
+      .sendMessage(client.chatId, `${prefix}\n\n${escapeHtml(lastQ?.text ?? "")}`.trim(), HTML)
+      .catch(() => {});
+  } else {
+    // Button-wizard user (or an abandoned session) — resume at the first unanswered step.
+    const step = client.session.mode === "onboarding" && typeof client.session.step === "number"
+      ? client.session.step
+      : obProgress(client.profile).next;
+    await updateUser(ctx.db, clientId, { session: { mode: "onboarding", step } });
+    await sendObStepTo(ctx, client, step, prefix);
+  }
+  await reply(ctx, t(lang, "cc_intv_reminded", { name: cname }));
+}
+
+/** clientCardAction "tpl". */
+async function showTemplateMenu(ctx: MyContext, clientId: number, cname: string, lang: Lang) {
+  // Reusable program templates: assign one to this client, or save their plan as a new one.
+  const tpls = await listTrainerTemplates(ctx.db, ctx.user._id);
+  const kb = new InlineKeyboard();
+  for (const tp of tpls) {
+    kb.text(`📋 ${tp.name}`.slice(0, 48), `cl:${clientId}:tplas:${tp.id}`).text("🗑", `tpldel:${tp.id}`).row();
+  }
+  kb.text(t(lang, "tpl_save_btn"), `cl:${clientId}:tplsave`).row();
+  kb.text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
+  await reply(ctx, t(lang, tpls.length ? "tpl_pick" : "tpl_none", { name: cname }), kb);
+}
+
 export async function clientCardAction(ctx: MyContext, clientId: number, action: string, arg?: string) {
   const lang = ctx.user.lang;
   const client = await getClientForTrainer(ctx.db, ctx.user._id, clientId);
@@ -635,41 +836,7 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
   }
   const cname = escapeHtml(client.profile.name ?? `id ${clientId}`);
   if (action === "card") {
-    await clearEditOwner(ctx);
-    // 7-day compliance: % of scheduled workouts done + % of days food was logged.
-    const cutoff = localCutoff(client.profile.timezone, 7);
-    const [wl, nl] = await Promise.all([
-      workoutLogsSince(ctx.db, clientId, cutoff),
-      nutritionLogsSince(ctx.db, clientId, cutoff),
-    ]);
-    const comp = complianceScore({
-      completedWorkouts: wl.filter((l) => l.completed).length,
-      scheduledWorkouts: (client.profile.trainingWeekdays ?? []).length,
-      nutritionDays: nl.length,
-      windowDays: 7,
-    });
-    const note = await getClientNote(ctx.db, ctx.user._id, clientId);
-    // Cycle phase — shown to the trainer when the client is female (helps them adjust the
-    // session on the fly without having to ask). Menstrual data is medical, so it also
-    // requires the client's explicit health-sharing consent.
-    let cycleLine = "";
-    if (client.profile.sex === "female" && trainerCanSee(client.profile, "health")) {
-      const clientDate = localParts(client.profile.timezone ?? "UTC").date;
-      const cycleInfo = computeCyclePhase(client.profile, clientDate);
-      if (cycleInfo) {
-        const phaseLabel = t(lang, `cycle_phase_${cycleInfo.phase}` as Parameters<typeof t>[1]);
-        cycleLine = "\n" + t(lang, "cc_cycle_phase", { phase: phaseLabel, day: cycleInfo.day, len: cycleInfo.cycleLength });
-      } else {
-        cycleLine = "\n" + t(lang, "cc_cycle_no_data");
-      }
-    }
-    const card =
-      t(lang, "client_card", { name: cname, status: client.onboarded ? "✅" : "⏳" }) +
-      "\n" +
-      t(lang, "cc_compliance_line", { workoutPct: comp.workoutPct, nutritionPct: comp.nutritionPct }) +
-      cycleLine +
-      (note ? `\n\n📝 <i>${escapeHtml(note)}</i>` : "");
-    await reply(ctx, card, clientCardKb(lang, clientId));
+    await showClientCard(ctx, client, clientId, cname, lang);
   } else if (action === "edit") {
     await showPlanEditPicker(ctx, clientId, "cl", cname);
   } else if (action === "eday") {
@@ -716,84 +883,19 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
     await updateUser(ctx.db, ctx.user._id, { session: { mode: "msg_client", targetId: clientId } });
     await reply(ctx, t(lang, "msg_prompt", { name: cname }));
   } else if (action === "thread") {
-    // Messages were previously write-only (sent once as a Telegram push, never readable again).
-    const msgs = await listMessages(ctx.db, ctx.user._id, clientId, 20);
-    const kb = new InlineKeyboard()
-      .text(t(lang, "cc_message"), `cl:${clientId}:msg`)
-      .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
-    if (!msgs.length) {
-      await reply(ctx, t(lang, "cc_thread_empty", { name: cname }), kb);
-    } else {
-      const lines = msgs.map((m) => `${m.createdAt.slice(0, 16).replace("T", " ")} ${m.fromId === ctx.user._id ? "→" : "←"} ${escapeHtml(m.text)}`);
-      await reply(ctx, `${t(lang, "cc_thread_title", { name: cname })}\n\n${lines.join("\n")}`, kb);
-    }
+    await showClientThread(ctx, clientId, cname, lang);
   } else if (action === "note") {
-    const note = await getClientNote(ctx.db, ctx.user._id, clientId);
-    const history = await listClientNoteHistory(ctx.db, ctx.user._id, clientId, "note");
-    let body = note ? `📝 ${cname}\n\n${escapeHtml(note)}` : t(lang, "cc_note_empty", { name: cname });
-    if (history.length) {
-      body += `\n\n<i>${t(lang, "cc_note_history_hdr")}</i>\n` +
-        history.slice(0, 5).map((h) => `• ${h.savedAt.slice(0, 10)}: ${escapeHtml(h.value)}`).join("\n");
-    }
-    const kb = new InlineKeyboard()
-      .text(t(lang, "cc_note_edit"), `cl:${clientId}:noteedit`)
-      .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
-    await reply(ctx, body, kb);
+    await showClientNote(ctx, clientId, cname, lang);
   } else if (action === "noteedit") {
     await updateUser(ctx.db, ctx.user._id, { session: { mode: "trainer_note", targetId: clientId } });
     await reply(ctx, t(lang, "cc_note_prompt", { name: cname }));
   } else if (action === "health") {
-    // Trainer-authored health notes first; the client's self-reported limitations/injuries
-    // only when the client shares health data.
-    const card = await getClientCard(ctx.db, ctx.user._id, clientId);
-    const lines = [t(lang, "cc_health_title", { name: cname })];
-    lines.push(card?.healthNotes ? escapeHtml(card.healthNotes) : t(lang, "cc_health_none"));
-    if (trainerCanSee(client.profile, "health")) {
-      if (client.profile.limitations) {
-        lines.push("", t(lang, "cc_client_limitations", { text: client.profile.limitations }));
-      }
-      const injuries = await listActiveInjuries(ctx.db, clientId);
-      if (injuries.length) {
-        lines.push("", t(lang, "cc_injuries_hdr"));
-        for (const inj of injuries) {
-          const area = t(lang, `inj_area_${inj.area}` as TKey);
-          const sev = t(lang, `inj_sev_${inj.severity}` as TKey);
-          const last = inj.checkinsHistory[inj.checkinsHistory.length - 1];
-          const pain = last ? ` · ${last.score}/10 (${last.date})` : "";
-          lines.push(`• ${area} — ${sev} · ${inj.reportedAt.slice(0, 10)}${pain}`);
-        }
-      }
-    } else {
-      lines.push("", t(lang, "cc_share_locked", { name: cname }));
-    }
-    const healthHistory = await listClientNoteHistory(ctx.db, ctx.user._id, clientId, "healthNotes");
-    if (healthHistory.length) {
-      lines.push("", `<i>${t(lang, "cc_health_history_hdr")}</i>`);
-      for (const h of healthHistory.slice(0, 5)) lines.push(`• ${h.savedAt.slice(0, 10)}: ${escapeHtml(h.value)}`);
-    }
-    const kb = new InlineKeyboard()
-      .text(t(lang, "cc_health_edit"), `cl:${clientId}:healthedit`)
-      .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
-    await reply(ctx, lines.join("\n"), kb);
+    await showClientHealth(ctx, client, clientId, cname, lang);
   } else if (action === "healthedit") {
     await updateUser(ctx.db, ctx.user._id, { session: { mode: "trainer_health", targetId: clientId } });
     await reply(ctx, t(lang, "cc_health_prompt"));
   } else if (action === "pers") {
-    const card = await getClientCard(ctx.db, ctx.user._id, clientId);
-    const lines = [t(lang, "cc_personal_title", { name: cname })];
-    if (card?.birthday) {
-      const info = birthdayInfo(card.birthday, new Date().toISOString().slice(0, 10));
-      let bday = t(lang, "cc_bday_line", { date: info.display, age: info.age !== undefined ? ` (${info.age})` : "" });
-      if (info.daysUntil <= 7) bday += t(lang, "cc_bday_soon", { days: info.daysUntil });
-      lines.push(bday);
-    }
-    lines.push(card?.personalNotes ? escapeHtml(card.personalNotes) : t(lang, "cc_personal_none"));
-    const kb = new InlineKeyboard()
-      .text(t(lang, "cc_personal_edit"), `cl:${clientId}:persedit`)
-      .text(t(lang, "cc_bday_btn"), `cl:${clientId}:bday`)
-      .row()
-      .text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
-    await reply(ctx, lines.join("\n"), kb);
+    await showClientPersonal(ctx, clientId, cname, lang);
   } else if (action === "persedit") {
     await updateUser(ctx.db, ctx.user._id, { session: { mode: "trainer_personal", targetId: clientId } });
     await reply(ctx, t(lang, "cc_personal_prompt"));
@@ -801,75 +903,13 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
     await updateUser(ctx.db, ctx.user._id, { session: { mode: "trainer_bday", targetId: clientId } });
     await reply(ctx, t(lang, "cc_bday_prompt"));
   } else if (action === "intv") {
-    // Interview summary: onboarding answers straight from the client's profile (no backfill
-    // needed — both the button wizard and the AI interview write there), consent-gated where
-    // the data is body/health sensitive.
-    const p = obProgress(client.profile);
-    const lines = [t(lang, "cc_intv_title", { name: cname })];
-    lines.push(client.onboarded ? t(lang, "cc_intv_done") : t(lang, "cc_intv_progress", { n: p.answered, total: p.total }));
-    lines.push("");
-    const before = lines.length;
-    const add = (key: TKey, v?: string) => { if (v) lines.push(`${t(lang, key)}: ${v}`); };
-    add("cc_intv_goal", intvLabel(lang, client.profile.goal));
-    add("cc_intv_level", intvLabel(lang, client.profile.level));
-    add("cc_intv_history", client.profile.trainingHistory ? escapeHtml(client.profile.trainingHistory) : undefined);
-    const days = client.profile.trainingWeekdays ?? [];
-    if (days.length) lines.push(`${t(lang, "cc_intv_days")}: ${days.map((w) => weekdayName(lang, w)).join(", ")}`);
-    add("cc_intv_equipment", intvLabel(lang, client.profile.equipment));
-    add("cc_intv_lifestyle", intvLabel(lang, client.profile.lifestyle));
-    add("cc_intv_sleep", intvLabel(lang, client.profile.sleepSchedule));
-    add("cc_intv_diet", intvLabel(lang, client.profile.dietPrefs));
-    add("cc_intv_allergies", client.profile.allergies ? escapeHtml(client.profile.allergies) : undefined);
-    add("cc_intv_food_likes", client.profile.foodLikes ? escapeHtml(client.profile.foodLikes) : undefined);
-    add("cc_intv_food_dislikes", client.profile.foodDislikes ? escapeHtml(client.profile.foodDislikes) : undefined);
-    add("cc_intv_fav_ex", client.profile.favoriteExercises ? escapeHtml(client.profile.favoriteExercises) : undefined);
-    add("cc_intv_dis_ex", client.profile.dislikedExercises ? escapeHtml(client.profile.dislikedExercises) : undefined);
-    if (lines.length === before) lines.push(t(lang, "cc_intv_empty"));
-    const anthro = anthroBlock(lang, client, cname);
-    if (anthro) lines.push("", anthro);
-    if (trainerCanSee(client.profile, "health") && client.profile.limitations) {
-      lines.push("", t(lang, "cc_client_limitations", { text: client.profile.limitations }));
-    }
-    const kb = new InlineKeyboard();
-    if (!client.onboarded) {
-      kb.text(t(lang, "cc_intv_remind_btn"), `cl:${clientId}:intvping`)
-        .text(t(lang, "cc_mini_btn"), `mi:${clientId}`)
-        .row();
-    }
-    kb.text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
-    await reply(ctx, lines.join("\n"), kb);
+    await showClientIntake(ctx, client, clientId, cname, lang);
   } else if (action === "intvping") {
-    // Nudge the client to finish the interview: resume the exact question they stopped at.
-    if (client.onboarded) { await clientCardAction(ctx, clientId, "intv"); return; }
-    const prefix = t(client.lang, "cc_intv_remind_text");
-    const transcript = client.session.transcript;
-    if (client.session.mode === "onboarding" && transcript?.length) {
-      // AI-interview user — re-send the last unanswered question (same as the cron nudge).
-      const lastQ = [...transcript].reverse().find((m) => m.role === "assistant");
-      await ctx.api
-        .sendMessage(client.chatId, `${prefix}\n\n${escapeHtml(lastQ?.text ?? "")}`.trim(), HTML)
-        .catch(() => {});
-    } else {
-      // Button-wizard user (or an abandoned session) — resume at the first unanswered step.
-      const step = client.session.mode === "onboarding" && typeof client.session.step === "number"
-        ? client.session.step
-        : obProgress(client.profile).next;
-      await updateUser(ctx.db, clientId, { session: { mode: "onboarding", step } });
-      await sendObStepTo(ctx, client, step, prefix);
-    }
-    await reply(ctx, t(lang, "cc_intv_reminded", { name: cname }));
+    await pingClientIntake(ctx, client, clientId, cname, lang);
   } else if (action === "logs") {
     await showClientLogDays(ctx, clientId);
   } else if (action === "tpl") {
-    // Reusable program templates: assign one to this client, or save their plan as a new one.
-    const tpls = await listTrainerTemplates(ctx.db, ctx.user._id);
-    const kb = new InlineKeyboard();
-    for (const tp of tpls) {
-      kb.text(`📋 ${tp.name}`.slice(0, 48), `cl:${clientId}:tplas:${tp.id}`).text("🗑", `tpldel:${tp.id}`).row();
-    }
-    kb.text(t(lang, "tpl_save_btn"), `cl:${clientId}:tplsave`).row();
-    kb.text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
-    await reply(ctx, t(lang, tpls.length ? "tpl_pick" : "tpl_none", { name: cname }), kb);
+    await showTemplateMenu(ctx, clientId, cname, lang);
   } else if (action === "tplsave") {
     const plan = (await getActivePlan(ctx.db, clientId)) ?? (await getDraftPlan(ctx.db, clientId));
     if (!plan || !plan.split.length) { await reply(ctx, t(lang, "client_no_plan_trainer")); return; }

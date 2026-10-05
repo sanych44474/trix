@@ -245,6 +245,96 @@ paths:
                         videoUrl: {type: string}
                         videoTitle: {type: string}
                   required: [data]
+  /api/v2/inbox:
+    get:
+      operationId: getInbox
+      description: The Mini App's notification feed, newest first (last 40), with the unread count.
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Feed items
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        unread: {type: integer}
+                        items:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id: {type: integer}
+                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression]}
+                              params: {type: object, additionalProperties: true}
+                              createdAt: {type: string}
+                              read: {type: boolean}
+                            required: [id, kind, params, createdAt, read]
+                      required: [unread, items]
+                  required: [data]
+  /api/v2/inbox/read:
+    post:
+      operationId: markInboxRead
+      description: Marks every feed item read.
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Done
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+  /api/v2/workout/feel:
+    post:
+      operationId: setWorkoutFeel
+      description: >-
+        "How did it go?" after saving a workout. Exercises of that day without their own RPE take
+        the session's (easy 6.5, ok 8, hard 9.5), which next Monday's progression reads.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, feel]
+              properties:
+                date: {type: string, format: date}
+                feel: {type: string, enum: [easy, ok, hard]}
+      responses:
+        '200':
+          description: How many exercises took the session's effort
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        updated: {type: integer}
+                      required: [ok, updated]
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/workout/custom:
     post:
       operationId: addCustomExercise
@@ -263,7 +353,7 @@ paths:
                 name: {type: string, minLength: 2, maxLength: 200}
       responses:
         '200':
-          description: Custom exercise
+          description: The exercise, its technique video when one is found, and the muscles it trains (learned once from the catalog or AI when the name is new)
           content:
             application/json:
               schema:
@@ -274,7 +364,16 @@ paths:
                     data:
                       type: object
                       properties:
-                        ok: {const: true}
+                        name: {type: string}
+                        videoUrl: {type: string}
+                        videoTitle: {type: string}
+                        muscles:
+                          type: object
+                          properties:
+                            primary: {type: array, items: {type: string}}
+                            secondary: {type: array, items: {type: string}}
+                          required: [primary, secondary]
+                      required: [name]
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/workout/draft:
@@ -2464,6 +2563,11 @@ components:
           items: {type: string}
           minItems: 2
           maxItems: 2
+        onboarded: {type: boolean, description: Finished the intake interview.}
+        plan:
+          type: string
+          enum: [active, draft, none]
+          description: An assigned plan, only a draft waiting for the trainer, or nothing yet.
     Dashboard:
       type: object
       required: [viewer, lang, today, weight, calendar, volume, conditioning, recovery, exercises, macros]
@@ -2541,6 +2645,16 @@ components:
                         s: {type: integer}
                       required: [n, s]
                 required: [date, done, ex]
+            learnedMuscles:
+              type: array
+              description: Muscles for logged exercise names the body map's rules don't recognise (learned once from the catalog or AI); the app adds them to its muscle lookup.
+              items:
+                type: object
+                properties:
+                  name: {type: string}
+                  primary: {type: array, items: {type: string}}
+                  secondary: {type: array, items: {type: string}}
+                required: [name, primary, secondary]
           required: [days, split, logs]
         whatsnew:
           type: object

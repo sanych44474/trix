@@ -13,6 +13,7 @@
 // exactly like the cron path does, so the two paths can be compared like-for-like. Cutover
 // (making this the real sender, and giving it its own persisted dedup state) is a deliberate
 // later phase, not a flag flip — see the grilling transcript this design came out of.
+import { loadLearnedMuscles } from "../exerciseMuscleLearning";
 import { Bot } from "grammy";
 import { logDryRun } from "./dryrunLog";
 import { getUser } from "../adapters/d1/v2Users";
@@ -64,6 +65,7 @@ export class UserSchedulerDO {
   // Thin wrapper so logInfo's Analytics Engine write (src/log.ts) has this.env to reach for --
   // the DO's own alarm() never went through runWithRequestId the way fetch()/scheduled() do.
   async alarm(): Promise<void> {
+    await loadLearnedMuscles(this.env.DB).catch(() => {}); // the digest and quests count learned exercises too
     return runWithRequestId(crypto.randomUUID(), this.env, () => this.runAlarm());
   }
 

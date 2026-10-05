@@ -53,8 +53,8 @@ export type FlushResult = { sent: number; dropped: number; remaining: number };
 
 /**
  * Send queued saves oldest first. Stops at the first network error (still offline) and keeps the
- * rest. A 409 (the same key still in flight) or a 5xx/429 stays queued for the next try; any
- * other 4xx (e.g. the day is now more than 14 days back) can never succeed and is dropped.
+ * rest. A 401/403 (opened offline, no login data yet), 409 (the same key still in flight) or a
+ * 5xx/429 stays queued for the next try; any other 4xx can never succeed and is dropped.
  */
 export async function flushQueue(store: Store, send: (q: QueuedSave) => Promise<void>): Promise<FlushResult> {
   const queue = readQueue(store);
@@ -68,7 +68,10 @@ export async function flushQueue(store: Store, send: (q: QueuedSave) => Promise<
     } catch (err) {
       if (isNetworkError(err)) { keep.push(...queue.slice(i)); break; }
       const status = (err as { status?: number }).status ?? 0;
-      if (status === 409 || status === 429 || status >= 500) keep.push(q);
+      // 401/403: the app was opened without signal, so Telegram never handed it the login data;
+      // the next open (with it) sends the save. Only a request the server rejected on its merits
+      // (400, e.g. a day now more than 14 days back) is dropped.
+      if (status === 401 || status === 403 || status === 409 || status === 429 || status >= 500) keep.push(q);
       else dropped++;
     }
   }

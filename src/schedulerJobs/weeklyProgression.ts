@@ -1,6 +1,7 @@
 // The Monday progression: double progression from the last 3 weeks of logs and check-ins,
 // plateau and maxed-bodyweight swaps, and the conditioning hold. A solo plan is updated and the
 // person told; a client's changes go to their trainer as a draft. Called by processUser.
+import { recordInbox } from "../adapters/d1/v2Inbox";
 import { InlineKeyboard } from "grammy";
 import { type DeliveryResult } from "../schedulerOutbox";
 import type { BodyLogDoc, Lang, PlanDoc, UserDoc, WorkoutLogDoc } from "../types";
@@ -77,6 +78,7 @@ export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<void> 
         }
       } else {
         await setActivePlan(db, updated);
+        await recordInbox(db, user._id, "progression", { n: prog.changes.length + swapLines.length });
         await recordAdjustment(db, user._id, week, JSON.stringify(prog.changes));
         const text = [t(lang, "progression_solo_header"), ...lineFor(lang), ...swapLines].join("\n");
         await send(text);
