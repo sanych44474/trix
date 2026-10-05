@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Confetti, CountUp } from "./Celebrate";
 import { api, typedBody } from "../api";
 import { t, type Key, type Lang } from "../i18n";
 import { fmtDuration } from "../logic/rest";
@@ -66,6 +67,7 @@ export function SessionSummary({ lang, summary, title, date }: { lang: Lang; sum
   const open = stats.find((stat) => stat.id === helpFor);
   return (
     <Card tone="accent">
+      {(summary.prExercises.length > 0 || summary.leveledUp || summary.newBadges.length > 0) && <Confetti />}
       <div className="section-head">
         <div><span className="eyebrow">{t(lang, "session_summary_eyebrow")}</span><h2>{title}</h2></div>
         <span className="tag">{t(lang, "level_n", { n: summary.level })}</span>
@@ -73,7 +75,7 @@ export function SessionSummary({ lang, summary, title, date }: { lang: Lang; sum
       <div className="session-stats">
         {stats.map((stat) => (
           <button type="button" key={stat.id} className={helpFor === stat.id ? "selected" : ""} aria-expanded={helpFor === stat.id} onClick={() => setHelpFor((current) => current === stat.id ? null : stat.id)}>
-            <strong>{stat.value}</strong>
+            <strong><CountUp value={stat.value} /></strong>
             <small>{t(lang, stat.label)}</small>
           </button>
         ))}
