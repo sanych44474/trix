@@ -2,7 +2,7 @@
 // Read-only queries in one db.batch round trip; each is bounded by the window's start date,
 // and "active" means any of: a workout session, a food log day, a check-in, water, steps, or a
 // counted bot/app event on that date.
-import type { DB } from "../../db/repos/shared";
+import type { DB } from "./shared";
 import type { ActivityKind, ActivityRaw } from "../../domain/activityMetrics";
 
 // Every per-user, per-date activity source, for DAU/WAU/MAU (UNION dedupes the pairs). D1 caps

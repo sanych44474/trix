@@ -5,7 +5,7 @@ import { broadcastRelease, pendingReleaseRecipients } from "../bot/releaseBroadc
 import { latestRelease } from "../releaseNotes";
 import { getOwnerChatId } from "../adapters/d1/v2Admin";
 import { getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
-import { deleteUserData } from "../db/repos";
+import { deleteUserData } from "../adapters/d1/v2Account";
 import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/owner";
 import { switchMode } from "../domain/session";
 import { t } from "../locales/i18n";

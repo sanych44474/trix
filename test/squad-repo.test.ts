@@ -3,22 +3,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import {
-  deleteSquad,
-  deleteUserData,
-  getOrCreateUser,
-  getSquad,
-  joinSquad,
-  leaveSquad,
-  listSquads,
-  squadCompletedDates,
-  squadMembers,
-  markSquadRecapped,
-  squadsDueForRecap,
-  squadsForUser,
-  upsertSquad,
-  upsertWorkoutLog,
-} from "../src/db/repos";
+import { deleteSquad, getSquad, joinSquad, leaveSquad, listSquads, squadCompletedDates, squadMembers, markSquadRecapped, squadsDueForRecap, squadsForUser, upsertSquad } from "../src/adapters/d1/v2Gamification";
+import { deleteUserData } from "../src/adapters/d1/v2Account";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
+import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import type { Env } from "../src/types";
 
 const CHAT = -1001234;
@@ -104,7 +92,7 @@ test("deleting an account leaves the squad standing for everyone else", async ()
   await deleteUserData(testEnv(db), 1); // the creator leaves the product entirely
   const squad = await getSquad(db, CHAT);
   assert.ok(squad, "squad survives its creator");
-  assert.equal(squad!.createdBy, 0); // tombstoned, never left pointing at a ghost
+  assert.equal(squad!.createdBy, null); // cleared, never left pointing at a ghost
   assert.deepEqual((await squadMembers(db, CHAT)).map((m) => m.userId), [2]);
 });
 

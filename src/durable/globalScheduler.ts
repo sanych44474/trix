@@ -8,7 +8,7 @@
 import { Bot } from "grammy";
 import { logSchedulerError, runGlobalJobs, type Sender } from "../scheduler";
 import { isCutOver } from "./cutover";
-import { logDryRun } from "../db/repos";
+import { logDryRun } from "./dryrunLog";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
 import { logError, logInfo, runWithRequestId } from "../log";

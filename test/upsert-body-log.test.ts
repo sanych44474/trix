@@ -7,7 +7,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { bodyLogsByUser, getOrCreateUser, upsertBodyLog } from "../src/db/repos";
+import { bodyLogsByUser, upsertBodyLog } from "../src/adapters/d1/v2Tracking";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 
 test("upsertBodyLog: creates a new row with weight + measurements", async () => {
   const db = newDb();

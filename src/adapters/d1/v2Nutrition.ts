@@ -9,7 +9,7 @@
 // tables their first v2 home (v2_meal_plans, v2_food_translations; v2_food_references and
 // v2_nutrition_corrections already existed, backfilled in 0070/0072).
 import type { MealEntry, MealPlanDoc, NutritionLogDoc } from "../../types";
-import { nowIso, safeJsonParse, type DB } from "../../db/repos/shared";
+import { nowIso, safeJsonParse, type DB } from "./shared";
 
 // ---------- nutrition logs (day meals) ----------
 

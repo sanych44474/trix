@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { aiCallStmt, aiTokensByKindSince } from "../src/db/repos";
+import { aiCallStmt, aiTokensByKindSince } from "../src/adapters/d1/v2Admin";
 
 test("aiTokensByKindSince: sums tokens per kind, sorted by tokens desc, ignores rows outside the window", async () => {
   const db = newDb();

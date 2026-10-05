@@ -14,7 +14,7 @@
 // (making this the real sender, and giving it its own persisted dedup state) is a deliberate
 // later phase, not a flag flip — see the grilling transcript this design came out of.
 import { Bot } from "grammy";
-import { logDryRun } from "../db/repos";
+import { logDryRun } from "./dryrunLog";
 import { getUser } from "../adapters/d1/v2Users";
 import { isCutOver } from "./cutover";
 import { buildSinglePass, logSchedulerError, processUser, type Sender } from "../scheduler";

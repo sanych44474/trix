@@ -15,7 +15,7 @@
 // composite queries that join users+workout/strength/body tables for board-building — Domain 8's
 // rollup surface, not workout-log CRUD or PR bookkeeping).
 import type { ExerciseMetric, LoggedExercise, StrengthRecordDoc, Weekday, WorkoutLogDoc } from "../../types";
-import { nowIso, type DB } from "../../db/repos/shared";
+import { nowIso, type DB } from "./shared";
 
 // ---------- strength records ----------
 

@@ -3,7 +3,7 @@
 // same exported names/signatures — reads/writes ONLY v2_daily_metrics (migrations/0070_v2_long_tail.sql;
 // column is `dimensions`, not legacy's `dims`, but otherwise an identical shape — see that
 // migration's CREATE TABLE).
-import { type DB } from "../../db/repos/shared";
+import { type DB } from "./shared";
 
 export interface DailyMetricRow {
   date: string;

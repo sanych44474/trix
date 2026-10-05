@@ -1,5 +1,5 @@
 // Voluntary Telegram Stars support (migrations/0084_v2_support_donations.sql).
-import { nowIso, type DB } from "../../db/repos/shared";
+import { nowIso, type DB } from "./shared";
 
 /** The amounts offered in the app and the bot. Anything else in a payload is rejected. */
 export const SUPPORT_STAR_AMOUNTS = [50, 100, 250] as const;

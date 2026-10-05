@@ -5,7 +5,8 @@
 // produces no dry-run log entries either way.
 import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { getOrCreateUser, joinSquad, upsertSquad } from "../../src/db/repos";
+import { getOrCreateUser } from "../../src/adapters/d1/v2Users";
+import { joinSquad, upsertSquad } from "../../src/adapters/d1/v2Gamification";
 
 const CHAT = -6001;
 

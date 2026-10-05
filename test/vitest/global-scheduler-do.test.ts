@@ -5,7 +5,7 @@
 // sub-job of runGlobalJobs that doesn't depend on seeded state or the wall clock.
 import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { getSetting } from "../../src/db/repos";
+import { getSetting } from "../../src/adapters/d1/v2Admin";
 
 describe("GlobalSchedulerDO alarm (dry-run)", () => {
   it("decides for real (leaderboard cache) but never writes it for real", async () => {

@@ -17,7 +17,7 @@
 // semantics) with no existing projector or writer; see 0076's header comment for the full
 // reasoning. v2_water_logs/v2_step_logs are this domain's source of truth for water/steps.
 import type { BodyLogDoc, BodyMeasurements, DailyCheckinDoc, InjuryDoc, StepLogDoc } from "../../types";
-import { nowIso, safeJsonParse, type DB } from "../../db/repos/shared";
+import { nowIso, safeJsonParse, type DB } from "./shared";
 
 // ---------- body logs / measurements ----------
 

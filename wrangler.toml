@@ -112,8 +112,9 @@ V2_APP_ENABLED = "1"
 # Freezes every legacy table (src/adapters/d1/legacyFreeze.ts) against writes once the v2 cutover
 # is verified live -- a stray missed call site then fails loudly instead of silently writing to a
 # schema the rest of the app has stopped reading. Off by default; flipping this is a live-prod
-# decision made separately from deploying the code, same as the V2_* flags above.
-CUTOVER_LEGACY_FROZEN = "0"
+# decision made separately from deploying the code, same as the V2_* flags above. On since
+# 2026-10, after src/db/repos (the last code that wrote these tables) was removed.
+CUTOVER_LEGACY_FROZEN = "1"
 # Your bot's @username (no @), numeric id and display name. BOT_ID + BOT_USERNAME let the Worker
 # skip a getMe round-trip per webhook; leave them empty and grammY fetches it once instead.
 BOT_USERNAME = ""

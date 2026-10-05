@@ -5,7 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { friendIds, getOrCreateUser, updateUser } from "../src/db/repos";
+import { friendIds } from "../src/adapters/d1/v2Gamification";
+import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import type { UserDoc } from "../src/types";
 
 test("friendIds: bidirectional — includes the inviter and everyone this user invited", async () => {
@@ -21,14 +22,4 @@ test("friendIds: bidirectional — includes the inviter and everyone this user i
   assert.deepEqual(new Set(await friendIds(db, 2)), new Set([1, 3]));
   assert.deepEqual(await friendIds(db, 4), []);
   void inviter;
-});
-
-test("friendIds: the dual-written referredBy column matches the profile JSON", async () => {
-  const db = newDb();
-  const me = (await getOrCreateUser(db, 1, 1, "uk", "Me")) as unknown as UserDoc;
-  await getOrCreateUser(db, 2, 2, "uk", "Friend");
-  await updateUser(db, 1, { profile: { ...me.profile, referredBy: 2 } });
-
-  const row = await db.prepare("SELECT referredBy FROM users WHERE id = ?").bind(1).first<{ referredBy: number | null }>();
-  assert.equal(row?.referredBy, 2);
 });

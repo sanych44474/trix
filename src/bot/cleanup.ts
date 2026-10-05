@@ -3,7 +3,7 @@
 // (god-file split; same barrel seam via bot.ts's `export * from "./bot/cleanup"`).
 import { GrammyError, InlineKeyboard } from "grammy";
 import type { UserDoc } from "../types";
-import { deleteUserData } from "../db/repos";
+import { deleteUserData } from "../adapters/d1/v2Account";
 import {
   getOwnerChatId, insertFeedback,
   recordAudit,

@@ -2,7 +2,7 @@
 // token encryption at rest and the signed OAuth `state`. Both are keyed off STRAVA_CLIENT_SECRET,
 // which only this Worker and Strava know. Rotating that secret invalidates stored tokens; the
 // affected users simply see "reconnect Strava".
-import { nowIso, type DB } from "../../db/repos/shared";
+import { nowIso, type DB } from "./shared";
 
 export interface StravaTokens {
   access: string;

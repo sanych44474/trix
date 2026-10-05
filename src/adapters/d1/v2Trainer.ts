@@ -58,7 +58,7 @@ import type {
   TrainerProfileInput,
   UserDoc,
 } from "../../types";
-import { buildUpdate, nowIso, safeJsonParse, type DB } from "../../db/repos/shared";
+import { buildUpdate, nowIso, safeJsonParse, type DB } from "./shared";
 import { getUser, getUsersByIds } from "./v2Users";
 
 // ---------- trainer client notes ----------

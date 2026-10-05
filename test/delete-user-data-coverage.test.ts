@@ -44,11 +44,11 @@ test("deleteUserData: every user-identifying table is referenced, exempted, or s
   assert.ok(owning.length > 5, "sanity check: expected to find several user-identifying tables in the real schema");
 
   const adminSrc = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), "..", "src", "db", "repos", "admin.ts"),
+    join(dirname(fileURLToPath(import.meta.url)), "..", "src", "adapters", "d1", "v2Account.ts"),
     "utf8",
   );
   const fnStart = adminSrc.indexOf("export async function deleteUserData");
-  assert.ok(fnStart !== -1, "deleteUserData not found in admin.ts — did it move?");
+  assert.ok(fnStart !== -1, "deleteUserData not found in v2Account.ts — did it move?");
   const nextFn = adminSrc.indexOf("\nexport ", fnStart + 1);
   const fnBody = adminSrc.slice(fnStart, nextFn === -1 ? undefined : nextFn);
 

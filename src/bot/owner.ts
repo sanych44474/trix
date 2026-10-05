@@ -4,7 +4,7 @@ import { broadcastRelease, pendingReleaseRecipients } from "./releaseBroadcast";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
-import { deleteUserData } from "../db/repos";
+import { deleteUserData } from "../adapters/d1/v2Account";
 import {
   aiCallStatsSince, aiTokensByKindSince, aiUsageSince, cohortMembersSince, countAdjustmentsSince,
   countPlanSourcesSince,

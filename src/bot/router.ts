@@ -18,7 +18,7 @@ import { obProgress, onboardingStep } from "./onboarding";
 import { onPlanRegenAi } from "./plan";
 import { showCardioMenu, showEveningSurvey } from "./survey";
 import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerBroadcast, cmdTrainerQuestions, cmdTrainerReport, handleAnswerQuestion, handleTemplateName, handleTrainerBroadcast, onTrainerLimitCycle, openFindTrainer, openTrainerEdit, shareAssignToClients, startShareMyPlan, toggleShareAll, trainerMenuActionFor, trainerSteps, twAdvance } from "../features/trainer/trainer";
-import { deleteUserData } from "../db/repos";
+import { deleteUserData } from "../adapters/d1/v2Account";
 import { bumpEvent, recordError, recordPlanSource, setLastSeen, userStatCounts } from "../adapters/d1/v2Admin";
 import { getWorkoutLog, upsertWorkoutLog } from "../adapters/d1/v2Workouts";
 import { awardAchievement } from "../adapters/d1/v2Gamification";

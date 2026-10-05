@@ -1,9 +1,8 @@
 // Observation log for the scheduler's Durable-Object dry-run phase (migrations/0060). Purely
-// write-side from the app's perspective — nothing in the running bot reads this back; it exists
-// for a human to inspect (via `wrangler d1 execute ... --remote`) while comparing the DO path
-// against the still-live cron path.
-import type { DB } from "./shared";
-import { nowIso } from "./shared";
+// write-side from the app's perspective -- nothing in the running bot reads this back; it exists
+// for a human (or scripts/verify-scheduler-dryrun.mjs) to compare the DO path against the cron
+// path while a cutover flag is off. Moved here from the removed legacy repo layer.
+import { nowIso, type DB } from "../adapters/d1/shared";
 
 export type DryRunSource = "user" | "squad" | "global";
 export type DryRunKind = "send" | "write";
