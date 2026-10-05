@@ -3,26 +3,21 @@ import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from 
 import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "./types";
-import { getOwnerChatId, acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTimers, pruneSeenUpdates, getSetting, setSetting, recordPlanSource } from "./adapters/d1/v2Admin";
+import { getOwnerChatId, acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTimers, pruneSeenUpdates, getSetting, setSetting } from "./adapters/d1/v2Admin";
 import { countNotificationsSince } from "./adapters/d1/v2Notifications";
 import { logInfo } from "./log";
 import { listStrength, allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
 import { activeChallengeCodes, awardAchievement, competitorWorkoutDates, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
-import { countAdjustmentWeeksSince, getActivePlan, listActivePlans, recordAdjustment, saveDraftPlan, setActivePlan, setProgressionRate, updatePlanMesocycle } from "./adapters/d1/v2Plans";
+import { getActivePlan, listActivePlans, setProgressionRate, updatePlanMesocycle } from "./adapters/d1/v2Plans";
 import { listClients } from "./adapters/d1/v2Trainer";
-import { bodyLogsByUser, dailyCheckinsSince, getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked, stepLogsSince } from "./adapters/d1/v2Tracking";
+import { bodyLogsByUser, dailyCheckinsSince, getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked } from "./adapters/d1/v2Tracking";
 import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, listVacationEnded, markComebackDone, updateUser } from "./adapters/d1/v2Users";
 import { nutritionLogsSince } from "./adapters/d1/v2Nutrition";
 import { resolveWaterGoal } from "./domain/challenges";
-import { adherenceDeloadDue, applyProgression, computePlanProgression, deloadWeekDue, evaluateProgressionRate, fatLossGoalReached, gainGoalReached, inQuietHours, localParts, deloadSets, getPlanDay, poorWellbeing, shouldLevelUp, weeksSincePlan } from "./domain/progression";
-import { isoWeekKey, rankOf, recentPrCount, streakMilestones, streakRisk, weekStartStr, weekStreak } from "./domain/records";
-import { nextBalanceStreak, weeklyReport } from "./domain/weeklyReport";
-import { pickQuests, plannedDayCount } from "./domain/quests";
+import { adherenceDeloadDue, computePlanProgression, deloadWeekDue, evaluateProgressionRate, inQuietHours, localParts, deloadSets, getPlanDay, poorWellbeing, weeksSincePlan } from "./domain/progression";
+import { isoWeekKey, rankOf, streakMilestones, streakRisk, weekStartStr, weekStreak } from "./domain/records";
 import { seasonalChallenge } from "./domain/challenges";
-import { toLoggedDays } from "./domain/recoverySwap";
-import { weekMapUrl } from "./webapp/weekMap";
 import { stalledLifts } from "./domain/analysis";
-import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
 import { recentConditioningStrain } from "./domain/conditioning";
 import { wakeUserScheduler } from "./durable/userScheduler";
 import { wakeSquadScheduler } from "./durable/squadScheduler";
@@ -34,7 +29,7 @@ import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
 import { isoWeekday, lastPlannedDates, missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
 import { rankMissedDayOptions, recentMissRate } from "./domain/missedDay";
 import { escapeHtml, t } from "./locales/i18n";
-import { chunkReport, conditioningLoadLabel, renderDay, challengeTitleText, renderQuestLines, renderWeeklyMuscleLines } from "./render";
+import { chunkReport, renderDay, challengeTitleText } from "./render";
 import { aiText } from "./ai/index";
 import { weeklyNarrativeSystem } from "./ai/prompts";
 import { buildOwnerReport, computeBoards, finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
@@ -47,7 +42,8 @@ import { stravaConfig } from "./webapp/stravaApi";
 import { advanceMesocycle, phaseGuidance, phaseKey } from "./domain/mesocycle";
 import { runGlobalJobs } from "./schedulerJobs/global";
 import { postSquadRecaps, processBuddyDuels, SQUAD_RECAP_HOUR_UTC, SQUAD_RECAP_BATCH } from "./schedulerJobs/social";
-import { applySwaps } from "./schedulerJobs/plateauSwaps";
+import { weeklyDigest } from "./schedulerJobs/weeklyDigest";
+import { weeklyProgression } from "./schedulerJobs/weeklyProgression";
 import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
 // Public surface kept here so existing `from "./scheduler"` imports keep working.
 export { runGlobalJobs, checkCronHeartbeat } from "./schedulerJobs/global";
@@ -806,69 +802,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
 
   // Weekly digest — Sunday recap of the last 7 days. Only if there was some activity.
   if (!pinged && !remOff("digest") && weekday === 7 && hour >= reminderHour && !already("digest")) {
-    const since = isoDaysAgo(7);
-    const [wl, nl, sl, body] = await Promise.all([
-      workoutLogsSince(db, user._id, since),
-      nutritionLogsSince(db, user._id, since),
-      stepLogsSince(db, user._id, since),
-      bodyLogsByUser(db, user._id),
-    ]);
-    const doneN = wl.filter((w) => w.completed).length;
-    if (doneN || nl.length) {
-      const parts: string[] = [t(lang, "wdigest_header")];
-      parts.push(t(lang, "wdigest_workouts", { n: doneN }));
-      if (nl.length) {
-        const avgKcal = Math.round(nl.reduce((s, n) => s + n.meals.reduce((m, x) => m + (x.kcal || 0), 0), 0) / nl.length);
-        parts.push(t(lang, "wdigest_nutrition", { kcal: avgKcal, n: nl.length }));
-      }
-      if (sl.length) parts.push(t(lang, "wdigest_steps", { avg: Math.round(sl.reduce((s, l) => s + l.steps, 0) / sl.length) }));
-      const recentBody = body.filter((b) => typeof b.weight === "number" && b.weight! > 0).slice(-2);
-      if (recentBody.length === 2) {
-        const d = +(recentBody[1].weight! - recentBody[0].weight!).toFixed(1);
-        parts.push(t(lang, "wdigest_weight", { w: recentBody[1].weight!, delta: d > 0 ? `+${d}` : `${d}` }));
-      }
-      // The muscle week (domain/weeklyReport.ts): balance score, what lagged, records, one focus,
-      // and the badges it earns -- plus the body map as the digest's picture.
-      const report = weeklyReport(toLoggedDays(wl), since);
-      let photoUrl: string | null = null;
-      if (report.trainedSets > 0) {
-        const newBadges: string[] = [];
-        const award = async (code: string) => { if (await awardAchievement(db, user._id, code).catch(() => false)) newBadges.push(code); };
-        if (report.fullBody) await award("full_body_week");
-        if (report.allInRange) await award("all_in_range");
-        const balanceWeeks = nextBalanceStreak(user.reminders?.balanceWeeks, report.allInRange);
-        if (balanceWeeks >= 4) await award("balance_streak_4");
-        user.reminders = { ...user.reminders, balanceWeeks };
-        await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
-        const prs = recentPrCount(await listStrength(db, user._id).catch(() => []), since);
-        parts.push("", ...renderWeeklyMuscleLines(lang, report, prs, newBadges));
-        photoUrl = await weekMapUrl(env.WORKER_URL, user.profile.sex, report.zones, env.TELEGRAM_BOT_TOKEN).catch(() => null);
-      }
-      // Next week's quests (domain/quests.ts): the same pick the Mini App's Today card will show
-      // from Monday, so the digest's promise and the app agree.
-      const nextMonday = isoDateMinus(date, -1);
-      const plan = await getActivePlan(db, user._id).catch(() => null);
-      const quests = pickQuests(nextMonday, toLoggedDays(wl), plannedDayCount(user.profile.trainingWeekdays, plan?.split));
-      parts.push("", ...renderQuestLines(lang, quests));
-      const kb = new InlineKeyboard()
-        .text(t(lang, "menu_progress"), "menu:progress")
-        .text(t(lang, "wcard_btn"), "share:week");
-      // With a picture: Telegram fetches the map from the signed link (drawn in its own request),
-      // the text rides as the caption. Any failure there falls back to the plain text digest.
-      let sentAsPhoto = false;
-      if (photoUrl && !botBlocked) {
-        sentAsPhoto = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: user.chatId, photo: photoUrl, caption: parts.join("\n").slice(0, 1024), parse_mode: "HTML", reply_markup: { inline_keyboard: kb.inline_keyboard } }),
-        })
-          .then(async (res) => res.ok && ((await res.json()) as { ok?: boolean }).ok === true)
-          .catch(() => false);
-        if (sentAsPhoto) markSent("digest");
-      }
-      if (!sentAsPhoto) await sendAndMark("digest", parts.join("\n"), { ...HTML, reply_markup: kb });
-      pinged = true;
-    }
+    if (await weeklyDigest({ env, db, user, lang, date, botBlocked, markSent, sendAndMark })) pinged = true;
   }
 
   // Seasonal challenge — the month's own challenge (domain/challenges.ts seasonalChallenge),
@@ -1047,96 +981,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // detection). Solo/trainer-own plans are applied silently and the user is told; a client's
   // changes are staged as a DRAFT for their trainer to accept, edit, or discard.
   if (weekday === 1 && hour >= reminderHour && !already("progression")) {
-    markSent("progression");
-    const plan = activePlan;
-    if (plan && plan.split.length) {
-      const [logs, checkins] = await Promise.all([
-        workouts21(),
-        dailyCheckinsSince(db, user._id, isoDaysAgo(7)),
-      ]);
-      // Conditioning counts as training load: a week deep past the aerobic high landmark holds
-      // the strength increases, exactly like poor wellbeing does.
-      const cond = conditioningWeek(logs, isoDaysAgo(7));
-      const prog = computePlanProgression(plan, logs, checkins, { conditioningOverload: conditioningOverload(cond) });
-      const week = weeksSincePlan(plan.generatedAt.toISOString().slice(0, 10), date);
-      const isClient = user.role === "client" && !!user.trainerId;
-      const updated = applyProgression(plan, prog.changes);
-      // Act on the dynamics: plateaued lifts → fresh same-muscle variation at −10%; maxed
-      // bodyweight lifts → a harder variation. Applied to the (solo) plan or the client draft.
-      const swapTargets = [
-        ...prog.plateau.map((n) => ({ name: n, harder: false })),
-        ...prog.maxedBodyweight.map((n) => ({ name: n, harder: true })),
-      ];
-      const swapLines = swapTargets.length ? await applySwaps(db, lang, updated, swapTargets) : [];
-      if (swapLines.length) await recordPlanSource(db, user._id, "plateau_swap", "bank").catch(() => {});
-      const changed = prog.changes.length > 0 || swapLines.length > 0;
-      if (changed) {
-        const lineFor = (l: typeof lang) =>
-          prog.changes.map((c) => t(l, "progression_line", { exercise: c.exercise, from: c.from, to: c.to }));
-        if (isClient) {
-          updated.authoredBy = user.trainerId;
-          await saveDraftPlan(db, updated);
-          await recordAdjustment(db, user._id, week, JSON.stringify(prog.changes));
-          const trainer = await getUser(db, user.trainerId!);
-          if (trainer) {
-            const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
-            const text = [t(trainer.lang, "progression_trainer_header", { name: who }), ...lineFor(trainer.lang), t(trainer.lang, "progression_trainer_hint")].join("\n");
-            const kb = new InlineKeyboard()
-              .text(t(trainer.lang, "cc_assign"), `cl:${user._id}:assign`)
-              .text(t(trainer.lang, "cc_edit"), `cl:${user._id}:edit`)
-              .row()
-              .text(t(trainer.lang, "cc_discard"), `cl:${user._id}:discard`);
-            await sendTo(trainer, "progression_trainer", text, { ...HTML, reply_markup: kb });
-          }
-        } else {
-          await setActivePlan(db, updated);
-          await recordAdjustment(db, user._id, week, JSON.stringify(prog.changes));
-          const text = [t(lang, "progression_solo_header"), ...lineFor(lang), ...swapLines].join("\n");
-          await send(text);
-        }
-      } else if (prog.heldForConditioning && !isClient) {
-        // Say WHY nothing moved. A silent hold reads as the bot losing interest; naming the
-        // cardio week that caused it is the whole point of tracking conditioning at all. Recorded
-        // to plan_adjustments too (a reason-only entry -- see cmdPlanChanges), in the user's own
-        // language: it's stored for THIS user's later /planchanges read, not a shared audit log.
-        const heldText = t(lang, "progression_held_conditioning", { load: conditioningLoadLabel(lang, cond) });
-        await recordAdjustment(db, user._id, week, JSON.stringify([{ reason: heldText }])).catch(() => {});
-        await send(heldText);
-      } else if (prog.heldForWellbeing && !isClient) {
-        // Same idea as the conditioning hold above, for the OTHER hold reason -- this one was
-        // computed every week already (poorWellbeing gates all increases) but never surfaced:
-        // a silent week reads as the bot forgetting about you, not as a deliberate call.
-        const heldText = t(lang, "progression_held_wellbeing");
-        await recordAdjustment(db, user._id, week, JSON.stringify([{ reason: heldText }])).catch(() => {});
-        await send(heldText);
-      }
-
-      // Level-up offer (solo/trainer-own only, ≤ once / 30 days): the trainee has outgrown the
-      // plan (fast pace + consistent weekly progressions) → button to regenerate one tier harder.
-      if (user.role !== "client" && daysBetween(sent["levelup"], date) >= 30) {
-        const rate = evaluateProgressionRate(logs);
-        const progWeeks = await countAdjustmentWeeksSince(db, user._id, isoDaysAgo(42));
-        if (shouldLevelUp(user.profile.level ?? "beginner", rate, progWeeks)) {
-          const kb = new InlineKeyboard().text(t(lang, "levelup_yes"), "levelup:yes").text(t(lang, "levelup_no"), "levelup:no");
-          // The key gates this offer for the next 30 DAYS — writing it for a send that never
-          // landed costs the user a month of the prompt they earned.
-          await sendAndMark("levelup", t(lang, "levelup_prompt"), { ...HTML, reply_markup: kb });
-        }
-      }
-
-      // Goal-reached offer (solo/trainer-own only, ≤ once / 30 days): a fat-loss cut has hit its
-      // plateau → button to switch to maintenance/recomp and recompute calories.
-      if (user.role !== "client" && daysBetween(sent["goalreached"], date) >= 30) {
-        const weights = (await bodyAll())
-          .filter((b) => typeof b.weight === "number")
-          .map((b) => ({ date: b.date, weight: b.weight as number }));
-        if (fatLossGoalReached(user.profile.goal, weights) || gainGoalReached(user.profile.goal, weights)) {
-          const kb = new InlineKeyboard().text(t(lang, "goal_switch_yes"), "goal:maintain").text(t(lang, "levelup_no"), "goal:keep");
-          // Same 30-day gate as the level-up offer above.
-          await sendAndMark("goalreached", t(lang, "goal_reached_prompt"), { ...HTML, reply_markup: kb });
-        }
-      }
-    }
+    if (await weeklyProgression({ db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll })) pinged = true;
   }
 
   // Weekly motivational narrative — Monday late morning, solo/trainer-own users with recent
