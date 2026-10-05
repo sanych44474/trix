@@ -2563,6 +2563,11 @@ components:
           items: {type: string}
           minItems: 2
           maxItems: 2
+        onboarded: {type: boolean, description: Finished the intake interview.}
+        plan:
+          type: string
+          enum: [active, draft, none]
+          description: An assigned plan, only a draft waiting for the trainer, or nothing yet.
     Dashboard:
       type: object
       required: [viewer, lang, today, weight, calendar, volume, conditioning, recovery, exercises, macros]

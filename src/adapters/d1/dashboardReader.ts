@@ -31,7 +31,7 @@ import {
 } from "./v2Admin";
 import { allWorkoutLogsSince, listStrength, workoutLogsSince } from "./v2Workouts";
 import { awardAchievement, recordQuestsDone } from "./v2Gamification";
-import { getActivePlan, listActivePlans } from "./v2Plans";
+import { getActivePlan, listActivePlans, planStatusByUser } from "./v2Plans";
 import { listClients } from "./v2Trainer";
 import { bodyLogsByUser, getDailyCheckin, stepLogsSince, waterLogsSince } from "./v2Tracking";
 import { pickQuests, plannedDayCount, questProgress, QUEST_XP } from "../../domain/quests";
@@ -70,10 +70,12 @@ async function buildTrainerSection(
   if (!clients.length) return { clients: [] };
   const ids = new Set(clients.map((c) => c._id));
   const cutoff = isoDaysBefore(today, 6);
-  const [allLogs, allPlans, allNutrition] = await Promise.all([
+  const [allLogs, allPlans, allNutrition, planStatus] = await Promise.all([
     allWorkoutLogsSince(db, isoDaysBefore(today, 20)).catch(() => []),
     listActivePlans(db).catch(() => []),
     allNutritionDatesSince(db, cutoff).catch(() => []),
+    // Draft vs assigned, for the trainer's first-client checklist (one grouped query).
+    planStatusByUser(db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
   ]);
   const logsByUser = new Map<number, WorkoutLogDoc[]>();
   for (const l of allLogs) {
@@ -126,6 +128,8 @@ async function buildTrainerSection(
       atRisk,
       flagged: !!c.flagged,
       ...(missedDates ? { missedDates } : {}),
+      onboarded: !!c.onboarded,
+      plan: (planByUser.has(c._id) || planStatus.get(c._id)?.active ? "active" : planStatus.get(c._id)?.draft ? "draft" : "none") as "active" | "draft" | "none",
     };
   });
   // Attention first in the actual displayed order: flagged, then at-risk, then everyone else.
