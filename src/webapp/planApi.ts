@@ -334,7 +334,12 @@ export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<R
   const day = plan.split.find((d) => d.weekday === weekday);
   if (!day) return Response.json({ error: "bad request" }, { status: 400 });
   const action = String(body.action);
-  const index = Number(body.index);
+  // The logger's "overwrite the plan" sends the plan exercise's name, not a position: its list
+  // can be reordered, so a name is the reliable reference there.
+  const byName = typeof body.expectName === "string" && !(Number(body.index) >= 0)
+    ? day.exercises.findIndex((e) => e.name === body.expectName)
+    : -1;
+  const index = byName >= 0 ? byName : Number(body.index);
   const ex = day.exercises[index];
   const beforeName = ex?.name ?? "";
   // Optimistic target check for ops that reference an existing exercise (avoid editing the wrong

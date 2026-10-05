@@ -68,7 +68,7 @@ const RULES: Rule[] = [
   [/side bend|нахил\p{L}* в бік|наклон\p{L}* в сторону/iu, ["obliques"], ["abs"]],
   [/bench dip|від лави|от скамьи|зворотн\p{L}* віджиман|обратн\p{L}* отжиман/iu, ["triceps"], ["chest", "deltoids"]],
   [/dip|бруси|брусья|брусьях|брусах/iu, ["chest", "triceps"], ["deltoids"]],
-  [/(close[- ]?grip|вузьким хват|узким хват).*(bench|press|жим)|(bench|press|жим).*(close[- ]?grip|вузьким хват|узким хват)/iu, ["triceps", "chest"], ["deltoids"]],
+  [/(close[- ]?grip|вузьким хват|узким хват).*(bench|press|жим)|(bench|press|жим).*(close[- ]?grip|вузьким хват|узким хват)|вузьк\p{L}* жим|жим\p{L}* вузьк/iu, ["triceps", "chest"], ["deltoids"]],
   [/\bfly|flyes|флай|cross-?over|кросовер|кроссовер|pec deck|butterfly|батерфляй|зведення рук|сведение рук|розведення гантелей лежачи|розведення рук лежачи|розведен\p{L}*\s.*лежачи|разведение гантелей лежа/iu, ["chest"], ["deltoids"]],
   [/decline|нахилом вниз|головою вниз/iu, ["chest"], ["triceps", "deltoids"]],
   [/incline|під кутом|похил|наклонн/iu, ["chest", "deltoids"], ["triceps"]],
@@ -82,7 +82,7 @@ const RULES: Rule[] = [
 
   // ---- arms ----
   [/hammer|молот/iu, ["biceps", "forearm"], []],
-  [/curl|згинання рук|сгибание рук|біцепс|бицепс|скотт|scott|preacher/iu, ["biceps"], ["forearm"]],
+  [/curl|згинання рук|сгибание рук|згинання (з|зі|із) (штанг|гантел|ez)|біцепс|бицепс|скотт|scott|preacher/iu, ["biceps"], ["forearm"]],
   [/wrist|зап'яст|запястья|farmer|фермер/iu, ["forearm"], ["trapezius"]],
 
   // ---- core ----
