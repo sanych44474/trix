@@ -16,7 +16,7 @@ describe("SquadSchedulerDO alarm — cut over (real)", () => {
     await upsertSquad(env.DB, CHAT, "Cutover Squad", 501);
     await joinSquad(env.DB, CHAT, 501);
     await env.DB
-      .prepare("INSERT INTO settings (key, value) VALUES ('scheduler_cutover_squad', '1')")
+      .prepare("INSERT INTO v2_settings (key, value) VALUES ('scheduler_cutover_squad', '1')")
       .run();
 
     const id = env.SQUAD_SCHEDULER.idFromName(String(CHAT));

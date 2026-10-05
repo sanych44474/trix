@@ -15,7 +15,7 @@ test("aiTokensByKindSince: sums tokens per kind, sorted by tokens desc, ignores 
     aiCallStmt(db, { provider: "groq", kind: "nutrition", latencyMs: 50, wasFallback: false }), // no tokens (failed/unknown)
   ]);
   const old = new Date(Date.now() - 200 * 86_400_000).toISOString();
-  await db.prepare("INSERT INTO ai_call_logs (userId, provider, kind, latency_ms, tokens, was_fallback, ts) VALUES (NULL,'gemini','plan',1,9999,0,?)").bind(old).run();
+  await db.prepare("INSERT INTO v2_ai_calls (accountId, provider, kind, latencyMs, tokens, wasFallback, createdAt) VALUES (NULL,'gemini','plan',1,9999,0,?)").bind(old).run();
 
   const since = new Date(Date.now() - 86_400_000).toISOString();
   const stats = await aiTokensByKindSince(db, since);
