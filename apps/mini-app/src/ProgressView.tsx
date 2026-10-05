@@ -1,5 +1,7 @@
 import { recentExerciseNames } from "./logic/bodyMap";
 import { StravaCard } from "./StravaCard";
+import { WeightChart } from "./WeightChart";
+import { targetsForDay } from "./logic/dayTargets";
 import { useMemo, useRef, useState, lazy, Suspense } from "react";
 import { api, ApiError, apiForm, jsonBody } from "./api";
 import type { Dashboard, MuscleGroup, VolumeZone, WorkoutToday } from "./types";
@@ -24,8 +26,9 @@ function Card({ children, tone = "default" }: { children: React.ReactNode; tone?
   return <section className={`card card-${tone}`}>{children}</section>;
 }
 
-function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return <div className="metric"><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</div>;
+function Metric({ label, value, detail, onClick }: { label: string; value: string; detail?: string; onClick?: () => void }) {
+  const body = <><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</>;
+  return onClick ? <button type="button" className="metric metric-action" onClick={onClick}>{body}</button> : <div className="metric">{body}</div>;
 }
 
 function Empty({ title, detail }: { title: string; detail: string }) {
@@ -141,7 +144,9 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   // ---- Today's macro breakdown (donut, same conic-gradient technique TodayView's activity
   // rings already use) -- data already on the dashboard prop, no fetch needed. ----
   const todayMacro = dashboard.macros.days.at(-1);
-  const macroTargets = dashboard.macros.targets;
+  const dayTargets = (training: boolean) => targetsForDay(training, dashboard.macros.targets, dashboard.macros.restTargets);
+  const todayTargets = todayMacro ? dayTargets(todayMacro.training) : { targets: dashboard.macros.targets, rest: false };
+  const macroTargets = todayTargets.targets;
   const macroDonut = todayMacro && (todayMacro.p || todayMacro.f || todayMacro.c) ? (() => {
     const pCal = todayMacro.p * 4, fCal = todayMacro.f * 9, cCal = todayMacro.c * 4;
     const total = pCal + fCal + cCal || 1;
@@ -154,6 +159,16 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   // ---- Progress photo upload -- reuses the /api/v2/photo POST route (mirrors the existing
   // weekcard/photocompare "push bytes to Telegram, store the resulting file_id" pattern). ----
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // A tap on the weight / body-fat tile jumps to the measurements field with the words filled in
+  // ("вага " / "талія , шия "), so the tile itself is the way to log it.
+  const measureRef = useRef<HTMLInputElement>(null);
+  const startMeasure = (prefill: string) => {
+    if (!measure.trim()) setMeasure(prefill);
+    const el = measureRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => { el.focus(); const at = el.value.indexOf(" ") + 1 || el.value.length; el.setSelectionRange(at, at); }, 350);
+  };
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoNotice, setPhotoNotice] = useState("");
   const uploadPhoto = async (file: File) => {
@@ -175,13 +190,13 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
     <div className="eyebrow">{t(lang, "progress_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "progress_title")}</h1><span>{dashboard.today}</span></div>
     <div className="metric-grid">
-      <Metric label={t(lang, "metric_current_weight")} value={latest ? `${formatNumber(latest.kg)} kg` : "—"} detail={dashboard.weight.goal ? t(lang, "goal_kg", { n: formatNumber(dashboard.weight.goal) }) : t(lang, "add_weighin")} />
+      <Metric label={t(lang, "metric_current_weight")} value={latest ? `${formatNumber(latest.kg)} kg` : "—"} detail={dashboard.weight.goal ? t(lang, "goal_kg", { n: formatNumber(dashboard.weight.goal) }) : t(lang, "add_weighin")} onClick={() => startMeasure(t(lang, "measure_prefill_weight"))} />
       <Metric label={t(lang, "metric_recovery")} value={`${dashboard.recovery.score}`} detail={dashboard.recovery.label} />
-      <Metric label={t(lang, "metric_body_fat")} value={dashboard.bodyFat ? `${formatNumber(dashboard.bodyFat.pct)}%` : "—"} detail={dashboard.bodyFat ? t(lang, "body_fat_detail") : t(lang, "body_fat_hint")} />
+      <Metric label={t(lang, "metric_body_fat")} value={dashboard.bodyFat ? `${formatNumber(dashboard.bodyFat.pct)}%` : "—"} detail={dashboard.bodyFat ? t(lang, "body_fat_detail") : t(lang, "body_fat_hint")} onClick={() => startMeasure(t(lang, "measure_prefill_girths"))} />
       <Metric label={t(lang, "metric_conditioning")} value={t(lang, "min_value", { n: dashboard.conditioning.minutes })} detail={t(lang, "zone_load", { zone: zoneLabel(lang, dashboard.conditioning.zone) })} />
     </div>
 
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "weight_trend_eyebrow")}</span><h2>{dashboard.weight.projection?.reached ? t(lang, "goal_reached") : dashboard.weight.projection?.onTrack ? t(lang, "on_track") : t(lang, "keep_observing")}</h2></div></div>{dashboard.weight.points.length > 1 ? <div className="sparkline">{dashboard.weight.points.map((point, index) => <span key={point.date} style={{ left: `${(index / (dashboard.weight.points.length - 1)) * 100}%`, bottom: `${Math.max(4, Math.min(92, ((point.kg - (first?.kg ?? point.kg) + 5) / 10) * 100))}%` }} title={`${point.date}: ${point.kg} kg`} />)}</div> : <Empty title={t(lang, "build_baseline_title")} detail={t(lang, "build_baseline_detail")} />}</Card>
+    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "weight_trend_eyebrow")}</span><h2>{dashboard.weight.projection?.reached ? t(lang, "goal_reached") : dashboard.weight.projection?.onTrack ? t(lang, "on_track") : t(lang, "keep_observing")}</h2></div></div>{dashboard.weight.points.length > 1 ? <WeightChart lang={lang} points={dashboard.weight.points} goal={dashboard.weight.goal} slopePerWeek={dashboard.weight.projection?.slopePerWeek} /> : <Empty title={t(lang, "build_baseline_title")} detail={t(lang, "build_baseline_detail")} />}</Card>
 
     <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "activity_calendar_eyebrow")}</span><h2>{t(lang, "activity_calendar_title")}</h2></div><span className="tag">{dashboard.calendar.days.filter((day) => day.s === "done").length}</span></div>
@@ -230,7 +245,17 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
       </>}
     </Card>
 
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "quick_tracking_eyebrow")}</span><h2>{t(lang, "log_recovery_title")}</h2></div></div><div className="input-row"><input value={measure} placeholder={t(lang, "measure_ph")} onChange={(event) => setMeasure(event.target.value)} /><button className="button button-primary" disabled={!measure.trim() || busy === "measure"} onClick={() => void post("measure", { kind: "measure", text: measure.trim() })}>{busy === "measure" ? "…" : t(lang, "save_measure_btn")}</button></div><div className="button-row"><button className="button button-ghost" disabled={busy !== null} onClick={() => void post("water", { kind: "water", ml: 250 })}>+250 ml</button><button className="button button-ghost" disabled={busy !== null} onClick={() => void post("water", { kind: "water", ml: 500 })}>+500 ml</button><input className="compact-input" value={steps} inputMode="numeric" placeholder={t(lang, "steps_ph")} onChange={(event) => setSteps(event.target.value)} /><button className="button button-ghost" disabled={!steps || busy === "steps"} onClick={() => void post("steps", { kind: "steps", steps: Number(steps) })}>{t(lang, "save_steps_btn")}</button></div><div className="checkin-grid">{(["energy", "sleep", "stress"] as const).map((key) => <label className="form-field" key={key}><span>{t(lang, `${key}_label` as Parameters<typeof t>[1])}</span><select value={checkin[key]} onChange={(event) => setCheckin({ ...checkin, [key]: Number(event.target.value) })}>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}/5</option>)}</select></label>)}</div><button className="button button-ghost button-wide" disabled={busy === "checkin"} onClick={() => void post("checkin", { kind: "checkin", ...checkin })}>{busy === "checkin" ? t(lang, "saving_ellipsis") : t(lang, "save_checkin_btn")}</button>{notice && <div className="save-note">{notice}</div>}</Card>
+    <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "quick_tracking_eyebrow")}</span><h2>{t(lang, "log_today_title")}</h2></div></div>
+      <div className="qt-sub"><strong>{t(lang, "qt_body_label")}</strong><small>{t(lang, "qt_body_hint")}</small></div>
+      <div className="input-row"><input ref={measureRef} value={measure} placeholder={t(lang, "measure_ph")} onChange={(event) => setMeasure(event.target.value)} /><button className="button button-primary" disabled={!measure.trim() || busy === "measure"} onClick={() => void post("measure", { kind: "measure", text: measure.trim() })}>{busy === "measure" ? "…" : t(lang, "save_measure_btn")}</button></div>
+      <div className="qt-sub"><strong>{t(lang, "qt_water_steps_label")}</strong></div>
+      <div className="button-row"><button className="button button-ghost" disabled={busy !== null} onClick={() => void post("water", { kind: "water", ml: 250 })}>+250 ml</button><button className="button button-ghost" disabled={busy !== null} onClick={() => void post("water", { kind: "water", ml: 500 })}>+500 ml</button><input className="compact-input" value={steps} inputMode="numeric" placeholder={t(lang, "steps_ph")} onChange={(event) => setSteps(event.target.value)} /><button className="button button-ghost" disabled={!steps || busy === "steps"} onClick={() => void post("steps", { kind: "steps", steps: Number(steps) })}>{t(lang, "save_steps_btn")}</button></div>
+      <div className="qt-sub"><strong>{t(lang, "qt_checkin_label")}</strong><small>{t(lang, "qt_checkin_hint")}</small></div>
+      <div className="checkin-grid">{(["energy", "sleep", "stress"] as const).map((key) => <label className="form-field" key={key}><span>{t(lang, `${key}_label` as Parameters<typeof t>[1])}</span><select value={checkin[key]} onChange={(event) => setCheckin({ ...checkin, [key]: Number(event.target.value) })}>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}/5</option>)}</select></label>)}</div>
+      <button className="button button-ghost button-wide" disabled={busy === "checkin"} onClick={() => void post("checkin", { kind: "checkin", ...checkin })}>{busy === "checkin" ? t(lang, "saving_ellipsis") : t(lang, "save_checkin_btn")}</button>
+      {notice && <div className="save-note">{notice}</div>}
+    </Card>
 
     <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "macro_breakdown_eyebrow")}</span><h2>{t(lang, "macro_breakdown_title")}</h2></div></div>
@@ -241,13 +266,13 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
             <span><i style={{ background: "var(--good)" }} />{t(lang, "metric_protein")} · {formatNumber(todayMacro.p)} g</span>
             <span><i style={{ background: "var(--warn)" }} />{t(lang, "metric_fats")} · {formatNumber(todayMacro.f)} g</span>
             <span><i style={{ background: "var(--accent)" }} />{t(lang, "metric_carbs")} · {formatNumber(todayMacro.c)} g</span>
-            {macroTargets && <span>{t(lang, "kcal_of_target", { n: Math.round(todayMacro.kcal), target: Math.round(macroTargets.calories) })}</span>}
+            {macroTargets && <span>{t(lang, "kcal_of_target", { n: Math.round(todayMacro.kcal), target: Math.round(macroTargets.calories) })}{todayTargets.rest ? ` · ${t(lang, "fuel_rest_day_badge")}` : ""}</span>}
           </div>
         </div>
       </>}
     </Card>
 
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "macro_trend_eyebrow")}</span><h2>{t(lang, "macro_trend_title")}</h2></div></div>{dashboard.macros.days.length ? <div className="macro-history">{dashboard.macros.days.slice(-7).map((day) => <div className="macro-history-row" key={day.date}><span>{day.date.slice(5)}</span><div className="bar"><span style={{ width: `${dashboard.macros.targets ? Math.min(100, day.kcal / Math.max(1, dashboard.macros.targets.calories) * 100) : 0}%` }} /></div><strong>{Math.round(day.kcal)} kcal</strong></div>)}</div> : <p className="muted">{t(lang, "macro_empty")}</p>}</Card>
+    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "macro_trend_eyebrow")}</span><h2>{t(lang, "macro_trend_title")}</h2></div></div>{dashboard.macros.days.length ? <div className="macro-history">{dashboard.macros.days.slice(-7).map((day) => <div className="macro-history-row" key={day.date}><span>{day.date.slice(5)}</span><div className="bar"><span style={{ width: `${(() => { const tg = dayTargets(day.training).targets; return tg ? Math.min(100, day.kcal / Math.max(1, tg.calories) * 100) : 0; })()}%` }} /></div><strong>{Math.round(day.kcal)} kcal</strong></div>)}</div> : <p className="muted">{t(lang, "macro_empty")}</p>}</Card>
 
     <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "progress_photo_upload_eyebrow")}</span><h2>{t(lang, "progress_photo_upload_title")}</h2></div></div>

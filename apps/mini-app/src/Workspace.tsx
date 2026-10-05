@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "./api";
 import { TrainerInviteCard } from "./TrainerInvite";
 import { FirstClientChecklist } from "./FirstClient";
+import { CoachChat } from "./CoachChat";
+import { OwnerFeedback } from "./OwnerFeedback";
 import { OwnerRoster, type RosterAction } from "./OwnerRoster";
 import type { ClientCardPayload, CoachThread, Dashboard, FinancePayload, InjuryPayload, OwnerUsers, RequestBody, SchedulePayload, TrainerProfile } from "./types";
 import { t, type Key, type Lang } from "./i18n";
@@ -424,13 +426,14 @@ function AiCoachView({ lang, onBack, routed }: { lang: Lang; onBack: () => void;
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, routed ? "ask_trainer_eyebrow" : "ai_coach_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, routed ? "ask_trainer_title" : "ai_coach_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
-    <Panel>
+    {!routed && <Panel><CoachChat lang={lang} /></Panel>}
+    {routed && <Panel>
       {routed && <p className="muted">{t(lang, "ask_trainer_detail", { name: thread?.trainer?.name || t(lang, "your_trainer_fallback") })}</p>}
       <label className="form-field"><span>{t(lang, routed ? "ask_trainer_question_label" : "ai_coach_question_label")}</span><textarea value={question} maxLength={500} placeholder={t(lang, "ai_coach_ph")} onChange={(event) => setQuestion(event.target.value)} /></label>
       <div className="button-row"><button className="button button-primary" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? t(lang, "saving_ellipsis") : t(lang, routed ? "ask_trainer_send_btn" : "ai_coach_ask_btn")}</button></div>
       {sent && <div className="save-note">{t(lang, "ask_trainer_sent_note")}</div>}
       {error && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
-    </Panel>
+    </Panel>}
     {answer !== null && <Panel tone="accent"><div className="section-head"><div><span className="eyebrow">{t(lang, "ai_coach_answer_eyebrow")}</span></div></div><p>{answer}</p></Panel>}
     {routed && thread && (thread.messages.length > 0 || thread.questions.length > 0) && <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "ask_trainer_thread_eyebrow")}</span><h2>{t(lang, "ask_trainer_thread_title")}</h2></div><span className="tag">{t(lang, "n_open", { n: thread.questions.filter((q) => q.status !== "answered").length })}</span></div>
@@ -685,8 +688,8 @@ function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
   </div>;
 }
 
-type OwnerSection = "overview" | "roster" | "retention" | "ai" | "trainers" | "onboarding" | "errors" | "events";
-const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster">; tab: Key; eyebrow: Key; title: Key }> = [
+type OwnerSection = "overview" | "roster" | "feedback" | "retention" | "ai" | "trainers" | "onboarding" | "errors" | "events";
+const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster" | "feedback">; tab: Key; eyebrow: Key; title: Key }> = [
   { id: "overview", tab: "owner_tab_overview", eyebrow: "overview_eyebrow", title: "live_report_title" },
   { id: "retention", tab: "owner_tab_retention", eyebrow: "retention_report_eyebrow", title: "retention_report_title" },
   { id: "ai", tab: "owner_tab_ai", eyebrow: "ai_stats_eyebrow", title: "ai_stats_title" },
@@ -699,6 +702,7 @@ const OWNER_REPORT_SECTIONS: Array<{ id: Exclude<OwnerSection, "roster">; tab: K
 const OWNER_TABS: Array<{ id: OwnerSection; tab: Key; icon: string }> = [
   { id: "overview", tab: "owner_tab_overview", icon: "📊" },
   { id: "roster", tab: "owner_tab_roster", icon: "👥" },
+  { id: "feedback", tab: "owner_tab_feedback", icon: "✍️" },
   { id: "retention", tab: "owner_tab_retention", icon: "🧲" },
   { id: "ai", tab: "owner_tab_ai", icon: "🤖" },
   { id: "trainers", tab: "owner_tab_trainers", icon: "🧑‍🏫" },
@@ -727,7 +731,7 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
 
   const loadUsers = () => { setError(false); return api<OwnerUsers>("/api/v2/owner/users").then(setUsers).catch(() => setError(true)); };
   const loadSection = (id: OwnerSection, force = false) => {
-    if (id === "roster" || (!force && reports[id] !== undefined)) return;
+    if (id === "roster" || id === "feedback" || (!force && reports[id] !== undefined)) return;
     setSectionBusy(true);
     api<OwnerReport>(`/api/v2/owner/report?section=${id}`)
       .then((result) => setReports((current) => ({ ...current, [id]: result.html })))
@@ -753,7 +757,7 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
   if (error) return <WorkspaceError lang={lang} onRetry={retry} />;
   if (!users) return <div className="workspace-loading"><div className="skeleton" /><div className="skeleton" /></div>;
 
-  const activeReport = section === "roster" ? undefined : OWNER_REPORT_SECTIONS.find((s) => s.id === section);
+  const activeReport = section === "roster" || section === "feedback" ? undefined : OWNER_REPORT_SECTIONS.find((s) => s.id === section);
   const activeHtml = activeReport ? reports[activeReport.id] : undefined;
 
   return <div className="view-stack">
@@ -776,6 +780,11 @@ function OwnerWorkspace({ lang }: { lang: Lang }) {
     {section === "roster" && <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "roster_eyebrow")}</span><h2>{t(lang, "recent_users_title")}</h2></div><span className="tag">{users.rows.length}</span></div>
       <OwnerRoster lang={lang} rows={users.rows} busy={rosterBusy} nudged={nudged} onAction={(id, action) => void userAction(id, action)} />
+    </Panel>}
+
+    {section === "feedback" && <Panel>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "fbt_eyebrow")}</span><h2>{t(lang, "fbt_title")}</h2></div></div>
+      <OwnerFeedback lang={lang} />
     </Panel>}
 
     {activeReport && <Panel>

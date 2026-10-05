@@ -26,9 +26,15 @@ export function computeTargets(profile: UserProfile, planNutrition?: NutritionTa
   if (/(fat|схуд|похуд|loss|cut)/.test(goal)) calories *= 0.8;
   else if (/(gain|муск|маса|bulk|сил)/.test(goal)) calories *= 1.1;
 
-  calories = Math.round(calories / 10) * 10;
-  const protein = Math.round(2 * kg); // 2 g/kg
-  const fats = Math.round(0.9 * kg); // 0.9 g/kg
+  // Hard floor: below it a "diet" is a crash diet, whatever the formula says.
+  calories = Math.max(profile.sex === "female" ? 1200 : 1500, Math.round(calories / 10) * 10);
+  // Protein and fat per kg of a REFERENCE weight: above BMI 27 the extra kilos are mostly fat,
+  // and 2 g/kg of total weight at 130 kg (260 g) plus fat left no room for any carbs at all.
+  const hM = cm / 100;
+  const refKg = Math.min(kg, 27 * hM * hM);
+  const protein = Math.round(2 * refKg); // 2 g/kg
+  // Fat: at least 0.8 g/kg and a quarter of the energy (hormonal health floor).
+  const fats = Math.round(Math.max(0.8 * refKg, (calories * 0.25) / 9));
   const carbs = Math.max(0, Math.round((calories - protein * 4 - fats * 9) / 4));
   return { calories, protein, fats, carbs };
 }
@@ -40,6 +46,14 @@ const MEAL_WEIGHTS: Record<number, number[]> = {
 };
 
 /** Split daily targets across N meals by fixed weights (equal split if N is unusual). */
+/** Rest-day macros from the training-day ones: protein and fat stay, the ~12% fewer calories
+ *  come out of carbs (never below half of them), and the calories are the sum of the macros so
+ *  the numbers always add up. Pure; test/parsers.test.ts. */
+export function restDayTargets(n: NutritionTargets): NutritionTargets {
+  const carbs = Math.max(Math.round(n.carbs * 0.5), Math.round((n.calories * 0.88 - n.protein * 4 - n.fats * 9) / 4));
+  return { calories: Math.round((n.protein * 4 + n.fats * 9 + carbs * 4) / 10) * 10, protein: n.protein, fats: n.fats, carbs };
+}
+
 export function splitMeals(targets: NutritionTargets, mealsPerDay: number): NutritionTargets[] {
   const weights = MEAL_WEIGHTS[mealsPerDay] ?? Array.from({ length: mealsPerDay }, () => 1 / mealsPerDay);
   return weights.map((w) => ({

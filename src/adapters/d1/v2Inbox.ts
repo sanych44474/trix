@@ -4,7 +4,7 @@
 import { nowIso, type DB } from "./shared";
 import { t } from "../../locales/i18n";
 
-export type InboxKind = "plan_assigned" | "plan_changed" | "message" | "badge" | "progression";
+export type InboxKind = "plan_assigned" | "plan_changed" | "message" | "badge" | "progression" | "feedback_done";
 
 export interface InboxItem {
   id: number;

@@ -213,11 +213,12 @@ export interface UserSession {
   lastDeleted?: { ownerId: number; weekday: number; index: number; exercise: PlanExercise }; // for undo
   coachActions?: {
     label: string;
-    kind: "add" | "delete" | "swap" | "weight" | "sets" | "harder" | "easier" | "none";
+    kind: "add" | "delete" | "swap" | "weight" | "sets" | "harder" | "easier" | "feedback" | "none";
     weekday?: number;
     index?: number;
     exercise?: string;
     value?: string;
+    note?: string; // feedback: the user's message the summary came from
   }[];
   coachTurnId?: number; // ties coachActions to the coach reply that proposed them (see handleCoachAction)
   checkin?: { energy?: number; sleep?: number }; // partial answers during the /checkin flow

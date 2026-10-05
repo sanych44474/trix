@@ -12,8 +12,10 @@ const trend = (startKg: number, slopePerWeek: number): { date: string; weight: n
 const base = { currentCalories: 2200, windowDays: 21, loggedNutritionDays: 18 };
 
 test("targetRatePerWeek: cut / gain / maintain", () => {
-  assert.equal(targetRatePerWeek(90, 80), -0.4);
-  assert.equal(targetRatePerWeek(70, 78), 0.25);
+  assert.equal(targetRatePerWeek(90, 80), -0.54); // ~0.6% of bodyweight
+  assert.equal(targetRatePerWeek(130, 100), -0.78);
+  assert.equal(targetRatePerWeek(45, 42), -0.27);
+  assert.equal(targetRatePerWeek(70, 78), 0.18); // ~0.25% of bodyweight
   assert.equal(targetRatePerWeek(80, 80.5), 0);
 });
 

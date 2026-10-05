@@ -271,7 +271,7 @@ paths:
                             type: object
                             properties:
                               id: {type: integer}
-                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression]}
+                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression, feedback_done]}
                               params: {type: object, additionalProperties: true}
                               createdAt: {type: string}
                               read: {type: boolean}
@@ -1978,6 +1978,16 @@ paths:
               required: [question]
               properties:
                 question: {type: string, minLength: 1, maxLength: 500}
+                history:
+                  type: array
+                  maxItems: 6
+                  description: The last turns of this chat, for the coach's short memory (solo/trainer only).
+                  items:
+                    type: object
+                    required: [role, text]
+                    properties:
+                      role: {type: string, enum: [user, coach]}
+                      text: {type: string, maxLength: 1500}
       responses:
         '200':
           description: Direct answer
@@ -1994,9 +2004,47 @@ paths:
                       properties:
                         answer: {type: string}
                         routed: {type: boolean}
+                        actions:
+                          type: array
+                          description: Plan edits / feedback the app can apply (domain/coachActions miniAppCoachActions).
+                          items: {$ref: '#/components/schemas/CoachAction'}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/coach/feedback:
+    post:
+      operationId: sendCoachFeedback
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      description: The coach's "send to the team" button -- stores the feedback and forwards the AI summary plus the user's own message to the owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [summary]
+              properties:
+                summary: {type: string, minLength: 2, maxLength: 600}
+                original: {type: string, maxLength: 1000}
+      responses:
+        '200':
+          description: Stored
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/coach/thread:
     get:
       operationId: getCoachThread
@@ -2057,6 +2105,88 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/OwnerUsers'}
                   required: [data]
+  /api/v2/owner/feedback:
+    get:
+      operationId: listOwnerFeedback
+      description: Feedback triage list (newest first) with per-status counts.
+      security:
+      - telegramInitData: []
+      parameters:
+      - {name: status, in: query, schema: {type: string, enum: [new, done, wontfix, all]}}
+      responses:
+        '200':
+          description: Feedback rows
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        rows:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id: {type: integer}
+                              userId: {type: integer}
+                              username: {type: string}
+                              name: {type: string}
+                              text: {type: string}
+                              date: {type: string}
+                              category: {type: string, enum: [bug, idea, complaint, praise, rating, other]}
+                              status: {type: string, enum: [new, done, wontfix]}
+                            required: [id, userId, text, date, category, status]
+                        counts:
+                          type: object
+                          properties:
+                            new: {type: integer}
+                            done: {type: integer}
+                            wontfix: {type: integer}
+                          required: [new, done, wontfix]
+                      required: [rows, counts]
+                  required: [data]
+  /api/v2/owner/feedback/{id}:
+    post:
+      operationId: updateOwnerFeedback
+      description: Set a feedback row's status and/or category; notify:true on the move to done tells the author it shipped.
+      security:
+      - telegramInitData: []
+      parameters:
+      - {name: id, in: path, required: true, schema: {type: integer}}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: {type: string, enum: [new, done, wontfix]}
+                category: {type: string, enum: [bug, idea, complaint, praise, rating, other]}
+                notify: {type: boolean}
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        notified: {type: boolean}
+                      required: [ok, notified]
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/owner/release:
     get:
       operationId: getOwnerRelease
@@ -2204,6 +2334,17 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   schemas:
+    CoachAction:
+      type: object
+      required: [label, kind]
+      properties:
+        label: {type: string}
+        kind: {type: string, enum: [add, delete, swap, weight, sets, harder, easier, feedback, none]}
+        weekday: {type: integer}
+        index: {type: integer}
+        exercise: {type: string}
+        value: {type: string}
+        note: {type: string}
     Envelope:
       type: object
       required: [data]
@@ -2796,6 +2937,15 @@ components:
                 fats: {type: number}
                 carbs: {type: number}
               required: [calories, protein, fats, carbs]
+            restTargets:
+              type: object
+              description: The plan's rest-day target (lower carbs/kcal), when it has one.
+              properties:
+                calories: {type: number}
+                protein: {type: number}
+                fats: {type: number}
+                carbs: {type: number}
+              required: [calories, protein, fats, carbs]
             days:
               type: array
               items:
@@ -2904,6 +3054,18 @@ components:
                     sec: {type: number}
                     m: {type: number}
                   required: [w, r, sec, m]
+              target:
+                type: object
+                description: The progression engine's target for today from the last session's working sets (also the weight/reps prefill).
+                properties:
+                  w: {type: number}
+                  r: {type: integer}
+                  lastW: {type: number}
+                  lastR: {type: integer}
+                  step:
+                    type: string
+                    enum: [hold, reps, load]
+                required: [w, r, lastW, lastR, step]
               ssGroup: {type: string}
               wmode:
                 type: string

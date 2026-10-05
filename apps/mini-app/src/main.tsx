@@ -3,6 +3,10 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { guessLang, loadLang, type Lang } from "./i18n";
 import "./styles.css";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { installErrorReporting } from "./logic/errorReport";
+
+installErrorReporting();
 
 // Offline shell (sw.template.js). Scope "/app-v2" (not "/app-v2/") so the bot's link, which has
 // no trailing slash, is covered too -- allowed by the Service-Worker-Allowed header (public/_headers).
@@ -25,10 +29,13 @@ function initialLang(): Lang {
   return guessLang();
 }
 
-void loadLang(initialLang()).catch(() => {}).finally(() => {
+const lang = initialLang();
+void loadLang(lang).catch(() => {}).finally(() => {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      <App />
+      <ErrorBoundary lang={lang}>
+        <App />
+      </ErrorBoundary>
     </StrictMode>,
   );
 });

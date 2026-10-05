@@ -10,7 +10,7 @@ import { announceSquadPr } from "../bot/squad";
 import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscles";
-import { exerciseMetric, formatSetEntry, getPlanDay, localParts, resolveWeightMode } from "../domain/progression";
+import { exerciseMetric, formatSetEntry, getPlanDay, localParts, nextTargetSet, resolveWeightMode, workingSets, type TargetStep } from "../domain/progression";
 import {
   userStatCounts,
 } from "../adapters/d1/v2Admin";
@@ -51,6 +51,9 @@ export interface WorkoutTodayExercise {
   // What the user actually did LAST time for this exercise (most recent completed log) —
   // powers the "repeat last workout" prefill in the logger.
   last?: { w: number; r: number; sec: number; m: number }[];
+  // The progression engine's target for today (domain/progression nextTargetSet) from the last
+  // session's working sets — shown under the exercise and used as the weight/reps prefill.
+  target?: { w: number; r: number; lastW: number; lastR: number; step: TargetStep };
   ssGroup?: string; // superset/circuit group letter (shared with adjacent exercises)
   wmode?: "total" | "perSide" | "perHand"; // how the weight is entered (label only; number as-is)
   restSec?: number; // planned rest between sets in seconds, parsed from PlanExercise.rest ("90s")
@@ -203,17 +206,25 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
   // log that contains it (scan newest-first, 60-day window).
   if (payload.exercises.length) {
     const logs = await workoutLogsSince(db, user._id, isoDateMinus(date, 60)).catch(() => [] as WorkoutLogDoc[]);
-    const lastByName = new Map<string, { w: number; r: number; sec: number; m: number }[]>();
+    const lastByName = new Map<string, LoggedExercise>();
     for (const log of [...logs].sort((a, b) => (a.date < b.date ? 1 : -1))) {
-      if (!log.completed) continue;
+      if (!log.completed || log.date >= date) continue;
       for (const ex of log.exercises) {
-        if (lastByName.has(ex.name) || !ex.setsDone.length) continue;
-        lastByName.set(ex.name, ex.setsDone.map((s) => ({ w: s.weight || 0, r: s.reps || 0, sec: s.seconds || 0, m: s.meters || 0 })));
+        if (lastByName.has(ex.name) || ex.skipped || !ex.setsDone.length) continue;
+        lastByName.set(ex.name, ex);
       }
     }
     for (const ex of payload.exercises) {
-      const last = lastByName.get(ex.name);
-      if (last) ex.last = last;
+      const le = lastByName.get(ex.name);
+      if (!le) continue;
+      ex.last = le.setsDone.map((s) => ({ w: s.weight || 0, r: s.reps || 0, sec: s.seconds || 0, m: s.meters || 0 }));
+      const target = todayTarget(ex, le);
+      if (target) {
+        ex.target = target;
+        // The target is the prefill; a saved log or draft for today still wins on the client.
+        ex.weightKg = target.w;
+        ex.reps = target.r;
+      }
     }
     // Past days (last 7) that have a completed log — the "fix a mistake" picker in the logger.
     if (!dateOverride) {
@@ -227,6 +238,23 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
 }
 
 /** ISO weekday (1=Mon..7=Sun) of a YYYY-MM-DD string. */
+/** Today's target for a rep-based exercise from its last logged session. Pure (unit-tested). */
+export function todayTarget(ex: Pick<WorkoutTodayExercise, "name" | "metric" | "planSets">, last: LoggedExercise): WorkoutTodayExercise["target"] {
+  if (ex.metric !== "reps") return undefined;
+  const range = parseRepRangeLoose(ex.planSets ?? "");
+  const ws = workingSets(last.setsDone, range?.low ?? 1);
+  if (!ws) return undefined;
+  const n = nextTargetSet(ws.weight, ws.reps, ex.name, last.rpe, range);
+  return { w: n.weight, r: n.reps, lastW: ws.weight, lastR: ws.reps, step: n.step };
+}
+
+function parseRepRangeLoose(s: string): { low: number; high: number } | undefined {
+  const m = /(\d+)\s*[x×х*]\s*(\d+)\s*(?:[–\-—]\s*(\d+))?/i.exec(s);
+  if (!m) return undefined;
+  const low = parseInt(m[2]!, 10);
+  return { low, high: m[3] ? parseInt(m[3], 10) : low };
+}
+
 function isoWeekdayOfDate(date: string): Weekday {
   const d = new Date(`${date}T00:00:00Z`).getUTCDay();
   return (d === 0 ? 7 : d) as Weekday;

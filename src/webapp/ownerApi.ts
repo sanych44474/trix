@@ -3,12 +3,15 @@
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
 import { broadcastRelease, pendingReleaseRecipients } from "../bot/releaseBroadcast";
 import { latestRelease } from "../releaseNotes";
-import { getOwnerChatId } from "../adapters/d1/v2Admin";
+import { getOwnerChatId, listFeedback, updateFeedback } from "../adapters/d1/v2Admin";
+import { recordInbox } from "../adapters/d1/v2Inbox";
+import { FEEDBACK_CATEGORIES, FEEDBACK_STATUSES, type FeedbackCategory, type FeedbackStatus } from "../domain/feedbackTriage";
+import { readJsonBody } from "./validate";
 import { getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { deleteUserData } from "../adapters/d1/v2Account";
 import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/owner";
 import { switchMode } from "../domain/session";
-import { t } from "../locales/i18n";
+import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { nudgeOnboarding } from "./onboardingNudge";
 import type { Env } from "../types";
@@ -50,6 +53,40 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
   }
   if (req.method === "POST" && path === "/api/owner/release/send") {
     return Response.json(await broadcastRelease(env, user._id, RELEASE_BATCH));
+  }
+
+  // Feedback triage: the inbox as a list with a category and a status instead of a Telegram scroll.
+  if (req.method === "GET" && path === "/api/owner/feedback") {
+    const q = url.searchParams.get("status") ?? "new";
+    const status = q === "all" || (FEEDBACK_STATUSES as readonly string[]).includes(q) ? (q as FeedbackStatus | "all") : "new";
+    return Response.json(await listFeedback(env.DB, status), { headers: { "cache-control": "no-store" } });
+  }
+  const fbMatch = /^\/api\/owner\/feedback\/(\d+)$/.exec(path);
+  if (req.method === "POST" && fbMatch) {
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const b = parsed.body as Record<string, unknown>;
+    const status = (FEEDBACK_STATUSES as readonly string[]).includes(String(b.status)) ? (b.status as FeedbackStatus) : undefined;
+    const category = (FEEDBACK_CATEGORIES as readonly string[]).includes(String(b.category)) ? (b.category as FeedbackCategory) : undefined;
+    if (!status && !category) return Response.json({ error: "bad request" }, { status: 400 });
+    const before = await updateFeedback(env.DB, Number(fbMatch[1]), { status, category });
+    if (!before) return Response.json({ error: "not found" }, { status: 404 });
+    // "Your idea is live": only on the transition to done, only when asked, never twice.
+    let notified = false;
+    if (status === "done" && before.status !== "done" && b.notify === true) {
+      const author = await getUser(env.DB, before.userId).catch(() => null);
+      if (author && !author.blocked && !author.botBlocked) {
+        const preview = before.text.replace(/^\[AI coach\]\s*/, "").split("\n")[0]!.slice(0, 140);
+        const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: author.chatId, text: t(author.lang, "feedback_done_user", { text: escapeHtml(preview) }), parse_mode: "HTML" }),
+        }).catch(() => null);
+        notified = !!res?.ok;
+        await recordInbox(env.DB, author._id, "feedback_done", { preview }).catch(() => {});
+      }
+    }
+    return Response.json({ ok: true, notified });
   }
 
   // Feedback ask to users quiet for 7+ days: pushes a "what's missing?" question and parks

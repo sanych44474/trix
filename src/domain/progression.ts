@@ -1,4 +1,5 @@
 import { regionOf } from "./muscleRegions";
+import { trainingWeek } from "./mesocycle";
 import type {
   BodyMeasurements,
   DailyCheckinDoc,
@@ -388,27 +389,40 @@ export function reconcileGrounding(
   return undefined;
 }
 
-/** Suggest the next double-progression target for a key lift.
- * RPE autoregulation (promt.txt R8): if the last set felt maximal (RPE ≥ 9.5) hold the load
- * to consolidate; if there was clearly gas left (RPE ≤ 7) take a bigger jump; otherwise the
- * standard double progression — add a rep until the top of the range, then add load. */
+/** Suggest the next double-progression target for a lift — the same rules as the weekly plan
+ * progression, so the records screen, the post-workout recap and the plan never disagree:
+ * add a rep until the top of the plan's rep range (default 8–12), then add the load step for
+ * this exercise (loadStep) and go back to the bottom of the range. RPE autoregulation: a maximal
+ * last session (RPE ≥ 9.5) holds the target; clearly easy (RPE ≤ 7) takes a double step.
+ * Bodyweight lifts just add reps. */
 export function nextTarget(
   bestWeight: number,
   bestReps: number,
-  isLowerBody: boolean,
+  exercise: string,
   lastRpe?: number,
+  range?: { low: number; high: number },
 ): string {
-  const topOfRange = 12;
-  const inc = isLowerBody ? 10 : 5;
-  if (typeof lastRpe === "number" && lastRpe >= 9.5) {
-    // Overshot — repeat the same target before progressing.
-    return `${bestWeight || "BW"} × ${bestReps}`;
-  }
+  const n = nextTargetSet(bestWeight, bestReps, exercise, lastRpe, range);
+  return `${n.weight > 0 ? fmtNum(n.weight) : "BW"} × ${n.reps}`;
+}
+
+export type TargetStep = "hold" | "reps" | "load";
+
+/** nextTarget as numbers, plus which move it is (hold the load / add reps / add load). */
+export function nextTargetSet(
+  bestWeight: number,
+  bestReps: number,
+  exercise: string,
+  lastRpe?: number,
+  range?: { low: number; high: number },
+): { weight: number; reps: number; step: TargetStep } {
+  const low = range?.low ?? 8;
+  const high = Math.max(low, range?.high ?? 12);
+  if (typeof lastRpe === "number" && lastRpe >= GRIND_RPE) return { weight: bestWeight, reps: bestReps, step: "hold" };
   const easy = typeof lastRpe === "number" && lastRpe <= 7;
-  if (bestReps < topOfRange) {
-    return `${bestWeight || "BW"} × ${bestReps + (easy ? 2 : 1)}`;
-  }
-  return `${bestWeight + (easy ? inc * 2 : inc)} × 8`;
+  if (!(bestWeight > 0)) return { weight: 0, reps: bestReps + (easy ? 2 : 1), step: "reps" };
+  if (bestReps < high) return { weight: bestWeight, reps: Math.min(high, bestReps + (easy ? 2 : 1)), step: "reps" };
+  return { weight: bestWeight + loadStep(exercise, bestWeight) * (easy ? 2 : 1), reps: low, step: "load" };
 }
 
 export interface NextTargetGuidance {
@@ -426,7 +440,12 @@ export interface NextTargetGuidance {
  * distance aren't tracked by nextTarget), skip anything with no completed sets, and cap the
  * list so the recap stays a short card, not a wall of text — PRs first (that's the exercise
  * someone just cares most about), then the rest in logged order. */
-export function nextTargetGuidance(exercises: LoggedExercise[], prExerciseNames: string[], max = 3): NextTargetGuidance[] {
+export function nextTargetGuidance(
+  exercises: LoggedExercise[],
+  prExerciseNames: string[],
+  max = 3,
+  plan?: PlanDoc | null,
+): NextTargetGuidance[] {
   const prSet = new Set(prExerciseNames);
   const candidates = exercises.filter((e) => !e.skipped && e.setsDone.length && metricOfSets(e.setsDone) === "reps");
   const ordered = [...candidates].sort((a, b) => Number(prSet.has(b.name)) - Number(prSet.has(a.name)));
@@ -435,7 +454,7 @@ export function nextTargetGuidance(exercises: LoggedExercise[], prExerciseNames:
     const overload = typeof e.rpe === "number" && e.rpe >= 9.5;
     return {
       name: e.name,
-      target: nextTarget(best.weight, best.reps, isLowerBody(e.name), e.rpe),
+      target: nextTarget(best.weight, best.reps, e.name, e.rpe, plan ? planRepRange(plan, e.planName ?? e.name) : undefined),
       overload,
     };
   });
@@ -459,24 +478,15 @@ export function deloadDue(records: StrengthRecordDoc[], today: string): boolean 
   });
 }
 
-/** Deload autopilot: how many full weeks the plan has been running.
- * A deload week is due every 7th week (≈6–8 week mesocycle) since the plan was generated. */
+/** How many full weeks the plan has been running. */
 export function weeksSincePlan(generatedAt: string, today: string): number {
   const days = (Date.parse(today) - Date.parse(generatedAt)) / 86_400_000;
   return days < 0 ? 0 : Math.floor(days / 7);
 }
 
-export function deloadWeekDue(generatedAt: string, today: string): boolean {
-  const w = weeksSincePlan(generatedAt, today);
-  return w > 0 && w % 7 === 0;
-}
-
-/** Automatic deload: true on every Nth full week since the plan started (default 4),
- * so volume drops without a manual /replan. Interval comes from the plan meta. */
+/** Automatic deload week for this plan (see domain/mesocycle trainingWeek, the single source). */
 export function shouldDeload(plan: PlanDoc, today: string): boolean {
-  const interval = plan.deloadInterval && plan.deloadInterval > 0 ? plan.deloadInterval : 4;
-  const w = weeksSincePlan(plan.generatedAt.toISOString(), today);
-  return w > 0 && w % interval === 0;
+  return trainingWeek(plan, today).deload;
 }
 
 /** Drop an exercise's set count by ~40% for a deload week, keeping the rep range.
@@ -538,9 +548,41 @@ function fmtNum(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-/** Smallest sane plate jump: +5 kg lower body, +2.5 kg upper — ≤5% of a typical working load. */
-function weightStep(isLower: boolean): number {
-  return isLower ? 5 : 2.5;
+/** The next load jump for an exercise at this weight: ~5% of the load, rounded to what the gym
+ *  actually offers (1 kg dumbbells under 10 kg, 2 kg above; 2.5 kg plates/stacks otherwise) and
+ *  never more than the classic +2.5 kg upper / +5 kg lower body. A flat +2.5 kg was +40% on a
+ *  6 kg lateral raise. Pure; test/progression-math.test.ts. */
+export function loadStep(exercise: string, kg: number): number {
+  const cap = isLowerBody(exercise) ? 5 : 2.5;
+  const dumbbell = /гантел|dumbbell|\bdb\b|kettlebell|гир[яі]/i.test(exercise);
+  const inc = dumbbell ? (kg < 10 ? 1 : 2) : 2.5;
+  return Math.min(cap, Math.max(inc, Math.round((kg * 0.05) / inc) * inc));
+}
+
+/** The plan's rep range for a logged exercise (matched by name or canonical name), if any. */
+export function planRepRange(plan: PlanDoc, name: string): { low: number; high: number } | undefined {
+  for (const d of plan.split) {
+    for (const e of d.exercises) {
+      if (exerciseTokensEqual(e.name, name) || (e.canonicalName && exerciseTokensEqual(e.canonicalName, name))) {
+        const r = parseRepRange(e.sets);
+        return r ? { low: r.low, high: r.high } : undefined;
+      }
+    }
+  }
+  return undefined;
+}
+
+/** One logged session of a rep-based exercise, read the way double progression needs it:
+ *  the working weight is the heaviest load done for at least the bottom of the rep range (a
+ *  one-off heavy triple doesn't count as "what you lift for 8–12"); `reps` is the WORST set at
+ *  that weight, so "top of the range" means every working set got there, not just the first. */
+export function workingSets(sets: SetEntry[], low = 1): { weight: number; reps: number; count: number } | undefined {
+  const reps = sets.filter((x) => x.reps > 0);
+  if (!reps.length) return undefined;
+  const qualifying = reps.filter((x) => x.reps >= low);
+  const weight = Math.max(...(qualifying.length ? qualifying : reps).map((x) => x.weight));
+  const work = reps.filter((x) => Math.abs(x.weight - weight) < 1e-6);
+  return { weight, reps: Math.min(...work.map((x) => x.reps)), count: work.length };
 }
 
 /** Bump a rep target by `inc` reps (top of a range, or the single fixed target). */
@@ -601,7 +643,7 @@ function emitMetricRange(r: MetricRange, low: number, high: number): string {
   return `${head}${range}${glue}${r.unit}`;
 }
 
-function exerciseTokensEqual(a: string, b: string): boolean {
+export function exerciseTokensEqual(a: string, b: string): boolean {
   const na = a.trim().toLowerCase();
   const nb = b.trim().toLowerCase();
   if (!na || !nb) return false;
@@ -630,6 +672,7 @@ export interface ProgressionResult {
   maxedBodyweight: string[]; // bodyweight lifts that hit the rep cap → need a harder variation/load
   heldForWellbeing: boolean; // poor recent check-ins → all increases skipped this week
   heldForConditioning: boolean; // a very high cardio week → don't stack strength increases on top
+  heldForDeload?: boolean; // a deload week, or the week right after one → its light logs say nothing
 }
 
 // A bodyweight lift this many reps deep is "too easy" — switch to a harder variation / add load
@@ -730,13 +773,19 @@ export function computePlanProgression(
   plan: PlanDoc,
   logs: WorkoutLogDoc[],
   checkins: DailyCheckinDoc[],
-  opts: { conditioningOverload?: boolean } = {},
+  opts: { conditioningOverload?: boolean; deloadHold?: boolean } = {},
 ): ProgressionResult {
   const result: ProgressionResult = {
     changes: [], plateau: [], maxedBodyweight: [], heldForWellbeing: false, heldForConditioning: false,
   };
   if (logs.filter((l) => l.completed).length < 2) return result;
 
+  // A deload week's logs are deliberately light (fewer sets, ~60–70% loads): reading them as
+  // "what you actually lift" would pull every plan weight down to the deload numbers.
+  if (opts.deloadHold) {
+    result.heldForDeload = true;
+    return result;
+  }
   if (poorWellbeing(checkins)) {
     result.heldForWellbeing = true;
     return result;
@@ -755,13 +804,19 @@ export function computePlanProgression(
       const metric = exerciseMetric(ex);
       // Recent sessions where this exercise was actually trained (matched by name/canonical),
       // each reduced to its best set on the exercise's native axis.
-      const sessions: { date: string; weight: number; reps: number; seconds: number; meters: number; rpe?: number }[] = [];
+      const range = parseRepRange(ex.sets);
+      const sessions: { date: string; weight: number; reps: number; seconds: number; meters: number; rpe?: number; count: number; total: number }[] = [];
       for (const log of logs) {
         for (const le of log.exercises) {
           if (le.skipped || !le.setsDone?.length) continue;
           if (!exerciseTokensEqual(le.name, ex.name) && !(ex.canonicalName && exerciseTokensEqual(le.name, ex.canonicalName))) continue;
-          const best = bestSetForMetric(le.setsDone, metric);
-          if (best) sessions.push({ date: log.date, weight: best.weight, reps: best.reps, seconds: best.seconds ?? 0, meters: best.meters ?? 0, rpe: le.rpe });
+          if (metric === "reps") {
+            const ws = workingSets(le.setsDone, range?.low ?? 1);
+            if (ws) sessions.push({ date: log.date, weight: ws.weight, reps: ws.reps, seconds: 0, meters: 0, rpe: le.rpe, count: ws.count, total: le.setsDone.length });
+          } else {
+            const best = bestSetForMetric(le.setsDone, metric);
+            if (best) sessions.push({ date: log.date, weight: best.weight, reps: best.reps, seconds: best.seconds ?? 0, meters: best.meters ?? 0, rpe: le.rpe, count: 1, total: 1 });
+          }
           break;
         }
       }
@@ -773,11 +828,14 @@ export function computePlanProgression(
         return;
       }
 
-      const range = parseRepRange(ex.sets);
       const top = range?.high;
       const w = parsePlanWeight(ex.startWeight);
 
-      const reachedTop = (s: { reps: number }) => top === undefined || s.reps >= top;
+      // Every working set at the top of the range (reps is the worst one), and not fewer working
+      // sets than planned less one — a session that dropped the weight after two sets didn't
+      // "own" it yet. A single logged set is taken at face value (quick text logs).
+      const enoughSets = (s: { count: number; total: number }) => s.total <= 1 || !range || s.count >= Math.max(1, range.setsCount - 1);
+      const reachedTop = (s: { reps: number; count: number; total: number }) => (top === undefined || s.reps >= top) && enoughSets(s);
       const notMaxed = (s: { rpe?: number }) => typeof s.rpe !== "number" || s.rpe < GRIND_RPE;
       const recent = sessions.slice(0, MIN_SESSIONS);
 
@@ -812,8 +870,8 @@ export function computePlanProgression(
       // (not the last set) ignores a one-off deload/pump day, and it means the plan can never
       // prescribe a weight the athlete hasn't shown — a bump the log later walked back (e.g. a
       // jump to 85 after one 80×8, then 80×6) is corrected back down to reality.
-      const step = weightStep(isLowerBody(ex.name));
       const demonstrated = Math.max(...sessions.slice(0, 3).map((s) => s.weight));
+      const step = loadStep(ex.name, demonstrated);
       if (demonstrated <= 0) return;
 
       // Progress ABOVE demonstrated only when the last MIN_SESSIONS both topped the rep range and
@@ -918,8 +976,11 @@ export const API_MUSCLES = [
   "abdominals", "traps", "calves", "lower_back", "forearms", "abductors", "adductors", "neck",
 ] as const;
 
-const LOWER_HINTS = ["leg", "squat", "ногами", "ноги", "присід", "deadlift", "становая", "станова"];
+const LOWER_HINTS = ["leg", "squat", "ногами", "ноги", "ніг", "присід", "присед", "deadlift", "становая", "станова", "lunge", "випад", "выпад", "hip thrust", "glute", "сідни", "ягодич", "calf", "ікр", "икр", "step-up", "step up", "good morning"];
+/** Lower-body lift (bigger load step). The body map's region rules first, then name hints for
+ *  what they file elsewhere (a deadlift counts as back there, but loads like a leg lift). */
 export function isLowerBody(exercise: string): boolean {
+  if (regionOf(exercise) === "legs") return true;
   const e = exercise.toLowerCase();
   return LOWER_HINTS.some((h) => e.includes(h));
 }
@@ -999,18 +1060,6 @@ export function adherenceDeloadDue(
   return completed / logs.length < threshold;
 }
 
-// ---------- periodization (mesocycle phases) ----------
-
-export type MesoPhase = "accumulation" | "intensification" | "peak" | "deload";
-
-/** Map a 0-based plan week index to a 4-week mesocycle phase. The block runs
- * Accumulation → Intensification → Peak → Deload and repeats with auto-transitions. */
-export function mesocyclePhase(weekIndex: number): { phase: MesoPhase; weekInBlock: number } {
-  const w = Math.max(0, Math.floor(weekIndex)) % 4; // 0..3
-  const phase = (["accumulation", "intensification", "peak", "deload"] as const)[w];
-  return { phase, weekInBlock: w + 1 };
-}
-
 // ---------- compliance (trainer view) ----------
 
 /** Weekly compliance: % of scheduled workouts completed and % of days with a food log.
@@ -1051,4 +1100,28 @@ export function buildActivityCells(
     cells.push({ date, workout: workoutDates.has(date), nutrition: nutritionDates.has(date) });
   }
   return cells;
+}
+
+/** The progression engine's next targets for the plan's rep-based lifts, from recent logs —
+ *  what the coach prompt quotes instead of doing its own arithmetic (bot/coach.ts). Newest
+ *  session per exercise; at most `max` lines. Pure; test/progression-math.test.ts. */
+export function planNextTargets(plan: PlanDoc, logs: WorkoutLogDoc[], max = 10): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const newestFirst = [...logs].sort((a, b) => (a.date < b.date ? 1 : -1));
+  for (const day of plan.split) {
+    for (const ex of day.exercises) {
+      if (out.length >= max || seen.has(ex.name) || exerciseMetric(ex) !== "reps") continue;
+      seen.add(ex.name);
+      const range = parseRepRange(ex.sets);
+      for (const log of newestFirst) {
+        const le = log.exercises.find((e) => !e.skipped && e.setsDone?.length && (exerciseTokensEqual(e.name, ex.name) || (!!ex.canonicalName && exerciseTokensEqual(e.name, ex.canonicalName))));
+        if (!le) continue;
+        const ws = workingSets(le.setsDone, range?.low ?? 1);
+        if (ws) out.push(`${ex.name}: last ${ws.weight || "BW"}×${ws.reps}${le.rpe ? `@${le.rpe}` : ""} → next ${nextTarget(ws.weight, ws.reps, ex.name, le.rpe, range ? { low: range.low, high: range.high } : undefined)}`);
+        break;
+      }
+    }
+  }
+  return out;
 }

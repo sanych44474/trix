@@ -2,6 +2,7 @@
 // heal / translate, dynamic progression regeneration. Extracted from bot.ts (god-file split);
 // behavior unchanged. Values imported from "../bot" are referenced only inside function bodies,
 // so the value-cycle with bot.ts is load-safe.
+import { computeTargets, restDayTargets } from "../domain/mealplan";
 import { autoBalanceSplit } from "../domain/planAutoBalance";
 import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Env, Lang, PlanDay, PlanExercise, PlanDoc, UserDoc, Weekday } from "../types";
@@ -549,16 +550,25 @@ export async function buildPlanDocRaw(
   // invocation past the Workers subrequest cap ("Too many subrequests" on plan/ai). Videos are
   // populated lazily instead: videosForDays() backfills any cache miss in a waitUntil() when the
   // user first opens the plan/today, and the owner /refreshvideos + backfill cover the rest.
+  const formulaNutrition = profile.weightKg && profile.heightCm ? computeTargets(profile) : null;
   return {
     userId: forUserId,
     active: false,
     status: "active",
     authoredBy: opts.authoredBy,
     split: translatedSplit,
-    nutrition: { ...ai.nutrition, ...(translatedNutNotes !== undefined ? { notes: translatedNutNotes } : {}) },
-    ...(ai.restDayNutrition && typeof ai.restDayNutrition.calories === "number"
-      ? { restDayNutrition: ai.restDayNutrition }
-      : {}),
+    // The model is given the formula targets (planUser) but doesn't reliably copy them — pin them.
+    nutrition: {
+      ...ai.nutrition,
+      ...(formulaNutrition ?? {}),
+      ...(translatedNutNotes !== undefined ? { notes: translatedNutNotes } : {}),
+    },
+    // Rest day follows the pinned training-day numbers (fewer carbs, same protein/fat).
+    ...(formulaNutrition
+      ? { restDayNutrition: restDayTargets(formulaNutrition) }
+      : ai.restDayNutrition && typeof ai.restDayNutrition.calories === "number"
+        ? { restDayNutrition: ai.restDayNutrition }
+        : {}),
     supplements: [],
     methodology: translatedMethodology,
     ...(ai.movementAudit ? { movementAudit: cleanAi(ai.movementAudit) } : {}),

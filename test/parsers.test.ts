@@ -4,7 +4,6 @@ import {
   applyProgression,
   computePlanProgression,
   deloadSets,
-  deloadWeekDue,
   evaluateProgressionRate,
   inQuietHours,
   localParts,
@@ -29,7 +28,7 @@ import {
   weeksSincePlan,
 } from "../src/domain/progression";
 import type { DailyCheckinDoc, PlanDoc, PlanExercise, WorkoutLogDoc } from "../src/types";
-import { computeTargets, splitMeals, solvePortions, isPlausiblePer100g, per100gCorrectionFrom, scaleMealEntry } from "../src/domain/mealplan";
+import { computeTargets, restDayTargets, splitMeals, solvePortions, isPlausiblePer100g, per100gCorrectionFrom, scaleMealEntry } from "../src/domain/mealplan";
 import { curatedPer100g } from "../src/ai/nutritionDb";
 import { cleanAi, t } from "../src/locales/i18n";
 import { chunkReport } from "../src/render";
@@ -116,12 +115,15 @@ test("reconcileGrounding: undefined id stays ungrounded", () => {
 });
 
 test("nextTarget: add reps below top of range", () => {
-  assert.equal(nextTarget(80, 6, false), "80 × 7");
+  assert.equal(nextTarget(80, 6, "Bench Press"), "80 × 7");
 });
 
 test("nextTarget: add weight at top of range", () => {
-  assert.equal(nextTarget(80, 12, false), "85 × 8");
-  assert.equal(nextTarget(100, 12, true), "110 × 8");
+  // the same step as the weekly plan progression: +2.5 kg upper, +5 kg lower body
+  assert.equal(nextTarget(80, 12, "Bench Press"), "82.5 × 8");
+  assert.equal(nextTarget(100, 12, "Back Squat"), "105 × 8");
+  // the plan's own rep range, when known
+  assert.equal(nextTarget(60, 10, "Bench Press", undefined, { low: 6, high: 10 }), "62.5 × 6");
 });
 
 test("parseWorkoutText: parses RPE token (@8 / rpe)", () => {
@@ -159,13 +161,13 @@ test("parseWorkoutText: cardio time and/or distance (rowing, bike, run)", () => 
 
 test("nextTarget: RPE autoregulation", () => {
   // Overshoot (RPE ≥ 9.5) → hold the same target.
-  assert.equal(nextTarget(80, 8, false, 10), "80 × 8");
+  assert.equal(nextTarget(80, 8, "Bench Press", 10), "80 × 8");
   // Easy (RPE ≤ 7) below top of range → jump two reps.
-  assert.equal(nextTarget(80, 6, false, 6), "80 × 8");
+  assert.equal(nextTarget(80, 6, "Bench Press", 6), "80 × 8");
   // Easy at top of range → double the load increment.
-  assert.equal(nextTarget(80, 12, false, 7), "90 × 8");
+  assert.equal(nextTarget(80, 12, "Bench Press", 7), "85 × 8");
   // Normal RPE (8) → standard double progression.
-  assert.equal(nextTarget(80, 6, false, 8), "80 × 7");
+  assert.equal(nextTarget(80, 6, "Bench Press", 8), "80 × 7");
 });
 
 test("parseSteps: plain, separators, and embedded", () => {
@@ -177,12 +179,9 @@ test("parseSteps: plain, separators, and embedded", () => {
   assert.equal(parseSteps("0"), undefined);
 });
 
-test("weeksSincePlan + deloadWeekDue: every 7th week", () => {
+test("weeksSincePlan: full weeks since the plan started", () => {
   assert.equal(weeksSincePlan("2026-01-01", "2026-01-01"), 0);
   assert.equal(weeksSincePlan("2026-01-01", "2026-02-19"), 7); // 49 days
-  assert.equal(deloadWeekDue("2026-01-01", "2026-01-01"), false);
-  assert.equal(deloadWeekDue("2026-01-01", "2026-02-19"), true); // week 7
-  assert.equal(deloadWeekDue("2026-01-01", "2026-02-12"), false); // week 6
 });
 
 test("deloadSets: drops set count ~40%, keeps rep range", () => {
@@ -481,6 +480,16 @@ test("computeTargets: prefers plan nutrition, else Mifflin", () => {
   assert.equal(derived.protein, 170); // 2 g/kg
 });
 
+test("computeTargets: a heavy client still gets carbs; floors by sex", () => {
+  const big = computeTargets({ weightKg: 130, heightCm: 180, age: 40, sex: "male", goal: "fat loss" } as never);
+  assert.equal(big.protein, 175); // 2 g/kg of the BMI-27 reference weight (87.5 kg), not 260 g
+  assert.ok(big.carbs > 100, `carbs ${big.carbs}`);
+  assert.ok(Math.abs(big.protein * 4 + big.fats * 9 + big.carbs * 4 - big.calories) <= 10);
+  assert.ok(big.fats * 9 >= big.calories * 0.24);
+  const small = computeTargets({ weightKg: 45, heightCm: 150, age: 60, sex: "female", goal: "fat loss" } as never);
+  assert.ok(small.calories >= 1200);
+});
+
 test("splitMeals: weights sum to ~daily", () => {
   const split = splitMeals({ calories: 2000, protein: 160, fats: 60, carbs: 200 }, 4);
   assert.equal(split.length, 4);
@@ -639,4 +648,13 @@ test("computePlanProgression: a 'pick a weight' exercise takes the logged weight
   assert.equal(r.changes.length, 1);
   assert.equal(r.changes[0].field, "weight");
   assert.equal(r.changes[0].to, "16 kg");
+});
+
+test("restDayTargets: same protein/fat, fewer carbs, calories that add up", () => {
+  const r = restDayTargets({ calories: 2500, protein: 160, fats: 70, carbs: 307 });
+  assert.equal(r.protein, 160);
+  assert.equal(r.fats, 70);
+  assert.ok(r.carbs < 307 && r.carbs >= 153);
+  assert.ok(Math.abs(r.protein * 4 + r.fats * 9 + r.carbs * 4 - r.calories) <= 5);
+  assert.ok(Math.abs(r.calories - 2200) <= 20);
 });

@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import { t, type Lang } from "./i18n";
 
-export type InboxKind = "plan_assigned" | "plan_changed" | "message" | "badge" | "progression";
+export type InboxKind = "plan_assigned" | "plan_changed" | "message" | "badge" | "progression" | "feedback_done";
 export interface InboxItem { id: number; kind: InboxKind; params: Record<string, unknown>; createdAt: string; read: boolean }
 type Target = "plan" | "progress" | "role" | "today";
 
-const ICON: Record<InboxKind, string> = { plan_assigned: "📋", plan_changed: "✏️", message: "💬", badge: "🏅", progression: "📈" };
-const TARGET: Record<InboxKind, Target> = { plan_assigned: "plan", plan_changed: "plan", message: "role", badge: "progress", progression: "plan" };
+const ICON: Record<InboxKind, string> = { plan_assigned: "📋", plan_changed: "✏️", message: "💬", badge: "🏅", progression: "📈", feedback_done: "✅" };
+const TARGET: Record<InboxKind, Target> = { plan_assigned: "plan", plan_changed: "plan", message: "role", badge: "progress", progression: "plan", feedback_done: "today" };
 
 function when(lang: Lang, iso: string): string {
   const d = new Date(iso);
@@ -28,6 +28,7 @@ export function inboxText(lang: Lang, item: InboxItem): string {
     case "message": return t(lang, "inbox_message", { name: String(p.fromName || "—"), text: String(p.preview ?? "") });
     case "badge": return t(lang, "inbox_badge", { name: String((lang === "en" ? p.en : p.uk) ?? p.code ?? "") });
     case "progression": return t(lang, "inbox_progression", { n: Number(p.n ?? 0) });
+    case "feedback_done": return t(lang, "inbox_feedback_done", { text: String(p.preview ?? "") });
   }
 }
 

@@ -1,5 +1,5 @@
 import type { BankPlan, PlanDay, PlanDoc, PlanExercise, UserProfile, Weekday } from "../types";
-import { computeTargets } from "./mealplan";
+import { computeTargets, restDayTargets } from "./mealplan";
 import { PLAN_SCHEMA_VERSION } from "./plan-schema";
 import { fitSplitToKit, kitFromEquipment } from "./equipmentFit";
 import { applyStartWeights } from "./startWeights";
@@ -90,13 +90,7 @@ export function adaptPlan(
 
   const finalSplit = opts.finishFor ? finishGeneratedSplit(split, profile, opts.finishFor) : split;
   const nutrition = computeTargets(profile);
-  // Rest-day macros: keep protein, trim carbs ~30% and calories ~12% (mirrors the AI plan rule).
-  const restDayNutrition = {
-    calories: Math.round((nutrition.calories * 0.88) / 10) * 10,
-    protein: nutrition.protein,
-    fats: Math.round(nutrition.fats * 0.95),
-    carbs: Math.round(nutrition.carbs * 0.7),
-  };
+  const restDayNutrition = restDayTargets(nutrition);
 
   return {
     userId: forUserId,

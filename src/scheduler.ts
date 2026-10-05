@@ -12,7 +12,8 @@ import { getActivePlan, listActivePlans, setProgressionRate } from "./adapters/d
 import { bodyLogsByUser, getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked } from "./adapters/d1/v2Tracking";
 import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, listVacationEnded, markComebackDone, updateUser } from "./adapters/d1/v2Users";
 import { resolveWaterGoal } from "./domain/challenges";
-import { adherenceDeloadDue, deloadWeekDue, evaluateProgressionRate, inQuietHours, localParts, getPlanDay, weeksSincePlan } from "./domain/progression";
+import { trainingWeek } from "./domain/mesocycle";
+import { adherenceDeloadDue, evaluateProgressionRate, inQuietHours, localParts, getPlanDay, weeksSincePlan } from "./domain/progression";
 import { isoWeekKey, streakRisk } from "./domain/records";
 import { seasonalChallenge } from "./domain/challenges";
 import { stalledLifts } from "./domain/analysis";
@@ -42,7 +43,7 @@ import { activationNudge } from "./schedulerJobs/activation";
 import { workoutReminder } from "./schedulerJobs/workoutReminder";
 import { missedDay } from "./schedulerJobs/missedDay";
 import { weeklyNarrative } from "./schedulerJobs/weeklyNarrative";
-import { weeklyReport } from "./schedulerJobs/weeklyReport";
+import { advanceMesocycleWeek, weeklyReport } from "./schedulerJobs/weeklyReport";
 import { weeklyProgression } from "./schedulerJobs/weeklyProgression";
 import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
 // Public surface kept here so existing `from "./scheduler"` imports keep working.
@@ -721,12 +722,18 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // The Monday weekly blocks below each re-read the same 21-day workout log and the full
   // body-log history; fetch each at most once per tick and reuse (sliced in memory per block).
 
-  // Deload autopilot — Monday morning. Calendar trigger (~every 7th week) OR an adherence
+  if (weekday === 1 && hour >= reminderHour && !already("meso_advance")) {
+    markSent("meso_advance");
+    await advanceMesocycleWeek(p).catch((e) => logSchedulerError(db, "meso_advance", e, user._id));
+  }
+
+  // Deload autopilot — Monday morning. The plan's own deload week (domain/mesocycle trainingWeek,
+  // the same answer the today card shows) OR an adherence
   // trigger: several recent missed/grinding sessions → propose a lighter recovery week early.
   if (!pinged && weekday === 1 && hour >= reminderHour && user.role !== "client" && !already("deload")) {
     const plan = activePlan;
     if (plan) {
-      const calendarDue = deloadWeekDue(plan.generatedAt.toISOString().slice(0, 10), date);
+      const calendarDue = trainingWeek(plan, date).deload;
       const adherenceDue = !calendarDue && adherenceDeloadDue(await workouts21());
       // deload_week's text asserts "you've trained hard for ~7 weeks" — but the calendar trigger
       // only knows the PLAN's age, not whether a single session was ever logged against it. Sent

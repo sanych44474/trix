@@ -593,7 +593,7 @@ export const en = {
     "📅 *Tomorrow — {group}.* Get ready: prep your gear, eat & sleep well. Here's the plan:",
 
   deload_week:
-    "🌙 *Deload week.* You've trained hard for ~7 weeks — time to recover so you keep progressing. This week: cut working sets by ~1–2 and drop loads to ~60–70%, keep the movements but stop well shy of failure (RPE ≤ 7). Sleep and eat well. Next week you'll come back stronger. Tap 💬 Coach if you want me to adjust anything.",
+    "🌙 *Deload week.* You've trained hard for several weeks — time to recover so you keep progressing. This week: cut working sets by ~1–2 and drop loads to ~60–70%, keep the movements but stop well shy of failure (RPE ≤ 7). Sleep and eat well. Next week you'll come back stronger. Tap 💬 Coach if you want me to adjust anything.",
   deload_today:
     "🌙 *Deload week* — same moves, ~40% fewer sets. Keep loads light and stop shy of failure (RPE ≤ 7). Recover well; volume ramps back next week.",
   readiness_easy:
@@ -684,6 +684,7 @@ export const en = {
 
   feedback_prompt:
     "✍️ Write your feedback or suggestion in one message — it goes straight to the bot owner. 🙏",
+  feedback_done_user: "✅ <b>Your feedback made it in!</b>\nYou wrote: “{text}”\nWe've done it — thanks for helping make the bot better. 🙏",
   feedback_saved: "Thank you! Your feedback has been sent. 🙏",
 
   admin_claimed:
@@ -1549,11 +1550,7 @@ export const en = {
     "🪫 I noticed a rough stretch — several missed or grinding sessions. Let's take a lighter week to recover: cut sets ~40% and keep the weights honest. Tap /coach to adjust.",
 
   // --- periodization (mesocycle phase) ---
-  phase_accumulation: "Accumulation",
-  phase_intensification: "Intensification",
-  phase_peak: "Peak",
-  phase_deload: "Deload",
-  periodization_line: "📅 Phase: <b>{phase}</b> (week {week}/4 of the mesocycle)",
+  periodization_line: "📅 Phase: <b>{phase}</b> (week {week}/{len})",
 
   // --- streak calendar (/progress) ---
   activity_grid_title: "📆 <b>Last 28 days</b>",

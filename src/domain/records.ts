@@ -26,6 +26,8 @@ export interface BoardEntry {
 /** Epley estimated 1-rep max. Bodyweight sets (weight 0) return 0 (no external load). */
 export function e1rm(weight: number, reps: number): number {
   if (weight <= 0 || reps <= 0) return 0;
+  // Epley over-reads a single by 3% (100×1 → 103); a single IS the max.
+  if (reps === 1) return weight;
   return weight * (1 + reps / 30);
 }
 

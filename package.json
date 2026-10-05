@@ -33,7 +33,8 @@
     "verify-schema": "node scripts/verify-schema.mjs",
     "check:ai-models": "node --import tsx scripts/check-ai-models.mjs",
     "test:workers": "vitest run",
-    "backup:d1": "node scripts/backup-d1.mjs"
+    "backup:d1": "node scripts/backup-d1.mjs",
+    "eval:coach": "node --import tsx scripts/eval-coach.mjs"
   },
   "dependencies": {
     "grammy": "^1.46.0",

@@ -1,3 +1,4 @@
+import { computeTargets } from "../domain/mealplan";
 import type { CatalogExercise, Lang, UserProfile } from "../types";
 
 // Compact candidate block (no long instructions) injected into plan/swap prompts.
@@ -324,6 +325,13 @@ export function planUser(
   const minExercises = endurance || (profile.sessionMinutes ?? 999) <= 30 ? 3 : (profile.sessionMinutes ?? 999) <= 45 ? 4 : 5;
   const maxExercises = endurance || (profile.sessionMinutes ?? 999) <= 30 ? 4 : (profile.sessionMinutes ?? 999) <= 45 ? 5 : 6;
   s += `\n\nAUTHORITATIVE SESSION LIMITS: ${minExercises}-${maxExercises} main exercise(s) per day for this client. Do not exceed ${profile.sessionMinutes ?? "the practical session budget"} minutes.`;
+  // The "authoritative calorie and macro targets" planSystem refers to — computed by the same
+  // formula the rest of the app uses (domain/mealplan computeTargets), so the plan's numbers and
+  // the nutrition screen's never disagree. Only when the body metrics to compute them exist.
+  if (profile.weightKg && profile.heightCm) {
+    const n = computeTargets(profile);
+    s += `\n\nAUTHORITATIVE NUTRITION TARGETS (training day): ${n.calories} kcal, protein ${n.protein} g, fats ${n.fats} g, carbs ${n.carbs} g. Use exactly these for "nutrition".`;
+  }
   if (recentPRs) s += `\n\nRecent PRs (key lifts):\n${recentPRs}`;
   // Precomputed from lastPeriodStart/cycleLengthDays (same logic the chat coach uses) — the
   // raw fields are already in the profile JSON above, but planSystem's checklist needs a ready
@@ -739,6 +747,28 @@ const GROUND_IN_DATA_RULE =
 const MEDICAL_REDFLAG_RULE =
   "If something sounds like a red-flag medical issue (not just normal training soreness), advise seeing a doctor/physiotherapist instead of proposing a workaround.";
 
+// The profile the coach prompts see: what bears on training/nutrition advice. Reminder hours,
+// quiet hours, referral/buddy ids, sharing flags and raw cycle dates (the context carries the
+// computed phase) are noise that costs tokens and dilutes the instructions.
+const COACH_PROFILE_KEYS = [
+  "name", "weightKg", "heightCm", "age", "sex", "goal", "goalWeight", "level", "trainingHistory",
+  "daysPerWeek", "equipment", "sessionMinutes", "baselineLifts", "limitations", "lifestyle",
+  "dietPrefs", "allergies", "favoriteExercises", "dislikedExercises", "measurements",
+] as const satisfies readonly (keyof UserProfile)[];
+
+export function coachProfile(profile: UserProfile): Partial<UserProfile> {
+  const out: Partial<UserProfile> = {};
+  for (const k of COACH_PROFILE_KEYS) {
+    const v = profile[k];
+    if (v !== undefined && v !== null && v !== "") (out as Record<string, unknown>)[k] = v;
+  }
+  return out;
+}
+
+// Load jumps the prompts describe — the same rule as domain/progression loadStep.
+const LOAD_STEP_RULE =
+  "a load jump is ~5% of the weight in real increments (+2.5 kg upper / +5 kg lower body on barbells and machines, +1–2 kg on dumbbells), never more";
+
 export function coachSystem(
   lang: Lang,
   profile: UserProfile,
@@ -751,9 +781,10 @@ ${trainerStyle ? `\nYou are drafting on behalf of the client's HUMAN coach. The 
 Plain text only — NO markdown tables, NO ** asterisks, NO # headings. Use short lines and simple "•" bullets (Telegram does not render markdown here).
 ${profile.name ? `Address the client by name (${profile.name}) naturally.` : ""}
 ${GROUND_IN_DATA_RULE}
+If the context has "Next targets", those are the app's own progression numbers — use them as given. A planned deload week or a low check-in readiness in the context outranks pushing harder.
 THINK IN WHOLE SESSIONS, like a live coach reading a training day: when advising about any exercise, silently weigh the ENTIRE day it sits in — exercise order (compounds fresh, isolations after, conditioning last), what the other movements already fatigue (shared muscles, grip, lower back), total working sets, and how close that day sits to the client's other sessions. Advice that fixes one lift but breaks the session (duplicate pattern, pre-fatigued prime mover, two spinal-heavy lifts stacked) is WRONG advice.
 
-Client profile: ${JSON.stringify(profile)}
+Client profile: ${JSON.stringify(coachProfile(profile))}
 Recent context: ${context || "(none)"}`;
 }
 
@@ -769,7 +800,7 @@ export const COACH_EDIT_SCHEMA = {
         type: "OBJECT",
         properties: {
           label: { type: "STRING" },
-          kind: { type: "STRING", enum: ["add", "delete", "swap", "weight", "sets", "harder", "easier", "none"] },
+          kind: { type: "STRING", enum: ["add", "delete", "swap", "weight", "sets", "harder", "easier", "feedback", "none"] },
           weekday: { type: "INTEGER" },
           index: { type: "INTEGER" },
           exercise: { type: "STRING" },
@@ -786,7 +817,7 @@ export interface CoachEditResult {
   reply: string;
   actions?: {
     label: string;
-    kind: "add" | "delete" | "swap" | "weight" | "sets" | "harder" | "easier" | "none";
+    kind: "add" | "delete" | "swap" | "weight" | "sets" | "harder" | "easier" | "feedback" | "none";
     weekday?: number;
     index?: number;
     exercise?: string;
@@ -805,6 +836,7 @@ You can EDIT the user's ENTIRE training plan conversationally. The full plan is 
 - "weight": weekday + index + value (kg number, e.g. "60").
 - "sets": weekday + index + value (e.g. "4 × 8-12").
 - "harder" / "easier": weekday — make that whole day harder/easier.
+- "feedback": the user is giving feedback about the APP/BOT ITSELF — a bug, something confusing, a missing feature, a complaint, praise, or "tell the developer/owner…". value = a faithful 1–2 sentence summary of that feedback in ${L} (their point only, nothing added, no personal health data unless it is the point); label = a short "send to the team" button in ${L}. In "reply" thank them and say they can tap the button to pass it on — never claim it was already sent. Questions about their training, food or plan are NOT feedback.
 - "none": pure advice → "actions": [].
 Identify the right weekday + index from the plan listing. If the user is vague about which exercise, ask a brief clarifying question in "reply" and offer the candidates as actions. For pure questions give advice and omit actions.
 - Never invent a weekday, exercise index, logged number or injury fact. If the context does not identify the target, return no action and ask one short clarification question.
@@ -814,12 +846,12 @@ EDIT LIKE A LIVE COACH — every proposed action must respect the WHOLE session 
 - NO DUPLICATES: never add a movement the day already covers (a second horizontal press, a second curl variation); if the user asks for one, say so and offer the pattern the day actually lacks.
 - FATIGUE: don't stack a second maximal spinal loader (heavy squat + heavy deadlift) or a grip-heavy add onto a deadlift/row day without flagging it; keep the day's working-set total sane (~15-25) — adding may mean trimming an accessory, offer that as a second action.
 - BALANCE: a swap keeps the day's movement pattern covered (don't swap the only pull for a press); "harder"/"easier" adjusts load/volume, not safety.
-- WEIGHTS: base weight suggestions on their logged numbers (double progression: top of rep range → +2.5 kg upper / +5 kg lower), not round guesses.
+- WEIGHTS: use the "Next targets" line from the context when the lift is there (the app's progression engine); otherwise base it on their logged numbers with double progression (every working set at the top of the rep range → ${LOAD_STEP_RULE}), not round guesses.
 
 ${GROUND_IN_DATA_RULE}
 ${MEDICAL_REDFLAG_RULE}
 
-Client profile: ${JSON.stringify(profile)}
+Client profile: ${JSON.stringify(coachProfile(profile))}
 Plan & context: ${context || "(none)"}
 Return strictly JSON: { reply, actions }.`;
 }
@@ -865,13 +897,13 @@ export function adaptiveAdjustmentSystem(lang: Lang, profile: UserProfile, conte
 
 Based on how the user says they feel and what's hard, propose SMALL micro-adjustments to the EXISTING plan — NEVER a full rewrite. Typical moves: nudge a working weight up or down, add or drop a set, ease a movement that aggravates a niggle. Change only what the check-in justifies (usually 1–4 exercises); if everything's fine, return an empty "adjustments" array and an encouraging reply.
 
-Adjust like a live coach reading the WHOLE session, not one line: when easing or loading an exercise, account for what the rest of that day already demands (shared muscles, grip, lower back, total sets) and for the recent logs in the context — if a lift's logged reps hit the top of its range, that's the one to nudge up (double progression: +2.5 kg upper / +5 kg lower body); if the user reports systemic fatigue (sleep, soreness), trim volume on the day's LAST accessories first and leave the key compounds intact; never let an adjustment create two maximal spinal loaders or a duplicated movement in one day.
+Adjust like a live coach reading the WHOLE session, not one line: when easing or loading an exercise, account for what the rest of that day already demands (shared muscles, grip, lower back, total sets) and for the recent logs in the context — if a lift's logged reps hit the top of its range in every working set, that's the one to nudge up (use its "Next targets" entry when the context has one; otherwise ${LOAD_STEP_RULE}); if the user reports systemic fatigue (sleep, soreness), trim volume on the day's LAST accessories first and leave the key compounds intact; never let an adjustment create two maximal spinal loaders or a duplicated movement in one day.
 
 The plan is in the context as days with 0-based exercise indices, e.g. "Mon(1): 0:Bench Press 4×8 60kg | 1:Incline DB Press 3×10". For each change return { weekday (ISO 1-7), index (0-based), sets? ("N × MIN-MAX", plain Unicode "×", no LaTeX), startWeight? ("NN kg" or "Bodyweight"), reason (one short line in ${L}) }. Only include the fields you are changing.
 
 ${MEDICAL_REDFLAG_RULE}
 
-Client profile: ${JSON.stringify(profile)}
+Client profile: ${JSON.stringify(coachProfile(profile))}
 Plan & context: ${context || "(none)"}
 Return strictly JSON: { reply, adjustments }.`;
 }
@@ -883,7 +915,7 @@ Return strictly JSON: { reply, adjustments }.`;
 const PLAIN_TEXT_NARRATIVE_RULE = "Plain text only — no JSON, no markdown tables or ** asterisks.";
 
 export function progressSystem(lang: Lang): string {
-  return `You are a strength coach and rehabilitation specialist. Given a client's key-lift strength records, write a SHORT (3–5 sentences) motivating analysis in ${langName(lang)}: note improvements, and for each main lift give the next double-progression target (add reps until top of range, then +2.5kg upper body / +5kg lower body). Add a brief joint-friendly recovery cue if relevant. ${PLAIN_TEXT_NARRATIVE_RULE}`;
+  return `You are a strength coach and rehabilitation specialist. Given a client's key-lift strength records, write a SHORT (3–5 sentences) motivating analysis in ${langName(lang)}: note improvements, and for each main lift give the next double-progression target (add reps until every set reaches the top of the range, then ${LOAD_STEP_RULE}). Add a brief joint-friendly recovery cue if relevant. ${PLAIN_TEXT_NARRATIVE_RULE}`;
 }
 
 export function reportSystem(lang: Lang): string {
