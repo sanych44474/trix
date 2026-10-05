@@ -8,8 +8,9 @@ export interface WeightChartModel {
   min: number;
   max: number;
   pts: Array<WeightPoint & { x: number; y: number }>; // x, y in 0..100 (y from the bottom)
+  trend: Array<{ x: number; y: number; kg: number }>; // 7-day rolling average, one per weigh-in
   goalY?: number; // the goal line, when the goal sits inside the drawn range
-  deltaKg: number; // last − first
+  deltaKg: number; // change of the 7-day average, last − first (daily water swings cancel out)
   spanDays: number;
 }
 
@@ -27,11 +28,23 @@ export function weightChartModel(points: WeightPoint[], goal?: number): WeightCh
   const t0 = Date.parse(sorted[0]!.date), t1 = Date.parse(sorted[sorted.length - 1]!.date);
   const span = Math.max(1, t1 - t0);
   const y = (kg: number) => ((kg - min) / (max - min)) * 100;
+  const avg = rollingAverage(sorted);
   return {
     min, max,
     pts: sorted.map((p) => ({ ...p, x: ((Date.parse(p.date) - t0) / span) * 100, y: y(p.kg) })),
+    trend: sorted.map((p, i) => ({ x: ((Date.parse(p.date) - t0) / span) * 100, y: y(avg[i]!), kg: avg[i]! })),
     ...(goal && goal >= min && goal <= max ? { goalY: y(goal) } : {}),
-    deltaKg: Math.round((sorted[sorted.length - 1]!.kg - sorted[0]!.kg) * 10) / 10,
+    deltaKg: Math.round((avg[avg.length - 1]! - avg[0]!) * 10) / 10,
     spanDays: Math.round((t1 - t0) / 86_400_000),
   };
+}
+
+/** For each weigh-in, the mean of the weigh-ins in the 7 days ending on it — the number that
+ *  answers "am I losing?", where single days swing 0.5–1.5 kg on water and salt. */
+export function rollingAverage(sorted: WeightPoint[], days = 7): number[] {
+  return sorted.map((p) => {
+    const end = Date.parse(p.date), start = end - (days - 1) * 86_400_000;
+    const win = sorted.filter((q) => { const t = Date.parse(q.date); return t >= start && t <= end; });
+    return Math.round((win.reduce((a, q) => a + q.kg, 0) / win.length) * 100) / 100;
+  });
 }
