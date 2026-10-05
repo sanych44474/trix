@@ -480,6 +480,16 @@ test("computeTargets: prefers plan nutrition, else Mifflin", () => {
   assert.equal(derived.protein, 170); // 2 g/kg
 });
 
+test("computeTargets: a heavy client still gets carbs; floors by sex", () => {
+  const big = computeTargets({ weightKg: 130, heightCm: 180, age: 40, sex: "male", goal: "fat loss" } as never);
+  assert.equal(big.protein, 175); // 2 g/kg of the BMI-27 reference weight (87.5 kg), not 260 g
+  assert.ok(big.carbs > 100, `carbs ${big.carbs}`);
+  assert.ok(Math.abs(big.protein * 4 + big.fats * 9 + big.carbs * 4 - big.calories) <= 10);
+  assert.ok(big.fats * 9 >= big.calories * 0.24);
+  const small = computeTargets({ weightKg: 45, heightCm: 150, age: 60, sex: "female", goal: "fat loss" } as never);
+  assert.ok(small.calories >= 1200);
+});
+
 test("splitMeals: weights sum to ~daily", () => {
   const split = splitMeals({ calories: 2000, protein: 160, fats: 60, carbs: 200 }, 4);
   assert.equal(split.length, 4);

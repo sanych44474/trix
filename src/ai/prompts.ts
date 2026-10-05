@@ -1,3 +1,4 @@
+import { computeTargets } from "../domain/mealplan";
 import type { CatalogExercise, Lang, UserProfile } from "../types";
 
 // Compact candidate block (no long instructions) injected into plan/swap prompts.
@@ -324,6 +325,13 @@ export function planUser(
   const minExercises = endurance || (profile.sessionMinutes ?? 999) <= 30 ? 3 : (profile.sessionMinutes ?? 999) <= 45 ? 4 : 5;
   const maxExercises = endurance || (profile.sessionMinutes ?? 999) <= 30 ? 4 : (profile.sessionMinutes ?? 999) <= 45 ? 5 : 6;
   s += `\n\nAUTHORITATIVE SESSION LIMITS: ${minExercises}-${maxExercises} main exercise(s) per day for this client. Do not exceed ${profile.sessionMinutes ?? "the practical session budget"} minutes.`;
+  // The "authoritative calorie and macro targets" planSystem refers to — computed by the same
+  // formula the rest of the app uses (domain/mealplan computeTargets), so the plan's numbers and
+  // the nutrition screen's never disagree. Only when the body metrics to compute them exist.
+  if (profile.weightKg && profile.heightCm) {
+    const n = computeTargets(profile);
+    s += `\n\nAUTHORITATIVE NUTRITION TARGETS (training day): ${n.calories} kcal, protein ${n.protein} g, fats ${n.fats} g, carbs ${n.carbs} g. Use exactly these for "nutrition".`;
+  }
   if (recentPRs) s += `\n\nRecent PRs (key lifts):\n${recentPRs}`;
   // Precomputed from lastPeriodStart/cycleLengthDays (same logic the chat coach uses) — the
   // raw fields are already in the profile JSON above, but planSystem's checklist needs a ready

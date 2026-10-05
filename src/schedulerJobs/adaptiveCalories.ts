@@ -28,9 +28,12 @@ export async function adaptiveCalories(p: UserPass): Promise<boolean> {
       .map((b) => ({ date: b.date, weight: b.weight as number })),
     loggedNutritionDays: new Set(nLogs.map((l) => l.date)).size,
     windowDays,
+    sex: user.profile.sex,
   });
   if (adj) {
-    await updateUser(db, user._id, { nutrition: { ...nutrition, calories: adj.newCalories } });
+    // The change comes out of / goes into carbs, so the macros still add up to the new target.
+    const carbs = Math.max(0, Math.round((nutrition.carbs ?? 0) + adj.deltaKcal / 4));
+    await updateUser(db, user._id, { nutrition: { ...nutrition, calories: adj.newCalories, carbs } });
     await send(
       t(lang, adj.deltaKcal < 0 ? "cal_adjust_down" : "cal_adjust_up", {
         old: nutrition.calories,

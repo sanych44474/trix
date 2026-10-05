@@ -2,6 +2,7 @@
 // heal / translate, dynamic progression regeneration. Extracted from bot.ts (god-file split);
 // behavior unchanged. Values imported from "../bot" are referenced only inside function bodies,
 // so the value-cycle with bot.ts is load-safe.
+import { computeTargets } from "../domain/mealplan";
 import { autoBalanceSplit } from "../domain/planAutoBalance";
 import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Env, Lang, PlanDay, PlanExercise, PlanDoc, UserDoc, Weekday } from "../types";
@@ -555,7 +556,12 @@ export async function buildPlanDocRaw(
     status: "active",
     authoredBy: opts.authoredBy,
     split: translatedSplit,
-    nutrition: { ...ai.nutrition, ...(translatedNutNotes !== undefined ? { notes: translatedNutNotes } : {}) },
+    // The model is given the formula targets (planUser) but doesn't reliably copy them — pin them.
+    nutrition: {
+      ...ai.nutrition,
+      ...(profile.weightKg && profile.heightCm ? computeTargets(profile) : {}),
+      ...(translatedNutNotes !== undefined ? { notes: translatedNutNotes } : {}),
+    },
     ...(ai.restDayNutrition && typeof ai.restDayNutrition.calories === "number"
       ? { restDayNutrition: ai.restDayNutrition }
       : {}),
