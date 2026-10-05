@@ -1,6 +1,7 @@
 import { recentExerciseNames } from "./logic/bodyMap";
 import { StravaCard } from "./StravaCard";
 import { WeightChart } from "./WeightChart";
+import { targetsForDay } from "./logic/dayTargets";
 import { useMemo, useRef, useState, lazy, Suspense } from "react";
 import { api, ApiError, apiForm, jsonBody } from "./api";
 import type { Dashboard, MuscleGroup, VolumeZone, WorkoutToday } from "./types";
@@ -143,7 +144,9 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   // ---- Today's macro breakdown (donut, same conic-gradient technique TodayView's activity
   // rings already use) -- data already on the dashboard prop, no fetch needed. ----
   const todayMacro = dashboard.macros.days.at(-1);
-  const macroTargets = dashboard.macros.targets;
+  const dayTargets = (training: boolean) => targetsForDay(training, dashboard.macros.targets, dashboard.macros.restTargets);
+  const todayTargets = todayMacro ? dayTargets(todayMacro.training) : { targets: dashboard.macros.targets, rest: false };
+  const macroTargets = todayTargets.targets;
   const macroDonut = todayMacro && (todayMacro.p || todayMacro.f || todayMacro.c) ? (() => {
     const pCal = todayMacro.p * 4, fCal = todayMacro.f * 9, cCal = todayMacro.c * 4;
     const total = pCal + fCal + cCal || 1;
@@ -263,13 +266,13 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
             <span><i style={{ background: "var(--good)" }} />{t(lang, "metric_protein")} · {formatNumber(todayMacro.p)} g</span>
             <span><i style={{ background: "var(--warn)" }} />{t(lang, "metric_fats")} · {formatNumber(todayMacro.f)} g</span>
             <span><i style={{ background: "var(--accent)" }} />{t(lang, "metric_carbs")} · {formatNumber(todayMacro.c)} g</span>
-            {macroTargets && <span>{t(lang, "kcal_of_target", { n: Math.round(todayMacro.kcal), target: Math.round(macroTargets.calories) })}</span>}
+            {macroTargets && <span>{t(lang, "kcal_of_target", { n: Math.round(todayMacro.kcal), target: Math.round(macroTargets.calories) })}{todayTargets.rest ? ` · ${t(lang, "fuel_rest_day_badge")}` : ""}</span>}
           </div>
         </div>
       </>}
     </Card>
 
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "macro_trend_eyebrow")}</span><h2>{t(lang, "macro_trend_title")}</h2></div></div>{dashboard.macros.days.length ? <div className="macro-history">{dashboard.macros.days.slice(-7).map((day) => <div className="macro-history-row" key={day.date}><span>{day.date.slice(5)}</span><div className="bar"><span style={{ width: `${dashboard.macros.targets ? Math.min(100, day.kcal / Math.max(1, dashboard.macros.targets.calories) * 100) : 0}%` }} /></div><strong>{Math.round(day.kcal)} kcal</strong></div>)}</div> : <p className="muted">{t(lang, "macro_empty")}</p>}</Card>
+    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "macro_trend_eyebrow")}</span><h2>{t(lang, "macro_trend_title")}</h2></div></div>{dashboard.macros.days.length ? <div className="macro-history">{dashboard.macros.days.slice(-7).map((day) => <div className="macro-history-row" key={day.date}><span>{day.date.slice(5)}</span><div className="bar"><span style={{ width: `${(() => { const tg = dayTargets(day.training).targets; return tg ? Math.min(100, day.kcal / Math.max(1, tg.calories) * 100) : 0; })()}%` }} /></div><strong>{Math.round(day.kcal)} kcal</strong></div>)}</div> : <p className="muted">{t(lang, "macro_empty")}</p>}</Card>
 
     <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "progress_photo_upload_eyebrow")}</span><h2>{t(lang, "progress_photo_upload_title")}</h2></div></div>

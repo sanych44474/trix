@@ -28,7 +28,7 @@ import {
   weeksSincePlan,
 } from "../src/domain/progression";
 import type { DailyCheckinDoc, PlanDoc, PlanExercise, WorkoutLogDoc } from "../src/types";
-import { computeTargets, splitMeals, solvePortions, isPlausiblePer100g, per100gCorrectionFrom, scaleMealEntry } from "../src/domain/mealplan";
+import { computeTargets, restDayTargets, splitMeals, solvePortions, isPlausiblePer100g, per100gCorrectionFrom, scaleMealEntry } from "../src/domain/mealplan";
 import { curatedPer100g } from "../src/ai/nutritionDb";
 import { cleanAi, t } from "../src/locales/i18n";
 import { chunkReport } from "../src/render";
@@ -648,4 +648,13 @@ test("computePlanProgression: a 'pick a weight' exercise takes the logged weight
   assert.equal(r.changes.length, 1);
   assert.equal(r.changes[0].field, "weight");
   assert.equal(r.changes[0].to, "16 kg");
+});
+
+test("restDayTargets: same protein/fat, fewer carbs, calories that add up", () => {
+  const r = restDayTargets({ calories: 2500, protein: 160, fats: 70, carbs: 307 });
+  assert.equal(r.protein, 160);
+  assert.equal(r.fats, 70);
+  assert.ok(r.carbs < 307 && r.carbs >= 153);
+  assert.ok(Math.abs(r.protein * 4 + r.fats * 9 + r.carbs * 4 - r.calories) <= 5);
+  assert.ok(Math.abs(r.calories - 2200) <= 20);
 });

@@ -2796,6 +2796,15 @@ components:
                 fats: {type: number}
                 carbs: {type: number}
               required: [calories, protein, fats, carbs]
+            restTargets:
+              type: object
+              description: The plan's rest-day target (lower carbs/kcal), when it has one.
+              properties:
+                calories: {type: number}
+                protein: {type: number}
+                fats: {type: number}
+                carbs: {type: number}
+              required: [calories, protein, fats, carbs]
             days:
               type: array
               items:

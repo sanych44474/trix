@@ -46,6 +46,14 @@ const MEAL_WEIGHTS: Record<number, number[]> = {
 };
 
 /** Split daily targets across N meals by fixed weights (equal split if N is unusual). */
+/** Rest-day macros from the training-day ones: protein and fat stay, the ~12% fewer calories
+ *  come out of carbs (never below half of them), and the calories are the sum of the macros so
+ *  the numbers always add up. Pure; test/parsers.test.ts. */
+export function restDayTargets(n: NutritionTargets): NutritionTargets {
+  const carbs = Math.max(Math.round(n.carbs * 0.5), Math.round((n.calories * 0.88 - n.protein * 4 - n.fats * 9) / 4));
+  return { calories: Math.round((n.protein * 4 + n.fats * 9 + carbs * 4) / 10) * 10, protein: n.protein, fats: n.fats, carbs };
+}
+
 export function splitMeals(targets: NutritionTargets, mealsPerDay: number): NutritionTargets[] {
   const weights = MEAL_WEIGHTS[mealsPerDay] ?? Array.from({ length: mealsPerDay }, () => 1 / mealsPerDay);
   return weights.map((w) => ({
