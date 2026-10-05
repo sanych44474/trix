@@ -13,8 +13,7 @@ import { postSquadDigest, type DigestWindow, type SquadApi } from "../bot/squad"
 import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
-import { logError, logInfo, runWithRequestId } from "../log";
-import { withLegacyFreeze } from "../adapters/d1/legacyFreeze";
+import { logInfo, runWithRequestId } from "../log";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000;
 // Must match scheduler.ts's SQUAD_RECAP_HOUR_UTC — duplicated rather than imported because
@@ -36,7 +35,7 @@ export class SquadSchedulerDO {
     private readonly state: DurableObjectState,
     env: Env,
   ) {
-    this.env = withLegacyFreeze(env, (sql) => logError("legacy_write_blocked", new Error(sql), {}));
+    this.env = env;
   }
 
   async fetch(request: Request): Promise<Response> {

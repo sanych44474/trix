@@ -1,6 +1,6 @@
 // Trainer scheduling + money (migrations/0082_v2_trainer_schedule_finance.sql). Unlike the other
-// v2*.ts adapters this is NOT a port of a legacy repo: `client_billing` is frozen/dead (see
-// legacyFreeze.ts) and there was never a sessions table at all, so this is v2-native from the
+// v2*.ts adapters this is NOT a port of a legacy repo: `client_billing` was dead (dropped in
+// migrations/0089) and there was never a sessions table at all, so this is v2-native from the
 // start with no legacy shape to stay faithful to.
 //
 // Every read and write is scoped by trainerId. That is the authorization boundary for this

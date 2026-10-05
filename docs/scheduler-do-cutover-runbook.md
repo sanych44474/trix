@@ -84,7 +84,7 @@ next one.
 
    Defaults to the last 24h. It compares what the DO logged it *would* do against what the cron
    actually did, per entity and kind. It is count-based, not byte-exact — same posture as
-   `verify-v2-backfill.mjs`. **A clean run means the two paths agree; it does not mean the DO has
+   the retired v2 backfill check. **A clean run means the two paths agree; it does not mean the DO has
    ever sent a real message.**
 
 2. **Check the wake gate** above returns 0 (user and squad only).
@@ -108,12 +108,8 @@ next one.
 
 ## After all three are on
 
-`CUTOVER_LEGACY_FROZEN` (`wrangler.toml:110`) is a **separate, later** decision and not part of
-this cutover. It freezes the legacy tables against writes so a missed call site fails loudly
-instead of writing to a schema nothing reads. Unlike the three flags above it is a `[vars]` entry,
-so changing it is a code edit **plus a deploy** — and its own comment says flipping it is a
-live-prod decision made separately from deploying the code. Do not bundle it with a scheduler
-flip.
+The pre-v2 tables are gone (migrations/0089, ADR-0009), so there is no separate legacy-freeze
+step after the scheduler flips any more.
 
 ## Why this is not done yet
 

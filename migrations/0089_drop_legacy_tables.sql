@@ -1,0 +1,61 @@
+-- Drop the pre-v2 tables (migrations 0001-0068). Since the v2 cutover (ADR-0001, ADR-0004) every
+-- domain reads and writes v2_* tables; the legacy repo layer that last wrote these was removed and
+-- nothing in src/ references them (ADR-0009). They held only stale copies of data that lives in
+-- v2_*. scheduler_dryrun_log is not legacy (the Durable-Object dry run still writes it) and stays.
+-- D1 Time Travel can restore the database to a point before this migration if ever needed.
+PRAGMA defer_foreign_keys = true;
+DROP TABLE IF EXISTS achievements;
+DROP TABLE IF EXISTS admin_audit;
+DROP TABLE IF EXISTS ai_cache;
+DROP TABLE IF EXISTS ai_call_logs;
+DROP TABLE IF EXISTS ai_usage;
+DROP TABLE IF EXISTS body_logs;
+DROP TABLE IF EXISTS buddy_duels;
+DROP TABLE IF EXISTS challenges;
+DROP TABLE IF EXISTS client_billing;
+DROP TABLE IF EXISTS client_cards;
+DROP TABLE IF EXISTS client_note_history;
+DROP TABLE IF EXISTS client_notes;
+DROP TABLE IF EXISTS client_questions;
+DROP TABLE IF EXISTS client_requests;
+DROP TABLE IF EXISTS config;
+DROP TABLE IF EXISTS daily_checkins;
+DROP TABLE IF EXISTS daily_metrics;
+DROP TABLE IF EXISTS error_logs;
+DROP TABLE IF EXISTS event_counts;
+DROP TABLE IF EXISTS exercise_translations;
+DROP TABLE IF EXISTS exercise_videos;
+DROP TABLE IF EXISTS exercises;
+DROP TABLE IF EXISTS feedback;
+DROP TABLE IF EXISTS food_cache;
+DROP TABLE IF EXISTS food_corrections;
+DROP TABLE IF EXISTS food_translations;
+DROP TABLE IF EXISTS idempotency_keys;
+DROP TABLE IF EXISTS injuries;
+DROP TABLE IF EXISTS meal_plans;
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS notification_outbox;
+DROP TABLE IF EXISTS nutrition_logs;
+DROP TABLE IF EXISTS plan_adjustments;
+DROP TABLE IF EXISTS plan_bank;
+DROP TABLE IF EXISTS plan_change_log;
+DROP TABLE IF EXISTS plan_source_logs;
+DROP TABLE IF EXISTS plans;
+DROP TABLE IF EXISTS progress_photos;
+DROP TABLE IF EXISTS rest_timers;
+DROP TABLE IF EXISTS seen_updates;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS settings;
+DROP TABLE IF EXISTS shared_programs;
+DROP TABLE IF EXISTS squad_members;
+DROP TABLE IF EXISTS squads;
+DROP TABLE IF EXISTS step_logs;
+DROP TABLE IF EXISTS strength_records;
+DROP TABLE IF EXISTS trainer_prospects;
+DROP TABLE IF EXISTS trainer_reviews;
+DROP TABLE IF EXISTS trainer_templates;
+DROP TABLE IF EXISTS trainers;
+DROP TABLE IF EXISTS user_exercise_videos;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS water_logs;
+DROP TABLE IF EXISTS workout_logs;
