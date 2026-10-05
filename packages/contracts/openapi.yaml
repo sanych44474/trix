@@ -245,6 +245,42 @@ paths:
                         videoUrl: {type: string}
                         videoTitle: {type: string}
                   required: [data]
+  /api/v2/workout/feel:
+    post:
+      operationId: setWorkoutFeel
+      description: >-
+        "How did it go?" after saving a workout. Exercises of that day without their own RPE take
+        the session's (easy 6.5, ok 8, hard 9.5), which next Monday's progression reads.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, feel]
+              properties:
+                date: {type: string, format: date}
+                feel: {type: string, enum: [easy, ok, hard]}
+      responses:
+        '200':
+          description: How many exercises took the session's effort
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        updated: {type: integer}
+                      required: [ok, updated]
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/workout/custom:
     post:
       operationId: addCustomExercise

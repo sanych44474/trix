@@ -300,3 +300,10 @@ button { cursor: pointer; }
 .offline-banner.done { background: var(--surface-2); }
 .swap-search { display: flex; gap: 8px; margin-top: 6px; }
 .swap-search input { flex: 1; min-width: 0; }
+.feel-block { display: grid; gap: 8px; margin: 12px 0 4px; }
+.feel-row { display: flex; gap: 8px; }
+.feel-chip { flex: 1; display: grid; justify-items: center; gap: 2px; padding: 10px 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--text); font-weight: 700; font-size: 13px; transition: transform .15s ease, border-color .15s ease, background .15s ease; }
+.feel-chip span { font-size: 20px; }
+.feel-chip.selected { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.03); }
+.feel-chip:active { transform: scale(.96); }
+.feel-note { color: var(--muted); }

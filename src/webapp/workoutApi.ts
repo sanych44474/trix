@@ -1,8 +1,9 @@
 // Guided-logger Mini App APIs: /api/workout/(today|swap|rest|save). Same initData auth as the
 // dashboard; all routes act on the authenticated user only (no cross-user access).
+import { FEEL_RPE, parseFeel } from "../domain/sessionFeel";
 import { techniqueSteps } from "./techniqueSteps";
 import { deleteRestTimers, setRestTimer } from "../adapters/d1/v2Admin";
-import { deleteWorkoutDraft, getWorkoutLog, listStrength, putWorkoutDraft, recentWorkoutLogs, workoutLogsSince } from "../adapters/d1/v2Workouts";
+import { deleteWorkoutDraft, getWorkoutLog, listStrength, putWorkoutDraft, recentWorkoutLogs, workoutLogsSince, setSessionFeelRpe } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { miniAppUser } from "./auth";
@@ -106,6 +107,18 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       if (q.length < 2 || q.length > 60) return Response.json({ error: "bad request" }, { status: 400 });
       const matches = await searchCatalogForUser(env.DB, user, q);
       return Response.json({ matches });
+    }
+    // "How did it go?" after saving: the session's effort feeds next Monday's progression.
+    if (req.method === "POST" && path === "/api/workout/feel") {
+      const parsed = await readJsonBody(req);
+      if (!parsed.ok) return parsed.response;
+      const body = parsed.body as { date?: unknown; feel?: unknown } | null;
+      const feel = parseFeel(body?.feel);
+      const date = typeof body?.date === "string" ? body.date : "";
+      const dateErr = validateEditDate(date, user);
+      if (!feel || dateErr) return Response.json({ error: dateErr ?? "bad feel" }, { status: 400 });
+      const updated = await setSessionFeelRpe(env.DB, user._id, date, FEEL_RPE[feel]);
+      return Response.json({ ok: true, updated });
     }
     if (req.method === "POST" && path === "/api/workout/custom") {
       const parsed = await readJsonBody(req);

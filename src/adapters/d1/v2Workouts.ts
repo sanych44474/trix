@@ -413,3 +413,13 @@ export async function putWorkoutDraft(db: DB, userId: number, date: string, body
 export async function deleteWorkoutDraft(db: DB, userId: number, date: string): Promise<void> {
   await db.prepare("DELETE FROM v2_workout_drafts WHERE accountId = ? AND date = ?").bind(userId, date).run();
 }
+
+/** Session-level effort ("how did it go?") for the exercises of that day without their own RPE.
+ *  Returns how many exercises took it (0 when there is no completed session that day). */
+export async function setSessionFeelRpe(db: DB, userId: number, date: string, rpe: number): Promise<number> {
+  const r = await db.prepare(`UPDATE v2_workout_exercises SET rpe = ?
+    WHERE rpe IS NULL AND skipped = 0
+      AND sessionId = (SELECT id FROM v2_workout_sessions WHERE accountId = ? AND date = ? AND completed = 1)`)
+    .bind(rpe, userId, date).run();
+  return r.meta?.changes ?? 0;
+}
