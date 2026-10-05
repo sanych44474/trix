@@ -2,7 +2,8 @@
 // week, within the pass's narrative budget). Called by processUser.
 import { dailyCheckinsSince } from "../adapters/d1/v2Tracking";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
-import { adherenceDeloadDue, computePlanProgression, deloadWeekDue } from "../domain/progression";
+import { adherenceDeloadDue, computePlanProgression } from "../domain/progression";
+import { trainingWeek } from "../domain/mesocycle";
 import { escapeHtml, t } from "../locales/i18n";
 import { aiText } from "../ai/index";
 import { weeklyNarrativeSystem } from "../ai/prompts";
@@ -35,7 +36,7 @@ export async function weeklyNarrative(p: UserPass): Promise<void> {
     if (plan) {
       const logs21 = await workouts21();
       deloadThisWeek =
-        deloadWeekDue(plan.generatedAt.toISOString().slice(0, 10), date) || adherenceDeloadDue(logs21);
+        trainingWeek(plan, date).deload || adherenceDeloadDue(logs21);
       if (plan.split.length) {
         const checkins = await dailyCheckinsSince(db, user._id, isoDaysAgo(7)).catch(() => []);
         plateauExercises = computePlanProgression(plan, logs21, checkins).plateau;

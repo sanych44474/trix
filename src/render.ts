@@ -2,7 +2,7 @@ import { cleanAi, escapeHtml, t } from "./locales/i18n";
 import type { BoardEntry } from "./domain/records";
 import { e1rm } from "./domain/records";
 import type { DailyCheckinDoc, ExerciseVideo, Lang, MealPlanDoc, PlanDay, PlanDoc, StrengthRecordDoc, Weekday } from "./types";
-import { formatRecordBest, getPlanDay, isLowerBody, localParts, nextTarget, resolveWeightMode, type ActivityCell } from "./domain/progression";
+import { formatRecordBest, getPlanDay, localParts, nextTarget, resolveWeightMode, type ActivityCell } from "./domain/progression";
 import { normalizeVideoKey } from "./youtube";
 import { phaseGuidance, phaseKey } from "./domain/mesocycle";
 import { GROCERY_ORDER, formatGrams, type GroceryCategory, type GroceryLine } from "./domain/groceryList";
@@ -538,7 +538,7 @@ export function renderStrength(lang: Lang, records: StrengthRecordDoc[]): string
       return `• <b>${escapeHtml(r.exercise)}</b>: ${escapeHtml(formatRecordBest(r))}`;
     }
     const lastRpe = r.history[r.history.length - 1]?.rpe;
-    const target = nextTarget(r.bestWeight, r.bestReps, isLowerBody(r.exercise), lastRpe);
+    const target = nextTarget(r.bestWeight, r.bestReps, r.exercise, lastRpe);
     const w = r.bestWeight ? `${r.bestWeight}kg` : "BW";
     return `• <b>${escapeHtml(r.exercise)}</b>: ${w} × ${r.bestReps}  →  🎯 ${escapeHtml(target)}`;
   });

@@ -4,7 +4,6 @@ import {
   applyProgression,
   computePlanProgression,
   deloadSets,
-  deloadWeekDue,
   evaluateProgressionRate,
   inQuietHours,
   localParts,
@@ -116,12 +115,15 @@ test("reconcileGrounding: undefined id stays ungrounded", () => {
 });
 
 test("nextTarget: add reps below top of range", () => {
-  assert.equal(nextTarget(80, 6, false), "80 × 7");
+  assert.equal(nextTarget(80, 6, "Bench Press"), "80 × 7");
 });
 
 test("nextTarget: add weight at top of range", () => {
-  assert.equal(nextTarget(80, 12, false), "85 × 8");
-  assert.equal(nextTarget(100, 12, true), "110 × 8");
+  // the same step as the weekly plan progression: +2.5 kg upper, +5 kg lower body
+  assert.equal(nextTarget(80, 12, "Bench Press"), "82.5 × 8");
+  assert.equal(nextTarget(100, 12, "Back Squat"), "105 × 8");
+  // the plan's own rep range, when known
+  assert.equal(nextTarget(60, 10, "Bench Press", undefined, { low: 6, high: 10 }), "62.5 × 6");
 });
 
 test("parseWorkoutText: parses RPE token (@8 / rpe)", () => {
@@ -159,13 +161,13 @@ test("parseWorkoutText: cardio time and/or distance (rowing, bike, run)", () => 
 
 test("nextTarget: RPE autoregulation", () => {
   // Overshoot (RPE ≥ 9.5) → hold the same target.
-  assert.equal(nextTarget(80, 8, false, 10), "80 × 8");
+  assert.equal(nextTarget(80, 8, "Bench Press", 10), "80 × 8");
   // Easy (RPE ≤ 7) below top of range → jump two reps.
-  assert.equal(nextTarget(80, 6, false, 6), "80 × 8");
+  assert.equal(nextTarget(80, 6, "Bench Press", 6), "80 × 8");
   // Easy at top of range → double the load increment.
-  assert.equal(nextTarget(80, 12, false, 7), "90 × 8");
+  assert.equal(nextTarget(80, 12, "Bench Press", 7), "85 × 8");
   // Normal RPE (8) → standard double progression.
-  assert.equal(nextTarget(80, 6, false, 8), "80 × 7");
+  assert.equal(nextTarget(80, 6, "Bench Press", 8), "80 × 7");
 });
 
 test("parseSteps: plain, separators, and embedded", () => {
@@ -177,12 +179,9 @@ test("parseSteps: plain, separators, and embedded", () => {
   assert.equal(parseSteps("0"), undefined);
 });
 
-test("weeksSincePlan + deloadWeekDue: every 7th week", () => {
+test("weeksSincePlan: full weeks since the plan started", () => {
   assert.equal(weeksSincePlan("2026-01-01", "2026-01-01"), 0);
   assert.equal(weeksSincePlan("2026-01-01", "2026-02-19"), 7); // 49 days
-  assert.equal(deloadWeekDue("2026-01-01", "2026-01-01"), false);
-  assert.equal(deloadWeekDue("2026-01-01", "2026-02-19"), true); // week 7
-  assert.equal(deloadWeekDue("2026-01-01", "2026-02-12"), false); // week 6
 });
 
 test("deloadSets: drops set count ~40%, keeps rep range", () => {

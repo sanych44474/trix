@@ -9,6 +9,7 @@ import { recordPlanSource } from "../adapters/d1/v2Admin";
 import { countAdjustmentWeeksSince, recordAdjustment, saveDraftPlan, setActivePlan } from "../adapters/d1/v2Plans";
 import { dailyCheckinsSince } from "../adapters/d1/v2Tracking";
 import { getUser } from "../adapters/d1/v2Users";
+import { deloadProgressionHold } from "../domain/mesocycle";
 import { applyProgression, computePlanProgression, evaluateProgressionRate, fatLossGoalReached, gainGoalReached, shouldLevelUp, weeksSincePlan } from "../domain/progression";
 import { conditioningOverload, conditioningWeek } from "../domain/conditioning";
 import { daysBetween } from "../domain/reminderTiming";
@@ -45,7 +46,10 @@ export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<void> 
     // Conditioning counts as training load: a week deep past the aerobic high landmark holds
     // the strength increases, exactly like poor wellbeing does.
     const cond = conditioningWeek(logs, isoDaysAgo(7));
-    const prog = computePlanProgression(plan, logs, checkins, { conditioningOverload: conditioningOverload(cond) });
+    const prog = computePlanProgression(plan, logs, checkins, {
+      conditioningOverload: conditioningOverload(cond),
+      deloadHold: deloadProgressionHold(plan, date),
+    });
     const week = weeksSincePlan(plan.generatedAt.toISOString().slice(0, 10), date);
     const isClient = user.role === "client" && !!user.trainerId;
     const updated = applyProgression(plan, prog.changes);

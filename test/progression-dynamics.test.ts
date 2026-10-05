@@ -8,7 +8,6 @@ import {
   computePlanProgression,
   fatLossGoalReached,
   gainGoalReached,
-  mesocyclePhase,
   nextLevel,
   shouldLevelUp,
 } from "../src/domain/progression";
@@ -27,15 +26,6 @@ test("adherenceDeloadDue: triggers when most recent sessions are mostly skipped"
   assert.equal(adherenceDeloadDue([wlog(true), wlog(false), wlog(false), wlog(false), wlog(false)]), true); // 20%
   assert.equal(adherenceDeloadDue([wlog(true), wlog(true), wlog(true), wlog(true), wlog(false)]), false); // 80%
   assert.equal(adherenceDeloadDue([wlog(false), wlog(false)]), false); // too few sessions
-});
-
-test("mesocyclePhase: 4-week accumulation→intensification→peak→deload cycle that wraps", () => {
-  assert.deepEqual(mesocyclePhase(0), { phase: "accumulation", weekInBlock: 1 });
-  assert.deepEqual(mesocyclePhase(1), { phase: "intensification", weekInBlock: 2 });
-  assert.deepEqual(mesocyclePhase(2), { phase: "peak", weekInBlock: 3 });
-  assert.deepEqual(mesocyclePhase(3), { phase: "deload", weekInBlock: 4 });
-  assert.equal(mesocyclePhase(4).phase, "accumulation");
-  assert.equal(mesocyclePhase(7).phase, "deload");
 });
 
 test("complianceScore: percentages clamp at 100 and handle zero denominators", () => {

@@ -15,18 +15,24 @@ import { advanceMesocycle, phaseGuidance, phaseKey } from "../domain/mesocycle";
 import { HTML, logSchedulerError, isoDaysAgo } from "./shared";
 import type { UserPass } from "./userPass";
 
-export async function weeklyReport(p: UserPass): Promise<void> {
-  const { env, bot, user, pass, db, lang, tz, date, activePlan, markSent, send } = p;
-  // Block periodization: advance the active plan's mesocycle one week (Monday, once).
-  if (activePlan?.mesocycle) {
-    const prev = activePlan.mesocycle;
-    const nextMeso = advanceMesocycle(prev);
-    await updatePlanMesocycle(db, user._id, nextMeso).catch(() => {});
-    if (nextMeso.phase !== prev.phase) {
-      const g = phaseGuidance(nextMeso.phase);
-      await send(t(lang, "meso_advanced", { phase: t(lang, phaseKey(nextMeso.phase) as Parameters<typeof t>[1]), reps: g.reps, intensity: g.intensity }));
-    }
+/** Block periodization: advance the active plan's mesocycle one week (Monday morning, once).
+ *  Runs before the deload notice and the weekly progression so both read THIS week's phase. */
+export async function advanceMesocycleWeek(p: UserPass): Promise<void> {
+  const { db, user, lang, activePlan, send } = p;
+  if (!activePlan?.mesocycle) return;
+  const prev = activePlan.mesocycle;
+  const nextMeso = advanceMesocycle(prev);
+  await updatePlanMesocycle(db, user._id, nextMeso);
+  activePlan.mesocycle = nextMeso;
+  if (nextMeso.phase !== prev.phase && nextMeso.phase !== "deload") {
+    // A deload gets its own notice (scheduler "deload"); announce only a new training block.
+    const g = phaseGuidance(nextMeso.phase);
+    await send(t(lang, "meso_advanced", { phase: t(lang, phaseKey(nextMeso.phase) as Parameters<typeof t>[1]), reps: g.reps, intensity: g.intensity }));
   }
+}
+
+export async function weeklyReport(p: UserPass): Promise<void> {
+  const { env, bot, user, pass, db, lang, tz, date, markSent, send } = p;
   const ownerChatId = await getOwnerChatId(db);
   if (ownerChatId !== undefined && user.chatId === ownerChatId) {
     try {

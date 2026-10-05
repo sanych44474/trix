@@ -10,7 +10,8 @@ import { getDailyCheckin } from "./adapters/d1/v2Tracking";
 import { getExerciseVideos, getUserVideos } from "./adapters/d1/v2Catalog";
 import { getUser, updateUser } from "./adapters/d1/v2Users";
 import { escapeHtml, t } from "./locales/i18n";
-import { deloadSets, mesocyclePhase, localParts, readinessAdvice, shouldDeload, weeksSincePlan } from "./domain/progression";
+import { deloadSets, localParts, readinessAdvice } from "./domain/progression";
+import { phaseKey as mesoPhaseKey, trainingWeek } from "./domain/mesocycle";
 import { buildVideoOpenLink } from "./domain/videoLink";
 import { exerciseVideoKey, renderPlan, renderSchedule, renderToday, upcomingSessions } from "./render";
 import { cmdReport, localCutoff } from "./bot/report";
@@ -450,22 +451,16 @@ export async function cmdToday(ctx: MyContext) {
     // Overview + action buttons. Full instructions/safety are available on demand via the
     // "📖 Інфо про вправи" button (showWorkoutInfo) — not auto-sent here, to avoid clutter.
     // Auto-deload week: same exercises, ~40% fewer sets, with a notice (no manual /replan).
-    const deload = shouldDeload(plan, today);
+    const week = trainingWeek(plan, today);
+    const deload = week.deload;
     const day = deload
       ? { ...todays.day, exercises: todays.day.exercises.map((e) => ({ ...e, sets: deloadSets(e.sets) })) }
       : todays.day;
-    // Periodization awareness: show the current mesocycle phase. When a volume-deload is active
-    // the deload notice already conveys it, so we don't double up the phase line.
-    const meso = mesocyclePhase(weeksSincePlan(plan.generatedAt.toISOString(), today));
-    const phaseKey = {
-      accumulation: "phase_accumulation",
-      intensification: "phase_intensification",
-      peak: "phase_peak",
-      deload: "phase_deload",
-    } as const;
+    // Periodization awareness: the plan's block phase (only plans with a mesocycle have one).
+    // On a deload week the deload notice already says it, so no phase line on top.
     const phaseLine =
-      !deload && meso.phase !== "deload"
-        ? t(lang, "periodization_line", { phase: t(lang, phaseKey[meso.phase]), week: meso.weekInBlock }) + "\n\n"
+      !deload && week.phase
+        ? t(lang, "periodization_line", { phase: t(lang, mesoPhaseKey(week.phase) as Parameters<typeof t>[1]), week: week.weekInBlock ?? 1, len: week.blockLength ?? 4 }) + "\n\n"
         : "";
     const notice = deload ? t(lang, "deload_today") + "\n\n" : "";
     // Same-day autoregulation: today's check-in (energy/sleep/stress) has always gated the

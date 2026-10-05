@@ -226,7 +226,8 @@ export async function finalizeWorkoutLog(
   const { lines: celebration, kb } = await celebrationLines(ctx, outcome);
   sections.push(...celebration);
 
-  const guidance = nextTargetGuidance(outcome.exercises, outcome.prExercises);
+  const guidancePlan = await getActivePlan(ctx.db, ctx.user._id).catch(() => null);
+  const guidance = nextTargetGuidance(outcome.exercises, outcome.prExercises, 3, guidancePlan);
   if (guidance.length) {
     const guidanceLines = guidance.map((g) => {
       const flag = g.overload ? ` ${t(lang, "recap_overload_flag")}` : "";

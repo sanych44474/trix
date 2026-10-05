@@ -291,7 +291,7 @@ function PlanView({ lang, clientId = null, onBack, onOpenLibrary }: { lang: Lang
     <div className="page-title"><h1>{t(lang, "plan_owner_title", { name: plan.owner.name })}</h1><span>{t(lang, "days_count", { n: plan.days.length })}</span></div>
     {onBack && <button className="text-button" onClick={onBack}>← {t(lang, "nav_role")}</button>}
     <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "meso_eyebrow")}</span><h2>{plan.mesocycle ? t(lang, `meso_phase_${plan.mesocycle.phase}` as Key) : t(lang, "meso_start_btn")}</h2></div>{plan.mesocycle && <span className="tag">{t(lang, "meso_week", { n: plan.mesocycle.weekInBlock, total: plan.mesocycle.blockLength })}</span>}</div>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "meso_eyebrow")}</span><h2>{plan.mesocycle ? t(lang, `meso_phase_${plan.mesocycle.phase}` as Key) : t(lang, "meso_start_btn")}</h2></div>{plan.mesocycle && <span className="tag">{t(lang, "meso_week", { n: plan.mesocycle.weekInBlock, total: plan.mesocycle.phase === "deload" ? 1 : plan.mesocycle.blockLength })}</span>}</div>
       {plan.mesocycle ? <>
         <p className="muted">{t(lang, "meso_target_line", mesoGuidance(plan.mesocycle.phase))}</p>
         <div className="button-row"><button className="button button-ghost" disabled={mesoBusy} onClick={() => void toggleMeso(false)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_stop_btn")}</button></div>
