@@ -1,3 +1,4 @@
+import { regionOf } from "./muscleRegions";
 import type {
   BodyMeasurements,
   DailyCheckinDoc,
@@ -944,18 +945,10 @@ export function resolveWeightMode(name: string, explicit?: "perSide" | "perHand"
   return "total";
 }
 
+/** The training region an exercise belongs to. Kept as the long-standing name; the rules are
+ *  the body map's (muscleRegions.ts), so a region here always agrees with the map. */
 export function muscleGroupOf(name: string): MuscleGroup | null {
-  const s = (name || "").toLowerCase();
-  // Order is deliberate: more-specific patterns win before generic ones. Arms before back (triceps
-  // pushdown has "блок"); shoulders & back before chest (lat pulldown "до грудей" must not read as chest).
-  if (/присід|випад|ногам|стегн|привідн|згинання ніг|розгинання ніг|відведення ніг|приведення ніг|квадрицеп|сіднич|гак[\s-]?прис|жим ног|squat|lunge|leg press|leg extension|leg curl|hamstring|quadricep|\bquad\b|abductor|adductor|calf|литк|на носки|gluteus|glute|hip thrust|місток/.test(s)) return "legs";
-  if (/станов|румун|deadlift|hip hinge|good morning/.test(s)) return "legs"; // hinge / posterior chain
-  if (/біцепс|трицепс|згинання рук|розгинання рук|на біцепс|на трицепс|\bcurl\b|triceps|biceps|молот|hammer|скотт|preacher|skull|французьк/.test(s)) return "arms";
-  if (/жим стоячи|над головою|армійськ|плеч|дельт|махи|розведення гантел|у сторони|lateral raise|overhead press|military|shoulder|шраг|shrug|upright row|face pull|тяга.*обличч|жим.*сидячи|перед собою|(розведення|зведення) рук назад/.test(s)) return "shoulders";
-  if (/тяга|підтягуван|блок|\brow\b|pulldown|pull[\s-]?up|chin[\s-]?up|\blat\b|спин|широч/.test(s)) return "back";
-  if (/жим лежач|лежачи|віджиман|груд|bench|chest|push[\s-]?up|зведення рук|кросовер|cable cross|\bfly\b|флай|пуловер|dip|брус|похил|incline/.test(s)) return "chest";
-  if (/планк|\bвис\b|прес|скручуван|core|plank|crunch|\bab\b|sit[\s-]?up|hollow/.test(s)) return "core";
-  return null;
+  return regionOf(name);
 }
 
 const FIELD_WORDS: Record<keyof BodyMeasurements | "weight", string[]> = {
