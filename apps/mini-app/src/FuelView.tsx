@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, jsonBody, typedBody } from "./api";
+import { api, ApiError, typedBody } from "./api";
 import type { FoodSearchItem, GroceryLine, Nutrition } from "./types";
 import { t, type Lang } from "./i18n";
 import type { RequestBody } from "./types";

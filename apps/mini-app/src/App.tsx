@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { OfflineSync } from "./OfflineSync";
-import { api, ApiError, jsonBody, typedBody } from "./api";
+import { api, ApiError, typedBody } from "./api";
 import type { RequestBody, Dashboard, LibraryProgram, LibraryResponse, MesoPhase, Plan, PlatesResponse, ProfilePhoto, RecoveryFactor, RecoveryLabel, SquadInfo, TrainerProfile, WeekCardResponse } from "./types";
 import { guessLang, t, type Key, type Lang } from "./i18n";
 import { TrainView } from "./TrainView";

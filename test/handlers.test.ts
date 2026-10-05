@@ -9,8 +9,8 @@ import { setActivePlan, getActivePlan } from "../src/adapters/d1/v2Plans";
 import { applyTrainer, approveTrainer, updateTrainer, getTrainer, linkClient, saveTrainerTemplate } from "../src/adapters/d1/v2Trainer";
 import { getWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { setMode, startAddExercise, cmdLog, logPickExercise, handleLogDraftInput, guardLogExit, onLogExit, healPlanNamesForDisplay, setEntryRpe, logFinish, routeUserText, moveExercise } from "../src/bot";
-import { startShareSelect, toggleShareClient, shareAssignToClients, shareLink, sharePublish, cmdLibrary, takeSharedProgram } from "../src/features/trainer/trainer";
-import { listPublicPrograms, getSharedProgram } from "../src/adapters/d1/v2Trainer";
+import { startShareSelect, toggleShareClient, shareAssignToClients, shareLink, sharePublish, takeSharedProgram } from "../src/features/trainer/trainer";
+import { listPublicPrograms } from "../src/adapters/d1/v2Trainer";
 import { upsertExercise, upsertExerciseTranslation } from "../src/adapters/d1/v2Catalog";
 import type { PlanDoc, UserDoc } from "../src/types";
 

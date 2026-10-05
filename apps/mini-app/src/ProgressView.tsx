@@ -1,7 +1,7 @@
 import { recentExerciseNames } from "./logic/bodyMap";
 import { StravaCard } from "./StravaCard";
 import { useMemo, useRef, useState, lazy, Suspense } from "react";
-import { api, ApiError, jsonBody } from "./api";
+import { api, ApiError, apiForm, jsonBody } from "./api";
 import type { Dashboard, MuscleGroup, VolumeZone, WorkoutToday } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 
@@ -47,22 +47,6 @@ function isoDaysBefore(date: string, n: number): string {
 /** Same "webview can't send auth headers to an <img>/needs a debug-query fallback outside real
  * Telegram" upload helper as App.tsx's apiUpload -- duplicated for the same reason as the UI
  * primitives above (no cross-file helpers for one call site's concern). */
-async function uploadFile(path: string, form: FormData): Promise<{ ok: boolean }> {
-  const requestHeaders = new Headers();
-  const initData = window.Telegram?.WebApp?.initData ?? "";
-  if (initData) requestHeaders.set("Authorization", `tma ${initData}`);
-  requestHeaders.set("Accept", "application/json");
-  const debugQuery = !initData && window.location.search ? window.location.search : "";
-  const response = await fetch(`${path}${debugQuery}`, { method: "POST", headers: requestHeaders, body: form });
-  let body: unknown = null;
-  try { body = await response.json(); } catch { /* empty response */ }
-  if (!response.ok) {
-    const failure = body as { error?: { code?: string; message?: string } } | null;
-    throw new ApiError(failure?.error?.code ?? "dependency_unavailable", failure?.error?.message ?? "Request failed", response.status);
-  }
-  if (body && typeof body === "object" && "data" in body) return (body as { data: { ok: boolean } }).data;
-  return body as { ok: boolean };
-}
 
 /** Small hand-rolled SVG line chart -- no charting library in this app's dependencies (see
  * package.json), and a handful of sparkline-scale series don't justify adding one. */
@@ -177,7 +161,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
     try {
       const form = new FormData();
       form.append("photo", file, file.name || "progress.jpg");
-      await uploadFile("/api/v2/photo", form);
+      await apiForm<{ ok: boolean }>("/api/v2/photo", form);
       setPhotoNotice(t(lang, "progress_photo_uploaded_note"));
     } catch {
       setPhotoNotice(t(lang, "generic_error"));

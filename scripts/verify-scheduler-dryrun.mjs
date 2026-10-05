@@ -30,7 +30,8 @@ const until = args.get("until") ?? new Date().toISOString();
 const since = args.get("since") ?? new Date(Date.parse(until) - 24 * 60 * 60 * 1000).toISOString();
 
 function d1(sql) {
-  const out = execSync(`npx wrangler d1 execute trix ${target} --json --command "${sql.replace(/"/g, '\\"')}"`, {
+  // Shell string (npx needs a shell on Windows): escape backslashes first, then quotes.
+  const out = execSync(`npx wrangler d1 execute trix ${target} --json --command "${sql.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });

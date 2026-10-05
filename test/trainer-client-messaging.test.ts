@@ -42,7 +42,7 @@ async function outboxStatus(db: ReturnType<typeof newDb>, kind: string): Promise
 
 test("handleTrainerMessage: a successful send tells the trainer it was sent", async () => {
   const db = newDb();
-  const { trainer, client } = await pairedTrainerAndClient(db, 800, 801);
+  const { trainer } = await pairedTrainerAndClient(db, 800, 801);
   const { ctx, sent } = makeCtx(db, { ...trainer, session: { mode: "msg_client", targetId: 801 } } as unknown as Record<string, unknown>);
 
   await handleTrainerMessage(ctx as never, "How's the shoulder feeling?");
@@ -98,7 +98,7 @@ test("handleTrainerMessage: an unrelated client (not this trainer's) is refused,
 
 test("handleClientReply: mirrors the same delivery-aware feedback for the trainer-bound direction", async () => {
   const db = newDb();
-  const { trainer, client } = await pairedTrainerAndClient(db, 840, 841);
+  const { client } = await pairedTrainerAndClient(db, 840, 841);
   const { ctx, sent } = makeCtx(db, { ...client, session: { mode: "msg_trainer", targetId: 840 } } as unknown as Record<string, unknown>);
   ctx.api.sendMessage = (async () => { throw grammyErr(403); }) as typeof ctx.api.sendMessage;
 

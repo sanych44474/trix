@@ -83,7 +83,9 @@ async function main() {
     const target = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
     const r = await fetch(`${BASE}/v?u=${encodeURIComponent(target)}&uid=0`, { redirect: "manual" });
     const loc = r.headers.get("location") || "";
-    return { cond: r.status === 302 && loc.includes("youtube.com"), detail: `${r.status} → ${loc}` };
+    let host = "";
+    try { host = new URL(loc).hostname; } catch { /* not a URL */ }
+    return { cond: r.status === 302 && (host === "youtube.com" || host.endsWith(".youtube.com")), detail: `${r.status} → ${loc}` };
   });
 
   // 6. webhook auth: a wrong secret must be rejected
