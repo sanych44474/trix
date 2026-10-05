@@ -74,3 +74,19 @@ test("weekly progression: held on a deload week (its light logs are not the new 
   assert.deepEqual(r.changes, []);
   assert.equal(r.heldForDeload, true);
 });
+
+test("planNextTargets: the engine's targets for the coach, from the newest session", async () => {
+  const { planNextTargets } = await import("../src/domain/progression");
+  const p = plan("3 × 8–12", "60 kg");
+  const logs = [
+    log("2026-02-02", [s(57.5, 12), s(57.5, 12), s(57.5, 12)]),
+    log("2026-02-04", [s(60, 12), s(60, 12), s(60, 11)], "Bench Press", 8),
+  ];
+  assert.deepEqual(planNextTargets(p, logs), ["Bench Press: last 60×11@8 → next 60 × 12"]);
+});
+
+test("coachProfile: drops reminder/referral noise, keeps what advice needs", async () => {
+  const { coachProfile } = await import("../src/ai/prompts");
+  const out = coachProfile({ name: "Ann", goal: "fat loss", limitations: "knee", reminderHour: 9, referredBy: 5, quietFrom: 22, timezone: "Europe/Kyiv" } as never);
+  assert.deepEqual(out, { name: "Ann", goal: "fat loss", limitations: "knee" });
+});

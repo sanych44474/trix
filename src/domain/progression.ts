@@ -629,7 +629,7 @@ function emitMetricRange(r: MetricRange, low: number, high: number): string {
   return `${head}${range}${glue}${r.unit}`;
 }
 
-function exerciseTokensEqual(a: string, b: string): boolean {
+export function exerciseTokensEqual(a: string, b: string): boolean {
   const na = a.trim().toLowerCase();
   const nb = b.trim().toLowerCase();
   if (!na || !nb) return false;
@@ -1086,4 +1086,28 @@ export function buildActivityCells(
     cells.push({ date, workout: workoutDates.has(date), nutrition: nutritionDates.has(date) });
   }
   return cells;
+}
+
+/** The progression engine's next targets for the plan's rep-based lifts, from recent logs —
+ *  what the coach prompt quotes instead of doing its own arithmetic (bot/coach.ts). Newest
+ *  session per exercise; at most `max` lines. Pure; test/progression-math.test.ts. */
+export function planNextTargets(plan: PlanDoc, logs: WorkoutLogDoc[], max = 10): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const newestFirst = [...logs].sort((a, b) => (a.date < b.date ? 1 : -1));
+  for (const day of plan.split) {
+    for (const ex of day.exercises) {
+      if (out.length >= max || seen.has(ex.name) || exerciseMetric(ex) !== "reps") continue;
+      seen.add(ex.name);
+      const range = parseRepRange(ex.sets);
+      for (const log of newestFirst) {
+        const le = log.exercises.find((e) => !e.skipped && e.setsDone?.length && (exerciseTokensEqual(e.name, ex.name) || (!!ex.canonicalName && exerciseTokensEqual(e.name, ex.canonicalName))));
+        if (!le) continue;
+        const ws = workingSets(le.setsDone, range?.low ?? 1);
+        if (ws) out.push(`${ex.name}: last ${ws.weight || "BW"}×${ws.reps}${le.rpe ? `@${le.rpe}` : ""} → next ${nextTarget(ws.weight, ws.reps, ex.name, le.rpe, range ? { low: range.low, high: range.high } : undefined)}`);
+        break;
+      }
+    }
+  }
+  return out;
 }
