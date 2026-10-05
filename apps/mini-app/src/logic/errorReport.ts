@@ -7,7 +7,9 @@
 
 export const MAX_REPORTS = 5;
 
-const NOISE = /ResizeObserver loop|Failed to fetch|NetworkError|Load failed|AbortError|The operation was aborted|Script error\.?$/i;
+const NOISE = /ResizeObserver loop|Failed to fetch|NetworkError|Load failed|AbortError|The operation was aborted/i;
+// A cross-origin script error carries no detail at all — only that exact message is noise.
+const OPAQUE = /^Script error\.?$/i;
 
 export interface ErrorReport { message: string; source?: string; line?: number }
 
@@ -18,7 +20,7 @@ export function toReport(err: unknown, seen: Set<string>, where?: { source?: str
   if (e && typeof e === "object" && e.name === "ApiError") return null; // server already knows
   const raw = e && typeof e === "object" && typeof e.message === "string" ? `${e.name && e.name !== "Error" ? `${e.name}: ` : ""}${e.message}` : String(err);
   const message = raw.replace(/\s+/g, " ").trim().slice(0, 150);
-  if (!message || NOISE.test(message) || seen.has(message)) return null;
+  if (!message || NOISE.test(message) || OPAQUE.test(message) || seen.has(message)) return null;
   seen.add(message);
   // First app frame of the stack, so the owner sees roughly where (file:line), not just what.
   const frame = typeof e?.stack === "string" ? /\/assets\/([\w.-]+):(\d+)/.exec(e.stack) : null;
