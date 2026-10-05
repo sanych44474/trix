@@ -5,7 +5,7 @@
 // this phase; it only actually acts once the recap hour arrives and the week hasn't been
 // recapped yet, exactly the same gate scheduler.ts's own SQUAD_RECAP_HOUR_UTC uses.
 import { Bot } from "grammy";
-import { logDryRun } from "../db/repos";
+import { logDryRun } from "./dryrunLog";
 import { deleteSquad, getSquad, markSquadRecapped } from "../adapters/d1/v2Gamification";
 import { isCutOver } from "./cutover";
 import { logSchedulerError } from "../scheduler";
@@ -94,7 +94,7 @@ export class SquadSchedulerDO {
         // it and be silently dropped by logSchedulerError's own .catch(). createdBy is squad
         // creation's actual v2_accounts.id, so it both satisfies the FK and gives owner-report a
         // real person to attribute the failure to.
-        logSchedulerError(this.env.DB, "squad_recaps", err, squad.createdBy);
+        logSchedulerError(this.env.DB, "squad_recaps", err, squad.createdBy ?? undefined);
       }
       return;
     }

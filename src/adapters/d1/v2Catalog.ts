@@ -6,7 +6,7 @@
 // prior v2_* schema at all (unlike Domain 1), so 0074 creates it from scratch; see that file's
 // header comment for why the legacy 4-table split was kept as-is rather than denormalized.
 import type { CatalogExercise, ExerciseTranslation, ExerciseVideo } from "../../types";
-import { nowIso, safeJsonParse, type DB } from "../../db/repos/shared";
+import { nowIso, safeJsonParse, type DB } from "./shared";
 
 interface ExerciseRow {
   id: string;

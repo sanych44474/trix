@@ -1,5 +1,5 @@
 // One-off SILENT backfill: ensure every exercise in an active plan has a YouTube **Short** (≤60s)
-// technique clip cached in the remote D1 `exercise_videos` table. No Telegram, no bot.
+// technique clip cached in the remote D1 `v2_exercise_videos` table. No Telegram, no bot.
 // Mirrors src/youtube.ts (search.list → videos.list duration filter → heuristic pick).
 //
 // Quota-aware: first cheaply checks the durations of already-stored videos (videos.list = 1 unit
@@ -104,9 +104,9 @@ async function search(name) {
 const sqlStr = (v) => (v == null ? "NULL" : `'${String(v).replaceAll("'", "''")}'`);
 const nowIso = new Date().toISOString();
 const upsert = (key, name, best) =>
-  `INSERT INTO exercise_videos (normalized_name, exercise_name, youtube_video_id, youtube_url, youtube_title, channel_name, thumbnail_url, locked, set_by, createdAt, updatedAt) ` +
+  `INSERT INTO v2_exercise_videos (normalizedName, exerciseName, youtubeVideoId, youtubeUrl, youtubeTitle, channelName, thumbnailUrl, locked, setBy, createdAt, updatedAt) ` +
   `VALUES (${sqlStr(key)}, ${sqlStr(name)}, ${sqlStr(best?.videoId ?? null)}, ${sqlStr(best?.url ?? null)}, ${sqlStr(best?.title ?? null)}, ${sqlStr(best?.channelName ?? null)}, ${sqlStr(best?.thumbnailUrl ?? null)}, 0, NULL, ${sqlStr(nowIso)}, ${sqlStr(nowIso)}) ` +
-  `ON CONFLICT(normalized_name) DO UPDATE SET youtube_video_id=excluded.youtube_video_id, youtube_url=excluded.youtube_url, youtube_title=excluded.youtube_title, channel_name=excluded.channel_name, thumbnail_url=excluded.thumbnail_url, updatedAt=excluded.updatedAt WHERE exercise_videos.locked=0;`;
+  `ON CONFLICT(normalizedName) DO UPDATE SET youtubeVideoId=excluded.youtubeVideoId, youtubeUrl=excluded.youtubeUrl, youtubeTitle=excluded.youtubeTitle, channelName=excluded.channelName, thumbnailUrl=excluded.thumbnailUrl, updatedAt=excluded.updatedAt WHERE v2_exercise_videos.locked=0;`;
 
 // 1. Source list of exercises to ensure a Short for. Default = the WHOLE catalog (keyed by the
 //    canonical English name, exactly how the renderer looks videos up); pass --plans to limit to
@@ -114,16 +114,17 @@ const upsert = (key, name, best) =>
 const PLANS_ONLY = process.argv.includes("--plans");
 const byKey = new Map();
 if (PLANS_ONLY) {
-  for (const row of d1("SELECT split FROM plans WHERE active = 1")) {
-    let days; try { days = JSON.parse(row.split); } catch { continue; }
-    for (const d of days ?? []) for (const e of d.exercises ?? []) {
-      const name = e.canonicalName || e.name;
-      if (name && !byKey.has(normalize(name))) byKey.set(normalize(name), name);
-    }
+  // v2: one row per plan exercise; the English catalog name (what the renderer keys videos on)
+  // lives in the row's meta JSON when the exercise came from the catalog.
+  const sql = "SELECT e.name AS name, json_extract(e.meta, '$.canonicalName') AS canonicalName FROM v2_plan_exercises e " +
+    "JOIN v2_plan_days d ON d.id = e.dayId JOIN v2_plans p ON p.id = d.planId WHERE p.active = 1";
+  for (const row of d1(sql)) {
+    const name = row.canonicalName || row.name;
+    if (name && !byKey.has(normalize(name))) byKey.set(normalize(name), name);
   }
   console.log(`Unique exercises in active plans: ${byKey.size}`);
 } else {
-  for (const row of d1("SELECT name FROM exercises")) {
+  for (const row of d1("SELECT name FROM v2_exercises")) {
     if (row.name && !byKey.has(normalize(row.name))) byKey.set(normalize(row.name), row.name);
   }
   console.log(`Catalog exercises: ${byKey.size}`);
@@ -132,8 +133,8 @@ if (PLANS_ONLY) {
 // 2. Existing rows. Validate the durations of currently-stored videos (cheap) and null out any
 //    that are NOT real Shorts so long clips disappear immediately. Locked rows are left alone.
 const existing = new Map(); // key → { videoId, hasUrl, locked }
-for (const r of d1("SELECT normalized_name, youtube_video_id, youtube_url, locked FROM exercise_videos")) {
-  existing.set(r.normalized_name, { videoId: r.youtube_video_id, hasUrl: !!r.youtube_url, locked: !!r.locked });
+for (const r of d1("SELECT normalizedName, youtubeVideoId, youtubeUrl, locked FROM v2_exercise_videos")) {
+  existing.set(r.normalizedName, { videoId: r.youtubeVideoId, hasUrl: !!r.youtubeUrl, locked: !!r.locked });
 }
 const toCheck = [...existing.entries()].filter(([, v]) => v.videoId && !v.locked);
 let nulledLong = 0;
@@ -141,7 +142,7 @@ try {
   const secs = await durations(toCheck.map(([, v]) => v.videoId));
   const longKeys = toCheck.filter(([, v]) => { const s = secs.get(v.videoId); return s == null || s > SHORT_MAX_SECONDS; }).map(([k]) => k);
   if (longKeys.length) {
-    d1file(longKeys.map((k) => `UPDATE exercise_videos SET youtube_video_id=NULL, youtube_url=NULL, youtube_title=NULL, channel_name=NULL, thumbnail_url=NULL, updatedAt=${sqlStr(nowIso)} WHERE normalized_name=${sqlStr(k)} AND locked=0;`).join("\n"));
+    d1file(longKeys.map((k) => `UPDATE v2_exercise_videos SET youtubeVideoId=NULL, youtubeUrl=NULL, youtubeTitle=NULL, channelName=NULL, thumbnailUrl=NULL, updatedAt=${sqlStr(nowIso)} WHERE normalizedName=${sqlStr(k)} AND locked=0;`).join("\n"));
     nulledLong = longKeys.length;
     longKeys.forEach((k) => existing.set(k, { ...existing.get(k), hasUrl: false, videoId: null }));
   }

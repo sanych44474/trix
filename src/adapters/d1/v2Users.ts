@@ -22,7 +22,7 @@ import type {
   UserReminders,
 } from "../../types";
 import { normalizeLang } from "../../locales/i18n";
-import { buildUpdate, nowIso, safeJsonParse, type DB } from "../../db/repos/shared";
+import { buildUpdate, nowIso, safeJsonParse, type DB } from "./shared";
 
 export interface V2UserRow {
   id: number;

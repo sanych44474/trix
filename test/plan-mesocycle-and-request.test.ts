@@ -6,15 +6,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import {
-  createRequest,
-  getActivePlan,
-  getOrCreateUser,
-  getRequest,
-  pendingRequestsForTrainer,
-  setActivePlan,
-  updatePlanMesocycle,
-} from "../src/db/repos";
+import { createRequest, getRequest, pendingRequestsForTrainer } from "../src/adapters/d1/v2Trainer";
+import { getActivePlan, setActivePlan, updatePlanMesocycle } from "../src/adapters/d1/v2Plans";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import type { Mesocycle } from "../src/domain/mesocycle";
 import type { PlanDoc } from "../src/types";
 

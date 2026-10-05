@@ -2,14 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { currentWinStreak, decideDuel } from "../src/domain/buddyDuel";
 import { newDb } from "./harness";
-import {
-  allBuddyPairs,
-  buddyDuelHistory,
-  buddyWinCount,
-  getOrCreateUser,
-  recordBuddyDuel,
-  updateUser,
-} from "../src/db/repos";
+import { allBuddyPairs, buddyDuelHistory, buddyWinCount, recordBuddyDuel } from "../src/adapters/d1/v2Gamification";
+import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import type { UserDoc } from "../src/types";
 
 // ---------- pure domain logic ----------

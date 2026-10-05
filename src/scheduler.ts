@@ -1,101 +1,24 @@
 import { Bot, InlineKeyboard } from "grammy";
 import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from "./schedulerOutbox";
-import { rollupDailyMetrics } from "./dailyMetricsRollup";
-import { sweepStaleDrafts } from "./staleDrafts";
-import { weeklyModelCheck } from "./aiModelWatch";
 import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
-import type { BodyLogDoc, Env, PlanDoc, PlanExercise, UserDoc, Weekday, WorkoutLogDoc } from "./types";
-import {
-  getOwnerChatId,
-  getAlertState,
-  setAlertState,
-  recordError,
-  errorStatsSince,
-  aiUsageSince,
-  acquireScheduleLock,
-  releaseScheduleLock,
-  dueRestTimers,
-  deleteRestTimers,
-  pruneSeenUpdates,
-  pruneOldLogs,
-  pruneAiCache,
-  getSetting,
-  setSetting,
-  recordPlanSource,
-} from "./adapters/d1/v2Admin";
-import { countNotificationsSince, pruneNotificationOutbox } from "./adapters/d1/v2Notifications";
+import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "./types";
+import { getOwnerChatId, acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTimers, pruneSeenUpdates, getSetting, setSetting } from "./adapters/d1/v2Admin";
+import { countNotificationsSince } from "./adapters/d1/v2Notifications";
 import { logInfo } from "./log";
-import { pruneIdempotencyKeys } from "./adapters/d1/v2Idempotency";
 import { listStrength, allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
-import {
-  allBuddyPairs,
-  activeChallengeCodes,
-  awardAchievement,
-  buddyDuelHistory,
-  buddyWinCount,
-  competitorWorkoutDates,
-  recordBuddyDuel,
-  deleteSquad,
-  markSquadRecapped,
-  markSquadWoken,
-  squadsDueForRecap,
-  squadsNeedingWake,
-} from "./adapters/d1/v2Gamification";
-import {
-  countAdjustmentWeeksSince,
-  getActivePlan,
-  listActivePlans,
-  recordAdjustment,
-  saveDraftPlan,
-  setActivePlan,
-  setProgressionRate,
-  updatePlanMesocycle,
-} from "./adapters/d1/v2Plans";
+import { activeChallengeCodes, awardAchievement, competitorWorkoutDates, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
+import { getActivePlan, listActivePlans, setProgressionRate, updatePlanMesocycle } from "./adapters/d1/v2Plans";
 import { listClients } from "./adapters/d1/v2Trainer";
-import { bodyLogsByUser, dailyCheckinsSince, getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked, stepLogsSince } from "./adapters/d1/v2Tracking";
-import { findHarderExercise, getCatalogExercise, getExerciseTranslation, listCandidatesByMuscles } from "./adapters/d1/v2Catalog";
-import {
-  getUser,
-  listOnboardedUsers,
-  listOnboardingOwedReply,
-  listPlanPendingUsers,
-  listRetryUsers,
-  pendingRecoveryCount,
-  listStuckOnboardingUsers,
-  listVacationEnded,
-  markComebackDone,
-  updateUser,
-} from "./adapters/d1/v2Users";
+import { bodyLogsByUser, dailyCheckinsSince, getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked } from "./adapters/d1/v2Tracking";
+import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, listVacationEnded, markComebackDone, updateUser } from "./adapters/d1/v2Users";
 import { nutritionLogsSince } from "./adapters/d1/v2Nutrition";
 import { resolveWaterGoal } from "./domain/challenges";
-import {
-  adherenceDeloadDue,
-  applyProgression,
-  computePlanProgression,
-  deloadWeekDue,
-  evaluateProgressionRate,
-  fatLossGoalReached,
-  gainGoalReached,
-  inQuietHours,
-  localParts,
-  deloadSets,
-  getPlanDay,
-  poorWellbeing,
-  shouldLevelUp,
-  weeksSincePlan,
-} from "./domain/progression";
-import { isoWeekKey, rankOf, recentPrCount, streakMilestones, streakRisk, weekRangeOffset, weekStartStr, weekStreak } from "./domain/records";
-import { nextBalanceStreak, weeklyReport } from "./domain/weeklyReport";
-import { pickQuests, plannedDayCount } from "./domain/quests";
+import { adherenceDeloadDue, computePlanProgression, deloadWeekDue, evaluateProgressionRate, inQuietHours, localParts, deloadSets, getPlanDay, poorWellbeing, weeksSincePlan } from "./domain/progression";
+import { isoWeekKey, rankOf, streakMilestones, streakRisk, weekStartStr, weekStreak } from "./domain/records";
 import { seasonalChallenge } from "./domain/challenges";
-import { toLoggedDays } from "./domain/recoverySwap";
-import { weekMapUrl } from "./webapp/weekMap";
-import { currentWinStreak, decideDuel } from "./domain/buddyDuel";
 import { stalledLifts } from "./domain/analysis";
-import { conditioningOverload, conditioningWeek } from "./domain/conditioning";
 import { recentConditioningStrain } from "./domain/conditioning";
-import { postSquadDigest } from "./bot/squad";
 import { wakeUserScheduler } from "./durable/userScheduler";
 import { wakeSquadScheduler } from "./durable/squadScheduler";
 import { wakeGlobalScheduler } from "./durable/globalScheduler";
@@ -105,8 +28,8 @@ import { ADJUST_COOLDOWN_DAYS, calorieAdjustment } from "./domain/adaptiveCalori
 import { daysBetween, suggestReminderHour } from "./domain/reminderTiming";
 import { isoWeekday, lastPlannedDates, missedConsecutiveWorkouts, nutritionLapse } from "./domain/atrisk";
 import { rankMissedDayOptions, recentMissRate } from "./domain/missedDay";
-import { cleanAi, escapeHtml, t } from "./locales/i18n";
-import { chunkReport, conditioningLoadLabel, renderDay, challengeTitleText, renderQuestLines, renderWeeklyMuscleLines } from "./render";
+import { escapeHtml, t } from "./locales/i18n";
+import { chunkReport, renderDay, challengeTitleText } from "./render";
 import { aiText } from "./ai/index";
 import { weeklyNarrativeSystem } from "./ai/prompts";
 import { buildOwnerReport, computeBoards, finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
@@ -117,239 +40,22 @@ import { stravaAccountsDue } from "./adapters/d1/v2Strava";
 import { syncStrava } from "./features/strava/stravaSync";
 import { stravaConfig } from "./webapp/stravaApi";
 import { advanceMesocycle, phaseGuidance, phaseKey } from "./domain/mesocycle";
+import { runGlobalJobs } from "./schedulerJobs/global";
+import { postSquadRecaps, processBuddyDuels, SQUAD_RECAP_HOUR_UTC, SQUAD_RECAP_BATCH } from "./schedulerJobs/social";
+import { weeklyDigest } from "./schedulerJobs/weeklyDigest";
+import { weeklyProgression } from "./schedulerJobs/weeklyProgression";
+import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
+// Public surface kept here so existing `from "./scheduler"` imports keep working.
+export { runGlobalJobs, checkCronHeartbeat } from "./schedulerJobs/global";
+export { logSchedulerError, type Sender } from "./schedulerJobs/shared";
+import type { Sender } from "./schedulerJobs/shared";
 
-const HTML = { parse_mode: "HTML" as const, link_preview_options: { is_disabled: true } };
 
-/**
- * Persist a scheduler-internal failure to error_logs, where /ownerreport → Errors actually reads
- * from — console.error alone only reaches whoever happens to be running `wrangler tail` live.
- *
- * Deliberately NOT used for individual bot.api.sendMessage failures (blocked bot, deleted chat):
- * those are routine at any real user count and would drown the signal that matters — the
- * recovery sweeps and report generation breaking — under noise. This covers exactly the sites
- * that were already being console.error'd as "this needed someone's attention," so nothing about
- * the error taxonomy is invented here, only where each one goes.
- */
-export function logSchedulerError(db: D1Database, kind: string, e: unknown, userId?: number): void {
-  console.error(kind, userId, e);
-  recordError(db, { userId, kind, errorType: "exception", message: String(e).slice(0, 200) }).catch(() => {});
-}
 const CHECKIN_HOUR = 20;
 const EVENING_HOUR = 21; // one combined evening survey (water / steps / food / check-in) — 9pm local
 const QUALITY_EVERY_DAYS = 14; // recurring "rate trix + what's missing" quality/feedback ask
-// Squad recaps go to GROUP chats, which have no timezone of their own — a single sensible UTC
-// hour is the honest answer (09:00 UTC = noon in Kyiv, morning across Europe).
-const SQUAD_RECAP_HOUR_UTC = 9;
-// Each recap post is one EXTERNAL subrequest, and the Workers Free plan allows 50 per
-// invocation — shared with every reminder the per-user loop below sends in the same tick. The
-// sweep therefore runs in small batches on consecutive minutes instead of fanning out at once.
-const SQUAD_RECAP_BATCH = 8;
 
-function isoDaysAgo(days: number): string {
-  return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
-}
 
-/** Drop a "60 kg" load by ~10% (rounded to 2.5 kg) to restart progression on a plateau swap. */
-function deload10(s: string): string {
-  const m = /^(\d+(?:\.\d+)?)\s*(.*)$/.exec(s.trim());
-  if (!m) return s; // "Bodyweight" etc.
-  const kg = Math.max(2.5, Math.round((parseFloat(m[1]) * 0.9) / 2.5) * 2.5);
-  return `${kg}${m[2] ? " " + m[2].trim() : " kg"}`;
-}
-
-/** Pick a same-muscle catalog alternative for a stalled/maxed exercise (EN+UK attached),
- * preserving the set scheme. `harder` aims one difficulty up (for maxed bodyweight lifts);
- * otherwise it's a fresh variation at a slightly reduced load to break a plateau. Best-effort. */
-async function swapExercise(
-  db: D1Database,
-  lang: string,
-  ex: PlanExercise,
-  usedIds: Set<string>,
-  harder: boolean,
-): Promise<PlanExercise | null> {
-  if (!ex.exerciseId) return null;
-  const cat = await getCatalogExercise(db, ex.exerciseId);
-  if (!cat) return null;
-  let pick = harder ? await findHarderExercise(db, cat.muscle, cat.difficulty ?? "beginner", [...usedIds]) : null;
-  if (!pick) {
-    const cands = await listCandidatesByMuscles(db, [cat.muscle], { perMuscle: 25, total: 25 });
-    pick = cands.find((c) => !usedIds.has(c.id) && c.id !== ex.exerciseId) ?? null;
-  }
-  if (!pick) return null;
-  let name = pick.name;
-  let technique = cleanAi(pick.instructions || "");
-  if (lang !== "en") {
-    const tr = await getExerciseTranslation(db, pick.id, lang);
-    if (tr) { name = tr.name; technique = cleanAi(tr.instructions); }
-  }
-  return {
-    ...ex,
-    name,
-    technique,
-    exerciseId: pick.id,
-    canonicalName: pick.name,
-    startWeight: harder ? ex.startWeight : deload10(ex.startWeight),
-  };
-}
-
-/** Apply plateau / maxed-bodyweight swaps to a (cloned) plan in place, returning the localized
- * notification lines. Mutates `plan.split` exercises. */
-async function applySwaps(
-  db: D1Database,
-  lang: string,
-  plan: PlanDoc,
-  names: { name: string; harder: boolean }[],
-): Promise<string[]> {
-  const lines: string[] = [];
-  const usedIds = new Set(plan.split.flatMap((d) => d.exercises.map((e) => e.exerciseId).filter(Boolean) as string[]));
-  for (const { name, harder } of names) {
-    for (const day of plan.split) {
-      const i = day.exercises.findIndex((e) => e.name === name);
-      if (i < 0) continue;
-      const repl = await swapExercise(db, lang, day.exercises[i], usedIds, harder);
-      if (repl) {
-        if (repl.exerciseId) usedIds.add(repl.exerciseId);
-        const from = day.exercises[i].name;
-        day.exercises[i] = repl;
-        lines.push(t(lang as "en" | "uk", harder ? "progression_levelup_ex" : "progression_swap_ex", { from, to: repl.name }));
-      }
-      break;
-    }
-  }
-  return lines;
-}
-
-// Push the owner an alert when something operationally wrong is happening (no need to open /report).
-// Each alert type is throttled to once per hour via config.alertState so it never spams.
-/** The account-wide (not per-user, not per-squad) jobs: owner alerts, the leaderboard cache,
- * and telemetry pruning. Extracted so the still-live cron path (below) and the dry-run
- * GlobalSchedulerDO (durable/globalScheduler.ts) run the EXACT same logic, not two copies that
- * can drift. Each sub-job already catches its own errors — one failing must not skip the rest. */
-export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Promise<void> {
-  // Proactive owner alerts — error spikes / AI provider outages, deduped to once per hour each.
-  await checkOwnerAlerts(db, bot).catch((e) => logSchedulerError(db, "owner_alerts", e));
-
-  // Leaderboards cache — computed once per hourly pass so /api/boards serves a stored JSON
-  // instead of re-scanning every competitor's logs on each Mini App open (D1 rows-read grows
-  // with the competitor count; this caps it at one scan per hour).
-  try {
-    const boards = await computeBoards(db, "Europe/Kyiv");
-    await setSetting(db, "boards_cache", JSON.stringify({ computedAt: new Date().toISOString(), boards }));
-  } catch (e) {
-    logSchedulerError(db, "boards_cache", e);
-  }
-
-  // Trainer clients stuck on an unassigned first-plan draft: remind the trainer after a day,
-  // activate it after three (staleDrafts.ts).
-  await sweepStaleDrafts(db, (chatId, text, extra) => bot.api.sendMessage(chatId, text, extra))
-    .catch((e) => logSchedulerError(db, "stale_drafts", e));
-
-  // Weekly: alert the owner when a configured AI model id vanished from its provider's catalog
-  // (aiModelWatch.ts). Needs the real env for the API keys; the shadow dry-run pass has none.
-  if (env) {
-    await weeklyModelCheck(env, (chatId, text) => bot.api.sendMessage(chatId, text, { parse_mode: "HTML" }))
-      .catch((e) => logSchedulerError(db, "ai_model_check", e));
-  }
-
-  // AI-error stats are no longer auto-pushed (the every-minute cron + minute<5 window sent the
-  // same report ~5× → spam). They are now part of the on-demand owner report (buildOwnerReport).
-
-  // Weekly telemetry pruning (90-day retention) — cheap no-op when already done this week.
-  const lastPrune = await getSetting(db, "last_log_prune").catch(() => null);
-  if (!lastPrune || Date.parse(lastPrune) < Date.now() - 7 * 86_400_000) {
-    const cutoff = new Date(Date.now() - 90 * 86_400_000);
-    await pruneOldLogs(db, cutoff.toISOString(), cutoff.toISOString().slice(0, 10)).catch((e) =>
-      logSchedulerError(db, "log_prune", e),
-    );
-    await pruneAiCache(db).catch(() => {});
-    // Idempotency keys only ever need to survive their 24h replay window (see
-    // db/repos/idempotency.ts) -- riding the same weekly pass rather than a dedicated one.
-    await pruneIdempotencyKeys(db, cutoff.toISOString()).catch(() => {});
-    // Sent/failed/blocked outbox rows — pending rows are excluded regardless of age (see
-    // pruneNotificationOutbox), so this never deletes something still awaiting delivery.
-    await pruneNotificationOutbox(db, cutoff.toISOString()).catch(() => {});
-    await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
-  }
-
-  // Daily product-metrics rollup (roadmap item 4 / docs/slos.md §4) — once per day, for
-  // YESTERDAY (the last day guaranteed complete; "today" is still accumulating and would give
-  // dau/retention/etc. a moving-target value that changes every time the pass reruns).
-  // 20h, not 24h: an exact 24h minimum gap can drift a run later each day until it eventually
-  // skips a calendar day; a shorter buffer keeps it comfortably once-daily without that drift.
-  const lastRollup = await getSetting(db, "last_daily_metrics_rollup").catch(() => null);
-  if (!lastRollup || Date.parse(lastRollup) < Date.now() - 20 * 3_600_000) {
-    const yesterday = isoDateMinus(new Date().toISOString().slice(0, 10), 1);
-    await rollupDailyMetrics(db, yesterday).catch((e) => logSchedulerError(db, "daily_metrics_rollup", e));
-    await setSetting(db, "last_daily_metrics_rollup", new Date().toISOString()).catch(() => {});
-  }
-}
-
-async function checkOwnerAlerts(db: D1Database, bot: Sender): Promise<void> {
-  const ownerChatId = await getOwnerChatId(db);
-  if (ownerChatId === undefined) return;
-  const sinceIso = new Date(Date.now() - 3_600_000).toISOString();
-  const [errs, usage] = await Promise.all([
-    errorStatsSince(db, sinceIso).catch(() => [] as { kind: string; errorType: string; n: number }[]),
-    aiUsageSince(db, sinceIso).catch(() => [] as { provider: string; kind: string; ok: boolean }[]),
-  ]);
-  const state = await getAlertState(db).catch(() => ({}) as Record<string, string>);
-  const now = Date.now();
-  const fresh = (key: string, hours = 1) => {
-    const last = state[key];
-    return !last || now - Date.parse(last) > hours * 3_600_000;
-  };
-  const alerts: string[] = [];
-  const errTotal = errs.reduce((a, e) => a + e.n, 0);
-  if (errTotal >= 15 && fresh("errors")) {
-    const top = errs.slice(0, 3).map((e) => `${e.kind}/${e.errorType}×${e.n}`).join(", ");
-    alerts.push(`🚨 Error spike: ${errTotal} in 1h. Top: ${top}`);
-    state.errors = new Date(now).toISOString();
-  }
-  if (usage.length >= 5) {
-    const ok = usage.filter((u) => u.ok).length;
-    if (ok === 0 && fresh("ai_down")) {
-      alerts.push(`🚨 AI down: ${usage.length} calls in 1h, 0 succeeded — check provider keys.`);
-      state.ai_down = new Date(now).toISOString();
-    } else {
-      const gem = usage.filter((u) => u.provider === "gemini");
-      if (gem.length >= 5 && gem.every((u) => !u.ok) && fresh("gemini")) {
-        alerts.push(`⚠️ Gemini failing/rate-limited (${gem.length} in 1h) — running on fallbacks.`);
-        state.gemini = new Date(now).toISOString();
-      }
-    }
-  }
-  if (alerts.length) {
-    await setAlertState(db, state).catch(() => {});
-    // Deliberately a DIRECT send, not the outbox: this is the alert channel itself, and routing it
-    // through the delivery machinery it exists to monitor would hide an outbox failure behind it.
-    await bot.api.sendMessage(ownerChatId, ["🛠 <b>Proactive alert</b>", ...alerts].join("\n"), { parse_mode: "HTML" }).catch(() => {});
-  }
-}
-
-// Dead-man switch: the cron stamps a heartbeat every run; the fetch path (dashboard opens)
-// checks its age and alerts the owner ONCE per hour if the cron has silently died — a dead
-// cron otherwise only shows up as "reminders stopped" days later.
-export async function checkCronHeartbeat(env: Env): Promise<void> {
-  const db = env.DB;
-  const hb = await getSetting(db, "cron_heartbeat").catch(() => null);
-  if (!hb) return; // never stamped (fresh deploy) — nothing to compare against
-  const age = Date.now() - Date.parse(hb);
-  if (age < 10 * 60_000) return;
-  const alerted = await getSetting(db, "cron_alerted").catch(() => null);
-  if (alerted && Date.now() - Date.parse(alerted) < 60 * 60_000) return;
-  const ownerChatId = await getOwnerChatId(db).catch(() => undefined);
-  if (!ownerChatId) return;
-  await setSetting(db, "cron_alerted", new Date().toISOString()).catch(() => {});
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: ownerChatId,
-      text: `🚨 <b>Cron is not running</b> — last heartbeat ${Math.round(age / 60_000)} min ago. Reminders and digests are NOT being sent. Check the Worker's triggers/limits.`,
-      parse_mode: "HTML",
-    }),
-  }).catch(() => {});
-}
 
 export async function runSchedule(env: Env): Promise<void> {
   const db = env.DB;
@@ -630,79 +336,6 @@ async function runScheduleInner(env: Env): Promise<void> {
   }
 }
 
-// Weekly buddy-duel sweep — see the call site's comment for the gating rule. Runs once for the
-// whole system per week, not per user: buddy PAIRS, not individual users, are the unit of work.
-/** Post last week's board into every squad chat. A chat that rejects the message (bot kicked,
- * group deleted) is dropped — that is the only automatic squad deletion there is. */
-async function postSquadRecaps(db: D1Database, bot: Bot, todayUtc: string, weekKey: string): Promise<void> {
-  const squads = await squadsDueForRecap(db, weekKey, SQUAD_RECAP_BATCH);
-  if (!squads.length) return;
-  const { from } = weekRangeOffset(todayUtc, 1); // Monday of the week that just ended
-  const until = weekStartStr(todayUtc); // exclusive: this fresh week is not part of the recap
-  for (const squad of squads) {
-    const ok = await postSquadDigest(db, bot.api, squad.chatId, { weekStart: from, until, past: true });
-    // Marked either way: a chat that is merely unreachable this minute must not be retried
-    // every minute for the rest of the week.
-    await markSquadRecapped(db, squad.chatId, weekKey).catch(() => {});
-    if (!ok) await deleteSquad(db, squad.chatId).catch(() => {});
-  }
-}
-
-async function processBuddyDuels(db: D1Database, bot: Bot, todayStr: string): Promise<void> {
-  const pairs = await allBuddyPairs(db);
-  if (!pairs.length) return;
-  const { from, to } = weekRangeOffset(todayStr, 1); // the week that just ended
-  const weekKey = isoWeekKey(from);
-  const logs = await allWorkoutLogsSince(db, from);
-  const completedByUser = new Map<number, number>();
-  for (const l of logs) {
-    if (!l.completed || l.date > to) continue;
-    completedByUser.set(l.userId, (completedByUser.get(l.userId) ?? 0) + 1);
-  }
-  // Each pair is fully independent — wrapped in its own try/catch so one pair's failure (a
-  // transient DB error, a missing user) can't abort the rest. Without this, a mid-loop throw
-  // would skip every pair after it for the WHOLE week: the call site marks the week processed
-  // regardless of outcome (see its comment), so anything not reached here wouldn't get a second
-  // chance until the following week's comparison.
-  for (const { userA, userB } of pairs) {
-    try {
-      const aCount = completedByUser.get(userA) ?? 0;
-      const bCount = completedByUser.get(userB) ?? 0;
-      const result = decideDuel(userA, userB, weekKey, aCount, bCount);
-      await recordBuddyDuel(db, userA, userB, weekKey, aCount, bCount, result.winnerId);
-      if (result.winnerId == null) continue; // tie (incl. 0-0) — recorded, but no message/badge spam
-      const loserId = result.winnerId === userA ? userB : userA;
-      const [winner, loser] = await Promise.all([getUser(db, result.winnerId), getUser(db, loserId)]);
-      if (!winner || !loser) continue;
-      const winnerCount = result.winnerId === userA ? aCount : bCount;
-      const loserCount = result.winnerId === userA ? bCount : aCount;
-      await bot.api
-        .sendMessage(
-          winner.chatId,
-          t(winner.lang, "duel_won", { name: escapeHtml(loser.profile.name ?? `id ${loser._id}`), mine: winnerCount, theirs: loserCount }),
-          HTML,
-        )
-        .catch(() => {});
-      await bot.api
-        .sendMessage(
-          loser.chatId,
-          t(loser.lang, "duel_lost", { name: escapeHtml(winner.profile.name ?? `id ${winner._id}`), mine: loserCount, theirs: winnerCount }),
-          HTML,
-        )
-        .catch(() => {});
-      // Badges: first-ever win, and a 4-in-a-row win streak against this same buddy.
-      const wins = await buddyWinCount(db, result.winnerId).catch(() => 0);
-      if (wins === 1) await awardAchievement(db, result.winnerId, "buddy_first_win").catch(() => {});
-      const history = await buddyDuelHistory(db, userA, userB, 4).catch(() => []);
-      if (currentWinStreak(result.winnerId, history) >= 4) {
-        await awardAchievement(db, result.winnerId, "buddy_duel_streak_4").catch(() => {});
-      }
-    } catch (e) {
-      logSchedulerError(db, "buddy_duel_pair", e, userA);
-    }
-  }
-}
-
 export interface SharedPass {
   planByUser: Map<number, PlanDoc>;
   logByUserDate: Map<string, import("./types").WorkoutLogDoc>;
@@ -712,9 +345,6 @@ export interface SharedPass {
   boardsByDay: Map<string, Promise<import("./bot").BoardsResult>>;
 }
 
-// The only bot surface processUser (and everything it calls) needs. Narrowed from the
-// concrete grammY Bot so a dry-run caller (a DO alarm, logging what it WOULD send) can pass
-// a logging stand-in instead of a real bot, without an `as unknown as Bot` cast.
 /** Single-user equivalent of the bulk SharedPass built in runScheduleInner — for a DO
  * alarm processing exactly one user, not the whole hourly cron loop. narrativeBudget is
  * deliberately uncapped (Infinity): the bulk loop's budget of 5/tick exists ONLY because one
@@ -735,9 +365,6 @@ export async function buildSinglePass(db: D1Database, userId: number): Promise<S
   };
 }
 
-export interface Sender {
-  api: { sendMessage: Bot["api"]["sendMessage"] };
-}
 
 export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: SharedPass) {
   const db = env.DB;
@@ -1175,69 +802,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
 
   // Weekly digest — Sunday recap of the last 7 days. Only if there was some activity.
   if (!pinged && !remOff("digest") && weekday === 7 && hour >= reminderHour && !already("digest")) {
-    const since = isoDaysAgo(7);
-    const [wl, nl, sl, body] = await Promise.all([
-      workoutLogsSince(db, user._id, since),
-      nutritionLogsSince(db, user._id, since),
-      stepLogsSince(db, user._id, since),
-      bodyLogsByUser(db, user._id),
-    ]);
-    const doneN = wl.filter((w) => w.completed).length;
-    if (doneN || nl.length) {
-      const parts: string[] = [t(lang, "wdigest_header")];
-      parts.push(t(lang, "wdigest_workouts", { n: doneN }));
-      if (nl.length) {
-        const avgKcal = Math.round(nl.reduce((s, n) => s + n.meals.reduce((m, x) => m + (x.kcal || 0), 0), 0) / nl.length);
-        parts.push(t(lang, "wdigest_nutrition", { kcal: avgKcal, n: nl.length }));
-      }
-      if (sl.length) parts.push(t(lang, "wdigest_steps", { avg: Math.round(sl.reduce((s, l) => s + l.steps, 0) / sl.length) }));
-      const recentBody = body.filter((b) => typeof b.weight === "number" && b.weight! > 0).slice(-2);
-      if (recentBody.length === 2) {
-        const d = +(recentBody[1].weight! - recentBody[0].weight!).toFixed(1);
-        parts.push(t(lang, "wdigest_weight", { w: recentBody[1].weight!, delta: d > 0 ? `+${d}` : `${d}` }));
-      }
-      // The muscle week (domain/weeklyReport.ts): balance score, what lagged, records, one focus,
-      // and the badges it earns -- plus the body map as the digest's picture.
-      const report = weeklyReport(toLoggedDays(wl), since);
-      let photoUrl: string | null = null;
-      if (report.trainedSets > 0) {
-        const newBadges: string[] = [];
-        const award = async (code: string) => { if (await awardAchievement(db, user._id, code).catch(() => false)) newBadges.push(code); };
-        if (report.fullBody) await award("full_body_week");
-        if (report.allInRange) await award("all_in_range");
-        const balanceWeeks = nextBalanceStreak(user.reminders?.balanceWeeks, report.allInRange);
-        if (balanceWeeks >= 4) await award("balance_streak_4");
-        user.reminders = { ...user.reminders, balanceWeeks };
-        await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
-        const prs = recentPrCount(await listStrength(db, user._id).catch(() => []), since);
-        parts.push("", ...renderWeeklyMuscleLines(lang, report, prs, newBadges));
-        photoUrl = await weekMapUrl(env.WORKER_URL, user.profile.sex, report.zones, env.TELEGRAM_BOT_TOKEN).catch(() => null);
-      }
-      // Next week's quests (domain/quests.ts): the same pick the Mini App's Today card will show
-      // from Monday, so the digest's promise and the app agree.
-      const nextMonday = isoDateMinus(date, -1);
-      const plan = await getActivePlan(db, user._id).catch(() => null);
-      const quests = pickQuests(nextMonday, toLoggedDays(wl), plannedDayCount(user.profile.trainingWeekdays, plan?.split));
-      parts.push("", ...renderQuestLines(lang, quests));
-      const kb = new InlineKeyboard()
-        .text(t(lang, "menu_progress"), "menu:progress")
-        .text(t(lang, "wcard_btn"), "share:week");
-      // With a picture: Telegram fetches the map from the signed link (drawn in its own request),
-      // the text rides as the caption. Any failure there falls back to the plain text digest.
-      let sentAsPhoto = false;
-      if (photoUrl && !botBlocked) {
-        sentAsPhoto = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: user.chatId, photo: photoUrl, caption: parts.join("\n").slice(0, 1024), parse_mode: "HTML", reply_markup: { inline_keyboard: kb.inline_keyboard } }),
-        })
-          .then(async (res) => res.ok && ((await res.json()) as { ok?: boolean }).ok === true)
-          .catch(() => false);
-        if (sentAsPhoto) markSent("digest");
-      }
-      if (!sentAsPhoto) await sendAndMark("digest", parts.join("\n"), { ...HTML, reply_markup: kb });
-      pinged = true;
-    }
+    if (await weeklyDigest({ env, db, user, lang, date, botBlocked, markSent, sendAndMark })) pinged = true;
   }
 
   // Seasonal challenge — the month's own challenge (domain/challenges.ts seasonalChallenge),
@@ -1416,96 +981,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // detection). Solo/trainer-own plans are applied silently and the user is told; a client's
   // changes are staged as a DRAFT for their trainer to accept, edit, or discard.
   if (weekday === 1 && hour >= reminderHour && !already("progression")) {
-    markSent("progression");
-    const plan = activePlan;
-    if (plan && plan.split.length) {
-      const [logs, checkins] = await Promise.all([
-        workouts21(),
-        dailyCheckinsSince(db, user._id, isoDaysAgo(7)),
-      ]);
-      // Conditioning counts as training load: a week deep past the aerobic high landmark holds
-      // the strength increases, exactly like poor wellbeing does.
-      const cond = conditioningWeek(logs, isoDaysAgo(7));
-      const prog = computePlanProgression(plan, logs, checkins, { conditioningOverload: conditioningOverload(cond) });
-      const week = weeksSincePlan(plan.generatedAt.toISOString().slice(0, 10), date);
-      const isClient = user.role === "client" && !!user.trainerId;
-      const updated = applyProgression(plan, prog.changes);
-      // Act on the dynamics: plateaued lifts → fresh same-muscle variation at −10%; maxed
-      // bodyweight lifts → a harder variation. Applied to the (solo) plan or the client draft.
-      const swapTargets = [
-        ...prog.plateau.map((n) => ({ name: n, harder: false })),
-        ...prog.maxedBodyweight.map((n) => ({ name: n, harder: true })),
-      ];
-      const swapLines = swapTargets.length ? await applySwaps(db, lang, updated, swapTargets) : [];
-      if (swapLines.length) await recordPlanSource(db, user._id, "plateau_swap", "bank").catch(() => {});
-      const changed = prog.changes.length > 0 || swapLines.length > 0;
-      if (changed) {
-        const lineFor = (l: typeof lang) =>
-          prog.changes.map((c) => t(l, "progression_line", { exercise: c.exercise, from: c.from, to: c.to }));
-        if (isClient) {
-          updated.authoredBy = user.trainerId;
-          await saveDraftPlan(db, updated);
-          await recordAdjustment(db, user._id, week, JSON.stringify(prog.changes));
-          const trainer = await getUser(db, user.trainerId!);
-          if (trainer) {
-            const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
-            const text = [t(trainer.lang, "progression_trainer_header", { name: who }), ...lineFor(trainer.lang), t(trainer.lang, "progression_trainer_hint")].join("\n");
-            const kb = new InlineKeyboard()
-              .text(t(trainer.lang, "cc_assign"), `cl:${user._id}:assign`)
-              .text(t(trainer.lang, "cc_edit"), `cl:${user._id}:edit`)
-              .row()
-              .text(t(trainer.lang, "cc_discard"), `cl:${user._id}:discard`);
-            await sendTo(trainer, "progression_trainer", text, { ...HTML, reply_markup: kb });
-          }
-        } else {
-          await setActivePlan(db, updated);
-          await recordAdjustment(db, user._id, week, JSON.stringify(prog.changes));
-          const text = [t(lang, "progression_solo_header"), ...lineFor(lang), ...swapLines].join("\n");
-          await send(text);
-        }
-      } else if (prog.heldForConditioning && !isClient) {
-        // Say WHY nothing moved. A silent hold reads as the bot losing interest; naming the
-        // cardio week that caused it is the whole point of tracking conditioning at all. Recorded
-        // to plan_adjustments too (a reason-only entry -- see cmdPlanChanges), in the user's own
-        // language: it's stored for THIS user's later /planchanges read, not a shared audit log.
-        const heldText = t(lang, "progression_held_conditioning", { load: conditioningLoadLabel(lang, cond) });
-        await recordAdjustment(db, user._id, week, JSON.stringify([{ reason: heldText }])).catch(() => {});
-        await send(heldText);
-      } else if (prog.heldForWellbeing && !isClient) {
-        // Same idea as the conditioning hold above, for the OTHER hold reason -- this one was
-        // computed every week already (poorWellbeing gates all increases) but never surfaced:
-        // a silent week reads as the bot forgetting about you, not as a deliberate call.
-        const heldText = t(lang, "progression_held_wellbeing");
-        await recordAdjustment(db, user._id, week, JSON.stringify([{ reason: heldText }])).catch(() => {});
-        await send(heldText);
-      }
-
-      // Level-up offer (solo/trainer-own only, ≤ once / 30 days): the trainee has outgrown the
-      // plan (fast pace + consistent weekly progressions) → button to regenerate one tier harder.
-      if (user.role !== "client" && daysBetween(sent["levelup"], date) >= 30) {
-        const rate = evaluateProgressionRate(logs);
-        const progWeeks = await countAdjustmentWeeksSince(db, user._id, isoDaysAgo(42));
-        if (shouldLevelUp(user.profile.level ?? "beginner", rate, progWeeks)) {
-          const kb = new InlineKeyboard().text(t(lang, "levelup_yes"), "levelup:yes").text(t(lang, "levelup_no"), "levelup:no");
-          // The key gates this offer for the next 30 DAYS — writing it for a send that never
-          // landed costs the user a month of the prompt they earned.
-          await sendAndMark("levelup", t(lang, "levelup_prompt"), { ...HTML, reply_markup: kb });
-        }
-      }
-
-      // Goal-reached offer (solo/trainer-own only, ≤ once / 30 days): a fat-loss cut has hit its
-      // plateau → button to switch to maintenance/recomp and recompute calories.
-      if (user.role !== "client" && daysBetween(sent["goalreached"], date) >= 30) {
-        const weights = (await bodyAll())
-          .filter((b) => typeof b.weight === "number")
-          .map((b) => ({ date: b.date, weight: b.weight as number }));
-        if (fatLossGoalReached(user.profile.goal, weights) || gainGoalReached(user.profile.goal, weights)) {
-          const kb = new InlineKeyboard().text(t(lang, "goal_switch_yes"), "goal:maintain").text(t(lang, "levelup_no"), "goal:keep");
-          // Same 30-day gate as the level-up offer above.
-          await sendAndMark("goalreached", t(lang, "goal_reached_prompt"), { ...HTML, reply_markup: kb });
-        }
-      }
-    }
+    if (await weeklyProgression({ db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll })) pinged = true;
   }
 
   // Weekly motivational narrative — Monday late morning, solo/trainer-own users with recent

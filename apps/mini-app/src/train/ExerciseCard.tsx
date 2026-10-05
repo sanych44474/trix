@@ -25,7 +25,8 @@ export interface ExerciseCardProps {
   onFillPlanned: () => void;
   onFillLast: () => void;
   onOpenSwap: () => void;
-  onApplySwap: (name: string) => void;
+  onApplySwap: (choice: { id: string; name: string }) => void;
+  onSearchSwap: (text: string) => void;
   onOpenInfo: () => void;
   onUpdateSet: (setIndex: number, field: SetField, value: number) => void;
   onAddSet: () => void;
@@ -81,8 +82,13 @@ export function ExerciseCard(props: ExerciseCardProps) {
       {props.swapOpen && (
         <div className="choice-list">
           {props.swapChoices.length
-            ? props.swapChoices.map((choice) => <button className="choice-button" key={choice.id} onClick={() => props.onApplySwap(choice.name)}>{choice.name}</button>)
+            ? props.swapChoices.map((choice) => <button className="choice-button" key={choice.id || choice.name} onClick={() => props.onApplySwap(choice)}>{choice.name}</button>)
             : <span className="muted">{t(lang, "train_no_swaps")}</span>}
+          <form className="input-row swap-search" onSubmit={(event) => { event.preventDefault(); const input = event.currentTarget.elements.namedItem("q") as HTMLInputElement; props.onSearchSwap(input.value); input.value = ""; }}>
+            <input name="q" placeholder={t(lang, "swap_search_placeholder")} maxLength={80} autoComplete="off" />
+            <button className="button button-ghost" type="submit">{t(lang, "swap_search_btn")}</button>
+          </form>
+          <small className="muted">{t(lang, "swap_search_hint")}</small>
         </div>
       )}
       {props.info && (

@@ -6,7 +6,7 @@
 // Every read and write is scoped by trainerId. That is the authorization boundary for this
 // domain, enforced here rather than only at the handler, so a mis-scoped call site cannot read
 // or mutate another trainer's schedule even by guessing a row id.
-import { nowIso, type DB } from "../../db/repos/shared";
+import { nowIso, type DB } from "./shared";
 
 export type SessionStatus = "planned" | "done" | "cancelled" | "no_show";
 export const SESSION_STATUSES: SessionStatus[] = ["planned", "done", "cancelled", "no_show"];

@@ -5,7 +5,8 @@
 // test happens to run.
 import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { getOrCreateUser, getSquad, joinSquad, upsertSquad } from "../../src/db/repos";
+import { getOrCreateUser } from "../../src/adapters/d1/v2Users";
+import { getSquad, joinSquad, upsertSquad } from "../../src/adapters/d1/v2Gamification";
 
 const CHAT = -5001;
 

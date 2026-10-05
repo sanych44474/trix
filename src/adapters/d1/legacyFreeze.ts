@@ -5,10 +5,11 @@
 // keep writing to a table the rest of the app has stopped reading -- that's the failure mode
 // this guard exists to prevent.
 //
-// Off by default (CUTOVER_LEGACY_FROZEN="0" in wrangler.toml). When flipped to "1", every D1
-// write (INSERT/UPDATE/DELETE, including inside db.batch(), since a batch's statements are each
-// created via the same intercepted prepare()) against a legacy table throws instead of
-// executing. SELECTs are never blocked -- a missed legacy READ degrades to stale data, not a
+// On since 2026-10 (CUTOVER_LEGACY_FROZEN="1" in wrangler.toml): every INSERT/UPDATE against a
+// legacy table (including inside db.batch(), since a batch's statements are each created via the
+// same intercepted prepare()) throws instead of executing. DELETEs pass: account erasure
+// (v2Account.ts) and log pruning still clear the old copies of personal data until the tables
+// are dropped, and removing stale rows can't make a frozen table diverge. SELECTs are never blocked -- a missed legacy READ degrades to stale data, not a
 // crash, and blocking reads would make rollback to the legacy Mini App bundle (/app) impossible.
 //
 // This list is every table created by a pre-v2 migration (migrations/0001-0068), i.e. every
@@ -34,7 +35,7 @@ const LEGACY_TABLES = [
 ] as const;
 
 const WRITE_PATTERN = new RegExp(
-  `\\b(?:INSERT\\s+(?:OR\\s+\\w+\\s+)?INTO|UPDATE|DELETE\\s+FROM)\\s+["\`]?(${LEGACY_TABLES.join("|")})["\`]?\\b`,
+  `\\b(?:INSERT\\s+(?:OR\\s+\\w+\\s+)?INTO|REPLACE\\s+INTO|UPDATE)\\s+["\`]?(${LEGACY_TABLES.join("|")})["\`]?\\b`,
   "i",
 );
 

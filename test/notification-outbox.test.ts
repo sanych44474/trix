@@ -1,9 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import {
-  dueNotifications, enqueueNotification, getOrCreateUser, markPermanentFailure, markRetry, markSent, pruneNotificationOutbox,
-} from "../src/db/repos";
+import { dueNotifications, enqueueNotification, markPermanentFailure, markRetry, markSent, pruneNotificationOutbox } from "../src/adapters/d1/v2Notifications";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 
 test("enqueueNotification: a fresh enqueue returns an id and is due immediately", async () => {
   const db = newDb();

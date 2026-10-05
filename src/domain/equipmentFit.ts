@@ -71,7 +71,7 @@ export function fitsKit(ex: { name: string; canonicalName?: string; startWeight?
   return [...gear].every((g) => ALLOWED[kit].has(g));
 }
 
-type Sub = { en: string; uk: string; id?: string; loaded: boolean };
+type Sub = { en: string; uk: string; id?: string; loaded: boolean; timed?: "hold" | "cardio" };
 const s = (en: string, uk: string, id: string | undefined, loaded: boolean): Sub => ({ en, uk, id, loaded });
 
 // Same-muscle stand-ins, best first. Dumbbell picks avoid needing a bench (floor press, not bench
@@ -84,7 +84,7 @@ const DUMBBELL_SUBS: Partial<Record<Slug, Sub[]>> = {
   biceps: [s("Dumbbell Bicep Curl", "Згинання рук з гантелями", "Dumbbell_Bicep_Curl", true), s("Hammer Curls", "Молоткові згинання", "Hammer_Curls", true)],
   triceps: [s("Standing Dumbbell Triceps Extension", "Розгинання гантелі з-за голови стоячи", "Standing_Dumbbell_Triceps_Extension", true), s("Tricep Dumbbell Kickback", "Розгинання гантелі в нахилі (кікбек)", "Tricep_Dumbbell_Kickback", true)],
   forearm: [s("Seated Dumbbell Palms-Up Wrist Curl", "Згинання зап'ясть з гантелями сидячи", "Seated_Dumbbell_Palms-Up_Wrist_Curl", true)],
-  abs: [s("Crunches", "Скручування", "Crunches", false), s("Plank", "Планка", "Plank", false)],
+  abs: [s("Crunches", "Скручування", "Crunches", false), { ...s("Plank", "Планка", "Plank", false), timed: "hold" }],
   obliques: [s("Dumbbell Side Bend", "Нахили в бік з гантеллю", "Dumbbell_Side_Bend", true), s("Russian Twist", "Російські скручування", "Russian_Twist", false)],
   quadriceps: [s("Goblet Squat", "Кубковий присід", "Goblet_Squat", true), s("Dumbbell Lunges", "Випади з гантелями", "Dumbbell_Lunges", true), s("Split Squat with Dumbbells", "Спліт-присід з гантелями", "Split_Squat_with_Dumbbells", true)],
   hamstring: [s("Stiff-Legged Dumbbell Deadlift", "Станова тяга на прямих ногах з гантелями", "Stiff-Legged_Dumbbell_Deadlift", true)],
@@ -101,8 +101,8 @@ const BODYWEIGHT_SUBS: Partial<Record<Slug, Sub[]>> = {
   deltoids: [s("Pike Push-up", "Віджимання «пайк» на плечі", undefined, false), s("Push-Ups With Feet Elevated", "Віджимання з ногами на підвищенні", "Push-Ups_With_Feet_Elevated", false)],
   biceps: [s("Inverted Row underhand", "Горизонтальне підтягування зворотним хватом", undefined, false)],
   triceps: [s("Bench Dips", "Віджимання від лави", "Bench_Dips", false), s("Close Triceps Push-Ups", "Вузькі віджимання на трицепс", "Push-Ups_-_Close_Triceps_Position", false)],
-  abs: [s("Crunches", "Скручування", "Crunches", false), s("Plank", "Планка", "Plank", false)],
-  obliques: [s("Side Bridge", "Бічна планка", "Side_Bridge", false), s("Russian Twist", "Російські скручування", "Russian_Twist", false)],
+  abs: [s("Crunches", "Скручування", "Crunches", false), { ...s("Plank", "Планка", "Plank", false), timed: "hold" }],
+  obliques: [{ ...s("Side Bridge", "Бічна планка", "Side_Bridge", false), timed: "hold" }, s("Russian Twist", "Російські скручування", "Russian_Twist", false)],
   quadriceps: [s("Bodyweight Squat", "Присідання без ваги", "Bodyweight_Squat", false), s("Bodyweight Walking Lunge", "Випади в ходьбі без ваги", "Bodyweight_Walking_Lunge", false)],
   hamstring: [s("Single-Leg Romanian Deadlift (bodyweight)", "Румунська тяга на одній нозі без ваги", undefined, false)],
   gluteal: [s("Butt Lift Bridge", "Сідничний міст", "Butt_Lift_Bridge", false), s("Single Leg Glute Bridge", "Сідничний міст на одній нозі", "Single_Leg_Glute_Bridge", false)],
@@ -111,12 +111,20 @@ const BODYWEIGHT_SUBS: Partial<Record<Slug, Sub[]>> = {
   "lower-back": [s("Superman", "Човник (супермен) лежачи на животі", undefined, false)],
 };
 
-const OUTDOOR_CARDIO: Sub = s("Brisk walk or run outdoors", "Швидка ходьба або біг на вулиці", undefined, false);
+const OUTDOOR_CARDIO: Sub = { ...s("Brisk walk or run outdoors", "Швидка ходьба або біг на вулиці", undefined, false), timed: "cardio" };
 
 export const SELF_SELECT_WEIGHT = { uk: "підбери вагу", en: "pick a weight" } as const;
 const BODYWEIGHT_LABEL = { uk: "Власна вага", en: "Bodyweight" } as const;
 
 export interface KitSwap { weekday: number; from: string; to: string }
+
+/** A hold or cardio stand-in is done for time: "3 × 10" reps becomes "3 × 30–45 s". */
+function timedSets(sets: string, kind: "hold" | "cardio", lang: "uk" | "en"): string {
+  if (/\d\s*(s|с|sec|сек|min|хв|мин)(?!\p{L})|\d:[0-5]\d/iu.test(sets)) return sets; // already timed
+  if (kind === "cardio") return lang === "en" ? "20–30 min" : "20–30 хв";
+  const n = /^\s*(\d+)/.exec(sets)?.[1] ?? "3";
+  return `${n} × 30–45 ${lang === "en" ? "s" : "с"}`;
+}
 
 /**
  * Swap every exercise that needs gear outside `kit`. An exercise whose muscle has no stand-in
@@ -140,8 +148,13 @@ export function fitSplitToKit<D extends { weekday: number; exercises: E[] }, E e
       if (gear.includes("cardioMachine")) pick = OUTDOOR_CARDIO;
       else {
         const m = musclesForExercise(ex.canonicalName ?? ex.name) ?? musclesForExercise(ex.name);
+        // Same muscle first, then an assisting one; never the same stand-in twice in a day (two
+        // chest machines used to both become floor presses). Nothing new left: drop it -- the
+        // muscle is already trained by the stand-in that day.
+        const fresh = (o: Sub) => !used.has(o.en.toLowerCase()) && !used.has(o.uk.toLowerCase());
         const options = (m?.primary ?? []).flatMap((slug) => table[slug] ?? []);
-        pick = options.find((o) => !used.has(o.en.toLowerCase()) && !used.has(o.uk.toLowerCase())) ?? options[0];
+        const assisting = (m?.secondary ?? []).flatMap((slug) => table[slug] ?? []);
+        pick = options.find(fresh) ?? assisting.find(fresh);
       }
       if (!pick) { dropped.push({ weekday: day.weekday, from: ex.name, to: "" }); continue; }
       used.add(pick.en.toLowerCase());
@@ -154,13 +167,15 @@ export function fitSplitToKit<D extends { weekday: number; exercises: E[] }, E e
         canonicalName: pick.en,
         startWeight: pick.loaded ? SELF_SELECT_WEIGHT[lang] : BODYWEIGHT_LABEL[lang],
         technique: "",
+        ...(pick.timed ? { sets: timedSets(ex.sets, pick.timed, lang), metric: "time" as const } : {}),
       };
       delete replaced.exerciseId; // the old catalog link described the old movement
       exercises.push(replaced);
     }
     // Never leave a training day empty: if everything was dropped, keep the plank.
     if (!exercises.length && day.exercises.length) {
-      const plank: E = { ...day.exercises[0]!, name: lang === "en" ? "Plank" : "Планка", canonicalName: "Plank", startWeight: BODYWEIGHT_LABEL[lang], technique: "" };
+      const first = day.exercises[0]!;
+      const plank: E = { ...first, name: lang === "en" ? "Plank" : "Планка", canonicalName: "Plank", startWeight: BODYWEIGHT_LABEL[lang], technique: "", sets: timedSets(first.sets, "hold", lang), metric: "time" };
       delete plank.exerciseId; // it described the dropped movement (images, technique)
       delete plank.muscles;
       exercises.push(plank);

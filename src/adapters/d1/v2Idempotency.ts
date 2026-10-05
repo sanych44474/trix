@@ -16,8 +16,8 @@
 // repointing ALL of those callers here — not just the v2-native ones — is safe and is the
 // point: it stops the v2-native API surface from writing its idempotency claims into a legacy
 // table that the freeze (docs/adr/0001) will eventually make read-only.
-import type { DB } from "../../db/repos/shared";
-import { nowIso } from "../../db/repos/shared";
+import type { DB } from "./shared";
+import { nowIso } from "./shared";
 
 const WINDOW_HOURS = 24; // a retry hours later is a NEW action, not a duplicate of the first
 const CLAIM_STALE_MS = 30_000; // a request realistically never runs this long -- an older

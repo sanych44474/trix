@@ -153,9 +153,16 @@ paths:
         required: false
         description: The plan exercise to find alternatives for; wins over index when it matches.
         schema: {type: string, maxLength: 80}
+      - name: muscle
+        in: query
+        required: false
+        description: >-
+          A typed muscle ("трицепс", "glutes"): up to five exercises for it. Text that is not a
+          muscle returns no alternatives and muscle=null (the app then adds it as a custom exercise).
+        schema: {type: string, maxLength: 40}
       responses:
         '200':
-          description: Safe exercise alternatives
+          description: Up to five same-muscle alternatives that fit the person's equipment
           content:
             application/json:
               schema:
@@ -168,7 +175,17 @@ paths:
                       properties:
                         alternatives:
                           type: array
-                          items: {type: string}
+                          items:
+                            type: object
+                            properties:
+                              id: {type: string}
+                              name: {type: string}
+                            required: [id, name]
+                        muscle:
+                          type: string
+                          nullable: true
+                          description: The body-map muscle a typed query matched, else null.
+                      required: [alternatives]
                   required: [data]
   /api/v2/workout/steps:
     get:

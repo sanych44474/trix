@@ -27,9 +27,7 @@
 // admin.ts#deleteUserData for the four new user-identifying tables this domain's migration
 // created (v2_feedback/v2_ai_usage/v2_plan_source_logs/v2_rest_timers) — same pattern Domain 7
 // (Trainer) already used for v2_client_note_history/v2_shared_programs, per that function's own
-// comments. Every call site of deleteUserData keeps importing it from "../db/repos" (admin.ts)
-// unchanged; this module intentionally has no deleteUserData export at all, so nothing can import
-// an incomplete one by mistake.
+// comments. deleteUserData now lives in v2Account.ts (the legacy repo layer was removed).
 import type {
   AiKind,
   AiProvider,
@@ -42,7 +40,7 @@ import type {
   UserProfile,
   WorkoutLogDoc,
 } from "../../types";
-import { nowIso, safeJsonParse, type DB } from "../../db/repos/shared";
+import { nowIso, safeJsonParse, type DB } from "./shared";
 import { bodyLogsByUser, dailyCheckinsSince, stepLogsSince, waterLogsSince } from "./v2Tracking";
 import { nutritionLogsSince } from "./v2Nutrition";
 import { listStrength, workoutLogsSince } from "./v2Workouts";

@@ -1,6 +1,4 @@
-// Small, dependency-free helpers shared across the repos/ split. Kept separate from repos.ts
-// itself (rather than exported from there) so every repos/*.ts concept file can import them
-// without creating a cycle back through the repos.ts barrel.
+// Small, dependency-free helpers shared by the D1 adapters (formerly src/db/repos/shared.ts).
 export type DB = D1Database;
 
 export const nowIso = (): string => new Date().toISOString();

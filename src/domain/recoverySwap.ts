@@ -75,6 +75,7 @@ export function toLoggedDays(workouts: WorkoutLogDoc[]): LoggedDay[] {
     date: w.date,
     done: w.completed,
     ex: w.exercises.filter((e) => !e.skipped).map((e) => ({ n: e.name, s: e.setsDone.length })),
+    ...(w.createdAt instanceof Date && !Number.isNaN(w.createdAt.getTime()) ? { loggedOn: w.createdAt.toISOString().slice(0, 10) } : {}),
   }));
 }
 

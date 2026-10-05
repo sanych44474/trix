@@ -5,23 +5,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import {
-  createProspect,
-  createSharedProgram,
-  deleteUserData,
-  getOrCreateUser,
-  getProspect,
-  getSharedProgram,
-  getTrainerTemplate,
-  getUser,
-  getUserFoodCorrection,
-  linkClient,
-  listClientNoteHistory,
-  putUserFoodCorrection,
-  saveTrainerTemplate,
-  setActivePlan,
-  setClientNote,
-} from "../src/db/repos";
+import { createProspect, createSharedProgram, getProspect, getSharedProgram, getTrainerTemplate, linkClient, listClientNoteHistory, saveTrainerTemplate, setClientNote } from "../src/adapters/d1/v2Trainer";
+import { deleteUserData } from "../src/adapters/d1/v2Account";
+import { getOrCreateUser, getUser } from "../src/adapters/d1/v2Users";
+import { getUserFoodCorrection, putUserFoodCorrection } from "../src/adapters/d1/v2Nutrition";
+import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import type { BankPlan, Env, PlanDoc } from "../src/types";
 
 const testEnv = (db: ReturnType<typeof newDb>): Env => ({ DB: db } as unknown as Env);
@@ -66,7 +54,7 @@ test("deleteUserData: clears authoredBy on plans the deleted trainer wrote (attr
 
   await deleteUserData(testEnv(db), 1);
 
-  const row = await db.prepare("SELECT authoredBy FROM plans WHERE userId = ?").bind(2).first<{ authoredBy: number | null }>();
+  const row = await db.prepare("SELECT authoredBy FROM v2_plans WHERE accountId = ?").bind(2).first<{ authoredBy: number | null }>();
   assert.equal(row?.authoredBy, null);
 });
 

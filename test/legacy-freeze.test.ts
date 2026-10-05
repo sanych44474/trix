@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { freezeLegacyWrites, LegacyWriteBlockedError, withLegacyFreeze } from "../src/adapters/d1/legacyFreeze";
 
-test("freezeLegacyWrites: blocks INSERT/UPDATE/DELETE against a legacy table", () => {
+test("freezeLegacyWrites: blocks INSERT/UPDATE against a legacy table, lets DELETE clear old rows", () => {
   const db = newDb();
   const blocked: string[] = [];
   const frozen = freezeLegacyWrites(db as unknown as D1Database, (sql) => blocked.push(sql));
@@ -18,8 +18,9 @@ test("freezeLegacyWrites: blocks INSERT/UPDATE/DELETE against a legacy table", (
     LegacyWriteBlockedError,
   );
   assert.throws(() => frozen.prepare("UPDATE users SET lang = 'uk' WHERE id = 1"), LegacyWriteBlockedError);
-  assert.throws(() => frozen.prepare("DELETE FROM users WHERE id = 1"), LegacyWriteBlockedError);
-  assert.equal(blocked.length, 3);
+  // Account erasure still has to clear the old copies of personal data until the tables go.
+  assert.doesNotThrow(() => frozen.prepare("DELETE FROM users WHERE id = 1"));
+  assert.equal(blocked.length, 2);
 });
 
 test("freezeLegacyWrites: is case-insensitive and tolerates INSERT OR IGNORE/REPLACE", () => {

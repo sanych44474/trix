@@ -8,6 +8,7 @@ import { formatPrBest } from "../bot/workoutSave";
 import { announceSquadPr } from "../bot/squad";
 import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
+import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscles";
 import { exerciseMetric, formatSetEntry, getPlanDay, localParts, resolveWeightMode } from "../domain/progression";
 import {
   userStatCounts,
@@ -479,34 +480,43 @@ export async function workoutSwapAlternatives(
   plan: PlanDoc | null,
   index: number,
   planName?: string,
-): Promise<{ id: string; name: string }[] | null> {
+  muscleQuery?: string,
+): Promise<{ alternatives: { id: string; name: string }[]; muscle: string | null } | null> {
   const { weekday } = localParts(user.profile.timezone);
   const day = plan ? getPlanDay(plan, weekday as Weekday) : undefined;
   // By name first: the logger's list can be reordered (moved exercises, a re-opened saved day
   // lists what was logged first), so its position no longer has to match the plan's.
   const byName = planName ? day?.exercises.find((e) => e.name === planName) : undefined;
   const current = byName ?? day?.exercises[index];
-  if (!day || !current) return null;
+  // A typed muscle ("трицепс") picks the group outright; it works for any exercise, in the plan
+  // or not. Anything else typed there is the person's own exercise, which the app adds itself.
+  const typed = muscleQuery ? muscleFromQuery(muscleQuery) : null;
+  if (muscleQuery && !typed) return { alternatives: [], muscle: null };
+  if (!typed && !current && !planName) return null;
   const level = user.profile.level;
-  let candidates: Awaited<ReturnType<typeof listCandidatesByMuscles>> = [];
-  if (current.exerciseId) {
+  // Order of evidence: the typed muscle; the exercise's own main mover read off its name (the
+  // body map's lookup); its catalog entry; the day's group as the last resort -- which alone
+  // used to turn a triceps pushdown's swaps into lunges on a "legs + arms" day.
+  const ownName = current ? `${current.canonicalName ?? ""} ${current.name}`.trim() : planName ?? "";
+  let muscles = typed?.catalog ?? catalogMusclesForExercise(current?.canonicalName ?? "");
+  if (!muscles.length) muscles = catalogMusclesForExercise(current?.name ?? planName ?? "");
+  let excludeId: string | undefined;
+  if (!muscles.length && current?.exerciseId) {
     const cur = await getCatalogExercise(db, current.exerciseId);
-    if (cur) {
-      candidates = (await listCandidatesByMuscles(db, [cur.muscle], { level, perMuscle: 20, total: 20 })).filter(
-        (c) => c.id !== cur.id,
-      );
-    }
+    if (cur) { muscles = [cur.muscle]; excludeId = cur.id; }
   }
-  if (!candidates.length) {
-    const muscle = muscleGroupToEnum(day.muscleGroup);
-    if (muscle) candidates = await listCandidatesByMuscles(db, [muscle], { level, perMuscle: 20, total: 20 });
+  if (!muscles.length && day) {
+    const m = muscleGroupToEnum(day.muscleGroup);
+    if (m) muscles = [m];
   }
+  let candidates = muscles.length ? await listCandidatesByMuscles(db, muscles, { level, perMuscle: 25, total: 40 }) : [];
+  const own = ownName.toLowerCase();
+  candidates = candidates.filter((c) => c.id !== excludeId && c.id !== current?.exerciseId && !own.includes(c.name.toLowerCase()));
   // Respect the equipment the user actually has (onboarding profile.equipment) — without this,
-  // a bodyweight-only/dumbbells-only user could be offered a barbell/machine exercise as one of
-  // their 3 swap options mid-set.
+  // a bodyweight-only/dumbbells-only user could be offered a barbell/machine exercise mid-set.
   const preset = profileEquipmentToPreset(user.profile.equipment);
   if (preset) candidates = candidates.filter((c) => fitsEquipmentPreset(c.equipments, preset));
-  const picked = candidates.sort(() => Math.random() - 0.5).slice(0, 3);
+  const picked = candidates.sort(() => Math.random() - 0.5).slice(0, 5);
   const out: { id: string; name: string }[] = [];
   for (const c of picked) {
     let name = c.name;
@@ -516,5 +526,5 @@ export async function workoutSwapAlternatives(
     }
     out.push({ id: c.id, name });
   }
-  return out;
+  return { alternatives: out, muscle: typed?.slug ?? null };
 }

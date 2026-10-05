@@ -4,7 +4,7 @@
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
 import { buildExportJson, buildExportMd } from "../bot";
 import { resolveWaitlistNudge } from "../features/trainer/trainer";
-import { deleteUserData } from "../db/repos";
+import { deleteUserData } from "../adapters/d1/v2Account";
 import {
   getOwnerChatId,
   insertFeedback,

@@ -40,7 +40,7 @@ import type {
   ProgressionRate,
   Weekday,
 } from "../../types";
-import { nowIso, safeJsonParse, type DB } from "../../db/repos/shared";
+import { nowIso, safeJsonParse, type DB } from "./shared";
 import { PLAN_SCHEMA_VERSION, parsePlanDoc, parsePlanSplit, PlanValidationError } from "../../domain/plan-schema";
 import { hasCriticalIssues, lintPlan, type LintIssue } from "../../domain/plan-lint";
 import { existingCatalogIds } from "./v2Catalog";

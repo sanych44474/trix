@@ -3,15 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getOrCreateUser } from "../src/db/repos";
-import {
-  getClientNote,
-  insertMessage,
-  listClientNoteHistory,
-  listMessages,
-  setClientCard,
-  setClientNote,
-} from "../src/db/repos/trainer";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
+import { getClientNote, insertMessage, listClientNoteHistory, listMessages, setClientCard, setClientNote } from "../src/adapters/d1/v2Trainer";
 
 test("setClientNote: overwriting archives the previous value instead of losing it", async () => {
   const db = newDb();

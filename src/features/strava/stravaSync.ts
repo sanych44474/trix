@@ -12,7 +12,7 @@ import {
   deleteStravaLink, getStravaLink, importedActivityIds, markStravaSync, recordImportedActivities,
   saveStravaLink, updateStravaTokens, type StravaTokens,
 } from "../../adapters/d1/v2Strava";
-import type { DB } from "../../db/repos/shared";
+import type { DB } from "../../adapters/d1/shared";
 import type { Lang, Weekday } from "../../types";
 
 export interface StravaConfig {

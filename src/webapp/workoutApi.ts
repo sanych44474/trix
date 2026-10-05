@@ -82,10 +82,11 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
         return Response.json({ error: "bad request" }, { status: 400 });
       }
       const planName = (url.searchParams.get("name") ?? "").trim().slice(0, 80) || undefined;
+      const muscle = (url.searchParams.get("muscle") ?? "").trim().slice(0, 40) || undefined;
       const plan = await getActivePlan(env.DB, user._id);
-      const alternatives = await workoutSwapAlternatives(env.DB, user, plan, index, planName);
-      if (alternatives === null) return Response.json({ error: "bad request" }, { status: 400 });
-      return Response.json({ alternatives });
+      const result = await workoutSwapAlternatives(env.DB, user, plan, index, planName, muscle);
+      if (result === null) return Response.json({ error: "bad request" }, { status: 400 });
+      return Response.json(result);
     }
     if (req.method === "GET" && path === "/api/workout/exinfo") {
       const name = (url.searchParams.get("name") ?? "").trim();

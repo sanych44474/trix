@@ -16,7 +16,7 @@
 // attempts/status/lastError columns in place on every delivery outcome (exactly like legacy did
 // to notification_outbox), and leaves v2_notification_attempts as a historical snapshot rather
 // than inventing a new per-attempt-row writer that legacy never had.
-import { nowIso, type DB } from "../../db/repos/shared";
+import { nowIso, type DB } from "./shared";
 
 export interface OutboxPayload {
   text: string;

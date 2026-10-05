@@ -4,7 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { getActivePlan, getOrCreateUser, saveDraftPlan, setActivePlan } from "../src/db/repos";
+import { getActivePlan, saveDraftPlan, setActivePlan } from "../src/adapters/d1/v2Plans";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { PLAN_SCHEMA_VERSION, PlanValidationError } from "../src/domain/plan-schema";
 import type { PlanDoc } from "../src/types";
 

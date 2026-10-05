@@ -77,6 +77,7 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
   const [restEditFor, setRestEditFor] = useState<number | null>(null);
   const [swapFor, setSwapFor] = useState<number | null>(null);
   const [swapChoices, setSwapChoices] = useState<Array<{ id: string; name: string }>>([]);
+  const [planNotice, setPlanNotice] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [infoFor, setInfoFor] = useState<number | null>(null);
   const [info, setInfo] = useState<{ technique: string; videoUrl?: string; videoTitle?: string } | null>(null);
@@ -235,11 +236,41 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
       setSwapChoices(data.alternatives);
     } catch (err) { setActionError(err); } finally { setActionBusy(null); }
   };
-  const applySwap = (name: string) => {
-    if (swapFor === null) return;
+  /** A typed muscle ("трицепс") lists five exercises for it; anything else is the person's own
+   *  exercise: the server finds its video, the info panel its technique, and the body map reads
+   *  its muscles off the name. */
+  const searchSwap = async (exercise: LoggerExercise, text: string) => {
+    const q = text.trim();
+    if (q.length < 2) return;
+    const index = exercise.index;
+    setActionBusy(`swap:${index}`);
+    try {
+      const planName = exercise.planName ?? exercise.name;
+      const data = await api<{ alternatives: Array<{ id: string; name: string }>; muscle?: string | null }>(
+        `/api/v2/workout/swap?index=${index}&name=${encodeURIComponent(planName)}&muscle=${encodeURIComponent(q)}`);
+      if (data.muscle) { setSwapChoices(data.alternatives); return; }
+      const own = await api<{ name: string; videoUrl?: string; videoTitle?: string }>("/api/v2/workout/custom", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"addCustomExercise">({ name: q }) });
+      await applySwap({ id: "", name: own.name }, { videoUrl: own.videoUrl, videoTitle: own.videoTitle });
+    } catch (err) { setActionError(err); } finally { setActionBusy(null); }
+  };
+  const applySwap = async (choice: { id: string; name: string }, extra: { videoUrl?: string; videoTitle?: string } = {}) => {
+    if (swapFor === null || !workout) return;
     const index = swapFor;
-    mutate((exercises) => swapExercise(exercises, index, name));
+    const current = workout.exercises.find((e) => e.index === index);
+    const planName = current?.planName ?? current?.name;
+    mutate((exercises) => swapExercise(exercises, index, choice.name, extra));
     setSwapFor(null); setSwapChoices([]);
+    // Only an exercise that is in the plan can be rewritten there.
+    const inPlan = planName && server?.exercises.some((e) => e.name === planName);
+    if (!inPlan || planName === choice.name) return;
+    if (!(await confirmDialog(t(lang, "swap_overwrite_plan", { from: planName, to: choice.name })))) return;
+    try {
+      await api("/api/v2/plan", {
+        method: "POST",
+        body: typedBody<"editPlan">({ action: "swap", weekday: isoWeekday(logDate ?? workout.date), index: -1, expectName: planName, value: choice.name, ...(choice.id ? { catalogId: choice.id } : {}) }),
+      });
+      setPlanNotice(t(lang, "swap_plan_saved", { to: choice.name }));
+    } catch (err) { setActionError(err); }
   };
   const addCustom = async () => {
     const name = customName.trim();
@@ -368,6 +399,7 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
           {gamification.streak ? <span className="tag">{t(lang, "streak_weeks", { n: gamification.streak })}</span> : null}
         </div>
       )}
+      {planNotice && <div className="offline-banner done" role="status" onClick={() => setPlanNotice(null)}>{planNotice}</div>}
       {actionError !== null && (
         <Card tone="muted">
           <div className="error-state">
@@ -404,7 +436,8 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
               onFillPlanned={() => fillPlanned(exercise.index)}
               onFillLast={() => fillLast(exercise.index)}
               onOpenSwap={() => void openSwap(exercise)}
-              onApplySwap={applySwap}
+              onApplySwap={(choice) => void applySwap(choice)}
+              onSearchSwap={(text) => void searchSwap(exercise, text)}
               onOpenInfo={() => void openInfo(exercise)}
               onUpdateSet={(setIndex, field, value) => updateSet(exercise.index, setIndex, field, value)}
               onAddSet={() => addSet(exercise.index)}

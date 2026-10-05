@@ -45,7 +45,7 @@
 // one genuine design ambiguity in this domain rather than silently guessing a bigger rewrite.
 import { oneEntryPerDate } from "./v2Workouts";
 import type { ExerciseMetric, StrengthRecordDoc } from "../../types";
-import { nowIso, type DB } from "../../db/repos/shared";
+import { nowIso, type DB } from "./shared";
 
 // ============================================================================
 // Achievements
@@ -337,7 +337,7 @@ export async function countCompletedChallenges(db: DB, userId: number): Promise<
 export interface SquadRow {
   chatId: number;
   title: string | null;
-  createdBy: number;
+  createdBy: number | null; // null once the creator deleted their account
   lastRecapWeek: string | null;
 }
 

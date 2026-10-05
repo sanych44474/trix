@@ -42,7 +42,9 @@ function addDays(date: string, n: number): string {
  */
 export function pickQuests(weekStart: string, logs: LoggedDay[], plannedDays: number, lookup: Lookup = musclesForExercise): Quest[] {
   const lastStart = addDays(weekStart, -7);
-  const lastWeek = logs.filter((l) => l.date >= lastStart && l.date < weekStart);
+  // Only what was logged before the week began: back-filling a missed day of last week on
+  // Wednesday must not swap this week's muscle quest for a new one (a second, free completion).
+  const lastWeek = logs.filter((l) => l.date >= lastStart && l.date < weekStart && !(l.loggedOn && l.loggedOn >= weekStart));
   const lastWorkouts = new Set(lastWeek.filter((l) => l.done).map((l) => l.date)).size;
   // Planned days when there is a plan; otherwise one more than last week, between 2 and 4.
   const target = plannedDays > 0 ? Math.min(6, Math.max(2, plannedDays)) : Math.min(4, Math.max(2, lastWorkouts + 1));

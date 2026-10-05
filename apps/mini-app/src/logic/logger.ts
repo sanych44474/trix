@@ -77,14 +77,14 @@ export function copyToLoggerExercises(items: WorkoutCopyExercise[]): LoggerExerc
 
 /** Swap one exercise for another, remembering which plan exercise it stands in for. Swapping
  *  back to the plan's own exercise clears that again. */
-export function swapExercise(exercises: LoggerExercise[], index: number, name: string): LoggerExercise[] {
+export function swapExercise(exercises: LoggerExercise[], index: number, name: string, extra: { videoUrl?: string; videoTitle?: string } = {}): LoggerExercise[] {
   return exercises.map((exercise) => {
     if (exercise.index !== index) return exercise;
     const planName = exercise.planName ?? exercise.name;
     // The plan's technique notes, video and catalog name describe the old exercise, not this one
     // (the info panel looks the new one up by name instead).
     const { planName: _drop, technique: _t, videoUrl: _v, videoTitle: _vt, canonicalName: _c, ...rest } = exercise;
-    return { ...rest, name, setsDone: [], ...(planName !== name ? { planName } : {}) };
+    return { ...rest, name, setsDone: [], ...(planName !== name ? { planName } : {}), ...(extra.videoUrl ? { videoUrl: extra.videoUrl, videoTitle: extra.videoTitle } : {}) };
   });
 }
 
