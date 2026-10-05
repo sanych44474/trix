@@ -93,6 +93,7 @@ export async function deleteUserData(env: Env, userId: number): Promise<void> {
      db.prepare("DELETE FROM v2_ai_usage WHERE accountId = ?").bind(userId),
      db.prepare("DELETE FROM v2_plan_source_logs WHERE accountId = ?").bind(userId),
      db.prepare("DELETE FROM v2_rest_timers WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_inbox WHERE accountId = ?").bind(userId),
      db.prepare("DELETE FROM v2_accounts WHERE id = ? OR legacyUserId = ?").bind(userId, userId),
      // A squad outlives the person who happened to run /squad first: the group chat and everyone
     // else in it are unaffected, so createdBy is cleared to a tombstone rather than the squad

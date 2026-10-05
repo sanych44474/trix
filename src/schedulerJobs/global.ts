@@ -1,5 +1,6 @@
 // Account-wide scheduler jobs (owner alerts, leaderboard cache, pruning, metrics rollup,
 // stale drafts, AI model watch) and the cron dead-man switch. Split out of scheduler.ts.
+import { pruneInbox } from "../adapters/d1/v2Inbox";
 import { learnUnknownExercises } from "../exerciseMuscleLearning";
 import { rollupDailyMetrics } from "../dailyMetricsRollup";
 import { sweepStaleDrafts } from "../staleDrafts";
@@ -63,6 +64,8 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
     // Sent/failed/blocked outbox rows — pending rows are excluded regardless of age (see
     // pruneNotificationOutbox), so this never deletes something still awaiting delivery.
     await pruneNotificationOutbox(db, cutoff.toISOString()).catch(() => {});
+    // The Mini App feed keeps 60 days.
+    await pruneInbox(db, new Date(Date.now() - 60 * 86_400_000).toISOString()).catch(() => {});
     await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
   }
 

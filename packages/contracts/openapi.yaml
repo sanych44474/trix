@@ -245,6 +245,60 @@ paths:
                         videoUrl: {type: string}
                         videoTitle: {type: string}
                   required: [data]
+  /api/v2/inbox:
+    get:
+      operationId: getInbox
+      description: The Mini App's notification feed, newest first (last 40), with the unread count.
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Feed items
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        unread: {type: integer}
+                        items:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id: {type: integer}
+                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression]}
+                              params: {type: object, additionalProperties: true}
+                              createdAt: {type: string}
+                              read: {type: boolean}
+                            required: [id, kind, params, createdAt, read]
+                      required: [unread, items]
+                  required: [data]
+  /api/v2/inbox/read:
+    post:
+      operationId: markInboxRead
+      description: Marks every feed item read.
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Done
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
   /api/v2/workout/feel:
     post:
       operationId: setWorkoutFeel

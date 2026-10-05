@@ -3,6 +3,7 @@
 // library (+ take), what's-new, the plates calculator, and become-a-trainer / trainer-profile
 // editing. Reuses the same repos and domain code as the bot; pushes (confirmations, interview
 // kick-off) go out via the Bot API.
+import { listInbox, markInboxRead } from "../adapters/d1/v2Inbox";
 import { computeWeekCardStats, formatWeekCardText, obKeyboard, obSteps } from "../bot";
 import {
   getOwnerChatId,
@@ -61,6 +62,15 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
   const lang = user.lang;
   const path = url.pathname;
   const noStore = { headers: { "cache-control": "no-store" } };
+
+  // ---- Notification feed (adapters/d1/v2Inbox.ts) ----
+  if (req.method === "GET" && path === "/api/inbox") {
+    return Response.json(await listInbox(env.DB, user._id), noStore);
+  }
+  if (req.method === "POST" && path === "/api/inbox/read") {
+    await markInboxRead(env.DB, user._id);
+    return Response.json({ ok: true });
+  }
 
   // ---- Personal records + badge catalog (earned/locked) ----
   if (req.method === "GET" && path === "/api/records") {

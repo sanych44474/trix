@@ -43,6 +43,7 @@
 // comment on allBuddyPairs already documents) and does not touch v2_buddies at all — same
 // documented-and-left-alone treatment v2Tracking.ts gave v2_activity_days. Flagging this as the
 // one genuine design ambiguity in this domain rather than silently guessing a bigger rewrite.
+import { recordBadgeInbox } from "./v2Inbox";
 import { oneEntryPerDate } from "./v2Workouts";
 import type { ExerciseMetric, StrengthRecordDoc } from "../../types";
 import { nowIso, type DB } from "./shared";
@@ -57,7 +58,9 @@ export async function awardAchievement(db: DB, userId: number, code: string): Pr
     .prepare("INSERT OR IGNORE INTO v2_achievements (accountId, code, earnedAt) VALUES (?, ?, ?)")
     .bind(userId, code, nowIso())
     .run();
-  return (r.meta?.changes ?? 0) > 0;
+  const fresh = (r.meta?.changes ?? 0) > 0;
+  if (fresh) await recordBadgeInbox(db, userId, code); // the Mini App feed
+  return fresh;
 }
 
 export async function listAchievements(db: DB, userId: number): Promise<string[]> {
