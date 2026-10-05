@@ -2904,6 +2904,18 @@ components:
                     sec: {type: number}
                     m: {type: number}
                   required: [w, r, sec, m]
+              target:
+                type: object
+                description: The progression engine's target for today from the last session's working sets (also the weight/reps prefill).
+                properties:
+                  w: {type: number}
+                  r: {type: integer}
+                  lastW: {type: number}
+                  lastR: {type: integer}
+                  step:
+                    type: string
+                    enum: [hold, reps, load]
+                required: [w, r, lastW, lastR, step]
               ssGroup: {type: string}
               wmode:
                 type: string

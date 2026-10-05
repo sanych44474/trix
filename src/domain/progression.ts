@@ -402,13 +402,27 @@ export function nextTarget(
   lastRpe?: number,
   range?: { low: number; high: number },
 ): string {
+  const n = nextTargetSet(bestWeight, bestReps, exercise, lastRpe, range);
+  return `${n.weight > 0 ? fmtNum(n.weight) : "BW"} × ${n.reps}`;
+}
+
+export type TargetStep = "hold" | "reps" | "load";
+
+/** nextTarget as numbers, plus which move it is (hold the load / add reps / add load). */
+export function nextTargetSet(
+  bestWeight: number,
+  bestReps: number,
+  exercise: string,
+  lastRpe?: number,
+  range?: { low: number; high: number },
+): { weight: number; reps: number; step: TargetStep } {
   const low = range?.low ?? 8;
   const high = Math.max(low, range?.high ?? 12);
-  if (typeof lastRpe === "number" && lastRpe >= GRIND_RPE) return `${bestWeight || "BW"} × ${bestReps}`;
+  if (typeof lastRpe === "number" && lastRpe >= GRIND_RPE) return { weight: bestWeight, reps: bestReps, step: "hold" };
   const easy = typeof lastRpe === "number" && lastRpe <= 7;
-  if (!(bestWeight > 0)) return `BW × ${bestReps + (easy ? 2 : 1)}`;
-  if (bestReps < high) return `${bestWeight} × ${Math.min(high, bestReps + (easy ? 2 : 1))}`;
-  return `${fmtNum(bestWeight + loadStep(exercise, bestWeight) * (easy ? 2 : 1))} × ${low}`;
+  if (!(bestWeight > 0)) return { weight: 0, reps: bestReps + (easy ? 2 : 1), step: "reps" };
+  if (bestReps < high) return { weight: bestWeight, reps: Math.min(high, bestReps + (easy ? 2 : 1)), step: "reps" };
+  return { weight: bestWeight + loadStep(exercise, bestWeight) * (easy ? 2 : 1), reps: low, step: "load" };
 }
 
 export interface NextTargetGuidance {

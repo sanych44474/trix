@@ -73,6 +73,13 @@ export function ExerciseCard(props: ExerciseCardProps) {
           ? `${exercise.planSets}${exercise.planWeight ? ` · ${exercise.planWeight}` : ""}`
           : t(lang, "exercise_sets_line", { n: exercise.sets, detail: exercise.metric === "reps" ? t(lang, "controlled_reps") : t(lang, "measured_effort") })}
       </p>
+      {exercise.target && (
+        <div className={`target-line target-${exercise.target.step}`}>
+          <span>{t(lang, "target_last", { set: setLabel(exercise.target.lastW, exercise.target.lastR) })}</span>
+          <strong>→ {t(lang, "target_today", { set: setLabel(exercise.target.w, exercise.target.r) })}</strong>
+          <small>{t(lang, exercise.target.step === "load" ? "target_why_load" : exercise.target.step === "hold" ? "target_why_hold" : "target_why_reps")}</small>
+        </div>
+      )}
       <div className="button-row exercise-actions">
         <button className="text-button" onClick={props.onFillPlanned}>{t(lang, "train_as_planned_btn")}</button>
         {exercise.last?.length ? <button className="text-button" onClick={props.onFillLast}>{t(lang, "train_repeat_last_btn")}</button> : null}
@@ -165,3 +172,5 @@ function SetRow({ lang, metric, set, setIndex, onChange, onFinished, onRemove }:
     </div>
   );
 }
+
+const setLabel = (w: number, r: number) => `${w > 0 ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(w) : "BW"}×${r}`;
