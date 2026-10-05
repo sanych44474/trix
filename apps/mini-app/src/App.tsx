@@ -7,6 +7,7 @@ import type { RequestBody, Dashboard, RecoveryFactor, RecoveryLabel, WeekCardRes
 import { guessLang, hasLang, loadLang, t, type Key, type Lang } from "./i18n";
 import { WhatsNewCard } from "./WhatsNew";
 import { BadgeCelebration, WeekCard, WeekSummaryCard } from "./Week";
+import { track } from "./logic/track";
 const WorkspaceView = lazy(() => import("./Workspace").then((m) => ({ default: m.WorkspaceView })));
 const OnboardingView = lazy(() => import("./Onboarding").then((m) => ({ default: m.OnboardingView })));
 const ProfileView = lazy(() => import("./ProfileView").then((m) => ({ default: m.ProfileView })));
@@ -282,7 +283,7 @@ export function App() {
   // The coach chat as its own screen, reachable from Today and the workout summary; a prefill
   // drops a ready question in the box (the user still taps send).
   const [coachPrefill, setCoachPrefill] = useState<string | undefined>(undefined);
-  const openCoach = (prefill?: string) => { setCoachPrefill(prefill); setView("coach"); };
+  const openCoach = (prefill?: string) => { track(prefill ? "app_coach_open_summary" : "app_coach_open_today"); setCoachPrefill(prefill); setView("coach"); };
   const pullStart = useRef<number | null>(null);
   const loadDashboard = () => { setLoading(true); setError(null); api<Dashboard>("/api/v2/dashboard").then((data) => { registerLearnedMuscles(data.calendar?.learnedMuscles ?? []); setDashboard(data); setLang(data.lang); try { localStorage.setItem("trix:v2:dashboard", JSON.stringify(data)); } catch { /* cache is optional */ } }).catch(setError).finally(() => setLoading(false)); };
   useEffect(() => { try { const cached = localStorage.getItem("trix:v2:dashboard"); if (cached) { const data = JSON.parse(cached) as Dashboard; if (data?.viewer && data?.today) { registerLearnedMuscles(data.calendar?.learnedMuscles ?? []); setDashboard(data); setLang(data.lang); setLoading(false); } } } catch { try { localStorage.removeItem("trix:v2:dashboard"); } catch { /* storage is optional */ } } loadDashboard(); }, []);

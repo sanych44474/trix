@@ -2011,6 +2011,41 @@ paths:
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/event:
+    post:
+      operationId: trackAppEvents
+      description: Mini App feature-usage counters (app_* names, at most 10 per call) into the owner's events report.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  maxItems: 10
+                  items: {type: string, pattern: '^app_[a-z0-9_]{2,40}$'}
+      responses:
+        '200':
+          description: Counted
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        counted: {type: integer}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/coach/feedback:
     post:
       operationId: sendCoachFeedback

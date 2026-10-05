@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, typedBody } from "./api";
 import { t, type Lang } from "./i18n";
+import { track } from "./logic/track";
 
 type Action = { label: string; kind: string; weekday?: number; index?: number; exercise?: string; value?: string; note?: string };
 type Turn = { role: "user" | "coach"; text: string; actions?: Action[]; done?: number[] };
@@ -31,6 +32,7 @@ export function CoachChat({ lang, prefill }: { lang: Lang; prefill?: string }) {
     const history = turns.slice(-6).map((x) => ({ role: x.role, text: x.text.slice(0, 1500) }));
     setTurns((prev) => [...prev, { role: "user", text: q }]);
     setQuestion(""); setBusy("ask"); setError(false);
+    track(turns.length ? "app_coach_followup" : "app_coach_ask");
     try {
       const r = await api<{ answer?: string; actions?: Action[] }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"askCoach">({ question: q, history }) });
       setTurns((prev) => [...prev, { role: "coach", text: r.answer || t(lang, "generic_error"), actions: r.actions ?? [] }]);
@@ -51,6 +53,7 @@ export function CoachChat({ lang, prefill }: { lang: Lang; prefill?: string }) {
         await api("/api/v2/plan", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editPlan">({ action, weekday: a.weekday, index: a.index ?? -1, value: a.kind === "swap" || a.kind === "add" ? a.exercise : a.value }) });
       }
       setTurns((prev) => prev.map((x, j) => (j === turnIdx ? { ...x, done: [...(x.done ?? []), i] } : x)));
+      track(`app_coach_action_${a.kind}`);
     } catch { setError(true); } finally { setBusy(null); }
   };
 

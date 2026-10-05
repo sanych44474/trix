@@ -16,7 +16,7 @@ import { handleTrainerScheduleApi } from "./trainerScheduleApi";
 import { handleOwnerApi } from "./ownerApi";
 import { handleCoachApi } from "./coachApi";
 import { handleBuddyApi } from "./buddyApi";
-import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./miscApi";
+import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handleAppEventApi, handlePhotoApi } from "./miscApi";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { recordError } from "../adapters/d1/v2Admin";
@@ -70,6 +70,7 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/injuries", legacy: "/api/injuries", handler: handleInjuriesApi },
   { prefix: "/api/v2/boards", legacy: "/api/boards", handler: handleBoardsApi },
   { prefix: "/api/v2/client-error", legacy: "/api/client-error", handler: handleClientErrorApi },
+  { prefix: "/api/v2/event", legacy: "/api/event", handler: handleAppEventApi },
 ];
 
 function codeFor(status: number, legacyError?: string): V2ErrorCode {

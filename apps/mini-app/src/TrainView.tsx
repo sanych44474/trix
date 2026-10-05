@@ -11,6 +11,7 @@ import {
   buildSaveEntries, chooseStart, copyToLoggerExercises, countFilledSets, DENSITY_MIN_SESSION_SEC, DRAFT_KEY,
   emptyLoggerSet, isExerciseFilled, isoDate, isoWeekday, parseDraft, plannedSetsFor, sessionElapsedSec, swapExercise,
   type LoggerDraft, type LoggerExercise, type LoggerWorkout, type StartSource,
+  targetUse,
 } from "./logic/logger";
 import { cachedToday, cacheToday, enqueueSave, isNetworkError } from "./logic/offlineSaves";
 import { registerLearnedMuscles } from "./logic/exerciseMuscles";
@@ -23,6 +24,7 @@ import { RestBar } from "./train/RestBar";
 import { SaveDock, type DockAction, type SyncState } from "./train/SaveDock";
 import { SessionSummary, type SaveSummary } from "./train/SessionSummary";
 import { Card, Empty, ErrorState, Loading } from "./train/ui";
+import { track } from "./logic/track";
 
 // How long the logger waits after the last change before copying the draft to the server.
 const DRAFT_SYNC_DELAY_MS = 2500;
@@ -330,6 +332,9 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
         body: typedBody<"saveWorkout">({ entries, ...(targetDate ? { date: targetDate } : {}), ...timing }),
       });
       const doneAt = Date.now();
+      const use = targetUse(workout.exercises);
+      if (use.kept) track("app_target_kept");
+      if (use.edited) track("app_target_edited");
       if (action.kind === "finish") session.finish(final);
       setSaved(true); setDrafted(false); setSavedAt(doneAt); setSync("idle"); setRestoredFrom(null);
       window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success");

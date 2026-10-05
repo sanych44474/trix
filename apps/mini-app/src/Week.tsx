@@ -7,6 +7,7 @@ import { t, type Key, type Lang } from "./i18n";
 import type { Dashboard } from "./types";
 import { SEEN_BADGES_KEY, unseenBadges } from "./logic/badgesSeen";
 import { lastWeekSummary } from "./logic/weekSummary";
+import { track } from "./logic/track";
 
 const SUMMARY_SEEN_KEY = "trix:v2:week-summary-seen";
 
@@ -23,7 +24,8 @@ export function WeekSummaryCard({ lang, dashboard }: { lang: Lang; dashboard: Da
   const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(SUMMARY_SEEN_KEY) === s.start; } catch { return false; } });
   const dow = (new Date(`${dashboard.today}T12:00:00Z`).getUTCDay() + 6) % 7;
   if (hidden || dow > 2 || (s.workouts === 0 && s.foodDays === 0 && s.weightDelta === undefined)) return null;
-  const hide = () => { try { localStorage.setItem(SUMMARY_SEEN_KEY, s.start); } catch { /* optional */ } setHidden(true); };
+  const hide = () => {
+    track("app_week_summary_closed"); try { localStorage.setItem(SUMMARY_SEEN_KEY, s.start); } catch { /* optional */ } setHidden(true); };
   const kg = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${new Intl.NumberFormat(lang === "uk" ? "uk-UA" : "en-GB", { maximumFractionDigits: 1 }).format(Math.abs(n))} kg`;
   return <section className="card week-summary">
     <div className="section-head"><div><span className="eyebrow">{t(lang, "ws_eyebrow")}</span><h2>{t(lang, "ws_title")}</h2></div><button className="text-button" onClick={hide}>{t(lang, "close")}</button></div>

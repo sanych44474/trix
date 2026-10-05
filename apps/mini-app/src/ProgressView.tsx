@@ -7,6 +7,7 @@ import { useMemo, useRef, useState, lazy, Suspense } from "react";
 import { api, ApiError, apiForm, jsonBody } from "./api";
 import type { Dashboard, MuscleGroup, VolumeZone, WorkoutToday } from "./types";
 import { t, type Key, type Lang } from "./i18n";
+import { track } from "./logic/track";
 
 // The body-map figure is ~35 kB of SVG paths; loaded only when the Progress screen is opened.
 const BodyMap = lazy(() => import("./BodyMap").then((m) => ({ default: m.BodyMap })));
@@ -164,6 +165,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   // ("вага " / "талія , шия "), so the tile itself is the way to log it.
   const measureRef = useRef<HTMLInputElement>(null);
   const startMeasure = (prefill: string) => {
+    track("app_tile_measure");
     if (!measure.trim()) setMeasure(prefill);
     const el = measureRef.current;
     if (!el) return;

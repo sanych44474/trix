@@ -2,6 +2,7 @@
 // the competitor leaderboards (read). Each reuses the same repos/domain as the bot; same initData
 // auth. Routed at /api/challenges, /api/injuries, /api/boards.
 import {
+  bumpEvent,
   getSetting,
   recordError,
 } from "../adapters/d1/v2Admin";
@@ -156,6 +157,24 @@ export async function handleClientErrorApi(req: Request, url: URL, env: Env): Pr
   const where = typeof body.source === "string" && body.source ? ` @ ${body.source.slice(-40)}:${Number(body.line) || 0}` : "";
   await recordError(env.DB, { userId: user._id, kind: "webapp", errorType: "client_js", message: `${message}${where}` }).catch(() => {});
   return Response.json({ ok: true });
+}
+
+// Feature-usage counters from the Mini App (the bot's own buttons are counted in router.ts):
+// which new features people actually use. Names are an allowlisted app_* shape, at most 10 per
+// call, one bump each into v2_analytics_events — the owner console's "Events" tab lists them.
+export const APP_EVENT_RE = /^app_[a-z0-9_]{2,40}$/;
+export async function handleAppEventApi(req: Request, url: URL, env: Env): Promise<Response> {
+  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  const user = await miniAppUser(req, url, env);
+  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return parsed.response;
+  const raw = (parsed.body as { events?: unknown }).events;
+  const events = (Array.isArray(raw) ? raw : []).filter((e): e is string => typeof e === "string" && APP_EVENT_RE.test(e)).slice(0, 10);
+  if (!events.length) return Response.json({ error: "bad request" }, { status: 400 });
+  const { date } = localParts(user.profile.timezone);
+  for (const e of events) await bumpEvent(env.DB, user._id, e, date).catch(() => {});
+  return Response.json({ ok: true, counted: events.length });
 }
 
 // Progress-photo upload: the Mini App's Progress tab posts a file here (multipart, same
