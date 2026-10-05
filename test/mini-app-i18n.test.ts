@@ -11,7 +11,9 @@
 // the audience least likely to be checked before release.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { en, t, uk, type Key } from "../apps/mini-app/src/i18n";
+import { loadLang, t, type Key } from "../apps/mini-app/src/i18n";
+import { en } from "../apps/mini-app/src/i18n/en";
+import { uk } from "../apps/mini-app/src/i18n/uk";
 
 test("every en key exists in uk, and vice versa", () => {
   const enKeys = Object.keys(en).sort();
@@ -46,7 +48,8 @@ test("every {placeholder} in an en string also appears in its uk counterpart", (
   assert.deepEqual(mismatched, []);
 });
 
-test("t interpolates named vars and leaves unknown ones visible", () => {
+test("t interpolates named vars and leaves unknown ones visible", async () => {
+  await loadLang("en"); // each language is its own chunk, loaded before first use
   assert.equal(t("en", "pct_label", { n: 42 }), "42%");
   assert.equal(t("en", "level_n", { n: 3 }), t("en", "level_n", { n: 3 }), "stable for the same input");
   // An unsupplied placeholder stays as-is rather than becoming "undefined": a visible {n} is a
@@ -55,10 +58,18 @@ test("t interpolates named vars and leaves unknown ones visible", () => {
   assert.equal(t("en", "pct_label"), "{n}%", "no vars at all returns the raw template");
 });
 
-test("t falls back to English for a key missing from a locale, never to blank", () => {
+test("t falls back to English for a key missing from a locale, never to blank", async () => {
+  await loadLang("en");
   // Exercised through the real catalogs: whatever uk is missing (the parity test above asserts
   // nothing is), t must still return the English string rather than undefined.
   const key = "pct_label" as Key;
   assert.equal(typeof t("uk", key, { n: 1 }), "string");
   assert.ok(t("uk", key, { n: 1 }).length > 0);
+});
+
+test("only the requested language is loaded; another loads on demand", async () => {
+  const { hasLang, loadLang: load } = await import("../apps/mini-app/src/i18n");
+  await load("uk");
+  assert.equal(hasLang("uk"), true);
+  assert.equal(t("uk", "pct_label", { n: 5 }), uk.pct_label.replace("{n}", "5"));
 });
