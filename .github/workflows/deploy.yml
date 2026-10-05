@@ -44,7 +44,7 @@ jobs:
   deploy:
     name: Deploy to Cloudflare
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment:
       name: production
