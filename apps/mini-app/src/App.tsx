@@ -3,18 +3,21 @@ import { OfflineSync } from "./OfflineSync";
 import { InboxBell, InboxView } from "./Inbox";
 import { registerLearnedMuscles } from "./logic/exerciseMuscles";
 import { api, ApiError, typedBody } from "./api";
-import type { RequestBody, Dashboard, LibraryProgram, LibraryResponse, MesoPhase, Plan, PlatesResponse, ProfilePhoto, RecoveryFactor, RecoveryLabel, SquadInfo, TrainerProfile, WeekCardResponse } from "./types";
+import type { RequestBody, Dashboard, RecoveryFactor, RecoveryLabel, WeekCardResponse } from "./types";
 import { guessLang, hasLang, loadLang, t, type Key, type Lang } from "./i18n";
-import { TrainView } from "./TrainView";
-import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
-import { planBalance } from "./logic/muscleLoad";
-import { ReleaseItems, WhatsNewCard } from "./WhatsNew";
+import { WhatsNewCard } from "./WhatsNew";
 import { BadgeCelebration, WeekCard } from "./Week";
 const WorkspaceView = lazy(() => import("./Workspace").then((m) => ({ default: m.WorkspaceView })));
 const OnboardingView = lazy(() => import("./Onboarding").then((m) => ({ default: m.OnboardingView })));
 const ProfileView = lazy(() => import("./ProfileView").then((m) => ({ default: m.ProfileView })));
 const ProgressView = lazy(() => import("./ProgressView").then((m) => ({ default: m.ProgressView })));
 const FuelView = lazy(() => import("./FuelView").then((m) => ({ default: m.FuelView })));
+const PlanView = lazy(() => import("./PlanView").then((m) => ({ default: m.PlanView })));
+const ExtrasView = lazy(() => import("./ExtrasView").then((m) => ({ default: m.ExtrasView })));
+// The logger is its own chunk but fetched right after the first paint (below), so opening it is
+// instant; the service worker precaches every chunk, so it works offline too.
+const loadTrainView = () => import("./TrainView");
+const TrainView = lazy(() => loadTrainView().then((m) => ({ default: m.TrainView })));
 const LibraryView = lazy(() => import("./Library").then((m) => ({ default: m.LibraryView })));
 
 type View = "today" | "train" | "plan" | "fuel" | "progress" | "role" | "more" | "settings" | "library" | "inbox";
@@ -30,23 +33,23 @@ function navLabel(lang: Lang, view: View): string {
   return t(lang, view === "today" ? "nav_today" : view === "train" ? "nav_train" : view === "plan" ? "nav_plan" : view === "fuel" ? "nav_fuel" : view === "progress" ? "nav_progress" : view === "role" ? "nav_role" : view === "more" ? "nav_more" : "nav_settings");
 }
 
-function formatNumber(value: number): string {
+export function formatNumber(value: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value);
 }
 
-function Card({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "accent" | "muted" }) {
+export function Card({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "accent" | "muted" }) {
   return <section className={`card card-${tone}`}>{children}</section>;
 }
 
-function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+export function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return <div className="metric"><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</div>;
 }
 
-function Empty({ title, detail }: { title: string; detail: string }) {
+export function Empty({ title, detail }: { title: string; detail: string }) {
   return <div className="empty"><span className="empty-mark">—</span><strong>{title}</strong><small>{detail}</small></div>;
 }
 
-function ErrorState({ lang, error, retry }: { lang: Lang; error: unknown; retry: () => void }) {
+export function ErrorState({ lang, error, retry }: { lang: Lang; error: unknown; retry: () => void }) {
   const message = error instanceof ApiError && error.code === "unauthorized" ? t(lang, "unauthorized_error") : t(lang, "generic_error");
   return <Card tone="muted"><div className="error-state"><strong>{message}</strong><button className="button button-ghost" onClick={retry}>{t(lang, "retry")}</button></div></Card>;
 }
@@ -57,20 +60,8 @@ const recoveryFactor = (lang: Lang, factor: RecoveryFactor) => t(lang, `recovery
 
 // PlanView's exercise.wmode is a stable code ("total"|"perSide"|"perHand", planApi.ts) rendered
 // straight into a sentence -- same class of bug as the recovery/volume codes above.
-const wmodeLabel = (lang: Lang, wmode: "total" | "perSide" | "perHand") =>
+export const wmodeLabel = (lang: Lang, wmode: "total" | "perSide" | "perHand") =>
   t(lang, wmode === "perSide" ? "wmode_persidem" : wmode === "perHand" ? "wmode_perhandm" : "wmode_total");
-
-// Mirrors src/domain/mesocycle.ts's phaseGuidance() -- rep range/intensity notation is
-// non-linguistic (numbers, "RPE"), so it's duplicated here rather than round-tripped through the
-// backend, matching this app's convention of small view-local presentation helpers.
-function mesoGuidance(phase: MesoPhase): { reps: string; intensity: string } {
-  switch (phase) {
-    case "hypertrophy": return { reps: "8–12", intensity: "RPE 7–8" };
-    case "strength": return { reps: "3–6", intensity: "RPE 8–9" };
-    case "peak": return { reps: "1–3", intensity: "RPE 9–10" };
-    case "deload": return { reps: "8–10", intensity: "RPE 5–6" };
-  }
-}
 
 // "Chest is still recovering -- swap today with Thursday's legs?" (dashboard.recoverySwap, computed
 // server-side from the plan and recent logs). One tap trades the two plan days' weekdays.
@@ -132,268 +123,21 @@ function TodayView({ dashboard, lang, onOpen, onReload }: { dashboard: Dashboard
   </div>;
 }
 
-type PlanAction = "weight" | "sets" | "del" | "move" | "swap" | "add" | "link" | "video";
+export type PlanAction = "weight" | "sets" | "del" | "move" | "swap" | "add" | "link" | "video";
 // The plan-edit request body straight from the contract, so every field name the editor sends
 // is checked against what the handler declares it reads.
-type PlanEditBody = RequestBody<"editPlan">;
+export type PlanEditBody = RequestBody<"editPlan">;
 // The muscle-group templates a new day can be filled from, straight off the contract so this
 // list cannot drift from the server's DAY_GROUPS table.
-type DayGroup = NonNullable<PlanEditBody["group"]>;
-const DAY_GROUPS: DayGroup[] = ["chest", "back", "legs", "shoulders", "arms", "full", "core"];
+export type DayGroup = NonNullable<PlanEditBody["group"]>;
+export const DAY_GROUPS: DayGroup[] = ["chest", "back", "legs", "shoulders", "arms", "full", "core"];
 // Same order/keys Onboarding.tsx uses, index 0 = Monday = weekday 1.
-const WEEKDAY_KEYS: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed", "weekday_thu", "weekday_fri", "weekday_sat", "weekday_sun"];
+export const WEEKDAY_KEYS: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed", "weekday_thu", "weekday_fri", "weekday_sat", "weekday_sun"];
 
 // The plan has exercises needing gear outside the owner's equipment (a dumbbells-only person with
 // barbell work): one tap swaps them all for same-muscle ones they can do, or changes the
 // equipment first if the profile answer was wrong.
-const EQUIPMENT_CHOICES: Array<[NonNullable<PlanEditBody["equipment"]>, Key]> = [["full gym", "equip_full_gym"], ["home basics (dumbbells, bands)", "equip_home_basics"], ["dumbbells only", "equip_dumbbells_only"], ["bodyweight only", "equip_bodyweight_only"]];
-function KitFitCard({ lang, kit, busy, onFit }: { lang: Lang; kit: NonNullable<Plan["kit"]>; busy: boolean; onFit: (equipment?: PlanEditBody["equipment"]) => void }) {
-  const current = EQUIPMENT_CHOICES.find(([value]) => value === kit.equipment);
-  const [choice, setChoice] = useState<PlanEditBody["equipment"]>(current?.[0] ?? "dumbbells only");
-  return <Card tone="accent">
-    <div className="section-head"><div><span className="eyebrow">{t(lang, "kitfit_eyebrow")}</span><h2>{t(lang, "kitfit_title", { n: kit.mismatches })}</h2></div></div>
-    <p>{t(lang, "kitfit_body", { equipment: current ? t(lang, current[1]) : kit.equipment })}</p>
-    <div className="button-row">
-      <select value={choice} onChange={(event) => setChoice(event.target.value as PlanEditBody["equipment"])} aria-label={t(lang, "field_equipment")}>
-        {EQUIPMENT_CHOICES.map(([value, key]) => <option key={value} value={value}>{t(lang, key)}</option>)}
-      </select>
-      <button className="button button-light" disabled={busy} onClick={() => onFit(choice !== kit.equipment ? choice : undefined)}>{busy ? t(lang, "saving_ellipsis") : t(lang, "kitfit_btn")}</button>
-    </div>
-  </Card>;
-}
-
-function PlanView({ lang, clientId = null, onBack, onOpenLibrary }: { lang: Lang; clientId?: number | null; onBack?: () => void; onOpenLibrary?: () => void }) {
-  const [plan, setPlan] = useState<Plan | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  // Separate from `error` on purpose: `error` means "couldn't load the plan, nothing to show" and
-  // replaces the whole editor with ErrorState. A single edit failing -- most commonly a 409 from a
-  // stale If-Match version after a concurrent change -- is recoverable and must not blank out an
-  // already-rendered plan the user is mid-edit on; it shows as a small dismissible inline note.
-  const [actionError, setActionError] = useState<unknown>(null);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [newExercises, setNewExercises] = useState<Record<number, string>>({});
-  const [swapDrafts, setSwapDrafts] = useState<Record<string, string>>({});
-  const [catalogResults, setCatalogResults] = useState<Record<string, Array<{ id: string; name: string; muscle: string }>>>({});
-  const [catalogBusy, setCatalogBusy] = useState<string | null>(null);
-  const [videoDrafts, setVideoDrafts] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
-  const [showChanges, setShowChanges] = useState(false);
-  const [dayBusy, setDayBusy] = useState<string | null>(null);
-  const [newDayWeekday, setNewDayWeekday] = useState(1);
-  const [newDayGroup, setNewDayGroup] = useState<DayGroup>("chest");
-
-  const load = () => {
-    setError(null);
-    api<Plan>(`/api/v2/plan${clientId ? `?clientId=${clientId}` : ""}`).then(setPlan).catch(setError);
-  };
-  useEffect(load, [clientId]);
-
-  const edit = async (
-    weekday: number,
-    index: number,
-    action: PlanAction,
-    value?: string,
-    expectName?: string,
-    extra: Partial<PlanEditBody> = {},
-  ): Promise<boolean> => {
-    if (!plan) return false;
-    const key = `${weekday}:${index}:${action}`;
-    setSaving(key); setSaved(null); setActionError(null);
-    try {
-      const result = await api<{ ok: true; days: Plan["days"]; version: string; changes?: Plan["changes"] }>("/api/v2/plan", {
-        method: "POST",
-        headers: { "If-Match": `"${plan.version}"` },
-        idempotencyKey: crypto.randomUUID(),
-        body: typedBody<"editPlan">({ weekday, index, action, clientId: clientId ?? undefined, value, expectName, ...extra }),
-      });
-      setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}) });
-      setSaved(key);
-      return true;
-    } catch (err) {
-      // A 409 here is a stale If-Match version (the plan changed since this copy was loaded) --
-      // recoverable by re-fetching, not a reason to blank the editor out from under the user.
-      setActionError(err);
-      return false;
-    } finally {
-      setSaving(null);
-    }
-  };
-
-  const mutateDay = async (key: string, body: Partial<PlanEditBody>) => {
-    if (!plan) return;
-    setDayBusy(key); setSaved(null); setActionError(null);
-    try {
-      const result = await api<{ ok: true; days: Plan["days"]; version: string; changes?: Plan["changes"] }>("/api/v2/plan", {
-        method: "POST",
-        headers: { "If-Match": `"${plan.version}"` },
-        idempotencyKey: crypto.randomUUID(),
-        body: typedBody<"editPlan">({ ...body, clientId: clientId ?? undefined }),
-      });
-      setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}), ...(key === "fitkit" && plan.kit ? { kit: { equipment: body.equipment ?? plan.kit.equipment, mismatches: 0 } } : {}) });
-      setSaved(key);
-    } catch (err) { setActionError(err); } finally { setDayBusy(null); }
-  };
-  // Only weekdays the plan does not already use -- adding a duplicate is a 409 server-side, so
-  // don't offer it.
-  const usedWeekdays = new Set((plan?.days ?? []).map((d) => d.weekday));
-  const missingWeekdays = [1, 2, 3, 4, 5, 6, 7].filter((w) => !usedWeekdays.has(w));
-  const addDay = () => mutateDay("add", { action: "dayadd", weekday: newDayWeekday, group: newDayGroup });
-  const removeDay = (weekday: number) => mutateDay(`del:${weekday}`, { action: "daydel", weekday });
-
-  const addExercise = async (weekday: number) => {
-    const name = newExercises[weekday]?.trim();
-    if (!name) return;
-    if (await edit(weekday, -1, "add", name)) {
-      setNewExercises((current) => ({ ...current, [weekday]: "" }));
-    }
-  };
-
-  const [mesoBusy, setMesoBusy] = useState(false);
-  const toggleMeso = async (on: boolean) => {
-    if (!plan) return;
-    setMesoBusy(true); setActionError(null);
-    try {
-      await api("/api/v2/plan", {
-        method: "POST",
-        headers: { "If-Match": `"${plan.version}"` },
-        idempotencyKey: crypto.randomUUID(),
-        body: typedBody<"editPlan">({ action: "meso", on, clientId: clientId ?? undefined }),
-      });
-      load();
-    } catch (err) { setActionError(err); } finally { setMesoBusy(false); }
-  };
-
-  const searchCatalog = async (key: string, query: string) => {
-    if (query.trim().length < 2) return;
-    setCatalogBusy(key);
-    try {
-      const result = await api<{ items: Array<{ id: string; name: string; muscle: string }> }>(`/api/v2/plan/catalog?q=${encodeURIComponent(query.trim())}`);
-      setCatalogResults((current) => ({ ...current, [key]: result.items ?? [] }));
-    } catch (err) {
-      setActionError(err);
-    } finally {
-      setCatalogBusy(null);
-    }
-  };
-
-  // Recomputed from the live days, so adding the suggested exercise clears its line straight away.
-  const balance = useMemo(() => planBalance(plan?.days ?? []), [plan?.days]);
-  const fmtSets = (n: number) => (lang === "uk" ? String(n).replace(".", ",") : String(n));
-  const muscleName = (slug: string) => t(lang, `muscle_${slug.replace("-", "_")}` as Key);
-
-  if (error) return <ErrorState lang={lang} error={error} retry={load} />;
-  if (!plan) return <Loading />;
-  if (!plan.days.length) return <Empty title={t(lang, "no_plan_title")} detail={t(lang, "no_plan_detail")} />;
-
-  return <div className="view-stack">
-    <div className="eyebrow">{t(lang, "plan_eyebrow")}</div>
-    <div className="page-title"><h1>{t(lang, "plan_owner_title", { name: plan.owner.name })}</h1><span>{t(lang, "days_count", { n: plan.days.length })}</span></div>
-    {onBack && <button className="text-button" onClick={onBack}>← {t(lang, "nav_role")}</button>}
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "meso_eyebrow")}</span><h2>{plan.mesocycle ? t(lang, `meso_phase_${plan.mesocycle.phase}` as Key) : t(lang, "meso_start_btn")}</h2></div>{plan.mesocycle && <span className="tag">{t(lang, "meso_week", { n: plan.mesocycle.weekInBlock, total: plan.mesocycle.phase === "deload" ? 1 : plan.mesocycle.blockLength })}</span>}</div>
-      {plan.mesocycle ? <>
-        <p className="muted">{t(lang, "meso_target_line", mesoGuidance(plan.mesocycle.phase))}</p>
-        <div className="button-row"><button className="button button-ghost" disabled={mesoBusy} onClick={() => void toggleMeso(false)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_stop_btn")}</button></div>
-      </> : <>
-        <p className="muted">{t(lang, "meso_intro")}</p>
-        <div className="button-row"><button className="button button-primary" disabled={mesoBusy} onClick={() => void toggleMeso(true)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_start_btn")}</button></div>
-      </>}
-    </Card>
-    {plan.changes.length > 0 && <Card tone="muted">
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_changes_eyebrow")}</span><h2>{t(lang, "plan_changes_title")}</h2></div><button className="text-button" onClick={() => setShowChanges((current) => !current)}>{showChanges ? t(lang, "close") : t(lang, "details_arrow")}</button></div>
-      {showChanges && <div className="record-list">{plan.changes.map((change, index) => <div className="record-row" key={`${change.at}-${index}`}>
-        <div><strong>{change.summary}</strong><small>{t(lang, `plan_change_src_${change.source}` as Key)} · {change.at.slice(0, 10)}</small></div>
-      </div>)}</div>}
-    </Card>}
-    {plan.kit && plan.kit.mismatches > 0 && <KitFitCard lang={lang} kit={plan.kit} busy={dayBusy === "fitkit"} onFit={(equipment) => void mutateDay("fitkit", { action: "fitkit", ...(equipment ? { equipment } : {}) })} />}
-    {balance.length > 0 && <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_balance_eyebrow")}</span><h2>{t(lang, "plan_balance_title")}</h2></div></div>
-      <div className="balance-list">{balance.map((issue) => <div className="balance-row" key={`${issue.kind}-${issue.slug}`}>
-        <div>
-          <strong>{muscleName(issue.slug)}</strong>
-          <small>{issue.kind === "imbalance" && issue.other
-            ? t(lang, "plan_balance_imbalance", { weak: fmtSets(issue.sets), strong: fmtSets(issue.other.sets), other: muscleName(issue.other.slug) })
-            : t(lang, "plan_balance_missing")}</small>
-        </div>
-        {issue.suggestion && <button className="button button-ghost" disabled={saving !== null} onClick={() => void edit(issue.suggestion!.weekday, -1, "add", issue.suggestion![lang])}>
-          {saving === `${issue.suggestion.weekday}:-1:add` ? "…" : t(lang, "plan_balance_add", { exercise: issue.suggestion[lang], day: t(lang, WEEKDAY_KEYS[issue.suggestion.weekday - 1]) })}
-        </button>}
-      </div>)}</div>
-      <p className="muted">{t(lang, "plan_balance_hint")}</p>
-    </Card>}
-    <Card tone="muted">
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_days_eyebrow")}</span><h2>{t(lang, "plan_day_add_title")}</h2></div></div>
-      {missingWeekdays.length === 0 ? <p className="muted">{t(lang, "plan_day_week_full")}</p> : <>
-        <div className="form-grid">
-          <label className="form-field"><span>{t(lang, "plan_day_weekday_label")}</span>
-            <select value={newDayWeekday} onChange={(event) => setNewDayWeekday(Number(event.target.value))}>
-              {missingWeekdays.map((w) => <option key={w} value={w}>{t(lang, WEEKDAY_KEYS[w - 1])}</option>)}
-            </select></label>
-          <label className="form-field"><span>{t(lang, "plan_day_group_label")}</span>
-            <select value={newDayGroup} onChange={(event) => setNewDayGroup(event.target.value as DayGroup)}>
-              {DAY_GROUPS.map((g) => <option key={g} value={g}>{t(lang, `plan_day_g_${g}` as Key)}</option>)}
-            </select></label>
-        </div>
-        <div className="button-row"><button className="button button-primary" disabled={dayBusy !== null} onClick={() => void addDay()}>{dayBusy === "add" ? t(lang, "saving_ellipsis") : t(lang, "plan_day_add_btn")}</button></div>
-        <p className="muted">{t(lang, "plan_day_add_hint")}</p>
-      </>}
-    </Card>
-    <p className="muted">{t(lang, "plan_editor_hint")}</p>
-    {onOpenLibrary && clientId === null && <button className="button button-ghost" onClick={onOpenLibrary}>📚 {t(lang, "library_open_btn")}</button>}
-    {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
-    {saved && <div className="save-note">{t(lang, "plan_updated")}</div>}
-    {plan.days.map((day) => <Card key={day.weekday}>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "day_label", { n: day.weekday })}</span><h2>{day.name}</h2></div><span className="tag">{day.muscleGroup}</span>{plan.days.length > 1 && <button className="text-button danger-button" disabled={dayBusy !== null} onClick={() => void removeDay(day.weekday)}>{dayBusy === `del:${day.weekday}` ? "…" : t(lang, "plan_day_remove_btn")}</button>}</div>
-      <div className="plan-list">
-        {day.exercises.map((exercise) => {
-          const base = `${day.weekday}:${exercise.index}`;
-          const weightKey = `${base}:weight`;
-          const setsKey = `${base}:sets`;
-          const swapKey = `${base}:swap`;
-          const videoKey = `${base}:video`;
-          const isSaving = (action: PlanAction) => saving === `${day.weekday}:${exercise.index}:${action}`;
-          const canLink = exercise.index < day.exercises.length - 1;
-          return <div className="plan-row plan-row-edit" key={`${day.weekday}-${exercise.index}-${exercise.name}`}>
-            <span className="exercise-index">{String(exercise.index + 1).padStart(2, "0")}</span>
-            <div>
-              <div className="plan-exercise-title"><strong>{exercise.name}</strong>{exercise.ssGroup && <span className="tag">{t(lang, "plan_superset_label", { group: exercise.ssGroup })}</span>}</div>
-              <small>{exercise.sets} · {exercise.startWeight}{exercise.wmode && ` · ${wmodeLabel(lang, exercise.wmode)}`}</small>
-              {(exercise.technique || exercise.videoUrl) && <div className="plan-reference"><span>{exercise.technique ? `${t(lang, "plan_technique_label")}: ${exercise.technique}` : ""}</span>{exercise.videoUrl && <a href={exercise.videoUrl} target="_blank" rel="noreferrer">{exercise.videoTitle || t(lang, "plan_video_label")}</a>}</div>}
-              <div className="plan-edit-fields">
-                <input aria-label={t(lang, "weight_field_aria", { name: exercise.name })} value={drafts[weightKey] ?? exercise.startWeight} onChange={(event) => setDrafts((current) => ({ ...current, [weightKey]: event.target.value }))} />
-                <button className="button button-ghost" disabled={saving !== null} onClick={() => void edit(day.weekday, exercise.index, "weight", drafts[weightKey] ?? exercise.startWeight, exercise.name)}>{isSaving("weight") ? "…" : saved === weightKey ? t(lang, "saved_label") : t(lang, "weight_label")}</button>
-                <input aria-label={t(lang, "sets_field_aria", { name: exercise.name })} value={drafts[setsKey] ?? exercise.sets} onChange={(event) => setDrafts((current) => ({ ...current, [setsKey]: event.target.value }))} />
-                <button className="button button-ghost" disabled={saving !== null} onClick={() => void edit(day.weekday, exercise.index, "sets", drafts[setsKey] ?? exercise.sets, exercise.name)}>{isSaving("sets") ? "…" : t(lang, "sets_label")}</button>
-              </div>
-              <div className="plan-inline-editor">
-                <input value={swapDrafts[swapKey] ?? ""} maxLength={80} placeholder={t(lang, "plan_swap_ph")} onChange={(event) => setSwapDrafts((current) => ({ ...current, [swapKey]: event.target.value }))} />
-                <button className="button button-ghost" disabled={catalogBusy === swapKey || (swapDrafts[swapKey] ?? "").trim().length < 2} onClick={() => void searchCatalog(swapKey, swapDrafts[swapKey] ?? "")}>{catalogBusy === swapKey ? "…" : t(lang, "plan_catalog_search")}</button>
-                <button className="button button-ghost" disabled={saving !== null || !(swapDrafts[swapKey] ?? "").trim()} onClick={async () => { if (await edit(day.weekday, exercise.index, "swap", swapDrafts[swapKey]?.trim(), exercise.name)) setSwapDrafts((current) => ({ ...current, [swapKey]: "" })); }}>{isSaving("swap") ? "…" : t(lang, "plan_swap_btn")}</button>
-              </div>
-              {catalogResults[swapKey] && <div className="choice-list">{catalogResults[swapKey].length ? catalogResults[swapKey].map((choice) => <button className="choice-button" key={choice.id} onClick={async () => { if (await edit(day.weekday, exercise.index, "swap", choice.name, exercise.name, { catalogId: choice.id })) { setCatalogResults((current) => ({ ...current, [swapKey]: [] })); setSwapDrafts((current) => ({ ...current, [swapKey]: "" })); } }}><strong>{choice.name}</strong><small>{choice.muscle}</small></button>) : <span className="muted">{t(lang, "plan_catalog_empty")}</span>}</div>}
-              <div className="plan-inline-editor">
-                <input value={videoDrafts[videoKey] ?? ""} maxLength={300} placeholder={t(lang, "plan_video_ph")} onChange={(event) => setVideoDrafts((current) => ({ ...current, [videoKey]: event.target.value }))} />
-                <button className="button button-ghost" disabled={saving !== null || !(videoDrafts[videoKey] ?? "").trim()} onClick={async () => { if (await edit(day.weekday, exercise.index, "video", videoDrafts[videoKey]?.trim(), exercise.name)) setVideoDrafts((current) => ({ ...current, [videoKey]: "" })); }}>{isSaving("video") ? "…" : t(lang, "plan_video_save")}</button>
-              </div>
-              <div className="plan-exercise-actions">
-                <button className="text-button" disabled={saving !== null || exercise.index === 0} aria-label={t(lang, "plan_move_up")} onClick={() => void edit(day.weekday, exercise.index, "move", undefined, exercise.name, { dir: "up" })}>↑ {t(lang, "plan_move_up")}</button>
-                <button className="text-button" disabled={saving !== null || exercise.index === day.exercises.length - 1} aria-label={t(lang, "plan_move_down")} onClick={() => void edit(day.weekday, exercise.index, "move", undefined, exercise.name, { dir: "down" })}>↓ {t(lang, "plan_move_down")}</button>
-                {canLink && <button className="text-button" disabled={saving !== null} onClick={() => void edit(day.weekday, exercise.index, "link", undefined, exercise.name)}>{exercise.ssGroup ? t(lang, "plan_unlink_btn") : t(lang, "plan_link_btn")}</button>}
-                <button className="text-button danger-button" disabled={saving !== null} onClick={() => { if (day.exercises.length <= 1) { setActionError(new Error(t(lang, "plan_last_exercise"))); return; } if (window.confirm(t(lang, "plan_delete_confirm"))) void edit(day.weekday, exercise.index, "del", undefined, exercise.name); }}>{t(lang, "plan_delete_btn")}</button>
-              </div>
-            </div>
-          </div>;
-        })}
-      </div>
-      <div className="plan-add-row">
-        <input value={newExercises[day.weekday] ?? ""} maxLength={80} placeholder={t(lang, "plan_add_ph")} onChange={(event) => setNewExercises((current) => ({ ...current, [day.weekday]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") void addExercise(day.weekday); }} />
-        <button className="button button-primary" disabled={saving !== null || !(newExercises[day.weekday] ?? "").trim()} onClick={() => void addExercise(day.weekday)}>{saving === `${day.weekday}:-1:add` ? "…" : t(lang, "plan_add_btn")}</button>
-      </div>
-    </Card>)}
-  </div>;
-}
-
+export const EQUIPMENT_CHOICES: Array<[NonNullable<PlanEditBody["equipment"]>, Key]> = [["full gym", "equip_full_gym"], ["home basics (dumbbells, bands)", "equip_home_basics"], ["dumbbells only", "equip_dumbbells_only"], ["bodyweight only", "equip_bodyweight_only"]];
 function RoleView({ dashboard, lang, onOpenPlan }: { dashboard: Dashboard; lang: Lang; onOpenPlan: (clientId?: number) => void }) {
   return <Suspense fallback={<Loading />}><WorkspaceView dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} /></Suspense>;
 }
@@ -415,7 +159,7 @@ function photoQuery(): string {
   return window.location.search.replace(/^\?/, "&");
 }
 
-function photoUrl(id: number): string {
+export function photoUrl(id: number): string {
   return `/api/v2/photo?id=${id}${photoQuery()}`;
 }
 
@@ -423,7 +167,7 @@ function photoUrl(id: number): string {
  * multipart FormData upload (the browser needs to set its own boundary) -- so the two
  * image-upload endpoints (weekcard/photocompare) go through this instead, mirroring api()'s
  * auth/envelope handling but never touching Content-Type. */
-async function apiUpload(path: string, form: FormData): Promise<{ ok: boolean }> {
+export async function apiUpload(path: string, form: FormData): Promise<{ ok: boolean }> {
   const requestHeaders = new Headers();
   const initData = window.Telegram?.WebApp?.initData ?? "";
   if (initData) requestHeaders.set("Authorization", `tma ${initData}`);
@@ -451,7 +195,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 /** Side-by-side before/after canvas, matching the legacy vanilla webapp's photo-compare intent
  * (client composes the image; the bot has no server-side rendering) -- normalized to a common
  * height so two differently-cropped photos still line up. */
-async function composeCompare(urlA: string, urlB: string): Promise<Blob | null> {
+export async function composeCompare(urlA: string, urlB: string): Promise<Blob | null> {
   const [a, b] = await Promise.all([loadImage(urlA), loadImage(urlB)]);
   const h = 900;
   const wA = Math.round((a.width / a.height) * h);
@@ -471,7 +215,7 @@ async function composeCompare(urlA: string, urlB: string): Promise<Blob | null> 
 /** Canvas-rendered week-card PNG (same numbers as the text card /api/v2/weekcard already
  * returns) -- pushed to the viewer's own Telegram chat afterward, the same "webview can't offer
  * a file download" workaround every other export in this app uses. */
-function drawWeekCard(lang: Lang, stats: NonNullable<WeekCardResponse["stats"]>, name: string): HTMLCanvasElement {
+export function drawWeekCard(lang: Lang, stats: NonNullable<WeekCardResponse["stats"]>, name: string): HTMLCanvasElement {
   const W = 900;
   const H = 1180;
   const canvas = document.createElement("canvas");
@@ -521,286 +265,7 @@ function drawWeekCard(lang: Lang, stats: NonNullable<WeekCardResponse["stats"]>,
   return canvas;
 }
 
-function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Dashboard["viewer"]["role"]; onOpenLibrary: () => void }) {
-  // week card
-  const [week, setWeek] = useState<WeekCardResponse | null>(null);
-  const [weekError, setWeekError] = useState<unknown>(null);
-  const [weekBusy, setWeekBusy] = useState(false);
-  const [weekSent, setWeekSent] = useState(false);
-  const [weekCanvasUrl, setWeekCanvasUrl] = useState<string | null>(null);
-  const [weekBlob, setWeekBlob] = useState<Blob | null>(null);
-  const loadWeek = () => { setWeekError(null); api<WeekCardResponse>("/api/v2/weekcard").then(setWeek).catch(setWeekError); };
-  useEffect(loadWeek, []);
-  const generateWeekCard = () => {
-    if (!week?.stats) return;
-    const canvas = drawWeekCard(lang, week.stats, week.name);
-    canvas.toBlob((blob) => { if (!blob) return; setWeekBlob(blob); setWeekCanvasUrl(URL.createObjectURL(blob)); });
-  };
-  const sendWeekCard = async () => {
-    if (!weekBlob) return;
-    setWeekBusy(true); setWeekSent(false);
-    try {
-      const form = new FormData();
-      form.append("photo", weekBlob, "weekcard.png");
-      await apiUpload("/api/v2/weekcard", form);
-      setWeekSent(true);
-    } catch (err) { setWeekError(err); } finally { setWeekBusy(false); }
-  };
-
-  // photo compare + invite (both ride the same /api/v2/profile GET this view already fetches
-  // for photos -- self-scoped, unlike /api/v2/weekcard's clientId-delegatable response, which is
-  // why the referral link lives here and not on the week-card fetch).
-  const [photos, setPhotos] = useState<ProfilePhoto[] | null>(null);
-  const [photosError, setPhotosError] = useState<unknown>(null);
-  const [referral, setReferral] = useState<{ referralLink: string; referredCount: number } | null>(null);
-  const loadPhotos = () => { setPhotosError(null); api<{ photos: ProfilePhoto[]; referralLink: string; referredCount: number }>("/api/v2/profile").then((data) => { setPhotos(data.photos); setReferral({ referralLink: data.referralLink, referredCount: data.referredCount }); }).catch(setPhotosError); };
-  useEffect(loadPhotos, []);
-  const [inviteCopied, setInviteCopied] = useState(false);
-  const copyInviteLink = () => {
-    if (!referral?.referralLink) return;
-    navigator.clipboard?.writeText(referral.referralLink).then(() => { setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2500); }).catch(() => {});
-  };
-  const [fromId, setFromId] = useState<number | null>(null);
-  const [toId, setToId] = useState<number | null>(null);
-  const [compareBusy, setCompareBusy] = useState(false);
-  const [compareSent, setCompareSent] = useState(false);
-  const [compareError, setCompareError] = useState<unknown>(null);
-  const sendCompare = async () => {
-    if (!photos || fromId == null || toId == null) return;
-    const a = photos.find((p) => p.id === fromId);
-    const b = photos.find((p) => p.id === toId);
-    if (!a || !b) return;
-    setCompareBusy(true); setCompareSent(false); setCompareError(null);
-    try {
-      const blob = await composeCompare(photoUrl(fromId), photoUrl(toId));
-      if (!blob) throw new Error("compose failed");
-      const form = new FormData();
-      form.append("photo", blob, "progress.png");
-      form.append("from", a.takenAt);
-      form.append("to", b.takenAt);
-      await apiUpload("/api/v2/photocompare", form);
-      setCompareSent(true);
-    } catch (err) { setCompareError(err); } finally { setCompareBusy(false); }
-  };
-
-  // plates calculator
-  const [platesKg, setPlatesKg] = useState("");
-  const [plates, setPlates] = useState<PlatesResponse | null>(null);
-  const [platesBusy, setPlatesBusy] = useState(false);
-  const calcPlates = async () => {
-    const kg = Number(platesKg);
-    if (!Number.isFinite(kg) || kg <= 0) return;
-    setPlatesBusy(true);
-    try { setPlates(await api<PlatesResponse>(`/api/v2/plates?kg=${kg}`)); } catch { setPlates(null); } finally { setPlatesBusy(false); }
-  };
-
-  // program library
-  const [library, setLibrary] = useState<LibraryResponse | null>(null);
-  const [libraryError, setLibraryError] = useState<unknown>(null);
-  const loadLibrary = () => { setLibraryError(null); api<LibraryResponse>("/api/v2/library").then(setLibrary).catch(setLibraryError); };
-  useEffect(loadLibrary, []);
-  const [takingCode, setTakingCode] = useState<string | null>(null);
-  const [takenName, setTakenName] = useState<string | null>(null);
-  const takeProgram = async (program: LibraryProgram) => {
-    setTakingCode(program.code); setTakenName(null);
-    try { await api("/api/v2/library", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"takeLibraryProgram">({ code: program.code }) }); setTakenName(program.name); }
-    catch (err) { setLibraryError(err); } finally { setTakingCode(null); }
-  };
-
-  // find a trainer (send a join request by trainer id -- there is no public trainer directory
-  // in this product; see src/features/trainer/trainer.ts's openFindTrainer comment. This reuses
-  // the exact same request record extrasApi.ts's /api/trainers already creates via createRequest,
-  // the same one the trainer's own Requests inbox accepts/declines)
-  const [trainerId, setTrainerId] = useState("");
-  const [trainerNote, setTrainerNote] = useState("");
-  const [trainerBusy, setTrainerBusy] = useState(false);
-  const [trainerSent, setTrainerSent] = useState(false);
-  const [trainerError, setTrainerError] = useState<unknown>(null);
-  const sendTrainerRequest = async () => {
-    const id = Number(trainerId);
-    if (!Number.isFinite(id) || id <= 0) return;
-    setTrainerBusy(true); setTrainerError(null); setTrainerSent(false);
-    try {
-      await api("/api/v2/trainers", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"requestTrainer">({ trainerId: id, ...(trainerNote.trim() ? { note: trainerNote.trim() } : {}) }) });
-      setTrainerSent(true); setTrainerId(""); setTrainerNote("");
-    } catch (err) { setTrainerError(err); } finally { setTrainerBusy(false); }
-  };
-
-  // become a trainer -- reuses the exact same /api/v2/trainer/profile POST the bot's own
-  // trainer-profile wizard and TrainerProfilePanel (Workspace.tsx) use: when the caller has no
-  // v2_trainers row yet, extrasApi.ts's handler treats the same body as a NEW application
-  // (applyTrainer, pending owner approval) instead of an edit. TrainerProfilePanel itself isn't
-  // reachable here -- it only renders inside TrainerWorkspace, which is gated to role==="trainer"
-  // already, so a solo user applying for the first time could never reach it. The same GET also
-  // tells an applicant where they stand: without it, a pending application looked identical to
-  // never having applied (the form just reappeared blank on every open).
-  const [trainerApp, setTrainerApp] = useState<TrainerProfile | null | undefined>(undefined);
-  const [becomeName, setBecomeName] = useState("");
-  const [becomeSpecialization, setBecomeSpecialization] = useState("");
-  const [becomeCity, setBecomeCity] = useState("");
-  const [becomeContact, setBecomeContact] = useState("");
-  const [becomeBio, setBecomeBio] = useState("");
-  const [becomeBusy, setBecomeBusy] = useState(false);
-  const [becomeSent, setBecomeSent] = useState(false);
-  const [becomeError, setBecomeError] = useState<unknown>(null);
-  const loadTrainerApp = () => {
-    api<{ trainer: TrainerProfile | null }>("/api/v2/trainer/profile").then((data) => {
-      setTrainerApp(data.trainer);
-      if (!data.trainer) return;
-      setBecomeName(data.trainer.name); setBecomeSpecialization(data.trainer.specialization);
-      setBecomeCity(data.trainer.city); setBecomeContact(data.trainer.contact); setBecomeBio(data.trainer.bio);
-    }).catch(() => setTrainerApp(null));
-  };
-  useEffect(loadTrainerApp, []);
-  const applyAsTrainer = async () => {
-    if (!becomeName.trim()) return;
-    setBecomeBusy(true); setBecomeError(null); setBecomeSent(false);
-    try {
-      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateTrainerProfile">({ name: becomeName.trim(), specialization: becomeSpecialization.trim(), city: becomeCity.trim(), contact: becomeContact.trim(), bio: becomeBio.trim() }) });
-      setBecomeSent(true);
-      loadTrainerApp();
-    } catch (err) { setBecomeError(err); } finally { setBecomeBusy(false); }
-  };
-
-  // squads
-  // /api/v2/whatsnew was registered in v2Api.ts but nothing ever called it -- the release note
-  // was reachable only through the bot's /whatsnew command. It's Telegram-HTML, so it's stripped
-  // to plain text the same way the owner report is.
-  const [whatsnew, setWhatsnew] = useState<{ version: string; html: string; text?: string } | null>(null);
-  useEffect(() => { api<{ version: string; html: string; text?: string }>("/api/v2/whatsnew").then(setWhatsnew).catch(() => setWhatsnew(null)); }, []);
-
-  const [squads, setSquads] = useState<SquadInfo[] | null>(null);
-  const [squadsError, setSquadsError] = useState<unknown>(null);
-  const loadSquads = () => { setSquadsError(null); api<{ squads: SquadInfo[] }>("/api/v2/squads").then((data) => setSquads(data.squads)).catch(setSquadsError); };
-  useEffect(loadSquads, []);
-
-  return <div className="view-stack">
-    <div className="eyebrow">{t(lang, "extras_eyebrow")}</div>
-    <div className="page-title"><h1>{t(lang, "extras_title")}</h1></div>
-
-    <Card tone="accent">
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "exlib_eyebrow")}</span><h2>{t(lang, "library_card_title")}</h2></div><span className="action-arrow">📚</span></div>
-      <p>{t(lang, "library_card_body")}</p>
-      <div className="button-row"><button className="button button-light" onClick={onOpenLibrary}>{t(lang, "library_open_btn")}</button></div>
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "weekcard_eyebrow")}</span><h2>{t(lang, "weekcard_title")}</h2></div></div>
-      {weekError !== null ? <ErrorState lang={lang} error={weekError} retry={loadWeek} /> : !week ? <div className="skeleton" /> : !week.stats ? <Empty title={t(lang, "weekcard_empty_title")} detail={t(lang, "weekcard_empty_detail")} /> : <>
-        <p className="muted">{week.stats.since.slice(5)} → {week.stats.until.slice(5)}</p>
-        <div className="metric-grid compact">
-          <Metric label={t(lang, "weekcard_workouts")} value={week.stats.planned ? `${week.stats.done}/${week.stats.planned}` : `${week.stats.done}`} />
-          <Metric label={t(lang, "weekcard_sets")} value={`${week.stats.totalSets}`} />
-          <Metric label={t(lang, "weekcard_volume")} value={`${formatNumber(week.stats.volumeKg)} kg`} />
-        </div>
-        <div className="metric-grid compact">
-          <Metric label={t(lang, "metric_streak")} value={`${week.stats.streak}`} />
-          <Metric label={t(lang, "weekcard_level")} value={`${week.stats.level}`} detail={`${week.stats.xp} XP`} />
-          {week.stats.prs > 0 && <Metric label={t(lang, "weekcard_prs")} value={`${week.stats.prs}`} />}
-        </div>
-        <div className="button-row" style={{ marginTop: 12 }}>
-          <button className="button button-ghost" onClick={generateWeekCard}>{t(lang, "weekcard_generate_btn")}</button>
-          {weekCanvasUrl && <button className="button button-primary" disabled={weekBusy} onClick={() => void sendWeekCard()}>{weekBusy ? t(lang, "saving_ellipsis") : t(lang, "weekcard_send_btn")}</button>}
-          <WeekStoryButton lang={lang} stats={week.stats} />
-        </div>
-        {weekCanvasUrl && <img src={weekCanvasUrl} alt="" style={{ marginTop: 10, width: "100%", borderRadius: 12 }} />}
-        {weekSent && <div className="save-note">{t(lang, "weekcard_sent_note")}</div>}
-      </>}
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "invite_eyebrow")}</span><h2>{t(lang, "invite_title")}</h2></div>{referral && referral.referredCount > 0 && <span className="tag">{t(lang, "invite_count", { n: referral.referredCount })}</span>}</div>
-      {!referral ? <div className="skeleton" /> : !referral.referralLink ? null : <>
-        <p className="muted">{t(lang, "invite_detail")}</p>
-        <div className="input-row"><input readOnly value={referral.referralLink} onFocus={(event) => event.target.select()} /><button className="button button-primary" onClick={copyInviteLink}>{inviteCopied ? t(lang, "invite_copied_note") : t(lang, "invite_copy_btn")}</button></div>
-      </>}
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "photocompare_eyebrow")}</span><h2>{t(lang, "photocompare_title")}</h2></div></div>
-      {photosError !== null ? <ErrorState lang={lang} error={photosError} retry={loadPhotos} /> : !photos ? <div className="skeleton" /> : photos.length < 2 ? <Empty title={t(lang, "photocompare_empty_title")} detail={t(lang, "photocompare_need_two")} /> : <>
-        <div className="input-row">
-          <label className="form-field"><span>{t(lang, "photocompare_from_label")}</span><select value={fromId ?? ""} onChange={(event) => setFromId(Number(event.target.value) || null)}><option value="">—</option>{photos.map((p) => <option key={p.id} value={p.id}>{p.takenAt}</option>)}</select></label>
-          <label className="form-field"><span>{t(lang, "photocompare_to_label")}</span><select value={toId ?? ""} onChange={(event) => setToId(Number(event.target.value) || null)}><option value="">—</option>{photos.map((p) => <option key={p.id} value={p.id}>{p.takenAt}</option>)}</select></label>
-        </div>
-        <div className="button-row" style={{ marginTop: 10 }}>
-          <button className="button button-primary" disabled={compareBusy || fromId == null || toId == null || fromId === toId} onClick={() => void sendCompare()}>{compareBusy ? t(lang, "saving_ellipsis") : t(lang, "photocompare_send_btn")}</button>
-        </div>
-        {compareSent && <div className="save-note">{t(lang, "photocompare_sent_note")}</div>}
-        {compareError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
-      </>}
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "plates_eyebrow")}</span><h2>{t(lang, "plates_title")}</h2></div></div>
-      <div className="input-row">
-        <input type="number" inputMode="decimal" value={platesKg} placeholder={t(lang, "plates_kg_ph")} onChange={(event) => setPlatesKg(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void calcPlates(); }} />
-        <button className="button button-ghost" onClick={() => void calcPlates()} disabled={platesBusy}>{platesBusy ? "…" : t(lang, "plates_calc_btn")}</button>
-      </div>
-      {plates && <div style={{ marginTop: 10 }}>
-        {plates.plan ? <p className="muted"><strong>{plates.plan.loaded} kg</strong> · {t(lang, "plates_per_side")}: {plates.plan.perSide.length ? plates.plan.perSide.join(" + ") : "—"}{plates.plan.leftover ? ` · ${t(lang, "plates_leftover", { n: plates.plan.leftover })}` : ""}</p> : null}
-        {plates.ramp.length > 0 && <><p className="muted" style={{ marginTop: 8 }}>{t(lang, "plates_warmup_title")}</p><ul className="factor-list">{plates.ramp.map((w, i) => <li key={i}>{w.weight} kg × {w.reps}{w.pct ? ` (${w.pct}%)` : ""}</li>)}</ul></>}
-      </div>}
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "library_eyebrow")}</span><h2>{t(lang, "library_title")}</h2></div></div>
-      {libraryError !== null ? <ErrorState lang={lang} error={libraryError} retry={loadLibrary} /> : !library ? <div className="skeleton" /> : library.programs.length === 0 ? <Empty title={t(lang, "library_empty_title")} detail={t(lang, "library_empty_detail")} /> : <div className="plan-list">{library.programs.map((p) => <div className="plan-row" key={p.code}><div><strong>{p.name}</strong><small>{t(lang, "library_taken_count", { n: p.takenCount })}</small></div>{library.role !== "client" && <button className="button button-ghost" disabled={takingCode !== null} onClick={() => void takeProgram(p)}>{takingCode === p.code ? "…" : t(lang, "library_take_btn")}</button>}</div>)}</div>}
-      {takenName && <div className="save-note">{t(lang, "library_taken_note", { name: takenName })}</div>}
-    </Card>
-
-    {role === "solo" && <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "trainer_find_eyebrow")}</span><h2>{t(lang, "trainer_find_title")}</h2></div></div>
-      <p className="muted">{t(lang, "trainer_find_detail")}</p>
-      <div className="form-grid">
-        <label className="form-field"><span>{t(lang, "field_trainer_id")}</span><input type="number" value={trainerId} onChange={(event) => setTrainerId(event.target.value)} /></label>
-        <label className="form-field"><span>{t(lang, "field_note_optional")}</span><input value={trainerNote} maxLength={300} onChange={(event) => setTrainerNote(event.target.value)} /></label>
-      </div>
-      <div className="button-row" style={{ marginTop: 10 }}>
-        <button className="button button-primary" disabled={trainerBusy || !trainerId.trim()} onClick={() => void sendTrainerRequest()}>{trainerBusy ? t(lang, "saving_ellipsis") : t(lang, "trainer_request_btn")}</button>
-      </div>
-      {trainerSent && <div className="save-note">{t(lang, "trainer_request_sent_note")}</div>}
-      {trainerError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
-    </Card>}
-
-    {whatsnew && <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "whatsnew_eyebrow")}</span><h2>{t(lang, "whatsnew_title")}</h2></div><span className="tag">{t(lang, "whatsnew_version", { v: whatsnew.version })}</span></div>
-      {whatsnew.text ? <ReleaseItems text={whatsnew.text} /> : <pre className="owner-report">{whatsnew.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")}</pre>}
-    </Card>}
-
-    {trainerApp !== undefined && (trainerApp !== null || role === "solo") && <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "become_trainer_eyebrow")}</span><h2>{trainerApp ? t(lang, "trainer_profile_edit_title") : t(lang, "become_trainer_title")}</h2></div>{trainerApp && <span className="tag">{t(lang, "trainer_clients_count", { n: trainerApp.clients })}</span>}</div>
-      {becomeSent && !trainerApp ? <p className="muted">{t(lang, "become_trainer_pending_note")}</p> : <>
-        {trainerApp ? <p className="muted"><strong>{t(lang, `trainer_status_${trainerApp.status}_title` as Key)}</strong> — {t(lang, `trainer_status_${trainerApp.status}_body` as Key)}</p> : <p className="muted">{t(lang, "become_trainer_detail")}</p>}
-        <div className="form-grid">
-          <label className="form-field"><span>{t(lang, "field_name")}</span><input value={becomeName} maxLength={60} onChange={(event) => setBecomeName(event.target.value)} /></label>
-          <label className="form-field"><span>{t(lang, "field_specialization")}</span><input value={becomeSpecialization} maxLength={120} onChange={(event) => setBecomeSpecialization(event.target.value)} /></label>
-          <label className="form-field"><span>{t(lang, "field_city")}</span><input value={becomeCity} maxLength={60} onChange={(event) => setBecomeCity(event.target.value)} /></label>
-          <label className="form-field"><span>{t(lang, "field_contact")}</span><input value={becomeContact} maxLength={120} onChange={(event) => setBecomeContact(event.target.value)} /></label>
-        </div>
-        <label className="form-field"><span>{t(lang, "field_bio")}</span><textarea value={becomeBio} maxLength={600} onChange={(event) => setBecomeBio(event.target.value)} /></label>
-        <div className="button-row" style={{ marginTop: 10 }}>
-          <button className="button button-primary" disabled={becomeBusy || !becomeName.trim()} onClick={() => void applyAsTrainer()}>{becomeBusy ? t(lang, "saving_ellipsis") : t(lang, trainerApp ? "save_profile_btn" : "become_trainer_btn")}</button>
-        </div>
-        {becomeSent && trainerApp && <div className="save-note">{t(lang, "profile_updated_note")}</div>}
-        {becomeError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
-      </>}
-    </Card>}
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "squads_eyebrow")}</span><h2>{t(lang, "squads_title")}</h2></div></div>
-      {squadsError !== null ? <ErrorState lang={lang} error={squadsError} retry={loadSquads} /> : !squads ? <div className="skeleton" /> : squads.length === 0 ? <Empty title={t(lang, "squads_empty_title")} detail={t(lang, "squads_empty_detail")} /> : squads.map((s, i) => <div key={i} style={{ marginBottom: i < squads.length - 1 ? 18 : 0 }}>
-        <div className="section-head"><strong>{s.title || t(lang, "squads_default_title")}</strong><span className="tag">{t(lang, "squads_members_count", { n: s.memberCount })}</span></div>
-        <div className="volume-list">{s.entries.map((e) => <div className="volume-row" key={e.name}><div><strong>{e.medal} {e.name}</strong>{e.me && <small>{t(lang, "you_label")}</small>}</div><span>{e.workouts}</span></div>)}</div>
-        <p className="muted" style={{ marginTop: 6 }}>{s.silent > 0 ? t(lang, "squads_silent_hint", { n: s.silent, total: s.total }) : t(lang, "squads_all_in_hint", { total: s.total })}</p>
-      </div>)}
-    </Card>
-    <AppShortcutsCard lang={lang} />
-    <SupportCard lang={lang} />
-  </div>;
-}
-
-function Loading() { return <div className="view-stack"><div className="skeleton skeleton-hero" /><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div>; }
+export function Loading() { return <div className="view-stack"><div className="skeleton skeleton-hero" /><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div>; }
 
 export function App() {
   const [lang, setLangState] = useState<Lang>(() => {
@@ -814,6 +279,7 @@ export function App() {
   const pullStart = useRef<number | null>(null);
   const loadDashboard = () => { setLoading(true); setError(null); api<Dashboard>("/api/v2/dashboard").then((data) => { registerLearnedMuscles(data.calendar?.learnedMuscles ?? []); setDashboard(data); setLang(data.lang); try { localStorage.setItem("trix:v2:dashboard", JSON.stringify(data)); } catch { /* cache is optional */ } }).catch(setError).finally(() => setLoading(false)); };
   useEffect(() => { try { const cached = localStorage.getItem("trix:v2:dashboard"); if (cached) { const data = JSON.parse(cached) as Dashboard; if (data?.viewer && data?.today) { registerLearnedMuscles(data.calendar?.learnedMuscles ?? []); setDashboard(data); setLang(data.lang); setLoading(false); } } } catch { try { localStorage.removeItem("trix:v2:dashboard"); } catch { /* storage is optional */ } } loadDashboard(); }, []);
+  useEffect(() => { const id = setTimeout(() => { void loadTrainView().catch(() => {}); }, 1200); return () => clearTimeout(id); }, []);
   useEffect(() => { const scheme = window.Telegram?.WebApp?.colorScheme; if (scheme) document.documentElement.dataset.theme = scheme; }, []);
   useEffect(() => { const handler = (event: MouseEvent) => { if ((event.target as HTMLElement).closest("button")) window.Telegram?.WebApp.HapticFeedback?.impactOccurred("light"); }; document.addEventListener("click", handler); return () => document.removeEventListener("click", handler); }, []);
   useEffect(() => { const back = window.Telegram?.WebApp.BackButton; if (!back) return; if (view === "today") { back.hide(); return; } const handler = () => setView("today"); back.show(); back.onClick(handler); return () => back.offClick(handler); }, [view]);
@@ -826,5 +292,5 @@ export function App() {
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => { if (window.scrollY === 0) pullStart.current = event.touches[0]?.clientY ?? null; };
   const onTouchEnd = (event: React.TouchEvent<HTMLElement>) => { const start = pullStart.current; pullStart.current = null; const end = event.changedTouches[0]?.clientY ?? 0; if (start !== null && end - start > 72 && !loading) loadDashboard(); };
   const openPlan = (clientId?: number) => { setPlanClientId(clientId ?? null); setView("plan"); };
-  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><InboxBell lang={lang} open={view === "inbox"} onOpen={() => setView("inbox")} /><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content"><OfflineSync lang={lang} />{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onReload={loadDashboard} />}{view === "train" && <TrainView lang={lang} gamification={dashboard.gamification} />}{view === "plan" && <PlanView lang={lang} clientId={planClientId} onOpenLibrary={() => setView("library")} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} />}{view === "fuel" && <Suspense fallback={<Loading />}><FuelView lang={lang} /></Suspense>}{view === "progress" && <Suspense fallback={<Loading />}><ProgressView dashboard={dashboard} lang={lang} /></Suspense>}{view === "more" && <ExtrasView lang={lang} role={dashboard.viewer.role} onOpenLibrary={() => setView("library")} />}{view === "library" && <Suspense fallback={<Loading />}><LibraryView lang={lang} onBack={() => setView("more")} /></Suspense>}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "inbox" && <InboxView lang={lang} onBack={() => setView("today")} onGo={(target) => setView(target)} />}{view === "settings" && <Suspense fallback={<Loading />}><ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} /></Suspense>}</div>{dashboard.badges && <BadgeCelebration lang={lang} badges={dashboard.badges} />}<nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
+  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><InboxBell lang={lang} open={view === "inbox"} onOpen={() => setView("inbox")} /><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content"><OfflineSync lang={lang} />{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onReload={loadDashboard} />}{view === "train" && <Suspense fallback={<Loading />}><TrainView lang={lang} gamification={dashboard.gamification} /></Suspense>}{view === "plan" && <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={planClientId} onOpenLibrary={() => setView("library")} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} /></Suspense>}{view === "fuel" && <Suspense fallback={<Loading />}><FuelView lang={lang} /></Suspense>}{view === "progress" && <Suspense fallback={<Loading />}><ProgressView dashboard={dashboard} lang={lang} /></Suspense>}{view === "more" && <Suspense fallback={<Loading />}><ExtrasView lang={lang} role={dashboard.viewer.role} onOpenLibrary={() => setView("library")} /></Suspense>}{view === "library" && <Suspense fallback={<Loading />}><LibraryView lang={lang} onBack={() => setView("more")} /></Suspense>}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "inbox" && <InboxView lang={lang} onBack={() => setView("today")} onGo={(target) => setView(target)} />}{view === "settings" && <Suspense fallback={<Loading />}><ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} /></Suspense>}</div>{dashboard.badges && <BadgeCelebration lang={lang} badges={dashboard.badges} />}<nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
 }
