@@ -5,6 +5,7 @@
 // this exists for design consistency with the other two DO types, not because it fixes a
 // problem specific to these jobs. Same dry-run posture as the others: runs the real
 // runGlobalJobs (scheduler.ts) against a shadowed D1 and a logging Sender.
+import { loadLearnedMuscles } from "../exerciseMuscleLearning";
 import { Bot } from "grammy";
 import { logSchedulerError, runGlobalJobs, type Sender } from "../scheduler";
 import { isCutOver } from "./cutover";
@@ -49,6 +50,7 @@ export class GlobalSchedulerDO {
   // Thin wrapper so logInfo's Analytics Engine write (src/log.ts) has this.env to reach for --
   // the DO's own alarm() never went through runWithRequestId the way fetch()/scheduled() do.
   async alarm(): Promise<void> {
+    await loadLearnedMuscles(this.env.DB).catch(() => {}); // the digest and quests count learned exercises too
     return runWithRequestId(crypto.randomUUID(), this.env, () => this.runAlarm());
   }
 

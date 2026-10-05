@@ -263,7 +263,7 @@ paths:
                 name: {type: string, minLength: 2, maxLength: 200}
       responses:
         '200':
-          description: Custom exercise
+          description: The exercise, its technique video when one is found, and the muscles it trains (learned once from the catalog or AI when the name is new)
           content:
             application/json:
               schema:
@@ -274,7 +274,16 @@ paths:
                     data:
                       type: object
                       properties:
-                        ok: {const: true}
+                        name: {type: string}
+                        videoUrl: {type: string}
+                        videoTitle: {type: string}
+                        muscles:
+                          type: object
+                          properties:
+                            primary: {type: array, items: {type: string}}
+                            secondary: {type: array, items: {type: string}}
+                          required: [primary, secondary]
+                      required: [name]
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/workout/draft:
@@ -2541,6 +2550,16 @@ components:
                         s: {type: integer}
                       required: [n, s]
                 required: [date, done, ex]
+            learnedMuscles:
+              type: array
+              description: Muscles for logged exercise names the body map's rules don't recognise (learned once from the catalog or AI); the app adds them to its muscle lookup.
+              items:
+                type: object
+                properties:
+                  name: {type: string}
+                  primary: {type: array, items: {type: string}}
+                  secondary: {type: array, items: {type: string}}
+                required: [name, primary, secondary]
           required: [days, split, logs]
         whatsnew:
           type: object

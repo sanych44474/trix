@@ -2,6 +2,7 @@ import type { Update } from "grammy/types";
 export { UserSchedulerDO } from "./durable/userScheduler";
 export { SquadSchedulerDO } from "./durable/squadScheduler";
 export { GlobalSchedulerDO } from "./durable/globalScheduler";
+import { loadLearnedMuscles } from "./exerciseMuscleLearning";
 import { createBot, buildOwnerMetrics, buildPlanDocRaw, ownerUsersData, pingIncompleteOnboarding } from "./bot";
 import { checkCronHeartbeat, runSchedule } from "./scheduler";
 import { activityRaw } from "./adapters/d1/activityMetrics";
@@ -326,6 +327,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const reqId = crypto.randomUUID();
+    await loadLearnedMuscles(env.DB).catch(() => {}); // cached per isolate (exerciseMuscleLearning.ts)
     const start = Date.now();
     return runWithRequestId(reqId, env, async () => {
       const url = new URL(req.url);
@@ -345,6 +347,7 @@ export default {
 
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const reqId = crypto.randomUUID();
+    await loadLearnedMuscles(env.DB).catch(() => {});
     ctx.waitUntil(
       runWithRequestId(reqId, env, async () => {
         const start = Date.now();

@@ -6,6 +6,7 @@
 // file — now lives in src/adapters/d1/dashboardReader.ts, the concrete v2-native adapter for the
 // `DashboardReader` application seam (src/application/dashboard.ts, Domain 10 of the v2 cutover —
 // see docs/adr/0001-v2-seams-and-staged-cutover.md). This file has no D1 access at all.
+import { knownByRules, musclesForExercise } from "../domain/exerciseMuscles";
 import { releaseDueInApp } from "../domain/releaseDelivery";
 import { latestRelease } from "../releaseNotes";
 import { projectWeight, weeklyVolume } from "../domain/analysis";
@@ -45,6 +46,9 @@ export interface DashboardPayload {
     plannedWeekdays: number[]; // ISO 1..7 — lets the client mark FUTURE training days
     split: { weekday: number; group: string; n: number }[]; // plan day summaries for the day card
     logs: { date: string; done: boolean; ex: { n: string; s: number }[] }[]; // what was actually done that day
+    // Muscles for logged names the body map's rules don't know (exerciseMuscleLearning.ts); the
+    // app registers them into the same lookup before drawing the map.
+    learnedMuscles?: { name: string; primary: string[]; secondary: string[] }[];
   };
   volume: { group: string; sets: number; mev: number; mav: number; zone: string }[];
   // Today's planned muscles are still recovering and a later plan day's are ready: offer to swap
@@ -171,6 +175,10 @@ export function assemblePayload(
 
   // Weekly volume vs MEV/MAV (last 7 days of completed sets).
   const volume = weeklyVolume(workouts, isoDaysBefore(today, 6)).map((v) => ({ ...v }));
+  // Logged names only the learned table knows (registered at request start, exerciseMuscleLearning.ts).
+  const learnedMuscles = [...new Set(workouts.flatMap((w) => w.exercises.map((e) => e.name)))]
+    .filter((n) => !knownByRules(n))
+    .flatMap((n) => { const m = musclesForExercise(n); return m ? [{ name: n, primary: [...m.primary], secondary: [...m.secondary] }] : []; });
   const release = latestRelease();
   const swap = recoverySwapFor(plan, workouts, today, isoWeekdayOf(today));
   const cw = conditioningWeek(workouts, isoDaysBefore(today, 6));
@@ -264,6 +272,7 @@ export function assemblePayload(
             .slice(0, 10)
             .map((e) => ({ n: e.name, s: e.setsDone.length })),
         })),
+      ...(learnedMuscles.length ? { learnedMuscles } : {}),
     },
     volume,
     ...(swap ? { recoverySwap: swap } : {}),

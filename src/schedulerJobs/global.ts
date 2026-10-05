@@ -1,5 +1,6 @@
 // Account-wide scheduler jobs (owner alerts, leaderboard cache, pruning, metrics rollup,
 // stale drafts, AI model watch) and the cron dead-man switch. Split out of scheduler.ts.
+import { learnUnknownExercises } from "../exerciseMuscleLearning";
 import { rollupDailyMetrics } from "../dailyMetricsRollup";
 import { sweepStaleDrafts } from "../staleDrafts";
 import { weeklyModelCheck } from "../aiModelWatch";
@@ -41,6 +42,8 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
   if (env) {
     await weeklyModelCheck(env, (chatId, text) => bot.api.sendMessage(chatId, text, { parse_mode: "HTML" }))
       .catch((e) => logSchedulerError(db, "ai_model_check", e));
+    // Muscles for exercise names the body map doesn't know yet (exerciseMuscleLearning.ts).
+    await learnUnknownExercises(env).catch((e) => logSchedulerError(db, "exercise_muscles", e));
   }
 
   // AI-error stats are no longer auto-pushed (the every-minute cron + minute<5 window sent the
