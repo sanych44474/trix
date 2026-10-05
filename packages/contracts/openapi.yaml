@@ -1978,6 +1978,16 @@ paths:
               required: [question]
               properties:
                 question: {type: string, minLength: 1, maxLength: 500}
+                history:
+                  type: array
+                  maxItems: 6
+                  description: The last turns of this chat, for the coach's short memory (solo/trainer only).
+                  items:
+                    type: object
+                    required: [role, text]
+                    properties:
+                      role: {type: string, enum: [user, coach]}
+                      text: {type: string, maxLength: 1500}
       responses:
         '200':
           description: Direct answer
@@ -1994,9 +2004,47 @@ paths:
                       properties:
                         answer: {type: string}
                         routed: {type: boolean}
+                        actions:
+                          type: array
+                          description: Plan edits / feedback the app can apply (domain/coachActions miniAppCoachActions).
+                          items: {$ref: '#/components/schemas/CoachAction'}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/coach/feedback:
+    post:
+      operationId: sendCoachFeedback
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      description: The coach's "send to the team" button -- stores the feedback and forwards the AI summary plus the user's own message to the owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [summary]
+              properties:
+                summary: {type: string, minLength: 2, maxLength: 600}
+                original: {type: string, maxLength: 1000}
+      responses:
+        '200':
+          description: Stored
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/coach/thread:
     get:
       operationId: getCoachThread
@@ -2204,6 +2252,17 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   schemas:
+    CoachAction:
+      type: object
+      required: [label, kind]
+      properties:
+        label: {type: string}
+        kind: {type: string, enum: [add, delete, swap, weight, sets, harder, easier, feedback, none]}
+        weekday: {type: integer}
+        index: {type: integer}
+        exercise: {type: string}
+        value: {type: string}
+        note: {type: string}
     Envelope:
       type: object
       required: [data]

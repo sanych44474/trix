@@ -35,7 +35,7 @@ import { addExerciseByName, adjustDifficulty, deleteExerciseFromToday, menuBtn, 
 // self-coaching, or the managed client when a trainer is editing that client's plan (see
 // handleCoach, which resolves it via planOwnerId). Everything here reads from `owner`, not
 // `ctx.user`, so a trainer coaching a client gets THAT client's data, not their own.
-export async function coachContext(ctx: MyContext, owner: UserDoc): Promise<string> {
+export async function coachContext(ctx: { db: D1Database }, owner: UserDoc): Promise<string> {
   // Plan and recent logs are independent reads — fetch them together.
   const { date } = localParts(owner.profile.timezone);
   const [plan, recent, checkin] = await Promise.all([

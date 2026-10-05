@@ -69,3 +69,20 @@ export function validateCoachActionForApply(raw: unknown, callbackKind: string):
   validateActionSemantics(result.data, "action");
   return result.data;
 }
+
+/** The coach actions the Mini App can apply itself (through its plan editor, /api/v2/plan, and
+ *  the coach feedback route): concrete edits with every field they need. "harder"/"easier" and
+ *  a swap without a named replacement need the bot's pickers, so they're left out there. The
+ *  user's own message rides on a feedback action as its `note` (never the model's). */
+export function miniAppCoachActions(actions: CoachAction[] | undefined, userText: string): CoachAction[] {
+  return (actions ?? [])
+    .filter((a) => {
+      if (a.kind === "weight" || a.kind === "sets") return a.weekday !== undefined && a.index !== undefined && !!a.value;
+      if (a.kind === "delete") return a.weekday !== undefined && a.index !== undefined;
+      if (a.kind === "swap") return a.weekday !== undefined && a.index !== undefined && !!a.exercise;
+      if (a.kind === "add") return a.weekday !== undefined && !!a.exercise;
+      return a.kind === "feedback" && !!a.value;
+    })
+    .slice(0, 4)
+    .map((a) => (a.kind === "feedback" ? { ...a, note: userText.slice(0, 1000) } : a));
+}

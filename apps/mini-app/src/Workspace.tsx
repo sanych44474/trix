@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "./api";
 import { TrainerInviteCard } from "./TrainerInvite";
 import { FirstClientChecklist } from "./FirstClient";
+import { CoachChat } from "./CoachChat";
 import { OwnerRoster, type RosterAction } from "./OwnerRoster";
 import type { ClientCardPayload, CoachThread, Dashboard, FinancePayload, InjuryPayload, OwnerUsers, RequestBody, SchedulePayload, TrainerProfile } from "./types";
 import { t, type Key, type Lang } from "./i18n";
@@ -424,13 +425,14 @@ function AiCoachView({ lang, onBack, routed }: { lang: Lang; onBack: () => void;
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, routed ? "ask_trainer_eyebrow" : "ai_coach_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, routed ? "ask_trainer_title" : "ai_coach_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
-    <Panel>
+    {!routed && <Panel><CoachChat lang={lang} /></Panel>}
+    {routed && <Panel>
       {routed && <p className="muted">{t(lang, "ask_trainer_detail", { name: thread?.trainer?.name || t(lang, "your_trainer_fallback") })}</p>}
       <label className="form-field"><span>{t(lang, routed ? "ask_trainer_question_label" : "ai_coach_question_label")}</span><textarea value={question} maxLength={500} placeholder={t(lang, "ai_coach_ph")} onChange={(event) => setQuestion(event.target.value)} /></label>
       <div className="button-row"><button className="button button-primary" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? t(lang, "saving_ellipsis") : t(lang, routed ? "ask_trainer_send_btn" : "ai_coach_ask_btn")}</button></div>
       {sent && <div className="save-note">{t(lang, "ask_trainer_sent_note")}</div>}
       {error && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
-    </Panel>
+    </Panel>}
     {answer !== null && <Panel tone="accent"><div className="section-head"><div><span className="eyebrow">{t(lang, "ai_coach_answer_eyebrow")}</span></div></div><p>{answer}</p></Panel>}
     {routed && thread && (thread.messages.length > 0 || thread.questions.length > 0) && <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "ask_trainer_thread_eyebrow")}</span><h2>{t(lang, "ask_trainer_thread_title")}</h2></div><span className="tag">{t(lang, "n_open", { n: thread.questions.filter((q) => q.status !== "answered").length })}</span></div>

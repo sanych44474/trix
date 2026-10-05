@@ -15,7 +15,12 @@
 // does, so a question asked in the Mini App lands in the trainer's existing q:send/q:own/q:skip
 // keyboard and in their questions panel. This used to 403 the client outright, which left the
 // client role mute in the Mini App: no AI coach, and no way to reach their trainer either.
-import { aiText } from "../ai/index";
+import { aiJSON, aiText } from "../ai/index";
+import * as P from "../ai/prompts";
+import { coachContext } from "../bot/coach";
+import { storeFeedback } from "../bot/feedbackIntake";
+import { miniAppCoachActions, validateCoachEditResult } from "../domain/coachActions";
+import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getRecentContext } from "../adapters/d1/v2Admin";
 import { getUser } from "../adapters/d1/v2Users";
@@ -56,6 +61,23 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
       questions: questions.map((q) => ({ id: q.id, text: q.text, status: q.status, createdAt: q.createdAt.toISOString() })),
       messages: messages.map((m) => ({ fromMe: m.fromId === user._id, text: m.text, createdAt: m.createdAt })),
     }, { headers: { "cache-control": "no-store" } });
+  }
+
+  // The coach's "send to the team" button: the AI summary plus the user's own message, to the
+  // feedback table and the owner (same store as /feedback and the bot coach's button).
+  if (url.pathname === "/api/coach/feedback") {
+    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const b = parsed.body as Record<string, unknown>;
+    const summary = typeof b.summary === "string" ? b.summary.trim().slice(0, 600) : "";
+    const original = typeof b.original === "string" ? b.original.trim().slice(0, 1000) : "";
+    if (summary.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
+    const res = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
+      await storeFeedback(env.DB, (chatId, html) => tgSend(env, chatId, html), { userId: user._id, username: user.username, timezone: user.profile.timezone }, summary, { original });
+      return { status: 200, body: { ok: true } };
+    });
+    return Response.json(res.body, { status: res.status });
   }
 
   if (url.pathname !== "/api/coach/ask") return Response.json({ error: "not found" }, { status: 404 });
@@ -128,13 +150,31 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     return Response.json({ routed: true }, { headers: { "cache-control": "no-store" } });
   }
 
-  const answer = await aiText(env, {
-    system,
-    user: question,
-    temperature: 0.6,
-    kind: "coach",
-    db: env.DB,
-    userId: user._id,
-  }).catch(() => "");
-  return Response.json({ answer: cleanAi(answer).slice(0, 1500) }, { headers: { "cache-control": "no-store" } });
+  // Solo / trainer: the same coach as the bot — full plan & engine context, a short chat memory
+  // the client sends back, and plan-edit / feedback buttons the app can apply itself.
+  const history = (Array.isArray(body.history) ? body.history : [])
+    .slice(-6)
+    .filter((h): h is { role: string; text: string } => !!h && typeof h === "object" && typeof (h as { text?: unknown }).text === "string")
+    .map((h) => `${h.role === "coach" ? "Coach" : "User"}: ${h.text.slice(0, 600)}`);
+  const userMsg = history.length ? `Earlier in this chat:\n${history.join("\n")}\n\nNow: ${question}` : question;
+  try {
+    const result = await aiJSON<P.CoachEditResult>(env, {
+      system: P.coachEditSystem(user.lang, user.profile, await coachContext({ db: env.DB }, user)),
+      user: userMsg,
+      schema: P.COACH_EDIT_SCHEMA,
+      temperature: 0.35,
+      kind: "coach",
+      db: env.DB,
+      userId: user._id,
+      validate: (parsed) => validateCoachEditResult(parsed),
+    });
+    return Response.json(
+      { answer: cleanAi(result.reply).slice(0, 1500), actions: miniAppCoachActions(result.actions, question) },
+      { headers: { "cache-control": "no-store" } },
+    );
+  } catch {
+    // The structured call failed on every provider — still answer in plain text.
+    const answer = await aiText(env, { system, user: userMsg, temperature: 0.6, kind: "coach", db: env.DB, userId: user._id }).catch(() => "");
+    return Response.json({ answer: cleanAi(answer).slice(0, 1500), actions: [] }, { headers: { "cache-control": "no-store" } });
+  }
 }
