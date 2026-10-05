@@ -24,6 +24,7 @@ import { validateCoachActionForApply, validateCoachEditResult } from "../domain/
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { upcomingSessions, weekdayName } from "../render";
 import { deferAi } from "./router";
+import { recordFeedback } from "./feedbackIntake";
 import { localCutoff } from "./report";
 import { trainerStyleBlock } from "../features/trainer/trainer";
 import { type MyContext, HTML, planOwnerId, reply, setMode } from "../adapters/telegram/context";
@@ -152,7 +153,12 @@ export async function handleCoach(ctx: MyContext, text: string) {
       userId: ctx.user._id,
       validate: (parsed) => validateCoachEditResult(parsed),
     });
-    const actions = (result.actions ?? []).filter((a) => a.kind !== "none").slice(0, 4);
+    const actions = (result.actions ?? [])
+      .filter((a) => a.kind !== "none")
+      .slice(0, 4)
+      // A feedback button forwards the user's own words next to the model's summary — attached
+      // here, never taken from the model.
+      .map((a) => (a.kind === "feedback" ? { ...a, note: text.slice(0, 1000) } : a));
     let kb = menuBtn(lang);
     if (actions.length) {
       // Each coach turn gets its own token so a button from an older turn can't fire against
@@ -210,6 +216,12 @@ export async function handleCoachAction(ctx: MyContext, kind: string, turnId: nu
     action = validateCoachActionForApply(a, kind);
   } catch {
     await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
+    return;
+  }
+  if (action.kind === "feedback") {
+    // setMode above already cleared coachActions, so a second tap can't forward it twice.
+    await recordFeedback(ctx, action.value!, { original: action.note });
+    await reply(ctx, t(lang, "feedback_saved"), menuBtn(lang));
     return;
   }
   // Use the action's explicit weekday when given, else default to today's/next session.

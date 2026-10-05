@@ -769,7 +769,7 @@ export const COACH_EDIT_SCHEMA = {
         type: "OBJECT",
         properties: {
           label: { type: "STRING" },
-          kind: { type: "STRING", enum: ["add", "delete", "swap", "weight", "sets", "harder", "easier", "none"] },
+          kind: { type: "STRING", enum: ["add", "delete", "swap", "weight", "sets", "harder", "easier", "feedback", "none"] },
           weekday: { type: "INTEGER" },
           index: { type: "INTEGER" },
           exercise: { type: "STRING" },
@@ -786,7 +786,7 @@ export interface CoachEditResult {
   reply: string;
   actions?: {
     label: string;
-    kind: "add" | "delete" | "swap" | "weight" | "sets" | "harder" | "easier" | "none";
+    kind: "add" | "delete" | "swap" | "weight" | "sets" | "harder" | "easier" | "feedback" | "none";
     weekday?: number;
     index?: number;
     exercise?: string;
@@ -805,6 +805,7 @@ You can EDIT the user's ENTIRE training plan conversationally. The full plan is 
 - "weight": weekday + index + value (kg number, e.g. "60").
 - "sets": weekday + index + value (e.g. "4 × 8-12").
 - "harder" / "easier": weekday — make that whole day harder/easier.
+- "feedback": the user is giving feedback about the APP/BOT ITSELF — a bug, something confusing, a missing feature, a complaint, praise, or "tell the developer/owner…". value = a faithful 1–2 sentence summary of that feedback in ${L} (their point only, nothing added, no personal health data unless it is the point); label = a short "send to the team" button in ${L}. In "reply" thank them and say they can tap the button to pass it on — never claim it was already sent. Questions about their training, food or plan are NOT feedback.
 - "none": pure advice → "actions": [].
 Identify the right weekday + index from the plan listing. If the user is vague about which exercise, ask a brief clarifying question in "reply" and offer the candidates as actions. For pure questions give advice and omit actions.
 - Never invent a weekday, exercise index, logged number or injury fact. If the context does not identify the target, return no action and ask one short clarification question.

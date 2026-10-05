@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const COACH_ACTION_KINDS = ["add", "delete", "swap", "weight", "sets", "harder", "easier", "none"] as const;
+export const COACH_ACTION_KINDS = ["add", "delete", "swap", "weight", "sets", "harder", "easier", "feedback", "none"] as const;
 export type CoachActionKind = (typeof COACH_ACTION_KINDS)[number];
 
 export interface CoachAction {
@@ -10,6 +10,8 @@ export interface CoachAction {
   index?: number;
   exercise?: string;
   value?: string;
+  /** feedback only: the user's own message, attached by the server (never by the model). */
+  note?: string;
 }
 
 const actionSchema = z.object({
@@ -18,7 +20,9 @@ const actionSchema = z.object({
   weekday: z.number().int().min(1).max(7).optional(),
   index: z.number().int().min(0).max(50).optional(),
   exercise: z.string().refine((value) => value.trim().length > 0, "exercise must not be blank").max(160).optional(),
-  value: z.string().refine((value) => value.trim().length > 0, "value must not be blank").max(80).optional(),
+  // Long enough for a feedback summary; plan values (weight/sets) are held to 80 below.
+  value: z.string().refine((value) => value.trim().length > 0, "value must not be blank").max(600).optional(),
+  note: z.string().max(1000).optional(),
 });
 
 const coachEditSchema = z.object({
@@ -42,8 +46,11 @@ function validateActionSemantics(action: CoachAction, path: string): void {
   if (action.kind === "add" && !action.exercise) {
     throw new Error(`${path}.exercise is required for add`);
   }
-  if ((action.kind === "weight" || action.kind === "sets") && !action.value) {
+  if ((action.kind === "weight" || action.kind === "sets" || action.kind === "feedback") && !action.value) {
     throw new Error(`${path}.value is required for ${action.kind}`);
+  }
+  if ((action.kind === "weight" || action.kind === "sets") && action.value && action.value.length > 80) {
+    throw new Error(`${path}.value is too long for ${action.kind}`);
   }
 }
 
