@@ -422,7 +422,7 @@ export function nextTargetSet(
   const easy = typeof lastRpe === "number" && lastRpe <= 7;
   if (!(bestWeight > 0)) return { weight: 0, reps: bestReps + (easy ? 2 : 1), step: "reps" };
   if (bestReps < high) return { weight: bestWeight, reps: Math.min(high, bestReps + (easy ? 2 : 1)), step: "reps" };
-  return { weight: bestWeight + loadStep(exercise, bestWeight) * (easy ? 2 : 1), reps: low, step: "load" };
+  return { weight: bestWeight + loadJump(exercise, bestWeight, easy), reps: low, step: "load" };
 }
 
 export interface NextTargetGuidance {
@@ -557,6 +557,14 @@ export function loadStep(exercise: string, kg: number): number {
   const dumbbell = /гантел|dumbbell|\bdb\b|kettlebell|гир[яі]/i.test(exercise);
   const inc = dumbbell ? (kg < 10 ? 1 : 2) : 2.5;
   return Math.min(cap, Math.max(inc, Math.round((kg * 0.05) / inc) * inc));
+}
+
+/** The load to add: one step, or two after a clearly easy session — but the double step only
+ *  while it stays within 10% of the load. On light weights one step is already a big share
+ *  (6 kg → 8 kg would be +33%), so there an easy session still gets a single step. */
+export function loadJump(exercise: string, kg: number, easy: boolean): number {
+  const step = loadStep(exercise, kg);
+  return easy && step * 2 <= kg * 0.1 + 1e-9 ? step * 2 : step;
 }
 
 /** The plan's rep range for a logged exercise (matched by name or canonical name), if any. */
@@ -881,7 +889,7 @@ export function computePlanProgression(
       if (ready) {
         const rpes = recent.map((s) => s.rpe).filter((r): r is number => typeof r === "number");
         const easy = rpes.length ? rpes.every((r) => r <= 7) : top !== undefined && recent.every((s) => s.reps >= top + 2);
-        target = demonstrated + step * (easy ? 2 : 1);
+        target = demonstrated + loadJump(ex.name, demonstrated, easy);
       }
       target = Math.min(target, demonstrated + step * 2);
 

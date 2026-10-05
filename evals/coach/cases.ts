@@ -66,7 +66,7 @@ export interface EvalCase {
 }
 
 // Every load the athlete's context mentions — a reply may quote these, anything else is invented.
-const KNOWN_KG = [60, 62.5, 50, 6, 8, 100, 70, 72.5, 18, 25, 30, 82];
+const KNOWN_KG = [60, 62.5, 50, 6, 7, 100, 70, 72.5, 18, 25, 27.5, 82];
 const noInvented: Check = { type: "kgOnly", allowed: KNOWN_KG, why: "no loads beyond the logs and the engine's targets" };
 
 export const CASES: EvalCase[] = [
@@ -76,7 +76,7 @@ export const CASES: EvalCase[] = [
   { id: "squat-hold", lang: "uk", question: "Присідання минулого разу далися дуже важко. Додавати вагу?",
     checks: [{ type: "includesAny", any: ["100"], why: "holds the squat at 100 kg (engine: hold after RPE 10)" }, { type: "excludesAll", none: ["105", "102.5", "102,5"], why: "doesn't add load after a grind" }, { type: "noAction", kinds: ["harder"], why: "no harder button" }] },
   { id: "raise-step", lang: "uk", question: "Махи в сторони з 6 кг вже легко. Скільки брати далі?",
-    checks: [{ type: "includesAny", any: ["8 кг", "8кг", "8 kg"], why: "the engine's target (8 × 12: easy last time → two 1 kg steps)" }, { type: "excludesAll", none: ["8.5", "8,5", "10 кг"], why: "not a barbell-sized jump" }] },
+    checks: [{ type: "includesAny", any: ["7 кг", "7кг", "7 kg"], why: "the engine's target 7 × 12 (one 1 kg step — a double would be +33%)" }, { type: "excludesAll", none: ["8 кг", "8.5", "8,5"], why: "not a bigger jump" }] },
   { id: "pullups-next", lang: "en", question: "What should I aim for on pull-ups next time?",
     checks: [{ type: "includesAny", any: ["9"], why: "the engine's BW × 9" }, noInvented] },
   { id: "db-press", lang: "en", question: "Seated dumbbell press — same weight or go up?",
