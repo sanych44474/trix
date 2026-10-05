@@ -19,12 +19,12 @@ export async function cmdMeasure(ctx: MyContext) {
 }
 
 // Reminder types the user can switch on/off (the daily/weekly nudges).
-export const REMINDER_TYPES = ["workout", "nutrition", "steps", "water", "checkin", "wellbeing", "tomorrow", "measure", "digest", "plateau", "session"] as const;
+export const REMINDER_TYPES = ["workout", "nutrition", "steps", "water", "checkin", "wellbeing", "tomorrow", "measure", "digest", "plateau", "session", "weighin"] as const;
 
 export const REMINDER_LABEL: Record<string, TKey> = {
   workout: "rem_workout", nutrition: "rem_nutrition", steps: "rem_steps", water: "rem_water", checkin: "rem_checkin",
   wellbeing: "rem_wellbeing", tomorrow: "rem_tomorrow", measure: "rem_measure", digest: "rem_digest", plateau: "rem_plateau",
-  session: "rem_session",
+  session: "rem_session", weighin: "rem_weighin",
 };
 
 export async function showReminderSettings(ctx: MyContext) {
@@ -38,6 +38,25 @@ export async function showReminderSettings(ctx: MyContext) {
   });
   kb.row().text(t(lang, "back"), "menu:settings");
   await reply(ctx, t(lang, "rem_settings_title"), kb);
+}
+
+// The weigh-in nudge's buttons: log the weight now (measure mode takes a bare number), or turn
+// the nudge off without opening the whole reminder settings screen.
+export async function onWeighInAction(ctx: MyContext, action: string) {
+  const lang = ctx.user.lang;
+  await ctx.answerCallbackQuery().catch(() => {});
+  if (action === "log") {
+    await setMode(ctx, "measure");
+    await reply(ctx, t(lang, "weighin_ask"));
+    return;
+  }
+  if (action === "off") {
+    const off = new Set(ctx.user.profile.remindersOff ?? []);
+    off.add("weighin");
+    ctx.user.profile = { ...ctx.user.profile, remindersOff: [...off] };
+    await updateUser(ctx.db, ctx.user._id, { profile: ctx.user.profile });
+    await reply(ctx, t(lang, "weighin_off_done"), menuBtn(lang));
+  }
 }
 
 export async function onReminderToggle(ctx: MyContext, key: string) {
@@ -251,7 +270,10 @@ export async function onToggleDay(ctx: MyContext, arg: string) {
 
 export async function handleMeasure(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;
-  const { weight, measurements } = parseMeasurements(text);
+  const parsed = parseMeasurements(text);
+  // A bare number ("74.2", "74,2 кг") is the weight — the weigh-in nudge asks for just that.
+  const bare = /^\s*(\d{2,3}(?:[.,]\d{1,2})?)\s*(?:kg|кг)?\s*$/i.exec(text);
+  const { weight, measurements } = parsed.weight === undefined && bare ? { ...parsed, weight: parseFloat(bare[1]!.replace(",", ".")) } : parsed;
   if (weight === undefined && Object.keys(measurements).length === 0) {
     await reply(ctx, t(lang, "measure_none"));
     return;

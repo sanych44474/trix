@@ -23,6 +23,7 @@ import { wakeGlobalScheduler } from "./durable/globalScheduler";
 import { isCutOver } from "./durable/cutover";
 import { ADJUST_COOLDOWN_DAYS } from "./domain/adaptiveCalories";
 import { daysBetween } from "./domain/reminderTiming";
+import { weighInDue } from "./domain/weighIn";
 import { escapeHtml, t } from "./locales/i18n";
 import { renderDay, challengeTitleText } from "./render";
 import { finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
@@ -666,6 +667,22 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         .row()
         .text("⭐⭐⭐⭐", "qr:4").text("⭐⭐⭐⭐⭐", "qr:5");
       await sendAndMark("quality", t(lang, "reminder_quality"), { ...HTML, reply_markup: kb });
+      pinged = true;
+    }
+  }
+
+  // Morning weigh-in nudge (domain/weighIn): trackers only, 3+ days since the last weigh-in.
+  if (!pinged && user.onboarded && !remOff("weighin")) {
+    const body = await bodyAll();
+    const gap = weighInDue({
+      today: date, hour,
+      weightDates: body.filter((b) => typeof b.weight === "number" && (b.weight as number) > 0).map((b) => b.date),
+      hasGoalWeight: !!user.profile.goalWeight,
+      lastSent: sent["weighin"],
+    });
+    if (gap !== null) {
+      const kb = new InlineKeyboard().text(t(lang, "weighin_log_btn"), "wi:log").text(t(lang, "weighin_off_btn"), "wi:off");
+      await sendAndMark("weighin", t(lang, gap > 0 ? "reminder_weighin" : "reminder_weighin_first", { n: gap }), { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }

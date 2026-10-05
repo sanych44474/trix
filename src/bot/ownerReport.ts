@@ -135,16 +135,21 @@ export async function orOverview(db: D1Database): Promise<string> {
 // 📊 Usage events (7d), split into real-user activity vs owner/admin actions (from event_counts).
 export async function orEngagement(db: D1Database): Promise<string> {
   const { since7Iso } = ownerReportWindows();
-  const rows = await eventStatsSince(db, since7Iso.slice(0, 10), 60).catch(() => [] as { event: string; n: number }[]);
+  const rows = await eventStatsSince(db, since7Iso.slice(0, 10), 120).catch(() => [] as { event: string; n: number }[]);
   if (!rows.length) return "📊 <b>Usage events (7d)</b>\nNo events recorded yet.";
   const isAdmin = (e: string) => /^(orep|ou|clean)/.test(e) || e === "menu:ownerreport" || e === "menu:users";
-  const userRows = rows.filter((r) => !isAdmin(r.event)).slice(0, 20).map((r) => ({ label: r.event, n: r.n }));
+  // Mini App feature counters (app_*, POST /api/v2/event) get their own block: they answer "is
+  // this feature used at all", which the bot's tap list buries.
+  const isApp = (e: string) => e.startsWith("app_");
+  const appRows = rows.filter((r) => isApp(r.event)).map((r) => ({ label: r.event.slice(4), n: r.n }));
+  const userRows = rows.filter((r) => !isAdmin(r.event) && !isApp(r.event)).slice(0, 20).map((r) => ({ label: r.event, n: r.n }));
   const adminRows = rows.filter((r) => isAdmin(r.event)).map((r) => ({ label: r.event, n: r.n }));
   const totalTaps = userRows.reduce((s, r) => s + r.n, 0);
   const parts = [
     `📊 <b>Usage events (7d) — users</b> · ${totalTaps} tap(s), top ${userRows.length}`,
     userRows.length ? barList(userRows) : "—",
   ];
+  if (appRows.length) parts.push("📱 <b>Mini App features (7d)</b>", barList(appRows));
   if (adminRows.length) parts.push("🛠 <b>Admin actions (7d)</b>", barList(adminRows));
   return parts.join("\n");
 }

@@ -806,6 +806,13 @@ export const en = {
   import_tag_strong: "Imported from Strong",
   import_tag_hevy: "Imported from Hevy",
 
+  rem_weighin: "Weigh-ins",
+  weighin_log_btn: "⚖️ Log weight",
+  weighin_off_btn: "🔕 Don't remind me",
+  reminder_weighin: "⚖️ Good morning! No weigh-in for {n} days. Weigh yourself this morning before breakfast — 3–4 weigh-ins a week give an honest trend, not water swings.",
+  reminder_weighin_first: "⚖️ Good morning! Weigh yourself this morning before breakfast — that's how I can show an honest trend towards your goal.",
+  weighin_ask: "Send your weight as a number, e.g. <b>74.2</b>.",
+  weighin_off_done: "OK, no more weigh-in reminders. You can turn them back on in reminder settings.",
   reminder_measure:
     "📏 Weekly check-in: send your current weight & measurements so I can track your dynamics. Tap 📏 Measurements.",
 

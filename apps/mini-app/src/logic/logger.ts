@@ -198,3 +198,16 @@ export function chooseStart(server: WorkoutToday, local: LoggerDraft | null): St
   if (server.saved?.length) return fromSaved();
   return { source: "plan", exercises: server.exercises, logDate: null, copiedFrom: null, saved: false, drafted: false, editedAt: 0 };
 }
+
+/** How a save used the engine's targets, for the usage counters: per exercise that had a target
+ *  and was logged, "kept" when every filled set used the target weight, else "edited". */
+export function targetUse(exercises: LoggerExercise[]): { kept: number; edited: number } {
+  let kept = 0, edited = 0;
+  for (const e of exercises) {
+    if (!e.target) continue;
+    const sets = (e.setsDone ?? []).filter(isSetFilled);
+    if (!sets.length) continue;
+    if (sets.every((s) => Math.abs((s.weight ?? 0) - e.target!.w) < 0.01)) kept++; else edited++;
+  }
+  return { kept, edited };
+}

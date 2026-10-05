@@ -90,3 +90,12 @@ test("coachProfile: drops reminder/referral noise, keeps what advice needs", asy
   const out = coachProfile({ name: "Ann", goal: "fat loss", limitations: "knee", reminderHour: 9, referredBy: 5, quietFrom: 22, timezone: "Europe/Kyiv" } as never);
   assert.deepEqual(out, { name: "Ann", goal: "fat loss", limitations: "knee" });
 });
+
+test("loadJump: an easy session doubles the step only while that stays within 10% of the load", async () => {
+  const { loadJump } = await import("../src/domain/progression");
+  assert.equal(loadJump("Dumbbell Lateral Raise", 6, true), 1); // 2 kg would be +33%
+  assert.equal(loadJump("Bench Press", 60, true), 5); // 5 ≤ 6
+  assert.equal(loadJump("Bench Press", 40, true), 2.5); // 5 > 4
+  assert.equal(loadJump("Back Squat", 100, true), 10);
+  assert.equal(loadJump("Bench Press", 60, false), 2.5);
+});

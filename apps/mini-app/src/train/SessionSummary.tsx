@@ -6,6 +6,7 @@ import { fmtDuration } from "../logic/rest";
 import { canShareStory } from "../telegram";
 import { shareStoryCard } from "../storyCard";
 import { Card } from "./ui";
+import { track } from "../logic/track";
 
 // What saveWorkout() returns (SaveResult, src/webapp/workout.ts) plus the locally measured
 // session quality.
@@ -25,13 +26,14 @@ type Stat = { id: string; value: string; label: Key; help: Key };
 
 /** The post-save card. Each number is tappable and explains itself: "18% роботи" with no
  *  explanation read as a bug report rather than a statistic. */
-export function SessionSummary({ lang, summary, title, date }: { lang: Lang; summary: SaveSummary; title: string; date: string }) {
+export function SessionSummary({ lang, summary, title, date, onAskCoach }: { lang: Lang; summary: SaveSummary; title: string; date: string; onAskCoach?: () => void }) {
   const [helpFor, setHelpFor] = useState<string | null>(null);
   const [sharing, setSharing] = useState<"idle" | "busy" | "failed">("idle");
   // "How did it go?" -- one tap, read by next Monday's progression (domain/sessionFeel.ts).
   const [feel, setFeel] = useState<"easy" | "ok" | "hard" | null>(null);
   const [feelState, setFeelState] = useState<"idle" | "busy" | "done" | "failed">("idle");
   const sendFeel = async (value: "easy" | "ok" | "hard") => {
+    track(`app_feel_${value}`);
     setFeel(value); setFeelState("busy");
     try {
       await api("/api/v2/workout/feel", { method: "POST", body: typedBody<"setWorkoutFeel">({ date, feel: value }) });
@@ -97,6 +99,7 @@ export function SessionSummary({ lang, summary, title, date }: { lang: Lang; sum
         {feelState === "failed" && <small className="feel-note">{t(lang, "generic_error")}</small>}
       </div>
       <p className="muted">{t(lang, "summary_total_workouts", { n: summary.totalWorkouts })}</p>
+      {onAskCoach && <button type="button" className="button button-ghost button-wide" onClick={onAskCoach}>{t(lang, "summary_ask_coach_btn")}</button>}
       {canShareStory() && (
         <div className="button-row">
           <button type="button" className="button button-light" disabled={sharing === "busy"} onClick={() => void shareStory()}>{sharing === "busy" ? "…" : t(lang, "share_story_btn")}</button>

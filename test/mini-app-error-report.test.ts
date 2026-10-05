@@ -14,3 +14,9 @@ test("toReport: message + first app frame; repeats, noise and API errors skipped
   for (let i = 0; i < 10; i++) toReport(new Error(`e${i}`), seen);
   assert.equal(seen.size, MAX_REPORTS);
 });
+
+test("toReport: only the bare cross-origin \"Script error.\" is dropped", () => {
+  const seen = new Set<string>();
+  assert.equal(toReport("Script error.", seen), null);
+  assert.ok(toReport(new Error("Script error in plan editor"), seen));
+});

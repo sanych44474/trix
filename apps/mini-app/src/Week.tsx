@@ -6,6 +6,38 @@ import { useEffect, useState } from "react";
 import { t, type Key, type Lang } from "./i18n";
 import type { Dashboard } from "./types";
 import { SEEN_BADGES_KEY, unseenBadges } from "./logic/badgesSeen";
+import { lastWeekSummary } from "./logic/weekSummary";
+import { track } from "./logic/track";
+
+const SUMMARY_SEEN_KEY = "trix:v2:week-summary-seen";
+
+/** Last week in one card, Monday to Wednesday, until dismissed (logic/weekSummary). */
+export function WeekSummaryCard({ lang, dashboard }: { lang: Lang; dashboard: Dashboard }) {
+  const s = lastWeekSummary({
+    today: dashboard.today,
+    days: dashboard.calendar.days,
+    plannedWeekdays: [...new Set(dashboard.calendar.split.map((d) => d.weekday).filter((w) => w > 0))],
+    weights: dashboard.weight.points,
+    foodDays: dashboard.macros.days,
+    exercises: dashboard.exercises,
+  });
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(SUMMARY_SEEN_KEY) === s.start; } catch { return false; } });
+  const dow = (new Date(`${dashboard.today}T12:00:00Z`).getUTCDay() + 6) % 7;
+  if (hidden || dow > 2 || (s.workouts === 0 && s.foodDays === 0 && s.weightDelta === undefined)) return null;
+  const hide = () => {
+    track("app_week_summary_closed"); try { localStorage.setItem(SUMMARY_SEEN_KEY, s.start); } catch { /* optional */ } setHidden(true); };
+  const kg = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${new Intl.NumberFormat(lang === "uk" ? "uk-UA" : "en-GB", { maximumFractionDigits: 1 }).format(Math.abs(n))} kg`;
+  return <section className="card week-summary">
+    <div className="section-head"><div><span className="eyebrow">{t(lang, "ws_eyebrow")}</span><h2>{t(lang, "ws_title")}</h2></div><button className="text-button" onClick={hide}>{t(lang, "close")}</button></div>
+    <div className="ws-grid">
+      <div><strong>{s.planned ? `${s.workouts}/${s.planned}` : s.workouts}</strong><small>{t(lang, "ws_workouts")}</small></div>
+      <div><strong>{s.weightDelta !== undefined ? kg(s.weightDelta) : "—"}</strong><small>{t(lang, "ws_weight")}</small></div>
+      <div><strong>{s.foodDays}/7</strong><small>{t(lang, "ws_food")}</small></div>
+    </div>
+    {s.records.length > 0 && <p className="ws-records">🏆 {t(lang, "ws_records", { list: s.records.slice(0, 3).join(", ") })}</p>}
+    <p className="ws-focus"><strong>{t(lang, "ws_focus_label")}</strong> {t(lang, `ws_focus_${s.focus}` as Key, { n: s.planned })}</p>
+  </section>;
+}
 
 type Week = NonNullable<Dashboard["week"]>;
 type Quest = Week["quests"][number];
