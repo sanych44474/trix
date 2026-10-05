@@ -1,6 +1,7 @@
 import { recentExerciseNames } from "./logic/bodyMap";
 import { StravaCard } from "./StravaCard";
 import { WeightChart } from "./WeightChart";
+import { PhotoPair } from "./PhotoPair";
 import { targetsForDay } from "./logic/dayTargets";
 import { useMemo, useRef, useState, lazy, Suspense } from "react";
 import { api, ApiError, apiForm, jsonBody } from "./api";
@@ -171,6 +172,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   };
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoNotice, setPhotoNotice] = useState("");
+  const [photoReload, setPhotoReload] = useState(0);
   const uploadPhoto = async (file: File) => {
     setPhotoBusy(true); setPhotoNotice("");
     try {
@@ -178,6 +180,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
       form.append("photo", file, file.name || "progress.jpg");
       await apiForm<{ ok: boolean }>("/api/v2/photo", form);
       setPhotoNotice(t(lang, "progress_photo_uploaded_note"));
+      setPhotoReload((n) => n + 1);
     } catch {
       setPhotoNotice(t(lang, "generic_error"));
     } finally {
@@ -276,6 +279,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
 
     <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "progress_photo_upload_eyebrow")}</span><h2>{t(lang, "progress_photo_upload_title")}</h2></div></div>
+      <PhotoPair lang={lang} weights={dashboard.weight.points} reloadKey={photoReload} />
       <p className="muted">{t(lang, "progress_photo_upload_hint")}</p>
       <div className="input-row"><input ref={fileInputRef} type="file" accept="image/*" capture="environment" disabled={photoBusy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadPhoto(file); }} /></div>
       {photoBusy && <p className="muted">{t(lang, "saving_ellipsis")}</p>}
