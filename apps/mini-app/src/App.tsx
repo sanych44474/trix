@@ -6,7 +6,7 @@ import { api, ApiError, typedBody } from "./api";
 import type { RequestBody, Dashboard, RecoveryFactor, RecoveryLabel, WeekCardResponse } from "./types";
 import { guessLang, hasLang, loadLang, t, type Key, type Lang } from "./i18n";
 import { WhatsNewCard } from "./WhatsNew";
-import { BadgeCelebration, WeekCard } from "./Week";
+import { BadgeCelebration, WeekCard, WeekSummaryCard } from "./Week";
 const WorkspaceView = lazy(() => import("./Workspace").then((m) => ({ default: m.WorkspaceView })));
 const OnboardingView = lazy(() => import("./Onboarding").then((m) => ({ default: m.OnboardingView })));
 const ProfileView = lazy(() => import("./ProfileView").then((m) => ({ default: m.ProfileView })));
@@ -108,6 +108,7 @@ function TodayView({ dashboard, lang, onOpen, onReload, onAskCoach }: { dashboar
     </div>
     {dashboard.whatsnew && <WhatsNewCard lang={lang} version={dashboard.whatsnew.version} text={dashboard.whatsnew.text} />}
     {dashboard.recoverySwap && <RecoverySwapCard lang={lang} swap={dashboard.recoverySwap} onDone={onReload} />}
+    <WeekSummaryCard lang={lang} dashboard={dashboard} />
     {dashboard.week && <WeekCard lang={lang} week={dashboard.week} />}
     <button type="button" className="coach-entry" onClick={onAskCoach}><span aria-hidden="true">💬</span><span><strong>{t(lang, dashboard.viewer.role === "client" ? "ask_trainer_nav_btn" : "coach_entry_title")}</strong><small>{t(lang, "coach_entry_detail")}</small></span><span aria-hidden="true">›</span></button>
     <div className="metric-grid">

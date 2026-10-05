@@ -186,6 +186,13 @@ button { cursor: pointer; }
 .photo-side img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 12px; background: var(--surface-2); }
 .photo-side figcaption { display: grid; gap: 1px; font-size: 12px; }
 .photo-side figcaption span { color: var(--muted); }
+.ws-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.ws-grid > div { display: grid; gap: 2px; padding: 10px; border-radius: 12px; background: var(--surface-2); }
+.ws-grid strong { font-size: 18px; letter-spacing: -.02em; }
+.ws-grid small { color: var(--muted); font-size: 11px; }
+.ws-records { margin: 10px 0 0; font-size: 13px; }
+.ws-focus { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.ws-focus strong { color: var(--text); }
 .qt-sub { display: grid; gap: 2px; margin: 14px 0 7px; }
 .qt-sub strong { font-size: 13px; font-weight: 800; }
 .qt-sub small { color: var(--muted); font-size: 12px; line-height: 1.35; }
