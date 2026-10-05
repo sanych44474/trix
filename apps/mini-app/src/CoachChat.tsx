@@ -16,9 +16,9 @@ const store = (turns: Turn[]) => { try { sessionStorage.setItem(KEY, JSON.string
 
 const PLAN_ACTION: Record<string, "weight" | "sets" | "del" | "swap" | "add"> = { weight: "weight", sets: "sets", delete: "del", swap: "swap", add: "add" };
 
-export function CoachChat({ lang }: { lang: Lang }) {
+export function CoachChat({ lang, prefill }: { lang: Lang; prefill?: string }) {
   const [turns, setTurns] = useState<Turn[]>(load);
-  const [question, setQuestion] = useState("");
+  const [question, setQuestion] = useState(prefill ?? "");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);

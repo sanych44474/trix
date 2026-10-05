@@ -403,8 +403,8 @@ function AtRiskReportView({ dashboard, lang, onBack, onOpenClient }: { dashboard
  * branch used to be a plain 403, so the client role had no coach and no way to reach their
  * trainer from the app at all -- this renders the routed flow plus the resulting reply thread.
  */
-function AiCoachView({ lang, onBack, routed }: { lang: Lang; onBack: () => void; routed: boolean }) {
-  const [question, setQuestion] = useState("");
+export function AiCoachView({ lang, onBack, routed, prefill }: { lang: Lang; onBack: () => void; routed: boolean; prefill?: string }) {
+  const [question, setQuestion] = useState(routed ? prefill ?? "" : "");
   const [answer, setAnswer] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [thread, setThread] = useState<CoachThread | null>(null);
@@ -426,7 +426,7 @@ function AiCoachView({ lang, onBack, routed }: { lang: Lang; onBack: () => void;
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, routed ? "ask_trainer_eyebrow" : "ai_coach_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, routed ? "ask_trainer_title" : "ai_coach_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
-    {!routed && <Panel><CoachChat lang={lang} /></Panel>}
+    {!routed && <Panel><CoachChat lang={lang} prefill={prefill} /></Panel>}
     {routed && <Panel>
       {routed && <p className="muted">{t(lang, "ask_trainer_detail", { name: thread?.trainer?.name || t(lang, "your_trainer_fallback") })}</p>}
       <label className="form-field"><span>{t(lang, routed ? "ask_trainer_question_label" : "ai_coach_question_label")}</span><textarea value={question} maxLength={500} placeholder={t(lang, "ai_coach_ph")} onChange={(event) => setQuestion(event.target.value)} /></label>

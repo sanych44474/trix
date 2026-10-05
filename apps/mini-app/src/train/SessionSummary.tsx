@@ -25,7 +25,7 @@ type Stat = { id: string; value: string; label: Key; help: Key };
 
 /** The post-save card. Each number is tappable and explains itself: "18% роботи" with no
  *  explanation read as a bug report rather than a statistic. */
-export function SessionSummary({ lang, summary, title, date }: { lang: Lang; summary: SaveSummary; title: string; date: string }) {
+export function SessionSummary({ lang, summary, title, date, onAskCoach }: { lang: Lang; summary: SaveSummary; title: string; date: string; onAskCoach?: () => void }) {
   const [helpFor, setHelpFor] = useState<string | null>(null);
   const [sharing, setSharing] = useState<"idle" | "busy" | "failed">("idle");
   // "How did it go?" -- one tap, read by next Monday's progression (domain/sessionFeel.ts).
@@ -97,6 +97,7 @@ export function SessionSummary({ lang, summary, title, date }: { lang: Lang; sum
         {feelState === "failed" && <small className="feel-note">{t(lang, "generic_error")}</small>}
       </div>
       <p className="muted">{t(lang, "summary_total_workouts", { n: summary.totalWorkouts })}</p>
+      {onAskCoach && <button type="button" className="button button-ghost button-wide" onClick={onAskCoach}>{t(lang, "summary_ask_coach_btn")}</button>}
       {canShareStory() && (
         <div className="button-row">
           <button type="button" className="button button-light" disabled={sharing === "busy"} onClick={() => void shareStory()}>{sharing === "busy" ? "…" : t(lang, "share_story_btn")}</button>

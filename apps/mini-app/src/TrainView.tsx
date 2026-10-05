@@ -50,7 +50,7 @@ function scrollToTop(): void {
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); }
 }
 
-export function TrainView({ lang, gamification }: { lang: Lang; gamification?: Dashboard["gamification"] }) {
+export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gamification?: Dashboard["gamification"]; onAskCoach?: () => void }) {
   const session = useSession();
   const [subview, setSubview] = useState<"today" | "history">("today");
   const [server, setServer] = useState<WorkoutToday | null>(null);
@@ -414,7 +414,7 @@ export function TrainView({ lang, gamification }: { lang: Lang; gamification?: D
         </Card>
       )}
       {(logDate || copiedFrom) && <div className="button-row"><button className="text-button" onClick={() => void backToToday()}>{t(lang, "back_to_today")}</button></div>}
-      {summary ? <SessionSummary lang={lang} summary={summary} title={savedTitle} date={summaryDate ?? workout.date} /> : saved && dayLogged ? <div className="save-note">{savedTitle}</div> : null}
+      {summary ? <SessionSummary lang={lang} summary={summary} title={savedTitle} date={summaryDate ?? workout.date} onAskCoach={onAskCoach} /> : saved && dayLogged ? <div className="save-note">{savedTitle}</div> : null}
       {restoredFrom === "server-draft" && drafted && <div className="draft-note">{t(lang, "restored_other_device_note")}</div>}
       {logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}
       {copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}
