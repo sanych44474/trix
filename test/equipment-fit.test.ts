@@ -91,3 +91,15 @@ test("kitFromEquipment: a home gym with a barbell is a gym; 'only dumbbells' is 
   assert.equal(kitFromEquipment("home basics (dumbbells, bands)"), "home");
   assert.equal(kitFromEquipment("без штанги, лише гантелі"), "dumbbells");
 });
+
+test("fitSplitToKit: no stand-in twice in a day; holds are done for time", () => {
+  const day = (names: string[]) => [{ weekday: 1, exercises: names.map((name) => ({ name, sets: "3 × 10", startWeight: "40 kg", technique: "" })) }];
+  const four = fitSplitToKit(day(["Chest Press Machine", "Pec Deck", "Cable Crossover", "Smith Machine Bench Press"]), "dumbbells", "en");
+  const names = four.split[0]!.exercises.map((e) => e.name);
+  assert.equal(new Set(names).size, names.length, names.join(" | "));
+  const abs = fitSplitToKit(day(["Cable Crunch", "Ab Crunch Machine"]), "bodyweight", "en").split[0]!.exercises;
+  const plank = abs.find((e) => e.name === "Plank");
+  assert.ok(plank, abs.map((e) => e.name).join(" | "));
+  assert.equal(plank!.sets, "3 × 30–45 s");
+  assert.equal((plank as { metric?: string }).metric, "time");
+});

@@ -31,7 +31,12 @@ export const MUSCLE_LANDMARKS: Record<string, { mev: number; mav: number }> = {
 
 export type Lookup = (name: string) => ExerciseMuscles | null;
 
-export interface LoggedDay { date: string; done: boolean; ex: Array<{ n: string; s: number }> }
+export interface LoggedDay {
+  date: string;
+  done: boolean;
+  ex: Array<{ n: string; s: number }>;
+  loggedOn?: string; // YYYY-MM-DD the log was first saved, when known (quests ignore later back-fills)
+}
 
 export interface MuscleWeek {
   slug: Slug;

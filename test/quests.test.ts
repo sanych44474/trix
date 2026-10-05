@@ -37,3 +37,9 @@ test("quest progress counts this week only, and marks done at the target", () =>
   assert.equal(muscle.kind, "muscle_sets");
   assert.ok(p[1]!.current < muscle.target);
 });
+
+test("pickQuests: a day of last week back-filled this week doesn't change this week's quests", () => {
+  const before = [{ date: "2026-09-22", done: true, ex: [{ n: "Bench Press", s: 6 }], loggedOn: "2026-09-22" }];
+  const backfill = { date: "2026-09-24", done: true, ex: [{ n: "Squat", s: 6 }, { n: "Romanian Deadlift", s: 6 }], loggedOn: "2026-09-30" };
+  assert.deepEqual(pickQuests("2026-09-28", [...before, backfill], 3), pickQuests("2026-09-28", before, 3));
+});
