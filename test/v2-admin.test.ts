@@ -23,7 +23,6 @@ import {
   countFeedbackSince,
   countPlanSourcesSince,
   dailyActiveUsers,
-  dashboardExtrasBatch,
   deleteRestTimers,
   deleteSetting,
   dueRestTimers,

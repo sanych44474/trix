@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, updateUser, getUser } from "../src/adapters/d1/v2Users";
 import { applyTrainer, approveTrainer, getTrainer, createSharedProgram } from "../src/adapters/d1/v2Trainer";
-import { listStrength } from "../src/adapters/d1/v2Workouts";
 import { handleExtrasApi } from "../src/webapp/extrasApi";
 import type { UserDoc } from "../src/types";
 

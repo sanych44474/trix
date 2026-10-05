@@ -1,9 +1,7 @@
-// Account erasure (/deleteme, owner delete, cleanup of blocked accounts). Moved out of the legacy
-// repo layer (src/db/repos, removed): every row the app reads lives in v2_* tables, which is what
-// the v2 statements below clear. The pre-v2 tables are still DELETEd from until they are dropped
-// -- they hold old copies of the same personal data, and a deletion request covers those too.
-// legacyFreeze.ts lets DELETEs through for exactly this reason. When a new table gets an
-// accountId/userId/trainerId/clientId/ownerId column, add it here (test/delete-user-data-coverage).
+// Account erasure (/deleteme, owner delete, cleanup of blocked accounts). Every row the app keeps
+// about a person lives in v2_* tables (the pre-v2 ones were dropped in migrations/0089), which is
+// what the statements below clear. When a new table gets an accountId/userId/trainerId/clientId/
+// ownerId column, add it here (test/delete-user-data-coverage.test.ts enforces it).
 import type { Env } from "../../types";
 import { r2Key } from "../../webapp/photoStorage";
 import { logError } from "../../log";
@@ -35,53 +33,15 @@ export async function deleteUserData(env: Env, userId: number): Promise<void> {
   }
 
   const statements = [
-    db.prepare("DELETE FROM users WHERE id = ?").bind(userId),
-    db.prepare("DELETE FROM plans WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM workout_logs WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM nutrition_logs WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM strength_records WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM body_logs WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM step_logs WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM progress_photos WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM water_logs WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM challenges WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM injuries WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM client_notes WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
-    db.prepare("DELETE FROM client_cards WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
-    db.prepare("DELETE FROM daily_checkins WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM plan_adjustments WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM achievements WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM meal_plans WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM user_exercise_videos WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM event_counts WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM feedback WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM trainers WHERE trainerId = ?").bind(userId),
-    db.prepare("DELETE FROM client_requests WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
-    db.prepare("DELETE FROM client_questions WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
-    db.prepare("DELETE FROM messages WHERE fromId = ? OR toId = ?").bind(userId, userId),
     // Per-user telemetry — /deleteme means ALL personal rows, not just product data.
     // (admin_audit is intentionally kept: it's the owner's action trail, not user data.)
-    db.prepare("DELETE FROM ai_usage WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM ai_call_logs WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM error_logs WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM plan_source_logs WHERE userId = ?").bind(userId),
     // Tables added after this function was first written — each of these has been found missing
     // here at least once in review. When a new table gets a userId/trainerId/ownerId column, add
     // its delete here too.
-    db.prepare("DELETE FROM rest_timers WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM trainer_templates WHERE trainerId = ?").bind(userId),
-    db.prepare("DELETE FROM shared_programs WHERE ownerId = ?").bind(userId),
-    db.prepare("DELETE FROM trainer_prospects WHERE trainerId = ?").bind(userId),
-    db.prepare("DELETE FROM food_corrections WHERE userId = ?").bind(userId),
-    db.prepare("DELETE FROM client_note_history WHERE trainerId = ? OR clientId = ?").bind(userId, userId),
-    db.prepare("DELETE FROM squad_members WHERE userId = ?").bind(userId),
     // source is checked alongside entityId: entityId is polymorphic (userId for 'user'
     // rows, a squad chatId for 'squad' rows) and Telegram user ids and group chat ids
     // occupy overlapping numeric ranges, so entityId alone is not a safe match.
     db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'user' AND entityId = ?").bind(userId),
-    db.prepare("DELETE FROM idempotency_keys WHERE userId = ?").bind(userId),
-     db.prepare("DELETE FROM plan_change_log WHERE userId = ?").bind(userId),
-     db.prepare("DELETE FROM notification_outbox WHERE userId = ?").bind(userId),
      // v2 is a projection of the legacy account, so deleting the account must remove its
      // projection as well. Child rows cascade from v2_accounts; audit rows need an explicit
      // decision because they intentionally do not have a foreign key cascade.
@@ -137,7 +97,6 @@ export async function deleteUserData(env: Env, userId: number): Promise<void> {
      // A squad outlives the person who happened to run /squad first: the group chat and everyone
     // else in it are unaffected, so createdBy is cleared to a tombstone rather than the squad
     // being deleted out from under its remaining members.
-    db.prepare("DELETE FROM squads WHERE chatId NOT IN (SELECT chatId FROM squad_members)").bind(),
     db.prepare("DELETE FROM v2_squads WHERE id NOT IN (SELECT squadId FROM v2_squad_members)").bind(),
     // Attribution only (nullable, no code treats it as a live FK) — a deleted trainer's
     // previously-authored plans just stop being credited to them instead of pointing at a ghost.

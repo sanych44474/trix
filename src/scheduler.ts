@@ -953,7 +953,6 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         // Persist the mode now — flushReminders no longer writes the session column.
         user.session = { ...user.session, mode: "checkin_adaptive" };
         await updateUser(db, user._id, { session: user.session });
-        pinged = true;
       }
     }
   }
@@ -981,7 +980,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // detection). Solo/trainer-own plans are applied silently and the user is told; a client's
   // changes are staged as a DRAFT for their trainer to accept, edit, or discard.
   if (weekday === 1 && hour >= reminderHour && !already("progression")) {
-    if (await weeklyProgression({ db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll })) pinged = true;
+    await weeklyProgression({ db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll });
   }
 
   // Weekly motivational narrative — Monday late morning, solo/trainer-own users with recent

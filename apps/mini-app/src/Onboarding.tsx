@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ApiError, api, jsonBody, typedBody } from "./api";
+import { ApiError, api, typedBody } from "./api";
 import type { RequestBody } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 

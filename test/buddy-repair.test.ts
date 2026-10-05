@@ -12,7 +12,7 @@ import type { UserDoc } from "../src/types";
 test("cmdStart buddy_<id>: re-pairing unlinks the old buddy instead of leaving a stale link", async () => {
   const db = newDb();
   const u1 = (await getOrCreateUser(db, 1, 1, "en", "One")) as unknown as UserDoc;
-  const u2 = (await getOrCreateUser(db, 2, 2, "en", "Two")) as unknown as UserDoc;
+  await getOrCreateUser(db, 2, 2, "en", "Two");
   await getOrCreateUser(db, 3, 3, "en", "Three");
 
   // 1 and 2 pair up first.

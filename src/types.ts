@@ -22,7 +22,6 @@
 // what .dev.vars happens to contain in whatever environment typecheck runs in.
 type SecretKey =
   | "V2_APP_ENABLED"
-  | "CUTOVER_LEGACY_FROZEN"
   | "ALLOW_DEBUG_USER"
   | "TELEGRAM_BOT_TOKEN"
   | "TELEGRAM_WEBHOOK_SECRET"
@@ -61,7 +60,6 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   STRAVA_CLIENT_ID?: string; // Strava API app -- cardio import (features/strava); both unset = feature hidden
   STRAVA_CLIENT_SECRET?: string;
   V2_APP_ENABLED: string;
-  CUTOVER_LEGACY_FROZEN: string;
   ALLOW_DEBUG_USER?: string;
   // R2_PHOTOS (read-through cache for progress photos, webapp/photoStorage.ts) is NOT hand-
   // declared here -- wrangler.toml's [[r2_buckets]] binding makes Cloudflare.Env already provide

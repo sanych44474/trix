@@ -215,7 +215,6 @@ npm run dev         # wrangler dev (.dev.vars + local D1)
 npm run typecheck   # tsc --noEmit
 npm run typecheck:webapp
 npm run build:webapp:v2
-npm run verify-v2-backfill # local D1; add --remote for an explicit remote check
 npm test            # node --test (~930 unit/integration tests)
 npm run test:workers # vitest in the Workers runtime (workerd)
 npm run deploy      # build the Mini App shell + wrangler deploy

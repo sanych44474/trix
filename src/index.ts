@@ -36,10 +36,8 @@ import { handleStravaCallback } from "./webapp/stravaApi";
 import { handleQuickLogApi } from "./webapp/quickLogApi";
 import { handleV2Api } from "./webapp/v2Api";
 import { logError, logInfo, runWithRequestId, withHeader } from "./log";
-import { withLegacyFreeze } from "./adapters/d1/legacyFreeze";
 import type { Env } from "./types";
 
-const logLegacyWriteBlocked = (sql: string): void => logError("legacy_write_blocked", new Error(sql), {});
 
 // Query strings routinely end up in proxy access logs and browser history, so the operator
 // credential travels as a header instead — never compare env.ADMIN_SECRET against a URL param.
@@ -326,8 +324,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
 }
 
 export default {
-  async fetch(req: Request, rawEnv: Env, ctx: ExecutionContext): Promise<Response> {
-    const env = withLegacyFreeze(rawEnv, logLegacyWriteBlocked);
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const reqId = crypto.randomUUID();
     const start = Date.now();
     return runWithRequestId(reqId, env, async () => {
@@ -346,8 +343,7 @@ export default {
     });
   },
 
-  async scheduled(_event: ScheduledController, rawEnv: Env, ctx: ExecutionContext): Promise<void> {
-    const env = withLegacyFreeze(rawEnv, logLegacyWriteBlocked);
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const reqId = crypto.randomUUID();
     ctx.waitUntil(
       runWithRequestId(reqId, env, async () => {

@@ -20,8 +20,7 @@ import { isCutOver } from "./cutover";
 import { buildSinglePass, logSchedulerError, processUser, type Sender } from "../scheduler";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
-import { logError, logInfo, runWithRequestId } from "../log";
-import { withLegacyFreeze } from "../adapters/d1/legacyFreeze";
+import { logInfo, runWithRequestId } from "../log";
 
 // Hourly, matching the cron path's own hourKey-gated cadence (scheduler.ts) — processUser's
 // internal gates (reminderHour, already(), daysBetween(...)) are what actually decide whether
@@ -42,7 +41,7 @@ export class UserSchedulerDO {
     private readonly state: DurableObjectState,
     env: Env,
   ) {
-    this.env = withLegacyFreeze(env, (sql) => logError("legacy_write_blocked", new Error(sql), {}));
+    this.env = env;
   }
 
   /** Wake (or re-wake) this DO for a specific user. Idempotent: safe to call again after a

@@ -17,7 +17,7 @@ export function normalizeLang(v: unknown): Lang {
 }
 
 export function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 // AI models sometimes emit LaTeX like "\times" for "×". In JSON, "\t" parses to a
@@ -25,7 +25,7 @@ export function escapeHtml(s: string): string {
 // artifact and strip leftover control chars. Applied on both write and render so
 // plans stored before this fix display correctly too.
 export function cleanAi(s: string | undefined): string {
-  if (!s) return s ?? "";
+  if (!s) return "";
   return s
     .replaceAll(/\times/g, " × ")
     .replaceAll(/[\x00-\x1F]/g, " ")

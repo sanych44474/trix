@@ -32,7 +32,7 @@ export interface WeeklyProgressionCtx {
   bodyAll: () => Promise<BodyLogDoc[]>;
 }
 
-export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<boolean> {
+export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<void> {
   const { db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll } = p;
   markSent("progression");
   const plan = activePlan;
@@ -124,5 +124,4 @@ export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<boolea
       }
     }
   }
-  return false;
 }
