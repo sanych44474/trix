@@ -18,6 +18,7 @@ import { showCardioMenu } from "./survey";
 import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerBroadcast, cmdTrainerQuestions, cmdTrainerReport, handleAnswerQuestion, handleTemplateName, handleTrainerBroadcast, onTrainerLimitCycle, openFindTrainer, openTrainerEdit, shareAssignToClients, startShareMyPlan, toggleShareAll, trainerMenuActionFor, trainerSteps, twAdvance } from "../features/trainer/trainer";
 import { deleteUserData } from "../adapters/d1/v2Account";
 import { bumpEvent, recordError, setLastSeen, userStatCounts } from "../adapters/d1/v2Admin";
+import { startThinking } from "../adapters/telegram/thinking";
 import { upsertWorkoutLog } from "../adapters/d1/v2Workouts";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { getActivePlan } from "../adapters/d1/v2Plans";
@@ -452,13 +453,19 @@ export async function maybeCelebrateLevel(ctx: MyContext) {
 // (up to ~26 s). Errors surface through onError, same as the old inline path. None of the
 // deferred flows park the session in a waiting mode, so a (rare) evicted isolate just means
 // no reply — the user's next message goes through the normal route again.
-export function deferAi(ctx: MyContext, where: string, work: () => Promise<void>) {
+/** Run an AI job past the webhook response. By default the user sees Telegram's native
+ *  "Thinking…" draft until the job ends (adapters/telegram/thinking); pass thinking: false when
+ *  the answer goes to someone else (a client's question routed to their trainer). */
+export function deferAi(ctx: MyContext, where: string, work: () => Promise<void>, opts: { thinking?: boolean } = {}) {
   ctx.waitUntil(
     (async () => {
+      const stop = opts.thinking === false ? () => {} : startThinking(ctx);
       try {
         await work();
       } catch (err) {
         await onError(ctx, err, where).catch(() => {});
+      } finally {
+        stop();
       }
     })(),
   );

@@ -304,5 +304,5 @@ export async function routeClientQuestion(ctx: MyContext, text: string) {
       t(trainer.lang, "trainer_question", { name: who, q: escapeHtml(text) }) +
       (draft ? `\n\n🤖 <i>${escapeHtml(draft)}</i>` : "");
     await ctx.api.sendMessage(trainer.chatId, body, { ...HTML, reply_markup: kb }).catch(() => {});
-  });
+  }, { thinking: false });
 }
