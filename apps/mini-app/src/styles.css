@@ -256,7 +256,7 @@ button { cursor: pointer; }
 @media (max-width: 420px) { .set-row { grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) 22px; }.rpe-chips { grid-column: 2 / -1; justify-content: flex-start; }.set-remove { grid-column: 4; grid-row: 1; }.exercise-head { align-items: flex-start; }.exercise-head .button-row { justify-content: flex-end; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
 @media (prefers-color-scheme: light) {
-  .card:not(.card-accent) { background: rgba(255,255,255,.94); }
+  .card:not(.card-accent):not(.card-muted) { background: rgba(255,255,255,.94); }
   .card-muted { background: var(--surface-2); }
   .factor-list { color: #465366; }
   .input-row input, .form-field input, .form-field select, .form-field textarea, .set-row input, .meal-editor input, .plan-edit-fields input, .compact-input { background: var(--surface); color: var(--text); }
@@ -265,7 +265,7 @@ button { cursor: pointer; }
 }
 :root[data-theme="light"] { color-scheme: light; color: #18202b; background: #f4f6f8; --bg: #f4f6f8; --surface: #ffffff; --surface-2: #eef1f5; --line: #d8dee7; --text: #18202b; --muted: #637083; --accent-soft: rgba(255,95,61,.12); }
 :root[data-theme="light"] body { background: radial-gradient(circle at 90% -10%, rgba(255,95,61,.10), transparent 34%), var(--bg); }
-:root[data-theme="light"] .card:not(.card-accent) { background: rgba(255,255,255,.94); }
+:root[data-theme="light"] .card:not(.card-accent):not(.card-muted) { background: rgba(255,255,255,.94); }
 :root[data-theme="light"] .card-muted { background: var(--surface-2); }
 :root[data-theme="light"] .factor-list { color: #465366; }
 :root[data-theme="light"] .input-row input, :root[data-theme="light"] .form-field input, :root[data-theme="light"] .form-field select, :root[data-theme="light"] .form-field textarea, :root[data-theme="light"] .set-row input, :root[data-theme="light"] .meal-editor input, :root[data-theme="light"] .plan-edit-fields input, :root[data-theme="light"] .compact-input { background: var(--surface); color: var(--text); }
@@ -273,7 +273,7 @@ button { cursor: pointer; }
 :root[data-theme="light"] .rest-bar, :root[data-theme="light"] .save-dock { background: rgba(255,255,255,.97); box-shadow: 0 8px 24px rgba(24,32,43,.14); }
 :root[data-theme="dark"] { color-scheme: dark; color: #eef1f6; background: #0b0d11; --bg: #0b0d11; --surface: #141820; --surface-2: #1b202a; --line: #2a303b; --text: #eef1f6; --muted: #8f99aa; --accent: #ff5f3d; --accent-soft: rgba(255,95,61,.16); --good: #55d38b; --warn: #ffc857; --bad: #ff6f6f; }
 :root[data-theme="dark"] body { background: radial-gradient(circle at 90% -10%, rgba(255,95,61,.14), transparent 34%), var(--bg); }
-:root[data-theme="dark"] .card:not(.card-accent) { background: rgba(20,24,32,.9); }
+:root[data-theme="dark"] .card:not(.card-accent):not(.card-muted) { background: rgba(20,24,32,.9); }
 :root[data-theme="dark"] .bottom-nav { background: rgba(11,13,17,.92); }
 :root[data-theme="dark"] .rest-bar, :root[data-theme="dark"] .save-dock { background: rgba(11,13,17,.96); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 
