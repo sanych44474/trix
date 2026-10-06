@@ -61,6 +61,10 @@ traffic on them. That is a real date rather than "later", which is what let this
 themselves stay regardless — `/api/v2/*` dispatches to them internally by rewriting the pathname
 (`src/webapp/v2Api.ts`), so only the public route table entries go.
 
+Since 2026-10-06 every request that reaches these routes logs `legacy_api_hit` (path, method),
+which also lands in Analytics Engine. Zero hits through December is the go-ahead; the smoke test
+was moved to `/api/v2/dashboard` so it does not count as traffic.
+
 ## Consequences
 
 - One less place for a `V2_APP_ENABLED`-unaware hardcoded `/app` to silently reappear: the
