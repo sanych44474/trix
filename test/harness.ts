@@ -140,3 +140,12 @@ export function makeCtx(db: FakeD1, user: Record<string, unknown>, env: Record<s
   };
   return { ctx, sent, flush: async () => { await Promise.all(deferred); } };
 }
+
+/** A fixed-offset IANA zone where it is currently 12:xx local, so reminder tests never land in
+ * the default night quiet hours (22:00–07:00) whatever time the suite runs. */
+export function middayZone(): string {
+  let off = 12 - new Date().getUTCHours();
+  if (off > 14) off -= 24;
+  if (off < -12) off += 24;
+  return off >= 0 ? `Etc/GMT-${off}` : `Etc/GMT+${-off}`;
+}

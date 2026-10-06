@@ -2,7 +2,7 @@
 // Without a Mini App URL (dev/tests) they fall back to the callbacks.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { newDb } from "./harness";
+import { middayZone, newDb } from "./harness";
 import { buildSinglePass, processUser, type Sender } from "../src/scheduler";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
@@ -41,7 +41,7 @@ test("appLink / appKeyboard: web_app buttons with deep-link params; callbacks on
 test("workout reminder with the app: every button opens the Mini App, none is a chat callback", async () => {
   const db = newDb();
   await getOrCreateUser(db, 8001, 8001, "en", "Ann");
-  await updateUser(db, 8001, { onboarded: true, profile: { timezone: "UTC", reminderHour: 0, trainingWeekdays: [1, 2, 3, 4, 5, 6, 7], name: "Ann" } } as never);
+  await updateUser(db, 8001, { onboarded: true, profile: { timezone: middayZone(), reminderHour: 0, trainingWeekdays: [1, 2, 3, 4, 5, 6, 7], name: "Ann" } } as never);
   await setActivePlan(db, everydayPlan(8001));
   const user = (await getUser(db, 8001)) as UserDoc;
   const { bot, sent } = recorder();

@@ -10,7 +10,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GrammyError } from "grammy";
-import { newDb } from "./harness";
+import { middayZone, newDb } from "./harness";
+import { localParts } from "../src/domain/localTime";
 import { buildSinglePass, processUser, type Sender } from "../src/scheduler";
 import { getOrCreateUser, updateUser, getUser } from "../src/adapters/d1/v2Users";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
@@ -57,7 +58,7 @@ async function reminderReadyUser(db: ReturnType<typeof newDb>, id: number): Prom
   await getOrCreateUser(db, id, id, "en", "Test");
   await updateUser(db, id, {
     onboarded: true,
-    profile: { timezone: "UTC", reminderHour: 0, trainingWeekdays: [1, 2, 3, 4, 5, 6, 7], name: "Test" },
+    profile: { timezone: middayZone(), reminderHour: 0, trainingWeekdays: [1, 2, 3, 4, 5, 6, 7], name: "Test" },
   } as Parameters<typeof updateUser>[2]);
   await setActivePlan(db, everydayPlan(id));
   return (await getUser(db, id)) as UserDoc;
@@ -84,7 +85,8 @@ async function workoutRow(db: ReturnType<typeof newDb>) {
   return rows[0];
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+// The users live in middayZone(); their "today" is that zone's date.
+const todayIso = () => localParts(middayZone()).date;
 
 // THE regression. A 400 is terminal (classifySendError: any non-429 4xx cannot be fixed by
 // retrying), so the message is genuinely gone -- which is exactly when the dedup key must stay
@@ -168,4 +170,41 @@ test("processUser: the dedup key suppresses the same reminder later the same day
     1,
     "the workout reminder must not re-fire once its key is recorded",
   );
+});
+
+// Volume guard: at most DAILY_NUDGE_CAP proactive reminders a local day, whatever is due.
+test("processUser: the daily cap holds back a reminder once the day's budget is spent", async () => {
+  const db = newDb();
+  const user = await reminderReadyUser(db, 7006);
+  await updateUser(db, user._id, { reminders: { sent: { nudges: `${todayIso()}:3` } } } as Parameters<typeof updateUser>[2]);
+  const reloaded = (await getUser(db, user._id)) as UserDoc;
+  const { bot, texts } = recordingSender(() => {});
+
+  await processUser(fakeEnv(db), bot, reloaded, await buildSinglePass(db, reloaded._id));
+
+  assert.equal(texts.filter(isWorkoutReminder).length, 0, "a 4th reminder must wait for tomorrow");
+});
+
+test("processUser: a sent reminder counts toward the daily cap", async () => {
+  const db = newDb();
+  const user = await reminderReadyUser(db, 7007);
+  const { bot } = recordingSender(() => {});
+
+  await processUser(fakeEnv(db), bot, user, await buildSinglePass(db, user._id));
+
+  const after = await getUser(db, user._id);
+  assert.equal(after?.reminders?.sent?.["nudges"], `${todayIso()}:1`);
+});
+
+test("processUser: the person's quiet hours hold reminders back", async () => {
+  const db = newDb();
+  const user = await reminderReadyUser(db, 7008);
+  // middayZone() puts local time at 12:xx; quiet 11–14 covers it.
+  await updateUser(db, user._id, { profile: { ...user.profile, quietFrom: 11, quietTo: 14 } } as Parameters<typeof updateUser>[2]);
+  const reloaded = (await getUser(db, user._id)) as UserDoc;
+  const { bot, texts } = recordingSender(() => {});
+
+  await processUser(fakeEnv(db), bot, reloaded, await buildSinglePass(db, reloaded._id));
+
+  assert.equal(texts.filter(isWorkoutReminder).length, 0);
 });
