@@ -5,7 +5,7 @@
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";
 import type { Api } from "grammy";
 import { applyWorkoutSave, type WorkoutSaveEntry } from "../bot/workoutSave";
-import { muscleGroupToEnum } from "../bot/exerciseCatalog";
+import { muscleGroupToEnum } from "../domain/exerciseDefaults";
 import { planRepsMid, planSetsCount, planWeight } from "../bot/guidedLog";
 import { formatPrBest } from "../bot/workoutSave";
 import { announceSquadPr } from "../bot/squad";

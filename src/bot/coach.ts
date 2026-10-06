@@ -32,7 +32,7 @@ import { partialJsonString } from "../domain/partialJson";
 import { localCutoff } from "./report";
 import { trainerStyleBlock } from "../features/trainer/trainerWizard";
 import { type MyContext, HTML, planOwnerId, reply, setMode } from "../adapters/telegram/context";
-import { addExerciseByName, deleteExerciseFromToday } from "./exerciseCatalog";
+import { addExerciseByName, deleteExerciseFromToday } from "./todayEdit";
 import { adjustDifficulty, setExerciseSets, setExerciseWeight, showSwapAlternatives, swapExerciseByName } from "./planExerciseEdit";
 import { menuBtn } from "./keyboards";
 

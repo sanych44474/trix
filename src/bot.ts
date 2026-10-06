@@ -21,6 +21,7 @@ export { MIN_EXERCISES_PER_DAY } from "./domain/plan-lint";
 export type { AiPlanResponse as AiPlan } from "./domain/plan-schema";
 export * from "./bot/appLinks";
 export * from "./bot/exerciseCatalog";
+export * from "./bot/todayEdit";
 export * from "./bot/recordsCmds";
 export * from "./bot/settingsCmds";
 export * from "./bot/nutritionCmds";

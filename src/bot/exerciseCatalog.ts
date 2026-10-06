@@ -2,7 +2,7 @@
 // names, descriptions, and adding/deleting exercises on a plan day. Split out of bot.ts (god-file
 // split); bot.ts re-exports everything here.
 import { InlineKeyboard } from "grammy";
-import type { CatalogExercise, ExerciseMetric, Lang, PlanDay, PlanDoc, PlanExercise, Weekday } from "../types";
+import type { CatalogExercise, Lang, PlanDay, PlanDoc, PlanExercise, Weekday } from "../types";
 import { getActivePlan, recordPlanChange, saveDraftPlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
 import { listActiveInjuries } from "../adapters/d1/v2Tracking";
 import { getCatalogExercise, getExerciseTranslation, upsertExerciseTranslation, searchExercisesByName, upsertExercise } from "../adapters/d1/v2Catalog";
@@ -12,15 +12,16 @@ import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { aiJSON, aiText } from "../ai";
 import * as P from "../ai/prompts";
 import { getPlanDay } from "../domain/progression";
-import { parseWorkoutText } from "../domain/workoutText";
 import { exerciseMetric } from "../domain/setFormat";
-import { renderToday } from "../render";
-import { menuBtn, todayWorkoutKeyboard } from "./keyboards";
+import { menuBtn } from "./keyboards";
 import { onError } from "./aiDefer";
 import { endSelfEdit, swapExerciseByName } from "./planExerciseEdit";
 import { switchMode } from "../domain/session";
 import { isEditingOther, planOwnerId, planOwnerLang, reply, setMode, type MyContext } from "../adapters/telegram/context";
-import { reRenderEditDay, videosForDays, PendingExercise } from "./planView";
+import { reRenderEditDay, PendingExercise } from "./planView";
+import { extractExerciseQuery, stripEquipmentWords, defaultStartWeightForExercise, defaultSetsForMetric, muscleGroupToEnum } from "../domain/exerciseDefaults";
+import { addExerciseByName } from "./todayEdit";
+export * from "../domain/exerciseDefaults";
 
 // Instructions + safety for an exercise in the user's language. English is served straight
 // from the catalog; other languages are translated on first use and cached so /today is
@@ -80,43 +81,6 @@ export async function translateExerciseQueryToEnglish(ctx: MyContext, query: str
   } catch {
     return query.trim();
   }
-}
-
-export function extractExerciseQuery(text: string): string {
-  const trimmed = text.trim().replace(/\s+/g, " ");
-  if (!trimmed) return trimmed;
-
-  const parsed = parseWorkoutText(trimmed);
-  if (parsed.length > 0 && parsed[0].exercise.trim()) {
-    return parsed[0].exercise.trim();
-  }
-
-  const markers = [
-    /\b\d+(?:[.,]\d+)?\s*[xх×•·]\s*\d+\b/iu,
-    /\b\d+(?:[.,]\d+)?\s*(?:kg|кг)\b/iu,
-    /\b\d+\s*підход[а-я]*\b/iu,
-    /\b\d+\s*раз[а-я]*\b/iu,
-    /\b(?:bw|bodyweight|власна|своя)\b/iu,
-  ];
-  let cut = trimmed.length;
-  for (const re of markers) {
-    const match = trimmed.match(re);
-    if (match?.index !== undefined) cut = Math.min(cut, match.index);
-  }
-  return trimmed.slice(0, cut).replace(/[\s,;:–—•·-]+$/u, "").trim() || trimmed;
-}
-
-// Drop the implement/equipment qualifier so a movement matches regardless of dumbbell/kettlebell/
-// barbell/machine — e.g. "goblet squat with dumbbell" / "присідання кубком з гантеллю" → "goblet squat".
-export function stripEquipmentWords(s: string): string {
-  return s
-    .replace(/\b(?:dumbbells?|kettlebells?|barbells?|cable|machine|smith|resistance bands?|band|plate)\b/gi, " ")
-    .replace(/\bз\s+(?:гантел\w*|гир\w*)\b/giu, " ")
-    .replace(/\bзі?\s+штанг\w*\b/giu, " ")
-    .replace(/\b(?:на|у|в)\s+тренажер\w*\b/giu, " ")
-    .replace(/\b(?:with|using|on)\b/gi, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
 }
 
 export async function searchExerciseCatalog(ctx: MyContext, query: string, limit = 5): Promise<CatalogExercise[]> {
@@ -556,168 +520,3 @@ export async function createExerciseCatalogEntry(
   await upsertExercise(ctx.db, catalog);
   return catalog;
 }
-
-export async function startAddExercise(ctx: MyContext, weekday: Weekday) {
-  const lang = ctx.user.lang;
-  const session = switchMode(ctx.user.session, "add_exercise", { targetId: weekday });
-  await updateUser(ctx.db, ctx.user._id, { session });
-  ctx.user.session = session;
-  await reply(ctx, t(lang, "add_exercise_prompt"));
-}
-
-export async function showDeleteExerciseMenu(ctx: MyContext, weekday: Weekday) {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlan(ctx.db, planOwnerId(ctx));
-  const day = plan ? getPlanDay(plan, weekday) : undefined;
-  if (!day || !day.exercises.length) {
-    await reply(ctx, t(lang, "exercise_info_unavailable"), menuBtn(lang));
-    return;
-  }
-  const kb = new InlineKeyboard();
-  day.exercises.forEach((e, i) => {
-    const label = `${i + 1}. ${e.name}`.slice(0, 60);
-    kb.text(label, `workout:delete:${weekday}:${i}`).row();
-  });
-  await reply(ctx, t(lang, "delete_pick"), kb);
-}
-
-export async function deleteExerciseFromToday(ctx: MyContext, weekday: Weekday, index: number) {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlan(ctx.db, planOwnerId(ctx));
-  const day = plan ? getPlanDay(plan, weekday) : undefined;
-  const current = day?.exercises[index];
-  if (!plan || !day || !current) {
-    await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
-    return;
-  }
-  const owner = planOwnerId(ctx);
-  day.exercises.splice(index, 1);
-  await updateActivePlanSplit(ctx.db, owner, plan.split);
-  // Stash for one-tap undo.
-  const session = { ...ctx.user.session, lastDeleted: { ownerId: owner, weekday, index, exercise: current } };
-  await updateUser(ctx.db, ctx.user._id, { session });
-  ctx.user.session = session;
-  const updatedDay = plan.split.find((d) => d.weekday === weekday);
-  await reply(ctx, t(lang, "delete_done", { name: current.name }), new InlineKeyboard().text(t(lang, "undo_delete"), "undo:del"));
-  // Editing a client/user → return to their edit-day view; editing own today → self log view.
-  if (isEditingOther(ctx)) {
-    await reRenderEditDay(ctx, weekday);
-  } else if (updatedDay) {
-    await reply(ctx, renderToday(lang, updatedDay, undefined, undefined, await videosForDays(ctx, [updatedDay])), todayWorkoutKeyboard(lang, weekday));
-  }
-}
-
-// Restore the most recently deleted exercise to its original position.
-export async function undoDelete(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  const d = ctx.user.session.lastDeleted;
-  if (!d) {
-    await reply(ctx, t(lang, "nothing_to_undo"), menuBtn(lang));
-    return;
-  }
-  const plan = await getActivePlan(ctx.db, d.ownerId);
-  const day = plan ? getPlanDay(plan, d.weekday as Weekday) : undefined;
-  if (!plan || !day) {
-    await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
-    return;
-  }
-  day.exercises.splice(Math.min(d.index, day.exercises.length), 0, d.exercise);
-  await updateActivePlanSplit(ctx.db, d.ownerId, plan.split);
-  const session = { ...ctx.user.session };
-  delete session.lastDeleted;
-  await updateUser(ctx.db, ctx.user._id, { session });
-  ctx.user.session = session;
-  await reply(ctx, t(lang, "undo_done", { name: d.exercise.name }), menuBtn(lang));
-}
-
-export function defaultSetsForExercise(catalog: CatalogExercise): string {
-  switch (catalog.difficulty) {
-    case "expert":
-      return "4 × 6-8";
-    case "intermediate":
-      return "4 × 8-10";
-    default:
-      return "3 × 10-12";
-  }
-}
-
-export function defaultStartWeightForExercise(catalog: CatalogExercise): string {
-  const eq = catalog.equipments.join(" ").toLowerCase();
-  const bodyweightish = catalog.type?.toLowerCase().includes("bodyweight") || eq.includes("bodyweight");
-  return bodyweightish ? "Bodyweight" : "—";
-}
-
-// Default sets string by metric: timed holds → seconds, cardio → duration, else reps by difficulty.
-export function defaultSetsForMetric(metric: ExerciseMetric, catalog: CatalogExercise): string {
-  if (metric === "time") return "3 × 30-45s";
-  if (metric === "distance") return "10 min";
-  return defaultSetsForExercise(catalog);
-}
-
-// Resolve an exercise by name (catalog match, else AI-author) and ask the user to confirm
-// before adding it to `weekday`. Shared by the typed add flow and the coach chat.
-export async function addExerciseByName(ctx: MyContext, weekday: Weekday, query: string, source: "ai_coach" | "manual" = "manual") {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlan(ctx.db, planOwnerId(ctx));
-  const day = plan ? getPlanDay(plan, weekday) : undefined;
-  if (!plan || !day) {
-    await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
-    return;
-  }
-  try {
-    const englishQuery = await translateExerciseQueryToEnglish(ctx, query);
-    const matches = await searchExerciseCatalog(ctx, query, 5);
-    await ctx.replyWithChatAction("typing").catch(() => {});
-    const catalog = matches[0] ?? (await createExerciseCatalogEntry(ctx, query, day, "add", undefined, englishQuery));
-    await promptExerciseConfirmation(ctx, { action: "add", weekday, query, englishQuery, catalog, source });
-  } catch (err) {
-    await onError(ctx, err, "add_exercise");
-  }
-}
-
-export async function handleAddExercise(ctx: MyContext, text: string) {
-  const weekday = (ctx.user.session.targetId ?? 0) as Weekday;
-  await setMode(ctx, "idle");
-  await addExerciseByName(ctx, weekday, extractExerciseQuery(text));
-}
-
-// Maps localized/English muscle group display names to catalog muscle enum values.
-export function muscleGroupToEnum(group: string): string | null {
-  const g = group.toLowerCase();
-  const map: [string, string][] = [
-    ["shoulder", "shoulders"], ["плеч", "shoulders"],
-    ["chest", "chest"], ["груд", "chest"],
-    ["back", "middle back"], ["спин", "middle back"],
-    ["lat", "lats"], ["широч", "lats"],
-    ["leg", "quadriceps"], ["квадр", "quadriceps"], ["ног", "quadriceps"],
-    ["hamstr", "hamstrings"], ["підколін", "hamstrings"],
-    ["glute", "glutes"], ["сідн", "glutes"],
-    ["bicep", "biceps"], ["біцеп", "biceps"],
-    ["tricep", "triceps"], ["трицеп", "triceps"],
-    ["abs", "abdominals"], ["прес", "abdominals"], ["черев", "abdominals"],
-    ["calf", "calves"], ["ікр", "calves"],
-    ["trap", "traps"], ["трапец", "traps"],
-    ["forearm", "forearms"], ["передпліч", "forearms"],
-  ];
-  for (const [key, val] of map) {
-    if (g.includes(key)) return val;
-  }
-  return null;
-}
-
-// ============ Plan-day management: add / delete whole days ============
-// Moved to bot/planDays.ts (god-file split); re-exported below so existing `from "./bot"`
-// imports (router.ts) keep working.
-
-// swapMenu/showSwapAlternatives/swapFromCatalog/showLogSwapAlternatives/showGymSwapPicker/
-// applyGymSwap/logSwapFromCatalog/logBackToPick/startSwapCustom/swapExerciseByName/
-// handleSwapCustom/setExerciseWeight/setExerciseSets/adjustDifficulty/openWeightEditor/
-// openSetsEditor/selfEditDayKb/endSelfEdit moved to bot/planExerciseEdit.ts as one file (see
-// its header comment for why they were not split further); re-exported below.
-
-// showReorder/moveExercise/endReorder/selectExerciseWeight/selectExerciseSets/handleWeightEdit/
-// handleSetsEdit moved to bot/planExerciseEdit.ts (same file, same reasons as the swap family).
-
-// The guided per-exercise logger (LogDraft type, cmdLog/cmdLogPast/logPickExercise/logFinish,
-// the exit guard, and the free-text switch) moved to bot/guidedLog.ts (god-file split; it was
-// filed under the unrelated "Reorder exercises" banner). Re-exported below.
