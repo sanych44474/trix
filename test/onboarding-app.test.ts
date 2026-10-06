@@ -1,12 +1,14 @@
-// Onboarding happens in the Mini App: the bot hands out one button, and until the questionnaire is
-// done an athlete gets that button back for anything else instead of a menu.
+// The chat is retired: the bot answers with one Open-app button, deep-linked where it can, and the
+// questionnaire is the app's first screen for a new athlete.
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx, type Sent } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { applyTrainer, approveTrainer, listProspects } from "../src/adapters/d1/v2Trainer";
 import { handleProspectName, joinByProspectCode, sharePromptKb, startProspectInvite } from "../src/features/trainer/trainer";
-import { onboardingGate, onboardingUrlFromEnv } from "../src/bot/onboardingApp";
+import { onboardingUrlFromEnv } from "../src/bot/onboardingApp";
+import { launcherGate, viewForCallback, viewForCommand } from "../src/bot/launcher";
+import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { setAppUrl } from "../src/bot/appLinks";
 import { cmdStart } from "../src/bot/start";
 import { t } from "../src/locales/i18n";
@@ -29,83 +31,6 @@ async function solo(db: ReturnType<typeof newDb>, id = 500, patch: Partial<UserD
 test("onboardingUrlFromEnv: points at the v2 app's onboarding view, nothing without WORKER_URL", () => {
   assert.equal(onboardingUrlFromEnv({}), undefined);
   assert.match(onboardingUrlFromEnv({ WORKER_URL: APP, V2_APP_ENABLED: "1" }) ?? "", /^https:\/\/trix\.example\/app-v2\?v=.+&view=onboarding$/);
-});
-
-test("gate: a not-onboarded athlete tapping a menu button gets the questionnaire button, not the menu", async () => {
-  setAppUrl(APP, "/app-v2");
-  const db = newDb();
-  const { ctx, sent } = makeCtx(db, (await solo(db)) as never);
-  Object.assign(ctx, { callbackQuery: { data: "menu:today" } });
-  assert.equal(await onboardingGate(ctx as never), true);
-  assert.equal(sent.length, 1);
-  assert.equal(sent[0].text, t("uk", "ob_app_reminder"));
-  assert.match(webAppUrls(sent[0])[0] ?? "", /view=onboarding/);
-});
-
-test("gate: reply-keyboard text and voice-free messages are gated too; /start and support are not", async () => {
-  setAppUrl(APP, "/app-v2");
-  const db = newDb();
-  const user = await solo(db);
-  for (const [text, gated] of [["📅 Сьогодні", true], ["/start", false], ["/support", false], ["/today", true]] as const) {
-    const { ctx } = makeCtx(db, user as never);
-    Object.assign(ctx, { message: { text } });
-    assert.equal(await onboardingGate(ctx as never), gated, text);
-  }
-});
-
-test("gate: lets through language, role, find-trainer and request taps, and the trainer-code step", async () => {
-  setAppUrl(APP, "/app-v2");
-  const db = newDb();
-  const user = await solo(db);
-  for (const data of ["lang:en", "role:find", "find:code", "req:cancel:3"]) {
-    const { ctx } = makeCtx(db, user as never);
-    Object.assign(ctx, { callbackQuery: { data } });
-    assert.equal(await onboardingGate(ctx as never), false, data);
-  }
-  const { ctx } = makeCtx(db, { ...user, session: { mode: "client_code" } } as never);
-  Object.assign(ctx, { message: { text: "ABC123" } });
-  assert.equal(await onboardingGate(ctx as never), false);
-});
-
-test("gate: never applies to onboarded athletes, trainers, a pending plan, or without the app", async () => {
-  const db = newDb();
-  const base = await solo(db);
-  const cases: Array<[string, Record<string, unknown>, boolean]> = [
-    ["onboarded", { ...base, onboarded: true }, true],
-    ["trainer", { ...base, role: "trainer" }, true],
-    ["plan pending", { ...base, session: { mode: "plan_pending" } }, true],
-    ["no app url", base as never, false],
-  ];
-  for (const [name, user, withApp] of cases) {
-    setAppUrl(withApp ? APP : undefined, "/app-v2");
-    const { ctx } = makeCtx(db, user);
-    Object.assign(ctx, { callbackQuery: { data: "menu:today" } });
-    assert.equal(await onboardingGate(ctx as never), false, name);
-  }
-});
-
-test("/start for a brand-new user: one welcome with the app button first and one choice per row", async () => {
-  setAppUrl(APP, "/app-v2");
-  const db = newDb();
-  const { ctx, sent } = makeCtx(db, (await solo(db)) as never);
-  await cmdStart(ctx as never);
-  assert.equal(sent.length, 1);
-  assert.match(sent[0].text, new RegExp(t("uk", "ob_app_welcome").slice(0, 20).replace(/[*]/g, "\\*")));
-  const rows = (sent[0].markup as { inline_keyboard: unknown[][] }).inline_keyboard;
-  assert.ok(rows.every((row) => row.length === 1), "every button on its own row");
-  assert.equal(webAppUrls(sent[0]).length, 1);
-});
-
-test("/start for a trainer's client who has not finished: the questionnaire button, no menu", async () => {
-  setAppUrl(APP, "/app-v2");
-  const db = newDb();
-  await getOrCreateUser(db, 300, 300, "uk", "Max");
-  await updateUser(db, 300, { role: "trainer" });
-  const { ctx, sent } = makeCtx(db, (await solo(db, 501, { role: "client" })) as never);
-  await cmdStart(ctx as never);
-  assert.equal(sent.length, 1);
-  assert.match(sent[0].text, new RegExp(t("uk", "ob_app_prompt").slice(0, 15)));
-  assert.equal(webAppUrls(sent[0]).length, 1);
 });
 
 test("trainer invite for a new user: 'connected' + one questionnaire button, no sharing prompt or chat question", async () => {
@@ -134,4 +59,76 @@ test("sharing prompt (already-onboarded transfer): one button per row so labels 
   const rows = sharePromptKb("uk").inline_keyboard;
   assert.equal(rows.length, 3);
   assert.ok(rows.every((row) => row.length === 1));
+});
+
+test("launcher: a tap on an old button opens the matching screen; the first answer also removes the keyboard", async () => {
+  setAppUrl(APP, "/app-v2");
+  const db = newDb();
+  const user = await solo(db, 510, { onboarded: true });
+  const { ctx, sent } = makeCtx(db, user as never);
+  Object.assign(ctx, { callbackQuery: { data: "menu:today" } });
+  assert.equal(await launcherGate(ctx as never), true);
+  assert.equal(sent.length, 2);
+  assert.deepEqual(sent[0].markup, { remove_keyboard: true });
+  assert.match(webAppUrls(sent[1])[0] ?? "", /view=today$/);
+  // Second time: no notice, just the button.
+  const again = makeCtx(db, (await getUser(db, 510)) as never);
+  Object.assign(again.ctx, { message: { text: "/plan" } });
+  assert.equal(await launcherGate(again.ctx as never), true);
+  assert.equal(again.sent.length, 1);
+  assert.match(webAppUrls(again.sent[0])[0] ?? "", /view=plan$/);
+});
+
+test("launcher: a new athlete is sent to the questionnaire whatever they type", async () => {
+  setAppUrl(APP, "/app-v2");
+  const db = newDb();
+  const { ctx, sent } = makeCtx(db, (await solo(db, 511)) as never);
+  Object.assign(ctx, { message: { text: "привіт" } });
+  assert.equal(await launcherGate(ctx as never), true);
+  assert.match(webAppUrls(sent.at(-1)!)[0] ?? "", /view=onboarding$/);
+});
+
+test("launcher: lets through trainer/buddy deep links, payments, the owner, groups, and runs nothing without the app", async () => {
+  const db = newDb();
+  const user = await solo(db, 512, { onboarded: true });
+  const cases: Array<[string, Record<string, unknown>, Record<string, unknown>, boolean]> = [
+    ["trainer link", user as never, { message: { text: "/start tr_abc" } }, true],
+    ["buddy link", user as never, { message: { text: "/start buddy_9" } }, true],
+    ["payment", user as never, { message: { successful_payment: {} } }, true],
+    ["group", user as never, { message: { text: "hi" }, chat: { id: -1, type: "group" } }, true],
+    ["no app", user as never, { message: { text: "hi" } }, false],
+  ];
+  for (const [name, u, extra, withApp] of cases) {
+    setAppUrl(withApp ? APP : undefined, "/app-v2");
+    const { ctx } = makeCtx(db, u);
+    Object.assign(ctx, extra);
+    assert.equal(await launcherGate(ctx as never), false, name);
+  }
+  setAppUrl(APP, "/app-v2");
+  await setOwnerChatId(db, 512);
+  const { ctx } = makeCtx(db, user as never);
+  Object.assign(ctx, { message: { text: "/announce hi" } });
+  assert.equal(await launcherGate(ctx as never), false, "owner");
+});
+
+test("launcher: old commands and buttons map to the screens that replaced them", () => {
+  assert.equal(viewForCommand("nutrition"), "fuel");
+  assert.equal(viewForCommand("records"), "progress");
+  assert.equal(viewForCommand("clients"), "role");
+  assert.equal(viewForCommand("nonsense"), undefined);
+  assert.equal(viewForCallback("set:hour"), "settings");
+  assert.equal(viewForCallback("menu:settings"), "settings");
+  assert.equal(viewForCallback("gl:save"), "train");
+  assert.equal(viewForCallback("req:accept:5"), "role");
+});
+
+test("/start for a brand-new user: the welcome with one Start button that opens the questionnaire", async () => {
+  setAppUrl(APP, "/app-v2");
+  const db = newDb();
+  const { ctx, sent } = makeCtx(db, (await solo(db, 513)) as never);
+  await cmdStart(ctx as never);
+  const last = sent.at(-1)!;
+  assert.match(last.text, /trix/);
+  assert.equal(webAppUrls(last).length, 1);
+  assert.match(webAppUrls(last)[0], /view=onboarding$/);
 });

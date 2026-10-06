@@ -43,7 +43,7 @@ import { cmdMealPlan, cmdGrocery } from "./mealPlanCmds";
 import { cmdCheckin } from "./checkinCmds";
 import { downloadImage, downloadFile } from "./telegramFiles";
 import { onError } from "./aiDefer";
-import { onboardingGate } from "./onboardingApp";
+import { launcherGate } from "./launcher";
 import { CB_EXACT, CB_PREFIX } from "./callbackRoutes";
 import { routeUserText } from "./textRoutes";
 export * from "./textRoutes";
@@ -189,10 +189,10 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
     await next();
   });
 
-  // Athletes who have not finished the questionnaire get the Mini App button for anything else
-  // they send or tap (see onboardingApp.ts for what stays allowed).
+  // The chat is retired: a private message, command or tap gets the Open-app button instead of
+  // running (see launcher.ts for what still goes through).
   bot.use(async (ctx, next) => {
-    if (await onboardingGate(ctx)) return;
+    if (await launcherGate(ctx)) return;
     await next();
   });
 

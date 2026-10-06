@@ -32,9 +32,10 @@ const webhookUrl = `${base.replace(/\/$/, "")}/webhook`;
 
 // Slash menu = ONE gateway button. Everything lives behind /menu (the role-based inline
 // keyboard); every other command still works when typed, just isn't listed here. Bilingual.
+// The chat is retired (src/bot/launcher.ts): everything happens in the Mini App, so the command
+// list is just /start, which answers with the Open-app button.
 const COMMANDS = [
-  { command: "start", en: "Set up / restart your coaching", uk: "Налаштувати / перезапустити" },
-  { command: "menu", en: "Open the menu", uk: "Відкрити меню" },
+  { command: "start", en: "Open trix", uk: "Відкрити trix" },
 ];
 
 // Alphabetical by command, with /start pinned first by convention.
@@ -106,7 +107,7 @@ for (const [lang, p] of Object.entries(PROFILE)) {
 const miniAppPath =
   process.env.MINI_APP_PATH || (process.env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app");
 await post("setChatMenuButton", {
-  menu_button: { type: "web_app", text: "📊 Dashboard", web_app: { url: `${base}${miniAppPath}` } },
+  menu_button: { type: "web_app", text: "trix", web_app: { url: `${base}${miniAppPath}` } },
 });
 
 // Owner chat scope: a per-chat command list OVERRIDES the default, so an old run that

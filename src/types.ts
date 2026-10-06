@@ -95,6 +95,7 @@ export interface UserProfile {
   favoriteExercises?: string; // exercises the user enjoys / wants included
   dislikedExercises?: string; // exercises to avoid
   timezone?: string; // IANA, e.g. "Europe/Kyiv"
+  chatRetired?: boolean; // the "chat moved to the app" notice (and reply-keyboard removal) was sent
   reminderHour?: number; // 0..23 local
   sleepSchedule?: "morning" | "evening"; // bedtime before/after ~23:00; default reminder timing
   lifestyle?: "sedentary" | "moderate" | "active"; // daily activity outside training (job/NEAT)

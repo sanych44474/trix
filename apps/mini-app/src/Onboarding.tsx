@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api, typedBody } from "./api";
 import { t, type Key, type Lang } from "./i18n";
+import { BecomeTrainerCard } from "./BecomeTrainer";
 import { DRAFT_KEY, choose, chosen, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers, type Step } from "./logic/onboardingWizard";
 
 type Props = { lang: Lang; isClient: boolean; onComplete: () => void; onLangChange: (lang: Lang) => void };
@@ -25,6 +26,8 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange }: Pro
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [langBusy, setLangBusy] = useState(false);
+  // "I'm a coach" on the first screen: the trainer application instead of the questionnaire.
+  const [coach, setCoach] = useState(false);
   const advanceTimer = useRef<number | undefined>(undefined);
   const steps = stepsFor(answers, isClient);
   const step = index >= 0 ? steps[Math.min(index, steps.length - 1)] : undefined;
@@ -82,6 +85,13 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange }: Pro
     } catch { /* keep the current language */ } finally { setLangBusy(false); }
   };
 
+  if (!step && coach) {
+    return <div className="ob-wizard view-stack">
+      <div className="ob-progress"><button type="button" className="text-button" onClick={() => setCoach(false)}>← {t(lang, "ob_back_btn")}</button></div>
+      <BecomeTrainerCard lang={lang} role="solo" />
+    </div>;
+  }
+
   if (!step) {
     return <div className="ob-wizard view-stack">
       <div className="ob-welcome">
@@ -92,7 +102,10 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange }: Pro
       <div className="ob-lang" role="group" aria-label={t(lang, "ob_lang_label")}>
         {(["uk", "en"] as const).map((l) => <button key={l} type="button" className={lang === l ? "ob-chip selected" : "ob-chip"} disabled={langBusy} onClick={() => void switchLang(l)}>{t(lang, l === "uk" ? "lang_uk_label" : "lang_en_label")}</button>)}
       </div>
-      <button type="button" className="button button-primary button-wide" onClick={() => setIndex(firstOpenStep(answers, isClient))}>{t(lang, "ob_start_btn")}</button>
+      <div className="ob-options">
+        <button type="button" className="ob-option selected" onClick={() => setIndex(firstOpenStep(answers, isClient))}>{t(lang, isClient ? "ob_start_btn" : "ob_role_athlete_btn")}</button>
+        {!isClient && <button type="button" className="ob-option" onClick={() => setCoach(true)}>{t(lang, "ob_role_coach_btn")}</button>}
+      </div>
     </div>;
   }
 

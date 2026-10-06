@@ -12,7 +12,8 @@ import { trainerMenu } from "../features/trainer/trainerCommon";
 import { onboardingStep, renderObStep } from "./onboarding";
 import { langMenu } from "./keyboards";
 import { showNextBestAction } from "./nextBestAction";
-import { sendOnboardingPrompt, sendWelcomeEntry } from "./onboardingApp";
+import { sendOnboardingPrompt } from "./onboardingApp";
+import { sendLauncher } from "./launcher";
 import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 
 // Start (or restart) the deterministic button-based intake wizard (no per-turn AI).
@@ -95,18 +96,11 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
       }
     }
   }
+  // With the Mini App, a plain /start (or one after a referral or buddy link) only points there.
+  if (await sendLauncher(ctx)) return;
   if (u.session.mode === "plan_pending") {
     await resumePendingPlan(ctx);
     return;
-  }
-  // An athlete without a finished questionnaire never gets a menu: a trainer's client (or anyone
-  // mid-questionnaire) gets the app button, a brand-new user the welcome with one choice per row.
-  if (!u.onboarded && (u.role === "solo" || u.role === "client")) {
-    const pendingReq = u.role === "solo" ? await pendingRequestForClient(ctx.db, u._id) : null;
-    if (!pendingReq) {
-      const fresh = u.role === "solo" && u.session.mode !== "onboarding";
-      if (fresh ? await sendWelcomeEntry(ctx, hi) : await sendOnboardingPrompt(ctx, "ob_app_prompt", hi)) return;
-    }
   }
   if (u.role === "trainer") {
     await reply(ctx, hi + t(lang, "trainer_home"), trainerMenu(lang));

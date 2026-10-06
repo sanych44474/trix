@@ -1117,6 +1117,8 @@ export const en = {
   ob_welcome_title: "Let's build your plan",
   ob_welcome_body: "A few short questions, one at a time — about 2 minutes. Your plan, reminders and nutrition targets are built from your answers.",
   ob_start_btn: "Start",
+  ob_role_athlete_btn: "💪 I train myself — with AI",
+  ob_role_coach_btn: "🧑‍🏫 I'm a coach",
   ob_lang_label: "Language",
   ob_plan_ready_soon: "This usually takes under a minute. This screen updates by itself.",
   ob_lifts_hint: "Optional: what you lift now (kg for 5–8 reps). Starting weights for every exercise are set from these; leave empty to pick them in the gym.",
