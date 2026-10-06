@@ -12,7 +12,7 @@
 
 ## Checklist
 
-- [ ] `npm run typecheck` passes
+- [ ] `npm run typecheck` and `npm run lint` pass
 - [ ] `npm test` passes
 - [ ] New user-facing strings added in **both** languages (`en`, `uk`), in the bot and/or Mini App catalog
 - [ ] New domain logic lives in `src/domain/` and is unit-tested

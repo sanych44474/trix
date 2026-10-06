@@ -13,7 +13,7 @@ import { localParts, weeksSincePlan } from "../domain/progression";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { MyContext, reply, setMode } from "../adapters/telegram/context";
 import { coachContext } from "../bot";
-import { maybeCelebrateLevel, deferAi } from "./router";
+import { maybeCelebrateLevel, deferAi } from "./aiDefer";
 
 export async function cmdCheckin(ctx: MyContext) {
   const lang = ctx.user.lang;

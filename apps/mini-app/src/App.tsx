@@ -19,7 +19,7 @@ const ExtrasView = lazy(() => import("./ExtrasView").then((m) => ({ default: m.E
 // instant; the service worker precaches every chunk, so it works offline too.
 const loadTrainView = () => import("./TrainView");
 const TrainView = lazy(() => loadTrainView().then((m) => ({ default: m.TrainView })));
-const CoachView = lazy(() => import("./Workspace").then((m) => ({ default: m.AiCoachView })));
+const CoachView = lazy(() => import("./workspace/AiCoachView").then((m) => ({ default: m.AiCoachView })));
 const LibraryView = lazy(() => import("./Library").then((m) => ({ default: m.LibraryView })));
 
 type View = "today" | "train" | "plan" | "fuel" | "progress" | "role" | "more" | "settings" | "library" | "inbox" | "coach";

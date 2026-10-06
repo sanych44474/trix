@@ -224,6 +224,10 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
       return handleV2Api(req, url, env, ctx);
     }
 
+    // Everything below under /api/ is the unversioned surface the retired legacy shell called.
+    // ADR-0006 removes it after 2026-12-31 unless traffic remains; this line is that evidence.
+    if (url.pathname.startsWith("/api/")) logInfo("legacy_api_hit", { path: url.pathname, method: req.method });
+
     // Trainer scheduling + money (own tables, own handler). Like the extras block below, this
     // MUST come before the /api/trainer/ prefix catch.
     if (url.pathname === "/api/trainer/sessions" || url.pathname === "/api/trainer/finance") {

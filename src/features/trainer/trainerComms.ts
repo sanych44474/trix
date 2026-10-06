@@ -14,7 +14,7 @@ import { bestSetForMetric, formatSetEntry, getPlanDay, metricOfSets, normalizeEx
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
 import { localCutoff, menuBtn, weekdayOf } from "../../bot";
-import { clientCardKb } from "./trainer";
+import { clientCardKb } from "./trainerCommon";
 
 export async function showClientLogDays(ctx: MyContext, clientId: number) {
   const lang = ctx.user.lang;

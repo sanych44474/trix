@@ -21,7 +21,7 @@ import { switchMode } from "../domain/session";
 import { cleanAi, t } from "../locales/i18n";
 import { renderToday } from "../render";
 import { weekdayName } from "../render";
-import { translatePlanExercises } from "./plan";
+import { translatePlanExercises } from "./planBuild";
 import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply, setMode } from "../adapters/telegram/context";
 import { type LogDraft, cmdLog, cmdToday, createExerciseCatalogEntry, decodePlanRef, difficultyLabel, encodePlanRef, exerciseInfoEntry, logExerciseKeyboard, logPickExercise, menuBtn, muscleGroupToEnum, onError, persistLogDraft, reRenderEditDay, searchExerciseCatalog, swapTuneKb, translateExerciseQueryToEnglish, videosForDays, extractExerciseQuery, promptExerciseConfirmation } from "../bot";
 

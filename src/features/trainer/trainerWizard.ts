@@ -7,7 +7,7 @@ import { applyTrainer, getTrainer, updateTrainer } from "../../adapters/d1/v2Tra
 import { updateUser } from "../../adapters/d1/v2Users";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, type TKey, HTML, reply } from "../../adapters/telegram/context";
-import { trainerMenu } from "./trainer";
+import { trainerMenu } from "./trainerCommon";
 
 export const TRAINER_TAGS = [
   "strength", "fatloss", "muscle", "recomp", "powerlifting", "bodybuilding",

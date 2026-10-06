@@ -24,7 +24,7 @@ import { recentCoachingReasons } from "../domain/coachMemory";
 import { validateCoachActionForApply, validateCoachEditResult } from "../domain/coachActions";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { upcomingSessions, weekdayName } from "../render";
-import { deferAi } from "./router";
+import { deferAi } from "./aiDefer";
 import { recordFeedback } from "./feedbackIntake";
 import { partialJsonString } from "../domain/partialJson";
 import { localCutoff } from "./report";

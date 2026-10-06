@@ -109,8 +109,8 @@ async function main() {
   // front of every user's private data, so a regression here is worse than any single feature
   // breaking. Can't exercise the happy path without signing real Telegram initData, but the
   // reject-when-absent path needs no secret and covers the auth check actually running at all.
-  await check("GET /api/dashboard rejects missing auth (401)", async () => {
-    const r = await fetch(`${BASE}/api/dashboard`);
+  await check("GET /api/v2/dashboard rejects missing auth (401)", async () => {
+    const r = await fetch(`${BASE}/api/v2/dashboard`);
     return { cond: r.status === 401, detail: `got ${r.status}` };
   });
 

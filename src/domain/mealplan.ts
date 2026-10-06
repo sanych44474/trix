@@ -116,7 +116,7 @@ export function solvePortions(
     return v.map((vm, m) => (tgt[m] > 0 ? vm / 100 / tgt[m] : 0));
   });
   const cap = candidates.map((c) => portionCapGrams(c.food));
-  let g = candidates.map((c, i) => Math.min(cap[i], Math.max(5, c.grams || 5)));
+  const g = candidates.map((c, i) => Math.min(cap[i], Math.max(5, c.grams || 5)));
   for (let iter = 0; iter < 200; iter++) {
     // relative residual per macro: ρₘ = Σ bᵢₘ·gᵢ − 1
     const rho = w.map((_, m) => {

@@ -14,7 +14,7 @@ import * as P from "../ai/prompts";
 import { getPlanDay, parseWorkoutText, exerciseMetric } from "../domain/progression";
 import { renderToday } from "../render";
 import { menuBtn, todayWorkoutKeyboard } from "./keyboards";
-import { onError } from "./router";
+import { onError } from "./aiDefer";
 import { endSelfEdit, swapExerciseByName } from "./planExerciseEdit";
 import { switchMode } from "../domain/session";
 import { isEditingOther, planOwnerId, planOwnerLang, reply, setMode, type MyContext } from "../adapters/telegram/context";

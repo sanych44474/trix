@@ -86,7 +86,7 @@ const MEASURE_LABEL_KEY: Record<string, Key> = {
 };
 
 export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: Lang }) {
-  const latest = dashboard.weight.points.at(-1); const first = dashboard.weight.points[0];
+  const latest = dashboard.weight.points.at(-1);
   const [measure, setMeasure] = useState(""); const [steps, setSteps] = useState(""); const [busy, setBusy] = useState<string | null>(null); const [notice, setNotice] = useState("");
   const [checkin, setCheckin] = useState({ energy: 3, sleep: 3, stress: 3 });
   const post = async (key: string, body: unknown) => { setBusy(key); setNotice(""); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); setNotice(t(lang, "progress_saved_note")); if (key === "measure") setMeasure(""); if (key === "steps") setSteps(""); } catch (err) { setNotice(err instanceof ApiError ? t(lang, "generic_error") : t(lang, "generic_error")); } finally { setBusy(null); } };
@@ -264,8 +264,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
 
     <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "macro_breakdown_eyebrow")}</span><h2>{t(lang, "macro_breakdown_title")}</h2></div></div>
-      {!macroDonut || !todayMacro ? <Empty title={t(lang, "macro_breakdown_title")} detail={t(lang, "macro_breakdown_empty")} /> : <>
-        <div className="macro-donut-row">
+      {!macroDonut || !todayMacro ? <Empty title={t(lang, "macro_breakdown_title")} detail={t(lang, "macro_breakdown_empty")} /> : <div className="macro-donut-row">
           <div className="ring" style={{ background: macroDonut.background }}><div><strong>{Math.round(todayMacro.kcal)}</strong><small>kcal</small></div></div>
           <div className="macro-donut-legend">
             <span><i style={{ background: "var(--good)" }} />{t(lang, "metric_protein")} · {formatNumber(todayMacro.p)} g</span>
@@ -273,8 +272,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
             <span><i style={{ background: "var(--accent)" }} />{t(lang, "metric_carbs")} · {formatNumber(todayMacro.c)} g</span>
             {macroTargets && <span>{t(lang, "kcal_of_target", { n: Math.round(todayMacro.kcal), target: Math.round(macroTargets.calories) })}{todayTargets.rest ? ` · ${t(lang, "fuel_rest_day_badge")}` : ""}</span>}
           </div>
-        </div>
-      </>}
+        </div>}
     </Card>
 
     <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "macro_trend_eyebrow")}</span><h2>{t(lang, "macro_trend_title")}</h2></div></div>{dashboard.macros.days.length ? <div className="macro-history">{dashboard.macros.days.slice(-7).map((day) => <div className="macro-history-row" key={day.date}><span>{day.date.slice(5)}</span><div className="bar"><span style={{ width: `${(() => { const tg = dayTargets(day.training).targets; return tg ? Math.min(100, day.kcal / Math.max(1, tg.calories) * 100) : 0; })()}%` }} /></div><strong>{Math.round(day.kcal)} kcal</strong></div>)}</div> : <p className="muted">{t(lang, "macro_empty")}</p>}</Card>
