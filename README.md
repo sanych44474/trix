@@ -146,7 +146,9 @@ npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put ADMIN_SECRET
 # optional: GROQ_API_KEY, OPENROUTER_API_KEY, OLLAMA_API_KEY, YOUTUBE_API_KEY, USDA_FDC_API_KEY
 
-# 3. Register the webhook + command menu against the deployed Worker
+# 3. Register the webhook against the deployed Worker (once per bot). The command menu, profile
+#    texts and menu button are applied by the Worker itself after each deploy
+#    (src/telegramSetup.ts; bump TELEGRAM_SETUP_VERSION when you change them).
 node scripts/setup-telegram.mjs
 
 # 4. Claim the owner role by sending /admin <ADMIN_SECRET> to your bot

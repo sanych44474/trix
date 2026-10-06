@@ -1,3 +1,4 @@
+import { ensureTelegramSetup } from "./telegramSetup";
 import type { Update } from "grammy/types";
 export { UserSchedulerDO } from "./durable/userScheduler";
 export { SquadSchedulerDO } from "./durable/squadScheduler";
@@ -352,6 +353,8 @@ export default {
     ctx.waitUntil(
       runWithRequestId(reqId, env, async () => {
         const start = Date.now();
+        // Commands, profile texts and menu button, once per version after a deploy.
+        await ensureTelegramSetup(env).catch((err) => logError("telegram_setup_failed", err));
         try {
           await runSchedule(env);
           logInfo("cron_run", { durationMs: Date.now() - start });
