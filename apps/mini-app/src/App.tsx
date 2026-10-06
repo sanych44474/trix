@@ -290,6 +290,8 @@ export function App() {
   useEffect(() => { const id = setTimeout(() => { void loadTrainView().catch(() => {}); }, 1200); return () => clearTimeout(id); }, []);
   useEffect(() => { const scheme = window.Telegram?.WebApp?.colorScheme; if (scheme) document.documentElement.dataset.theme = scheme; }, []);
   useEffect(() => { const handler = (event: MouseEvent) => { if ((event.target as HTMLElement).closest("button")) window.Telegram?.WebApp.HapticFeedback?.impactOccurred("light"); }; document.addEventListener("click", handler); return () => document.removeEventListener("click", handler); }, []);
+  // Telegram's own "Settings" item in the Mini App's ⋮ menu (SettingsButton, 7.0+) opens our settings.
+  useEffect(() => { const sb = window.Telegram?.WebApp.SettingsButton; if (!sb) return; const open = () => setView("settings"); sb.show(); sb.onClick(open); return () => sb.offClick(open); }, []);
   useEffect(() => { const back = window.Telegram?.WebApp.BackButton; if (!back) return; if (view === "today") { back.hide(); return; } const handler = () => setView("today"); back.show(); back.onClick(handler); return () => back.offClick(handler); }, [view]);
   const navigation = useMemo(() => dashboard?.viewer.role === "trainer" || dashboard?.viewer.role === "solo" || dashboard?.viewer.role === "client" ? ["today", "train", "plan", "fuel", "progress", "more", "role"] as View[] : ["today", "role"] as View[], [dashboard?.viewer.role]);
   if (loading && !dashboard) return <main className="app-shell"><Loading /></main>;

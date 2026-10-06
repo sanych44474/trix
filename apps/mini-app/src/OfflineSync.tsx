@@ -4,7 +4,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { t, type Lang } from "./i18n";
-import { flushQueue, readQueue } from "./logic/offlineSaves";
+import { flushQueue, OFFLINE_SAVES_KEY, readQueue } from "./logic/offlineSaves";
+import { mirrorToDevice, restoreFromDevice } from "./logic/deviceStorage";
 
 export function OfflineSync({ lang }: { lang: Lang }) {
   const [pending, setPending] = useState(() => { try { return readQueue(localStorage).length; } catch { return 0; } });
@@ -20,10 +21,12 @@ export function OfflineSync({ lang }: { lang: Lang }) {
           api("/api/v2/workout/save", { method: "POST", idempotencyKey: q.key, body: JSON.stringify(q.body) }).then(() => undefined));
         setPending(r.remaining);
         if (r.sent) setSent((n) => n + r.sent);
+        mirrorToDevice(OFFLINE_SAVES_KEY);
       } catch { /* storage unavailable: nothing to flush */ } finally { busy.current = false; }
     };
     const onVisible = () => { if (document.visibilityState === "visible") void flush(); };
-    void flush();
+    // A queue the WebView forgot but Telegram's DeviceStorage kept comes back before the first flush.
+    void restoreFromDevice(OFFLINE_SAVES_KEY).then(() => flush());
     window.addEventListener("online", flush);
     window.addEventListener("trix:offline-save", flush);
     document.addEventListener("visibilitychange", onVisible);
