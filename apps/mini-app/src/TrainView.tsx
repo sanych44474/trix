@@ -13,7 +13,7 @@ import {
   type LoggerDraft, type LoggerExercise, type LoggerWorkout, type StartSource,
   targetUse,
 } from "./logic/logger";
-import { cachedToday, cacheToday, enqueueSave, isNetworkError } from "./logic/offlineSaves";
+import { cachedToday, cacheToday, enqueueSave, isNetworkError, OFFLINE_SAVES_KEY } from "./logic/offlineSaves";
 import { registerLearnedMuscles } from "./logic/exerciseMuscles";
 
 type CustomExercise = { name: string; videoUrl?: string; videoTitle?: string; muscles?: { primary: string[]; secondary: string[] } };
@@ -25,6 +25,7 @@ import { SaveDock, type DockAction, type SyncState } from "./train/SaveDock";
 import { SessionSummary, type SaveSummary } from "./train/SessionSummary";
 import { Card, Empty, ErrorState, Loading } from "./train/ui";
 import { track } from "./logic/track";
+import { mirrorToDevice } from "./logic/deviceStorage";
 
 // How long the logger waits after the last change before copying the draft to the server.
 const DRAFT_SYNC_DELAY_MS = 2500;
@@ -361,6 +362,7 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
         // (OfflineSync in App.tsx). The session counts as finished; the celebration waits.
         const date = targetDate ?? workout.date;
         enqueueSave(localStorage, { key: idempotencyKey, date, body: { entries, date, ...timing }, queuedAt: Date.now() });
+        mirrorToDevice(OFFLINE_SAVES_KEY);
         window.dispatchEvent(new Event("trix:offline-save"));
         if (action.kind === "finish") session.finish(final);
         setSaved(true); setDrafted(false); setSavedAt(Date.now()); setQueued(true); setRestoredFrom(null);

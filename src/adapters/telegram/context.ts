@@ -26,6 +26,8 @@ export type MyContext = Context & {
   // Defer heavy background work past the webhook response (Cloudflare ExecutionContext.waitUntil).
   // Falls back to fire-and-forget if no ExecutionContext was provided (e.g. tests).
   waitUntil: (p: Promise<unknown>) => void;
+  // The live "Thinking…"/streaming draft of the AI job in flight (set by deferAi), if any.
+  thinking?: { update(text: string): void };
 };
 
 export const HTML = { parse_mode: "HTML" as const, link_preview_options: { is_disabled: true } };
@@ -35,11 +37,41 @@ export type TKey = Parameters<typeof t>[1]; // keyof the locale dictionary
 // Telegram caps messages at 4096 chars; split on newlines if needed.
 // When a reply carries no inline keyboard we send ReplyKeyboardRemove so the
 // legacy persistent bottom keyboard is cleared (the menu is the inline button now).
-export async function sendLong(ctx: MyContext, text: string, kb?: InlineKeyboard | Keyboard) {
+// Telegram message effects (Bot API message_effect_id, private chats only): a full-screen
+// animation on the message for the moments worth it — a record, a level-up, a finished workout.
+export const MESSAGE_EFFECTS = {
+  celebrate: "5046509860389126442", // 🎉
+  fire: "5104841245755180586", // 🔥
+} as const;
+export type MessageEffect = keyof typeof MESSAGE_EFFECTS;
+
+/** Send with an effect, and if Telegram rejects the effect (an old client, an id it no longer
+ *  knows) send the same message without it — an animation is never worth a lost message. */
+async function replyWithEffect(ctx: MyContext, text: string, extra: Record<string, unknown>, effect?: MessageEffect) {
+  if (effect && ctx.chat?.type === "private") {
+    try {
+      await ctx.reply(text, { ...extra, message_effect_id: MESSAGE_EFFECTS[effect] });
+      return;
+    } catch { /* fall through to a plain send */ }
+  }
+  await ctx.reply(text, extra);
+}
+
+/** A reaction on the user's own message (Bot API setMessageReaction): the meal or workout they
+ *  just sent gets a ✍ or 🔥, an acknowledgement that costs no extra chat message. Best effort. */
+export async function reactToUser(ctx: MyContext, emoji: "🔥" | "✍" | "🏆" | "👍") {
+  const msg = ctx.message;
+  if (!msg || ctx.chat?.type !== "private") return;
+  try {
+    await ctx.api.setMessageReaction(msg.chat.id, msg.message_id, [{ type: "emoji", emoji }]);
+  } catch { /* a reaction is decoration */ }
+}
+
+export async function sendLong(ctx: MyContext, text: string, kb?: InlineKeyboard | Keyboard, effect?: MessageEffect) {
   const LIMIT = 3800;
   const tail = kb ? { reply_markup: kb } : { reply_markup: { remove_keyboard: true } as const };
   if (text.length <= LIMIT) {
-    await ctx.reply(text, { ...HTML, ...tail });
+    await replyWithEffect(ctx, text, { ...HTML, ...tail }, effect);
     return;
   }
   const chunks: string[] = [];
@@ -55,12 +87,13 @@ export async function sendLong(ctx: MyContext, text: string, kb?: InlineKeyboard
   if (buf) chunks.push(buf);
   for (let i = 0; i < chunks.length; i++) {
     const last = i === chunks.length - 1;
-    await ctx.reply(chunks[i], { ...HTML, ...(last ? tail : {}) });
+    if (last) await replyWithEffect(ctx, chunks[i], { ...HTML, ...tail }, effect);
+    else await ctx.reply(chunks[i], { ...HTML });
   }
 }
 
-export async function reply(ctx: MyContext, text: string, kb?: InlineKeyboard | Keyboard) {
-  await sendLong(ctx, text, kb);
+export async function reply(ctx: MyContext, text: string, kb?: InlineKeyboard | Keyboard, effect?: MessageEffect) {
+  await sendLong(ctx, text, kb, effect);
 }
 
 export async function setMode(ctx: MyContext, mode: UserDoc["session"]["mode"]) {

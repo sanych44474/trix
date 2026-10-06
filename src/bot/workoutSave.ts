@@ -22,7 +22,7 @@ import { upcomingSessions } from "../render";
 import { badgeLabel, computeBoards } from "../features/gamification/boards";
 import { maybeCelebrateLevel } from "./router";
 import { localCutoff } from "./report";
-import { type MyContext, HTML, type TKey, reply, setMode } from "../adapters/telegram/context";
+import { reactToUser, type MyContext, HTML, type TKey, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "../bot";
 
 export async function handleWorkoutLog(ctx: MyContext, text: string) {
@@ -239,7 +239,10 @@ export async function finalizeWorkoutLog(
   const next = await nextSessionText(ctx);
   if (next) sections.push(next);
 
-  await reply(ctx, sections.join("\n\n"), kb ?? menuBtn(lang));
+  // A new record gets the 🎉 effect and 🏆 on their message; any other finished workout 🔥.
+  const record = outcome.prExercises.length > 0;
+  await reactToUser(ctx, record ? "🏆" : "🔥");
+  await reply(ctx, sections.join("\n\n"), kb ?? menuBtn(lang), record ? "celebrate" : "fire");
   await notifyTrainerWorkout(ctx, true, outcome.exercises.length);
   await maybeCelebrateLevel(ctx);
 }

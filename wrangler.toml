@@ -17,6 +17,13 @@ compatibility_flags = ["nodejs_compat"]
 [triggers]
 crons = ["* * * * *"]
 
+# Smart Placement: a bot update or a Mini App call makes several sequential D1 round trips, and
+# D1's primary lives in one region. Letting Cloudflare run the Worker next to the database turns
+# each of those trips into a local hop instead of a cross-continent one. Static Mini App assets
+# are still served from the nearest edge.
+[placement]
+mode = "smart"
+
 [observability]
 enabled = true
 # Logs alone are not tracing: `observability.enabled` does NOT turn on traces, which need

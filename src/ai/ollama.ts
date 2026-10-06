@@ -44,7 +44,7 @@ async function ollamaCall(env: Env, input: GenInput, model: string): Promise<str
 
   return withKeys(
     splitKeys(env.OLLAMA_API_KEY),
-    (key) => openaiCompatChat(URL, key, body, `Ollama ${model}`, input.timeoutMs, undefined, input.onUsage),
+    (key) => openaiCompatChat(URL, key, body, `Ollama ${model}`, input.timeoutMs, undefined, input.onUsage, input.onPartial),
     { attempts: input.attemptsPerKey, validate: input.validate },
   );
 }

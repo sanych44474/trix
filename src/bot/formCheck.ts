@@ -73,6 +73,7 @@ export async function handleFormVideo(ctx: MyContext, video: { fileId: string; b
       kind: "form_check",
       db: ctx.db,
       userId: ctx.user._id,
+      onPartial: (so) => ctx.thinking?.update(cleanAi(so)),
     });
     const text = cleanAi(answer).trim().slice(0, 1200);
     await reply(ctx, text ? `${t(lang, "form_check_header")}\n\n${text}\n\n${t(lang, "form_check_footer")}` : t(lang, "form_check_failed"));

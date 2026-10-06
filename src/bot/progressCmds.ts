@@ -286,6 +286,7 @@ export async function onMacrosSuggest(ctx: MyContext) {
       kind: "nutrition",
       db: ctx.db,
       userId: ctx.user._id,
+      onPartial: (so) => ctx.thinking?.update(cleanAi(so)),
     });
     const header = t(lang, "macros_left", { kcal: left.kcal, p: left.protein, f: left.fats, c: left.carbs });
     await reply(ctx, `${header}\n\n${escapeHtml(cleanAi(txt))}`, menuBtn(lang));

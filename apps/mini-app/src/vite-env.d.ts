@@ -34,6 +34,7 @@ interface TelegramWebApp {
     impactOccurred(style: "light" | "medium" | "heavy"): void;
     notificationOccurred(type: "error" | "success" | "warning"): void;
   };
+  SettingsButton?: { show(): void; hide(): void; onClick(callback: () => void): void; offClick(callback: () => void): void }; // 7.0+
   BackButton?: {
     show(): void;
     hide(): void;

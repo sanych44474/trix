@@ -1,4 +1,5 @@
 import type { Env } from "../types";
+import { readSse } from "./http";
 import { RateLimitError, splitKeys, type GenInput } from "./errors";
 
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -90,8 +91,9 @@ export async function geminiGenerate(env: Env, input: GenInput): Promise<string>
       // (rejected by input.validate) is retried on the same key before rotating.
       for (let i = 0; i < triesPerKey; i++) {
         try {
+          const stream = !!input.onPartial;
           const send = (withThinking: boolean) =>
-            fetch(`${BASE}/${model}:generateContent`, {
+            fetch(stream ? `${BASE}/${model}:streamGenerateContent?alt=sse` : `${BASE}/${model}:generateContent`, {
               method: "POST",
               headers: { "Content-Type": "application/json", "X-goog-api-key": key },
               body: JSON.stringify(buildBody(withThinking)),
@@ -115,17 +117,32 @@ export async function geminiGenerate(env: Env, input: GenInput): Promise<string>
             throw new Error(`Gemini ${model} ${res.status}: ${errText.slice(0, 300)}`);
           }
 
-          const data = (await res.json()) as {
+          type GeminiChunk = {
             candidates?: { content?: { parts?: { text?: string }[] } }[];
             usageMetadata?: { totalTokenCount?: number };
           };
-          const text = data.candidates?.[0]?.content?.parts
-            ?.map((p) => p.text ?? "")
-            .join("")
-            .trim();
+          let text: string | undefined;
+          let usage: number | undefined;
+          if (stream && res.body) {
+            // SSE: each event carries the next slice of the answer.
+            let acc = "";
+            await readSse(res.body, (payload) => {
+              try {
+                const chunk = JSON.parse(payload) as GeminiChunk;
+                const piece = chunk.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+                if (piece) { acc += piece; input.onPartial!(acc); }
+                if (chunk.usageMetadata?.totalTokenCount) usage = chunk.usageMetadata.totalTokenCount;
+              } catch { /* skip a malformed event */ }
+            });
+            text = acc.trim();
+          } else {
+            const data = (await res.json()) as GeminiChunk;
+            text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim();
+            usage = data.usageMetadata?.totalTokenCount;
+          }
           if (!text) throw new Error(`Gemini ${model} returned no text`);
           input.validate?.(text); // reject degenerate output → retry/rotate
-          if (data.usageMetadata?.totalTokenCount) input.onUsage?.(data.usageMetadata.totalTokenCount);
+          if (usage) input.onUsage?.(usage);
           return text;
         } catch (err) {
           if (err instanceof RateLimitError) hadRateLimit = true;

@@ -65,4 +65,5 @@ export interface GenInput {
   deadlineMs?: number; // absolute epoch-ms budget for THIS provider's whole model×key ladder —
                        // stop starting new attempts past it so the chain can still reach fallbacks
   onUsage?: (totalTokens: number) => void; // reports token usage of the SUCCESSFUL generation
+  onPartial?: (textSoFar: string) => void; // stream: called with the accumulated text as it arrives
 }

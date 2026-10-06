@@ -132,6 +132,11 @@ export async function getOrCreateUser(
   lang: Lang,
   firstName?: string,
 ): Promise<UserDoc> {
+  // Every bot update starts here, so the common case (the user exists) is ONE read; the
+  // four-insert batch only runs for a new user. INSERT OR IGNORE keeps two concurrent first
+  // updates from the same person safe.
+  const existing = await getUser(db, userId);
+  if (existing) return existing;
   const now = nowIso();
   const profile = JSON.stringify(firstName ? { name: firstName } : {});
   await db.batch([

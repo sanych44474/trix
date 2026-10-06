@@ -1,6 +1,7 @@
 // Versioned Mini App REST seam. The implementation intentionally delegates to the
 // proven handlers while the new contracts and client roll out. This gives us a real
 // second adapter at the seam without duplicating business rules or touching legacy URLs.
+import { BOOKMARK_HEADER, openReadSession } from "../adapters/d1/session";
 import { handleStravaApi } from "./stravaApi";
 import { miniAppUser } from "./auth";
 import { handleWorkoutApi } from "./workoutApi";
@@ -21,7 +22,7 @@ import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { recordError } from "../adapters/d1/v2Admin";
 import { checkCronHeartbeat } from "../scheduler";
-import { logError } from "../log";
+import { logError, withHeader } from "../log";
 import { V2_ERROR_CODES, type V2ErrorCode, type V2Response } from "../contracts/v2";
 import type { Env } from "../types";
 
@@ -159,6 +160,15 @@ function routeFor(pathname: string): { handler: LegacyHandler; legacyPath: strin
 }
 
 export async function handleV2Api(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
+  // Every Mini App call runs on a D1 session (adapters/d1/session): replica reads where enabled,
+  // read-your-writes across calls via the bookmark the client echoes back.
+  const session = openReadSession(env.DB, req.headers.get(BOOKMARK_HEADER));
+  const res = await handleV2ApiInner(req, url, session ? { ...env, DB: session.db } : env, ctx);
+  const bookmark = session?.bookmark();
+  return bookmark ? withHeader(res, BOOKMARK_HEADER, bookmark) : res;
+}
+
+async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const headerError = validateV2Headers(req);
   if (headerError) return headerError;
   if (url.pathname === "/api/v2/photo" && (req.method === "GET" || req.method === "POST")) {
