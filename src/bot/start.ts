@@ -12,12 +12,15 @@ import { trainerMenu } from "../features/trainer/trainerCommon";
 import { onboardingStep, renderObStep } from "./onboarding";
 import { langMenu } from "./keyboards";
 import { showNextBestAction } from "./nextBestAction";
+import { sendOnboardingPrompt, sendWelcomeEntry } from "./onboardingApp";
 import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 
 // Start (or restart) the deterministic button-based intake wizard (no per-turn AI).
 export async function startInterview(ctx: MyContext) {
   await updateUser(ctx.db, ctx.user._id, { session: { mode: "onboarding", step: 0 } });
   ctx.user.session = { mode: "onboarding", step: 0 };
+  // The questionnaire is a Mini App screen; the chat wizard is only the no-app fallback.
+  if (await sendOnboardingPrompt(ctx)) return;
   await renderObStep(ctx, 0);
 }
 
@@ -25,6 +28,7 @@ export async function startInterview(ctx: MyContext) {
 export async function cmdInterview(ctx: MyContext) {
   const lang = ctx.user.lang;
   if (ctx.user.session.mode === "onboarding") {
+    if (await sendOnboardingPrompt(ctx)) return;
     await onboardingStep(ctx); // resume where they left off
     return;
   }
@@ -94,6 +98,15 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
   if (u.session.mode === "plan_pending") {
     await resumePendingPlan(ctx);
     return;
+  }
+  // An athlete without a finished questionnaire never gets a menu: a trainer's client (or anyone
+  // mid-questionnaire) gets the app button, a brand-new user the welcome with one choice per row.
+  if (!u.onboarded && (u.role === "solo" || u.role === "client")) {
+    const pendingReq = u.role === "solo" ? await pendingRequestForClient(ctx.db, u._id) : null;
+    if (!pendingReq) {
+      const fresh = u.role === "solo" && u.session.mode !== "onboarding";
+      if (fresh ? await sendWelcomeEntry(ctx, hi) : await sendOnboardingPrompt(ctx, "ob_app_prompt", hi)) return;
+    }
   }
   if (u.role === "trainer") {
     await reply(ctx, hi + t(lang, "trainer_home"), trainerMenu(lang));

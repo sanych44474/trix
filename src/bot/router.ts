@@ -43,6 +43,7 @@ import { cmdMealPlan, cmdGrocery } from "./mealPlanCmds";
 import { cmdCheckin } from "./checkinCmds";
 import { downloadImage, downloadFile } from "./telegramFiles";
 import { onError } from "./aiDefer";
+import { onboardingGate } from "./onboardingApp";
 import { CB_EXACT, CB_PREFIX } from "./callbackRoutes";
 import { routeUserText } from "./textRoutes";
 export * from "./textRoutes";
@@ -185,6 +186,13 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
     ctx.waitUntil(setLastSeen(ctx.db, ctx.user._id, new Date().toISOString()));
     // Owner-banned users are ignored entirely until the owner unblocks them.
     if (ctx.user.blocked) return;
+    await next();
+  });
+
+  // Athletes who have not finished the questionnaire get the Mini App button for anything else
+  // they send or tap (see onboardingApp.ts for what stays allowed).
+  bot.use(async (ctx, next) => {
+    if (await onboardingGate(ctx)) return;
     await next();
   });
 

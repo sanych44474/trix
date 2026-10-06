@@ -24,6 +24,7 @@ import { localCutoff, renderBodyDynamics } from "../../bot/report";
 import { localizePlanNames, healPlanNamesForDisplay } from "../../bot/exerciseCatalog";
 import { mainMenu, menuBtn } from "../../bot/keyboards";
 import { obProgress, sendObStepTo } from "../../bot/onboarding";
+import { sendOnboardingPromptTo } from "../../bot/onboardingApp";
 import { videosForDays } from "../../bot/planView";
 import { showClientLogDays } from "./trainerComms";
 import { intvLabel, anthroBlock, runTrainerDraft } from "./trainerInterview";
@@ -284,7 +285,9 @@ export async function pingClientIntake(ctx: MyContext, client: UserDoc, clientId
   if (client.onboarded) { await clientCardAction(ctx, clientId, "intv"); return; }
   const prefix = t(client.lang, "cc_intv_remind_text");
   const transcript = client.session.transcript;
-  if (client.session.mode === "onboarding" && transcript?.length) {
+  if (await sendOnboardingPromptTo(ctx, client.chatId, client.lang, prefix)) {
+    await updateUser(ctx.db, clientId, { session: { mode: "onboarding", step: 0 } });
+  } else if (client.session.mode === "onboarding" && transcript?.length) {
     // AI-interview user — re-send the last unanswered question (same as the cron nudge).
     const lastQ = [...transcript].reverse().find((m) => m.role === "assistant");
     await ctx.api

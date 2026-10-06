@@ -108,6 +108,7 @@ export interface Sent {
   to: number | "self";
   text: string;
   hasKb: boolean;
+  markup?: unknown;
 }
 
 // Fake MyContext: captures every outgoing message, runs waitUntil work inline-collectable.
@@ -121,7 +122,7 @@ export function makeCtx(db: FakeD1, user: Record<string, unknown>, env: Record<s
     user,
     waitUntil: (p: Promise<unknown>) => { deferred.push(Promise.resolve(p).catch(() => {})); },
     reply: async (text: string, extra?: { reply_markup?: unknown }) => {
-      sent.push({ to: "self", text, hasKb: !!(extra?.reply_markup && "inline_keyboard" in (extra.reply_markup as object)) });
+      sent.push({ to: "self", text, hasKb: !!(extra?.reply_markup && "inline_keyboard" in (extra.reply_markup as object)), markup: extra?.reply_markup });
     },
     replyWithChatAction: async () => {},
     replyWithPhoto: async () => {},
@@ -132,7 +133,7 @@ export function makeCtx(db: FakeD1, user: Record<string, unknown>, env: Record<s
     from: { id: user._id as number, is_bot: false },
     api: {
       sendMessage: async (to: number, text: string, extra?: { reply_markup?: unknown }) => {
-        sent.push({ to, text, hasKb: !!(extra?.reply_markup && "inline_keyboard" in (extra.reply_markup as object)) });
+        sent.push({ to, text, hasKb: !!(extra?.reply_markup && "inline_keyboard" in (extra.reply_markup as object)), markup: extra?.reply_markup });
       },
       sendPhoto: async () => {},
     },

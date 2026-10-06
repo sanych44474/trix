@@ -167,3 +167,51 @@ test("handleProfileApi: GET falls back to an empty referral link when BOT_USERNA
   const body = (await res.json()) as { referralLink: string };
   assert.equal(body.referralLink, "");
 });
+
+test("handleOnboardingApi: saves session length, lifestyle, sleep, device timezone and a client's sharing answer", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "uk", "Valeria");
+  await updateUser(db, 1, { role: "client" });
+  const res = await call(handleOnboardingApi, db, 1, "POST", "/api/onboarding", {
+    sex: "female", age: 27, heightCm: 168, weightKg: 58, goal: "recomposition", level: "intermediate",
+    equipment: "full gym", dietPrefs: "none", trainingWeekdays: [2, 4, 6], limitations: "none",
+    sessionMinutes: 60, lifestyle: "active", sleepSchedule: "morning", timezone: "Europe/Kyiv",
+    share: { body: true, health: false },
+  });
+  assert.equal(res.status, 200);
+  const p = ((await getUser(db, 1)) as UserDoc).profile;
+  assert.equal(p.sessionMinutes, 60);
+  assert.equal(p.lifestyle, "active");
+  assert.equal(p.sleepSchedule, "morning");
+  assert.equal(p.timezone, "Europe/Kyiv");
+  assert.deepEqual(p.shareWithTrainer, { body: true, health: false });
+});
+
+test("handleOnboardingApi: ignores a bad timezone, an odd session length, and sharing from a solo user", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const res = await call(handleOnboardingApi, db, 1, "POST", "/api/onboarding", {
+    sex: "male", age: 30, heightCm: 180, weightKg: 80, goal: "strength", level: "beginner",
+    equipment: "full gym", trainingWeekdays: [1, 4], sessionMinutes: 37, timezone: "Mars/Olympus",
+    share: { body: true, health: true },
+  });
+  assert.equal(res.status, 200);
+  const p = ((await getUser(db, 1)) as UserDoc).profile;
+  assert.equal(p.sessionMinutes, undefined);
+  assert.equal(p.timezone, undefined);
+  assert.equal(p.shareWithTrainer, undefined);
+});
+
+test("handleOnboardingApi: starts building the plan right away when a request context is available", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const waited: Promise<unknown>[] = [];
+  const ctx = { waitUntil: (p: Promise<unknown>) => { waited.push(p); }, passThroughOnException() {} } as unknown as ExecutionContext;
+  const path = "/api/onboarding?debugUser=1";
+  const res = await handleOnboardingApi(req("POST", path, {
+    sex: "male", age: 30, heightCm: 180, weightKg: 80, goal: "strength", level: "beginner", equipment: "full gym", trainingWeekdays: [1, 4],
+  }), new URL(`https://x${path}`), { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" } as never, ctx);
+  assert.equal(res.status, 200);
+  assert.equal(waited.length, 1);
+  await Promise.allSettled(waited); // the build itself may fail without AI keys; the sweep retries
+});

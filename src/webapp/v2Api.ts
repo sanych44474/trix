@@ -26,7 +26,7 @@ import { logError, withHeader } from "../log";
 import { V2_ERROR_CODES, type V2ErrorCode, type V2Response } from "../contracts/v2";
 import type { Env } from "../types";
 
-type LegacyHandler = (req: Request, url: URL, env: Env) => Promise<Response>;
+type LegacyHandler = (req: Request, url: URL, env: Env, ctx?: ExecutionContext) => Promise<Response>;
 
 // Handlers that already claim the request's Idempotency-Key themselves (each calls
 // runIdempotent internally: workoutApi.ts's save, settingsApi.ts, trainerApi.ts,
@@ -113,13 +113,13 @@ function validateV2Headers(req: Request): Response | null {
   return null;
 }
 
-async function forward(req: Request, url: URL, env: Env, path: string, handler: LegacyHandler): Promise<Response> {
+async function forward(req: Request, url: URL, env: Env, path: string, handler: LegacyHandler, ctx?: ExecutionContext): Promise<Response> {
   const legacyUrl = new URL(url.toString());
   legacyUrl.pathname = path;
   const idempotencyKey = req.method !== "GET" ? req.headers.get("idempotency-key") : null;
   const actor = req.method !== "GET" ? await miniAppUser(req, url, env).catch(() => null) : null;
   const run = async (): Promise<{ status: number; body: unknown }> => {
-    const response = await handler(req, legacyUrl, env);
+    const response = await handler(req, legacyUrl, env, ctx);
     const body = await jsonBody(response);
     return { status: response.status, body };
   };
@@ -207,5 +207,5 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: Executio
   if (!route) {
     return Response.json({ error: { code: "not_found", message: "Route not found" } }, { status: 404 });
   }
-  return forward(req, url, env, route.legacyPath, route.handler);
+  return forward(req, url, env, route.legacyPath, route.handler, ctx);
 }

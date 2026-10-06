@@ -2607,6 +2607,22 @@ components:
           items: {type: integer, minimum: 1, maximum: 7}
         limitations: {type: string, maxLength: 500}
         baselineLifts: {type: string, maxLength: 200, description: 'Optional current lifts, e.g. "bench 60kg, squat 80kg, deadlift 100kg" — sets starting weights'}
+        sessionMinutes:
+          type: integer
+          enum: [30, 45, 60, 90]
+        lifestyle:
+          type: string
+          enum: [sedentary, moderate, active]
+        sleepSchedule:
+          type: string
+          enum: [morning, evening]
+        timezone: {type: string, maxLength: 64, description: IANA zone from the device; saved only when the profile has none}
+        share:
+          type: object
+          description: A trainer's client's answer to what the trainer may see; ignored for other roles.
+          properties:
+            body: {type: boolean}
+            health: {type: boolean}
     ChallengeRequest:
       type: object
       required: [code]

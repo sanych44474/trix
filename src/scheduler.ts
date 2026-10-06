@@ -27,6 +27,7 @@ import { ADJUST_COOLDOWN_DAYS } from "./domain/adaptiveCalories";
 import { daysBetween } from "./domain/reminderTiming";
 import { weighInDue } from "./domain/weighIn";
 import { escapeHtml, t } from "./locales/i18n";
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "./bot/onboardingApp";
 import { renderDay, challengeTitleText } from "./render";
 import { finalizeOnboardingPlan, retryInterviewStep } from "./bot/plan";
 import { surveyKb, surveyRemaining } from "./bot/survey";
@@ -144,13 +145,14 @@ async function runScheduleInner(env: Env): Promise<void> {
     for (const u of stuckUsers) {
       try {
         const transcript = u.session.transcript ?? [];
-        // Find the last bot question to re-send it as a reminder.
-        const lastBotMsg = [...transcript].reverse().find((t) => t.role === "assistant");
-        const nudgeText = lastBotMsg?.text ?? "Привіт! Продовжуємо? Надішли відповідь — і я складу план для тебе.";
+        // With the Mini App: its questionnaire button. Without: re-send the last bot question.
+        const appUrl = onboardingUrlFromEnv(env);
+        const lastBotMsg = [...transcript].reverse().find((m) => m.role === "assistant");
+        const nudgeText = appUrl ? t(u.lang, "ob_app_reminder") : lastBotMsg?.text ?? t(u.lang, "ob_resume_nudge");
         await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: u.chatId, text: nudgeText, parse_mode: "HTML" }),
+          body: JSON.stringify({ chat_id: u.chatId, text: nudgeText, parse_mode: "HTML", ...(appUrl ? { reply_markup: onboardingAppMarkup(u.lang, appUrl) } : {}) }),
         });
         // Mark today's nudge so we don't send it again today (in the reminders column, so a
         // user-facing session write can't wipe it).
