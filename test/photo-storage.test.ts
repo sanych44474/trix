@@ -51,7 +51,7 @@ test("cachePhoto: no R2 binding configured -> no-op, does not throw", async () =
 
 test("cachePhoto: puts under a stable per-photo key with the given content type", async () => {
   const calls: unknown[] = [];
-  const env = fakeEnv({ put: (async (key: string, value: unknown, opts: unknown) => { calls.push([key, opts]); return {} as never; }) as never });
+  const env = fakeEnv({ put: (async (key: string, _value: unknown, opts: unknown) => { calls.push([key, opts]); return {} as never; }) as never });
   await cachePhoto(env, 42, new ArrayBuffer(4), "image/png");
   assert.deepEqual(calls, [["progress-photos/42.jpg", { httpMetadata: { contentType: "image/png" } }]]);
 });

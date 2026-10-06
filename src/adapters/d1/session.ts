@@ -7,7 +7,7 @@
 // replicas every read simply goes to the primary.
 
 export const BOOKMARK_HEADER = "x-d1-bookmark";
-const BOOKMARK_RE = /^[A-Za-z0-9._:\-]{1,200}$/;
+const BOOKMARK_RE = /^[A-Za-z0-9._:-]{1,200}$/;
 
 export interface ReadSession {
   db: D1Database; // D1Database-shaped view over the session

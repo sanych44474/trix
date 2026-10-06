@@ -443,7 +443,6 @@ export function AiCoachView({ lang, onBack, routed, prefill }: { lang: Lang; onB
   </div>;
 }
 
-type ScheduleClient = { id: number; name: string };
 
 const statusKey = (status: string): Key =>
   status === "done" ? "session_status_done" : status === "cancelled" ? "session_status_cancelled" : status === "no_show" ? "session_status_no_show" : "session_status_planned";

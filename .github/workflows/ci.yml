@@ -40,6 +40,9 @@ jobs:
       - name: Typecheck Mini App
         run: npm run typecheck:webapp
 
+      - name: Lint
+        run: npm run lint
+
       # Catches a broken shell.html marker or a client fragment that no longer parses —
       # failures that would otherwise only surface at deploy time. build:webapp:all covers
       # both bundles (legacy public/app.html + the React public/app-v2/ build).

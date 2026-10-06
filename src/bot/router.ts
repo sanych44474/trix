@@ -784,8 +784,8 @@ export const CB_PREFIX: [string, CbHandler][] = [
   ["wu:clear:", (ctx, rest) => saveWarmup(ctx, Number(rest) as Weekday, [])],
   ["wu:open:", (ctx, rest) => showWarmupEditor(ctx, Number(rest) as Weekday)],
   ["gro:n:", (ctx, _r, data) => showGroceryList(ctx, parseInt(data.split(":")[2], 10))],
-  ["diff:up:", (ctx, _r, data) => { const parts = data.split(":"); return adjustDifficulty(ctx, parts[1] as "up" | "down", parseInt(parts[2])); }],
-  ["diff:down:", (ctx, _r, data) => { const parts = data.split(":"); return adjustDifficulty(ctx, parts[1] as "up" | "down", parseInt(parts[2])); }],
+  ["diff:up:", (ctx, _r, data) => { const parts = data.split(":"); return adjustDifficulty(ctx, parts[1] as "up" | "down", parseInt(parts[2], 10)); }],
+  ["diff:down:", (ctx, _r, data) => { const parts = data.split(":"); return adjustDifficulty(ctx, parts[1] as "up" | "down", parseInt(parts[2], 10)); }],
   ["eds:done:", (ctx, rest) => endSelfEdit(ctx, rest)],
   // Reorder exercises within a day (⬆️/⬇️).
   ["ord:open:", (ctx, rest) => showReorder(ctx, Number(rest) as Weekday)],
@@ -799,9 +799,9 @@ export const CB_PREFIX: [string, CbHandler][] = [
   // "delok" before "del" — prefix overlap.
   ["pday:delok:", (ctx, rest) => deletePlanDay(ctx, Number(rest) as Weekday)],
   ["pday:del:", (ctx, rest) => confirmDeleteDay(ctx, Number(rest) as Weekday)],
-  ["wt:open:", (ctx, rest) => openWeightEditor(ctx, parseInt(rest))],
+  ["wt:open:", (ctx, rest) => openWeightEditor(ctx, parseInt(rest, 10))],
   ["wt:", (ctx, rest) => selectExerciseWeight(ctx, rest)],
-  ["st:open:", (ctx, rest) => openSetsEditor(ctx, parseInt(rest))],
+  ["st:open:", (ctx, rest) => openSetsEditor(ctx, parseInt(rest, 10))],
   ["st:", (ctx, rest) => selectExerciseSets(ctx, rest)],
   ["rec:", (ctx, rest) => cmdRecords(ctx, rest as "weekly" | "hall" | "badges" | "prs")],
   // share:tog: taps can also arrive from the post-link consent prompt (client's own chat) —

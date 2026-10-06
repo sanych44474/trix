@@ -15,7 +15,7 @@ export function CountUp({ value }: { value: string }) {
     const start = performance.now();
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / 700);
-      setShown(String(Math.round(target * (1 - Math.pow(1 - p, 3)))));
+      setShown(String(Math.round(target * (1 - (1 - p) ** 3))));
       if (p < 1) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
