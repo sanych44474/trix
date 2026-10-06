@@ -500,12 +500,6 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     if (durable(result)) markSent(key);
     return result;
   };
-  // Send at most ONE user-facing reminder per tick. The cron runs every minute, so the rest fire
-  // on subsequent ticks (a few minutes apart) instead of arriving as a 4-in-a-row burst.
-  // Quiet hours: during the user's do-not-disturb window, suppress ALL personal nudges by
-  // pre-setting `pinged` (session/trainer alerts are separate and stay). A missed nudge simply
-  // fires on a later tick once the window ends — dedup keys are only written on actual sends.
-  let pinged = false;
   // Per-user reminder preferences: a type the user switched off in Settings is never sent.
   const remOff = (key: string) => user.profile.remindersOff?.includes(key) ?? false;
   let w21p: Promise<WorkoutLogDoc[]> | undefined;
@@ -552,13 +546,12 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // 22:00–07:00 by default), and at most DAILY_NUDGE_CAP a day. Opt-in water nudges are outside
   // the cap. Anything not sent now fires on a later pass once allowed.
   const sentToday = nudgesSentToday(sent["nudges"], date);
-  if (!pinged && !isQuietHour(hour, reminderHour, user.profile.quietFrom, user.profile.quietTo)) {
+  if (!isQuietHour(hour, reminderHour, user.profile.quietFrom, user.profile.quietTo)) {
     for (const nudge of NUDGES) {
       if (nudge.counted && sentToday >= DAILY_NUDGE_CAP) continue;
       if (!(await nudge.run(p))) continue;
       if (nudge.counted) dirty["nudges"] = `${date}:${sentToday + 1}`;
-      pinged = true;
-      break;
+      break; // one reminder per pass; the rest fire on later passes, never as a burst
     }
   }
 

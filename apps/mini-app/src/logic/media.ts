@@ -43,3 +43,20 @@ export function videoCheck(bytes: number, seconds?: number): VideoCheck {
 export function pickAudioType(isSupported: (type: string) => boolean): string | undefined {
   return ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"].find((type) => isSupported(type));
 }
+
+/**
+ * Length in seconds of an MP4 / MOV clip from its movie header ("mvhd" box), read from the file
+ * bytes -- phones record ISO-BMFF video, and this avoids loading the clip into a <video>.
+ * Undefined when there is no readable header (the server still caps the upload size).
+ */
+export function mp4Seconds(bytes: Uint8Array): number | undefined {
+  for (let i = 4; i + 32 <= bytes.length; i++) {
+    if (bytes[i] !== 0x6d || bytes[i + 1] !== 0x76 || bytes[i + 2] !== 0x68 || bytes[i + 3] !== 0x64) continue; // "mvhd"
+    const view = new DataView(bytes.buffer, bytes.byteOffset + i + 4);
+    const version = view.getUint8(0);
+    const timescale = view.getUint32(version === 1 ? 20 : 12);
+    const duration = version === 1 ? Number(view.getBigUint64(24)) : view.getUint32(16);
+    return timescale > 0 ? duration / timescale : undefined;
+  }
+  return undefined;
+}

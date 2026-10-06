@@ -9,7 +9,7 @@ import { getDayMeals } from "../src/adapters/d1/v2Nutrition";
 import { localParts } from "../src/domain/localTime";
 import { handleMediaApi, MAX_PHOTO_BYTES } from "../src/webapp/mediaApi";
 import { handleNutritionApi } from "../src/webapp/nutritionApi";
-import { fitWithin, reweigh, sumMeal, videoCheck, pickAudioType, MAX_VIDEO_BYTES } from "../apps/mini-app/src/logic/media";
+import { fitWithin, mp4Seconds, reweigh, sumMeal, videoCheck, pickAudioType, MAX_VIDEO_BYTES } from "../apps/mini-app/src/logic/media";
 
 const env = (db: ReturnType<typeof newDb>) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" }) as never;
 
@@ -103,4 +103,23 @@ test("mini app media logic: image fit, video gate, recorder type", () => {
   assert.equal(videoCheck(1000, undefined), "ok");
   assert.equal(pickAudioType((t) => t === "audio/mp4"), "audio/mp4");
   assert.equal(pickAudioType(() => false), undefined);
+});
+
+function mvhdBox(version: 0 | 1, timescale: number, duration: number): Uint8Array {
+  const body = new Uint8Array(version === 1 ? 108 : 96);
+  const v = new DataView(body.buffer);
+  v.setUint8(0, version);
+  if (version === 1) { v.setUint32(20, timescale); v.setBigUint64(24, BigInt(duration)); }
+  else { v.setUint32(12, timescale); v.setUint32(16, duration); }
+  const box = new Uint8Array(8 + body.length + 16);
+  new DataView(box.buffer).setUint32(16, 8 + body.length);
+  box.set([0x6d, 0x76, 0x68, 0x64], 20); // "mvhd" after 16 bytes of other data
+  box.set(body, 24);
+  return box;
+}
+
+test("mini app media logic: clip length from the MP4/MOV movie header", () => {
+  assert.equal(mp4Seconds(mvhdBox(0, 600, 27_000)), 45);
+  assert.equal(mp4Seconds(mvhdBox(1, 1000, 95_500)), 95.5);
+  assert.equal(mp4Seconds(new Uint8Array(200)), undefined, "no header -> unknown, the server's size cap still applies");
 });

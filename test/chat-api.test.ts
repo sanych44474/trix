@@ -12,7 +12,7 @@ async function withTelegram<T>(run: (sent: Sent[]) => Promise<T>): Promise<T> {
   const sent: Sent[] = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async (url: string, init?: { body?: string }) => {
-    if (String(url).includes("api.telegram.org") && init?.body) sent.push(JSON.parse(init.body));
+    if (new URL(String(url)).hostname === "api.telegram.org" && init?.body) sent.push(JSON.parse(init.body));
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   }) as unknown as typeof fetch;
   try { return await run(sent); } finally { globalThis.fetch = realFetch; }

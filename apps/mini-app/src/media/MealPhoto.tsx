@@ -1,27 +1,30 @@
 // Meal by photo: take or pick a photo, the AI recognises the foods and portions, the user fixes
 // the weights (macros scale) or drops a wrong item, then logs the meal. Nothing is logged before
 // the user confirms -- photos are guesses (which grain? what portion?).
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, apiForm, typedBody } from "../api";
 import { t, type Lang } from "../i18n";
 import { type MealItem, reweigh, sumMeal } from "../logic/media";
 import { track } from "../logic/track";
-import { shrinkImage } from "./files";
+import { drawPreview, shrinkImage } from "./files";
 
 export function MealPhoto({ lang, onLogged }: { lang: Lang; onLogged: () => void }) {
   const input = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<File | null>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
   const [items, setItems] = useState<MealItem[] | null>(null);
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState<"estimate" | "log" | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
-  const reset = () => { if (preview) URL.revokeObjectURL(preview); setPreview(null); setItems(null); setCaption(""); if (input.current) input.current.value = ""; };
+  useEffect(() => { if (preview && canvas.current) void drawPreview(preview, canvas.current); }, [preview]);
+
+  const reset = () => { setPreview(null); setItems(null); setCaption(""); if (input.current) input.current.value = ""; };
 
   const estimate = async (file: File) => {
     reset();
     setNote(null);
-    setPreview(URL.createObjectURL(file));
+    setPreview(file);
     setBusy("estimate");
     try {
       const form = new FormData();
@@ -52,7 +55,7 @@ export function MealPhoto({ lang, onLogged }: { lang: Lang; onLogged: () => void
     <input ref={input} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void estimate(f); }} />
     {!preview && <button type="button" className="button button-primary meal-photo-cta" onClick={() => input.current?.click()}>📷 {t(lang, "meal_photo_btn")}</button>}
     {preview && <div className="meal-photo-body">
-      <img src={preview} alt="" className="meal-photo-preview" />
+      <canvas ref={canvas} className="meal-photo-preview" />
       {busy === "estimate" && <p className="muted">{t(lang, "meal_photo_reading")}</p>}
       {items && items.length > 0 && <>
         <div className="meal-list">{items.map((item, i) => <div className="meal-row meal-photo-row" key={i}>

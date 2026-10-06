@@ -21,7 +21,8 @@ export function FormCheck({ lang, exercise }: { lang: Lang; exercise?: string })
 
   const send = async (file: File) => {
     setAnswer(null); setNote(null);
-    const seconds = await videoSeconds(file);
+    // Size first: reading a clip's header loads it into memory, pointless for a 200 MB file.
+    const seconds = videoCheck(file.size) === "ok" ? await videoSeconds(file) : undefined;
     const gate = videoCheck(file.size, seconds);
     if (gate !== "ok") { setNote(reasonText(gate)); return; }
     setBusy(true);
