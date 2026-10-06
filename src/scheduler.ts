@@ -28,6 +28,7 @@ import { daysBetween } from "./domain/reminderTiming";
 import { weighInDue } from "./domain/weighIn";
 import { escapeHtml, t } from "./locales/i18n";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "./bot/onboardingApp";
+import { appKeyboard, appKeyboardEnabled } from "./notify/appKeyboard";
 import { renderDay, challengeTitleText } from "./render";
 import { finalizeOnboardingPlan, retryInterviewStep } from "./bot/plan";
 import { surveyKb, surveyRemaining } from "./bot/survey";
@@ -498,7 +499,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // Everything the reminder blocks in schedulerJobs/* need (schedulerJobs/userPass.ts).
   const p: UserPass = {
     env, bot, user, pass, db, lang, tz, date, weekday, hour, reminderHour, activePlan, planDays, trainsOn, isTrainingDay,
-    loggedToday, sent, already, markSent, setSent: (key, value) => { dirty[key] = value; }, remOff, send, sendTo, sendAndMark, durable, appView, workouts21, bodyAll,
+    loggedToday, sent, already, markSent, setSent: (key, value) => { dirty[key] = value; }, remOff, send, sendTo, sendAndMark, durable, appView, appKb: (rows) => appKeyboard(env, rows), workouts21, bodyAll,
   };
   const flushReminders = async () => {
     if (Object.keys(dirty).length === 0) return;
@@ -547,12 +548,16 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // Water reminders on a schedule (opt-in via profile.waterEvery = 2/3/4h). Fire at 9:00–20:00
   // local, every N hours from 9, only while today's goal isn't met yet. Off by default.
   const waterEvery = user.profile.waterEvery ?? 0;
-  if (!pinged && waterEvery >= 2 && !remOff("water") && hour >= 9 && hour <= 20 && (hour - 9) % waterEvery === 0) {
+  // Deduped per local HOUR (the slot), not per day: a Durable Object woken twice in the same hour
+  // must not send the same water nudge twice, and the next slot must still fire.
+  const waterSlot = `${date}T${hour}`;
+  if (!pinged && waterEvery >= 2 && !remOff("water") && hour >= 9 && hour <= 20 && (hour - 9) % waterEvery === 0 && sent["water"] !== waterSlot) {
     const goal = resolveWaterGoal(user.profile);
     const ml = (await getWater(db, user._id, date).catch(() => 0)) ?? 0;
     if (ml < goal) {
-      const kb = new InlineKeyboard().text("💧 +250", "water:add:250").text("💧 +500", "water:add:500");
-      await send(t(lang, "water_reminder", { ml, goal }), { ...HTML, reply_markup: kb });
+      const kb = p.appKb([[{ text: t(lang, "nb_open_fuel"), view: "fuel", fallback: "water:add:250" }]]);
+      const r = await send(t(lang, "water_reminder", { ml, goal }), kb ? { ...HTML, reply_markup: kb } : HTML);
+      if (durable(r)) dirty["water"] = waterSlot;
       pinged = true;
     }
   }
@@ -573,11 +578,10 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     const risk = streakRisk(streakDates, date, user.reminders?.lastVacation);
     // ≥2 weeks: a 1-week "streak" isn't worth a rescue message, it's just last week.
     if (risk.atRisk && risk.current >= 2) {
-      const kb = new InlineKeyboard().text(t(lang, "log_done"), "log:done");
-      const logUrl = appView("log");
-      if (logUrl) kb.row().webApp(t(lang, "app_log_btn"), logUrl);
-      await send(t(lang, "streak_rescue", { weeks: risk.current }), { ...HTML, reply_markup: kb });
-      dirty["streak_rescue"] = rescueWeek;
+      const kb = p.appKb([[{ text: t(lang, "app_log_btn"), view: "train", fallback: "log:done" }]]);
+      const r = await send(t(lang, "streak_rescue", { weeks: risk.current }), kb ? { ...HTML, reply_markup: kb } : HTML);
+      // Week-keyed, so marking a dropped send would skip the rescue for the whole week.
+      if (durable(r)) dirty["streak_rescue"] = rescueWeek;
       pinged = true;
     }
   }
@@ -590,12 +594,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     // sv:* callbacks so completing one re-shows the checklist with what's still left (see bot.ts).
     const items = await surveyRemaining(db, user, date, lang);
     if (items.length) {
-      const kb = surveyKb(items);
-      const surveyUrl = appView("survey");
-      if (surveyUrl) {
-        if (kb.inline_keyboard[kb.inline_keyboard.length - 1]?.length) kb.row();
-        kb.webApp(t(lang, "app_survey_btn"), surveyUrl);
-      }
+      // One button per open item, each opening the screen where it is logged.
+      const kb = p.appKb(items.map((it) => [{ text: it.label, view: it.key === "food" || it.key === "water" ? "fuel" : "progress", fallback: it.cb }])) ?? surveyKb(items);
       await sendAndMark("survey", t(lang, "survey_prompt"), { ...HTML, reply_markup: kb });
       pinged = true;
     }
@@ -610,8 +610,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   if (!pinged && !remOff("wellbeing") && isTrainingDay && hour >= readinessHour && hour < reminderHour && !already("wellbeing")) {
     const done = await getDailyCheckin(db, user._id, date);
     if (!loggedToday && !done) {
-      const kb = new InlineKeyboard().text(t(lang, "menu_checkin"), "checkin:start");
-      await sendAndMark("wellbeing", t(lang, "reminder_wellbeing"), { ...HTML, reply_markup: kb });
+      const kb = p.appKb([[{ text: t(lang, "menu_checkin"), view: "progress", fallback: "checkin:start" }]]);
+      await sendAndMark("wellbeing", t(lang, "reminder_wellbeing"), kb ? { ...HTML, reply_markup: kb } : HTML);
       pinged = true;
     }
   }
@@ -635,7 +635,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     if (day) {
       const text =
         t(lang, "reminder_tomorrow", { group: day.muscleGroup }) + "\n\n" + renderDay(lang, day, undefined, "none");
-      await sendAndMark("tomorrow", text);
+      const kb = p.appKb([[{ text: t(lang, "nb_open_plan"), view: "plan" }]]);
+      await sendAndMark("tomorrow", text, kb ? { ...HTML, reply_markup: kb } : HTML);
       pinged = true;
     }
   }
@@ -649,14 +650,16 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       const area = t(lang, `inj_area_${inj.area}` as Parameters<typeof t>[1]);
       // A 4-level pain scale beats binary OK/more — the trainer/coach and the trend view can
       // both use the score, and the user does one tap either way.
-      const kb = new InlineKeyboard()
+      // The score is entered on the injury card in the app (Workspace → injuries); without the
+      // app the 4-level scale stays as chat buttons.
+      const kb = p.appKb([[{ text: t(lang, "nb_injury"), view: "role" }]]) ?? new InlineKeyboard()
         .text(t(lang, "inj_score_0"), `inj:sc:${inj.id}:0`)
         .text(t(lang, "inj_score_3"), `inj:sc:${inj.id}:3`)
         .row()
         .text(t(lang, "inj_score_6"), `inj:sc:${inj.id}:6`)
         .text(t(lang, "inj_score_8"), `inj:sc:${inj.id}:8`);
-      await send(t(lang, "inj_check_q", { area }), { ...HTML, reply_markup: kb });
-      await markInjuryAsked(db, inj.id, date);
+      const r = await send(t(lang, "inj_check_q", { area }), { ...HTML, reply_markup: kb });
+      if (durable(r)) await markInjuryAsked(db, inj.id, date);
       pinged = true;
     }
   }
@@ -667,11 +670,12 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   if (!pinged && user.onboarded && !remOff("quality") && hour >= reminderHour) {
     const dueQ = daysBetween(sent["quality"], date) >= QUALITY_EVERY_DAYS;
     if (dueQ) {
-      const kb = new InlineKeyboard()
+      // Rating and "what's missing" both go through the feedback form in the app's Settings.
+      const kb = p.appKb([[{ text: t(lang, "nb_rate"), view: "settings" }]]) ?? new InlineKeyboard()
         .text("⭐", "qr:1").text("⭐⭐", "qr:2").text("⭐⭐⭐", "qr:3")
         .row()
         .text("⭐⭐⭐⭐", "qr:4").text("⭐⭐⭐⭐⭐", "qr:5");
-      await sendAndMark("quality", t(lang, "reminder_quality"), { ...HTML, reply_markup: kb });
+      await sendAndMark("quality", t(lang, appKeyboardEnabled(env) ? "reminder_quality_app" : "reminder_quality"), { ...HTML, reply_markup: kb });
       pinged = true;
     }
   }
@@ -686,7 +690,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
       lastSent: sent["weighin"],
     });
     if (gap !== null) {
-      const kb = new InlineKeyboard().text(t(lang, "weighin_log_btn"), "wi:log").text(t(lang, "weighin_off_btn"), "wi:off");
+      const kb = p.appKb([[{ text: t(lang, "weighin_log_btn"), view: "progress", fallback: "wi:log" }]]) ?? new InlineKeyboard().text(t(lang, "weighin_log_btn"), "wi:log").text(t(lang, "weighin_off_btn"), "wi:off");
       await sendAndMark("weighin", t(lang, gap > 0 ? "reminder_weighin" : "reminder_weighin_first", { n: gap }), { ...HTML, reply_markup: kb });
       pinged = true;
     }
@@ -694,8 +698,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
 
   // Weekly measurement check-in — Sunday at the user's reminder hour, once.
   if (!pinged && !remOff("measure") && weekday === 7 && hour >= reminderHour && !already("measure")) {
-    const kb = new InlineKeyboard().text(t(lang, "menu_measure"), "menu:measure");
-    await sendAndMark("measure", t(lang, "reminder_measure"), { ...HTML, reply_markup: kb });
+    const kb = p.appKb([[{ text: t(lang, "menu_measure"), view: "progress", fallback: "menu:measure" }]]);
+    await sendAndMark("measure", t(lang, "reminder_measure"), kb ? { ...HTML, reply_markup: kb } : HTML);
     pinged = true;
   }
 
@@ -711,8 +715,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     const season = seasonalChallenge(date);
     const joined = await activeChallengeCodes(db, user._id, date).catch(() => new Set<string>());
     if (!joined.has(season.code)) {
-      const kb = new InlineKeyboard().text(t(lang, "chal_season_join_btn"), `chal:join:${season.code}`);
-      await sendAndMark("season", t(lang, "chal_season_announce", { title: escapeHtml(`${season.emoji} ${challengeTitleText(lang, season)}`) }), { ...HTML, reply_markup: kb });
+      const kb = p.appKb([[{ text: t(lang, "chal_season_join_btn"), view: "role", fallback: `chal:join:${season.code}` }]]);
+      await sendAndMark("season", t(lang, "chal_season_announce", { title: escapeHtml(`${season.emoji} ${challengeTitleText(lang, season)}`) }), kb ? { ...HTML, reply_markup: kb } : HTML);
       pinged = true;
     } else markSent("season");
   }
@@ -723,8 +727,9 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   if (!pinged && !remOff("plateau") && weekday === 1 && hour >= reminderHour && daysBetween(sent["plateau"], date) >= 14) {
     const stalled = stalledLifts(await listStrength(db, user._id), date);
     if (stalled.length) {
-      const kb = new InlineKeyboard().text(t(lang, "menu_coach"), "menu:coach");
-      await sendAndMark("plateau", t(lang, "plateau_nudge", { lifts: stalled.slice(0, 2).map(escapeHtml).join(", ") }), { ...HTML, reply_markup: kb });
+      const lifts = stalled.slice(0, 2).join(", ");
+      const kb = p.appKb([[{ text: t(lang, "menu_coach"), view: "coach", params: { ask: t(lang, "ask_plateau", { lifts }) }, fallback: "menu:coach" }]]);
+      await sendAndMark("plateau", t(lang, "plateau_nudge", { lifts: stalled.slice(0, 2).map(escapeHtml).join(", ") }), kb ? { ...HTML, reply_markup: kb } : HTML);
       pinged = true;
     }
   }
@@ -735,8 +740,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   if (!pinged && weekday === 1 && hour >= reminderHour && user.onboarded && user.profile.sex === "female" && !already("cycle_nudge")) {
     const needsSetup = !user.profile.cycleTracking || !user.profile.lastPeriodStart;
     if (needsSetup) {
-      const kb = new InlineKeyboard().text(t(lang, "cycle_nudge_btn"), "set:cycle");
-      await sendAndMark("cycle_nudge", t(lang, "cycle_nudge"), { ...HTML, reply_markup: kb });
+      const kb = p.appKb([[{ text: t(lang, "cycle_nudge_btn"), view: "settings", fallback: "set:cycle" }]]);
+      await sendAndMark("cycle_nudge", t(lang, "cycle_nudge"), kb ? { ...HTML, reply_markup: kb } : HTML);
       pinged = true;
     }
   }
@@ -766,8 +771,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
         ? (await workouts21()).some((l) => l.completed)
         : false;
       if (calendarDue || adherenceDue) {
-        const kb = new InlineKeyboard().text(t(lang, "menu_coach"), "menu:coach");
-        await sendAndMark("deload", t(lang, calendarDue && trainedRecently ? "deload_week" : "deload_adherence"), { ...HTML, reply_markup: kb });
+        const kb = p.appKb([[{ text: t(lang, "menu_coach"), view: "coach", params: { ask: t(lang, "ask_deload") }, fallback: "menu:coach" }]]);
+        await sendAndMark("deload", t(lang, calendarDue && trainedRecently ? "deload_week" : "deload_adherence"), kb ? { ...HTML, reply_markup: kb } : HTML);
         pinged = true;
       }
     }
@@ -808,10 +813,16 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     if (plan) {
       const w = weeksSincePlan(plan.generatedAt.toISOString().slice(0, 10), date);
       if (w > 0 && w % 2 === 0) {
-        await sendAndMark("adaptive_checkin", t(lang, "adaptive_checkin_prompt"));
-        // Persist the mode now — flushReminders no longer writes the session column.
-        user.session = { ...user.session, mode: "checkin_adaptive" };
-        await updateUser(db, user._id, { session: user.session });
+        const kb = p.appKb([[{ text: t(lang, "nb_reply"), view: "coach", params: { ask: t(lang, "ask_adaptive") } }]]);
+        if (kb) {
+          // The answer goes to the AI coach in the app, which can adjust the live plan.
+          await sendAndMark("adaptive_checkin", t(lang, "adaptive_checkin_app"), { ...HTML, reply_markup: kb });
+        } else {
+          await sendAndMark("adaptive_checkin", t(lang, "adaptive_checkin_prompt"));
+          // Persist the mode now — flushReminders no longer writes the session column.
+          user.session = { ...user.session, mode: "checkin_adaptive" };
+          await updateUser(db, user._id, { session: user.session });
+        }
       }
     }
   }
@@ -839,7 +850,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // detection). Solo/trainer-own plans are applied silently and the user is told; a client's
   // changes are staged as a DRAFT for their trainer to accept, edit, or discard.
   if (weekday === 1 && hour >= reminderHour && !already("progression")) {
-    await weeklyProgression({ db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll });
+    await weeklyProgression({ db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll, appKb: p.appKb });
   }
 
   // Weekly motivational narrative — Monday late morning, solo/trainer-own users with recent

@@ -38,6 +38,16 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
   };
   useEffect(load, [clientId]);
 
+  // Assign the waiting draft (it becomes the client's plan and they are notified) or discard it.
+  const decideDraft = async (decision: "assign" | "discard") => {
+    setBusy("draft"); setActionError(false);
+    try {
+      await api(`/api/v2/trainer/client/${clientId}/draft`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"decideClientDraft">({ decision }) });
+      setSavedKey("draft");
+      load();
+    } catch { setActionError(true); } finally { setBusy(null); }
+  };
+
   const saveCard = async () => {
     setBusy("card"); setSavedKey(null);
     try {
@@ -106,6 +116,16 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
       {data.cycle && <p className="muted">{t(lang, "cycle_phase_line", { phase: data.cycle.phase, day: data.cycle.day })}</p>}
       <div className="button-row"><button className="button button-ghost" disabled={busy === "flag"} onClick={() => void toggleFlag()}>{busy === "flag" ? "…" : data.client.flagged ? t(lang, "unflag_client_btn") : t(lang, "flag_client_btn")}</button></div>
     </Panel>
+
+    {data.draft && <Panel tone="accent">
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "cc_draft_eyebrow")}</span><h2>{t(lang, "cc_draft_title")}</h2></div></div>
+      <p>{t(lang, "cc_draft_body", { days: data.draft.days, n: data.draft.exercises, date: data.draft.createdAt })}</p>
+      <div className="button-row">
+        <button className="button button-light" disabled={busy === "draft"} onClick={() => void decideDraft("assign")}>{busy === "draft" ? t(lang, "saving_ellipsis") : t(lang, "cc_draft_assign")}</button>
+        <button className="button button-ghost" disabled={busy === "draft"} onClick={() => void decideDraft("discard")}>{t(lang, "cc_draft_discard")}</button>
+      </div>
+    </Panel>}
+    {savedKey === "draft" && <div className="save-note">{t(lang, "cc_draft_done")}</div>}
 
     {!data.client.onboarded && <Panel tone="muted">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "interview_nudge_eyebrow")}</span><h2>{t(lang, "interview_nudge_title")}</h2></div></div>

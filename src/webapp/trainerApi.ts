@@ -4,11 +4,12 @@
 //   /api/trainer/question/:id/answer (POST)   — answer a client question
 // Same initData auth as the dashboard, plus a trainer-role gate; per-client ops also run the
 // ownership check (getClientForTrainer — missing and not-yours both 404).
+import { appMarkup } from "../notify/appKeyboard";
 import {
   recordAudit,
   setUserFlag,
 } from "../adapters/d1/v2Admin";
-import { assignDraftPlan, getActivePlan, saveDraftPlan } from "../adapters/d1/v2Plans";
+import { assignDraftPlan, deleteDraftPlan, getActivePlan, saveDraftPlan } from "../adapters/d1/v2Plans";
 import {
   deleteTrainerTemplate,
   getClientCard,
@@ -36,7 +37,7 @@ import { readJsonBody } from "./validate";
 import type { BankPlan, Env, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 
-const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|photo-request|interview-nudge)$/;
+const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|photo-request|interview-nudge|draft)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
 const MAX_TEXT = 2000;
 
@@ -100,7 +101,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       await saveDraftPlan(env.DB, draft);
       await assignDraftPlan(env.DB, client._id);
       await recordAudit(env.DB, user._id, "template_assign", client._id, tpl.name).catch(() => {});
-      await tgSend(env, client.chatId, t(client.lang, "client_plan_assigned"));
+      await tgSend(env, client.chatId, t(client.lang, "client_plan_assigned"), appMarkup(env, t(client.lang, "nb_open_today"), "today"));
       return Response.json({ ok: true });
     }
     if (b.action === "create") {
@@ -186,7 +187,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   const m = ROUTE.exec(url.pathname);
   if (!m) return Response.json({ error: "not found" }, { status: 404 });
   const clientId = Number(m[1]);
-  const action = m[2] as "card" | "note" | "flag" | "photo-request" | "interview-nudge";
+  const action = m[2] as "card" | "note" | "flag" | "photo-request" | "interview-nudge" | "draft";
   const client = await getClientForTrainer(env.DB, user._id, clientId);
   if (!client) return Response.json({ error: "not found" }, { status: 404 });
 
@@ -226,6 +227,19 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
           : null,
       });
     }
+    if (action === "draft") {
+      // The trainer's call on a waiting draft (onboarding draft or weekly progression proposal).
+      if (body.decision !== "assign" && body.decision !== "discard") return Response.json({ error: "bad request" }, { status: 400 });
+      if (body.decision === "discard") {
+        if (!(await deleteDraftPlan(env.DB, clientId))) return Response.json({ error: "not found" }, { status: 404 });
+        await recordAudit(env.DB, user._id, "discard_draft", clientId).catch(() => {});
+        return Response.json({ ok: true });
+      }
+      if (!(await assignDraftPlan(env.DB, clientId))) return Response.json({ error: "not found" }, { status: 404 });
+      await recordAudit(env.DB, user._id, "assign_plan", clientId).catch(() => {});
+      await tgSend(env, client.chatId, t(client.lang, "client_plan_assigned"), appMarkup(env, t(client.lang, "nb_open_today"), "today"));
+      return Response.json({ ok: true });
+    }
     if (action === "note") {
       const note = textField(body.note);
       if (note === undefined) return Response.json({ error: "bad request" }, { status: 400 });
@@ -246,8 +260,10 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       // the bot action doesn't record one either.
       await updateUser(env.DB, clientId, { session: { ...client.session, photoReviewFor: user._id } });
       const trName = escapeHtml(user.profile.name ?? "trainer");
-      const kb = { inline_keyboard: [[{ text: t(client.lang, "photo_req_skip_btn"), callback_data: "photo:skip" }]] };
-      await tgSend(env, client.chatId, t(client.lang, "photo_req_from", { name: trName }), kb);
+      // The photo is added in the app (Progress → photos); the upload goes on to the trainer.
+      const appKb = appMarkup(env, t(client.lang, "nb_add_photo"), "progress");
+      const kb = appKb ?? { inline_keyboard: [[{ text: t(client.lang, "photo_req_skip_btn"), callback_data: "photo:skip" }]] };
+      await tgSend(env, client.chatId, t(client.lang, appKb ? "photo_req_from_app" : "photo_req_from", { name: trName }), kb);
       return Response.json({ ok: true });
     }
     // action === "interview-nudge" — mirrors the bot's cl:*:intvping action: resume the AI

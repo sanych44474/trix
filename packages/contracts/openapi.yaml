@@ -1922,6 +1922,37 @@ paths:
                 properties:
                   ok: {const: true}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/client/{id}/draft:
+    post:
+      operationId: decideClientDraft
+      description: Assign the client's draft plan (it becomes their active plan and they are notified) or discard it.
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: {type: string, enum: [assign, discard]}
+      responses:
+        '200':
+          description: Done
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {const: true}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/trainer/client/{id}/interview-nudge:
     post:
       operationId: nudgeClientInterview
@@ -3860,6 +3891,16 @@ components:
       type: object
       required: [client, note, shared, noteHistory, messages, dashboard]
       properties:
+        draft:
+          description: A plan draft waiting for the trainer (after onboarding, or a weekly progression proposal).
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            required: [days, exercises, createdAt]
+            properties:
+              days: {type: integer}
+              exercises: {type: integer}
+              createdAt: {type: string}
         client:
           type: object
           properties:

@@ -1,6 +1,7 @@
 // Plan authoring — the app's deepest module: AI interview retry, bank fallback, plan build /
 // heal / translate, dynamic progression regeneration. Extracted from bot.ts (god-file split);
 // behavior unchanged.
+import { appLink, appMarkup } from "../notify/appKeyboard";
 import { InlineKeyboard } from "grammy";
 import type { Env, Lang, PlanDoc, UserDoc, Weekday } from "../types";
 import type { MyContext } from "../adapters/telegram/context";
@@ -123,6 +124,8 @@ async function bankFallbackPlan(
 // plan FIRST so a slow/degraded AI chain can't block the cron for tens of seconds per stuck
 // user — which starves the reminder/check-in section that runs after the sweep. The interview
 // done-branch leaves it false so a fresh interview still gets a tailored AI plan (bank fallback).
+const withMarkup = (m: unknown) => (m ? { reply_markup: m } : {});
+
 export async function finalizeOnboardingPlan(
   env: Env, db: D1Database, user: UserDoc, opts: { preferBank?: boolean } = {},
 ): Promise<boolean> {
@@ -162,14 +165,15 @@ export async function finalizeOnboardingPlan(
       await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "client_plan_pending"), parse_mode: "HTML" }),
+        body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "client_plan_pending"), parse_mode: "HTML", ...withMarkup(appMarkup(env, t(lang, "launch_open_btn"), "today")) }),
       });
       // Notify the trainer.
       const trainer = user.trainerId ? await getUser(db, user.trainerId) : null;
       if (trainer) {
         const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
         // Inline actions so the trainer can review/assign right from the notification (no /clients hunt).
-        const reply_markup = {
+        // Review and assign on the client's card in the app (chat callbacks without the app).
+        const reply_markup = appMarkup(env, t(trainer.lang, "nb_open_client"), "role", { client: user._id }) ?? {
           inline_keyboard: [[
             { text: t(trainer.lang, "cc_plan"), callback_data: `cl:${user._id}:plan` },
             { text: t(trainer.lang, "cc_assign"), callback_data: `cl:${user._id}:assign` },
@@ -189,9 +193,13 @@ export async function finalizeOnboardingPlan(
       // but not yet training alone. An accountability buddy is a two-person feature, so offering
       // it here turns one signup into an invitation; buried in settings it never gets found.
       const buddy = botDeepLink(env, `buddy_${user._id}`);
-      const reply_markup = buddy
-        ? { inline_keyboard: [[{ text: t(lang, "buddy_offer_btn"), url: shareUrl(buddy, t(lang, "buddy_offer_share")) }]] }
-        : undefined;
+      // First the plan itself (today's session in the app), then the buddy invite.
+      const todayUrl = appLink(env, "today");
+      const rows = [
+        ...(todayUrl ? [[{ text: t(lang, "nb_open_today"), web_app: { url: todayUrl } }]] : []),
+        ...(buddy ? [[{ text: t(lang, "buddy_offer_btn"), url: shareUrl(buddy, t(lang, "buddy_offer_share")) }]] : []),
+      ];
+      const reply_markup = rows.length ? { inline_keyboard: rows } : undefined;
       await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

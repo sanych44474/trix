@@ -11,8 +11,9 @@ import { dashboardUrl } from "./appLinks";
 import { isOwner } from "./ownerAccess";
 import { updateUser } from "../adapters/d1/v2Users";
 import { HTML, reply, type MyContext } from "../adapters/telegram/context";
+import type { AppView } from "../notify/appKeyboard";
 
-export type AppView = "today" | "train" | "plan" | "fuel" | "progress" | "more" | "settings" | "library" | "inbox" | "coach" | "role" | "onboarding";
+export type { AppView };
 
 /** Mini App link, optionally opening a given screen. */
 export function appUrl(view?: AppView): string | undefined {

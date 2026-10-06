@@ -1,6 +1,4 @@
-// Trainer at-risk alert: a client missed two planned days in a row or lapsed on food logging.
-// Called by processUser for clients with a trainer.
-import { InlineKeyboard } from "grammy";
+
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getUser } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
@@ -33,15 +31,15 @@ export async function trainerAtRiskAlert(p: UserPass): Promise<void> {
     const trainer = user.trainerId ? await getUser(db, user.trainerId) : null;
     if (trainer) {
       const name = user.profile.name ?? `id ${user._id}`;
-      const kb = new InlineKeyboard().text(t(trainer.lang, "cc_message"), `cl:${user._id}:msg`);
+      const kb = p.appKb([[{ text: t(trainer.lang, "nb_open_client"), view: "role", params: { client: user._id }, fallback: `cl:${user._id}:msg` }]]);
       if (fireWorkout) {
-        const r = await sendTo(trainer, "atrisk_workout", t(trainer.lang, "atrisk_workout_alert", { name, d1: missed![0], d2: missed![1] }), { ...HTML, reply_markup: kb });
+        const r = await sendTo(trainer, "atrisk_workout", t(trainer.lang, "atrisk_workout_alert", { name, d1: missed![0], d2: missed![1] }), kb ? { ...HTML, reply_markup: kb } : HTML);
         // Keyed on the miss itself, so a dropped alert re-fires on the next pass rather than
         // being suppressed forever by a 429 the trainer never saw.
         if (durable(r)) setSent("atrisk_workout", missed![1]);
       }
       if (fireNutrition) {
-        const r = await sendTo(trainer, "atrisk_nutrition", t(trainer.lang, "atrisk_nutrition_alert", { name, n: lapse!.gapDays }), { ...HTML, reply_markup: kb });
+        const r = await sendTo(trainer, "atrisk_nutrition", t(trainer.lang, "atrisk_nutrition_alert", { name, n: lapse!.gapDays }), kb ? { ...HTML, reply_markup: kb } : HTML);
         if (durable(r)) setSent("atrisk_nutrition", lapse!.lastLogged);
       }
     }

@@ -28,7 +28,7 @@ function viewFromLocation(): View {
   const raw = new URLSearchParams(window.location.search).get("view") ?? new URLSearchParams(window.location.search).get("startapp");
   const aliases: Record<string, View> = { home: "today", log: "train", workout: "train", survey: "progress", nutrition: "fuel", food: "fuel", profile: "settings", owner: "role", chat: "coach", ask: "coach" };
   const value = raw ? aliases[raw] ?? (raw as View) : "today";
-  return ["today", "train", "plan", "fuel", "progress", "role", "more", "settings", "library", "coach"].includes(value) ? value : "today";
+  return ["today", "train", "plan", "fuel", "progress", "role", "more", "settings", "library", "coach", "inbox"].includes(value) ? value : "today";
 }
 
 function navLabel(lang: Lang, view: View): string {
@@ -142,8 +142,14 @@ export const WEEKDAY_KEYS: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed",
 // barbell work): one tap swaps them all for same-muscle ones they can do, or changes the
 // equipment first if the profile answer was wrong.
 export const EQUIPMENT_CHOICES: Array<[NonNullable<PlanEditBody["equipment"]>, Key]> = [["full gym", "equip_full_gym"], ["home basics (dumbbells, bands)", "equip_home_basics"], ["dumbbells only", "equip_dumbbells_only"], ["bodyweight only", "equip_bodyweight_only"]];
+// Deep-link parameters from notification buttons (src/notify/appKeyboard.ts): ?client= opens a
+// client's card in the trainer workspace, ?ask= pre-fills a question for the AI coach.
+const linkParams = new URLSearchParams(window.location.search);
+const linkClientId = Number(linkParams.get("client")) > 0 ? Number(linkParams.get("client")) : null;
+const linkAsk = linkParams.get("ask")?.slice(0, 300) || undefined;
+
 function RoleView({ dashboard, lang, onOpenPlan }: { dashboard: Dashboard; lang: Lang; onOpenPlan: (clientId?: number) => void }) {
-  return <Suspense fallback={<Loading />}><WorkspaceView dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} /></Suspense>;
+  return <Suspense fallback={<Loading />}><WorkspaceView dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} initialClientId={linkClientId} /></Suspense>;
 }
 
 // ---- Extras helpers: week-card / photo-compare image composition, upload ----
@@ -282,7 +288,7 @@ export function App() {
   const [view, setView] = useState<View>(() => viewFromLocation()); const [planClientId, setPlanClientId] = useState<number | null>(null); const [dashboard, setDashboard] = useState<Dashboard | null>(null); const [error, setError] = useState<unknown>(null); const [loading, setLoading] = useState(true); const [onboardingPending, setOnboardingPending] = useState(false);
   // The coach chat as its own screen, reachable from Today and the workout summary; a prefill
   // drops a ready question in the box (the user still taps send).
-  const [coachPrefill, setCoachPrefill] = useState<string | undefined>(undefined);
+  const [coachPrefill, setCoachPrefill] = useState<string | undefined>(linkAsk);
   const openCoach = (prefill?: string) => { track(prefill ? "app_coach_open_summary" : "app_coach_open_today"); setCoachPrefill(prefill); setView("coach"); };
   const pullStart = useRef<number | null>(null);
   const loadDashboard = () => { setLoading(true); setError(null); api<Dashboard>("/api/v2/dashboard").then((data) => { registerLearnedMuscles(data.calendar?.learnedMuscles ?? []); setDashboard(data); setLang(data.lang); try { localStorage.setItem("trix:v2:dashboard", JSON.stringify(data)); } catch { /* cache is optional */ } }).catch(setError).finally(() => setLoading(false)); };

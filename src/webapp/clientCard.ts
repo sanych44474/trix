@@ -8,6 +8,7 @@ import { localParts } from "../domain/localTime";
 import { getClientCard, getClientNote, listClientNoteHistory, listMessages, type ClientNoteHistoryEntry } from "../adapters/d1/v2Trainer";
 import { listActiveInjuries, listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { buildDashboardPayload } from "../adapters/d1/dashboardReader";
+import { getDraftPlan } from "../adapters/d1/v2Plans";
 import type { DashboardPayload } from "./dashboard";
 import type { ClientCardDoc, InjuryDoc, UserDoc } from "../types";
 
@@ -21,6 +22,8 @@ export interface ClientCardMessage {
 
 export interface ClientCardPayload {
   client: { id: number; name: string; onboarded: boolean; flagged: boolean };
+  /** A plan draft waiting for the trainer to assign or discard. */
+  draft?: { days: number; exercises: number; createdAt: string } | null;
   // Female + cycleTracking + health consent only.
   cycle?: { phase: string; day: number };
   note: string | null;
@@ -124,7 +127,7 @@ export function assembleClientCardPayload(
 export async function buildClientCardPayload(db: D1Database, trainer: UserDoc, client: UserDoc): Promise<ClientCardPayload> {
   // The cycle chip runs on the CLIENT's local date (same as the bot's client card).
   const today = localParts(client.profile.timezone).date;
-  const [card, note, injuries, dashboard, photos, noteHistory, rawMessages] = await Promise.all([
+  const [card, note, injuries, dashboard, photos, noteHistory, rawMessages, draft] = await Promise.all([
     getClientCard(db, trainer._id, client._id),
     getClientNote(db, trainer._id, client._id).catch(() => null),
     // Skip the injuries query entirely when health isn't shared (free-tier subrequest budget).
@@ -135,9 +138,13 @@ export async function buildClientCardPayload(db: D1Database, trainer: UserDoc, c
     listProgressPhotos(db, client._id, 8).catch(() => []),
     listClientNoteHistory(db, trainer._id, client._id).catch(() => []),
     listMessages(db, trainer._id, client._id).catch(() => []),
+    getDraftPlan(db, client._id).catch(() => null),
   ]);
   const messages: ClientCardMessage[] = rawMessages.map((m) => ({ fromMe: m.fromId === trainer._id, text: m.text, createdAt: m.createdAt }));
   const payload = assembleClientCardPayload(client, today, { card, note, injuries, dashboard, noteHistory, messages });
   payload.photos = photos.map((ph) => ({ id: ph.id, takenAt: ph.takenAt.slice(0, 10) }));
+  payload.draft = draft
+    ? { days: draft.split.length, exercises: draft.split.reduce((n, d) => n + d.exercises.length, 0), createdAt: draft.generatedAt.toISOString().slice(0, 10) }
+    : null;
   return payload;
 }

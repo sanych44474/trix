@@ -133,8 +133,9 @@ export async function weeklyReport(p: UserPass): Promise<void> {
     // not trained at all. Re-engaging those users is the at-risk/activation machinery's job;
     // a leaderboard nudge congratulating nothing just teaches them to ignore the bot.
     if (rank || streak > 0) {
+      const boardKb = p.appKb([[{ text: t(lang, "app_log_btn"), view: "train" }]]);
       await bot.api
-        .sendMessage(user.chatId, t(lang, "weekly_nudge", { rank: rank || "—", streak }) + rankLine, HTML)
+        .sendMessage(user.chatId, t(lang, "weekly_nudge", { rank: rank || "—", streak }) + rankLine, { ...HTML, ...(boardKb ? { reply_markup: boardKb } : {}) })
         .catch((e) => console.error("nudge send", e));
     }
   }

@@ -214,7 +214,7 @@ export function FinanceView({ lang, onBack }: { lang: Lang; onBack: () => void }
   </div>;
 }
 
-export function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
+export function TrainerWorkspace({ dashboard, lang, onOpenPlan, initialClientId }: WorkspaceProps) {
   const [questions, setQuestions] = useState<TrainerQuestions | null>(null);
   const [requests, setRequests] = useState<TrainerRequests | null>(null);
   const [templates, setTemplates] = useState<TrainerTemplates | null>(null);
@@ -223,8 +223,8 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [actionError, setActionError] = useState(false);
-  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach" | "schedule" | "finance">("list");
-  const [activeClientId, setActiveClientId] = useState<number | null>(null);
+  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach" | "schedule" | "finance">(initialClientId ? "client" : "list");
+  const [activeClientId, setActiveClientId] = useState<number | null>(initialClientId ?? null);
   const [assignTemplateId, setAssignTemplateId] = useState("");
   const [assignClientId, setAssignClientId] = useState("");
   const [templateNote, setTemplateNote] = useState<string | null>(null);
