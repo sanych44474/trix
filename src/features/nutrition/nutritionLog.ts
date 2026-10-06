@@ -16,7 +16,7 @@ import { localParts } from "../../domain/progression";
 import { escapeHtml, t } from "../../locales/i18n";
 import { deferAi, maybeCelebrateLevel } from "../../bot/router";
 import { showEveningSurvey } from "../../bot/survey";
-import { type MyContext, reply, setMode } from "../../adapters/telegram/context";
+import { reactToUser, type MyContext, reply, setMode } from "../../adapters/telegram/context";
 import { cleanFoodName, menuBtn } from "../../bot";
 
 // Coerce any AI value (number, numeric string, or junk) to a finite integer.
@@ -83,6 +83,7 @@ export async function logMeal(ctx: MyContext, items: P.NutritionItem[], method: 
     await reply(ctx, t(lang, "nutrition_unreadable"));
     return;
   }
+  await reactToUser(ctx, "✍"); // the meal they sent (text or photo) is logged
 
   const { date } = localParts(ctx.user.profile.timezone);
   // Append meals and get the full day's meals back to compute totals.

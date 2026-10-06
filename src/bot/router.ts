@@ -440,7 +440,7 @@ export async function maybeCelebrateLevel(ctx: MyContext) {
     await updateUser(ctx.db, ctx.user._id, { reminders });
     ctx.user.reminders = reminders;
     if (transition.leveledUp) {
-      await reply(ctx, t(ctx.user.lang, "levelup_msg", { level: lv.level, xp: lv.xp }));
+      await reply(ctx, t(ctx.user.lang, "levelup_msg", { level: lv.level, xp: lv.xp }), undefined, "celebrate");
       if (transition.badge) await awardAchievement(ctx.db, ctx.user._id, transition.badge).catch(() => {});
     }
   } catch {
