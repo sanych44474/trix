@@ -160,6 +160,16 @@ async function buildOwnerSection(db: D1Database, today: string): Promise<NonNull
 
 export async function buildDashboardPayload(db: D1Database, user: UserDoc): Promise<DashboardPayload> {
   const today = localParts(user.profile.timezone).date;
+  const weekStart = weekStartStr(today);
+  // Reads that used to run as later waves (the buddy card, then the week's water/steps for the
+  // quests) start now, alongside the main batch: one round-trip wave instead of four.
+  const buddyP = user.profile.buddyId
+    ? getUser(db, user.profile.buddyId)
+        .then(async (mate) => (mate ? { mate, logs: await workoutLogsSince(db, mate._id, weekStart).catch(() => []) } : null))
+        .catch(() => null)
+    : Promise.resolve(null);
+  const weekWaterP = waterLogsSince(db, user._id, weekStart).catch(() => []);
+  const weekStepsP = stepLogsSince(db, user._id, weekStart).catch(() => []);
   const [bodyLogs, workouts, records, nutrition, plan, trainerSection, ownerChatId, extras, checkin] = await Promise.all([
     bodyLogsByUser(db, user._id).catch(() => []),
     workoutLogsSince(db, user._id, isoDaysBefore(today, CALENDAR_DAYS - 1)),
@@ -211,21 +221,12 @@ export async function buildDashboardPayload(db: D1Database, user: UserDoc): Prom
       steps: extras.steps,
       stepsGoal: resolveStepsGoal(user.profile),
     };
-    if (user.profile.buddyId) {
-      const mate = await getUser(db, user.profile.buddyId).catch(() => null);
-      if (mate) {
-        const mLogs = await workoutLogsSince(db, mate._id, weekStartStr(today)).catch(() => []);
-        payload.buddy = { name: mate.profile.name ?? "Buddy", workouts: mLogs.filter((l) => l.completed).length };
-      }
-    }
+    const buddy = await buddyP;
+    if (buddy) payload.buddy = { name: buddy.mate.profile.name ?? "Buddy", workouts: buddy.logs.filter((l) => l.completed).length };
     // The week so far: balance score, balanced-week run and the week's quests. Finished quests are
     // recorded here (idempotent per week), which is what adds their XP; all of them earns a badge.
     try {
-      const weekStart = weekStartStr(today);
-      const [water, steps] = await Promise.all([
-        waterLogsSince(db, user._id, weekStart).catch(() => []),
-        stepLogsSince(db, user._id, weekStart).catch(() => []),
-      ]);
+      const [water, steps] = await Promise.all([weekWaterP, weekStepsP]);
       const logs = toLoggedDays(workouts);
       const quests = questProgress(
         pickQuests(weekStart, logs, plannedDayCount(user.profile.trainingWeekdays, plan?.split)),
