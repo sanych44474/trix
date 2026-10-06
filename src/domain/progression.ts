@@ -1,4 +1,5 @@
-import { regionOf } from "./muscleRegions";
+import { regionOf, type MuscleGroup } from "./muscleRegions";
+export type { MuscleGroup } from "./muscleRegions";
 import { trainingWeek } from "./mesocycle";
 import type { DailyCheckinDoc, LoggedExercise, PlanDay, PlanDoc, PlanExercise, ProgressionRate, SetEntry, StrengthRecordDoc, Weekday, WorkoutLogDoc } from "../types";
 import { exerciseMetric, metricOfSets, bestSetForMetric } from "./setFormat";
@@ -666,8 +667,6 @@ export function isLowerBody(exercise: string): boolean {
   const e = exercise.toLowerCase();
   return LOWER_HINTS.some((h) => e.includes(h));
 }
-
-export type MuscleGroup = "legs" | "back" | "chest" | "shoulders" | "arms" | "core";
 
 /** Classify an exercise (UA or EN name) into a major training region, for the relative-strength
  * balance chart. Ordered so the specific patterns win before the generic "row/тяга" → back. */

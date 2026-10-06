@@ -14,7 +14,7 @@ import { resolveNextBestAction } from "../domain/nextBestAction";
 import { upcomingSessions } from "../render";
 import { t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { cmdToday } from "../bot";
+import { cmdToday } from "./planView";
 import { cmdWellbeing } from "./progressCmds";
 import { cmdNutrition } from "./nutritionCmds";
 import { localCutoff } from "./report";

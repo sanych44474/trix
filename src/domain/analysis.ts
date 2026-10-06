@@ -2,7 +2,7 @@
 // bodyweight-to-goal projection from the logged trend, and a strength-plateau detector.
 // The repo layer feeds raw rows in.
 import { regionSets } from "./muscleRegions";
-import type { MuscleGroup } from "./progression";
+import type { MuscleGroup } from "./muscleRegions";
 import { e1rm } from "./records";
 import type { StrengthRecordDoc, WorkoutLogDoc } from "../types";
 

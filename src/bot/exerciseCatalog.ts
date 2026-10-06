@@ -20,7 +20,7 @@ import { onError } from "./aiDefer";
 import { endSelfEdit, swapExerciseByName } from "./planExerciseEdit";
 import { switchMode } from "../domain/session";
 import { isEditingOther, planOwnerId, planOwnerLang, reply, setMode, type MyContext } from "../adapters/telegram/context";
-import { reRenderEditDay, videosForDays, PendingExercise } from "../bot";
+import { reRenderEditDay, videosForDays, PendingExercise } from "./planView";
 
 // Instructions + safety for an exercise in the user's language. English is served straight
 // from the catalog; other languages are translated on first use and cached so /today is

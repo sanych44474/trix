@@ -1,7 +1,6 @@
 // Dispatch layer — the bot's routing "sitemap": command map, callback tables (exact + prefix),
 // text-mode handlers, and createBot(). Extracted from bot.ts (god-file split); behavior unchanged.
-// Handlers are imported from "../bot"; nothing in bot.ts's handler bodies depends on this module
-// except four symbols re-imported back, so the dependency is essentially one-way.
+// Handlers are imported from the modules that declare them; bot.ts is only a re-export barrel.
 import { handleFormVideo } from "./formCheck";
 import { cmdPaySupport, cmdSupport, onPreCheckout, onSuccessfulPayment } from "./support";
 import { Bot, InlineKeyboard } from "grammy";
@@ -9,7 +8,8 @@ import { logInfo } from "../log";
 import { aiTranscribe } from "../ai";
 import { menuBtn } from "./keyboards";
 import { cmdImport, handleImportDocument } from "./importCsv";
-import { cmdAdmin, cmdAnnounce, cmdOwnerReport, cmdRefreshVideos, cmdSetVideo, cmdUsers, cmdWhatsNew, showOwnerHub } from "./owner";
+import { cmdAdmin, cmdAnnounce, cmdOwnerReport, cmdUsers, cmdWhatsNew, showOwnerHub } from "./owner";
+import { cmdRefreshVideos, cmdSetVideo } from "./ownerVideos";
 import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdRequests, cmdTrainer, cmdTrainerReport } from "../features/trainer/trainer";
 import { cmdLibrary, cmdShareProgram, startShareMyPlan } from "../features/trainer/programSharing";
 import { cmdTrainerQuestions } from "../features/trainer/clientCard";
@@ -23,7 +23,10 @@ import { handleGroupUpdate } from "./squad";
 import { type Env } from "../types";
 import { MyContext, reply } from "../adapters/telegram/context";
 import { setAppUrl } from "./appLinks";
-import { cmdCoach, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdMenu, cmdPlan, cmdSchedule, cmdStart, cmdToday, defaultLang, normalizeEvent, showAthleteMenu, showMoreMenu, showProgressHub, showTrainerClientsMenu } from "../bot";
+import { cmdCoach, cmdFeedback, defaultLang, normalizeEvent } from "./commonCmds";
+import { cmdHelp, cmdHideKeyboard, cmdMenu, showAthleteMenu, showMoreMenu, showProgressHub, showTrainerClientsMenu } from "./menus";
+import { cmdInterview, cmdStart } from "./start";
+import { cmdPlan, cmdSchedule, cmdToday } from "./planView";
 import { cmdAskInactive, cmdCleanup } from "./cleanup";
 import { cmdCalendar } from "./calendar";
 import { cmdChallenges } from "../features/gamification/challenges";

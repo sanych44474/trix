@@ -12,7 +12,7 @@ import { biggestDrop, cohortRetention, RETENTION_WEEKS } from "../domain/cohorts
 import { escapeHtml } from "../locales/i18n";
 import { splitKeys } from "../ai/errors";
 import { obSteps } from "./onboarding";
-import { interviewProgress, OwnerUserRow } from "./owner";
+import { interviewProgress, OwnerUserRow } from "./ownerRows";
 
 // Telegram renders no real tables — a monospace <pre> block with space-aligned columns is the
 // only table-like option. First column left-aligned (labels), the rest right-aligned (numbers).

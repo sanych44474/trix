@@ -1,5 +1,6 @@
 // Free-text routing: which handler gets a plain message, by the user's current session mode.
-import { handleAnnounce, handleVideoUrl } from "./owner";
+import { handleAnnounce } from "./owner";
+import { handleVideoUrl } from "./ownerVideos";
 import { obProgress, onboardingStep } from "./onboarding";
 import { handleAnswerQuestion } from "../features/trainer/trainerComms";
 import { handleTemplateName } from "../features/trainer/clientCard";
@@ -12,7 +13,7 @@ import { handleAliasInput } from "./recordsCmds";
 import { handleWeightEdit, handleSetsEdit, handleSwapCustom } from "./planExerciseEdit";
 import { handleAddExercise, handleExerciseAltText } from "./exerciseCatalog";
 import { handleWarmupEdit } from "./warmup";
-import { menuActionFor } from "../bot";
+import { menuActionFor } from "./menus";
 import { guardLogExit } from "./guidedLog";
 import { handleCoach } from "./coach";
 import { handleNutrition } from "../features/nutrition/nutritionLog";

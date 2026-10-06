@@ -23,7 +23,7 @@ import { localCutoff, renderBodyDynamics } from "../../bot/report";
 import { localizePlanNames, healPlanNamesForDisplay } from "../../bot/exerciseCatalog";
 import { mainMenu, menuBtn } from "../../bot/keyboards";
 import { obProgress, sendObStepTo } from "../../bot/onboarding";
-import { videosForDays } from "../../bot";
+import { videosForDays } from "../../bot/planView";
 import { showClientLogDays } from "./trainerComms";
 import { intvLabel, anthroBlock, runTrainerDraft } from "./trainerInterview";
 import { clientCardKb, editDayKb, requireTrainer } from "./trainerCommon";

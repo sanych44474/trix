@@ -44,7 +44,7 @@ import { putStoryImage } from "./storyMedia";
 import { isSupportAmount } from "../adapters/d1/v2Support";
 import { supportInvoice } from "../bot/support";
 import { botDeepLink } from "../bot/links";
-import { shortCode } from "../features/trainer/trainer";
+import { shortCode } from "../features/trainer/trainerCommon";
 
 async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
   await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {

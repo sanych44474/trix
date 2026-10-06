@@ -3,7 +3,7 @@
 import { broadcastRelease, pendingReleaseRecipients } from "./releaseBroadcast";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
-import type { Lang, UserDoc, UserProfile, Weekday } from "../types";
+import type { Lang, UserDoc, Weekday } from "../types";
 import { deleteUserData } from "../adapters/d1/v2Account";
 import { engagementSince, errorStatsSince, getOwnerChatId, listUsersBrief, recentEventsForUser, recordAudit, setOwnerChatId } from "../adapters/d1/v2Admin";
 import { listStrength } from "../adapters/d1/v2Workouts";
@@ -23,6 +23,9 @@ import { deferAi } from "./aiDefer";
 import { mainMenu, menuBtn } from "./keyboards";
 import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/clientCard";
 import { monoTable, ownerReportWindows, orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "./ownerReport";
+import { isOwner } from "./ownerAccess";
+export * from "./ownerRows";
+export * from "./ownerAccess";
 export * from "./ownerVideos";
 export * from "./ownerReport";
 
@@ -43,11 +46,6 @@ export async function cmdAdmin(ctx: MyContext, secret: string) {
   }
   await setOwnerChatId(ctx.db, ctx.user.chatId);
   await reply(ctx, t(lang, "admin_claimed"));
-}
-
-export async function isOwner(ctx: MyContext): Promise<boolean> {
-  const ownerChatId = await getOwnerChatId(ctx.db);
-  return !!ownerChatId && ownerChatId === ctx.user.chatId;
 }
 
 // Owner report is split into section buttons for compactness — the command shows the hub.
@@ -358,34 +356,6 @@ export async function ownerUserAction(ctx: MyContext, userId: number, action: st
   }
 }
 
-// Intake essentials the interview must collect — used to show onboarding progress (X/N) in the
-// owner report. Keep in sync with the "essentials" list in P.interviewSystem.
-export const INTAKE_ESSENTIALS: (keyof UserProfile)[] = [
-  "name", "weightKg", "heightCm", "age", "sex", "goal", "trainingHistory",
-  "daysPerWeek", "trainingWeekdays", "equipment", "sleepSchedule", "lifestyle",
-  "limitations", "dietPrefs", "favoriteExercises", "dislikedExercises", "timezone", "reminderHour",
-];
-
-// How many intake essentials are filled out of the total (waist counts as the measurements gate).
-export function interviewProgress(profile: UserProfile): { filled: number; total: number } {
-  let filled = 0;
-  for (const k of INTAKE_ESSENTIALS) {
-    const v = profile[k];
-    if (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "") filled++;
-  }
-  if (profile.measurements?.waist !== undefined) filled++;
-  return { filled, total: INTAKE_ESSENTIALS.length + 1 };
-}
-
-// 👤 Users: full roster table (most-active first) + recent feedback.
-// Structured user rows for the Mini App owner console — the same data as the text report, but
-// as JSON so the app can render an interactive (sortable / groupable) table.
-export interface OwnerUserRow {
-  id: number; name: string; nick: string; trainer: string;
-  status: "banned" | "blocked" | "onboarding" | "active" | "draft" | "none";
-  onb: string; w: number; c: number; n: number; s: number; last: string; total: number;
-  lastSeen?: string; // full ISO timestamp of the last interaction (absent = never seen)
-}
 export async function showOwnerHub(ctx: MyContext) {
   if (!(await isOwner(ctx))) return;
   await reply(ctx, t(ctx.user.lang, "owner_hub_title"), ownerHubMenu(ctx.user.lang));

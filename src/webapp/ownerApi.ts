@@ -9,7 +9,7 @@ import { FEEDBACK_CATEGORIES, FEEDBACK_STATUSES, type FeedbackCategory, type Fee
 import { readJsonBody } from "./validate";
 import { getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { deleteUserData } from "../adapters/d1/v2Account";
-import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/owner";
+import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/ownerReport";
 import { switchMode } from "../domain/session";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
