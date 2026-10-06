@@ -19,7 +19,7 @@ import * as P from "../ai/prompts";
 import { ownerHubMenu } from "./keyboards";
 import { type MyContext, HTML, clearEditOwner, reply, setMode } from "../adapters/telegram/context";
 import { buildPlanDoc, deferAi, mainMenu, menuBtn } from "../bot";
-import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/trainer";
+import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/clientCard";
 import { monoTable, ownerReportWindows, orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "./ownerReport";
 export * from "./ownerVideos";
 export * from "./ownerReport";
