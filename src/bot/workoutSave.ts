@@ -20,7 +20,7 @@ import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { announceSquadPr } from "./squad";
 import { upcomingSessions } from "../render";
 import { badgeLabel, computeBoards } from "../features/gamification/boards";
-import { maybeCelebrateLevel } from "./router";
+import { maybeCelebrateLevel } from "./aiDefer";
 import { localCutoff } from "./report";
 import { reactToUser, type MyContext, HTML, type TKey, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "../bot";

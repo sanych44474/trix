@@ -15,7 +15,7 @@ import { num, verifyItems } from "../features/nutrition/nutritionLog";
 import { isoDateMinus } from "../features/gamification/boards";
 import { showEveningSurvey } from "./survey";
 import { menuBtn } from "./keyboards";
-import { deferAi } from "./router";
+import { deferAi } from "./aiDefer";
 import { progressBar, resolveWaterGoal } from "../domain/challenges";
 import { clearEditOwner, reply, setMode, type MyContext } from "../adapters/telegram/context";
 

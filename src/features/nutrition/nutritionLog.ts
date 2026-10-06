@@ -14,7 +14,7 @@ import { appendMeals, getUserFoodCorrection } from "../../adapters/d1/v2Nutritio
 import { scaleMealEntry } from "../../domain/mealplan";
 import { localParts } from "../../domain/progression";
 import { escapeHtml, t } from "../../locales/i18n";
-import { deferAi, maybeCelebrateLevel } from "../../bot/router";
+import { deferAi, maybeCelebrateLevel } from "../../bot/aiDefer";
 import { showEveningSurvey } from "../../bot/survey";
 import { reactToUser, type MyContext, reply, setMode } from "../../adapters/telegram/context";
 import { cleanFoodName, menuBtn } from "../../bot";

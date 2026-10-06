@@ -20,7 +20,7 @@ import { num } from "../features/nutrition/nutritionLog";
 import { buildWeekCard } from "../features/gamification/weekCard";
 import { menuBtn } from "./keyboards";
 import { botDeepLink } from "./links";
-import { deferAi } from "./router";
+import { deferAi } from "./aiDefer";
 import { computeXp, levelFromXp } from "../domain/gamification";
 import { weeklyVolume, projectWeight, stalledLifts, type MuscleVolume } from "../domain/analysis";
 import { conditioningWeek } from "../domain/conditioning";

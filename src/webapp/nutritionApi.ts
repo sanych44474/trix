@@ -6,7 +6,7 @@ import { getDayMeals, getMealPlan, getRecentFoods, saveMealPlan, setDayMeals, pu
 import { computeTargets, per100gCorrectionFrom, scaleMealEntry, sumItems } from "../domain/mealplan";
 import { groceryList } from "../domain/groceryList";
 import { localParts } from "../domain/progression";
-import { generateMealDayFor } from "../bot/router";
+import { generateMealDayFor } from "../bot/mealPlanCmds";
 import { miniAppUser } from "./auth";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
@@ -102,7 +102,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
 
   // Regenerate today's meal plan -- same "keep my existing allergen/likes/dislikes prefs, build
   // a fresh template day" flow as the bot's mp:useprev callback (deliverMealPlan with useAi=false).
-  // Reuses generateMealDayFor (exported from bot/router.ts) so the food-selection/solving logic
+  // Reuses generateMealDayFor (bot/mealPlanCmds.ts) so the food-selection/solving logic
   // is never duplicated; this route does not re-ask the allergen/likes/dislikes questionnaire --
   // that stays a bot-only flow (mp:redo) since it is multi-step chat intake, not a single mutation.
   if (action === "mealplan_regen") {
