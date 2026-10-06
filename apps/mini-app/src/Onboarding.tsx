@@ -1,53 +1,153 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, api, typedBody } from "./api";
-import type { RequestBody } from "./types";
 import { t, type Key, type Lang } from "./i18n";
+import { DRAFT_KEY, choose, chosen, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers, type Step } from "./logic/onboardingWizard";
 
-// The experience level the contract actually accepts. Kept as the narrow union rather than a
-// plain string: the picker only ever offers these three, and typedBody now enforces it.
-type OnboardingLevel = RequestBody<"completeOnboarding">["level"];
-
-type Props = { onComplete: () => void; lang: Lang };
-
-const options = {
-  goal: [["fat loss", "goal_fat_loss"], ["muscle gain", "goal_muscle_gain"], ["recomposition", "goal_recomposition"], ["strength", "goal_strength"], ["endurance", "goal_endurance"]],
-  level: [["beginner", "level_beginner"], ["intermediate", "level_intermediate"], ["advanced", "level_advanced"]],
-  equipment: [["full gym", "equip_full_gym"], ["home basics (dumbbells, bands)", "equip_home_basics"], ["dumbbells only", "equip_dumbbells_only"], ["bodyweight only", "equip_bodyweight_only"]],
-  diet: [["none", "diet_everything"], ["vegetarian", "diet_vegetarian"], ["vegan", "diet_vegan"]],
-} as const satisfies Record<string, ReadonlyArray<readonly [string, Key]>>;
+type Props = { lang: Lang; isClient: boolean; onComplete: () => void; onLangChange: (lang: Lang) => void };
 
 const weekdayKeys: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed", "weekday_thu", "weekday_fri", "weekday_sat", "weekday_sun"];
+const liftKeys = ["bench", "squat", "deadlift"] as const;
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="form-field"><span>{label}</span>{children}</label>;
-}
+const readDraft = (): Answers => { try { return parseDraft(localStorage.getItem(DRAFT_KEY)); } catch { return {}; } };
+const saveDraft = (a: Answers) => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(a)); } catch { /* the draft is a convenience */ } };
+const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* the draft is a convenience */ } };
+const deviceTimeZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; } catch { return undefined; } };
 
-export function OnboardingView({ onComplete, lang }: Props) {
-  const [sex, setSex] = useState<"male" | "female">("male");
-  const [age, setAge] = useState("30");
-  const [heightCm, setHeightCm] = useState("175");
-  const [weightKg, setWeightKg] = useState("75");
-  const [goal, setGoal] = useState("muscle gain");
-  const [level, setLevel] = useState<OnboardingLevel>("beginner");
-  const [equipment, setEquipment] = useState("full gym");
-  // Current lifts (kg, for 5–8 reps) for anyone past beginner: they set the starting weights.
-  const [lifts, setLifts] = useState({ bench: "", squat: "", deadlift: "" });
-  const baselineLifts = level === "beginner" ? "none" : [["bench", lifts.bench], ["squat", lifts.squat], ["deadlift", lifts.deadlift]].filter(([, v]) => Number(v) > 0).map(([k, v]) => `${k} ${v}kg`).join(", ") || "none";
-  const [dietPrefs, setDietPrefs] = useState("none");
-  const [days, setDays] = useState<number[]>([1, 3, 5]);
-  const [limitations, setLimitations] = useState("");
+/**
+ * The onboarding questionnaire: a welcome screen, then one question per screen. Choice answers
+ * advance on tap; typed answers have a Next button. Answers are kept on the phone as a draft, so
+ * closing the app resumes at the first open question.
+ */
+export function OnboardingView({ lang, isClient, onComplete, onLangChange }: Props) {
+  const [answers, setAnswers] = useState<Answers>(readDraft);
+  // -1 is the welcome screen; a returning user with a draft resumes at the first open question.
+  const [index, setIndex] = useState(() => (Object.keys(readDraft()).length ? firstOpenStep(readDraft(), isClient) : -1));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const toggleDay = (day: number) => setDays((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day].sort((a, b) => a - b));
-  const submit = async () => {
-    if (days.length === 0) { setError(t(lang, "choose_day_error")); return; }
+  const [langBusy, setLangBusy] = useState(false);
+  const advanceTimer = useRef<number | undefined>(undefined);
+  const steps = stepsFor(answers, isClient);
+  const step = index >= 0 ? steps[Math.min(index, steps.length - 1)] : undefined;
+  const isLast = index === steps.length - 1;
+
+  useEffect(() => { saveDraft(answers); }, [answers]);
+  useEffect(() => () => window.clearTimeout(advanceTimer.current), []);
+  useEffect(() => { window.scrollTo?.(0, 0); }, [index]);
+
+  // Telegram's own Back button steps back through the questions.
+  useEffect(() => {
+    const back = window.Telegram?.WebApp.BackButton;
+    if (!back) return;
+    if (index < 0) { back.hide(); return; }
+    const handler = () => setIndex((i) => i - 1);
+    back.show();
+    back.onClick(handler);
+    return () => back.offClick(handler);
+  }, [index]);
+
+  const update = (next: Answers) => { setError(null); setAnswers(next); };
+  const goNext = () => { if (step && isAnswered(step, answers)) { if (isLast) void submit(answers); else setIndex(index + 1); } };
+
+  const submit = async (final: Answers) => {
+    const body = toRequest(final, isClient, deviceTimeZone());
+    if (!body) { setIndex(firstOpenStep(final, isClient)); return; }
     setSaving(true); setError(null);
     try {
-      await api("/api/v2/onboarding", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"completeOnboarding">({ sex, age: Number(age), heightCm: Number(heightCm), weightKg: Number(weightKg), goal, level, equipment, dietPrefs, trainingWeekdays: days, limitations: limitations.trim() || "none", baselineLifts }) });
+      await api("/api/v2/onboarding", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"completeOnboarding">(body) });
+      clearDraft();
       onComplete();
     } catch (err) {
       setError(err instanceof ApiError && err.code === "validation_error" ? t(lang, "validation_error_hint") : t(lang, "onboarding_save_error"));
     } finally { setSaving(false); }
   };
-  return <div className="onboarding view-stack"><div className="eyebrow">{t(lang, "ob_eyebrow")}</div><div className="page-title"><h1>{t(lang, "ob_title")}</h1><span>{t(lang, "ob_time")}</span></div><p className="muted">{t(lang, "ob_intro")}</p><section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "about_you_eyebrow")}</span><h2>{t(lang, "starting_point_title")}</h2></div></div><div className="form-grid"><Field label={t(lang, "field_sex")}><select value={sex} onChange={(event) => setSex(event.target.value as "male" | "female")}><option value="male">{t(lang, "sex_male")}</option><option value="female">{t(lang, "sex_female")}</option></select></Field><Field label={t(lang, "field_age")}><input type="number" min="13" max="120" value={age} onChange={(event) => setAge(event.target.value)} /></Field><Field label={t(lang, "field_height_cm")}><input type="number" min="100" max="250" value={heightCm} onChange={(event) => setHeightCm(event.target.value)} /></Field><Field label={t(lang, "field_weight_kg")}><input type="number" min="30" max="300" step="0.1" value={weightKg} onChange={(event) => setWeightKg(event.target.value)} /></Field></div></section><section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "direction_eyebrow")}</span><h2>{t(lang, "training_for_title")}</h2></div></div><div className="form-grid"><Field label={t(lang, "field_goal")}><select value={goal} onChange={(event) => setGoal(event.target.value)}>{options.goal.map(([value, key]) => <option key={value} value={value}>{t(lang, key)}</option>)}</select></Field><Field label={t(lang, "field_experience")}><select value={level} onChange={(event) => setLevel(event.target.value as OnboardingLevel)}>{options.level.map(([value, key]) => <option key={value} value={value}>{t(lang, key)}</option>)}</select></Field><Field label={t(lang, "field_equipment")}><select value={equipment} onChange={(event) => setEquipment(event.target.value)}>{options.equipment.map(([value, key]) => <option key={value} value={value}>{t(lang, key)}</option>)}</select></Field><Field label={t(lang, "field_food_pref")}><select value={dietPrefs} onChange={(event) => setDietPrefs(event.target.value)}>{options.diet.map(([value, key]) => <option key={value} value={value}>{t(lang, key)}</option>)}</select></Field></div>{level !== "beginner" && <div className="baseline-lifts"><p className="muted">{t(lang, "ob_lifts_hint")}</p><div className="form-grid">{(["bench", "squat", "deadlift"] as const).map((lift) => <Field key={lift} label={t(lang, `ob_lift_${lift}`)}><input type="number" inputMode="decimal" min="0" max="400" value={lifts[lift]} placeholder={t(lang, "unit_kg_ph")} onChange={(event) => setLifts((current) => ({ ...current, [lift]: event.target.value }))} /></Field>)}</div></div>}</section><section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "rhythm_eyebrow")}</span><h2>{t(lang, "choose_days_title")}</h2></div><span className="tag">{t(lang, "days_count", { n: days.length })}</span></div><div className="weekday-grid">{weekdayKeys.map((key, index) => <button className={days.includes(index + 1) ? "weekday selected" : "weekday"} key={key} onClick={() => toggleDay(index + 1)}>{t(lang, key)}</button>)}</div><Field label={t(lang, "field_limitations")}><textarea value={limitations} maxLength={500} placeholder={t(lang, "limitations_ph")} onChange={(event) => setLimitations(event.target.value)} /></Field></section>{error && <div className="save-note error-note">{error}</div>}<button className="button button-primary button-wide" onClick={() => void submit()} disabled={saving}>{saving ? t(lang, "building_plan_ellipsis") : t(lang, "create_plan_btn")}</button></div>;
+
+  const pick = (s: Step, value: string) => {
+    const next = choose(s, answers, value);
+    update(next);
+    window.clearTimeout(advanceTimer.current);
+    // A short beat so the tap visibly lands before the next question slides in.
+    advanceTimer.current = window.setTimeout(() => {
+      const nextSteps = stepsFor(next, isClient);
+      if (index >= nextSteps.length - 1) void submit(next);
+      else setIndex(index + 1);
+    }, 180);
+  };
+
+  const switchLang = async (next: Lang) => {
+    if (next === lang || langBusy) return;
+    setLangBusy(true);
+    try {
+      await api("/api/v2/settings", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateSettings">({ action: "lang", lang: next }) });
+      onLangChange(next);
+    } catch { /* keep the current language */ } finally { setLangBusy(false); }
+  };
+
+  if (!step) {
+    return <div className="ob-wizard view-stack">
+      <div className="ob-welcome">
+        <span className="eyebrow">{t(lang, "ob_time")}</span>
+        <h1>{t(lang, "ob_welcome_title")}</h1>
+        <p className="muted">{t(lang, "ob_welcome_body")}</p>
+      </div>
+      <div className="ob-lang" role="group" aria-label={t(lang, "ob_lang_label")}>
+        {(["uk", "en"] as const).map((l) => <button key={l} type="button" className={lang === l ? "ob-chip selected" : "ob-chip"} disabled={langBusy} onClick={() => void switchLang(l)}>{t(lang, l === "uk" ? "lang_uk_label" : "lang_en_label")}</button>)}
+      </div>
+      <button type="button" className="button button-primary button-wide" onClick={() => setIndex(firstOpenStep(answers, isClient))}>{t(lang, "ob_start_btn")}</button>
+    </div>;
+  }
+
+  const shown = Math.min(index, steps.length - 1);
+  const progress = Math.round(((shown + 1) / steps.length) * 100);
+  const numberValue = (s: Step) => (s.id === "age" ? answers.age : s.id === "height" ? answers.heightCm : answers.weightKg);
+  const setNumber = (s: Step, raw: string) => {
+    const v = raw === "" ? undefined : Number(raw.replace(",", "."));
+    update(s.id === "age" ? { ...answers, age: v } : s.id === "height" ? { ...answers, heightCm: v } : { ...answers, weightKg: v });
+  };
+  const toggleDay = (day: number) => {
+    const cur = answers.trainingWeekdays ?? [];
+    update({ ...answers, trainingWeekdays: cur.includes(day) ? cur.filter((d) => d !== day) : [...cur, day].sort((a, b) => a - b) });
+  };
+
+  return <div className="ob-wizard view-stack">
+    <div className="ob-progress">
+      <button type="button" className="text-button" onClick={() => setIndex(index - 1)}>← {t(lang, "ob_back_btn")}</button>
+      <span className="muted">{t(lang, "ob_step_of", { n: shown + 1, total: steps.length })}</span>
+    </div>
+    <div className="ob-bar" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
+
+    <div className="ob-question" key={step.id}>
+      <h1>{t(lang, step.q)}</h1>
+      {step.hint && <p className="muted">{t(lang, step.hint)}</p>}
+
+      {step.kind === "choice" && <div className="ob-options">
+        {step.options!.map((o) => <button key={o.value} type="button" className={chosen(step, answers) === o.value ? "ob-option selected" : "ob-option"} disabled={saving} onClick={() => pick(step, o.value)}>{t(lang, o.label)}</button>)}
+      </div>}
+
+      {step.kind === "number" && <label className="ob-number">
+        <input type="number" inputMode="decimal" autoFocus min={step.number!.min} max={step.number!.max} step={step.number!.step ?? 1} placeholder={step.number!.placeholder} value={numberValue(step) ?? ""} onChange={(e) => setNumber(step, e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") goNext(); }} />
+        <span>{t(lang, step.number!.unit)}</span>
+      </label>}
+
+      {step.kind === "lifts" && <div className="ob-lifts">
+        {liftKeys.map((lift) => <label key={lift} className="form-field"><span>{t(lang, `ob_lift_${lift}`)}</span><input type="number" inputMode="decimal" min="0" max="400" placeholder={t(lang, "unit_kg_ph")} value={answers.lifts?.[lift] ?? ""} onChange={(e) => update({ ...answers, lifts: { ...answers.lifts, [lift]: e.target.value === "" ? undefined : Number(e.target.value) } })} /></label>)}
+      </div>}
+
+      {step.kind === "days" && <div className="ob-days">
+        {weekdayKeys.map((key, i) => <button key={key} type="button" className={(answers.trainingWeekdays ?? []).includes(i + 1) ? "ob-chip selected" : "ob-chip"} onClick={() => toggleDay(i + 1)}>{t(lang, key)}</button>)}
+      </div>}
+
+      {step.kind === "text" && <div className="ob-text">
+        <textarea maxLength={500} placeholder={t(lang, "limitations_ph")} value={answers.limitations && answers.limitations !== "none" ? answers.limitations : ""} onChange={(e) => update({ ...answers, limitations: e.target.value })} />
+        <button type="button" className={answers.limitations === "none" ? "ob-option selected" : "ob-option"} disabled={saving} onClick={() => { const next = { ...answers, limitations: "none" }; update(next); if (isLast) void submit(next); else setIndex(index + 1); }}>{t(lang, "ob_no_limits_btn")}</button>
+      </div>}
+    </div>
+
+    {error && <div className="save-note error-note">{error}</div>}
+
+    {step.kind !== "choice" && <div className="ob-actions">
+      {step.kind === "lifts" && <button type="button" className="button button-ghost" onClick={() => { update({ ...answers, lifts: undefined }); setIndex(index + 1); }}>{t(lang, "ob_skip_btn")}</button>}
+      <button type="button" className="button button-primary button-wide" disabled={saving || !isAnswered(step, answers) || (step.kind === "text" && !answers.limitations?.trim())} onClick={goNext}>{saving ? t(lang, "building_plan_ellipsis") : isLast ? t(lang, "ob_finish_btn") : t(lang, "ob_next_btn")}</button>
+    </div>}
+    {step.kind === "choice" && saving && <div className="save-note">{t(lang, "building_plan_ellipsis")}</div>}
+  </div>;
 }

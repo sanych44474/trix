@@ -2773,6 +2773,7 @@ components:
               type: string
               enum: [solo, trainer, client]
             onboarded: {type: boolean}
+            planPending: {type: boolean, description: 'Questionnaire submitted, plan still being built'}
         lang:
           type: string
           enum: [uk, en]

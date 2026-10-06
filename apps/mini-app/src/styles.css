@@ -433,3 +433,29 @@ button { cursor: pointer; }
 .summary-hit { animation: rise-in .4s .25s cubic-bezier(.2, .8, .2, 1) both; }
 .confetti { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
 .confetti i { position: absolute; top: 28%; left: 50%; width: 8px; height: 12px; border-radius: 2px; animation: confetti-fall 1.4s cubic-bezier(.15, .7, .3, 1) forwards; }
+
+/* Onboarding questionnaire: one question per screen, answers stacked full width. */
+.ob-wizard { padding-bottom: 24px; }
+.ob-welcome h1, .ob-question h1 { margin: 6px 0 8px; font-size: 26px; line-height: 1.2; }
+.ob-welcome p, .ob-question > p { margin: 0 0 4px; }
+.ob-progress { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ob-bar { height: 4px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.ob-bar span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .25s ease; }
+.ob-options { display: grid; gap: 10px; margin-top: 18px; }
+.ob-option { width: 100%; min-height: 54px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; text-align: left; white-space: normal; line-height: 1.3; transition: transform .12s ease, border-color .15s ease, background .15s ease; }
+.ob-option:active { transform: scale(.98); }
+.ob-option.selected { border-color: var(--accent); background: var(--accent-soft); }
+.ob-option:disabled { opacity: .6; }
+.ob-number { display: flex; align-items: baseline; gap: 10px; margin-top: 22px; }
+.ob-number input { flex: 1; min-width: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 28px; font-weight: 700; }
+.ob-number input:focus { outline: none; border-color: var(--accent); }
+.ob-number span { color: var(--muted); font-size: 16px; }
+.ob-lifts { display: grid; gap: 10px; margin-top: 16px; }
+.ob-days { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 18px; }
+.ob-lang { display: flex; gap: 8px; }
+.ob-chip { min-height: 48px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: 15px; }
+.ob-chip.selected { border-color: var(--accent); background: var(--accent-soft); color: var(--text); font-weight: 600; }
+.ob-text { display: grid; gap: 10px; margin-top: 16px; }
+.ob-text textarea { min-height: 96px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; resize: vertical; }
+.ob-actions { display: grid; gap: 10px; }
+@media (prefers-reduced-motion: reduce) { .ob-bar span, .ob-option { transition: none; } }

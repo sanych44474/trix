@@ -188,7 +188,7 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: Executio
     if (ctx) ctx.waitUntil(checkCronHeartbeat(env));
     try {
       const payload = await createD1DashboardApplication(env.DB).getDashboard(user);
-      return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded }, ...payload }, req);
+      return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded, planPending: !user.onboarded && user.session.mode === "plan_pending" }, ...payload }, req);
     } catch (err) {
       logError("v2_dashboard_failed", err, { userId: user._id });
       // Also the D1 sink, which is what /ownerreport's Errors section and the error-spike alert
