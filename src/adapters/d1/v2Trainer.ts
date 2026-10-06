@@ -481,6 +481,20 @@ export async function pendingRequestsForTrainer(db: DB, trainerId: number): Prom
   return (r.results ?? []).map(toRequest);
 }
 
+/** Approved trainers taking clients, for the "choose a trainer" list (complete profiles first). */
+export async function listDirectoryTrainers(db: DB, limit = 30): Promise<TrainerDoc[]> {
+  const r = await db
+    .prepare(`${SELECT_TRAINER} WHERE status = 'approved' AND accepting = 1 ORDER BY profileComplete DESC, approvedAt ASC LIMIT ?`)
+    .bind(limit)
+    .all<V2TrainerRow>();
+  return (r.results ?? []).map(toTrainer);
+}
+
+/** A client withdraws their pending request (there is at most one, see createRequest). */
+export async function cancelPendingRequest(db: DB, clientId: number): Promise<void> {
+  await db.prepare("UPDATE v2_trainer_requests SET status='cancelled' WHERE clientId=? AND status='pending'").bind(clientId).run();
+}
+
 export async function pendingRequestForClient(db: DB, clientId: number): Promise<ClientRequestDoc | null> {
   const r = await db
     .prepare("SELECT * FROM v2_trainer_requests WHERE clientId=? AND status='pending' ORDER BY createdAt DESC LIMIT 1")

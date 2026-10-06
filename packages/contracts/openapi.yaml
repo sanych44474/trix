@@ -1336,11 +1336,74 @@ paths:
                           items: {$ref: '#/components/schemas/SquadInfo'}
                   required: [data]
   /api/v2/trainers:
+    get:
+      operationId: listTrainers
+      security:
+      - telegramInitData: []
+      description: Approved trainers taking clients (the "choose a trainer" list) and the caller's pending request.
+      responses:
+        '200':
+          description: Directory
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [role, trainers, pending]
+                      properties:
+                        role: {type: string, enum: [solo, trainer, client]}
+                        trainers:
+                          type: array
+                          items:
+                            type: object
+                            required: [id, name, specialization, city, experienceYears, priceOnline, currency, bio]
+                            properties:
+                              id: {type: integer}
+                              name: {type: string}
+                              specialization: {type: string}
+                              city: {type: string}
+                              experienceYears: {type: ['integer', 'null']}
+                              priceOnline: {type: ['number', 'null']}
+                              currency: {type: ['string', 'null']}
+                              bio: {type: string}
+                        pending:
+                          anyOf:
+                          - {type: 'null'}
+                          - type: object
+                            required: [trainerId, name]
+                            properties:
+                              trainerId: {type: integer}
+                              name: {type: string}
+                  required: [data]
+    delete:
+      operationId: cancelTrainerRequest
+      security:
+      - telegramInitData: []
+      description: Withdraw the caller's pending request to a trainer.
+      responses:
+        '200':
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
     post:
       operationId: requestTrainer
       security:
       - telegramInitData: []
-      description: Send a join request to a trainer the caller already knows the id of -- no public trainer directory exists.
+      description: Send a join request to a trainer, chosen from the directory or known by id.
       requestBody:
         required: true
         content:

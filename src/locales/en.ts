@@ -1355,6 +1355,7 @@ export const en = {
   ob_diet_vegan: "🌱 Vegan",
   ob_q_injuries: "Any injuries or limitations? Describe them, or tap *None*.",
   ob_injuries_none: "✅ None",
+  req_open_app_btn: "📱 Review the request",
   launch_text: "Everything happens in the trix app now: workouts, nutrition, your coach and progress 👇",
   launch_open_btn: "📱 Open trix",
   launch_chat_retired: "The chat is no longer used — trix now lives in the app. Reminders will still come here.",

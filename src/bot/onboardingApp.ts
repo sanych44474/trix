@@ -7,8 +7,7 @@
 import { InlineKeyboard } from "grammy";
 import type { Env, Lang } from "../types";
 import { t } from "../locales/i18n";
-import { APP_VERSION } from "../webapp/appVersion";
-import { dashboardUrl } from "./appLinks";
+import { appViewUrlFromEnv, dashboardUrl } from "./appLinks";
 import { HTML, reply, type MyContext, type TKey } from "../adapters/telegram/context";
 
 /** Mini App onboarding link inside a bot update (the app URL is captured in createBot). */
@@ -19,9 +18,7 @@ export function onboardingUrl(): string | undefined {
 
 /** Same link for ctx-free senders (scheduler, webapp handlers), built from env. */
 export function onboardingUrlFromEnv(env: Pick<Env, "WORKER_URL" | "V2_APP_ENABLED">): string | undefined {
-  if (!env.WORKER_URL) return undefined;
-  const path = env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app";
-  return `${env.WORKER_URL}${path}?v=${APP_VERSION}&view=onboarding`;
+  return appViewUrlFromEnv(env, "onboarding");
 }
 
 export function onboardingAppKb(lang: Lang, url: string): InlineKeyboard {

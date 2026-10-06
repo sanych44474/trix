@@ -17,6 +17,7 @@ type Schemas = components["schemas"];
  *  operation rather than hand-declared, so a change to the handler's response shape has to go
  *  through the contract to reach this app -- exactly the drift ADR-0005 exists to stop. */
 export type SaveResponse = operations["saveWorkout"]["responses"][200]["content"]["application/json"]["data"];
+export type TrainerDirectory = operations["listTrainers"]["responses"][200]["content"]["application/json"]["data"];
 
 /** The JSON request body an operation accepts, per the contract.
  *

@@ -459,3 +459,8 @@ button { cursor: pointer; }
 .ob-text textarea { min-height: 96px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; resize: vertical; }
 .ob-actions { display: grid; gap: 10px; }
 @media (prefers-reduced-motion: reduce) { .ob-bar span, .ob-option { transition: none; } }
+.ft-card { display: grid; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.ft-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 17px; }
+.ft-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 14px; }
+.ft-bio { margin: 0; font-size: 14px; }
+.ft-card .button { margin-top: 6px; }
