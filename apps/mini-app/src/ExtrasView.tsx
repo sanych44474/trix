@@ -2,6 +2,7 @@
 import { FormCheck } from "./media/FormCheck";
 import { ImportCsv } from "./media/ImportCsv";
 import { SquadsCard } from "./Squads";
+import { FindTrainer } from "./FindTrainer";
 import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
 import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, ProfilePhoto, WeekCardResponse } from "./types";
@@ -97,24 +98,8 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
     catch (err) { setLibraryError(err); } finally { setTakingCode(null); }
   };
 
-  // find a trainer (send a join request by trainer id -- there is no public trainer directory
-  // in this product; see src/features/trainer/trainer.ts's openFindTrainer comment. This reuses
-  // the exact same request record extrasApi.ts's /api/trainers already creates via createRequest,
-  // the same one the trainer's own Requests inbox accepts/declines)
-  const [trainerId, setTrainerId] = useState("");
-  const [trainerNote, setTrainerNote] = useState("");
-  const [trainerBusy, setTrainerBusy] = useState(false);
-  const [trainerSent, setTrainerSent] = useState(false);
-  const [trainerError, setTrainerError] = useState<unknown>(null);
-  const sendTrainerRequest = async () => {
-    const id = Number(trainerId);
-    if (!Number.isFinite(id) || id <= 0) return;
-    setTrainerBusy(true); setTrainerError(null); setTrainerSent(false);
-    try {
-      await api("/api/v2/trainers", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"requestTrainer">({ trainerId: id, ...(trainerNote.trim() ? { note: trainerNote.trim() } : {}) }) });
-      setTrainerSent(true); setTrainerId(""); setTrainerNote("");
-    } catch (err) { setTrainerError(err); } finally { setTrainerBusy(false); }
-  };
+  // Choose a trainer: the directory of approved trainers taking clients (FindTrainer), full screen.
+  const [findTrainer, setFindTrainer] = useState(false);
 
   // squads
   // /api/v2/whatsnew was registered in v2Api.ts but nothing ever called it -- the release note
@@ -123,6 +108,8 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
   const [whatsnew, setWhatsnew] = useState<{ version: string; html: string; text?: string } | null>(null);
   useEffect(() => { api<{ version: string; html: string; text?: string }>("/api/v2/whatsnew").then(setWhatsnew).catch(() => setWhatsnew(null)); }, []);
 
+
+  if (findTrainer) return <FindTrainer lang={lang} onBack={() => setFindTrainer(false)} onAccepted={() => window.location.reload()} />;
 
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "extras_eyebrow")}</div>
@@ -206,16 +193,8 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
 
     {role === "solo" && <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "trainer_find_eyebrow")}</span><h2>{t(lang, "trainer_find_title")}</h2></div></div>
-      <p className="muted">{t(lang, "trainer_find_detail")}</p>
-      <div className="form-grid">
-        <label className="form-field"><span>{t(lang, "field_trainer_id")}</span><input type="number" value={trainerId} onChange={(event) => setTrainerId(event.target.value)} /></label>
-        <label className="form-field"><span>{t(lang, "field_note_optional")}</span><input value={trainerNote} maxLength={300} onChange={(event) => setTrainerNote(event.target.value)} /></label>
-      </div>
-      <div className="button-row" style={{ marginTop: 10 }}>
-        <button className="button button-primary" disabled={trainerBusy || !trainerId.trim()} onClick={() => void sendTrainerRequest()}>{trainerBusy ? t(lang, "saving_ellipsis") : t(lang, "trainer_request_btn")}</button>
-      </div>
-      {trainerSent && <div className="save-note">{t(lang, "trainer_request_sent_note")}</div>}
-      {trainerError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
+      <p className="muted">{t(lang, "trainer_find_app_detail")}</p>
+      <div className="button-row"><button className="button button-primary" onClick={() => setFindTrainer(true)}>{t(lang, "ob_role_trainer_btn")}</button></div>
     </Card>}
 
     {whatsnew && <Card>
