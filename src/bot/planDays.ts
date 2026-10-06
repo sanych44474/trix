@@ -19,7 +19,7 @@ import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { DAY_GROUPS } from "../domain/dayGroups";
-import { translatePlanExercises } from "./plan";
+import { translatePlanExercises } from "./planBuild";
 import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply } from "../adapters/telegram/context";
 
 
