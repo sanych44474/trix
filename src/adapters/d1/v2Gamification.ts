@@ -342,6 +342,7 @@ export interface SquadRow {
   title: string | null;
   createdBy: number | null; // null once the creator deleted their account
   lastRecapWeek: string | null;
+  inviteCode?: string | null; // app squads only
 }
 
 /** Register (or refresh the title of) the squad for a group chat. */
@@ -353,6 +354,49 @@ export async function upsertSquad(db: DB, chatId: number, title: string | null, 
     )
     .bind(chatId, chatId, title, createdBy, nowIso())
     .run();
+}
+
+/** App squads (made in the Mini App) have positive ids; Telegram group chat ids are negative. */
+export function isAppSquad(chatId: number): boolean {
+  return chatId > 0;
+}
+
+const CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+function newInviteCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+}
+
+/** Create a squad that lives in the app (no group chat); the creator joins it. */
+export async function createAppSquad(db: DB, title: string, createdBy: number): Promise<{ chatId: number; inviteCode: string }> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const inviteCode = newInviteCode();
+    try {
+      const row = await db
+        .prepare(
+          `INSERT INTO v2_squads (id, chatId, title, createdByAccountId, createdAt, inviteCode)
+           SELECT n, n, ?, ?, ?, ? FROM (SELECT COALESCE(MAX(chatId), 0) + 1 AS n FROM v2_squads WHERE chatId > 0)
+           RETURNING chatId`,
+        )
+        .bind(title, createdBy, nowIso(), inviteCode)
+        .first<{ chatId: number }>();
+      if (row) {
+        await joinSquad(db, row.chatId, createdBy);
+        return { chatId: row.chatId, inviteCode };
+      }
+    } catch (err) {
+      if (attempt === 2) throw err; // invite code or id collision: try again with a fresh one
+    }
+  }
+  throw new Error("createAppSquad: no row");
+}
+
+export async function squadByInviteCode(db: DB, code: string): Promise<SquadRow | null> {
+  const row = await db
+    .prepare("SELECT chatId, title, createdByAccountId AS createdBy, lastRecapWeek, inviteCode FROM v2_squads WHERE inviteCode = ?")
+    .bind(code)
+    .first<SquadRow>();
+  return row ?? null;
 }
 
 /** Add a member. Returns false when they were already in (so the caller can stay quiet). */
@@ -372,7 +416,7 @@ export async function leaveSquad(db: DB, chatId: number, userId: number): Promis
 
 export async function getSquad(db: DB, chatId: number): Promise<SquadRow | null> {
   const row = await db
-    .prepare("SELECT chatId, title, createdByAccountId AS createdBy, lastRecapWeek FROM v2_squads WHERE chatId = ?")
+    .prepare("SELECT chatId, title, createdByAccountId AS createdBy, lastRecapWeek, inviteCode FROM v2_squads WHERE chatId = ?")
     .bind(chatId)
     .first<SquadRow>();
   return row ?? null;

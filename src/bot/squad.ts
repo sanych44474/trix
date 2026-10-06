@@ -16,6 +16,7 @@ import { getUser } from "../adapters/d1/v2Users";
 import {
   deleteSquad,
   getSquad,
+  isAppSquad,
   joinSquad,
   leaveSquad,
   squadCompletedDates,
@@ -23,6 +24,7 @@ import {
   squadsForUser,
   upsertSquad,
 } from "../adapters/d1/v2Gamification";
+import { recordInbox } from "../adapters/d1/v2Inbox";
 import { weekStartStr } from "../domain/records";
 import { squadMedal, squadWeek, type SquadWeek } from "../domain/squad";
 import { wakeSquadScheduler } from "../durable/squadScheduler";
@@ -98,6 +100,15 @@ export async function postSquadDigest(db: D1Database, api: SquadApi, chatId: num
   const lang = squadLang(members);
   const dates = await squadCompletedDates(db, chatId, win.weekStart, win.until);
   const week = squadWeek(members.map((m) => ({ userId: m.userId, name: displayName(m) })), dates, win.weekStart);
+  // An app squad has no group chat (its id is not a Telegram chat -- NEVER send to it): the
+  // board goes to each member's in-app feed instead, at no Telegram cost.
+  if (isAppSquad(chatId)) {
+    const top = week.entries.slice(0, 3).map((e, i) => ({ medal: squadMedal(week.entries, i), name: e.name, workouts: e.workouts }));
+    for (const m of members) {
+      await recordInbox(db, m.userId, "squad_week", { title: squad.title ?? "", past: win.past ?? false, total: week.total, silent: week.silent, top });
+    }
+    return true;
+  }
   try {
     await api.sendMessage(chatId, renderSquadBoard(lang, week, squad.title, win.past ?? false), HTML);
     return true;
@@ -129,6 +140,13 @@ export async function announceSquadPr(
   for (const chatId of chats) {
     const members = await squadMembers(db, chatId).catch(() => []);
     if (!members.length) continue;
+    if (isAppSquad(chatId)) {
+      const squad = await getSquad(db, chatId).catch(() => null);
+      for (const m of members) {
+        if (m.userId !== userId) await recordInbox(db, m.userId, "squad_pr", { name: who, exercise, best, title: squad?.title ?? "" });
+      }
+      continue;
+    }
     const text = t(squadLang(members), "squad_pr", { name: who, exercise, best });
     await api.sendMessage(chatId, text, HTML).catch(() => {});
   }

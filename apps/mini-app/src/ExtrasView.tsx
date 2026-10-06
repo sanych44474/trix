@@ -1,9 +1,10 @@
 // The "More" screen (lazy chunk): library, squads, plates, week card, profile photo, extras.
 import { FormCheck } from "./media/FormCheck";
 import { ImportCsv } from "./media/ImportCsv";
+import { SquadsCard } from "./Squads";
 import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
-import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, ProfilePhoto, SquadInfo, WeekCardResponse } from "./types";
+import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, ProfilePhoto, WeekCardResponse } from "./types";
 import { t, type Lang } from "./i18n";
 import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
 import { ReleaseItems } from "./WhatsNew";
@@ -122,10 +123,6 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
   const [whatsnew, setWhatsnew] = useState<{ version: string; html: string; text?: string } | null>(null);
   useEffect(() => { api<{ version: string; html: string; text?: string }>("/api/v2/whatsnew").then(setWhatsnew).catch(() => setWhatsnew(null)); }, []);
 
-  const [squads, setSquads] = useState<SquadInfo[] | null>(null);
-  const [squadsError, setSquadsError] = useState<unknown>(null);
-  const loadSquads = () => { setSquadsError(null); api<{ squads: SquadInfo[] }>("/api/v2/squads").then((data) => setSquads(data.squads)).catch(setSquadsError); };
-  useEffect(loadSquads, []);
 
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "extras_eyebrow")}</div>
@@ -228,14 +225,7 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
 
     {role === "solo" || role === "trainer" ? <BecomeTrainerCard lang={lang} role={role} /> : null}
 
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "squads_eyebrow")}</span><h2>{t(lang, "squads_title")}</h2></div></div>
-      {squadsError !== null ? <ErrorState lang={lang} error={squadsError} retry={loadSquads} /> : !squads ? <div className="skeleton" /> : squads.length === 0 ? <Empty title={t(lang, "squads_empty_title")} detail={t(lang, "squads_empty_detail")} /> : squads.map((s, i) => <div key={i} style={{ marginBottom: i < squads.length - 1 ? 18 : 0 }}>
-        <div className="section-head"><strong>{s.title || t(lang, "squads_default_title")}</strong><span className="tag">{t(lang, "squads_members_count", { n: s.memberCount })}</span></div>
-        <div className="volume-list">{s.entries.map((e) => <div className="volume-row" key={e.name}><div><strong>{e.medal} {e.name}</strong>{e.me && <small>{t(lang, "you_label")}</small>}</div><span>{e.workouts}</span></div>)}</div>
-        <p className="muted" style={{ marginTop: 6 }}>{s.silent > 0 ? t(lang, "squads_silent_hint", { n: s.silent, total: s.total }) : t(lang, "squads_all_in_hint", { total: s.total })}</p>
-      </div>)}
-    </Card>
+    <SquadsCard lang={lang} />
     <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "import_app_eyebrow")}</span><h2>{t(lang, "import_app_title")}</h2></div></div>
       <ImportCsv lang={lang} />

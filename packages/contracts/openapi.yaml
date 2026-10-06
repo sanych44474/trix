@@ -271,7 +271,7 @@ paths:
                             type: object
                             properties:
                               id: {type: integer}
-                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression, feedback_done]}
+                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression, feedback_done, squad_pr, squad_week]}
                               params: {type: object, additionalProperties: true}
                               createdAt: {type: string}
                               read: {type: boolean}
@@ -1684,6 +1684,45 @@ paths:
                           type: array
                           items: {$ref: '#/components/schemas/SquadInfo'}
                   required: [data]
+    post:
+      operationId: editSquads
+      description: 'create an app squad (title), join one by invite code, or leave one (id).'
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: {type: string, enum: [create, join, leave]}
+                title: {type: string, maxLength: 40, description: 'action=create'}
+                code: {type: string, maxLength: 16, description: 'action=join'}
+                id: {type: integer, description: 'action=leave: the squad id from getSquads'}
+      responses:
+        '200':
+          description: Result
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {type: boolean}
+                        id: {type: integer, description: 'action=create'}
+                        reason: {type: string, enum: [joined, already, not_found, full, too_many]}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/trainers:
     get:
       operationId: listTrainers
@@ -4084,8 +4123,11 @@ components:
             required: [code, name, takenCount]
     SquadInfo:
       type: object
-      required: [title, memberCount, entries, total, silent]
+      required: [id, app, inviteLink, title, memberCount, entries, total, silent]
       properties:
+        id: {type: integer}
+        app: {type: boolean, description: Made in the Mini App (no Telegram group)}
+        inviteLink: {type: ['string', 'null'], description: 'App squads: t.me link that joins the squad'}
         title:
           type: [string, 'null']
         memberCount: {type: integer}

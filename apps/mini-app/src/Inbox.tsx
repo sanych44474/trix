@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import { t, type Lang } from "./i18n";
 
-export type InboxKind = "plan_assigned" | "plan_changed" | "message" | "badge" | "progression" | "feedback_done";
+export type InboxKind = "plan_assigned" | "plan_changed" | "message" | "badge" | "progression" | "feedback_done" | "squad_pr" | "squad_week";
 export interface InboxItem { id: number; kind: InboxKind; params: Record<string, unknown>; createdAt: string; read: boolean }
-type Target = "plan" | "progress" | "role" | "today";
+type Target = "plan" | "progress" | "role" | "today" | "more";
 
-const ICON: Record<InboxKind, string> = { plan_assigned: "📋", plan_changed: "✏️", message: "💬", badge: "🏅", progression: "📈", feedback_done: "✅" };
-const TARGET: Record<InboxKind, Target> = { plan_assigned: "plan", plan_changed: "plan", message: "role", badge: "progress", progression: "plan", feedback_done: "today" };
+const ICON: Record<InboxKind, string> = { plan_assigned: "📋", plan_changed: "✏️", message: "💬", badge: "🏅", progression: "📈", feedback_done: "✅", squad_pr: "🏆", squad_week: "👥" };
+const TARGET: Record<InboxKind, Target> = { plan_assigned: "plan", plan_changed: "plan", message: "role", badge: "progress", progression: "plan", feedback_done: "today", squad_pr: "more", squad_week: "more" };
 
 function when(lang: Lang, iso: string): string {
   const d = new Date(iso);
@@ -29,6 +29,11 @@ export function inboxText(lang: Lang, item: InboxItem): string {
     case "badge": return t(lang, "inbox_badge", { name: String((lang === "en" ? p.en : p.uk) ?? p.code ?? "") });
     case "progression": return t(lang, "inbox_progression", { n: Number(p.n ?? 0) });
     case "feedback_done": return t(lang, "inbox_feedback_done", { text: String(p.preview ?? "") });
+    case "squad_pr": return t(lang, "inbox_squad_pr", { name: String(p.name ?? ""), exercise: String(p.exercise ?? ""), best: String(p.best ?? "") });
+    case "squad_week": {
+      const top = Array.isArray(p.top) ? (p.top as Array<{ medal?: string; name?: string; workouts?: number }>).map((e) => `${e.medal ?? ""} ${e.name ?? ""} ${e.workouts ?? 0}`.trim()).join(" · ") : "";
+      return t(lang, p.past ? "inbox_squad_week_past" : "inbox_squad_week", { title: String(p.title || t(lang, "squads_default_title")), top, total: Number(p.total ?? 0) });
+    }
   }
 }
 

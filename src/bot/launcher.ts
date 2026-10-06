@@ -73,7 +73,7 @@ export async function sendLauncher(ctx: MyContext, view?: AppView): Promise<bool
   return true;
 }
 
-const START_PAYLOADS = ["tr_", "trp_", "ref_", "buddy_"];
+const START_PAYLOADS = ["tr_", "trp_", "ref_", "buddy_", "sq_"];
 
 /**
  * True when the update was answered with the Open-app button and must go no further.

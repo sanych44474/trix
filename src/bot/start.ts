@@ -1,4 +1,5 @@
 // /start and the onboarding interview entry points.
+import { joinByInviteCode } from "../webapp/squadApi";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { UserDoc } from "../types";
@@ -95,6 +96,12 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
         await ctx.api.sendMessage(other.chatId, t(other.lang, "buddy_paired", { name: escapeHtml(u.profile.name ?? `id ${u._id}`) }), HTML).catch(() => {});
       }
     }
+  }
+  // Squad invite from the app (t.me/<bot>?start=sq_CODE): join, then open the squads screen.
+  if (payload?.startsWith("sq_")) {
+    const result = await joinByInviteCode(ctx.db, u._id, payload.slice(3)).catch(() => "not_found" as const);
+    await reply(ctx, t(lang, `squad_invite_${result}`)).catch(() => {});
+    if (await sendLauncher(ctx, "more")) return;
   }
   // With the Mini App, a plain /start (or one after a referral or buddy link) only points there.
   if (await sendLauncher(ctx)) return;
