@@ -2,7 +2,7 @@
 // its estimated 1RM against bodyweight-multiple thresholds (sex-specific). The brackets are the
 // widely used approximate ratios (untrained → elite); they're a motivational yardstick, not a
 // medical/competition standard. Names are matched bilingually (EN + UK) against the big compounds.
-import { resolveWeightMode } from "./progression";
+import { resolveWeightMode } from "./exerciseClass";
 
 export type StrengthLevel = "beginner" | "novice" | "intermediate" | "advanced" | "elite";
 

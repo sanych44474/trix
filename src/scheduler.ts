@@ -13,7 +13,8 @@ import { bodyLogsByUser, getDailyCheckin, getWater, listInjuriesDue, markInjuryA
 import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, listVacationEnded, markComebackDone, updateUser } from "./adapters/d1/v2Users";
 import { resolveWaterGoal } from "./domain/challenges";
 import { trainingWeek } from "./domain/mesocycle";
-import { adherenceDeloadDue, evaluateProgressionRate, getPlanDay, weeksSincePlan } from "./domain/progression";
+import { adherenceDeloadDue, weeksSincePlan } from "./domain/deload";
+import { evaluateProgressionRate, getPlanDay } from "./domain/progression";
 import { inQuietHours, localParts } from "./domain/localTime";
 import { isoWeekKey, streakRisk } from "./domain/records";
 import { seasonalChallenge } from "./domain/challenges";

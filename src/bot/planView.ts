@@ -9,7 +9,7 @@ import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getDailyCheckin } from "../adapters/d1/v2Tracking";
 import { getExerciseVideos, getUserVideos } from "../adapters/d1/v2Catalog";
 import { escapeHtml, t } from "../locales/i18n";
-import { deloadSets, readinessAdvice } from "../domain/progression";
+import { deloadSets, readinessAdvice } from "../domain/deload";
 import { localParts } from "../domain/localTime";
 import { phaseKey as mesoPhaseKey, trainingWeek } from "../domain/mesocycle";
 import { buildVideoOpenLink } from "../domain/videoLink";

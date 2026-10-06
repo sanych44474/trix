@@ -13,7 +13,8 @@ import { computeXp, levelFromXp, levelTransition } from "../domain/gamification"
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscles";
 import { exerciseMetric, formatSetEntry } from "../domain/setFormat";
-import { getPlanDay, nextTargetSet, resolveWeightMode, workingSets, type TargetStep } from "../domain/progression";
+import { getPlanDay, nextTargetSet, workingSets, type TargetStep } from "../domain/progression";
+import { resolveWeightMode } from "../domain/exerciseClass";
 import { localParts } from "../domain/localTime";
 import { userStatCounts } from "../adapters/d1/v2Analytics";
 import { deleteWorkoutDraft, getWorkoutDraft, getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";

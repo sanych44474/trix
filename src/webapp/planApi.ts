@@ -27,7 +27,7 @@ import {
   setUserVideo,
 } from "../adapters/d1/v2Catalog";
 import { exerciseMetric } from "../domain/setFormat";
-import { resolveWeightMode } from "../domain/progression";
+import { resolveWeightMode } from "../domain/exerciseClass";
 import { cleanAi, t } from "../locales/i18n";
 import { exerciseVideoKey, weekdayName } from "../render";
 import { parseYouTubeId } from "../youtube";

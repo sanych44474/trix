@@ -10,7 +10,9 @@ import { countAdjustmentWeeksSince, recordAdjustment, saveDraftPlan, setActivePl
 import { dailyCheckinsSince } from "../adapters/d1/v2Tracking";
 import { getUser } from "../adapters/d1/v2Users";
 import { deloadProgressionHold } from "../domain/mesocycle";
-import { applyProgression, computePlanProgression, evaluateProgressionRate, fatLossGoalReached, gainGoalReached, shouldLevelUp, weeksSincePlan } from "../domain/progression";
+import { applyProgression, computePlanProgression, evaluateProgressionRate } from "../domain/progression";
+import { fatLossGoalReached, gainGoalReached, shouldLevelUp } from "../domain/levelGoals";
+import { weeksSincePlan } from "../domain/deload";
 import { conditioningOverload, conditioningWeek } from "../domain/conditioning";
 import { daysBetween } from "../domain/reminderTiming";
 import { escapeHtml, t } from "../locales/i18n";

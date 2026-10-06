@@ -6,7 +6,7 @@ import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { saveBaselineBody as saveBaselineBodyDb } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";
-import { nextLevel } from "../domain/progression";
+import { nextLevel } from "../domain/levelGoals";
 import { t } from "../locales/i18n";
 import { generateClientDraft, generatePlan, regenBankPlan } from "./plan";
 import { type MyContext, reply } from "../adapters/telegram/context";

@@ -1,9 +1,13 @@
-import { regionOf, type MuscleGroup } from "./muscleRegions";
-export type { MuscleGroup } from "./muscleRegions";
-import { trainingWeek } from "./mesocycle";
-import type { DailyCheckinDoc, LoggedExercise, PlanDay, PlanDoc, PlanExercise, ProgressionRate, SetEntry, StrengthRecordDoc, Weekday, WorkoutLogDoc } from "../types";
+import type { DailyCheckinDoc, LoggedExercise, PlanDay, PlanDoc, PlanExercise, ProgressionRate, SetEntry, Weekday, WorkoutLogDoc } from "../types";
 import { exerciseMetric, metricOfSets, bestSetForMetric } from "./setFormat";
 import { tokens } from "./workoutText";
+import { isLowerBody } from "./exerciseClass";
+import { poorWellbeing } from "./deload";
+export * from "./activity";
+export * from "./levelGoals";
+export * from "./deload";
+export * from "./exerciseClass";
+export type { MuscleGroup } from "./muscleRegions";
 export * from "./workoutText";
 export * from "./setFormat";
 export * from "./localTime";
@@ -132,44 +136,6 @@ export function nextTargetGuidance(
       target: nextTarget(best.weight, best.reps, e.name, e.rpe, plan ? planRepRange(plan, e.planName ?? e.name) : undefined),
       overload,
     };
-  });
-}
-
-/** Deload is suggested if the user has been progressing ≥ 42 days on any key lift. */
-export function deloadDue(records: StrengthRecordDoc[], today: string): boolean {
-  const todayMs = Date.parse(today);
-  return records.some((r) => {
-    const first = r.history[0];
-    const last = r.history[r.history.length - 1];
-    if (!first || !last) return false;
-    const days = (todayMs - Date.parse(first.date)) / 86_400_000;
-    // A 6-week SPAN is not the same as 6 weeks of training: without this, one lift logged once
-    // 42+ days ago and never touched since was enough to tell the user "you've been progressing
-    // for 6-8 weeks, consider a deload" — asserting a training block that never happened. The
-    // lift also has to be genuinely active (touched within the last two weeks) and to have real
-    // history behind it, not a single ancient data point.
-    const staleDays = (todayMs - Date.parse(last.date)) / 86_400_000;
-    return days >= 42 && staleDays <= 14 && r.history.length >= 3;
-  });
-}
-
-/** How many full weeks the plan has been running. */
-export function weeksSincePlan(generatedAt: string, today: string): number {
-  const days = (Date.parse(today) - Date.parse(generatedAt)) / 86_400_000;
-  return days < 0 ? 0 : Math.floor(days / 7);
-}
-
-/** Automatic deload week for this plan (see domain/mesocycle trainingWeek, the single source). */
-export function shouldDeload(plan: PlanDoc, today: string): boolean {
-  return trainingWeek(plan, today).deload;
-}
-
-/** Drop an exercise's set count by ~40% for a deload week, keeping the rep range.
- * "4 × 8-10" → "2 × 8-10". Leaves set strings that don't start with "N ×" untouched. */
-export function deloadSets(sets: string): string {
-  return sets.replace(/^\s*(\d+)\s*([x×])/i, (_m, n: string, sep: string) => {
-    const reduced = Math.max(1, Math.round(Number(n) * 0.6));
-    return `${reduced} ${sep}`;
   });
 }
 
@@ -414,35 +380,6 @@ function progressTimedExercise(
   }
 }
 
-/** Low energy, poor sleep, or high stress across the given check-ins. The single definition of
- * "not a day/week to push", shared by the weekly progression hold below and the same-day
- * readiness advice (readinessAdvice) — two different thresholds for the same idea would let the
- * bot tell you to back off today while still ratcheting the plan up for the week. */
-export function poorWellbeing(checkins: DailyCheckinDoc[]): boolean {
-  const avg = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-  const energy = avg(checkins.map((c) => c.energy).filter((n) => n > 0));
-  const sleep = avg(checkins.map((c) => c.sleep).filter((n) => n > 0));
-  const stress = avg(checkins.map((c) => c.stress).filter((n) => n > 0));
-  return (energy > 0 && energy <= 2) || (sleep > 0 && sleep <= 2) || stress >= 4;
-}
-
-export type Readiness = "ok" | "easy" | "light";
-
-/** How hard to go TODAY, from today's check-in alone. `light` (≈-15% or drop a set) needs two
- * bad signals or a rock-bottom one; `easy` (≈-10%) is the single-bad-signal case, which is also
- * exactly what poorWellbeing() holds the weekly progression for. No check-in → "ok": absence of
- * data is not evidence of a bad day, and nagging someone who simply didn't log would train them
- * to ignore the line. */
-export function readinessAdvice(checkin: DailyCheckinDoc | null | undefined): Readiness {
-  if (!checkin) return "ok";
-  const { energy, sleep, stress } = checkin;
-  const bad = [energy > 0 && energy <= 2, sleep > 0 && sleep <= 2, stress >= 4].filter(Boolean).length;
-  const rockBottom = energy === 1 || sleep === 1 || stress === 5;
-  if (bad >= 2 || (bad >= 1 && rockBottom)) return "light";
-  if (bad >= 1) return "easy";
-  return "ok";
-}
-
 /** Decide the week's silent micro-progression for an active plan from recent training data.
  * Pure: returns the proposed changes; the caller clones+applies via {@link applyProgression}.
  *
@@ -604,150 +541,6 @@ export function applyProgression(plan: PlanDoc, changes: ExerciseChange[]): Plan
 }
 
 // ---------- level-up & goal-reached transitions ----------
-
-/** The next experience level up, or null at the top. */
-export function nextLevel(level: ProgressionLevel): ProgressionLevel | null {
-  if (level === "beginner") return "intermediate";
-  if (level === "intermediate") return "advanced";
-  return null;
-}
-type ProgressionLevel = "beginner" | "intermediate" | "advanced";
-
-/** Ready to graduate to a harder plan when the trainee has clearly outgrown the current one:
- * training pace is "fast" AND progression fired in ≥ `minWeeks` of the recent weeks, and a
- * higher level exists. The caller offers a button — it is never auto-applied. */
-export function shouldLevelUp(
-  level: ProgressionLevel,
-  rate: ProgressionRate,
-  progressionWeeks: number,
-  minWeeks = 4,
-): boolean {
-  return nextLevel(level) !== null && rate === "fast" && progressionWeeks >= minWeeks;
-}
-
-const FATLOSS_GOAL_RE = /(fat|схуд|похуд|loss|cut|lean|обезжир)/i;
-const GAIN_GOAL_RE = /(muscle|mass|gain|bulk|набір|набор|мас|муск|гіпертроф|hypertroph)/i;
-
-/** Shared: bodyweight moved `minDelta` kg in `dir` over ≥`minSpanDays`, then plateaued — the
- * last 3 weigh-ins (spanning ≥2 weeks) vary < 0.8 kg. */
-function bodyweightSettled(weights: { date: string; weight: number }[], dir: "down" | "up", minDelta: number, minSpanDays: number): boolean {
-  const pts = weights.filter((w) => w.weight > 0).sort((a, b) => (a.date < b.date ? -1 : 1));
-  if (pts.length < 4) return false;
-  const span = (Date.parse(pts[pts.length - 1].date) - Date.parse(pts[0].date)) / 86_400_000;
-  const delta = dir === "down" ? pts[0].weight - pts[pts.length - 1].weight : pts[pts.length - 1].weight - pts[0].weight;
-  if (span < minSpanDays || delta < minDelta) return false;
-  const recent = pts.slice(-3);
-  const recentSpan = (Date.parse(recent[2].date) - Date.parse(recent[0].date)) / 86_400_000;
-  if (recentSpan < 14) return false;
-  return Math.max(...recent.map((r) => r.weight)) - Math.min(...recent.map((r) => r.weight)) < 0.8;
-}
-
-/** A cut is "done" — fat-loss goal, lost ≥2 kg over ≥4 weeks, now plateaued. */
-export function fatLossGoalReached(goal: string | undefined, weights: { date: string; weight: number }[]): boolean {
-  return FATLOSS_GOAL_RE.test(goal ?? "") && bodyweightSettled(weights, "down", 2, 28);
-}
-
-/** A bulk is "done" — muscle-gain goal, gained ≥3 kg over ≥6 weeks, now plateaued. */
-export function gainGoalReached(goal: string | undefined, weights: { date: string; weight: number }[]): boolean {
-  return GAIN_GOAL_RE.test(goal ?? "") && bodyweightSettled(weights, "up", 3, 42);
-}
-
-// API Ninjas muscle enums, ordered major/compound first so a candidate cap keeps the useful
-// ones. Used to pull a broad real-exercise candidate set for plan generation (single-pass).
-export const API_MUSCLES = [
-  "chest", "lats", "quadriceps", "hamstrings", "glutes", "middle_back", "triceps", "biceps",
-  "abdominals", "traps", "calves", "lower_back", "forearms", "abductors", "adductors", "neck",
-] as const;
-
-const LOWER_HINTS = ["leg", "squat", "ногами", "ноги", "ніг", "присід", "присед", "deadlift", "становая", "станова", "lunge", "випад", "выпад", "hip thrust", "glute", "сідни", "ягодич", "calf", "ікр", "икр", "step-up", "step up", "good morning"];
-/** Lower-body lift (bigger load step). The body map's region rules first, then name hints for
- *  what they file elsewhere (a deadlift counts as back there, but loads like a leg lift). */
-export function isLowerBody(exercise: string): boolean {
-  if (regionOf(exercise) === "legs") return true;
-  const e = exercise.toLowerCase();
-  return LOWER_HINTS.some((h) => e.includes(h));
-}
-
-/** Classify an exercise (UA or EN name) into a major training region, for the relative-strength
- * balance chart. Ordered so the specific patterns win before the generic "row/тяга" → back. */
-export type WeightMode = "total" | "perSide" | "perHand";
-
-// Resolve how a logged weight should be read: explicit tag wins; otherwise inferred from the
-// name. "perSide" = one limb at a time (one-arm row, single-leg); "perHand" = one dumbbell in a
-// two-dumbbell movement. The number itself is never transformed — this only labels/contextualizes.
-export function resolveWeightMode(name: string, explicit?: "perSide" | "perHand"): WeightMode {
-  if (explicit) return explicit;
-  const s = (name || "").toLowerCase();
-  // Unilateral: one arm / one leg at a time.
-  if (/одн[іио][єe]ю рукою|одн[іио][єe]ю ногою|на одну руку|на одну ногу|поперем[іи]нн|поочеред|one[\s-]?arm|single[\s-]?arm|single[\s-]?leg|one[\s-]?leg|unilateral|\balternating\b/.test(s)) {
-    return "perSide";
-  }
-  // Two dumbbells: the entered weight is per dumbbell (unless the name says otherwise).
-  if (/гантел|dumbbell|\bdb\b/.test(s)) return "perHand";
-  return "total";
-}
-
-/** The training region an exercise belongs to. Kept as the long-standing name; the rules are
- *  the body map's (muscleRegions.ts), so a region here always agrees with the map. */
-export function muscleGroupOf(name: string): MuscleGroup | null {
-  return regionOf(name);
-}
-
-/** True when recent logged sessions show poor adherence (lots of skips/grinding) — a sign the
- * trainee needs a lighter week even before the calendar deload is due. Looks at logged sessions
- * only: needs at least `minSessions` rows and a completed-ratio below `threshold`. */
-export function adherenceDeloadDue(
-  logs: WorkoutLogDoc[],
-  opts: { minSessions?: number; threshold?: number } = {},
-): boolean {
-  const minSessions = opts.minSessions ?? 4;
-  const threshold = opts.threshold ?? 0.5;
-  if (logs.length < minSessions) return false;
-  const completed = logs.filter((l) => l.completed).length;
-  return completed / logs.length < threshold;
-}
-
-// ---------- compliance (trainer view) ----------
-
-/** Weekly compliance: % of scheduled workouts completed and % of days with a food log.
- * `scheduledWorkouts` = training days that fell in the window; `windowDays` = nutrition denom. */
-export function complianceScore(args: {
-  completedWorkouts: number;
-  scheduledWorkouts: number;
-  nutritionDays: number;
-  windowDays: number;
-}): { workoutPct: number; nutritionPct: number } {
-  const pct = (n: number, d: number) => (d > 0 ? Math.min(100, Math.round((n / d) * 100)) : 0);
-  return {
-    workoutPct: pct(args.completedWorkouts, args.scheduledWorkouts),
-    nutritionPct: pct(args.nutritionDays, args.windowDays),
-  };
-}
-
-// ---------- activity grid (streak calendar) ----------
-
-export interface ActivityCell {
-  date: string;
-  workout: boolean;
-  nutrition: boolean;
-}
-
-/** Build the last `days` calendar cells ending at `today` (oldest first), each flagged with
- * whether a workout was completed and/or food was logged that day. Pure — drives /progress. */
-export function buildActivityCells(
-  today: string,
-  workoutDates: Set<string>,
-  nutritionDates: Set<string>,
-  days = 28,
-): ActivityCell[] {
-  const end = Date.parse(today);
-  const cells: ActivityCell[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(end - i * 86_400_000).toISOString().slice(0, 10);
-    cells.push({ date, workout: workoutDates.has(date), nutrition: nutritionDates.has(date) });
-  }
-  return cells;
-}
 
 /** The progression engine's next targets for the plan's rep-based lifts, from recent logs —
  *  what the coach prompt quotes instead of doing its own arithmetic (bot/coach.ts). Newest

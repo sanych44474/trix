@@ -10,7 +10,7 @@ import { getActivePlan, recordAdjustment, setActivePlan } from "../adapters/d1/v
 import { recordDailyCheckin } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";
-import { weeksSincePlan } from "../domain/progression";
+import { weeksSincePlan } from "../domain/deload";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { MyContext, reply, setMode } from "../adapters/telegram/context";
 import { coachContext } from "./coach";
