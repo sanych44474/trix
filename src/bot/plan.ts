@@ -1,6 +1,7 @@
 // Plan authoring — the app's deepest module: AI interview retry, bank fallback, plan build /
 // heal / translate, dynamic progression regeneration. Extracted from bot.ts (god-file split);
 // behavior unchanged.
+import { appLink, appMarkup } from "../notify/appKeyboard";
 import { InlineKeyboard } from "grammy";
 import type { Env, Lang, PlanDoc, UserDoc, Weekday } from "../types";
 import type { MyContext } from "../adapters/telegram/context";
@@ -123,6 +124,8 @@ async function bankFallbackPlan(
 // plan FIRST so a slow/degraded AI chain can't block the cron for tens of seconds per stuck
 // user — which starves the reminder/check-in section that runs after the sweep. The interview
 // done-branch leaves it false so a fresh interview still gets a tailored AI plan (bank fallback).
+const withMarkup = (m: unknown) => (m ? { reply_markup: m } : {});
+
 export async function finalizeOnboardingPlan(
   env: Env, db: D1Database, user: UserDoc, opts: { preferBank?: boolean } = {},
 ): Promise<boolean> {
@@ -162,14 +165,15 @@ export async function finalizeOnboardingPlan(
       await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "client_plan_pending"), parse_mode: "HTML" }),
+        body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "client_plan_pending"), parse_mode: "HTML", ...withMarkup(appMarkup(env, t(lang, "launch_open_btn"), "today")) }),
       });
       // Notify the trainer.
       const trainer = user.trainerId ? await getUser(db, user.trainerId) : null;
       if (trainer) {
         const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
         // Inline actions so the trainer can review/assign right from the notification (no /clients hunt).
-        const reply_markup = {
+        // Review and assign on the client's card in the app (chat callbacks without the app).
+        const reply_markup = appMarkup(env, t(trainer.lang, "nb_open_client"), "role", { client: user._id }) ?? {
           inline_keyboard: [[
             { text: t(trainer.lang, "cc_plan"), callback_data: `cl:${user._id}:plan` },
             { text: t(trainer.lang, "cc_assign"), callback_data: `cl:${user._id}:assign` },
@@ -189,9 +193,13 @@ export async function finalizeOnboardingPlan(
       // but not yet training alone. An accountability buddy is a two-person feature, so offering
       // it here turns one signup into an invitation; buried in settings it never gets found.
       const buddy = botDeepLink(env, `buddy_${user._id}`);
-      const reply_markup = buddy
-        ? { inline_keyboard: [[{ text: t(lang, "buddy_offer_btn"), url: shareUrl(buddy, t(lang, "buddy_offer_share")) }]] }
-        : undefined;
+      // First the plan itself (today's session in the app), then the buddy invite.
+      const todayUrl = appLink(env, "today");
+      const rows = [
+        ...(todayUrl ? [[{ text: t(lang, "nb_open_today"), web_app: { url: todayUrl } }]] : []),
+        ...(buddy ? [[{ text: t(lang, "buddy_offer_btn"), url: shareUrl(buddy, t(lang, "buddy_offer_share")) }]] : []),
+      ];
+      const reply_markup = rows.length ? { inline_keyboard: rows } : undefined;
       await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -206,6 +214,56 @@ export async function finalizeOnboardingPlan(
     await recordError(db, { userId: user._id, kind: "plan_finalize", errorType: "exception", message: String(e).slice(0, 200) }).catch(() => {});
     // Park for the plan-pending sweep to retry (don't leave them stuck).
     await updateUser(db, user._id, { session: { mode: "plan_pending" } }).catch(() => {});
+    return false;
+  }
+}
+
+/** A rebuild still counts as running this long after it started (a crashed one frees up after). */
+export const REPLAN_RUNNING_MS = 5 * 60_000;
+
+/** True while a plan rebuild the user started from the app is still building. */
+export function replanRunning(user: UserDoc, now = Date.now()): boolean {
+  const at = user.session.replanAt ? Date.parse(user.session.replanAt) : Number.NaN;
+  return Number.isFinite(at) && now - at < REPLAN_RUNNING_MS;
+}
+
+/**
+ * Rebuild an athlete's own plan from their current profile and records (the app's "Rebuild plan";
+ * the chat's /replan). AI first with the strength records as anchors, the closest bank archetype
+ * if the AI chain is down. Activates it, refreshes nutrition targets and pings the user with a
+ * button to the new plan. Trainer clients never get here (their trainer owns the plan).
+ */
+export async function rebuildPlan(env: Env, db: D1Database, user: UserDoc): Promise<boolean> {
+  const lang = user.lang;
+  try {
+    const records = await listStrength(db, user._id, 8).catch(() => []);
+    const prs = records.length ? records.map((r) => `${r.exercise}: ${formatRecordBest(r)}`).join("\n") : undefined;
+    let plan: PlanDoc | null = null;
+    let source: "ai" | "bank" = "ai";
+    try {
+      plan = await buildPlanDocRaw(env, db, lang, user.profile, user._id, { prs });
+      await recordPlanSource(db, user._id, "workout", "ai").catch(() => {});
+    } catch (aiErr) {
+      plan = await bankFallbackPlan(db, lang, user.profile, user._id);
+      source = "bank";
+      if (!plan) throw aiErr;
+    }
+    await setActivePlan(db, plan);
+    const fresh = await getUser(db, user._id);
+    await updateUser(db, user._id, { nutrition: plan.nutrition, session: { ...(fresh?.session ?? user.session), replanAt: undefined } });
+    logInfo("plan_rebuilt", { source });
+    const markup = appMarkup(env, t(lang, "nb_open_plan"), "plan");
+    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "plan_rebuilt"), parse_mode: "HTML", ...withMarkup(markup) }),
+    }).catch(() => {});
+    return true;
+  } catch (e) {
+    console.error("rebuildPlan failed", user._id, e);
+    await recordError(db, { userId: user._id, kind: "plan_rebuild", errorType: "exception", message: String(e).slice(0, 200) }).catch(() => {});
+    const fresh = await getUser(db, user._id).catch(() => null);
+    await updateUser(db, user._id, { session: { ...(fresh?.session ?? user.session), replanAt: undefined, replanFailed: new Date().toISOString() } }).catch(() => {});
     return false;
   }
 }

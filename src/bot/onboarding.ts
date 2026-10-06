@@ -2,6 +2,7 @@
 // from bot.ts. No per-turn AI — instant, no hangs, no parse ambiguity. The one AI call is the
 // final plan gen, which stays in bot.ts (generatePlan / generateClientDraft — imported back,
 // same value-cycle pattern as features/trainer/trainer.ts; calls happen at request time only).
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "./onboardingApp";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import { parseHeightWeight } from "../domain/workoutText";
@@ -127,8 +128,14 @@ export async function pingIncompleteOnboarding(env: Env, db: D1Database): Promis
       const prefix = t(u.lang, "ob_resume_nudge");
       const transcript = u.session?.transcript;
       let text: string;
-      let reply_markup: InlineKeyboard | undefined;
-      if (u.session?.mode === "onboarding" && transcript?.length) {
+      let reply_markup: InlineKeyboard | ReturnType<typeof onboardingAppMarkup> | undefined;
+      const appUrl = onboardingUrlFromEnv(env);
+      if (appUrl) {
+        // The questionnaire lives in the Mini App: one button, it resumes from the saved draft.
+        text = `${prefix}\n\n${t(u.lang, "ob_app_prompt")}`;
+        reply_markup = onboardingAppMarkup(u.lang, appUrl);
+        await updateUser(db, u._id, { session: { mode: "onboarding", step: 0 } });
+      } else if (u.session?.mode === "onboarding" && transcript?.length) {
         const lastQ = [...transcript].reverse().find((m) => m.role === "assistant");
         text = `${prefix}\n\n${escapeHtml(lastQ?.text ?? "")}`.trim();
         // Keep them in the interview so their reply advances it (mode may have drifted).

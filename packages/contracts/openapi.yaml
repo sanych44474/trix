@@ -271,7 +271,7 @@ paths:
                             type: object
                             properties:
                               id: {type: integer}
-                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression, feedback_done]}
+                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression, feedback_done, squad_pr, squad_week]}
                               params: {type: object, additionalProperties: true}
                               createdAt: {type: string}
                               read: {type: boolean}
@@ -1005,6 +1005,355 @@ paths:
               schema: {type: string, format: binary}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/plan/replan:
+    get:
+      operationId: getReplanStatus
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Whether a rebuild started from the app is still building
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [pending, failed]
+                      properties:
+                        pending: {type: boolean}
+                        failed: {type: boolean, description: The last rebuild failed}
+                  required: [data]
+    post:
+      operationId: rebuildPlan
+      description: Rebuild the athlete's own plan from their current profile and records, in the background. Not for trainer clients (403).
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '200':
+          description: Started (or already running)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok, pending]
+                      properties:
+                        ok: {type: boolean}
+                        pending: {type: boolean}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v2/owner/announce:
+    post:
+      operationId: ownerAnnounce
+      description: Owner only. Sends the text to the next batch of 25 onboarded users after account id `after`.
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: {type: string, minLength: 1, maxLength: 3000}
+                after: {type: integer, minimum: 0, description: The `next` of the previous batch}
+      responses:
+        '200':
+          description: This batch's result and where the next one starts
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [sent, failed, total, remaining, next]
+                      properties:
+                        sent: {type: integer}
+                        failed: {type: integer}
+                        total: {type: integer}
+                        remaining: {type: integer}
+                        next: {type: [integer, 'null']}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/chat:
+    get:
+      operationId: getChatThread
+      description: The viewer's thread with their trainer (client) or one of their clients (trainer, `with` = client id). Marks the peer's messages read.
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: with
+        in: query
+        required: false
+        schema: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: The thread, oldest first
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ChatThread'
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: sendChatMessage
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                with: {type: integer, minimum: 1, description: 'Trainer: the client. Client: omit (their trainer).'}
+                text: {type: string, minLength: 1, maxLength: 2000}
+      responses:
+        '200':
+          description: Stored; the recipient is pinged in Telegram unless already pinged for this burst
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok, id]
+                      properties:
+                        ok: {type: boolean}
+                        id: {type: integer}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/chat/draft:
+    post:
+      operationId: draftChatReply
+      description: Trainer only. An AI draft of the next reply to the client, in the trainer's style. Nothing is sent.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [with]
+              properties:
+                with: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: The draft (empty when unavailable)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [draft]
+                      properties:
+                        draft: {type: string}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/chat/unread:
+    get:
+      operationId: getChatUnread
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Unread message counts per sender id
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [bySender]
+                      properties:
+                        bySender:
+                          type: object
+                          additionalProperties: {type: integer}
+                  required: [data]
+  /api/v2/media/import-csv:
+    post:
+      operationId: importWorkoutCsv
+      description: Import workout history from a Strong or Hevy CSV export. Dates that already have a log are skipped.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+      responses:
+        '200':
+          description: What was imported, or why nothing was
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {type: boolean}
+                        reason: {type: string, enum: [too_big, wrong_format, failed]}
+                        imported: {type: integer}
+                        skipped: {type: integer}
+                        capped: {type: boolean}
+                        cap: {type: integer}
+                        format: {type: string, enum: [strong, hevy]}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+  /api/v2/media/meal-photo:
+    post:
+      operationId: estimateMealPhoto
+      description: AI estimate of a meal photo. Nothing is logged; the app logs the confirmed items with editNutrition add_items.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo: {type: string, format: binary}
+                caption: {type: string}
+      responses:
+        '200':
+          description: Recognised items (empty when nothing was recognised)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [items]
+                      properties:
+                        items:
+                          type: array
+                          items: {$ref: '#/components/schemas/LoggedFoodItem'}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v2/media/form-check:
+    post:
+      operationId: checkFormVideo
+      description: AI technique remarks on a short training video (at most 60 s, a few a day).
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [video]
+              properties:
+                video: {type: string, format: binary}
+                caption: {type: string}
+                seconds: {type: number}
+      responses:
+        '200':
+          description: The remarks, or why the clip was not checked
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {type: boolean}
+                        text: {type: string}
+                        reason: {type: string, enum: [too_big, too_long, limit, failed]}
+                        limit: {type: integer}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v2/media/transcribe:
+    post:
+      operationId: transcribeAudio
+      description: Speech to text for a voice clip recorded in the app.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              properties:
+                audio: {type: string, format: binary}
+      responses:
+        '200':
+          description: The transcript (empty when nothing was understood)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [text]
+                      properties:
+                        text: {type: string}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/photocompare:
     post:
       operationId: sendPhotoCompare
@@ -1335,12 +1684,114 @@ paths:
                           type: array
                           items: {$ref: '#/components/schemas/SquadInfo'}
                   required: [data]
+    post:
+      operationId: editSquads
+      description: 'create an app squad (title), join one by invite code, or leave one (id).'
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: {type: string, enum: [create, join, leave]}
+                title: {type: string, maxLength: 40, description: 'action=create'}
+                code: {type: string, maxLength: 16, description: 'action=join'}
+                id: {type: integer, description: 'action=leave: the squad id from getSquads'}
+      responses:
+        '200':
+          description: Result
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {type: boolean}
+                        id: {type: integer, description: 'action=create'}
+                        reason: {type: string, enum: [joined, already, not_found, full, too_many]}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/trainers:
+    get:
+      operationId: listTrainers
+      security:
+      - telegramInitData: []
+      description: Approved trainers taking clients (the "choose a trainer" list) and the caller's pending request.
+      responses:
+        '200':
+          description: Directory
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [role, trainers, pending]
+                      properties:
+                        role: {type: string, enum: [solo, trainer, client]}
+                        trainers:
+                          type: array
+                          items:
+                            type: object
+                            required: [id, name, specialization, city, experienceYears, priceOnline, currency, bio]
+                            properties:
+                              id: {type: integer}
+                              name: {type: string}
+                              specialization: {type: string}
+                              city: {type: string}
+                              experienceYears: {type: ['integer', 'null']}
+                              priceOnline: {type: ['number', 'null']}
+                              currency: {type: ['string', 'null']}
+                              bio: {type: string}
+                        pending:
+                          anyOf:
+                          - {type: 'null'}
+                          - type: object
+                            required: [trainerId, name]
+                            properties:
+                              trainerId: {type: integer}
+                              name: {type: string}
+                  required: [data]
+    delete:
+      operationId: cancelTrainerRequest
+      security:
+      - telegramInitData: []
+      description: Withdraw the caller's pending request to a trainer.
+      responses:
+        '200':
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
     post:
       operationId: requestTrainer
       security:
       - telegramInitData: []
-      description: Send a join request to a trainer the caller already knows the id of -- no public trainer directory exists.
+      description: Send a join request to a trainer, chosen from the directory or known by id.
       requestBody:
         required: true
         content:
@@ -1852,6 +2303,37 @@ paths:
       responses:
         '200':
           description: Photo request sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {const: true}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/client/{id}/draft:
+    post:
+      operationId: decideClientDraft
+      description: Assign the client's draft plan (it becomes their active plan and they are notified) or discard it.
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer}
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: {type: string, enum: [assign, discard]}
+      responses:
+        '200':
+          description: Done
           content:
             application/json:
               schema:
@@ -2526,6 +3008,39 @@ components:
             p: {type: number}
             f: {type: number}
             c: {type: number}
+    ChatThread:
+      type: object
+      required: [peer, messages]
+      properties:
+        peer:
+          type: object
+          required: [id, name, isTrainer]
+          properties:
+            id: {type: integer}
+            name: {type: string}
+            isTrainer: {type: boolean, description: The peer is the viewer's trainer}
+        messages:
+          type: array
+          items:
+            type: object
+            required: [id, fromMe, text, createdAt, read]
+            properties:
+              id: {type: integer}
+              fromMe: {type: boolean}
+              text: {type: string}
+              createdAt: {type: string}
+              read: {type: boolean, description: 'For own messages: the peer has opened the thread since'}
+    LoggedFoodItem:
+      type: object
+      required: [desc, kcal, protein, fats, carbs]
+      properties:
+        desc: {type: string, maxLength: 80}
+        kcal: {type: number, minimum: 0, maximum: 3000}
+        protein: {type: number, minimum: 0, maximum: 300}
+        fats: {type: number, minimum: 0, maximum: 300}
+        carbs: {type: number, minimum: 0, maximum: 500}
+        grams: {type: number, minimum: 0, maximum: 3000}
+        query: {type: string, maxLength: 60}
     NutritionRequest:
       description: >-
         One action per request; each reads only its own fields (src/webapp/nutritionApi.ts).
@@ -2539,7 +3054,12 @@ components:
           type: string
           enum: [del, scale, grams, macros, recipe, recover, readd, dbsearch, dbadd, barcode,
                  grocery, grocery_send, mealplan_regen, mealplan_item_del, mealplan_item_scale,
-                 mealplan_item_grams]
+                 mealplan_item_grams, add_items]
+        items:
+          type: array
+          maxItems: 12
+          description: 'action=add_items: the confirmed items of a meal-photo estimate.'
+          items: {$ref: '#/components/schemas/LoggedFoodItem'}
         index: {type: number, description: 'Logged-meal index: del | scale | grams | macros | recipe'}
         factor: {type: number, enum: [0.5, 1.5, 2], description: 'scale | mealplan_item_scale'}
         grams: {type: number, minimum: 1, maximum: 5000, description: 'grams | dbadd | mealplan_item_grams'}
@@ -2607,6 +3127,22 @@ components:
           items: {type: integer, minimum: 1, maximum: 7}
         limitations: {type: string, maxLength: 500}
         baselineLifts: {type: string, maxLength: 200, description: 'Optional current lifts, e.g. "bench 60kg, squat 80kg, deadlift 100kg" — sets starting weights'}
+        sessionMinutes:
+          type: integer
+          enum: [30, 45, 60, 90]
+        lifestyle:
+          type: string
+          enum: [sedentary, moderate, active]
+        sleepSchedule:
+          type: string
+          enum: [morning, evening]
+        timezone: {type: string, maxLength: 64, description: IANA zone from the device; saved only when the profile has none}
+        share:
+          type: object
+          description: A trainer's client's answer to what the trainer may see; ignored for other roles.
+          properties:
+            body: {type: boolean}
+            health: {type: boolean}
     ChallengeRequest:
       type: object
       required: [code]
@@ -2757,6 +3293,7 @@ components:
               type: string
               enum: [solo, trainer, client]
             onboarded: {type: boolean}
+            planPending: {type: boolean, description: 'Questionnaire submitted, plan still being built'}
         lang:
           type: string
           enum: [uk, en]
@@ -3586,8 +4123,11 @@ components:
             required: [code, name, takenCount]
     SquadInfo:
       type: object
-      required: [title, memberCount, entries, total, silent]
+      required: [id, app, inviteLink, title, memberCount, entries, total, silent]
       properties:
+        id: {type: integer}
+        app: {type: boolean, description: Made in the Mini App (no Telegram group)}
+        inviteLink: {type: ['string', 'null'], description: 'App squads: t.me link that joins the squad'}
         title:
           type: [string, 'null']
         memberCount: {type: integer}
@@ -3780,6 +4320,16 @@ components:
       type: object
       required: [client, note, shared, noteHistory, messages, dashboard]
       properties:
+        draft:
+          description: A plan draft waiting for the trainer (after onboarding, or a weekly progression proposal).
+          anyOf:
+          - {type: 'null'}
+          - type: object
+            required: [days, exercises, createdAt]
+            properties:
+              days: {type: integer}
+              exercises: {type: integer}
+              createdAt: {type: string}
         client:
           type: object
           properties:

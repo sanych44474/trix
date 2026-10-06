@@ -1,4 +1,5 @@
 // /start and the onboarding interview entry points.
+import { joinByInviteCode } from "../webapp/squadApi";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { UserDoc } from "../types";
@@ -12,12 +13,16 @@ import { trainerMenu } from "../features/trainer/trainerCommon";
 import { onboardingStep, renderObStep } from "./onboarding";
 import { langMenu } from "./keyboards";
 import { showNextBestAction } from "./nextBestAction";
+import { sendOnboardingPrompt } from "./onboardingApp";
+import { sendLauncher } from "./launcher";
 import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 
 // Start (or restart) the deterministic button-based intake wizard (no per-turn AI).
 export async function startInterview(ctx: MyContext) {
   await updateUser(ctx.db, ctx.user._id, { session: { mode: "onboarding", step: 0 } });
   ctx.user.session = { mode: "onboarding", step: 0 };
+  // The questionnaire is a Mini App screen; the chat wizard is only the no-app fallback.
+  if (await sendOnboardingPrompt(ctx)) return;
   await renderObStep(ctx, 0);
 }
 
@@ -25,6 +30,7 @@ export async function startInterview(ctx: MyContext) {
 export async function cmdInterview(ctx: MyContext) {
   const lang = ctx.user.lang;
   if (ctx.user.session.mode === "onboarding") {
+    if (await sendOnboardingPrompt(ctx)) return;
     await onboardingStep(ctx); // resume where they left off
     return;
   }
@@ -91,6 +97,14 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
       }
     }
   }
+  // Squad invite from the app (t.me/<bot>?start=sq_CODE): join, then open the squads screen.
+  if (payload?.startsWith("sq_")) {
+    const result = await joinByInviteCode(ctx.db, u._id, payload.slice(3)).catch(() => "not_found" as const);
+    await reply(ctx, t(lang, `squad_invite_${result}`)).catch(() => {});
+    if (await sendLauncher(ctx, "more")) return;
+  }
+  // With the Mini App, a plain /start (or one after a referral or buddy link) only points there.
+  if (await sendLauncher(ctx)) return;
   if (u.session.mode === "plan_pending") {
     await resumePendingPlan(ctx);
     return;

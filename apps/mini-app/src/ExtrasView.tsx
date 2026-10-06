@@ -1,10 +1,15 @@
 // The "More" screen (lazy chunk): library, squads, plates, week card, profile photo, extras.
+import { FormCheck } from "./media/FormCheck";
+import { ImportCsv } from "./media/ImportCsv";
+import { SquadsCard } from "./Squads";
+import { FindTrainer } from "./FindTrainer";
 import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
-import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, ProfilePhoto, SquadInfo, TrainerProfile, WeekCardResponse } from "./types";
-import { t, type Key, type Lang } from "./i18n";
+import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, ProfilePhoto, WeekCardResponse } from "./types";
+import { t, type Lang } from "./i18n";
 import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
 import { ReleaseItems } from "./WhatsNew";
+import { BecomeTrainerCard } from "./BecomeTrainer";
 import { formatNumber, Card, Metric, Empty, ErrorState, photoUrl, apiUpload, composeCompare, drawWeekCard } from "./App";
 
 export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Dashboard["viewer"]["role"]; onOpenLibrary: () => void }) {
@@ -93,60 +98,8 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
     catch (err) { setLibraryError(err); } finally { setTakingCode(null); }
   };
 
-  // find a trainer (send a join request by trainer id -- there is no public trainer directory
-  // in this product; see src/features/trainer/trainer.ts's openFindTrainer comment. This reuses
-  // the exact same request record extrasApi.ts's /api/trainers already creates via createRequest,
-  // the same one the trainer's own Requests inbox accepts/declines)
-  const [trainerId, setTrainerId] = useState("");
-  const [trainerNote, setTrainerNote] = useState("");
-  const [trainerBusy, setTrainerBusy] = useState(false);
-  const [trainerSent, setTrainerSent] = useState(false);
-  const [trainerError, setTrainerError] = useState<unknown>(null);
-  const sendTrainerRequest = async () => {
-    const id = Number(trainerId);
-    if (!Number.isFinite(id) || id <= 0) return;
-    setTrainerBusy(true); setTrainerError(null); setTrainerSent(false);
-    try {
-      await api("/api/v2/trainers", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"requestTrainer">({ trainerId: id, ...(trainerNote.trim() ? { note: trainerNote.trim() } : {}) }) });
-      setTrainerSent(true); setTrainerId(""); setTrainerNote("");
-    } catch (err) { setTrainerError(err); } finally { setTrainerBusy(false); }
-  };
-
-  // become a trainer -- reuses the exact same /api/v2/trainer/profile POST the bot's own
-  // trainer-profile wizard and TrainerProfilePanel (Workspace.tsx) use: when the caller has no
-  // v2_trainers row yet, extrasApi.ts's handler treats the same body as a NEW application
-  // (applyTrainer, pending owner approval) instead of an edit. TrainerProfilePanel itself isn't
-  // reachable here -- it only renders inside TrainerWorkspace, which is gated to role==="trainer"
-  // already, so a solo user applying for the first time could never reach it. The same GET also
-  // tells an applicant where they stand: without it, a pending application looked identical to
-  // never having applied (the form just reappeared blank on every open).
-  const [trainerApp, setTrainerApp] = useState<TrainerProfile | null | undefined>(undefined);
-  const [becomeName, setBecomeName] = useState("");
-  const [becomeSpecialization, setBecomeSpecialization] = useState("");
-  const [becomeCity, setBecomeCity] = useState("");
-  const [becomeContact, setBecomeContact] = useState("");
-  const [becomeBio, setBecomeBio] = useState("");
-  const [becomeBusy, setBecomeBusy] = useState(false);
-  const [becomeSent, setBecomeSent] = useState(false);
-  const [becomeError, setBecomeError] = useState<unknown>(null);
-  const loadTrainerApp = () => {
-    api<{ trainer: TrainerProfile | null }>("/api/v2/trainer/profile").then((data) => {
-      setTrainerApp(data.trainer);
-      if (!data.trainer) return;
-      setBecomeName(data.trainer.name); setBecomeSpecialization(data.trainer.specialization);
-      setBecomeCity(data.trainer.city); setBecomeContact(data.trainer.contact); setBecomeBio(data.trainer.bio);
-    }).catch(() => setTrainerApp(null));
-  };
-  useEffect(loadTrainerApp, []);
-  const applyAsTrainer = async () => {
-    if (!becomeName.trim()) return;
-    setBecomeBusy(true); setBecomeError(null); setBecomeSent(false);
-    try {
-      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateTrainerProfile">({ name: becomeName.trim(), specialization: becomeSpecialization.trim(), city: becomeCity.trim(), contact: becomeContact.trim(), bio: becomeBio.trim() }) });
-      setBecomeSent(true);
-      loadTrainerApp();
-    } catch (err) { setBecomeError(err); } finally { setBecomeBusy(false); }
-  };
+  // Choose a trainer: the directory of approved trainers taking clients (FindTrainer), full screen.
+  const [findTrainer, setFindTrainer] = useState(false);
 
   // squads
   // /api/v2/whatsnew was registered in v2Api.ts but nothing ever called it -- the release note
@@ -155,10 +108,8 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
   const [whatsnew, setWhatsnew] = useState<{ version: string; html: string; text?: string } | null>(null);
   useEffect(() => { api<{ version: string; html: string; text?: string }>("/api/v2/whatsnew").then(setWhatsnew).catch(() => setWhatsnew(null)); }, []);
 
-  const [squads, setSquads] = useState<SquadInfo[] | null>(null);
-  const [squadsError, setSquadsError] = useState<unknown>(null);
-  const loadSquads = () => { setSquadsError(null); api<{ squads: SquadInfo[] }>("/api/v2/squads").then((data) => setSquads(data.squads)).catch(setSquadsError); };
-  useEffect(loadSquads, []);
+
+  if (findTrainer) return <FindTrainer lang={lang} onBack={() => setFindTrainer(false)} onAccepted={() => window.location.reload()} />;
 
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "extras_eyebrow")}</div>
@@ -168,6 +119,11 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
       <div className="section-head"><div><span className="eyebrow">{t(lang, "exlib_eyebrow")}</span><h2>{t(lang, "library_card_title")}</h2></div><span className="action-arrow">📚</span></div>
       <p>{t(lang, "library_card_body")}</p>
       <div className="button-row"><button className="button button-light" onClick={onOpenLibrary}>{t(lang, "library_open_btn")}</button></div>
+    </Card>
+
+    <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "form_check_eyebrow")}</span><h2>{t(lang, "form_check_title")}</h2></div><span className="action-arrow">🎥</span></div>
+      <FormCheck lang={lang} />
     </Card>
 
     <Card>
@@ -237,16 +193,8 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
 
     {role === "solo" && <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "trainer_find_eyebrow")}</span><h2>{t(lang, "trainer_find_title")}</h2></div></div>
-      <p className="muted">{t(lang, "trainer_find_detail")}</p>
-      <div className="form-grid">
-        <label className="form-field"><span>{t(lang, "field_trainer_id")}</span><input type="number" value={trainerId} onChange={(event) => setTrainerId(event.target.value)} /></label>
-        <label className="form-field"><span>{t(lang, "field_note_optional")}</span><input value={trainerNote} maxLength={300} onChange={(event) => setTrainerNote(event.target.value)} /></label>
-      </div>
-      <div className="button-row" style={{ marginTop: 10 }}>
-        <button className="button button-primary" disabled={trainerBusy || !trainerId.trim()} onClick={() => void sendTrainerRequest()}>{trainerBusy ? t(lang, "saving_ellipsis") : t(lang, "trainer_request_btn")}</button>
-      </div>
-      {trainerSent && <div className="save-note">{t(lang, "trainer_request_sent_note")}</div>}
-      {trainerError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
+      <p className="muted">{t(lang, "trainer_find_app_detail")}</p>
+      <div className="button-row"><button className="button button-primary" onClick={() => setFindTrainer(true)}>{t(lang, "ob_role_trainer_btn")}</button></div>
     </Card>}
 
     {whatsnew && <Card>
@@ -254,32 +202,12 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
       {whatsnew.text ? <ReleaseItems text={whatsnew.text} /> : <pre className="owner-report">{whatsnew.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")}</pre>}
     </Card>}
 
-    {trainerApp !== undefined && (trainerApp !== null || role === "solo") && <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "become_trainer_eyebrow")}</span><h2>{trainerApp ? t(lang, "trainer_profile_edit_title") : t(lang, "become_trainer_title")}</h2></div>{trainerApp && <span className="tag">{t(lang, "trainer_clients_count", { n: trainerApp.clients })}</span>}</div>
-      {becomeSent && !trainerApp ? <p className="muted">{t(lang, "become_trainer_pending_note")}</p> : <>
-        {trainerApp ? <p className="muted"><strong>{t(lang, `trainer_status_${trainerApp.status}_title` as Key)}</strong> — {t(lang, `trainer_status_${trainerApp.status}_body` as Key)}</p> : <p className="muted">{t(lang, "become_trainer_detail")}</p>}
-        <div className="form-grid">
-          <label className="form-field"><span>{t(lang, "field_name")}</span><input value={becomeName} maxLength={60} onChange={(event) => setBecomeName(event.target.value)} /></label>
-          <label className="form-field"><span>{t(lang, "field_specialization")}</span><input value={becomeSpecialization} maxLength={120} onChange={(event) => setBecomeSpecialization(event.target.value)} /></label>
-          <label className="form-field"><span>{t(lang, "field_city")}</span><input value={becomeCity} maxLength={60} onChange={(event) => setBecomeCity(event.target.value)} /></label>
-          <label className="form-field"><span>{t(lang, "field_contact")}</span><input value={becomeContact} maxLength={120} onChange={(event) => setBecomeContact(event.target.value)} /></label>
-        </div>
-        <label className="form-field"><span>{t(lang, "field_bio")}</span><textarea value={becomeBio} maxLength={600} onChange={(event) => setBecomeBio(event.target.value)} /></label>
-        <div className="button-row" style={{ marginTop: 10 }}>
-          <button className="button button-primary" disabled={becomeBusy || !becomeName.trim()} onClick={() => void applyAsTrainer()}>{becomeBusy ? t(lang, "saving_ellipsis") : t(lang, trainerApp ? "save_profile_btn" : "become_trainer_btn")}</button>
-        </div>
-        {becomeSent && trainerApp && <div className="save-note">{t(lang, "profile_updated_note")}</div>}
-        {becomeError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
-      </>}
-    </Card>}
+    {role === "solo" || role === "trainer" ? <BecomeTrainerCard lang={lang} role={role} /> : null}
 
+    <SquadsCard lang={lang} />
     <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "squads_eyebrow")}</span><h2>{t(lang, "squads_title")}</h2></div></div>
-      {squadsError !== null ? <ErrorState lang={lang} error={squadsError} retry={loadSquads} /> : !squads ? <div className="skeleton" /> : squads.length === 0 ? <Empty title={t(lang, "squads_empty_title")} detail={t(lang, "squads_empty_detail")} /> : squads.map((s, i) => <div key={i} style={{ marginBottom: i < squads.length - 1 ? 18 : 0 }}>
-        <div className="section-head"><strong>{s.title || t(lang, "squads_default_title")}</strong><span className="tag">{t(lang, "squads_members_count", { n: s.memberCount })}</span></div>
-        <div className="volume-list">{s.entries.map((e) => <div className="volume-row" key={e.name}><div><strong>{e.medal} {e.name}</strong>{e.me && <small>{t(lang, "you_label")}</small>}</div><span>{e.workouts}</span></div>)}</div>
-        <p className="muted" style={{ marginTop: 6 }}>{s.silent > 0 ? t(lang, "squads_silent_hint", { n: s.silent, total: s.total }) : t(lang, "squads_all_in_hint", { total: s.total })}</p>
-      </div>)}
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "import_app_eyebrow")}</span><h2>{t(lang, "import_app_title")}</h2></div></div>
+      <ImportCsv lang={lang} />
     </Card>
     <AppShortcutsCard lang={lang} />
     <SupportCard lang={lang} />

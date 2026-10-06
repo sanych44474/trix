@@ -27,3 +27,15 @@ export function setAppUrl(v: string | undefined, path = "/app"): void {
 export function dashboardUrl(): string | undefined {
   return APP_URL ? `${APP_URL}${APP_PATH}?v=${APP_VERSION}` : undefined;
 }
+
+/** Mini App link for ctx-free senders (scheduler, webapp handlers), optionally opening a screen. */
+export function appViewUrlFromEnv(env: { WORKER_URL?: string; V2_APP_ENABLED?: string }, view?: string): string | undefined {
+  if (!env.WORKER_URL) return undefined;
+  const path = env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app";
+  return `${env.WORKER_URL}${path}?v=${APP_VERSION}${view ? `&view=${view}` : ""}`;
+}
+
+/** reply_markup with one web_app button, for a raw Bot API sendMessage. */
+export function webAppMarkup(text: string, url: string) {
+  return { inline_keyboard: [[{ text, web_app: { url } }]] };
+}

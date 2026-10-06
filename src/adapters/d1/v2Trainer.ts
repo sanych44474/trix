@@ -481,6 +481,20 @@ export async function pendingRequestsForTrainer(db: DB, trainerId: number): Prom
   return (r.results ?? []).map(toRequest);
 }
 
+/** Approved trainers taking clients, for the "choose a trainer" list (complete profiles first). */
+export async function listDirectoryTrainers(db: DB, limit = 30): Promise<TrainerDoc[]> {
+  const r = await db
+    .prepare(`${SELECT_TRAINER} WHERE status = 'approved' AND accepting = 1 ORDER BY profileComplete DESC, approvedAt ASC LIMIT ?`)
+    .bind(limit)
+    .all<V2TrainerRow>();
+  return (r.results ?? []).map(toTrainer);
+}
+
+/** A client withdraws their pending request (there is at most one, see createRequest). */
+export async function cancelPendingRequest(db: DB, clientId: number): Promise<void> {
+  await db.prepare("UPDATE v2_trainer_requests SET status='cancelled' WHERE clientId=? AND status='pending'").bind(clientId).run();
+}
+
 export async function pendingRequestForClient(db: DB, clientId: number): Promise<ClientRequestDoc | null> {
   const r = await db
     .prepare("SELECT * FROM v2_trainer_requests WHERE clientId=? AND status='pending' ORDER BY createdAt DESC LIMIT 1")
@@ -543,15 +557,42 @@ export async function listQuestionsForClient(db: DB, clientId: number, limit = 2
   return (r.results ?? []).map(toQuestion);
 }
 
-export async function insertMessage(db: DB, fromId: number, toId: number, text: string): Promise<void> {
-  await db.prepare("INSERT INTO v2_messages (fromAccountId, toAccountId, text, createdAt) VALUES (?, ?, ?, ?)")
-    .bind(fromId, toId, text, nowIso()).run();
+export async function insertMessage(db: DB, fromId: number, toId: number, text: string): Promise<number> {
+  const row = await db.prepare("INSERT INTO v2_messages (fromAccountId, toAccountId, text, createdAt) VALUES (?, ?, ?, ?) RETURNING id")
+    .bind(fromId, toId, text, nowIso()).first<{ id: number }>();
   let from: { name: string | null } | null = null;
   try { from = await db.prepare("SELECT name FROM v2_profiles WHERE accountId = ?").bind(fromId).first<{ name: string | null }>(); } catch { /* name is optional */ }
   await recordInbox(db, toId, "message", { fromId, fromName: from?.name ?? "", preview: text.slice(0, 120) });
+  return row?.id ?? 0;
+}
+
+/** The reader opened the thread with `peerId`: everything the peer sent them is now read. */
+export async function markThreadRead(db: DB, readerId: number, peerId: number): Promise<void> {
+  await db.prepare("UPDATE v2_messages SET readAt = ? WHERE toAccountId = ? AND fromAccountId = ? AND readAt IS NULL")
+    .bind(nowIso(), readerId, peerId).run();
+}
+
+/** Unread messages per sender for one reader. */
+export async function unreadBySender(db: DB, readerId: number): Promise<Record<number, number>> {
+  const r = await db
+    .prepare("SELECT fromAccountId AS fromId, COUNT(*) AS n FROM v2_messages WHERE toAccountId = ? AND readAt IS NULL GROUP BY fromAccountId")
+    .bind(readerId)
+    .all<{ fromId: number; n: number }>();
+  return Object.fromEntries((r.results ?? []).map((x) => [x.fromId, x.n]));
+}
+
+/** Messages from `fromId` the reader has not opened yet, sent after `sinceIso`. */
+export async function unreadFromSince(db: DB, readerId: number, fromId: number, sinceIso: string): Promise<number> {
+  const row = await db
+    .prepare("SELECT COUNT(*) AS n FROM v2_messages WHERE toAccountId = ? AND fromAccountId = ? AND readAt IS NULL AND createdAt >= ?")
+    .bind(readerId, fromId, sinceIso)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
 }
 
 export interface MessageEntry {
+  id: number;
+  readAt: string | null;
   fromId: number;
   toId: number;
   text: string;
@@ -563,7 +604,7 @@ export interface MessageEntry {
 export async function listMessages(db: DB, trainerId: number, clientId: number, limit = 100): Promise<MessageEntry[]> {
   const r = await db
     .prepare(
-      `SELECT fromAccountId AS fromId, toAccountId AS toId, text, createdAt FROM v2_messages
+      `SELECT id, readAt, fromAccountId AS fromId, toAccountId AS toId, text, createdAt FROM v2_messages
        WHERE (fromAccountId = ?1 AND toAccountId = ?2) OR (fromAccountId = ?2 AND toAccountId = ?1)
        ORDER BY createdAt DESC, id DESC LIMIT ?3`,
     )

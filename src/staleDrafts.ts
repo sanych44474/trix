@@ -9,6 +9,7 @@
 //  - a client with no trainer any more (relationship ended, trainer deleted) gets the draft at once.
 // Only clients with NO active plan are touched: a draft next to an active plan is a weekly
 // progression proposal, which stays the trainer's call.
+import type { Lang } from "./types";
 import { assignDraftPlan } from "./adapters/d1/v2Plans";
 import { getUser } from "./adapters/d1/v2Users";
 import { getSetting, setSetting } from "./adapters/d1/v2Admin";
@@ -40,7 +41,13 @@ export async function listOrphanDrafts(db: D1Database, limit = 50): Promise<Arra
 
 type Send = (chatId: number, text: string, extra?: Record<string, unknown>) => Promise<unknown>;
 
-export async function sweepStaleDrafts(db: D1Database, send: Send, now = Date.now()): Promise<{ reminded: number; activated: number }> {
+/** Builds the reply_markup for "open this client" (app button, or the old callback without the app). */
+type ClientButton = (lang: Lang, clientId: number, fallback: string) => Record<string, unknown>;
+const callbackButton: ClientButton = (lang, clientId, fallback) => ({ inline_keyboard: [[{ text: t(lang, "cc_plan"), callback_data: fallback.replace("{id}", String(clientId)) }]] });
+
+export async function sweepStaleDrafts(
+  db: D1Database, send: Send, now = Date.now(), clientButton: ClientButton = callbackButton, todayButton?: (lang: Lang) => Record<string, unknown> | undefined,
+): Promise<{ reminded: number; activated: number }> {
   const drafts = await listOrphanDrafts(db);
   const raw = await getSetting(db, STATE_KEY).catch(() => null);
   let state: Record<string, string> = {};
@@ -56,21 +63,16 @@ export async function sweepStaleDrafts(db: D1Database, send: Send, now = Date.no
     const step = staleDraftStep(ageHours, !!trainer, !!state[key]);
     const who = escapeHtml(client.profile.name ?? `id ${client._id}`);
     if (step === "remind" && trainer) {
-      const reply_markup = {
-        inline_keyboard: [[
-          { text: t(trainer.lang, "cc_plan"), callback_data: `cl:${client._id}:plan` },
-          { text: t(trainer.lang, "cc_assign"), callback_data: `cl:${client._id}:assign` },
-        ]],
-      };
+      const reply_markup = clientButton(trainer.lang, client._id, "cl:{id}:plan");
       await send(trainer.chatId, t(trainer.lang, "draft_stale_trainer", { name: who, days: Math.round(ACTIVATE_H / 24) }), { parse_mode: "HTML", reply_markup }).catch(() => {});
       next[key] = new Date(now).toISOString();
       reminded++;
     } else if (step === "activate") {
       if (!(await assignDraftPlan(db, client._id))) continue;
       activated++;
-      await send(client.chatId, t(client.lang, "draft_auto_client"), { parse_mode: "HTML" }).catch(() => {});
+      await send(client.chatId, t(client.lang, "draft_auto_client"), { parse_mode: "HTML", ...(todayButton ? { reply_markup: todayButton(client.lang) } : {}) }).catch(() => {});
       if (trainer) {
-        const reply_markup = { inline_keyboard: [[{ text: t(trainer.lang, "cc_plan"), callback_data: `cl:${client._id}:plan` }]] };
+        const reply_markup = clientButton(trainer.lang, client._id, "cl:{id}:plan");
         await send(trainer.chatId, t(trainer.lang, "draft_auto_trainer", { name: who }), { parse_mode: "HTML", reply_markup }).catch(() => {});
       }
     } else if (state[key]) {

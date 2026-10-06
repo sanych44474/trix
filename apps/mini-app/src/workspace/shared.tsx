@@ -2,7 +2,7 @@
 import type { Dashboard, TrainerProfile } from "../types";
 import { t, type Lang } from "../i18n";
 
-export type WorkspaceProps = { dashboard: Dashboard; lang: Lang; onOpenPlan?: (clientId?: number) => void };
+export type WorkspaceProps = { dashboard: Dashboard; lang: Lang; onOpenPlan?: (clientId?: number) => void; /** Deep link: open this client's card. */ initialClientId?: number | null };
 
 export type Buddy = {
   buddy: null | {

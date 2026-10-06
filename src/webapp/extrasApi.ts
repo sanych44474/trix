@@ -15,6 +15,7 @@ import { setActivePlan } from "../adapters/d1/v2Plans";
 import {
   applyTrainer,
   bumpSharedTaken,
+  cancelPendingRequest,
   countClientsOf,
   createProspect,
   createRequest,
@@ -23,8 +24,10 @@ import {
   getSharedProgram,
   getTrainer,
   linkClient,
+  listDirectoryTrainers,
   listProspects,
   listPublicPrograms,
+  pendingRequestForClient,
   pendingRequestsForTrainer,
   setRequestStatus,
   updateTrainer,
@@ -45,6 +48,8 @@ import { isSupportAmount } from "../adapters/d1/v2Support";
 import { supportInvoice } from "../bot/support";
 import { botDeepLink } from "../bot/links";
 import { shortCode } from "../features/trainer/trainerCommon";
+import { appViewUrlFromEnv, webAppMarkup } from "../bot/appLinks";
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "../bot/onboardingApp";
 
 async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
   await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -237,9 +242,18 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     const client = await getUser(env.DB, r.clientId).catch(() => null);
     if (client) {
       const trainerName = escapeHtml(user.profile.name ?? "trainer");
+      const appOnboarding = onboardingUrlFromEnv(env);
+      const appHome = appViewUrlFromEnv(env, "settings");
       if (client.onboarded) {
         await updateUser(env.DB, client._id, { session: { mode: "idle" } });
-        await tgSend(env, client.chatId, t(client.lang, "client_transferred", { name: trainerName }));
+        // In the app the transferred client sets what the trainer sees under Settings.
+        await tgSend(env, client.chatId, `${t(client.lang, "client_transferred", { name: trainerName })}\n\n${t(client.lang, "share_prompt_new")}`, appHome ? webAppMarkup(t(client.lang, "launch_open_btn"), appHome) : undefined);
+        if (appHome) return Response.json({ ok: true });
+      } else if (appOnboarding) {
+        // The questionnaire (which also asks what the trainer may see) is in the app.
+        await updateUser(env.DB, client._id, { session: { mode: "onboarding", step: 0 } });
+        await tgSend(env, client.chatId, `${t(client.lang, "client_accepted", { name: trainerName })}\n\n${t(client.lang, "ob_app_prompt")}`, onboardingAppMarkup(client.lang, appOnboarding));
+        return Response.json({ ok: true });
       } else {
         await updateUser(env.DB, client._id, { session: { mode: "onboarding", step: 0 } });
         const steps = obSteps(client.lang);
@@ -261,6 +275,27 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
 
   // ---- Send a request to a trainer the client already knows (invite link / code) ----
   if (path === "/api/trainers") {
+    // The "choose a trainer" list, plus the caller's own pending request if there is one.
+    if (req.method === "GET") {
+      const [list, pending] = await Promise.all([
+        listDirectoryTrainers(env.DB).catch(() => []),
+        pendingRequestForClient(env.DB, user._id).catch(() => null),
+      ]);
+      const pendingTrainer = pending ? list.find((tr) => tr.trainerId === pending.trainerId) ?? (await getTrainer(env.DB, pending.trainerId).catch(() => null)) : null;
+      return Response.json({
+        role: user.role,
+        trainers: list.filter((tr) => tr.trainerId !== user._id).map((tr) => ({
+          id: tr.trainerId, name: tr.name, specialization: tr.specialization ?? "", city: tr.city ?? "",
+          experienceYears: tr.experienceYears ?? null, priceOnline: tr.priceOnline ?? null, currency: tr.currency ?? null,
+          bio: (tr.bio ?? "").slice(0, 280),
+        })),
+        pending: pending ? { trainerId: pending.trainerId, name: pendingTrainer?.name ?? "" } : null,
+      }, noStore);
+    }
+    if (req.method === "DELETE") {
+      await cancelPendingRequest(env.DB, user._id);
+      return Response.json({ ok: true });
+    }
     if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
     if (user.role !== "solo") return bad();
     const parsed = await readJsonBody(req);
@@ -273,10 +308,10 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     const note = v.value.note?.trim();
     const reqId = await createRequest(env.DB, user._id, trainer._id, note);
     const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
-    const kb = { inline_keyboard: [[
-      { text: t(trainer.lang, "req_accept"), callback_data: `req:accept:${reqId}` },
-      { text: t(trainer.lang, "req_decline"), callback_data: `req:decline:${reqId}` },
-    ]] };
+    void reqId;
+    // The chat is retired: the trainer accepts or declines in the app (Workspace → requests).
+    const requestsUrl = appViewUrlFromEnv(env, "role");
+    const kb = requestsUrl ? webAppMarkup(t(trainer.lang, "req_open_app_btn"), requestsUrl) : undefined;
     await tgSend(env, trainer.chatId, t(trainer.lang, "trainer_new_request", { name: who }) + (note ? `\n💬 ${escapeHtml(note)}` : ""), kb);
     return Response.json({ ok: true });
   }

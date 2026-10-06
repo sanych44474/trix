@@ -1,7 +1,7 @@
 // The Sunday digest: the week's workouts, food, steps and weight, the muscle week with its badges
 // and body-map picture, and next week's quests. Called by processUser (scheduler.ts); returns true
 // when it sent something (one user-facing message per tick).
-import { InlineKeyboard } from "grammy";
+import { appKeyboard } from "../notify/appKeyboard";
 import { isoDateMinus } from "../features/gamification/boards";
 import type { Env, Lang, UserDoc } from "../types";
 import { listStrength, workoutLogsSince } from "../adapters/d1/v2Workouts";
@@ -77,9 +77,10 @@ export async function weeklyDigest(p: WeeklyDigestCtx): Promise<boolean> {
     const plan = await getActivePlan(db, user._id).catch(() => null);
     const quests = pickQuests(nextMonday, toLoggedDays(wl), plannedDayCount(user.profile.trainingWeekdays, plan?.split));
     parts.push("", ...renderQuestLines(lang, quests));
-    const kb = new InlineKeyboard()
-      .text(t(lang, "menu_progress"), "menu:progress")
-      .text(t(lang, "wcard_btn"), "share:week");
+    const kb = appKeyboard(env, [[
+      { text: t(lang, "menu_progress"), view: "progress", fallback: "menu:progress" },
+      { text: t(lang, "wcard_btn"), view: "more", fallback: "share:week" },
+    ]]);
     // With a picture: Telegram fetches the map from the signed link (drawn in its own request),
     // the text rides as the caption. Any failure there falls back to the plain text digest.
     let sentAsPhoto = false;
@@ -87,13 +88,13 @@ export async function weeklyDigest(p: WeeklyDigestCtx): Promise<boolean> {
       sentAsPhoto = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: user.chatId, photo: photoUrl, caption: parts.join("\n").slice(0, 1024), parse_mode: "HTML", reply_markup: { inline_keyboard: kb.inline_keyboard } }),
+        body: JSON.stringify({ chat_id: user.chatId, photo: photoUrl, caption: parts.join("\n").slice(0, 1024), parse_mode: "HTML", ...(kb ? { reply_markup: { inline_keyboard: kb.inline_keyboard } } : {}) }),
       })
         .then(async (res) => res.ok && ((await res.json()) as { ok?: boolean }).ok === true)
         .catch(() => false);
       if (sentAsPhoto) markSent("digest");
     }
-    if (!sentAsPhoto) await sendAndMark("digest", parts.join("\n"), { ...HTML, reply_markup: kb });
+    if (!sentAsPhoto) await sendAndMark("digest", parts.join("\n"), kb ? { ...HTML, reply_markup: kb } : HTML);
     return true;
   }
   return false;

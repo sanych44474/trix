@@ -221,3 +221,76 @@ test("/api/trainer/invite: approved trainer gets the tr_ link and makes named si
   const after = (await (await call("GET")).json()) as { prospects: Array<{ name: string; link: string }> };
   assert.deepEqual(after.prospects.map((p) => [p.name, p.link]), [["Olha", made.link]]);
 });
+
+// ---- "Choose a trainer" in the Mini App (the chat is retired) ----
+
+async function withTelegram<T>(run: (sent: Array<{ chat_id: number; text: string; reply_markup?: { inline_keyboard: Array<Array<{ web_app?: { url: string }; callback_data?: string }>> } }>) => Promise<T>): Promise<T> {
+  const sent: Array<{ chat_id: number; text: string }> = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: { body?: string }) => {
+    if (new URL(String(url)).hostname === "api.telegram.org" && init?.body) sent.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }) as unknown as typeof fetch;
+  try { return await run(sent as never); } finally { globalThis.fetch = realFetch; }
+}
+async function asUserWithApp(db: ReturnType<typeof newDb>, id: number, method: string, path: string, body?: unknown) {
+  const p = `${path}${path.includes("?") ? "&" : "?"}debugUser=${id}`;
+  return handleExtrasApi(req(method, p, body), u(p), { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t", WORKER_URL: "https://trix.example", V2_APP_ENABLED: "1" } as never);
+}
+async function approvedTrainer(db: ReturnType<typeof newDb>, id: number, name: string) {
+  await getOrCreateUser(db, id, id, "uk", name);
+  await updateUser(db, id, { role: "trainer" });
+  await applyTrainer(db, id, { name, specialization: "Strength", city: "Kyiv" });
+  await approveTrainer(db, id, `INV${id}`);
+}
+
+test("/api/trainers GET: lists approved trainers taking clients and the caller's pending request", async () => {
+  const db = newDb();
+  await approvedTrainer(db, 10, "Max");
+  await getOrCreateUser(db, 11, 11, "uk", "Pending");
+  await updateUser(db, 11, { role: "trainer" });
+  await applyTrainer(db, 11, { name: "Not approved" });
+  await getOrCreateUser(db, 20, 20, "uk", "Valeria");
+
+  const first = (await (await asUser(db, 20, "GET", "/api/trainers")).json()) as { trainers: { id: number; name: string; city: string }[]; pending: unknown };
+  assert.deepEqual(first.trainers.map((t) => t.id), [10]);
+  assert.equal(first.trainers[0].city, "Kyiv");
+  assert.equal(first.pending, null);
+
+  await withTelegram(() => asUser(db, 20, "POST", "/api/trainers", { trainerId: 10 }));
+  const after = (await (await asUser(db, 20, "GET", "/api/trainers")).json()) as { pending: { trainerId: number; name: string } };
+  assert.deepEqual(after.pending, { trainerId: 10, name: "Max" });
+
+  assert.equal((await asUser(db, 20, "DELETE", "/api/trainers")).status, 200);
+  const cancelled = (await (await asUser(db, 20, "GET", "/api/trainers")).json()) as { pending: unknown };
+  assert.equal(cancelled.pending, null);
+});
+
+test("/api/trainers POST: the trainer is told with an app button, not chat accept/decline buttons", async () => {
+  const db = newDb();
+  await approvedTrainer(db, 10, "Max");
+  await getOrCreateUser(db, 20, 20, "uk", "Valeria");
+  await withTelegram(async (sent) => {
+    assert.equal((await asUserWithApp(db, 20, "POST", "/api/trainers", { trainerId: 10 })).status, 200);
+    const msg = sent.find((m) => m.chat_id === 10)!;
+    const buttons = msg.reply_markup!.inline_keyboard.flat();
+    assert.ok(buttons.every((b) => !b.callback_data));
+    assert.match(buttons[0].web_app!.url, /view=role$/);
+  });
+});
+
+test("/api/requests accept (with the app): the new client gets one questionnaire button, no chat question or sharing prompt", async () => {
+  const db = newDb();
+  await approvedTrainer(db, 10, "Max");
+  await getOrCreateUser(db, 20, 20, "uk", "Valeria");
+  await withTelegram(async (sent) => {
+    await asUserWithApp(db, 20, "POST", "/api/trainers", { trainerId: 10 });
+    const { requests } = (await (await asUserWithApp(db, 10, "GET", "/api/requests")).json()) as { requests: { id: number }[] };
+    sent.length = 0;
+    assert.equal((await asUserWithApp(db, 10, "POST", "/api/requests", { id: requests[0].id, action: "accept" })).status, 200);
+    const toClient = sent.filter((m) => m.chat_id === 20);
+    assert.equal(toClient.length, 1);
+    assert.match(toClient[0].reply_markup!.inline_keyboard[0][0].web_app!.url, /view=onboarding$/);
+  });
+  assert.equal((await getUser(db, 20))?.role, "client");
+});

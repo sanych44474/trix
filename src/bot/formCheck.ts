@@ -36,14 +36,28 @@ export function formCheckSystem(lang: Lang): string {
   ].join("\n");
 }
 
-async function formChecksToday(ctx: MyContext): Promise<number> {
+/** Successful AI calls of one kind the user made today (UTC day), for daily quotas. */
+export async function aiCallsToday(db: D1Database, userId: number, kind: string): Promise<number> {
   const since = `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`;
-  const row = await ctx.db
-    .prepare("SELECT COUNT(*) AS c FROM v2_ai_calls WHERE accountId = ? AND kind = 'form_check' AND ok = 1 AND createdAt >= ?")
-    .bind(ctx.user._id, since)
-    .first<{ c: number }>()
-    .catch(() => null);
-  return row?.c ?? 0;
+  try {
+    const row = await db
+      .prepare("SELECT COUNT(*) AS c FROM v2_ai_calls WHERE accountId = ? AND kind = ? AND ok = 1 AND createdAt >= ?")
+      .bind(userId, kind, since)
+      .first<{ c: number }>();
+    return row?.c ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** The form-check answer under its header and footer; the empty-answer text when the AI gave none. */
+export function formCheckReply(lang: Lang, answer: string): string | null {
+  const text = cleanAi(answer).trim().slice(0, 1200);
+  return text ? `${t(lang, "form_check_header")}\n\n${text}\n\n${t(lang, "form_check_footer")}` : null;
+}
+
+export function formCheckPrompt(caption?: string): string {
+  return caption ? `Client's caption: ${caption.slice(0, 200)}` : "No caption; identify the exercise yourself.";
 }
 
 export async function handleFormVideo(ctx: MyContext, video: { fileId: string; bytes?: number; seconds?: number; mimeType?: string }): Promise<void> {
@@ -52,7 +66,7 @@ export async function handleFormVideo(ctx: MyContext, video: { fileId: string; b
     await reply(ctx, t(lang, "not_onboarded"));
     return;
   }
-  const gate = formCheckGate(video, await formChecksToday(ctx));
+  const gate = formCheckGate(video, await aiCallsToday(ctx.db, ctx.user._id, "form_check"));
   if (gate !== "ok") {
     await reply(ctx, t(lang, `form_check_${gate}`, { n: FORM_CHECKS_PER_DAY, sec: MAX_VIDEO_SEC }));
     return;
@@ -68,7 +82,7 @@ export async function handleFormVideo(ctx: MyContext, video: { fileId: string; b
     const caption = ctx.message?.caption?.trim();
     const answer = await aiVisionText(ctx.env, {
       system: formCheckSystem(lang),
-      user: caption ? `Client's caption: ${caption.slice(0, 200)}` : "No caption; identify the exercise yourself.",
+      user: formCheckPrompt(caption),
       images: [{ mimeType: video.mimeType?.startsWith("video/") ? video.mimeType : "video/mp4", dataBase64: abToB64(data) }],
       temperature: 0.3,
       kind: "form_check",
@@ -76,8 +90,8 @@ export async function handleFormVideo(ctx: MyContext, video: { fileId: string; b
       userId: ctx.user._id,
       onPartial: (so) => ctx.thinking?.update(cleanAi(so)),
     });
-    const text = cleanAi(answer).trim().slice(0, 1200);
-    await reply(ctx, text ? `${t(lang, "form_check_header")}\n\n${text}\n\n${t(lang, "form_check_footer")}` : t(lang, "form_check_failed"));
+    const text = formCheckReply(lang, answer);
+    await reply(ctx, text ?? t(lang, "form_check_failed"));
     if (text) await awardAchievement(ctx.db, ctx.user._id, "form_check_first").catch(() => {});
   });
 }

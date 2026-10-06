@@ -15,6 +15,7 @@
 // does, so a question asked in the Mini App lands in the trainer's existing q:send/q:own/q:skip
 // keyboard and in their questions panel. This used to 403 the client outright, which left the
 // client role mute in the Mini App: no AI coach, and no way to reach their trainer either.
+import { appMarkup } from "../notify/appKeyboard";
 import { aiJSON, aiText } from "../ai/index";
 import * as P from "../ai/prompts";
 import { coachContext } from "../bot/coach";
@@ -140,7 +141,8 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
       env,
       trainerUser.chatId,
       t(trainerUser.lang, "trainer_question", { name: user.profile.name ?? `id ${user._id}`, q: question }) + (draft ? `\n\n${escapeHtml(draft)}` : ""),
-      {
+      // The trainer answers in the app (Workspace → client questions), with the AI draft there.
+      appMarkup(env, t(trainerUser.lang, "nb_reply"), "role") ?? {
         inline_keyboard: [
           [{ text: t(trainerUser.lang, "q_send"), callback_data: `q:send:${qid}` }, { text: t(trainerUser.lang, "q_own"), callback_data: `q:own:${qid}` }],
           [{ text: t(trainerUser.lang, "q_skip"), callback_data: `q:skip:${qid}` }],

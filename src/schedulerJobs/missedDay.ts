@@ -1,6 +1,4 @@
-// Smart reschedule: the day after a single missed planned session, offer to move it. Called by
-// processUser.
-import { InlineKeyboard } from "grammy";
+
 import type { Weekday } from "../types";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { dailyCheckinsSince } from "../adapters/d1/v2Tracking";
@@ -35,11 +33,11 @@ export async function missedDay(p: UserPass): Promise<boolean> {
         const strained = recentConditioningStrain(logs21, date, 2);
         const ranked = rankMissedDayOptions({ recentMissRate: missRate, poorRecovery: poorWellbeing(checkins) || strained });
         const lead = ranked[0];
-        const kb = new InlineKeyboard();
+        let kb: ReturnType<typeof p.appKb>;
         let body = t(lang, "missed_day_header", { date: lastPlanned });
         if (lead === "deload") {
           body += "\n\n" + t(lang, "missed_day_deload");
-          kb.text(t(lang, "menu_coach"), "menu:coach");
+          kb = p.appKb([[{ text: t(lang, "menu_coach"), view: "coach", fallback: "menu:coach" }]]);
         } else if (lead === "shorten") {
           const missedDay = getPlanDay(plan, isoWeekday(lastPlanned) as Weekday);
           const preview = (missedDay?.exercises ?? [])
@@ -47,12 +45,12 @@ export async function missedDay(p: UserPass): Promise<boolean> {
             .map((e) => `${escapeHtml(e.name)}: ${escapeHtml(deloadSets(e.sets))}`)
             .join("\n");
           body += "\n\n" + t(lang, "missed_day_shorten") + (preview ? `\n${preview}` : "");
-          kb.text(t(lang, "log_done_btn"), "log:done");
+          kb = p.appKb([[{ text: t(lang, "app_log_btn"), view: "train", fallback: "log:done" }]]);
         } else {
           body += "\n\n" + t(lang, "missed_day_makeup");
-          kb.text(t(lang, "log_done_btn"), "log:done");
+          kb = p.appKb([[{ text: t(lang, "app_log_btn"), view: "train", fallback: "log:done" }]]);
         }
-        await send(body, { ...HTML, reply_markup: kb });
+        await send(body, kb ? { ...HTML, reply_markup: kb } : HTML);
         claimed = true; // this tick's one user-facing message
       }
     }

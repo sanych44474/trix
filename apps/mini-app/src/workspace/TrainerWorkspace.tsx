@@ -214,7 +214,7 @@ export function FinanceView({ lang, onBack }: { lang: Lang; onBack: () => void }
   </div>;
 }
 
-export function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps) {
+export function TrainerWorkspace({ dashboard, lang, onOpenPlan, initialClientId }: WorkspaceProps) {
   const [questions, setQuestions] = useState<TrainerQuestions | null>(null);
   const [requests, setRequests] = useState<TrainerRequests | null>(null);
   const [templates, setTemplates] = useState<TrainerTemplates | null>(null);
@@ -223,8 +223,8 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [actionError, setActionError] = useState(false);
-  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach" | "schedule" | "finance">("list");
-  const [activeClientId, setActiveClientId] = useState<number | null>(null);
+  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach" | "schedule" | "finance">(initialClientId ? "client" : "list");
+  const [activeClientId, setActiveClientId] = useState<number | null>(initialClientId ?? null);
   const [assignTemplateId, setAssignTemplateId] = useState("");
   const [assignClientId, setAssignClientId] = useState("");
   const [templateNote, setTemplateNote] = useState<string | null>(null);
@@ -250,6 +250,9 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps
     finally { setBusy(null); }
   };
 
+  const [unread, setUnread] = useState<Record<number, number>>({});
+  useEffect(() => { if (subview === "list") api<{ bySender: Record<string, number> }>("/api/v2/chat/unread").then((r) => setUnread(Object.fromEntries(Object.entries(r.bySender).map(([k, v]) => [Number(k), v])))).catch(() => {}); }, [subview]);
+
   const assignTemplate = () => {
     if (!assignTemplateId || !assignClientId) return;
     setTemplateNote(null);
@@ -268,7 +271,8 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps
     return <ClientCardView clientId={activeClientId} lang={lang} onBack={() => setSubview("list")} onTemplateSaved={() => void load()} onOpenPlan={onOpenPlan} />;
   }
 
-  const clients: ClientSummary[] = dashboard.trainer?.clients ?? [];
+  // Clients with unread chat messages first, then the dashboard's own order.
+  const clients: ClientSummary[] = [...(dashboard.trainer?.clients ?? [])].sort((a, b) => (unread[b.id] ? 1 : 0) - (unread[a.id] ? 1 : 0));
   const hasTemplates = (templates?.templates.length ?? 0) > 0;
   const atRiskCount = clients.filter((client) => client.atRisk || client.flagged).length;
 
@@ -292,6 +296,7 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan }: WorkspaceProps
       <div className="client-list">{clients.slice(0, 8).map((client) => <div className="client-row" key={client.id}>
         <div><strong>{client.name}</strong><small>{t(lang, "client_pcts", { w: client.workoutPct, n: client.nutritionPct })}</small></div>
         <div className="button-row">
+          {unread[client.id] ? <span className="status-badge status-attention" title={t(lang, "chat_unread_hint")}>💬 {unread[client.id]}</span> : null}
           <span className={client.atRisk || client.flagged ? "status-badge status-attention" : "status-badge"}>{client.flagged ? t(lang, "flagged_label") : client.atRisk ? t(lang, "at_risk_label") : t(lang, "on_track_label")}</span>
           <button className="button button-ghost" onClick={() => { setActiveClientId(client.id); setSubview("client"); }}>{t(lang, "open_client_btn")}</button>
         </div>

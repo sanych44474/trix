@@ -3,12 +3,13 @@
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
 import { broadcastRelease, pendingReleaseRecipients } from "../bot/releaseBroadcast";
 import { latestRelease } from "../releaseNotes";
-import { getOwnerChatId } from "../adapters/d1/v2Admin";
+import { getOwnerChatId, recordAudit } from "../adapters/d1/v2Admin";
 import { listFeedback, updateFeedback } from "../adapters/d1/v2Feedback";
 import { recordInbox } from "../adapters/d1/v2Inbox";
 import { FEEDBACK_CATEGORIES, FEEDBACK_STATUSES, type FeedbackCategory, type FeedbackStatus } from "../domain/feedbackTriage";
 import { readJsonBody } from "./validate";
-import { getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
+import { getUser, listInactive, listOnboardedUsers, updateUser } from "../adapters/d1/v2Users";
+import { appMarkup } from "../notify/appKeyboard";
 import { deleteUserData } from "../adapters/d1/v2Account";
 import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/ownerReport";
 import { switchMode } from "../domain/session";
@@ -54,6 +55,35 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
   }
   if (req.method === "POST" && path === "/api/owner/release/send") {
     return Response.json(await broadcastRelease(env, user._id, RELEASE_BATCH));
+  }
+
+  // Announcement to every onboarded user (not banned, not blocked the bot), the in-app /announce.
+  // Batches of RELEASE_BATCH by ascending account id: `after` is the last id the previous batch
+  // reached, so each tap continues where the last stopped and nobody gets it twice.
+  if (req.method === "POST" && path === "/api/owner/announce") {
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const b = parsed.body as Record<string, unknown>;
+    const text = typeof b.text === "string" ? b.text.trim().slice(0, 3000) : "";
+    const after = Math.max(0, Math.round(Number(b.after) || 0));
+    if (!text) return Response.json({ error: "bad request" }, { status: 400 });
+    const all = (await listOnboardedUsers(env.DB)).filter((u) => !u.blocked && !u.botBlocked).sort((a, b) => a._id - b._id);
+    const batch = all.filter((u) => u._id > after).slice(0, RELEASE_BATCH);
+    let sent = 0;
+    let failed = 0;
+    for (const u of batch) {
+      const markup = appMarkup(env, t(u.lang, "launch_open_btn"), "today");
+      const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: u.chatId, text: `📢 ${escapeHtml(text)}`, parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) }),
+      }).catch(() => null);
+      if (res?.ok) sent++; else failed++;
+    }
+    const last = batch.at(-1)?._id ?? after;
+    const remaining = all.filter((u) => u._id > last).length;
+    await recordAudit(env.DB, user._id, "broadcast", undefined, `${sent}/${batch.length} (left ${remaining}): ${text.slice(0, 80)}`).catch(() => {});
+    return Response.json({ sent, failed, total: all.length, remaining, next: remaining > 0 ? last : null });
   }
 
   // Feedback triage: the inbox as a list with a category and a status instead of a Telegram scroll.

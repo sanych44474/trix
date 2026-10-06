@@ -18,6 +18,7 @@ import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
 import { menuBtn, roleMenu } from "../../bot/keyboards";
 import { renderObStep, sendFirstObStep } from "../../bot/onboarding";
+import { sendOnboardingPrompt, sendOnboardingPromptTo } from "../../bot/onboardingApp";
 import { trainerCardText, startTrainerWizard } from "./trainerWizard";
 import { requireTrainer, shortCode, trainerMenu } from "./trainerCommon";
 export * from "./clientCard";
@@ -66,6 +67,7 @@ export async function notifyTrainerOfClient(ctx: MyContext, trainer: UserDoc, cl
 export function sharePromptKb(lang: Lang): InlineKeyboard {
   return new InlineKeyboard()
     .text(t(lang, "share_body_btn"), "share:tog:body")
+    .row()
     .text(t(lang, "share_health_btn"), "share:tog:health")
     .row()
     .text(t(lang, "share_skip_btn"), "share:skip");
@@ -90,12 +92,14 @@ async function pairWithTrainer(ctx: MyContext, trainerId: number, trainerName: s
     await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
     return;
   }
-  // Brand-new user → run the athlete intake first (we are in the client's context).
+  // Brand-new user → the questionnaire first (we are in the client's context). One message, one
+  // button: the Mini App asks the questions one at a time, including what the trainer may see.
   await reply(ctx, t(lang, "client_paired", { name: escapeHtml(trainerName) }));
   if (trainer) await notifyTrainerOfClient(ctx, trainer, ctx.user, false);
-  await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
   ctx.user.session = { mode: "onboarding", step: 0 };
   await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
+  if (await sendOnboardingPrompt(ctx)) return;
+  await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
   await renderObStep(ctx, 0);
 }
 
@@ -182,9 +186,12 @@ export async function onRequestAccept(ctx: MyContext, reqId: number) {
         .catch(() => {});
       await notifyTrainerOfClient(ctx, ctx.user, client, true);
     } else {
-      // Brand-new user → push the athlete intake to the client's chat (we're in the trainer's context).
+      // Brand-new user → push the questionnaire to the client's chat (we're in the trainer's
+      // context). In the Mini App it also asks what the trainer may see, so no separate prompt.
       await updateUser(ctx.db, client._id, { session: { mode: "onboarding", step: 0 } });
-      await sendFirstObStep(ctx, client.chatId, client.lang, t(client.lang, "client_accepted", { name: trainerName }));
+      const accepted = t(client.lang, "client_accepted", { name: trainerName });
+      if (await sendOnboardingPromptTo(ctx, client.chatId, client.lang, accepted)) return;
+      await sendFirstObStep(ctx, client.chatId, client.lang, accepted);
     }
     await ctx.api
       .sendMessage(client.chatId, t(client.lang, "share_prompt_new"), { ...HTML, reply_markup: sharePromptKb(client.lang) })

@@ -2,6 +2,7 @@
 // trainer's client via ?clientId=); POST applies one edit op (weight / sets / delete / move /
 // swap / add), mirroring the bot's day editor. All writes go through updateActivePlanSplit, so
 // the client and the bot editor stay in sync. Same initData auth as every other webapp API.
+import { rebuildPlan, replanRunning } from "../bot/plan";
 import { FREE_EXERCISE_IDS } from "../../apps/mini-app/src/data/freeExerciseIds";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { fitSplitToKit, kitFromEquipment, kitMismatches } from "../domain/equipmentFit";
@@ -136,9 +137,27 @@ function changeSummary(action: string, before: string, after: PlanExercise | und
 
 const FREE_EXERCISE_ID_SET = new Set(FREE_EXERCISE_IDS);
 
-export async function handlePlanApi(req: Request, url: URL, env: Env): Promise<Response> {
+export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+
+  // Rebuild the athlete's own plan from their current profile (after changing goal, level,
+  // schedule or equipment in Settings). Builds in the background -- AI generation can take tens
+  // of seconds -- and the app polls GET for `pending`; the user also gets a ping when it's ready.
+  if (url.pathname === "/api/plan/replan") {
+    if (req.method === "GET") {
+      return Response.json({ pending: replanRunning(user), failed: !!user.session.replanFailed }, { headers: { "cache-control": "no-store" } });
+    }
+    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (!user.onboarded) return Response.json({ error: "not_onboarded" }, { status: 409 });
+    if (user.role === "client" && user.trainerId) return Response.json({ error: "trainer_managed" }, { status: 403 });
+    if (replanRunning(user)) return Response.json({ ok: true, pending: true });
+    const session = { ...user.session, replanAt: new Date().toISOString(), replanFailed: undefined };
+    await updateUser(env.DB, user._id, { session });
+    const job = rebuildPlan(env, env.DB, { ...user, session });
+    if (ctx) ctx.waitUntil(job); else await job;
+    return Response.json({ ok: true, pending: true });
+  }
 
   if (req.method === "GET" && url.pathname === "/api/plan/catalog") {
     const query = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
