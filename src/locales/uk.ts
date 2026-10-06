@@ -1372,6 +1372,7 @@ export const uk: Dict = {
   nb_open_requests: "📥 Відкрити заявки",
   nb_rate: "⭐ Оцінити trix",
   nb_injury: "🩹 Оцінити самопочуття",
+  chat_push: "💬 <b>{name}</b>: {text}",
   nb_reply: "💬 Відповісти",
   req_open_app_btn: "📱 Переглянути заявку",
   launch_text: "Тепер усе відбувається в застосунку trix: тренування, харчування, тренер і прогрес 👇",

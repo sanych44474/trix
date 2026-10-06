@@ -1368,6 +1368,7 @@ export const en = {
   nb_open_requests: "📥 Open requests",
   nb_rate: "⭐ Rate trix",
   nb_injury: "🩹 Rate how it feels",
+  chat_push: "💬 <b>{name}</b>: {text}",
   nb_reply: "💬 Reply",
   req_open_app_btn: "📱 Review the request",
   launch_text: "Everything happens in the trix app now: workouts, nutrition, your coach and progress 👇",

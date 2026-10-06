@@ -1005,6 +1005,123 @@ paths:
               schema: {type: string, format: binary}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/chat:
+    get:
+      operationId: getChatThread
+      description: The viewer's thread with their trainer (client) or one of their clients (trainer, `with` = client id). Marks the peer's messages read.
+      security:
+      - telegramInitData: []
+      parameters:
+      - name: with
+        in: query
+        required: false
+        schema: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: The thread, oldest first
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ChatThread'
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: sendChatMessage
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                with: {type: integer, minimum: 1, description: 'Trainer: the client. Client: omit (their trainer).'}
+                text: {type: string, minLength: 1, maxLength: 2000}
+      responses:
+        '200':
+          description: Stored; the recipient is pinged in Telegram unless already pinged for this burst
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok, id]
+                      properties:
+                        ok: {type: boolean}
+                        id: {type: integer}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/chat/draft:
+    post:
+      operationId: draftChatReply
+      description: Trainer only. An AI draft of the next reply to the client, in the trainer's style. Nothing is sent.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [with]
+              properties:
+                with: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: The draft (empty when unavailable)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [draft]
+                      properties:
+                        draft: {type: string}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/chat/unread:
+    get:
+      operationId: getChatUnread
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Unread message counts per sender id
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [bySender]
+                      properties:
+                        bySender:
+                          type: object
+                          additionalProperties: {type: integer}
+                  required: [data]
   /api/v2/media/meal-photo:
     post:
       operationId: estimateMealPhoto
@@ -2727,6 +2844,28 @@ components:
             p: {type: number}
             f: {type: number}
             c: {type: number}
+    ChatThread:
+      type: object
+      required: [peer, messages]
+      properties:
+        peer:
+          type: object
+          required: [id, name, isTrainer]
+          properties:
+            id: {type: integer}
+            name: {type: string}
+            isTrainer: {type: boolean, description: The peer is the viewer's trainer}
+        messages:
+          type: array
+          items:
+            type: object
+            required: [id, fromMe, text, createdAt, read]
+            properties:
+              id: {type: integer}
+              fromMe: {type: boolean}
+              text: {type: string}
+              createdAt: {type: string}
+              read: {type: boolean, description: 'For own messages: the peer has opened the thread since'}
     LoggedFoodItem:
       type: object
       required: [desc, kcal, protein, fats, carbs]

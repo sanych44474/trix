@@ -1,5 +1,6 @@
 // The trainer's client card in the Mini App: profile, plan, notes and their history, injuries,
 // photos, coach thread and templates.
+import { TrainerChat } from "./TrainerChat";
 import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "../api";
 import type { ClientCardPayload } from "../types";
@@ -158,9 +159,7 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
 
     <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "message_thread_eyebrow")}</span><h2>{t(lang, "message_thread_title")}</h2></div></div>
-      {data.messages.length > 0
-        ? <div className="record-list">{data.messages.map((message, index) => <div className="record-row" key={`${message.createdAt}-${index}`}><div><strong>{message.fromMe ? t(lang, "you_label") : data.client.name}</strong><small>{message.createdAt.slice(0, 16).replace("T", " ")}</small></div><span>{message.text}</span></div>)}</div>
-        : <p className="muted">{t(lang, "message_thread_empty")}</p>}
+      <TrainerChat lang={lang} peerId={data.client.id} canDraft />
     </Panel>
 
     {data.shared.body && <Panel><div className="section-head"><div><span className="eyebrow">{t(lang, "shared_body_eyebrow")}</span><h2>{t(lang, "shared_body_title")}</h2></div></div><div className="metric-grid compact">

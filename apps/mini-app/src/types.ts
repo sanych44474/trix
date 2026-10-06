@@ -72,6 +72,7 @@ export type TrainerTemplate = Schemas["TrainerTemplate"];
 export type SchedulePayload = Schemas["SchedulePayload"];
 export type FinancePayload = Schemas["FinancePayload"];
 export type CoachThread = Schemas["CoachThread"];
+export type ChatThread = Schemas["ChatThread"];
 export type ClientCardPayload = Schemas["ClientCardPayload"];
 export type OwnerUsers = Schemas["OwnerUsers"];
 

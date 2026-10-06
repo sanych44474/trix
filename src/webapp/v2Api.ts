@@ -18,6 +18,7 @@ import { handleOwnerApi } from "./ownerApi";
 import { handleCoachApi } from "./coachApi";
 import { handleBuddyApi } from "./buddyApi";
 import { handleMediaApi } from "./mediaApi";
+import { handleChatApi } from "./chatApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handleAppEventApi, handlePhotoApi } from "./miscApi";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
@@ -37,7 +38,7 @@ type LegacyHandler = (req: Request, url: URL, env: Env, ctx?: ExecutionContext) 
 // deterministic every time), so the inner handler always gets "still processing" and returns
 // 409 -- the real work (e.g. saveWorkout) never runs. Confirmed live: /api/v2/workout/save was
 // 409ing on every attempt while v2_workout_sessions received zero writes.
-const SELF_IDEMPOTENT_HANDLERS = new Set<LegacyHandler>([handleWorkoutApi, handleSettingsApi, handleTrainerApi, handleInjuriesApi]);
+const SELF_IDEMPOTENT_HANDLERS = new Set<LegacyHandler>([handleWorkoutApi, handleSettingsApi, handleTrainerApi, handleInjuriesApi, handleChatApi]);
 
 const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> = [
   { prefix: "/api/v2/workout", legacy: "/api/workout", handler: handleWorkoutApi },
@@ -67,6 +68,7 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/trainers", legacy: "/api/trainers", handler: handleExtrasApi },
   { prefix: "/api/v2/library", legacy: "/api/library", handler: handleExtrasApi },
   { prefix: "/api/v2/squads", legacy: "/api/squads", handler: handleSquadsApi },
+  { prefix: "/api/v2/chat", legacy: "/api/chat", handler: handleChatApi },
   { prefix: "/api/v2/media", legacy: "/api/media", handler: handleMediaApi },
   { prefix: "/api/v2/buddy", legacy: "/api/buddy", handler: handleBuddyApi },
   { prefix: "/api/v2/challenges", legacy: "/api/challenges", handler: handleChallengesApi },

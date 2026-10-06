@@ -144,7 +144,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       const who = escapeHtml(user.profile.name ?? "trainer");
       let sent = 0;
       for (const c of clients) {
-        await tgSend(env, c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)));
+        await tgSend(env, c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)), appMarkup(env, t(c.lang, "nb_reply"), "coach"));
         sent++;
       }
       await recordAudit(env.DB, user._id, "broadcast", undefined, `${sent}/${clients.length}`).catch(() => {});
@@ -171,11 +171,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       const client = await getUser(env.DB, q.clientId).catch(() => null);
       if (client) {
         await insertMessage(env.DB, user._id, q.clientId, text).catch(() => {});
-        await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: client.chatId, text: t(client.lang, "answer_from_trainer", { text: escapeHtml(text) }), parse_mode: "HTML" }),
-        }).catch(() => {});
+        await tgSend(env, client.chatId, t(client.lang, "answer_from_trainer", { text: escapeHtml(text) }), appMarkup(env, t(client.lang, "nb_reply"), "coach"));
       }
       await setQuestionStatus(env.DB, qid, "answered");
       logInfo("trainer_question_answered", {});
