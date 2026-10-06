@@ -71,6 +71,7 @@ interface CallOpts {
   attemptsPerKey?: number; // generations to try per key before rotating (e.g. 2 for plans)
   groqModel?: string; // per-call Groq primary override (meal-plan stages pick 8b/70b/120b)
   validate?: (parsed: unknown) => void; // semantic check on the PARSED result (aiJSON only)
+  onPartial?: (textSoFar: string) => void; // stream the raw answer as it arrives (providers that can)
 }
 
 function utcDate(): string {
@@ -260,6 +261,7 @@ async function run(
     timeoutMs: attemptTimeoutMs,
     deadlineMs: geminiDeadlineMs,
     groqModel: o.groqModel,
+    onPartial: o.onPartial,
     onUsage: (t) => {
       lastTokens = t;
     },

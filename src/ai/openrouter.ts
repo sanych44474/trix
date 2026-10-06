@@ -74,7 +74,7 @@ async function openrouterCall(env: Env, input: GenInput, model: string): Promise
 
   return withKeys(
     splitKeys(env.OPENROUTER_API_KEY),
-    (key) => openaiCompatChat(URL, key, body, `OpenRouter ${model}`, input.timeoutMs, { "X-Title": "trix-bot" }, input.onUsage),
+    (key) => openaiCompatChat(URL, key, body, `OpenRouter ${model}`, input.timeoutMs, { "X-Title": "trix-bot" }, input.onUsage, input.onPartial),
     { attempts: input.attemptsPerKey, validate: input.validate },
   );
 }

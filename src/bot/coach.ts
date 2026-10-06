@@ -26,6 +26,7 @@ import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { upcomingSessions, weekdayName } from "../render";
 import { deferAi } from "./router";
 import { recordFeedback } from "./feedbackIntake";
+import { partialJsonString } from "../domain/partialJson";
 import { localCutoff } from "./report";
 import { trainerStyleBlock } from "../features/trainer/trainer";
 import { type MyContext, HTML, planOwnerId, reply, setMode } from "../adapters/telegram/context";
@@ -165,6 +166,8 @@ export async function handleCoach(ctx: MyContext, text: string) {
       db: ctx.db,
       userId: ctx.user._id,
       validate: (parsed) => validateCoachEditResult(parsed),
+      // Stream the "reply" field into the live draft while the JSON is still arriving.
+      onPartial: (raw) => { const so = partialJsonString(raw, "reply"); if (so) ctx.thinking?.update(cleanAi(so)); },
     });
     const actions = (result.actions ?? [])
       .filter((a) => a.kind !== "none")

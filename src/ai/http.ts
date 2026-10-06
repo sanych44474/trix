@@ -14,6 +14,36 @@ export async function throwForResponse(res: Response, label: string): Promise<ne
   throw new Error(`${label} ${res.status}: ${errText.slice(0, 300)}`);
 }
 
+/** Read a server-sent-events body, calling `onData` with each event's `data:` payload (the
+ *  "[DONE]" sentinel ends the stream). Tolerates CRLF, multi-line data and chunk boundaries
+ *  that split a line. Pure apart from reading the stream; test/ai-stream.test.ts. */
+export async function readSse(body: ReadableStream<Uint8Array>, onData: (data: string) => void): Promise<void> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let data: string[] = [];
+  const flush = () => {
+    if (!data.length) return;
+    const payload = data.join("\n");
+    data = [];
+    if (payload.trim() !== "[DONE]") onData(payload);
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).replace(/\r$/, "");
+      buf = buf.slice(nl + 1);
+      if (line === "") flush();
+      else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
+    }
+  }
+  if (buf.startsWith("data:")) data.push(buf.slice(5).replace(/^ /, ""));
+  flush();
+}
+
 /** POST an OpenAI-compatible chat completion and return the assistant text.
  * Shared by the OpenAI-compatible providers (Groq, OpenRouter, Ollama): handles the
  * abort timeout, fall-through status classification, and `choices[0].message.content`
@@ -26,14 +56,31 @@ export async function openaiCompatChat(
   timeoutMs?: number,
   extraHeaders?: Record<string, string>,
   onUsage?: (totalTokens: number) => void,
+  onPartial?: (textSoFar: string) => void,
 ): Promise<string> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, ...extraHeaders },
-    body: JSON.stringify(body),
+    // Streaming when a caller wants partial text (the bot's live coach draft): same request with
+    // stream: true, deltas accumulated from SSE; the returned text is the same full answer.
+    body: JSON.stringify(onPartial ? { ...(body as object), stream: true } : body),
     signal: AbortSignal.timeout(timeoutMs ?? 25000),
   });
   if (!res.ok) await throwForResponse(res, label);
+  if (onPartial && res.body && (res.headers.get("content-type") ?? "").includes("event-stream")) {
+    let acc = "";
+    await readSse(res.body, (payload) => {
+      try {
+        const chunk = JSON.parse(payload) as { choices?: { delta?: { content?: string } }[]; usage?: { total_tokens?: number } };
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (delta) { acc += delta; onPartial(acc); }
+        if (chunk.usage?.total_tokens) onUsage?.(chunk.usage.total_tokens);
+      } catch { /* a keep-alive or malformed event — skip it */ }
+    });
+    const text = acc.trim();
+    if (!text) throw new Error(`${label} returned no text`);
+    return text;
+  }
   const data = (await res.json()) as {
     choices?: { message?: { content?: string } }[];
     usage?: { total_tokens?: number };

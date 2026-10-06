@@ -26,6 +26,8 @@ export type MyContext = Context & {
   // Defer heavy background work past the webhook response (Cloudflare ExecutionContext.waitUntil).
   // Falls back to fire-and-forget if no ExecutionContext was provided (e.g. tests).
   waitUntil: (p: Promise<unknown>) => void;
+  // The live "Thinking…"/streaming draft of the AI job in flight (set by deferAi), if any.
+  thinking?: { update(text: string): void };
 };
 
 export const HTML = { parse_mode: "HTML" as const, link_preview_options: { is_disabled: true } };

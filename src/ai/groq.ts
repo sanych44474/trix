@@ -96,7 +96,7 @@ async function groqCall(env: Env, input: GenInput, model: string): Promise<strin
 
   return withKeys(
     splitKeys(env.GROQ_API_KEY),
-    (key) => openaiCompatChat(URL, key, body, `Groq ${model}`, input.timeoutMs, undefined, input.onUsage),
+    (key) => openaiCompatChat(URL, key, body, `Groq ${model}`, input.timeoutMs, undefined, input.onUsage, input.onPartial),
     { attempts: input.attemptsPerKey, validate: input.validate },
   );
 }

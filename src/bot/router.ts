@@ -459,13 +459,15 @@ export async function maybeCelebrateLevel(ctx: MyContext) {
 export function deferAi(ctx: MyContext, where: string, work: () => Promise<void>, opts: { thinking?: boolean } = {}) {
   ctx.waitUntil(
     (async () => {
-      const stop = opts.thinking === false ? () => {} : startThinking(ctx);
+      const thinking = opts.thinking === false ? null : startThinking(ctx);
+      if (thinking) ctx.thinking = thinking;
       try {
         await work();
       } catch (err) {
         await onError(ctx, err, where).catch(() => {});
       } finally {
-        stop();
+        thinking?.stop();
+        if (ctx.thinking === thinking) ctx.thinking = undefined;
       }
     })(),
   );
