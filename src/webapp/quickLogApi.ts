@@ -1,3 +1,4 @@
+import { verifyItems } from "../features/nutrition/verifyItems";
 import { getWorkoutLog, upsertStrengthRecord, upsertWorkoutLog } from "../adapters/d1/v2Workouts";
 import { addWater, recordDailyCheckin, upsertBodyLog, upsertStepLog } from "../adapters/d1/v2Tracking";
 import { appendMeals } from "../adapters/d1/v2Nutrition";
@@ -97,9 +98,10 @@ export async function handleQuickLogApi(req: Request, url: URL, env: Env): Promi
         db: env.DB,
         userId: user._id,
       });
-      const items: MealEntry[] = (est.items ?? [])
-        .filter((i) => i.kcal > 0)
-        .map((i) => ({ desc: cleanAi(i.desc), kcal: i.kcal, protein: i.protein, fats: i.fats, carbs: i.carbs, grams: i.grams, query: i.query }));
+      // Same database check as the chat and photo paths: the AI's macros are recomputed from the
+      // user's corrections / USDA / Open Food Facts when the portion is known.
+      const { final } = await verifyItems(env.DB, env, user._id, (est.items ?? []).filter((i) => Number(i.kcal) > 0));
+      const items: MealEntry[] = final.filter((i) => i.kcal > 0).map((i) => ({ ...i, desc: cleanAi(i.desc) }));
       if (!items.length) return Response.json({ ok: false, reason: "unreadable" });
       await appendMeals(env.DB, user._id, today, items);
       logInfo("nutrition_logged", { method: "text" });

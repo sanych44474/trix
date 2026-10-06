@@ -196,7 +196,7 @@ export async function handleFoodProduct(ctx: MyContext, text: string) {
       db: ctx.db,
       userId: ctx.user._id,
     });
-    const { final } = await verifyItems(ctx, est.items);
+    const { final } = await verifyItems(ctx.db, ctx.env, ctx.user._id, est.items);
     const meals = await getDayMeals(ctx.db, ctx.user._id, date);
     if (final.length && meals[idx]) {
       meals.splice(idx, 1, ...final); // replace that position with the re-estimated item(s)

@@ -1005,6 +1005,113 @@ paths:
               schema: {type: string, format: binary}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/media/meal-photo:
+    post:
+      operationId: estimateMealPhoto
+      description: AI estimate of a meal photo. Nothing is logged; the app logs the confirmed items with editNutrition add_items.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo: {type: string, format: binary}
+                caption: {type: string}
+      responses:
+        '200':
+          description: Recognised items (empty when nothing was recognised)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [items]
+                      properties:
+                        items:
+                          type: array
+                          items: {$ref: '#/components/schemas/LoggedFoodItem'}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v2/media/form-check:
+    post:
+      operationId: checkFormVideo
+      description: AI technique remarks on a short training video (at most 60 s, a few a day).
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [video]
+              properties:
+                video: {type: string, format: binary}
+                caption: {type: string}
+                seconds: {type: number}
+      responses:
+        '200':
+          description: The remarks, or why the clip was not checked
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {type: boolean}
+                        text: {type: string}
+                        reason: {type: string, enum: [too_big, too_long, limit, failed]}
+                        limit: {type: integer}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v2/media/transcribe:
+    post:
+      operationId: transcribeAudio
+      description: Speech to text for a voice clip recorded in the app.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              properties:
+                audio: {type: string, format: binary}
+      responses:
+        '200':
+          description: The transcript (empty when nothing was understood)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [text]
+                      properties:
+                        text: {type: string}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/photocompare:
     post:
       operationId: sendPhotoCompare
@@ -2620,6 +2727,17 @@ components:
             p: {type: number}
             f: {type: number}
             c: {type: number}
+    LoggedFoodItem:
+      type: object
+      required: [desc, kcal, protein, fats, carbs]
+      properties:
+        desc: {type: string, maxLength: 80}
+        kcal: {type: number, minimum: 0, maximum: 3000}
+        protein: {type: number, minimum: 0, maximum: 300}
+        fats: {type: number, minimum: 0, maximum: 300}
+        carbs: {type: number, minimum: 0, maximum: 500}
+        grams: {type: number, minimum: 0, maximum: 3000}
+        query: {type: string, maxLength: 60}
     NutritionRequest:
       description: >-
         One action per request; each reads only its own fields (src/webapp/nutritionApi.ts).
@@ -2633,7 +2751,12 @@ components:
           type: string
           enum: [del, scale, grams, macros, recipe, recover, readd, dbsearch, dbadd, barcode,
                  grocery, grocery_send, mealplan_regen, mealplan_item_del, mealplan_item_scale,
-                 mealplan_item_grams]
+                 mealplan_item_grams, add_items]
+        items:
+          type: array
+          maxItems: 12
+          description: 'action=add_items: the confirmed items of a meal-photo estimate.'
+          items: {$ref: '#/components/schemas/LoggedFoodItem'}
         index: {type: number, description: 'Logged-meal index: del | scale | grams | macros | recipe'}
         factor: {type: number, enum: [0.5, 1.5, 2], description: 'scale | mealplan_item_scale'}
         grams: {type: number, minimum: 1, maximum: 5000, description: 'grams | dbadd | mealplan_item_grams'}

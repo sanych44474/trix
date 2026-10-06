@@ -1,4 +1,5 @@
 // The "More" screen (lazy chunk): library, squads, plates, week card, profile photo, extras.
+import { FormCheck } from "./media/FormCheck";
 import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
 import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, ProfilePhoto, SquadInfo, WeekCardResponse } from "./types";
@@ -133,6 +134,11 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
       <div className="section-head"><div><span className="eyebrow">{t(lang, "exlib_eyebrow")}</span><h2>{t(lang, "library_card_title")}</h2></div><span className="action-arrow">📚</span></div>
       <p>{t(lang, "library_card_body")}</p>
       <div className="button-row"><button className="button button-light" onClick={onOpenLibrary}>{t(lang, "library_open_btn")}</button></div>
+    </Card>
+
+    <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "form_check_eyebrow")}</span><h2>{t(lang, "form_check_title")}</h2></div><span className="action-arrow">🎥</span></div>
+      <FormCheck lang={lang} />
     </Card>
 
     <Card>
