@@ -4,11 +4,11 @@
 // same value-cycle pattern as features/trainer/trainer.ts; calls happen at request time only).
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
-import { parseHeightWeight, realisticHeightCm, realisticWeightKg } from "../domain/progression";
+import { parseHeightWeight } from "../domain/workoutText";
 import { listIncompleteOnboarding, updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
 import { HTML, reply, type MyContext, type TKey } from "../adapters/telegram/context";
-import { generateClientDraft, generatePlan } from "../bot";
+import { generateClientDraft, generatePlan } from "./plan";
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
 
 export interface ObStep {
@@ -242,14 +242,6 @@ export async function onboardingButton(ctx: MyContext, payload: string) {
     if (opt) await obApplyAndAdvance(ctx, step, opt.value);
     return;
   }
-}
-
-// Drop implausible AI-provided body metrics so the interview re-asks instead of saving nonsense.
-export function sanitizeBodyMetrics<T extends { heightCm?: number; weightKg?: number }>(p: T): T {
-  const out = { ...p };
-  if (out.heightCm !== undefined && !realisticHeightCm(out.heightCm)) out.heightCm = undefined;
-  if (out.weightKg !== undefined && !realisticWeightKg(out.weightKg)) out.weightKg = undefined;
-  return out;
 }
 
 // Typed answers during the wizard (numbers + free-text steps).

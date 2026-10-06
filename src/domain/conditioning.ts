@@ -4,7 +4,8 @@
 // weight to Monday's squat after a week with four long runs in it. This module gives conditioning
 // the same treatment — a weekly load read with landmarks, and a short-term strain signal.
 import type { WorkoutLogDoc } from "../types";
-import { exerciseMetric, type Readiness } from "./progression";
+import { exerciseMetric } from "./setFormat";
+import { type Readiness } from "./deload";
 
 /**
  * Weekly aerobic landmarks in minutes. 150 min/week of moderate activity is the WHO/ACSM

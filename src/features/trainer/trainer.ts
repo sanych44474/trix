@@ -4,20 +4,22 @@
 import { GrammyError, InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
 import type { Lang, UserDoc } from "../../types";
-import { eventCountsByUser, getOwnerChatId } from "../../adapters/d1/v2Admin";
+import { eventCountsByUser } from "../../adapters/d1/v2Analytics";
+import { getOwnerChatId } from "../../adapters/d1/v2Admin";
 import { countCompletedWorkouts } from "../../adapters/d1/v2Workouts";
 import { planStatusByUser } from "../../adapters/d1/v2Plans";
 import { approveTrainer, countClientsOf, getRequest, getTrainer, getTrainerByCode, linkClient, listClients, pendingRequestsForTrainer, rejectTrainer, createProspect, deleteProspect, getProspect, listProspects, setRequestStatus, unlinkClient, updateTrainer } from "../../adapters/d1/v2Trainer";
 import { getUser, getUsersByIds, updateUser } from "../../adapters/d1/v2Users";
 import { isoDateMinus } from "../gamification/boards";
 import { botDeepLink } from "../../bot/links";
-import { interviewProgress } from "../../bot/owner";
-import { localParts } from "../../domain/progression";
+import { interviewProgress } from "../../bot/ownerRows";
+import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
-import { menuBtn, renderObStep, roleMenu, sendFirstObStep } from "../../bot";
+import { menuBtn, roleMenu } from "../../bot/keyboards";
+import { renderObStep, sendFirstObStep } from "../../bot/onboarding";
 import { trainerCardText, startTrainerWizard } from "./trainerWizard";
-import { requireTrainer, trainerMenu } from "./trainerCommon";
+import { requireTrainer, shortCode, trainerMenu } from "./trainerCommon";
 export * from "./clientCard";
 export * from "./trainerCommon";
 export * from "./trainerInterview";
@@ -25,9 +27,7 @@ export * from "./trainerComms";
 export * from "./programSharing";
 export * from "./trainerWizard";
 
-
 // ================ trainers & clients ================
-
 
 // Trainer-only extra actions (text routing); common actions come from menuActionFor.
 export function trainerMenuActionFor(lang: Lang, text: string): ((c: MyContext) => Promise<void>) | undefined {
@@ -38,14 +38,6 @@ export function trainerMenuActionFor(lang: Lang, text: string): ((c: MyContext) 
   };
   return map[text];
 }
-
-export function shortCode(): string {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
-}
-
-// --- find a trainer (client side) ---
-// A public browsable directory doesn't earn its moderation cost at one trainer — clients find
-// a trainer through a personal invite link (tr_<code>) or by typing that code here directly.
 
 export async function openFindTrainer(ctx: MyContext) {
   const lang = ctx.user.lang;

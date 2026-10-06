@@ -12,7 +12,7 @@ import { latestRelease } from "../releaseNotes";
 import { projectWeight, weeklyVolume } from "../domain/analysis";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
 import { recoveryScore, type RecoveryFactor, type RecoveryLabel } from "../domain/recovery";
-import { muscleGroupOf } from "../domain/progression";
+import { muscleGroupOf } from "../domain/exerciseClass";
 import { e1rm } from "../domain/records";
 import { latestBodyFat } from "../domain/bodyFat";
 import { recoverySwapFor } from "../domain/recoverySwap";

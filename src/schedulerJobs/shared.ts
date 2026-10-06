@@ -1,7 +1,7 @@
 // Small pieces every scheduler job shares: the HTML send options, error logging into
 // error_logs, a date helper and the narrowed bot surface (split out of scheduler.ts).
 import { Bot } from "grammy";
-import { recordError } from "../adapters/d1/v2Admin";
+import { recordError } from "../adapters/d1/v2AiTelemetry";
 
 export const HTML = { parse_mode: "HTML" as const, link_preview_options: { is_disabled: true } };
 

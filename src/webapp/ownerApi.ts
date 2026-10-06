@@ -3,13 +3,14 @@
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
 import { broadcastRelease, pendingReleaseRecipients } from "../bot/releaseBroadcast";
 import { latestRelease } from "../releaseNotes";
-import { getOwnerChatId, listFeedback, updateFeedback } from "../adapters/d1/v2Admin";
+import { getOwnerChatId } from "../adapters/d1/v2Admin";
+import { listFeedback, updateFeedback } from "../adapters/d1/v2Feedback";
 import { recordInbox } from "../adapters/d1/v2Inbox";
 import { FEEDBACK_CATEGORIES, FEEDBACK_STATUSES, type FeedbackCategory, type FeedbackStatus } from "../domain/feedbackTriage";
 import { readJsonBody } from "./validate";
 import { getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { deleteUserData } from "../adapters/d1/v2Account";
-import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/owner";
+import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/ownerReport";
 import { switchMode } from "../domain/session";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";

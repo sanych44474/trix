@@ -1,11 +1,9 @@
 // Long-tail Mini App APIs (roadmap P7): challenges (view/join), injury log (view/report), and
 // the competitor leaderboards (read). Each reuses the same repos/domain as the bot; same initData
 // auth. Routed at /api/challenges, /api/injuries, /api/boards.
-import {
-  bumpEvent,
-  getSetting,
-  recordError,
-} from "../adapters/d1/v2Admin";
+import { bumpEvent } from "../adapters/d1/v2Analytics";
+import { getSetting } from "../adapters/d1/v2Admin";
+import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import {
   activeChallenges,
@@ -19,11 +17,11 @@ import {
 import { addProgressPhoto, createInjury, getProgressPhoto, listActiveInjuries, stepLogsSince, waterLogsSince } from "../adapters/d1/v2Tracking";
 import { getUser } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
-import { computeBoards } from "../bot";
+import { computeBoards } from "../features/gamification/boards";
 import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindow, challengeWindowCounts, resolveWaterGoal, seasonalChallenge, seasonMilestones } from "../domain/challenges";
 import { challengeTitleText } from "../render";
 import { checkAfterDate } from "../domain/injury";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { challengeMilestones, rankOf } from "../domain/records";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { t } from "../locales/i18n";

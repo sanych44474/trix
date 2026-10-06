@@ -3,7 +3,6 @@
 // -- reads exercises through exerciseMuscles.ts, the one set of recognition rules, so a name the
 // body map knows is counted the same everywhere. Pure; test/analysis.test.ts, test/parsers.test.ts.
 import { musclesForExercise, type Slug } from "./exerciseMuscles";
-import type { MuscleGroup } from "./progression";
 
 // The six regions as groups of the body map's muscles, so the list under the map and the map
 // itself count the same sets. They used to run two separate classifiers: the map knew "Розведення
@@ -36,3 +35,5 @@ export function regionOf(name: string): MuscleGroup | null {
   for (const slug of m?.primary ?? []) { const g = REGION_OF[slug]; if (g) return g; }
   return null;
 }
+
+export type MuscleGroup = "legs" | "back" | "chest" | "shoulders" | "arms" | "core";

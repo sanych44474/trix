@@ -4,7 +4,7 @@
 // wizard at the first unanswered step. Returns false (no message) when they're already onboarded.
 import { updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
-import { obKeyboard, obProgress, obSteps } from "../bot";
+import { obKeyboard, obProgress, obSteps } from "../bot/onboarding";
 import type { Env, UserDoc } from "../types";
 
 type PromptKey = "cc_intv_remind_text" | "owner_intv_remind_text";

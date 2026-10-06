@@ -10,13 +10,14 @@ import { getActivePlan, setActivePlan } from "../../adapters/d1/v2Plans";
 import { getTrainer, getTrainerTemplate, listClients, listTrainerTemplates, createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken } from "../../adapters/d1/v2Trainer";
 import { stampOnboardedAt, updateUser } from "../../adapters/d1/v2Users";
 import { botDeepLink } from "../../bot/links";
-import { isOwner } from "../../bot/owner";
+import { isOwner } from "../../bot/ownerAccess";
 import { adaptPlan } from "../../domain/planAdapt";
-import { formatRecordBest } from "../../domain/progression";
+import { formatRecordBest } from "../../domain/setFormat";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
-import { localizePlanNames, mainMenu, menuBtn } from "../../bot";
-import { shortCode } from "./trainer";
+import { localizePlanNames } from "../../bot/exerciseCatalog";
+import { mainMenu, menuBtn } from "../../bot/keyboards";
+import { shortCode } from "./trainerCommon";
 
 // Can this actor share programs broadly? Owner always; a trainer only if the owner granted the
 // instructor capability. Gate for the whole share flow.

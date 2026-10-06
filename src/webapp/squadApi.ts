@@ -8,7 +8,7 @@
 // recomputing the standings a different way. Membership is derived entirely from the
 // authenticated user's own row (squadsForUser); no client-supplied squad id is ever trusted.
 import { getSquad, squadCompletedDates, squadMembers, squadsForUser } from "../adapters/d1/v2Gamification";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { weekStartStr } from "../domain/records";
 import { squadMedal, squadWeek } from "../domain/squad";
 import { miniAppUser } from "./auth";

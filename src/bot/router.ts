@@ -1,7 +1,6 @@
 // Dispatch layer — the bot's routing "sitemap": command map, callback tables (exact + prefix),
 // text-mode handlers, and createBot(). Extracted from bot.ts (god-file split); behavior unchanged.
-// Handlers are imported from "../bot"; nothing in bot.ts's handler bodies depends on this module
-// except four symbols re-imported back, so the dependency is essentially one-way.
+// Handlers are imported from the modules that declare them; bot.ts is only a re-export barrel.
 import { handleFormVideo } from "./formCheck";
 import { cmdPaySupport, cmdSupport, onPreCheckout, onSuccessfulPayment } from "./support";
 import { Bot, InlineKeyboard } from "grammy";
@@ -9,17 +8,37 @@ import { logInfo } from "../log";
 import { aiTranscribe } from "../ai";
 import { menuBtn } from "./keyboards";
 import { cmdImport, handleImportDocument } from "./importCsv";
-import { cmdAdmin, cmdAnnounce, cmdOwnerReport, cmdRefreshVideos, cmdSetVideo, cmdUsers, cmdWhatsNew, showOwnerHub } from "./owner";
-import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdLibrary, cmdRequests, cmdShareProgram, cmdTrainer, cmdTrainerQuestions, cmdTrainerReport, startShareMyPlan, trainerSteps, twAdvance } from "../features/trainer/trainer";
-import { bumpEvent, setLastSeen } from "../adapters/d1/v2Admin";
+import { cmdAdmin, cmdAnnounce, cmdOwnerReport, cmdUsers, cmdWhatsNew, showOwnerHub } from "./owner";
+import { cmdRefreshVideos, cmdSetVideo } from "./ownerVideos";
+import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdRequests, cmdTrainer, cmdTrainerReport } from "../features/trainer/trainer";
+import { cmdLibrary, cmdShareProgram, startShareMyPlan } from "../features/trainer/programSharing";
+import { cmdTrainerQuestions } from "../features/trainer/clientCard";
+import { trainerSteps, twAdvance } from "../features/trainer/trainerWizard";
+import { bumpEvent, setLastSeen } from "../adapters/d1/v2Analytics";
 import { addProgressPhoto } from "../adapters/d1/v2Tracking";
 import { getOrCreateUser, getUser, updateUser } from "../adapters/d1/v2Users";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
 import { handleGroupUpdate } from "./squad";
 import { type Env } from "../types";
 import { MyContext, reply } from "../adapters/telegram/context";
-import { setAppUrl, cmdAskInactive, cmdCalendar, cmdChallenges, cmdCleanup, cmdCoach, cmdDeleteMe, cmdExport, cmdFeedback, cmdHelp, cmdHideKeyboard, cmdInterview, cmdLang, cmdLog, cmdMeasure, cmdMenu, cmdNutrition, cmdPlan, cmdPlates, cmdProgress, cmdRecords, cmdReplan, cmdReport, cmdSchedule, cmdSettings, cmdStart, cmdSteps, cmdToday, cmdVacation, cmdWater, defaultLang, guardLogExit, handlePhotoMeal, normalizeEvent, showAthleteMenu, showMoreMenu, showProgressHub, showTrainerClientsMenu } from "../bot";
+import { setAppUrl } from "./appLinks";
+import { cmdCoach, cmdFeedback, defaultLang, normalizeEvent } from "./commonCmds";
+import { cmdHelp, cmdHideKeyboard, cmdMenu, showAthleteMenu, showMoreMenu, showProgressHub, showTrainerClientsMenu } from "./menus";
+import { cmdInterview, cmdStart } from "./start";
+import { cmdPlan, cmdSchedule, cmdToday } from "./planView";
+import { cmdAskInactive, cmdCleanup } from "./cleanup";
+import { cmdCalendar } from "./calendar";
+import { cmdChallenges } from "../features/gamification/challenges";
+import { cmdDeleteMe, cmdExport, cmdReplan } from "./exportData";
+import { cmdLang, cmdMeasure, cmdSettings } from "./settingsCmds";
+import { cmdLog, guardLogExit } from "./guidedLog";
+import { cmdNutrition, cmdSteps, cmdWater } from "./nutritionCmds";
+import { cmdPlates, cmdProgress } from "./progressCmds";
+import { cmdRecords } from "./recordsCmds";
+import { cmdReport } from "./report";
+import { cmdVacation } from "./vacation";
+import { handlePhotoMeal } from "../features/nutrition/nutritionLog";
 import { cmdMealPlan, cmdGrocery } from "./mealPlanCmds";
 import { cmdCheckin } from "./checkinCmds";
 import { downloadImage, downloadFile } from "./telegramFiles";

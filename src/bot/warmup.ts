@@ -17,7 +17,8 @@ import { switchMode } from "../domain/session";
 import { cleanAi, t } from "../locales/i18n";
 import { renderToday } from "../render";
 import { type MyContext, planOwnerId, planOwnerLang, reply, setMode } from "../adapters/telegram/context";
-import { menuBtn, videosForDays } from "../bot";
+import { menuBtn } from "./keyboards";
+import { videosForDays } from "./planView";
 import { deferAi } from "./aiDefer";
 
 // Show the current warm-up for `weekday` and enter "warmup_edit" mode (typed reply = new steps).

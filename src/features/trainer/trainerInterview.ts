@@ -6,11 +6,12 @@ import { listStrength } from "../../adapters/d1/v2Workouts";
 import { saveDraftPlan } from "../../adapters/d1/v2Plans";
 import { getClientForTrainer, getTrainer } from "../../adapters/d1/v2Trainer";
 import { anthroLines, trainerCanSee } from "../../domain/clientCard";
-import { formatRecordBest } from "../../domain/progression";
+import { formatRecordBest } from "../../domain/setFormat";
 import { escapeHtml, t } from "../../locales/i18n";
 import { renderPlan } from "../../render";
 import { type MyContext, type TKey, reply } from "../../adapters/telegram/context";
-import { buildPlanDoc, deferAi } from "../../bot";
+import { buildPlanDoc } from "../../bot/planBuild";
+import { deferAi } from "../../bot/aiDefer";
 import { trainerStyleBlock } from "./trainerWizard";
 import { clientCardKb } from "./trainerCommon";
 

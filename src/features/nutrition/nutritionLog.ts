@@ -12,12 +12,13 @@ import { getActivePlan } from "../../adapters/d1/v2Plans";
 import { updateUser } from "../../adapters/d1/v2Users";
 import { appendMeals, getUserFoodCorrection } from "../../adapters/d1/v2Nutrition";
 import { scaleMealEntry } from "../../domain/mealplan";
-import { localParts } from "../../domain/progression";
+import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { deferAi, maybeCelebrateLevel } from "../../bot/aiDefer";
 import { showEveningSurvey } from "../../bot/survey";
 import { reactToUser, type MyContext, reply, setMode } from "../../adapters/telegram/context";
-import { cleanFoodName, menuBtn } from "../../bot";
+import { cleanFoodName } from "../../bot/nutritionCmds";
+import { menuBtn } from "../../bot/keyboards";
 
 // Coerce any AI value (number, numeric string, or junk) to a finite integer.
 export function num(x: unknown): number {

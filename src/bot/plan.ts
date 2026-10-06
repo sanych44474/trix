@@ -1,26 +1,28 @@
 // Plan authoring — the app's deepest module: AI interview retry, bank fallback, plan build /
 // heal / translate, dynamic progression regeneration. Extracted from bot.ts (god-file split);
-// behavior unchanged. Values imported from "../bot" are referenced only inside function bodies,
-// so the value-cycle with bot.ts is load-safe.
+// behavior unchanged.
 import { InlineKeyboard } from "grammy";
 import type { Env, Lang, PlanDoc, UserDoc, Weekday } from "../types";
-import type { MyContext } from "../bot";
+import type { MyContext } from "../adapters/telegram/context";
 import { HTML, reply } from "../adapters/telegram/context";
-import { localizePlanNames, saveBaselineBody, videosForDays } from "../bot";
+import { localizePlanNames } from "./exerciseCatalog";
+import { saveBaselineBody } from "./planGen";
+import { videosForDays } from "./planView";
 import { mainMenu, menuBtn, planActionsKb } from "./keyboards";
 import { botDeepLink, shareUrl } from "./links";
 import { logInfo } from "../log";
-import { recordError, recordPlanSource } from "../adapters/d1/v2Admin";
+import { recordError } from "../adapters/d1/v2AiTelemetry";
+import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { listStrength } from "../adapters/d1/v2Workouts";
 import { getActivePlan, listPlanBank, recentAdjustments, saveDraftPlan, setActivePlan } from "../adapters/d1/v2Plans";
 import { getTrainer } from "../adapters/d1/v2Trainer";
 import { getUser, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
-import { sanitizeBodyMetrics } from "./onboarding";
-import { trainerStyleBlock } from "../features/trainer/trainer";
+import { sanitizeBodyMetrics } from "../domain/workoutText";
+import { trainerStyleBlock } from "../features/trainer/trainerWizard";
 import { adaptPlan } from "../domain/planAdapt";
 import { exerciseCountLimits } from "../domain/plan-lint";
 import { MATCH_THRESHOLD, selectBest } from "../domain/planBank";
-import { formatRecordBest } from "../domain/progression";
+import { formatRecordBest } from "../domain/setFormat";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { renderPlan } from "../render";
 import { RateLimitError, aiJSON } from "../ai/index";

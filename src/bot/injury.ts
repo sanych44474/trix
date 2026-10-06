@@ -12,10 +12,10 @@ import { getExerciseTranslation, listCandidatesByMuscles } from "../adapters/d1/
 import { getUser } from "../adapters/d1/v2Users";
 import { INJURY_AREAS, checkAfterDate, conflictingSlots, isSafeCandidate, restorable, safeMusclesFor, type InjuryArea, type Severity } from "../domain/injury";
 import { shouldEscalateForPainScore, shouldEscalateForSeverity } from "../domain/safety";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { type MyContext, type TKey, HTML, reply } from "../adapters/telegram/context";
-import { menuBtn } from "../bot";
+import { menuBtn } from "./keyboards";
 
 export const INJURY_AREA_LABEL: Record<string, TKey> = {
   shoulder: "inj_area_shoulder", elbow: "inj_area_elbow", wrist: "inj_area_wrist",

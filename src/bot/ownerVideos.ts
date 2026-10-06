@@ -10,8 +10,8 @@ import { cleanAi, t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { YouTubeQuotaError, normalizeVideoKey, parseYouTubeId, searchExerciseVideo } from "../youtube";
 import { type MyContext, planOwnerId, reply, setMode } from "../adapters/telegram/context";
-import { menuBtn } from "../bot";
-import { isOwner } from "./owner";
+import { menuBtn } from "./keyboards";
+import { isOwner } from "./ownerAccess";
 
 // Owner: force re-fetch the technique video for every catalog exercise. Locked manual overrides
 // are skipped (no quota spent on them). Stops gracefully when the daily YouTube quota is hit and

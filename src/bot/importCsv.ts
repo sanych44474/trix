@@ -8,7 +8,8 @@ import { parseWorkoutCsv, type ImportedDay } from "../domain/csvImport";
 import type { Weekday } from "../types";
 import { t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { downloadFile, menuBtn } from "../bot";
+import { downloadFile } from "./telegramFiles";
+import { menuBtn } from "./keyboards";
 
 // A CSV this large is either years of history (fine, just cap it) or not actually a workout
 // export -- either way, keep one invocation's D1 writes comfortably bounded.
