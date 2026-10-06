@@ -17,7 +17,9 @@ import { createQuestion, getTrainer, setQuestionDraft } from "../adapters/d1/v2T
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { computeCyclePhase, phaseHint, phaseLabel } from "../domain/cycle";
 import { phaseGuidance, trainingWeek } from "../domain/mesocycle";
-import { bestSetForMetric, formatSetEntry, localParts, metricOfSets, planNextTargets, readinessAdvice } from "../domain/progression";
+import { bestSetForMetric, formatSetEntry, metricOfSets } from "../domain/setFormat";
+import { localParts } from "../domain/localTime";
+import { planNextTargets, readinessAdvice } from "../domain/progression";
 import { getDailyCheckin } from "../adapters/d1/v2Tracking";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
 import { recentCoachingReasons } from "../domain/coachMemory";
@@ -28,9 +30,11 @@ import { deferAi } from "./aiDefer";
 import { recordFeedback } from "./feedbackIntake";
 import { partialJsonString } from "../domain/partialJson";
 import { localCutoff } from "./report";
-import { trainerStyleBlock } from "../features/trainer/trainer";
+import { trainerStyleBlock } from "../features/trainer/trainerWizard";
 import { type MyContext, HTML, planOwnerId, reply, setMode } from "../adapters/telegram/context";
-import { addExerciseByName, adjustDifficulty, deleteExerciseFromToday, menuBtn, setExerciseSets, setExerciseWeight, showSwapAlternatives, swapExerciseByName } from "../bot";
+import { addExerciseByName, deleteExerciseFromToday } from "./exerciseCatalog";
+import { adjustDifficulty, setExerciseSets, setExerciseWeight, showSwapAlternatives, swapExerciseByName } from "./planExerciseEdit";
+import { menuBtn } from "./keyboards";
 
 // `owner` is whose plan/history the coach reasons about — the operator themselves when
 // self-coaching, or the managed client when a trainer is editing that client's plan (see

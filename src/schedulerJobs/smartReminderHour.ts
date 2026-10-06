@@ -2,7 +2,7 @@
 // assumes, offer to move it (Mondays, at most every 30 days). Called by processUser.
 import { InlineKeyboard } from "grammy";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { suggestReminderHour } from "../domain/reminderTiming";
 import { t } from "../locales/i18n";
 import { HTML, isoDaysAgo } from "./shared";

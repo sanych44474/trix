@@ -3,7 +3,8 @@ import { addWater, recordDailyCheckin, upsertBodyLog, upsertStepLog } from "../a
 import { appendMeals } from "../adapters/d1/v2Nutrition";
 import { aiJSON } from "../ai/index";
 import { nutritionSystem, NUTRITION_SCHEMA, type NutritionEstimate } from "../ai/prompts";
-import { localParts, parseMeasurements } from "../domain/progression";
+import { localParts } from "../domain/localTime";
+import { parseMeasurements } from "../domain/workoutText";
 import { cleanAi } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { logError, logInfo } from "../log";

@@ -10,11 +10,11 @@ import {
 } from "../adapters/d1/v2Admin";
 import { listClients, unlinkClient } from "../adapters/d1/v2Trainer";
 import { clearInactiveAsk, getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
 import { isOwner } from "./owner";
 import { type MyContext, HTML, reply, setMode } from "../adapters/telegram/context";
-import { menuBtn } from "../bot";
+import { menuBtn } from "./keyboards";
 
 export const INACTIVE_DAYS = 7;
 

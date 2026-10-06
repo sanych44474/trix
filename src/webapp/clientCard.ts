@@ -4,7 +4,7 @@
 // buildClientCardPayload only fetches rows.
 import { trainerCanSee } from "../domain/clientCard";
 import { computeCyclePhase } from "../domain/cycle";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { getClientCard, getClientNote, listClientNoteHistory, listMessages, type ClientNoteHistoryEntry } from "../adapters/d1/v2Trainer";
 import { listActiveInjuries, listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { buildDashboardPayload } from "../adapters/d1/dashboardReader";

@@ -12,10 +12,11 @@ import { stampOnboardedAt, updateUser } from "../../adapters/d1/v2Users";
 import { botDeepLink } from "../../bot/links";
 import { isOwner } from "../../bot/owner";
 import { adaptPlan } from "../../domain/planAdapt";
-import { formatRecordBest } from "../../domain/progression";
+import { formatRecordBest } from "../../domain/setFormat";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
-import { localizePlanNames, mainMenu, menuBtn } from "../../bot";
+import { localizePlanNames } from "../../bot/exerciseCatalog";
+import { mainMenu, menuBtn } from "../../bot/keyboards";
 import { shortCode } from "./trainer";
 
 // Can this actor share programs broadly? Owner always; a trainer only if the owner granted the

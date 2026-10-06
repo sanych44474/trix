@@ -21,7 +21,8 @@ import { getActivePlan } from "../adapters/d1/v2Plans";
 import { listActiveInjuries } from "../adapters/d1/v2Tracking";
 import { listAchievements } from "../adapters/d1/v2Gamification";
 import { e1rm } from "../domain/records";
-import { formatRecordBest, formatSetEntry, localParts } from "../domain/progression";
+import { formatRecordBest, formatSetEntry } from "../domain/setFormat";
+import { localParts } from "../domain/localTime";
 import { t } from "../locales/i18n";
 import { BODY_FIELDS, bodyFieldLabel, renderBodyDynamics, reportNutritionLine } from "./report";
 import { generatePlan } from "./plan";
@@ -29,7 +30,8 @@ import { areaLabelKey } from "./injury";
 import { badgeLabel } from "../features/gamification/boards";
 import { weekdayName } from "../render";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { menuBtn, num } from "../bot";
+import { menuBtn } from "./keyboards";
+import { num } from "../features/nutrition/nutritionLog";
 
 export async function cmdReplan(ctx: MyContext) {
   const lang = ctx.user.lang;

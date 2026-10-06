@@ -12,7 +12,7 @@ import { getFoodTranslations, getMealPlan, saveMealPlan, upsertFoodTranslations 
 import { buildTemplateMealDay, dishName, expandExclusions } from "../domain/mealTemplate";
 import { computeTargets, isPlausiblePer100g, solvePortions, splitMeals, sumItems } from "../domain/mealplan";
 import { goalBucket } from "../domain/planBank";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { cleanAi, t } from "../locales/i18n";
 import { renderGroceryList, renderMealPlan } from "../render";
 import { groceryList } from "../domain/groceryList";

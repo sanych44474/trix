@@ -4,9 +4,11 @@
 // so the value-cycle with bot.ts is load-safe.
 import { InlineKeyboard } from "grammy";
 import type { Env, Lang, PlanDoc, UserDoc, Weekday } from "../types";
-import type { MyContext } from "../bot";
+import type { MyContext } from "../adapters/telegram/context";
 import { HTML, reply } from "../adapters/telegram/context";
-import { localizePlanNames, saveBaselineBody, videosForDays } from "../bot";
+import { localizePlanNames } from "./exerciseCatalog";
+import { saveBaselineBody } from "./planGen";
+import { videosForDays } from "../bot";
 import { mainMenu, menuBtn, planActionsKb } from "./keyboards";
 import { botDeepLink, shareUrl } from "./links";
 import { logInfo } from "../log";
@@ -16,11 +18,11 @@ import { getActivePlan, listPlanBank, recentAdjustments, saveDraftPlan, setActiv
 import { getTrainer } from "../adapters/d1/v2Trainer";
 import { getUser, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
 import { sanitizeBodyMetrics } from "./onboarding";
-import { trainerStyleBlock } from "../features/trainer/trainer";
+import { trainerStyleBlock } from "../features/trainer/trainerWizard";
 import { adaptPlan } from "../domain/planAdapt";
 import { exerciseCountLimits } from "../domain/plan-lint";
 import { MATCH_THRESHOLD, selectBest } from "../domain/planBank";
-import { formatRecordBest } from "../domain/progression";
+import { formatRecordBest } from "../domain/setFormat";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { renderPlan } from "../render";
 import { RateLimitError, aiJSON } from "../ai/index";

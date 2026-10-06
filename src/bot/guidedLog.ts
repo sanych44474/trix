@@ -12,7 +12,10 @@ import { getWorkoutLog, upsertWorkoutLog } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { updateUser } from "../adapters/d1/v2Users";
 import { OB_WEEKDAY_KEYS } from "./onboarding";
-import { exerciseMetric, fmtDuration, formatSetEntry, getPlanDay, localParts, parseDistance, parseDuration } from "../domain/progression";
+import { exerciseMetric, fmtDuration, formatSetEntry } from "../domain/setFormat";
+import { getPlanDay } from "../domain/progression";
+import { localParts } from "../domain/localTime";
+import { parseDistance, parseDuration } from "../domain/workoutText";
 import { unsavedLogCount } from "../domain/session";
 import { parseSetEdit, parseSetLine } from "../domain/setLine";
 import { escapeHtml, t } from "../locales/i18n";
@@ -20,7 +23,9 @@ import { isoDateMinus } from "../features/gamification/boards";
 import { trainerMenuActionFor } from "../features/trainer/trainer";
 import { finalizeWorkoutLog } from "./workoutSave";
 import { type MyContext, clearEditOwner, reply, setMode } from "../adapters/telegram/context";
-import { MENU_MAP, cmdMenu, menuActionFor, menuBtn } from "../bot";
+import { MENU_MAP } from "./router";
+import { cmdMenu, menuActionFor } from "../bot";
+import { menuBtn } from "./keyboards";
 
 export type LogDraft = NonNullable<UserDoc["session"]["logDraft"]>;
 

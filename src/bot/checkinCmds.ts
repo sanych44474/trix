@@ -9,10 +9,11 @@ import { getWorkoutLog } from "../adapters/d1/v2Workouts";
 import { getActivePlan, recordAdjustment, setActivePlan } from "../adapters/d1/v2Plans";
 import { recordDailyCheckin } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
-import { localParts, weeksSincePlan } from "../domain/progression";
+import { localParts } from "../domain/localTime";
+import { weeksSincePlan } from "../domain/progression";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { MyContext, reply, setMode } from "../adapters/telegram/context";
-import { coachContext } from "../bot";
+import { coachContext } from "./coach";
 import { maybeCelebrateLevel, deferAi } from "./aiDefer";
 
 export async function cmdCheckin(ctx: MyContext) {

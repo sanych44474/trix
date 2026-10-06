@@ -25,7 +25,7 @@ import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getRecentContext } from "../adapters/d1/v2Admin";
 import { getUser } from "../adapters/d1/v2Users";
 import { createQuestion, getTrainer, listMessages, listQuestionsForClient, setQuestionDraft } from "../adapters/d1/v2Trainer";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { miniAppUser } from "./auth";

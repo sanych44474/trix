@@ -4,11 +4,11 @@
 // same value-cycle pattern as features/trainer/trainer.ts; calls happen at request time only).
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
-import { parseHeightWeight, realisticHeightCm, realisticWeightKg } from "../domain/progression";
+import { parseHeightWeight, realisticHeightCm, realisticWeightKg } from "../domain/workoutText";
 import { listIncompleteOnboarding, updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
 import { HTML, reply, type MyContext, type TKey } from "../adapters/telegram/context";
-import { generateClientDraft, generatePlan } from "../bot";
+import { generateClientDraft, generatePlan } from "./plan";
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
 
 export interface ObStep {

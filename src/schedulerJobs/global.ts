@@ -10,7 +10,7 @@ import type { Env } from "../types";
 import { getOwnerChatId, getAlertState, setAlertState, errorStatsSince, aiUsageSince, pruneOldLogs, pruneAiCache, getSetting, setSetting } from "../adapters/d1/v2Admin";
 import { pruneNotificationOutbox } from "../adapters/d1/v2Notifications";
 import { pruneIdempotencyKeys } from "../adapters/d1/v2Idempotency";
-import { computeBoards } from "../bot";
+import { computeBoards } from "../features/gamification/boards";
 import { logSchedulerError, type Sender } from "./shared";
 
 // Push the owner an alert when something operationally wrong is happening (no need to open /report).

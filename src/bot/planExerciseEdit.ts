@@ -16,14 +16,19 @@ import { getCatalogExercise, listCandidatesByMuscles, listExercisesByMusclesAnyL
 import { updateUser } from "../adapters/d1/v2Users";
 import { pickDifficultySwaps } from "../domain/difficultySwap";
 import { fitsEquipmentPreset, pickGymSwaps, profileEquipmentToPreset, type EquipmentPreset, type GymSwapCandidate, type GymSwapSlot } from "../domain/gymSwap";
-import { getPlanDay, localParts } from "../domain/progression";
+import { getPlanDay } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { switchMode } from "../domain/session";
 import { cleanAi, t } from "../locales/i18n";
 import { renderToday } from "../render";
 import { weekdayName } from "../render";
 import { translatePlanExercises } from "./planBuild";
 import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply, setMode } from "../adapters/telegram/context";
-import { type LogDraft, cmdLog, cmdToday, createExerciseCatalogEntry, decodePlanRef, difficultyLabel, encodePlanRef, exerciseInfoEntry, logExerciseKeyboard, logPickExercise, menuBtn, muscleGroupToEnum, onError, persistLogDraft, reRenderEditDay, searchExerciseCatalog, swapTuneKb, translateExerciseQueryToEnglish, videosForDays, extractExerciseQuery, promptExerciseConfirmation } from "../bot";
+import { type LogDraft, cmdLog, logExerciseKeyboard, logPickExercise, persistLogDraft } from "./guidedLog";
+import { cmdToday, decodePlanRef, encodePlanRef, reRenderEditDay, videosForDays } from "../bot";
+import { createExerciseCatalogEntry, exerciseInfoEntry, muscleGroupToEnum, searchExerciseCatalog, swapTuneKb, translateExerciseQueryToEnglish, extractExerciseQuery, promptExerciseConfirmation } from "./exerciseCatalog";
+import { difficultyLabel, menuBtn } from "./keyboards";
+import { onError } from "./aiDefer";
 
 // Show exercises of a day as buttons to pick one to replace.
 export async function swapMenu(ctx: MyContext, weekday: Weekday) {

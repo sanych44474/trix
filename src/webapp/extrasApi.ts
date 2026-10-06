@@ -4,7 +4,8 @@
 // editing. Reuses the same repos and domain code as the bot; pushes (confirmations, interview
 // kick-off) go out via the Bot API.
 import { listInbox, markInboxRead } from "../adapters/d1/v2Inbox";
-import { computeWeekCardStats, formatWeekCardText, obKeyboard, obSteps } from "../bot";
+import { computeWeekCardStats, formatWeekCardText } from "../features/gamification/weekCard";
+import { obKeyboard, obSteps } from "../bot/onboarding";
 import {
   getOwnerChatId,
 } from "../adapters/d1/v2Admin";
@@ -32,7 +33,7 @@ import { getUser, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
 import { adaptPlan } from "../domain/planAdapt";
 import { platePlan, warmupRamp } from "../domain/calc";
 import { BADGES, e1rm } from "../domain/records";
-import { formatRecordBest } from "../domain/progression";
+import { formatRecordBest } from "../domain/setFormat";
 import { escapeHtml, t } from "../locales/i18n";
 import { latestRelease, releaseBody } from "../releaseNotes";
 import { miniAppUser } from "./auth";

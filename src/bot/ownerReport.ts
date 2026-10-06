@@ -11,7 +11,7 @@ import { weekStartStr } from "../domain/records";
 import { biggestDrop, cohortRetention, RETENTION_WEEKS } from "../domain/cohorts";
 import { escapeHtml } from "../locales/i18n";
 import { splitKeys } from "../ai/errors";
-import { obSteps } from "../bot";
+import { obSteps } from "./onboarding";
 import { interviewProgress, OwnerUserRow } from "./owner";
 
 // Telegram renders no real tables — a monospace <pre> block with space-aligned columns is the

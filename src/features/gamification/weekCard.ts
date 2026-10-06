@@ -2,7 +2,7 @@
 // a trainer's client via the client card, or the Mini App /api/weekcard). Takes a bare db —
 // no grammY context needed, so the webapp calls it without faking one.
 import { computeXp, levelFromXp } from "../../domain/gamification";
-import { localParts } from "../../domain/progression";
+import { localParts } from "../../domain/localTime";
 import { recentPrCount, weekStreak } from "../../domain/records";
 import { weekStats } from "../../domain/weekCard";
 import { userStatCounts } from "../../adapters/d1/v2Admin";

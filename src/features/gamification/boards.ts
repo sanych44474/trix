@@ -14,7 +14,7 @@ import {
   type BoardEntry,
   type Competitor,
 } from "../../domain/records";
-import { localParts } from "../../domain/progression";
+import { localParts } from "../../domain/localTime";
 import {
   competitorBodyweights,
   competitorStrength,

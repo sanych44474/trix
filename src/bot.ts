@@ -10,7 +10,8 @@ import { getDailyCheckin } from "./adapters/d1/v2Tracking";
 import { getExerciseVideos, getUserVideos } from "./adapters/d1/v2Catalog";
 import { getUser, updateUser } from "./adapters/d1/v2Users";
 import { escapeHtml, t } from "./locales/i18n";
-import { deloadSets, localParts, readinessAdvice } from "./domain/progression";
+import { deloadSets, readinessAdvice } from "./domain/progression";
+import { localParts } from "./domain/localTime";
 import { phaseKey as mesoPhaseKey, trainingWeek } from "./domain/mesocycle";
 import { buildVideoOpenLink } from "./domain/videoLink";
 import { exerciseVideoKey, renderPlan, renderSchedule, renderToday, upcomingSessions } from "./render";
@@ -18,7 +19,10 @@ import { cmdReport, localCutoff } from "./bot/report";
 import { resumePendingPlan } from "./bot/planGen";
 import { renderDayInline } from "./bot/workoutSave";
 import { isOwner } from "./bot/owner";
-import { joinByCode, joinByProspectCode, showSharedProgram, showPlanEditDay, trainerMenu } from "./features/trainer/trainer";
+import { joinByCode, joinByProspectCode } from "./features/trainer/trainer";
+import { showSharedProgram } from "./features/trainer/programSharing";
+import { showPlanEditDay } from "./features/trainer/clientCard";
+import { trainerMenu } from "./features/trainer/trainerCommon";
 import { onboardingStep, renderObStep } from "./bot/onboarding";
 import { mainMenu, moreMenu, progressHubMenu, trainerHubMenu, trainerClientsMenu, appendOwnerRow, menuBtn, planViewKb, langMenu, difficultyKeyboard, todayWorkoutKeyboard } from "./bot/keyboards";
 import { healPlanIfDegenerate } from "./bot/plan";
@@ -26,12 +30,22 @@ import { showNextBestAction } from "./bot/nextBestAction";
 import { cmdLog } from "./bot/guidedLog";
 import { readinessWithConditioning, recentConditioningStrain } from "./domain/conditioning";
 import { lookupExerciseVideoCached } from "./youtube";
-import { APP_VERSION } from "./webapp/appVersion";
 import { HTML, clearEditOwner, reply, setMode, type MyContext } from "./adapters/telegram/context";
 import { cmdProgress } from "./bot/progressCmds";
 import { cmdNutrition, cmdSteps } from "./bot/nutritionCmds";
 import { cmdSettings, cmdMeasure } from "./bot/settingsCmds";
 import { healPlanNamesForDisplay, sendExerciseDescriptions } from "./bot/exerciseCatalog";
+import { APP_URL } from "./bot/appLinks";
+// Core context/plumbing (MyContext, reply, HTML, setMode, plan-owner helpers, TKey) lives in
+// adapters/telegram/context.ts now — extracted so the many bot/*.ts feature files that only
+// need these don't have to import the whole god-file (roadmap item 1, first slice: this was the
+// single biggest source of router.ts's 100+ backward imports from bot.ts). Re-exported here so
+// every existing `from "./bot"` consumer keeps working unchanged.
+export type { MyContext, TKey } from "./adapters/telegram/context";
+export {
+  HTML, clearEditOwner, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply, sendLong, setEditOwner, setMode,
+} from "./adapters/telegram/context";
+export * from "./bot/appLinks";
 export * from "./bot/exerciseCatalog";
 export * from "./bot/recordsCmds";
 export * from "./bot/settingsCmds";
@@ -69,25 +83,6 @@ export * from "./bot/guidedLog";
 export * from "./bot/nextBestAction";
 
 
-export const COMMON_TZ = [
-  "Europe/Kyiv",
-  "Europe/Warsaw",
-  "Europe/London",
-  "Europe/Berlin",
-  "America/New_York",
-  "UTC",
-];
-
-// Core context/plumbing (MyContext, reply, HTML, setMode, plan-owner helpers, TKey) lives in
-// adapters/telegram/context.ts now — extracted so the many bot/*.ts feature files that only
-// need these don't have to import the whole god-file (roadmap item 1, first slice: this was the
-// single biggest source of router.ts's 100+ backward imports from bot.ts). Re-exported here so
-// every existing `from "./bot"` consumer keeps working unchanged.
-export type { MyContext, TKey } from "./adapters/telegram/context";
-export {
-  HTML, clearEditOwner, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply, sendLong, setEditOwner, setMode,
-} from "./adapters/telegram/context";
-
 export const REPORT_DAYS = 14;
 
 // A valid training day must carry a full session — used to reject degenerate AI plans.
@@ -107,23 +102,6 @@ export function normalizeEvent(data: string): string {
   const parts = data.split(":").filter((p) => p && !/^\d+$/.test(p) && !/^\d{4}-\d{2}-\d{2}$/.test(p));
   return parts.slice(0, 2).join(":") || "other";
 }
-
-// Mini App base URL, captured once in createBot so pure keyboard builders can use it without
-// threading env through every call site. Undefined (e.g. local dev) hides the dashboard buttons.
-export let APP_URL: string | undefined;
-export let APP_PATH = "/app";
-// Setter so the extracted router module can populate this module-owned binding at bot startup
-// (an imported binding can't be assigned to across modules).
-export function setAppUrl(v: string | undefined, path = "/app"): void {
-  APP_URL = v;
-  APP_PATH = path === "/app-v2" ? "/app-v2" : "/app";
-}
-
-export function dashboardUrl(): string | undefined {
-  return APP_URL ? `${APP_URL}${APP_PATH}?v=${APP_VERSION}` : undefined;
-}
-
-
 
 export async function showMoreMenu(ctx: MyContext) {
   await reply(ctx, t(ctx.user.lang, "more_title"), moreMenu(ctx.user.lang, ctx.user.role === "solo"));

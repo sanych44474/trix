@@ -26,7 +26,8 @@ import {
   searchExercisesByName,
   setUserVideo,
 } from "../adapters/d1/v2Catalog";
-import { exerciseMetric, resolveWeightMode } from "../domain/progression";
+import { exerciseMetric } from "../domain/setFormat";
+import { resolveWeightMode } from "../domain/progression";
 import { cleanAi, t } from "../locales/i18n";
 import { exerciseVideoKey, weekdayName } from "../render";
 import { parseYouTubeId } from "../youtube";

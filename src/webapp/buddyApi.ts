@@ -8,7 +8,7 @@ import { getUser } from "../adapters/d1/v2Users";
 import { currentWinStreak } from "../domain/buddyDuel";
 import { computeXp, levelFromXp } from "../domain/gamification";
 import { weekStartStr, weekStreak } from "../domain/records";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { miniAppUser } from "./auth";
 import type { Env } from "../types";
 

@@ -16,7 +16,8 @@
 // already ported them v2-natively (v2_config/v2_analytics_events/v2_ai_calls/
 // v2_plan_source_logs/the cross-domain batch in v2Admin.ts's own dashboardExtrasBatch). Nothing
 // here reads a legacy table.
-import { localParts, complianceScore, getPlanDay } from "../../domain/progression";
+import { localParts } from "../../domain/localTime";
+import { complianceScore, getPlanDay } from "../../domain/progression";
 import { missedConsecutiveWorkouts } from "../../domain/atrisk";
 import { computeXp, levelFromXp } from "../../domain/gamification";
 import { BADGES, badgeProgress, weekStartStr, weekStreak } from "../../domain/records";

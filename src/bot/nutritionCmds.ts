@@ -10,7 +10,8 @@ import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem }
 import { escapeHtml, t } from "../locales/i18n";
 import { aiJSON } from "../ai";
 import * as P from "../ai/prompts";
-import { localParts, parseSteps } from "../domain/progression";
+import { localParts } from "../domain/localTime";
+import { parseSteps } from "../domain/workoutText";
 import { num, verifyItems } from "../features/nutrition/nutritionLog";
 import { isoDateMinus } from "../features/gamification/boards";
 import { showEveningSurvey } from "./survey";

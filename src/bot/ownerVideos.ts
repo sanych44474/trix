@@ -10,7 +10,7 @@ import { cleanAi, t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { YouTubeQuotaError, normalizeVideoKey, parseYouTubeId, searchExerciseVideo } from "../youtube";
 import { type MyContext, planOwnerId, reply, setMode } from "../adapters/telegram/context";
-import { menuBtn } from "../bot";
+import { menuBtn } from "./keyboards";
 import { isOwner } from "./owner";
 
 // Owner: force re-fetch the technique video for every catalog exercise. Locked manual overrides

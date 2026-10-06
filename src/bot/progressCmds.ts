@@ -11,7 +11,8 @@ import { getDayMeals, nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { aiText } from "../ai";
 import * as P from "../ai/prompts";
-import { buildActivityCells, deloadDue, localParts } from "../domain/progression";
+import { buildActivityCells, deloadDue } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { e1rm, weekStartStr, weekStreak } from "../domain/records";
 import { conditioningLoadLabel, renderActivityGrid, renderStrength, exerciseChart, wellbeingChart } from "../render";
 import { strengthStandard, type StrengthLevel } from "../domain/standards";
@@ -27,7 +28,7 @@ import { conditioningWeek } from "../domain/conditioning";
 import { platePlan, warmupRamp } from "../domain/calc";
 import { progressBar } from "../domain/challenges";
 import { clearEditOwner, reply, setMode, type MyContext, type TKey } from "../adapters/telegram/context";
-import { dashboardUrl } from "../bot";
+import { dashboardUrl } from "./appLinks";
 
 export async function cmdProgress(ctx: MyContext) {
   const lang = ctx.user.lang;
