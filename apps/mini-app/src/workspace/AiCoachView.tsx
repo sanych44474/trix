@@ -40,7 +40,7 @@ export function AiCoachView({ lang, onBack, routed, prefill }: { lang: Lang; onB
     <div className="page-title"><h1>{t(lang, routed ? "ask_trainer_title" : "ai_coach_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
     {!routed && <Panel><CoachChat lang={lang} prefill={prefill} /></Panel>}
     {routed && <Panel>
-      {routed && <p className="muted">{t(lang, "ask_trainer_detail", { name: thread?.trainer?.name || t(lang, "your_trainer_fallback") })}</p>}
+      <p className="muted">{t(lang, "ask_trainer_detail", { name: thread?.trainer?.name || t(lang, "your_trainer_fallback") })}</p>
       <label className="form-field"><span>{t(lang, routed ? "ask_trainer_question_label" : "ai_coach_question_label")}</span><textarea value={question} maxLength={500} placeholder={t(lang, "ai_coach_ph")} onChange={(event) => setQuestion(event.target.value)} /></label>
       <div className="button-row"><button className="button button-primary" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? t(lang, "saving_ellipsis") : t(lang, routed ? "ask_trainer_send_btn" : "ai_coach_ask_btn")}</button></div>
       {sent && <div className="save-note">{t(lang, "ask_trainer_sent_note")}</div>}
