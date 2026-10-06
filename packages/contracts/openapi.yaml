@@ -1005,6 +1005,93 @@ paths:
               schema: {type: string, format: binary}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/plan/replan:
+    get:
+      operationId: getReplanStatus
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Whether a rebuild started from the app is still building
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [pending, failed]
+                      properties:
+                        pending: {type: boolean}
+                        failed: {type: boolean, description: The last rebuild failed}
+                  required: [data]
+    post:
+      operationId: rebuildPlan
+      description: Rebuild the athlete's own plan from their current profile and records, in the background. Not for trainer clients (403).
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '200':
+          description: Started (or already running)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok, pending]
+                      properties:
+                        ok: {type: boolean}
+                        pending: {type: boolean}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v2/owner/announce:
+    post:
+      operationId: ownerAnnounce
+      description: Owner only. Sends the text to the next batch of 25 onboarded users after account id `after`.
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: {type: string, minLength: 1, maxLength: 3000}
+                after: {type: integer, minimum: 0, description: The `next` of the previous batch}
+      responses:
+        '200':
+          description: This batch's result and where the next one starts
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [sent, failed, total, remaining, next]
+                      properties:
+                        sent: {type: integer}
+                        failed: {type: integer}
+                        total: {type: integer}
+                        remaining: {type: integer}
+                        next: {type: [integer, 'null']}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/chat:
     get:
       operationId: getChatThread
@@ -1122,6 +1209,44 @@ paths:
                           type: object
                           additionalProperties: {type: integer}
                   required: [data]
+  /api/v2/media/import-csv:
+    post:
+      operationId: importWorkoutCsv
+      description: Import workout history from a Strong or Hevy CSV export. Dates that already have a log are skipped.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+      responses:
+        '200':
+          description: What was imported, or why nothing was
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {type: boolean}
+                        reason: {type: string, enum: [too_big, wrong_format, failed]}
+                        imported: {type: integer}
+                        skipped: {type: integer}
+                        capped: {type: boolean}
+                        cap: {type: integer}
+                        format: {type: string, enum: [strong, hevy]}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/media/meal-photo:
     post:
       operationId: estimateMealPhoto

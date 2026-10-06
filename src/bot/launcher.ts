@@ -41,7 +41,7 @@ const COMMAND_VIEWS: Record<string, AppView> = {
   progress: "progress", records: "progress", measure: "progress", checkin: "progress", report: "progress", calendar: "progress",
   coach: "coach", feedback: "coach", settings: "settings", lang: "settings", export: "settings", deleteme: "settings",
   clients: "role", requests: "role", trainer: "role", becometrainer: "more", leavetrainer: "settings",
-  challenges: "more", plates: "more", whatsnew: "more", support: "more", paysupport: "more",
+  challenges: "more", plates: "more", whatsnew: "more", support: "more", paysupport: "more", import: "more",
 };
 
 export function viewForCallback(data: string): AppView | undefined {

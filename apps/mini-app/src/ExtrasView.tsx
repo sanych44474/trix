@@ -1,5 +1,6 @@
 // The "More" screen (lazy chunk): library, squads, plates, week card, profile photo, extras.
 import { FormCheck } from "./media/FormCheck";
+import { ImportCsv } from "./media/ImportCsv";
 import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
 import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, ProfilePhoto, SquadInfo, WeekCardResponse } from "./types";
@@ -234,6 +235,10 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
         <div className="volume-list">{s.entries.map((e) => <div className="volume-row" key={e.name}><div><strong>{e.medal} {e.name}</strong>{e.me && <small>{t(lang, "you_label")}</small>}</div><span>{e.workouts}</span></div>)}</div>
         <p className="muted" style={{ marginTop: 6 }}>{s.silent > 0 ? t(lang, "squads_silent_hint", { n: s.silent, total: s.total }) : t(lang, "squads_all_in_hint", { total: s.total })}</p>
       </div>)}
+    </Card>
+    <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "import_app_eyebrow")}</span><h2>{t(lang, "import_app_title")}</h2></div></div>
+      <ImportCsv lang={lang} />
     </Card>
     <AppShortcutsCard lang={lang} />
     <SupportCard lang={lang} />

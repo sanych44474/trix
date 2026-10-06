@@ -1,6 +1,6 @@
 // The owner console: report tabs, roster, feedback triage and the release broadcast.
 import { useEffect, useState } from "react";
-import { api, jsonBody } from "../api";
+import { api, jsonBody, typedBody } from "../api";
 import { OwnerFeedback } from "../OwnerFeedback";
 import { OwnerRoster, type RosterAction } from "../OwnerRoster";
 import type { OwnerUsers } from "../types";
@@ -59,6 +59,7 @@ export function OwnerWorkspace({ lang }: { lang: Lang }) {
     <div className="page-title"><h1>{t(lang, "system_pulse_title")}</h1><span>{t(lang, "n_users", { n: users.rows.length })}</span></div>
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <ReleaseBroadcastPanel lang={lang} />
+    <AnnouncePanel lang={lang} />
     {/* All sections at once as a grid of icon chips -- the old one-line scroller hid the last
         tabs off-screen on a phone. */}
     <nav className="owner-tabs" aria-label={t(lang, "owner_ops_eyebrow")}>
@@ -126,5 +127,40 @@ export function ReleaseBroadcastPanel({ lang }: { lang: Lang }) {
         : <button className="button button-ghost" onClick={() => setConfirm(true)}>{t(lang, "owner_release_send", { n: Math.min(25, info.pending) })}</button>}
     </div>}
     <p className="muted">{t(lang, "owner_release_hint")}</p>
+  </Panel>;
+}
+
+// An announcement to every user (the in-app /announce): write it, confirm, then it goes out in
+// batches of 25 per tap, continuing from where the last batch stopped.
+export function AnnouncePanel({ lang }: { lang: Lang }) {
+  const [text, setText] = useState("");
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ sent: number; failed: number; remaining: number; total: number; next: number | null } | null>(null);
+  const [error, setError] = useState(false);
+  const send = async () => {
+    setBusy(true); setError(false);
+    try {
+      const r = await api<{ sent: number; failed: number; remaining: number; total: number; next: number | null }>("/api/v2/owner/announce", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"ownerAnnounce">({ text: text.trim(), ...(progress?.next ? { after: progress.next } : {}) }) });
+      setProgress((prev) => ({ ...r, sent: (prev?.sent ?? 0) + r.sent, failed: (prev?.failed ?? 0) + r.failed }));
+      setConfirm(false);
+    } catch { setError(true); } finally { setBusy(false); }
+  };
+  const finished = progress !== null && progress.next === null;
+  return <Panel>
+    <div className="section-head"><div><span className="eyebrow">{t(lang, "owner_announce_eyebrow")}</span><h2>{t(lang, "owner_announce_title")}</h2></div></div>
+    <textarea className="owner-announce" value={text} maxLength={3000} rows={4} disabled={progress !== null && !finished} placeholder={t(lang, "owner_announce_ph")} onChange={(e) => setText(e.target.value)} />
+    {progress && <p>{t(lang, "owner_announce_progress", { sent: progress.sent, failed: progress.failed, remaining: progress.remaining })}</p>}
+    {error && <p className="muted">{t(lang, "generic_error")}</p>}
+    <div className="button-row">
+      {finished
+        ? <button className="button button-ghost" onClick={() => { setProgress(null); setText(""); }}>{t(lang, "owner_announce_new")}</button>
+        : confirm
+          ? <>
+              <button className="button button-primary" disabled={busy || !text.trim()} onClick={() => void send()}>{busy ? "…" : t(lang, progress ? "owner_announce_continue" : "owner_announce_confirm")}</button>
+              <button className="button button-ghost" disabled={busy} onClick={() => setConfirm(false)}>{t(lang, "close")}</button>
+            </>
+          : <button className="button button-ghost" disabled={!text.trim()} onClick={() => setConfirm(true)}>{t(lang, progress ? "owner_announce_continue" : "owner_announce_send")}</button>}
+    </div>
   </Panel>;
 }

@@ -7,6 +7,7 @@ import * as P from "../ai/prompts";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { abToB64 } from "../bot/telegramFiles";
 import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, aiCallsToday, formCheckGate, formCheckPrompt, formCheckSystem } from "../bot/formCheck";
+import { MAX_DAYS_IMPORTED, MAX_FILE_BYTES as MAX_CSV_BYTES, importWorkoutCsv } from "../bot/importCsv";
 import { verifyItems } from "../features/nutrition/verifyItems";
 import { cleanAi } from "../locales/i18n";
 import { logError, logInfo } from "../log";
@@ -101,6 +102,22 @@ export async function handleMediaApi(req: Request, url: URL, env: Env): Promise<
     } catch (err) {
       logError("api/media/transcribe", err, { userId: user._id });
       return bad("dependency_unavailable", 502);
+    }
+  }
+
+  // Workout history from Strong / Hevy (CSV export). Dates that already have a log are skipped.
+  if (path === "/import-csv") {
+    const file = blobOf(form, "file");
+    if (!file) return bad("bad request");
+    if (file.size > MAX_CSV_BYTES) return Response.json({ ok: false, reason: "too_big" });
+    try {
+      const result = await importWorkoutCsv(env.DB, user._id, user.lang, await file.text());
+      if (!result) return Response.json({ ok: false, reason: "wrong_format" });
+      logInfo("csv_imported", { source: "webapp", format: result.format, imported: result.imported });
+      return Response.json({ ok: true, ...result, cap: MAX_DAYS_IMPORTED });
+    } catch (err) {
+      logError("api/media/import-csv", err, { userId: user._id });
+      return Response.json({ ok: false, reason: "failed" });
     }
   }
 

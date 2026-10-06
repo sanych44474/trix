@@ -1,4 +1,5 @@
 // The Plan screen (lazy chunk): the weekly plan editor, mesocycle card, kit fit and change log.
+import { RebuildPlanCard } from "./RebuildPlan";
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError, typedBody } from "./api";
 import type { MesoPhase, Plan } from "./types";
@@ -33,7 +34,7 @@ export function KitFitCard({ lang, kit, busy, onFit }: { lang: Lang; kit: NonNul
   </Card>;
 }
 
-export function PlanView({ lang, clientId = null, onBack, onOpenLibrary }: { lang: Lang; clientId?: number | null; onBack?: () => void; onOpenLibrary?: () => void }) {
+export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebuild = false }: { lang: Lang; clientId?: number | null; onBack?: () => void; onOpenLibrary?: () => void; canRebuild?: boolean }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<unknown>(null);
   // Separate from `error` on purpose: `error` means "couldn't load the plan, nothing to show" and
@@ -177,6 +178,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary }: { lan
         <div><strong>{change.summary}</strong><small>{t(lang, `plan_change_src_${change.source}` as Key)} · {change.at.slice(0, 10)}</small></div>
       </div>)}</div>}
     </Card>}
+    {canRebuild && clientId === null && <RebuildPlanCard lang={lang} onDone={load} />}
     {plan.kit && plan.kit.mismatches > 0 && <KitFitCard lang={lang} kit={plan.kit} busy={dayBusy === "fitkit"} onFit={(equipment) => void mutateDay("fitkit", { action: "fitkit", ...(equipment ? { equipment } : {}) })} />}
     {balance.length > 0 && <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_balance_eyebrow")}</span><h2>{t(lang, "plan_balance_title")}</h2></div></div>

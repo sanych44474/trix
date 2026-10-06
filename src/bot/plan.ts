@@ -218,6 +218,56 @@ export async function finalizeOnboardingPlan(
   }
 }
 
+/** A rebuild still counts as running this long after it started (a crashed one frees up after). */
+export const REPLAN_RUNNING_MS = 5 * 60_000;
+
+/** True while a plan rebuild the user started from the app is still building. */
+export function replanRunning(user: UserDoc, now = Date.now()): boolean {
+  const at = user.session.replanAt ? Date.parse(user.session.replanAt) : Number.NaN;
+  return Number.isFinite(at) && now - at < REPLAN_RUNNING_MS;
+}
+
+/**
+ * Rebuild an athlete's own plan from their current profile and records (the app's "Rebuild plan";
+ * the chat's /replan). AI first with the strength records as anchors, the closest bank archetype
+ * if the AI chain is down. Activates it, refreshes nutrition targets and pings the user with a
+ * button to the new plan. Trainer clients never get here (their trainer owns the plan).
+ */
+export async function rebuildPlan(env: Env, db: D1Database, user: UserDoc): Promise<boolean> {
+  const lang = user.lang;
+  try {
+    const records = await listStrength(db, user._id, 8).catch(() => []);
+    const prs = records.length ? records.map((r) => `${r.exercise}: ${formatRecordBest(r)}`).join("\n") : undefined;
+    let plan: PlanDoc | null = null;
+    let source: "ai" | "bank" = "ai";
+    try {
+      plan = await buildPlanDocRaw(env, db, lang, user.profile, user._id, { prs });
+      await recordPlanSource(db, user._id, "workout", "ai").catch(() => {});
+    } catch (aiErr) {
+      plan = await bankFallbackPlan(db, lang, user.profile, user._id);
+      source = "bank";
+      if (!plan) throw aiErr;
+    }
+    await setActivePlan(db, plan);
+    const fresh = await getUser(db, user._id);
+    await updateUser(db, user._id, { nutrition: plan.nutrition, session: { ...(fresh?.session ?? user.session), replanAt: undefined } });
+    logInfo("plan_rebuilt", { source });
+    const markup = appMarkup(env, t(lang, "nb_open_plan"), "plan");
+    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "plan_rebuilt"), parse_mode: "HTML", ...withMarkup(markup) }),
+    }).catch(() => {});
+    return true;
+  } catch (e) {
+    console.error("rebuildPlan failed", user._id, e);
+    await recordError(db, { userId: user._id, kind: "plan_rebuild", errorType: "exception", message: String(e).slice(0, 200) }).catch(() => {});
+    const fresh = await getUser(db, user._id).catch(() => null);
+    await updateUser(db, user._id, { session: { ...(fresh?.session ?? user.session), replanAt: undefined, replanFailed: new Date().toISOString() } }).catch(() => {});
+    return false;
+  }
+}
+
 // Client finished onboarding under a trainer: build an AI DRAFT for the trainer to review
 // (not activated), mark the client onboarded, and notify the trainer.
 export async function generateClientDraft(ctx: MyContext, profile: UserDoc["profile"]) {

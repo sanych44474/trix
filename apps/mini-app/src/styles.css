@@ -486,3 +486,4 @@ button { cursor: pointer; }
 .form-check { display: grid; gap: 9px; margin-top: 6px; }
 .form-check .button { width: 100%; }
 .form-check-answer { white-space: pre-wrap; color: var(--text); font-size: 13px; }
+.owner-announce { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 14px; resize: vertical; margin-bottom: 8px; }
