@@ -5,7 +5,7 @@ import { computeXp, levelFromXp } from "../../domain/gamification";
 import { localParts } from "../../domain/localTime";
 import { recentPrCount, weekStreak } from "../../domain/records";
 import { weekStats } from "../../domain/weekCard";
-import { userStatCounts } from "../../adapters/d1/v2Admin";
+import { userStatCounts } from "../../adapters/d1/v2Analytics";
 import { listStrength, workoutLogsSince } from "../../adapters/d1/v2Workouts";
 import { getActivePlan } from "../../adapters/d1/v2Plans";
 import { escapeHtml, t } from "../../locales/i18n";

@@ -2,7 +2,7 @@
 // wellbeing, plus an optional AI narrative. Extracted from bot.ts (god-file split; same barrel
 // seam via bot.ts's `export * from "./bot/report"`).
 import type { BodyLogDoc, Lang } from "../types";
-import { loadActivityWindow } from "../adapters/d1/v2Admin";
+import { loadActivityWindow } from "../adapters/d1/v2Analytics";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { localParts } from "../domain/localTime";

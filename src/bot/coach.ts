@@ -10,7 +10,7 @@ import { offerKitFit } from "./kitFit";
 import type { UserDoc, Weekday } from "../types";
 import { aiJSON, aiText } from "../ai";
 import * as P from "../ai/prompts";
-import { getRecentContext } from "../adapters/d1/v2Admin";
+import { getRecentContext } from "../adapters/d1/v2Analytics";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getActivePlan, recentAdjustments } from "../adapters/d1/v2Plans";
 import { createQuestion, getTrainer, setQuestionDraft } from "../adapters/d1/v2Trainer";

@@ -1,11 +1,9 @@
 // Long-tail Mini App APIs (roadmap P7): challenges (view/join), injury log (view/report), and
 // the competitor leaderboards (read). Each reuses the same repos/domain as the bot; same initData
 // auth. Routed at /api/challenges, /api/injuries, /api/boards.
-import {
-  bumpEvent,
-  getSetting,
-  recordError,
-} from "../adapters/d1/v2Admin";
+import { bumpEvent } from "../adapters/d1/v2Analytics";
+import { getSetting } from "../adapters/d1/v2Admin";
+import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import {
   activeChallenges,

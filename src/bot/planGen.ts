@@ -2,7 +2,7 @@
 // pending when the user's session was last touched, and persisting the onboarding baseline
 // bodyweight/measurements as the first body_logs row. Extracted from bot.ts (god-file split;
 // same barrel seam via bot.ts's `export * from "./bot/planGen"`).
-import { recordPlanSource } from "../adapters/d1/v2Admin";
+import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { saveBaselineBody as saveBaselineBodyDb } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";

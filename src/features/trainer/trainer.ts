@@ -4,7 +4,8 @@
 import { GrammyError, InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
 import type { Lang, UserDoc } from "../../types";
-import { eventCountsByUser, getOwnerChatId } from "../../adapters/d1/v2Admin";
+import { eventCountsByUser } from "../../adapters/d1/v2Analytics";
+import { getOwnerChatId } from "../../adapters/d1/v2Admin";
 import { countCompletedWorkouts } from "../../adapters/d1/v2Workouts";
 import { planStatusByUser } from "../../adapters/d1/v2Plans";
 import { approveTrainer, countClientsOf, getRequest, getTrainer, getTrainerByCode, linkClient, listClients, pendingRequestsForTrainer, rejectTrainer, createProspect, deleteProspect, getProspect, listProspects, setRequestStatus, unlinkClient, updateTrainer } from "../../adapters/d1/v2Trainer";

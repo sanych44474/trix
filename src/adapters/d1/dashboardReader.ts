@@ -23,13 +23,9 @@ import { computeXp, levelFromXp } from "../../domain/gamification";
 import { BADGES, badgeProgress, weekStartStr, weekStreak } from "../../domain/records";
 import { resolveStepsGoal, resolveWaterGoal } from "../../domain/challenges";
 import { t } from "../../locales/i18n";
-import {
-  aiCallStatsSince,
-  countPlanSourcesSince,
-  dailyActiveUsers,
-  dashboardExtrasBatch,
-  getOwnerChatId,
-} from "./v2Admin";
+import { aiCallStatsSince } from "./v2AiTelemetry";
+import { countPlanSourcesSince, dailyActiveUsers } from "./v2Analytics";
+import { dashboardExtrasBatch, getOwnerChatId } from "./v2Admin";
 import { allWorkoutLogsSince, listStrength, workoutLogsSince } from "./v2Workouts";
 import { awardAchievement, recordQuestsDone } from "./v2Gamification";
 import { getActivePlan, listActivePlans, planStatusByUser } from "./v2Plans";

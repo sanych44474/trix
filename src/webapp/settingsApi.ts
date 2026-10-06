@@ -5,10 +5,8 @@
 import { buildExportJson, buildExportMd } from "../bot/exportData";
 import { resolveWaitlistNudge } from "../features/trainer/trainer";
 import { deleteUserData } from "../adapters/d1/v2Account";
-import {
-  getOwnerChatId,
-  insertFeedback,
-} from "../adapters/d1/v2Admin";
+import { getOwnerChatId } from "../adapters/d1/v2Admin";
+import { insertFeedback } from "../adapters/d1/v2Feedback";
 import { unlinkClient } from "../adapters/d1/v2Trainer";
 import { clearVacation, getUser, setVacation, updateUser } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";

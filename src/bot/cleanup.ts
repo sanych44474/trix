@@ -4,10 +4,8 @@
 import { GrammyError, InlineKeyboard } from "grammy";
 import type { UserDoc } from "../types";
 import { deleteUserData } from "../adapters/d1/v2Account";
-import {
-  getOwnerChatId, insertFeedback,
-  recordAudit,
-} from "../adapters/d1/v2Admin";
+import { getOwnerChatId, recordAudit } from "../adapters/d1/v2Admin";
+import { insertFeedback } from "../adapters/d1/v2Feedback";
 import { listClients, unlinkClient } from "../adapters/d1/v2Trainer";
 import { clearInactiveAsk, getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";

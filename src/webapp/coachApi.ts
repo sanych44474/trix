@@ -22,7 +22,7 @@ import { storeFeedback } from "../bot/feedbackIntake";
 import { miniAppCoachActions, validateCoachEditResult } from "../domain/coachActions";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { getActivePlan } from "../adapters/d1/v2Plans";
-import { getRecentContext } from "../adapters/d1/v2Admin";
+import { getRecentContext } from "../adapters/d1/v2Analytics";
 import { getUser } from "../adapters/d1/v2Users";
 import { createQuestion, getTrainer, listMessages, listQuestionsForClient, setQuestionDraft } from "../adapters/d1/v2Trainer";
 import { localParts } from "../domain/localTime";

@@ -15,7 +15,7 @@
 // reason, so the next reviewer doesn't have to re-derive the decision.
 import { InlineKeyboard, InputFile } from "grammy";
 import type { BodyLogDoc, Lang, PlanDoc, StrengthRecordDoc, UserDoc } from "../types";
-import { loadActivityWindow } from "../adapters/d1/v2Admin";
+import { loadActivityWindow } from "../adapters/d1/v2Analytics";
 import { listStrength } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { listActiveInjuries } from "../adapters/d1/v2Tracking";

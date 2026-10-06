@@ -15,9 +15,7 @@ import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscle
 import { exerciseMetric, formatSetEntry } from "../domain/setFormat";
 import { getPlanDay, nextTargetSet, resolveWeightMode, workingSets, type TargetStep } from "../domain/progression";
 import { localParts } from "../domain/localTime";
-import {
-  userStatCounts,
-} from "../adapters/d1/v2Admin";
+import { userStatCounts } from "../adapters/d1/v2Analytics";
 import { deleteWorkoutDraft, getWorkoutDraft, getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { getActivePlan } from "../adapters/d1/v2Plans";

@@ -5,7 +5,7 @@ import { recordInbox } from "../adapters/d1/v2Inbox";
 import { InlineKeyboard } from "grammy";
 import { type DeliveryResult } from "../schedulerOutbox";
 import type { BodyLogDoc, Lang, PlanDoc, UserDoc, WorkoutLogDoc } from "../types";
-import { recordPlanSource } from "../adapters/d1/v2Admin";
+import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { countAdjustmentWeeksSince, recordAdjustment, saveDraftPlan, setActivePlan } from "../adapters/d1/v2Plans";
 import { dailyCheckinsSince } from "../adapters/d1/v2Tracking";
 import { getUser } from "../adapters/d1/v2Users";

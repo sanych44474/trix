@@ -9,7 +9,7 @@
 // Both sinks are needed and they are different: logError writes the structured Workers Logs line
 // plus the Analytics Engine point (Grafana), recordError writes the D1 row the owner report and
 // the spike alert read. Pairing them here means a new handler cannot accidentally wire up only one.
-import { recordError } from "../adapters/d1/v2Admin";
+import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { logError } from "../log";
 import type { Env } from "../types";
 

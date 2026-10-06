@@ -14,7 +14,7 @@ import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdRequests, cmdTrainer,
 import { cmdLibrary, cmdShareProgram, startShareMyPlan } from "../features/trainer/programSharing";
 import { cmdTrainerQuestions } from "../features/trainer/clientCard";
 import { trainerSteps, twAdvance } from "../features/trainer/trainerWizard";
-import { bumpEvent, setLastSeen } from "../adapters/d1/v2Admin";
+import { bumpEvent, setLastSeen } from "../adapters/d1/v2Analytics";
 import { addProgressPhoto } from "../adapters/d1/v2Tracking";
 import { getOrCreateUser, getUser, updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";

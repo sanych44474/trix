@@ -5,7 +5,7 @@
 // ai_est_cost_usd is deliberately NOT computed: docs/slos.md flags the per-provider/model price
 // table as an open Phase-2+ item, and ai_call_logs doesn't even split input/output tokens yet —
 // there's no honest number to write. Add it once that data exists rather than guessing a price.
-import { aiAndErrorStatsBetween } from "./adapters/d1/v2Admin";
+import { aiAndErrorStatsBetween } from "./adapters/d1/v2AiTelemetry";
 import { upsertDailyMetrics } from "./adapters/d1/v2DailyMetrics";
 import { countCompletedWorkoutsBetween, allWorkoutLogsSince } from "./adapters/d1/v2Workouts";
 import { countActivePlans, listActivePlans } from "./adapters/d1/v2Plans";

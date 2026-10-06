@@ -11,14 +11,8 @@ import { checkCronHeartbeat, runSchedule } from "./scheduler";
 import { activityRaw } from "./adapters/d1/activityMetrics";
 import { buildActivityMetrics } from "./domain/activityMetrics";
 import { serveWeekMap } from "./webapp/weekMap";
-import {
-  bumpEvent,
-  deleteSetting,
-  getSetting,
-  markUpdateSeen,
-  pingDb,
-  setSetting,
-} from "./adapters/d1/v2Admin";
+import { bumpEvent } from "./adapters/d1/v2Analytics";
+import { deleteSetting, getSetting, markUpdateSeen, pingDb, setSetting } from "./adapters/d1/v2Admin";
 import { setActivePlan } from "./adapters/d1/v2Plans";
 import { getUser, updateUser } from "./adapters/d1/v2Users";
 import { miniAppUser } from "./webapp/auth";

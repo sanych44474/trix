@@ -3,7 +3,8 @@
 // bot.ts re-exports everything here, so existing imports keep working.
 import { InlineKeyboard, InputFile } from "grammy";
 import type { Weekday } from "../types";
-import { recordError, userStatCounts } from "../adapters/d1/v2Admin";
+import { recordError } from "../adapters/d1/v2AiTelemetry";
+import { userStatCounts } from "../adapters/d1/v2Analytics";
 import { countCompletedWorkouts, listStrength, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { bodyLogsByUser, dailyCheckinsSince } from "../adapters/d1/v2Tracking";
