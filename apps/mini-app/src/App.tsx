@@ -302,7 +302,6 @@ export function App() {
     return () => clearInterval(id);
   }, [waitingForPlan]);
 
-  useEffect(() => { const scheme = window.Telegram?.WebApp?.colorScheme; if (scheme) document.documentElement.dataset.theme = scheme; }, []);
   useEffect(() => { const handler = (event: MouseEvent) => { if ((event.target as HTMLElement).closest("button")) window.Telegram?.WebApp.HapticFeedback?.impactOccurred("light"); }; document.addEventListener("click", handler); return () => document.removeEventListener("click", handler); }, []);
   // Telegram's own "Settings" item in the Mini App's ⋮ menu (SettingsButton, 7.0+) opens our settings.
   useEffect(() => { const sb = window.Telegram?.WebApp.SettingsButton; if (!sb) return; const open = () => setView("settings"); sb.show(); sb.onClick(open); return () => sb.offClick(open); }, []);
