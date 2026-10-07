@@ -4,16 +4,19 @@
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";
 import type { Api } from "grammy";
-import { applyWorkoutSave, muscleGroupToEnum, planRepsMid, planSetsCount, planWeight, type WorkoutSaveEntry } from "../bot";
+import { applyWorkoutSave, type WorkoutSaveEntry } from "../bot/workoutSave";
+import { muscleGroupToEnum } from "../domain/exerciseDefaults";
+import { planRepsMid, planSetsCount, planWeight } from "../bot/guidedLog";
 import { formatPrBest } from "../bot/workoutSave";
 import { announceSquadPr } from "../bot/squad";
 import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscles";
-import { exerciseMetric, formatSetEntry, getPlanDay, localParts, nextTargetSet, resolveWeightMode, workingSets, type TargetStep } from "../domain/progression";
-import {
-  userStatCounts,
-} from "../adapters/d1/v2Admin";
+import { exerciseMetric, formatSetEntry } from "../domain/setFormat";
+import { getPlanDay, nextTargetSet, workingSets, type TargetStep } from "../domain/progression";
+import { resolveWeightMode } from "../domain/exerciseClass";
+import { localParts } from "../domain/localTime";
+import { userStatCounts } from "../adapters/d1/v2Analytics";
 import { deleteWorkoutDraft, getWorkoutDraft, getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { getActivePlan } from "../adapters/d1/v2Plans";

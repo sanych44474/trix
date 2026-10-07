@@ -5,15 +5,16 @@ import { getWorkoutLog, upsertWorkoutLog } from "../adapters/d1/v2Workouts";
 import { updateUser } from "../adapters/d1/v2Users";
 import { isoWeekday } from "../domain/atrisk";
 import { parseWorkoutCsv, type ImportedDay } from "../domain/csvImport";
-import type { Weekday } from "../types";
+import type { Lang, Weekday } from "../types";
 import { t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { downloadFile, menuBtn } from "../bot";
+import { downloadFile } from "./telegramFiles";
+import { menuBtn } from "./keyboards";
 
 // A CSV this large is either years of history (fine, just cap it) or not actually a workout
 // export -- either way, keep one invocation's D1 writes comfortably bounded.
-const MAX_FILE_BYTES = 3 * 1024 * 1024;
-const MAX_DAYS_IMPORTED = 200;
+export const MAX_FILE_BYTES = 3 * 1024 * 1024;
+export const MAX_DAYS_IMPORTED = 200;
 
 export async function cmdImport(ctx: MyContext) {
   const lang = ctx.user.lang;
@@ -48,34 +49,40 @@ export async function handleImportDocument(ctx: MyContext) {
   ctx.waitUntil(runImport(ctx, doc.file_id));
 }
 
+export type ImportResult = { imported: number; skipped: number; capped: boolean; format: "strong" | "hevy" };
+
+/** Import a Strong/Hevy CSV export: only dates without a log are written. Null = not a workout CSV. */
+export async function importWorkoutCsv(db: D1Database, userId: number, lang: Lang, raw: string): Promise<ImportResult | null> {
+  const text = raw.replace(/^\uFEFF/, ""); // strip a UTF-8 BOM if present
+  const parsed = parseWorkoutCsv(text);
+  if (!parsed || !parsed.days.length) return null;
+  let days: ImportedDay[] = [...parsed.days].sort((a, b) => (a.date < b.date ? 1 : -1)); // newest first
+  const capped = days.length > MAX_DAYS_IMPORTED;
+  days = days.slice(0, MAX_DAYS_IMPORTED);
+  const sourceTag = t(lang, parsed.format === "strong" ? "import_tag_strong" : "import_tag_hevy");
+  let imported = 0;
+  let skipped = 0;
+  for (const day of days) {
+    const existing = await getWorkoutLog(db, userId, day.date);
+    if (existing) { skipped++; continue; }
+    const notes = [sourceTag, day.notes].filter(Boolean).join(" — ");
+    await upsertWorkoutLog(db, userId, day.date, isoWeekday(day.date) as Weekday, day.exercises, true, notes);
+    imported++;
+  }
+  return { imported, skipped, capped, format: parsed.format };
+}
+
 async function runImport(ctx: MyContext, fileId: string): Promise<void> {
   const lang = ctx.user.lang;
   try {
     const buf = await downloadFile(ctx, fileId);
-    const text = new TextDecoder("utf-8").decode(buf).replace(/^\uFEFF/, ""); // strip a UTF-8 BOM if present
-    const parsed = parseWorkoutCsv(text);
-    if (!parsed || !parsed.days.length) {
+    const result = await importWorkoutCsv(ctx.db, ctx.user._id, lang, new TextDecoder("utf-8").decode(buf));
+    if (!result) {
       await reply(ctx, t(lang, "import_wrong_format"), menuBtn(lang));
       return;
     }
-
-    let days: ImportedDay[] = [...parsed.days].sort((a, b) => (a.date < b.date ? 1 : -1)); // newest first
-    const capped = days.length > MAX_DAYS_IMPORTED;
-    days = days.slice(0, MAX_DAYS_IMPORTED);
-
-    let imported = 0;
-    let skipped = 0;
-    for (const day of days) {
-      const existing = await getWorkoutLog(ctx.db, ctx.user._id, day.date);
-      if (existing) { skipped++; continue; }
-      const sourceTag = t(lang, parsed.format === "strong" ? "import_tag_strong" : "import_tag_hevy");
-      const notes = [sourceTag, day.notes].filter(Boolean).join(" — ");
-      await upsertWorkoutLog(ctx.db, ctx.user._id, day.date, isoWeekday(day.date) as Weekday, day.exercises, true, notes);
-      imported++;
-    }
-
-    const key = capped ? "import_done_capped" : "import_done";
-    await reply(ctx, t(lang, key, { imported, skipped, cap: MAX_DAYS_IMPORTED }), menuBtn(lang));
+    const key = result.capped ? "import_done_capped" : "import_done";
+    await reply(ctx, t(lang, key, { imported: result.imported, skipped: result.skipped, cap: MAX_DAYS_IMPORTED }), menuBtn(lang));
   } catch (err) {
     console.error("csv import failed", ctx.user._id, err);
     await reply(ctx, t(lang, "import_failed"), menuBtn(lang)).catch(() => {});

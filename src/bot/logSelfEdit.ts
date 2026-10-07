@@ -13,13 +13,15 @@ import { getActivePlan } from "../adapters/d1/v2Plans";
 import { updateUser } from "../adapters/d1/v2Users";
 import { getDayMeals, nutritionLogsSince, putUserFoodCorrection, setDayMeals } from "../adapters/d1/v2Nutrition";
 import { per100gCorrectionFrom } from "../domain/mealplan";
-import { bestSetForMetric, getPlanDay, metricOfSets, normalizeExercise, parseWorkoutText, formatSetEntry } from "../domain/progression";
+import { bestSetForMetric, metricOfSets, formatSetEntry } from "../domain/setFormat";
+import { getPlanDay } from "../domain/progression";
+import { normalizeExercise, parseWorkoutText } from "../domain/workoutText";
 import { escapeHtml, t } from "../locales/i18n";
 import { num } from "../features/nutrition/nutritionLog";
 import { weekdayOf } from "./calendar";
 import { localCutoff } from "./report";
 import { type MyContext, reply, setMode } from "../adapters/telegram/context";
-import { alcoholKcalOf, cleanFoodName } from "../bot";
+import { alcoholKcalOf, cleanFoodName } from "./nutritionCmds";
 
 export async function showMyLogHub(ctx: MyContext, tab: "workout" | "nutrition" = "workout") {
   const lang = ctx.user.lang;

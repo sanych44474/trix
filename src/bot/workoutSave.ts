@@ -14,7 +14,10 @@ import {
 } from "../adapters/d1/v2Workouts";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { getUser, updateUser } from "../adapters/d1/v2Users";
-import { bestSetForMetric, fmtDistance, fmtDuration, localParts, metricOfSets, nextTargetGuidance, normalizeExercise, parseWorkoutText } from "../domain/progression";
+import { bestSetForMetric, fmtDistance, fmtDuration, metricOfSets } from "../domain/setFormat";
+import { localParts } from "../domain/localTime";
+import { nextTargetGuidance } from "../domain/progression";
+import { normalizeExercise, parseWorkoutText } from "../domain/workoutText";
 import { prMilestones, rankOf, weekStartStr, weekStreak, workoutMilestones } from "../domain/records";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { announceSquadPr } from "./squad";
@@ -23,7 +26,7 @@ import { badgeLabel, computeBoards } from "../features/gamification/boards";
 import { maybeCelebrateLevel } from "./aiDefer";
 import { localCutoff } from "./report";
 import { reactToUser, type MyContext, HTML, type TKey, reply, setMode } from "../adapters/telegram/context";
-import { menuBtn } from "../bot";
+import { menuBtn } from "./keyboards";
 
 export async function handleWorkoutLog(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;

@@ -1,6 +1,4 @@
-// The workout reminder on a training day not yet logged, at the person's reminder hour. Called
-// by processUser.
-import { InlineKeyboard } from "grammy";
+
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { updateUser } from "../adapters/d1/v2Users";
 import { getPlanDay } from "../domain/progression";
@@ -10,7 +8,7 @@ import { HTML } from "./shared";
 import type { UserPass } from "./userPass";
 
 export async function workoutReminder(p: UserPass): Promise<boolean> {
-  const { user, db, lang, date, weekday, activePlan, loggedToday, sent, sendAndMark, appView } = p;
+  const { user, db, lang, date, weekday, activePlan, loggedToday, sent, sendAndMark } = p;
   let claimed = false;
   const plan = activePlan;
   const day = plan ? getPlanDay(plan, weekday) : undefined;
@@ -34,18 +32,15 @@ export async function workoutReminder(p: UserPass): Promise<boolean> {
       }
     }
     const wd = weekday;
-    const kb = new InlineKeyboard()
-      .text(t(lang, "log_done"), "log:done")
-      .text(t(lang, "log_skip"), "log:skip")
-      .row()
-      .text(t(lang, "swap_btn"), `swap:${wd}`).row()
-      .text(t(lang, "plan_diff_edit_weight"), `wt:open:${wd}`);
-    const logUrl = appView("log");
-    if (logUrl) kb.row().webApp(t(lang, "app_log_btn"), logUrl);
+    // Logging, swapping a day and editing weights all live in the app now.
+    const kb = p.appKb([
+      [{ text: t(lang, "app_log_btn"), view: "train", fallback: "log:done" }],
+      [{ text: t(lang, "nb_open_plan"), view: "plan", fallback: `swap:${wd}` }],
+    ]);
     const reminderKey = ignoredStreak >= 3 ? "reminder_workout_soft" : "reminder_workout";
     const text =
       t(lang, reminderKey, { group: day.muscleGroup }) + "\n\n" + renderDay(lang, day, undefined, "none");
-    await sendAndMark("workout", text, { ...HTML, reply_markup: kb });
+    await sendAndMark("workout", text, kb ? { ...HTML, reply_markup: kb } : HTML);
     claimed = true; // this tick's one user-facing message
   }
   return claimed;

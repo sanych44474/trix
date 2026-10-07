@@ -6,74 +6,26 @@ import { InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
 import type { Weekday } from "../../types";
 import { type InlineImage, aiJSON, aiVisionJSON } from "../../ai";
-import { lookupPer100gCached } from "../../ai/nutritionDb";
 import * as P from "../../ai/prompts";
 import { getActivePlan } from "../../adapters/d1/v2Plans";
 import { updateUser } from "../../adapters/d1/v2Users";
-import { appendMeals, getUserFoodCorrection } from "../../adapters/d1/v2Nutrition";
+import { appendMeals } from "../../adapters/d1/v2Nutrition";
 import { scaleMealEntry } from "../../domain/mealplan";
-import { localParts } from "../../domain/progression";
+import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { deferAi, maybeCelebrateLevel } from "../../bot/aiDefer";
 import { showEveningSurvey } from "../../bot/survey";
 import { reactToUser, type MyContext, reply, setMode } from "../../adapters/telegram/context";
-import { cleanFoodName, menuBtn } from "../../bot";
+import { cleanFoodName } from "../../bot/nutritionCmds";
+import { menuBtn } from "../../bot/keyboards";
 
-// Coerce any AI value (number, numeric string, or junk) to a finite integer.
-export function num(x: unknown): number {
-  const n = Math.round(Number(x));
-  return Number.isFinite(n) ? n : 0;
-}
+import { num, verifyItems } from "./verifyItems";
 
-// Cross-check each estimated item against an open nutrition DB; when a product
-// matches and a portion (grams) is known, recompute macros from reference per-100g.
-export async function verifyItems(ctx: MyContext, items: P.NutritionItem[]) {
-  let verified = 0;
-  let source = "";
-  const final = [] as { desc: string; kcal: number; protein: number; fats: number; carbs: number; grams?: number; query?: string }[];
-  // A weak/free fallback model in the AI chain only guarantees valid JSON *syntax*, not that
-  // `items` is present — degrade to "nothing recognized" (logMeal below) instead of throwing.
-  for (const it of items ?? []) {
-    const grams = num(it.grams);
-    let kcal = num(it.kcal), p = num(it.protein), f = num(it.fats), c = num(it.carbs);
-    if (grams > 0 && it.query) {
-      // User's own correction takes precedence over any external DB.
-      const userRef = await getUserFoodCorrection(ctx.db, ctx.user._id, it.query).catch(() => null);
-      // lookupPer100gCached: CURATED → D1 cache → USDA → Gemini fallback.
-      const ref = userRef ?? await lookupPer100gCached(ctx.db, ctx.env, it.query);
-      if (ref) {
-        const k = grams / 100;
-        if (userRef) {
-          // Trust user corrections unconditionally (they chose these values deliberately).
-          kcal = Math.round(ref.kcal * k);
-          p = Math.round(ref.protein * k);
-          f = Math.round(ref.fats * k);
-          c = Math.round(ref.carbs * k);
-          verified++;
-          source = "user";
-        } else {
-          // External ref: apply only when the AI estimate is in a plausible range.
-          const geminiPer100 = kcal > 0 ? (kcal / grams) * 100 : ref.kcal;
-          const ratio = geminiPer100 > 0 ? ref.kcal / geminiPer100 : 1;
-          if (ratio >= 0.6 && ratio <= 1.7) {
-            kcal = Math.round(ref.kcal * k);
-            p = Math.round(ref.protein * k);
-            f = Math.round(ref.fats * k);
-            c = Math.round(ref.carbs * k);
-            verified++;
-            source = (ref as { source?: string }).source === "USDA" ? "USDA" : "Open Food Facts";
-          }
-        }
-      }
-    }
-    final.push({ desc: it.desc || "meal", kcal, protein: p, fats: f, carbs: c, grams: grams || undefined, query: it.query || undefined });
-  }
-  return { final, verified, source };
-}
+export { num, verifyItems };
 
 export async function logMeal(ctx: MyContext, items: P.NutritionItem[], method: "text" | "photo") {
   const lang = ctx.user.lang;
-  const { final, verified, source } = await verifyItems(ctx, items);
+  const { final, verified, source } = await verifyItems(ctx.db, ctx.env, ctx.user._id, items);
   const sum = final.reduce(
     (a, i) => ({ kcal: a.kcal + i.kcal, p: a.p + i.protein, f: a.f + i.fats, c: a.c + i.carbs }),
     { kcal: 0, p: 0, f: 0, c: 0 },

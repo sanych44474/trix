@@ -2,15 +2,17 @@
 // wellbeing, plus an optional AI narrative. Extracted from bot.ts (god-file split; same barrel
 // seam via bot.ts's `export * from "./bot/report"`).
 import type { BodyLogDoc, Lang } from "../types";
-import { loadActivityWindow } from "../adapters/d1/v2Admin";
+import { loadActivityWindow } from "../adapters/d1/v2Analytics";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
 import { aiText } from "../ai";
 import * as P from "../ai/prompts";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { REPORT_DAYS, menuBtn, num } from "../bot";
+import { REPORT_DAYS } from "./commonCmds";
+import { menuBtn } from "./keyboards";
+import { num } from "../features/nutrition/nutritionLog";
 
 export function localCutoff(timezone: string | undefined, days: number): string {
   const { date } = localParts(timezone);

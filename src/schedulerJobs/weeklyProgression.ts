@@ -2,15 +2,18 @@
 // plateau and maxed-bodyweight swaps, and the conditioning hold. A solo plan is updated and the
 // person told; a client's changes go to their trainer as a draft. Called by processUser.
 import { recordInbox } from "../adapters/d1/v2Inbox";
-import { InlineKeyboard } from "grammy";
+import type { InlineKeyboard } from "grammy";
+import type { AppButton } from "../notify/appKeyboard";
 import { type DeliveryResult } from "../schedulerOutbox";
 import type { BodyLogDoc, Lang, PlanDoc, UserDoc, WorkoutLogDoc } from "../types";
-import { recordPlanSource } from "../adapters/d1/v2Admin";
+import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { countAdjustmentWeeksSince, recordAdjustment, saveDraftPlan, setActivePlan } from "../adapters/d1/v2Plans";
 import { dailyCheckinsSince } from "../adapters/d1/v2Tracking";
 import { getUser } from "../adapters/d1/v2Users";
 import { deloadProgressionHold } from "../domain/mesocycle";
-import { applyProgression, computePlanProgression, evaluateProgressionRate, fatLossGoalReached, gainGoalReached, shouldLevelUp, weeksSincePlan } from "../domain/progression";
+import { applyProgression, computePlanProgression, evaluateProgressionRate } from "../domain/progression";
+import { fatLossGoalReached, gainGoalReached, shouldLevelUp } from "../domain/levelGoals";
+import { weeksSincePlan } from "../domain/deload";
 import { conditioningOverload, conditioningWeek } from "../domain/conditioning";
 import { daysBetween } from "../domain/reminderTiming";
 import { escapeHtml, t } from "../locales/i18n";
@@ -32,10 +35,11 @@ export interface WeeklyProgressionCtx {
   sent: Record<string, string>;
   sendAndMark: (key: string, text: string, extra?: Parameters<Sender["api"]["sendMessage"]>[2]) => Promise<unknown>;
   bodyAll: () => Promise<BodyLogDoc[]>;
+  appKb: (rows: AppButton[][]) => InlineKeyboard | undefined;
 }
 
 export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<void> {
-  const { db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll } = p;
+  const { db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll, appKb } = p;
   markSent("progression");
   const plan = activePlan;
   if (plan && plan.split.length) {
@@ -73,12 +77,9 @@ export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<void> 
         if (trainer) {
           const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
           const text = [t(trainer.lang, "progression_trainer_header", { name: who }), ...lineFor(trainer.lang), t(trainer.lang, "progression_trainer_hint")].join("\n");
-          const kb = new InlineKeyboard()
-            .text(t(trainer.lang, "cc_assign"), `cl:${user._id}:assign`)
-            .text(t(trainer.lang, "cc_edit"), `cl:${user._id}:edit`)
-            .row()
-            .text(t(trainer.lang, "cc_discard"), `cl:${user._id}:discard`);
-          await sendTo(trainer, "progression_trainer", text, { ...HTML, reply_markup: kb });
+          // The trainer reviews the draft on the client's card in the app (assign / edit / discard).
+          const kb = appKb([[{ text: t(trainer.lang, "nb_open_client"), view: "role", params: { client: user._id }, fallback: `cl:${user._id}:assign` }]]);
+          await sendTo(trainer, "progression_trainer", text, kb ? { ...HTML, reply_markup: kb } : HTML);
         }
       } else {
         await setActivePlan(db, updated);
@@ -110,10 +111,10 @@ export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<void> 
       const rate = evaluateProgressionRate(logs);
       const progWeeks = await countAdjustmentWeeksSince(db, user._id, isoDaysAgo(42));
       if (shouldLevelUp(user.profile.level ?? "beginner", rate, progWeeks)) {
-        const kb = new InlineKeyboard().text(t(lang, "levelup_yes"), "levelup:yes").text(t(lang, "levelup_no"), "levelup:no");
+        const kb = appKb([[{ text: t(lang, "nb_open_settings"), view: "settings", fallback: "levelup:yes" }]]);
         // The key gates this offer for the next 30 DAYS — writing it for a send that never
         // landed costs the user a month of the prompt they earned.
-        await sendAndMark("levelup", t(lang, "levelup_prompt"), { ...HTML, reply_markup: kb });
+        await sendAndMark("levelup", t(lang, "levelup_prompt"), kb ? { ...HTML, reply_markup: kb } : HTML);
       }
     }
 
@@ -124,9 +125,9 @@ export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<void> 
         .filter((b) => typeof b.weight === "number")
         .map((b) => ({ date: b.date, weight: b.weight as number }));
       if (fatLossGoalReached(user.profile.goal, weights) || gainGoalReached(user.profile.goal, weights)) {
-        const kb = new InlineKeyboard().text(t(lang, "goal_switch_yes"), "goal:maintain").text(t(lang, "levelup_no"), "goal:keep");
+        const kb = appKb([[{ text: t(lang, "nb_open_settings"), view: "settings", fallback: "goal:maintain" }]]);
         // Same 30-day gate as the level-up offer above.
-        await sendAndMark("goalreached", t(lang, "goal_reached_prompt"), { ...HTML, reply_markup: kb });
+        await sendAndMark("goalreached", t(lang, "goal_reached_prompt"), kb ? { ...HTML, reply_markup: kb } : HTML);
       }
     }
   }

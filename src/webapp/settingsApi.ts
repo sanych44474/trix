@@ -2,17 +2,16 @@
 // /api/profile yet — reminder toggles, vacation mode, language, cycle tracking, leaderboard
 // opt-in + alias, feedback, data export (pushed as a document to the chat), leave-trainer and
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
-import { buildExportJson, buildExportMd } from "../bot";
+import { appMarkup } from "../notify/appKeyboard";
+import { buildExportJson, buildExportMd } from "../bot/exportData";
 import { resolveWaitlistNudge } from "../features/trainer/trainer";
 import { deleteUserData } from "../adapters/d1/v2Account";
-import {
-  getOwnerChatId,
-  insertFeedback,
-} from "../adapters/d1/v2Admin";
+import { getOwnerChatId } from "../adapters/d1/v2Admin";
+import { insertFeedback } from "../adapters/d1/v2Feedback";
 import { unlinkClient } from "../adapters/d1/v2Trainer";
 import { clearVacation, getUser, setVacation, updateUser } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
@@ -169,7 +168,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
         // so leaving via the Mini App doesn't silently skip it.
         const nudge = await resolveWaitlistNudge(env.DB, formerTrainerId).catch(() => null);
         if (nudge) {
-          await tgSend(env, nudge.chatId, nudge.text, { inline_keyboard: [[{ text: t(nudge.lang, "menu_requests"), callback_data: "menu:requests" }]] });
+          await tgSend(env, nudge.chatId, nudge.text, appMarkup(env, t(nudge.lang, "nb_open_requests"), "role") ?? { inline_keyboard: [[{ text: t(nudge.lang, "menu_requests"), callback_data: "menu:requests" }]] });
         }
       }
     } else if (action === "deleteAccount") {

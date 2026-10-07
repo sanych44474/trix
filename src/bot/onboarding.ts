@@ -2,13 +2,14 @@
 // from bot.ts. No per-turn AI — instant, no hangs, no parse ambiguity. The one AI call is the
 // final plan gen, which stays in bot.ts (generatePlan / generateClientDraft — imported back,
 // same value-cycle pattern as features/trainer/trainer.ts; calls happen at request time only).
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "./onboardingApp";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
-import { parseHeightWeight, realisticHeightCm, realisticWeightKg } from "../domain/progression";
+import { parseHeightWeight } from "../domain/workoutText";
 import { listIncompleteOnboarding, updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
 import { HTML, reply, type MyContext, type TKey } from "../adapters/telegram/context";
-import { generateClientDraft, generatePlan } from "../bot";
+import { generateClientDraft, generatePlan } from "./plan";
 import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
 
 export interface ObStep {
@@ -127,8 +128,14 @@ export async function pingIncompleteOnboarding(env: Env, db: D1Database): Promis
       const prefix = t(u.lang, "ob_resume_nudge");
       const transcript = u.session?.transcript;
       let text: string;
-      let reply_markup: InlineKeyboard | undefined;
-      if (u.session?.mode === "onboarding" && transcript?.length) {
+      let reply_markup: InlineKeyboard | ReturnType<typeof onboardingAppMarkup> | undefined;
+      const appUrl = onboardingUrlFromEnv(env);
+      if (appUrl) {
+        // The questionnaire lives in the Mini App: one button, it resumes from the saved draft.
+        text = `${prefix}\n\n${t(u.lang, "ob_app_prompt")}`;
+        reply_markup = onboardingAppMarkup(u.lang, appUrl);
+        await updateUser(db, u._id, { session: { mode: "onboarding", step: 0 } });
+      } else if (u.session?.mode === "onboarding" && transcript?.length) {
         const lastQ = [...transcript].reverse().find((m) => m.role === "assistant");
         text = `${prefix}\n\n${escapeHtml(lastQ?.text ?? "")}`.trim();
         // Keep them in the interview so their reply advances it (mode may have drifted).
@@ -242,14 +249,6 @@ export async function onboardingButton(ctx: MyContext, payload: string) {
     if (opt) await obApplyAndAdvance(ctx, step, opt.value);
     return;
   }
-}
-
-// Drop implausible AI-provided body metrics so the interview re-asks instead of saving nonsense.
-export function sanitizeBodyMetrics<T extends { heightCm?: number; weightKg?: number }>(p: T): T {
-  const out = { ...p };
-  if (out.heightCm !== undefined && !realisticHeightCm(out.heightCm)) out.heightCm = undefined;
-  if (out.weightKg !== undefined && !realisticWeightKg(out.weightKg)) out.weightKg = undefined;
-  return out;
 }
 
 // Typed answers during the wizard (numbers + free-text steps).

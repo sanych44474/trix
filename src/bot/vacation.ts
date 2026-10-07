@@ -5,7 +5,7 @@ import { clearVacation, setVacation, updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { generateClientDraft, generatePlan } from "./plan";
 import { type MyContext, type TKey, reply, setMode } from "../adapters/telegram/context";
-import { menuBtn } from "../bot";
+import { menuBtn } from "./keyboards";
 
 export async function cmdVacation(ctx: MyContext) {
   const lang = ctx.user.lang;

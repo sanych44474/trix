@@ -67,3 +67,11 @@ export async function requireTrainer(ctx: MyContext): Promise<boolean> {
 export function trainerMenu(lang: Lang): InlineKeyboard {
   return trainerHubMenu(lang);
 }
+
+export function shortCode(): string {
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+}
+
+// --- find a trainer (client side) ---
+// A public browsable directory doesn't earn its moderation cost at one trainer — clients find
+// a trainer through a personal invite link (tr_<code>) or by typing that code here directly.

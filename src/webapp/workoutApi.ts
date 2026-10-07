@@ -22,7 +22,7 @@ import {
   validateSaveBody,
   workoutSwapAlternatives,
 } from "./workout";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import type { Env, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 

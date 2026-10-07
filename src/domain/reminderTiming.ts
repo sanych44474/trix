@@ -27,3 +27,35 @@ export function daysBetween(fromIso: string | undefined, toIso: string): number 
   if (!fromIso) return Infinity;
   return (Date.parse(toIso) - Date.parse(fromIso)) / 86_400_000;
 }
+
+// ---- Night guard and daily cap for proactive reminders (scheduler.ts processUser) ----
+
+/** At most this many proactive reminders per local day (opt-in water nudges excluded). */
+export const DAILY_NUDGE_CAP = 3;
+
+/**
+ * Quiet hours for someone who never set their own: 22:00–07:00, shifted so it never swallows the
+ * person's own reminder hour (a 22:00 reminder moves the start to 23:00) or the readiness check
+ * an hour before an early one (a 06:00 reminder ends the night at 05:00).
+ */
+export function defaultQuietHours(reminderHour: number): { from: number; to: number } {
+  const from = reminderHour >= 22 ? reminderHour + 1 : 22; // 24 means "no evening quiet"
+  const to = Math.min(7, Math.max(0, reminderHour - 1));
+  return { from, to };
+}
+
+/** True when `hour` is inside quiet hours: the person's own when set, otherwise the default. */
+export function isQuietHour(hour: number, reminderHour: number, quietFrom?: number, quietTo?: number): boolean {
+  if (quietFrom !== undefined && quietTo !== undefined && quietFrom !== quietTo) {
+    return quietFrom < quietTo ? hour >= quietFrom && hour < quietTo : hour >= quietFrom || hour < quietTo;
+  }
+  const d = defaultQuietHours(reminderHour);
+  return hour >= d.from || hour < d.to;
+}
+
+/** Reminders already sent today, from the stored "<date>:<n>" counter (another day reads as 0). */
+export function nudgesSentToday(stored: string | undefined, date: string): number {
+  if (!stored) return 0;
+  const [d, n] = stored.split(":");
+  return d === date ? Number(n) || 0 : 0;
+}

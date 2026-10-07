@@ -9,12 +9,15 @@ import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getDailyCheckin } from "../adapters/d1/v2Tracking";
 import { getDayMeals } from "../adapters/d1/v2Nutrition";
 import { missedConsecutiveWorkouts } from "../domain/atrisk";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { resolveNextBestAction } from "../domain/nextBestAction";
 import { upcomingSessions } from "../render";
 import { t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { cmdToday, cmdWellbeing, cmdNutrition, localCutoff } from "../bot";
+import { cmdToday } from "./planView";
+import { cmdWellbeing } from "./progressCmds";
+import { cmdNutrition } from "./nutritionCmds";
+import { localCutoff } from "./report";
 
 export async function showNextBestAction(ctx: MyContext): Promise<void> {
   const lang = ctx.user.lang;

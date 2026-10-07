@@ -8,10 +8,10 @@ import { InlineKeyboard } from "grammy";
 import { updateUser } from "../adapters/d1/v2Users";
 import { ymOf } from "../domain/calendar";
 import { computeCyclePhase } from "../domain/cycle";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { calendarKeyboard } from "../bot";
+import { calendarKeyboard } from "./calendar";
 
 export async function showCycleSettings(ctx: MyContext) {
   const lang = ctx.user.lang;

@@ -3,19 +3,16 @@ export { UserSchedulerDO } from "./durable/userScheduler";
 export { SquadSchedulerDO } from "./durable/squadScheduler";
 export { GlobalSchedulerDO } from "./durable/globalScheduler";
 import { loadLearnedMuscles } from "./exerciseMuscleLearning";
-import { createBot, buildOwnerMetrics, buildPlanDocRaw, ownerUsersData, pingIncompleteOnboarding } from "./bot";
+import { createBot } from "./bot/router";
+import { buildOwnerMetrics, ownerUsersData } from "./bot/ownerReport";
+import { buildPlanDocRaw } from "./bot/planBuild";
+import { pingIncompleteOnboarding } from "./bot/onboarding";
 import { checkCronHeartbeat, runSchedule } from "./scheduler";
 import { activityRaw } from "./adapters/d1/activityMetrics";
 import { buildActivityMetrics } from "./domain/activityMetrics";
 import { serveWeekMap } from "./webapp/weekMap";
-import {
-  bumpEvent,
-  deleteSetting,
-  getSetting,
-  markUpdateSeen,
-  pingDb,
-  setSetting,
-} from "./adapters/d1/v2Admin";
+import { bumpEvent } from "./adapters/d1/v2Analytics";
+import { deleteSetting, getSetting, markUpdateSeen, pingDb, setSetting } from "./adapters/d1/v2Admin";
 import { setActivePlan } from "./adapters/d1/v2Plans";
 import { getUser, updateUser } from "./adapters/d1/v2Users";
 import { miniAppUser } from "./webapp/auth";

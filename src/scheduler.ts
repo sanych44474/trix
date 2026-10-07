@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from "grammy";
+import { Bot, } from "grammy";
 import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from "./schedulerOutbox";
 import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
@@ -6,27 +6,24 @@ import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "
 import { acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTimers, pruneSeenUpdates, getSetting, setSetting } from "./adapters/d1/v2Admin";
 import { countNotificationsSince } from "./adapters/d1/v2Notifications";
 import { logInfo } from "./log";
-import { listStrength, allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
-import { activeChallengeCodes, awardAchievement, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
+import { allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
+import { awardAchievement, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
 import { getActivePlan, listActivePlans, setProgressionRate } from "./adapters/d1/v2Plans";
-import { bodyLogsByUser, getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked } from "./adapters/d1/v2Tracking";
+import { bodyLogsByUser, } from "./adapters/d1/v2Tracking";
 import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, listVacationEnded, markComebackDone, updateUser } from "./adapters/d1/v2Users";
-import { resolveWaterGoal } from "./domain/challenges";
-import { trainingWeek } from "./domain/mesocycle";
-import { adherenceDeloadDue, evaluateProgressionRate, inQuietHours, localParts, getPlanDay, weeksSincePlan } from "./domain/progression";
-import { isoWeekKey, streakRisk } from "./domain/records";
-import { seasonalChallenge } from "./domain/challenges";
-import { stalledLifts } from "./domain/analysis";
+import { evaluateProgressionRate, } from "./domain/progression";
+import { localParts } from "./domain/localTime";
+import { isoWeekKey, } from "./domain/records";
 import { wakeUserScheduler } from "./durable/userScheduler";
 import { wakeSquadScheduler } from "./durable/squadScheduler";
 import { wakeGlobalScheduler } from "./durable/globalScheduler";
 import { isCutOver } from "./durable/cutover";
 import { ADJUST_COOLDOWN_DAYS } from "./domain/adaptiveCalories";
-import { daysBetween } from "./domain/reminderTiming";
-import { weighInDue } from "./domain/weighIn";
-import { escapeHtml, t } from "./locales/i18n";
-import { renderDay, challengeTitleText } from "./render";
-import { finalizeOnboardingPlan, retryInterviewStep, surveyKb, surveyRemaining } from "./bot";
+import { DAILY_NUDGE_CAP, daysBetween, isQuietHour, nudgesSentToday } from "./domain/reminderTiming";
+import { t } from "./locales/i18n";
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "./bot/onboardingApp";
+import { appKeyboard, } from "./notify/appKeyboard";
+import { finalizeOnboardingPlan, retryInterviewStep } from "./bot/plan";
 import { APP_VERSION } from "./webapp/appVersion";
 import { enforceStorageBudget } from "./webapp/photoStorage";
 import { purgeExpiredStories } from "./webapp/storyMedia";
@@ -46,6 +43,7 @@ import { missedDay } from "./schedulerJobs/missedDay";
 import { weeklyNarrative } from "./schedulerJobs/weeklyNarrative";
 import { advanceMesocycleWeek, weeklyReport } from "./schedulerJobs/weeklyReport";
 import { weeklyProgression } from "./schedulerJobs/weeklyProgression";
+import { adaptiveCheckin, cycleNudge, deloadNudge, eveningSurvey, injuryFollowUp, plateauNudge, qualityAsk, readinessCheck, seasonalChallengeNudge, streakRescue, sundayMeasure, tomorrowPreview, waterReminder, weighInNudge } from "./schedulerJobs/nudges";
 import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
 // Public surface kept here so existing `from "./scheduler"` imports keep working.
 export { runGlobalJobs, checkCronHeartbeat } from "./schedulerJobs/global";
@@ -53,9 +51,32 @@ export { logSchedulerError, type Sender } from "./schedulerJobs/shared";
 import type { Sender } from "./schedulerJobs/shared";
 
 
-const CHECKIN_HOUR = 20;
-const EVENING_HOUR = 21; // one combined evening survey (water / steps / food / check-in) — 9pm local
-const QUALITY_EVERY_DAYS = 14; // recurring "rate trix + what's missing" quality/feedback ask
+// The reminders of one pass in priority order (see the loop in processUser). `counted` ones use
+// the daily cap; water is opt-in and sits outside it.
+const NUDGES: Array<{ name: string; counted: boolean; run: (p: UserPass) => Promise<boolean> }> = [
+  { name: "activation", counted: true, run: (p) => (p.user.onboarded && p.user.role !== "client" && p.hour >= p.reminderHour && !p.already("activation") ? activationNudge(p) : Promise.resolve(false)) },
+  { name: "readiness", counted: true, run: readinessCheck },
+  { name: "workout", counted: true, run: (p) => (!p.remOff("workout") && p.hour >= p.reminderHour && p.isTrainingDay && !p.already("workout") ? workoutReminder(p) : Promise.resolve(false)) },
+  { name: "water", counted: false, run: waterReminder },
+  { name: "streak_rescue", counted: true, run: streakRescue },
+  { name: "survey", counted: true, run: eveningSurvey },
+  { name: "missed_day", counted: true, run: (p) => (p.user.role !== "client" && p.hour >= p.reminderHour && !p.already("missed_day") ? missedDay(p) : Promise.resolve(false)) },
+  { name: "tomorrow", counted: true, run: tomorrowPreview },
+  { name: "injury", counted: true, run: injuryFollowUp },
+  { name: "quality", counted: true, run: qualityAsk },
+  { name: "weighin", counted: true, run: weighInNudge },
+  { name: "measure", counted: true, run: sundayMeasure },
+  { name: "digest", counted: true, run: (p) => (!p.remOff("digest") && p.weekday === 7 && p.hour >= p.reminderHour && !p.already("digest")
+    ? weeklyDigest({ env: p.env, db: p.db, user: p.user, lang: p.lang, date: p.date, botBlocked: false, markSent: p.markSent, sendAndMark: p.sendAndMark })
+    : Promise.resolve(false)) },
+  { name: "season", counted: true, run: seasonalChallengeNudge },
+  { name: "plateau", counted: true, run: plateauNudge },
+  { name: "cycle", counted: true, run: cycleNudge },
+  { name: "deload", counted: true, run: deloadNudge },
+  { name: "calories", counted: true, run: (p) => (p.weekday === 1 && p.hour >= p.reminderHour && p.user.role !== "client" && p.user.profile.goalWeight && p.user.nutrition && daysBetween(p.sent["cal_adjust"], p.date) >= ADJUST_COOLDOWN_DAYS ? adaptiveCalories(p) : Promise.resolve(false)) },
+  { name: "smart_hour", counted: true, run: (p) => (!p.remOff("workout") && p.weekday === 1 && p.hour >= p.reminderHour && daysBetween(p.sent["smart_hour"], p.date) >= 30 ? smartReminderHour(p) : Promise.resolve(false)) },
+  { name: "adaptive_checkin", counted: true, run: adaptiveCheckin },
+];
 
 
 
@@ -141,13 +162,14 @@ async function runScheduleInner(env: Env): Promise<void> {
     for (const u of stuckUsers) {
       try {
         const transcript = u.session.transcript ?? [];
-        // Find the last bot question to re-send it as a reminder.
-        const lastBotMsg = [...transcript].reverse().find((t) => t.role === "assistant");
-        const nudgeText = lastBotMsg?.text ?? "Привіт! Продовжуємо? Надішли відповідь — і я складу план для тебе.";
+        // With the Mini App: its questionnaire button. Without: re-send the last bot question.
+        const appUrl = onboardingUrlFromEnv(env);
+        const lastBotMsg = [...transcript].reverse().find((m) => m.role === "assistant");
+        const nudgeText = appUrl ? t(u.lang, "ob_app_reminder") : lastBotMsg?.text ?? t(u.lang, "ob_resume_nudge");
         await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: u.chatId, text: nudgeText, parse_mode: "HTML" }),
+          body: JSON.stringify({ chat_id: u.chatId, text: nudgeText, parse_mode: "HTML", ...(appUrl ? { reply_markup: onboardingAppMarkup(u.lang, appUrl) } : {}) }),
         });
         // Mark today's nudge so we don't send it again today (in the reminders column, so a
         // user-facing session write can't wipe it).
@@ -478,12 +500,6 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     if (durable(result)) markSent(key);
     return result;
   };
-  // Send at most ONE user-facing reminder per tick. The cron runs every minute, so the rest fire
-  // on subsequent ticks (a few minutes apart) instead of arriving as a 4-in-a-row burst.
-  // Quiet hours: during the user's do-not-disturb window, suppress ALL personal nudges by
-  // pre-setting `pinged` (session/trainer alerts are separate and stay). A missed nudge simply
-  // fires on a later tick once the window ends — dedup keys are only written on actual sends.
-  let pinged = inQuietHours(hour, user.profile.quietFrom, user.profile.quietTo);
   // Per-user reminder preferences: a type the user switched off in Settings is never sent.
   const remOff = (key: string) => user.profile.remindersOff?.includes(key) ?? false;
   let w21p: Promise<WorkoutLogDoc[]> | undefined;
@@ -493,7 +509,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // Everything the reminder blocks in schedulerJobs/* need (schedulerJobs/userPass.ts).
   const p: UserPass = {
     env, bot, user, pass, db, lang, tz, date, weekday, hour, reminderHour, activePlan, planDays, trainsOn, isTrainingDay,
-    loggedToday, sent, already, markSent, setSent: (key, value) => { dirty[key] = value; }, remOff, send, sendTo, sendAndMark, durable, appView, workouts21, bodyAll,
+    loggedToday, sent, already, markSent, setSent: (key, value) => { dirty[key] = value; }, remOff, send, sendTo, sendAndMark, durable, appView, appKb: (rows) => appKeyboard(env, rows), workouts21, bodyAll,
   };
   const flushReminders = async () => {
     if (Object.keys(dirty).length === 0) return;
@@ -525,290 +541,25 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     await trainerAtRiskAlert(p);
   }
 
-  // Activation arc — the first 14 days. Fewer than three sessions in that window is the single
-  // strongest churn predictor there is, and every other nudge below is steady-state: it treats a
-  // two-day-old account exactly like a six-month-old one. Placed ABOVE the generic reminders so a
-  // new user's decisive beat wins the one-nudge-per-tick budget. Solo/trainer-own only — a client
-  // has a human driving them, and "train fewer days" is not this bot's call to make for them.
-  if (!pinged && user.onboarded && user.role !== "client" && hour >= reminderHour && !already("activation")) {
-    if (await activationNudge(p)) pinged = true;
-  }
-
-  // Workout reminder — fires at user's chosen hour on training days if not logged yet.
-  if (!pinged && !remOff("workout") && hour >= reminderHour && isTrainingDay && !already("workout")) {
-    if (await workoutReminder(p)) pinged = true;
-  }
-
-  // Water reminders on a schedule (opt-in via profile.waterEvery = 2/3/4h). Fire at 9:00–20:00
-  // local, every N hours from 9, only while today's goal isn't met yet. Off by default.
-  const waterEvery = user.profile.waterEvery ?? 0;
-  if (!pinged && waterEvery >= 2 && !remOff("water") && hour >= 9 && hour <= 20 && (hour - 9) % waterEvery === 0) {
-    const goal = resolveWaterGoal(user.profile);
-    const ml = (await getWater(db, user._id, date).catch(() => 0)) ?? 0;
-    if (ml < goal) {
-      const kb = new InlineKeyboard().text("💧 +250", "water:add:250").text("💧 +500", "water:add:500");
-      await send(t(lang, "water_reminder", { ml, goal }), { ...HTML, reply_markup: kb });
-      pinged = true;
+  // User-facing reminders: one per pass, in NUDGES order (a reminder with a one-hour window runs
+  // ahead of those that can fire in any hour), never in quiet hours (the person's own, or
+  // 22:00–07:00 by default), and at most DAILY_NUDGE_CAP a day. Opt-in water nudges are outside
+  // the cap. Anything not sent now fires on a later pass once allowed.
+  const sentToday = nudgesSentToday(sent["nudges"], date);
+  if (!isQuietHour(hour, reminderHour, user.profile.quietFrom, user.profile.quietTo)) {
+    for (const nudge of NUDGES) {
+      if (nudge.counted && sentToday >= DAILY_NUDGE_CAP) continue;
+      if (!(await nudge.run(p))) continue;
+      if (nudge.counted) dirty["nudges"] = `${date}:${sentToday + 1}`;
+      break; // one reminder per pass; the rest fire on later passes, never as a burst
     }
   }
 
-  // 🔥 Streak rescue — the streak is shown everywhere (level card, /progress, week card, its own
-  // leaderboard and two badges) but nothing ever warned you it was about to end. Fires late in
-  // the week, once per week, only when a real streak is genuinely on the line: streakRisk()
-  // simulates next Monday through the SAME weekStreak rules the user is shown, so this can't
-  // contradict the number on their card or cry wolf on a week the auto-freeze would absorb.
-  // Gated on the "workout" reminder preference — someone who muted training nudges muted this too.
-  // NB: deduped by ISO WEEK, not by date (`already()` is date-based) — the Fri/Sat/Sun window
-  // would otherwise re-send it three times in the same week it's trying to rescue.
-  const rescueWeek = isoWeekKey(date);
-  if (!pinged && user.onboarded && !remOff("workout") && weekday >= 5 && hour >= reminderHour && sent["streak_rescue"] !== rescueWeek) {
-    const streakDates = (await workoutLogsSince(db, user._id, isoDaysAgo(120)).catch(() => []))
-      .filter((l) => l.completed)
-      .map((l) => l.date);
-    const risk = streakRisk(streakDates, date, user.reminders?.lastVacation);
-    // ≥2 weeks: a 1-week "streak" isn't worth a rescue message, it's just last week.
-    if (risk.atRisk && risk.current >= 2) {
-      const kb = new InlineKeyboard().text(t(lang, "log_done"), "log:done");
-      const logUrl = appView("log");
-      if (logUrl) kb.row().webApp(t(lang, "app_log_btn"), logUrl);
-      await send(t(lang, "streak_rescue", { weeks: risk.current }), { ...HTML, reply_markup: kb });
-      dirty["streak_rescue"] = rescueWeek;
-      pinged = true;
-    }
-  }
-
-  // Evening daily survey (EVENING_HOUR) — ONE message covering water / steps / food / check-in
-  // instead of four separate nudges. Each button appears only when that item isn't done yet today
-  // and the user hasn't switched it off. Deduped once per day via reminders.sent["survey"].
-  if (!pinged && user.onboarded && hour >= EVENING_HOUR && !already("survey")) {
-    // ALL applicable daily logs (food / water / steps / check-in) not yet done today. Buttons use
-    // sv:* callbacks so completing one re-shows the checklist with what's still left (see bot.ts).
-    const items = await surveyRemaining(db, user, date, lang);
-    if (items.length) {
-      const kb = surveyKb(items);
-      const surveyUrl = appView("survey");
-      if (surveyUrl) {
-        if (kb.inline_keyboard[kb.inline_keyboard.length - 1]?.length) kb.row();
-        kb.webApp(t(lang, "app_survey_btn"), surveyUrl);
-      }
-      await sendAndMark("survey", t(lang, "survey_prompt"), { ...HTML, reply_markup: kb });
-      pinged = true;
-    }
-  }
-
-  // Pre-workout readiness check — on a TRAINING day, ~1h before the planned workout. Fired in
-  // the morning/pre-session window (not the evening) so "sleep" means last night and the advice
-  // ("train as planned" / "go lighter today") lands before the session, when it's actionable.
-  const readinessHour = Math.max(6, reminderHour - 1);
-  // Pre-session window ONLY (readinessHour..reminderHour) — keeps this a morning check so it no
-  // longer doubles up with the evening workout/checkin nudges.
-  if (!pinged && !remOff("wellbeing") && isTrainingDay && hour >= readinessHour && hour < reminderHour && !already("wellbeing")) {
-    const done = await getDailyCheckin(db, user._id, date);
-    if (!loggedToday && !done) {
-      const kb = new InlineKeyboard().text(t(lang, "menu_checkin"), "checkin:start");
-      await sendAndMark("wellbeing", t(lang, "reminder_wellbeing"), { ...HTML, reply_markup: kb });
-      pinged = true;
-    }
-  }
-
-  // Smart reschedule — the day AFTER a single missed planned session (solo/trainer-own only;
-  // a client's misses already surface to their trainer via atrisk.ts's 2-in-a-row alert, and
-  // rescheduling a client's own plan is the trainer's call, not this bot's). Fires once per
-  // day the most recent planned date is still unlogged, offering the option ranked by how busy
-  // the last stretch has been and whether today's own recovery signals are already poor.
-  if (!pinged && user.role !== "client" && hour >= reminderHour && !already("missed_day")) {
-    if (await missedDay(p)) pinged = true;
-  }
-
-  // Day-before heads-up: in the evening, if TOMORROW is a training day.
-  const tomorrow = (weekday === 7 ? 1 : weekday + 1) as Weekday;
-  // Skip tomorrow's preview when today is still an unlogged training day — don't pile a 3rd
-  // training ping on top of today's workout/checkin nudges.
-  if (!pinged && !remOff("tomorrow") && hour >= CHECKIN_HOUR && trainsOn(tomorrow) && !(isTrainingDay && !loggedToday) && !already("tomorrow")) {
-    const plan = activePlan;
-    const day = plan ? getPlanDay(plan, tomorrow) : undefined;
-    if (day) {
-      const text =
-        t(lang, "reminder_tomorrow", { group: day.muscleGroup }) + "\n\n" + renderDay(lang, day, undefined, "none");
-      await sendAndMark("tomorrow", text);
-      pinged = true;
-    }
-  }
-
-  // Injury follow-up — when a reported injury's check-after date arrives, ask how it feels.
-  // Per-injury dedup via lastAskedAt (not reminders.sent), so it re-asks daily until resolved.
-  if (!pinged && hour >= reminderHour) {
-    const due = await listInjuriesDue(db, user._id, date);
-    if (due.length) {
-      const inj = due[0];
-      const area = t(lang, `inj_area_${inj.area}` as Parameters<typeof t>[1]);
-      // A 4-level pain scale beats binary OK/more — the trainer/coach and the trend view can
-      // both use the score, and the user does one tap either way.
-      const kb = new InlineKeyboard()
-        .text(t(lang, "inj_score_0"), `inj:sc:${inj.id}:0`)
-        .text(t(lang, "inj_score_3"), `inj:sc:${inj.id}:3`)
-        .row()
-        .text(t(lang, "inj_score_6"), `inj:sc:${inj.id}:6`)
-        .text(t(lang, "inj_score_8"), `inj:sc:${inj.id}:8`);
-      await send(t(lang, "inj_check_q", { area }), { ...HTML, reply_markup: kb });
-      await markInjuryAsked(db, inj.id, date);
-      pinged = true;
-    }
-  }
-
-  // Recurring quality & feedback ask — every QUALITY_EVERY_DAYS, at the user's reminder hour.
-  // Not a one-off campaign: keeps a rating + "what's missing" channel open for onboarded users.
-  // Dedup reuses reminders.sent["quality"] but with a multi-day cadence (not the daily === check).
-  if (!pinged && user.onboarded && !remOff("quality") && hour >= reminderHour) {
-    const dueQ = daysBetween(sent["quality"], date) >= QUALITY_EVERY_DAYS;
-    if (dueQ) {
-      const kb = new InlineKeyboard()
-        .text("⭐", "qr:1").text("⭐⭐", "qr:2").text("⭐⭐⭐", "qr:3")
-        .row()
-        .text("⭐⭐⭐⭐", "qr:4").text("⭐⭐⭐⭐⭐", "qr:5");
-      await sendAndMark("quality", t(lang, "reminder_quality"), { ...HTML, reply_markup: kb });
-      pinged = true;
-    }
-  }
-
-  // Morning weigh-in nudge (domain/weighIn): trackers only, 3+ days since the last weigh-in.
-  if (!pinged && user.onboarded && !remOff("weighin")) {
-    const body = await bodyAll();
-    const gap = weighInDue({
-      today: date, hour,
-      weightDates: body.filter((b) => typeof b.weight === "number" && (b.weight as number) > 0).map((b) => b.date),
-      hasGoalWeight: !!user.profile.goalWeight,
-      lastSent: sent["weighin"],
-    });
-    if (gap !== null) {
-      const kb = new InlineKeyboard().text(t(lang, "weighin_log_btn"), "wi:log").text(t(lang, "weighin_off_btn"), "wi:off");
-      await sendAndMark("weighin", t(lang, gap > 0 ? "reminder_weighin" : "reminder_weighin_first", { n: gap }), { ...HTML, reply_markup: kb });
-      pinged = true;
-    }
-  }
-
-  // Weekly measurement check-in — Sunday at the user's reminder hour, once.
-  if (!pinged && !remOff("measure") && weekday === 7 && hour >= reminderHour && !already("measure")) {
-    const kb = new InlineKeyboard().text(t(lang, "menu_measure"), "menu:measure");
-    await sendAndMark("measure", t(lang, "reminder_measure"), { ...HTML, reply_markup: kb });
-    pinged = true;
-  }
-
-  // Weekly digest — Sunday recap of the last 7 days. Only if there was some activity.
-  if (!pinged && !remOff("digest") && weekday === 7 && hour >= reminderHour && !already("digest")) {
-    if (await weeklyDigest({ env, db, user, lang, date, botBlocked, markSent, sendAndMark })) pinged = true;
-  }
-
-  // Seasonal challenge — the month's own challenge (domain/challenges.ts seasonalChallenge),
-  // announced once a month on its first three days with a one-tap join. Rides the digest's
-  // on/off switch (both are the "what's happening this week/month" pings), skips anyone already in.
-  if (!pinged && !remOff("digest") && user.onboarded && Number(date.slice(8, 10)) <= 3 && hour >= reminderHour && (sent["season"] ?? "").slice(0, 7) !== date.slice(0, 7)) {
-    const season = seasonalChallenge(date);
-    const joined = await activeChallengeCodes(db, user._id, date).catch(() => new Set<string>());
-    if (!joined.has(season.code)) {
-      const kb = new InlineKeyboard().text(t(lang, "chal_season_join_btn"), `chal:join:${season.code}`);
-      await sendAndMark("season", t(lang, "chal_season_announce", { title: escapeHtml(`${season.emoji} ${challengeTitleText(lang, season)}`) }), { ...HTML, reply_markup: kb });
-      pinged = true;
-    } else markSent("season");
-  }
-
-  // Plateau heads-up — Monday, at most once every 2 weeks (a genuine plateau takes weeks to
-  // confirm, and adding weight with a rep reset is NOT a plateau — see stalledLifts). Names the
-  // stuck lifts and points at the coach; the cooldown stops it nagging every single Monday.
-  if (!pinged && !remOff("plateau") && weekday === 1 && hour >= reminderHour && daysBetween(sent["plateau"], date) >= 14) {
-    const stalled = stalledLifts(await listStrength(db, user._id), date);
-    if (stalled.length) {
-      const kb = new InlineKeyboard().text(t(lang, "menu_coach"), "menu:coach");
-      await sendAndMark("plateau", t(lang, "plateau_nudge", { lifts: stalled.slice(0, 2).map(escapeHtml).join(", ") }), { ...HTML, reply_markup: kb });
-      pinged = true;
-    }
-  }
-
-  // Weekly cycle-setup nudge — Monday, once per week. Sent to female users who are onboarded
-  // but haven't yet enabled cycle tracking OR enabled it but never logged a period start.
-  // The one-button CTA takes them straight to Settings → Cycle tracking.
-  if (!pinged && weekday === 1 && hour >= reminderHour && user.onboarded && user.profile.sex === "female" && !already("cycle_nudge")) {
-    const needsSetup = !user.profile.cycleTracking || !user.profile.lastPeriodStart;
-    if (needsSetup) {
-      const kb = new InlineKeyboard().text(t(lang, "cycle_nudge_btn"), "set:cycle");
-      await sendAndMark("cycle_nudge", t(lang, "cycle_nudge"), { ...HTML, reply_markup: kb });
-      pinged = true;
-    }
-  }
-
-  // The Monday weekly blocks below each re-read the same 21-day workout log and the full
-  // body-log history; fetch each at most once per tick and reuse (sliced in memory per block).
-
+  // Silent Monday work below; the progression, narrative and report steps still message the user
+  // (or their trainer) and are not part of the one-reminder budget.
   if (weekday === 1 && hour >= reminderHour && !already("meso_advance")) {
     markSent("meso_advance");
     await advanceMesocycleWeek(p).catch((e) => logSchedulerError(db, "meso_advance", e, user._id));
-  }
-
-  // Deload autopilot — Monday morning. The plan's own deload week (domain/mesocycle trainingWeek,
-  // the same answer the today card shows) OR an adherence
-  // trigger: several recent missed/grinding sessions → propose a lighter recovery week early.
-  if (!pinged && weekday === 1 && hour >= reminderHour && user.role !== "client" && !already("deload")) {
-    const plan = activePlan;
-    if (plan) {
-      const calendarDue = trainingWeek(plan, date).deload;
-      const adherenceDue = !calendarDue && adherenceDeloadDue(await workouts21());
-      // deload_week's text asserts "you've trained hard for ~7 weeks" — but the calendar trigger
-      // only knows the PLAN's age, not whether a single session was ever logged against it. Sent
-      // blind, it tells someone who never trained that they earned a recovery week. Check the
-      // logs: with real training behind it, keep the calendar message; without, fall back to the
-      // honest "rough stretch" wording, which is what actually happened.
-      const trainedRecently = calendarDue
-        ? (await workouts21()).some((l) => l.completed)
-        : false;
-      if (calendarDue || adherenceDue) {
-        const kb = new InlineKeyboard().text(t(lang, "menu_coach"), "menu:coach");
-        await sendAndMark("deload", t(lang, calendarDue && trainedRecently ? "deload_week" : "deload_adherence"), { ...HTML, reply_markup: kb });
-        pinged = true;
-      }
-    }
-  }
-
-  // Adaptive calories — Monday, at most every 2 weeks. Compares the logged weight trend against
-  // the goal's implied rate and nudges the kcal target (±150 max). Solo/trainer users only (a
-  // client's targets belong to their trainer); requires a goal weight and consistent logging —
-  // all the gates live in domain/adaptiveCalories.
-  if (
-    !pinged &&
-    weekday === 1 &&
-    hour >= reminderHour &&
-    user.role !== "client" &&
-    user.profile.goalWeight &&
-    user.nutrition &&
-    daysBetween(sent["cal_adjust"], date) >= ADJUST_COOLDOWN_DAYS
-  ) {
-    if (await adaptiveCalories(p)) pinged = true;
-  }
-
-  // Smart reminder timing — Monday, re-offered at most every 30 days. If the user consistently
-  // logs workouts at a different time of day than their reminder assumes, offer to move it.
-  if (
-    !pinged &&
-    !remOff("workout") &&
-    weekday === 1 &&
-    hour >= reminderHour &&
-    daysBetween(sent["smart_hour"], date) >= 30
-  ) {
-    if (await smartReminderHour(p)) pinged = true;
-  }
-
-  // Bi-weekly adaptive check-in — Monday of every 2nd plan week. DMs the user and parks
-  // them in "checkin_adaptive" so their reply drives AI micro-adjustments to the live plan.
-  if (!pinged && weekday === 1 && hour >= reminderHour && user.role !== "client" && !already("adaptive_checkin")) {
-    const plan = activePlan;
-    if (plan) {
-      const w = weeksSincePlan(plan.generatedAt.toISOString().slice(0, 10), date);
-      if (w > 0 && w % 2 === 0) {
-        await sendAndMark("adaptive_checkin", t(lang, "adaptive_checkin_prompt"));
-        // Persist the mode now — flushReminders no longer writes the session column.
-        user.session = { ...user.session, mode: "checkin_adaptive" };
-        await updateUser(db, user._id, { session: user.session });
-      }
-    }
   }
 
   // Weekly progression-rate re-evaluation — Monday, from the last 3 weeks of logs.
@@ -834,7 +585,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // detection). Solo/trainer-own plans are applied silently and the user is told; a client's
   // changes are staged as a DRAFT for their trainer to accept, edit, or discard.
   if (weekday === 1 && hour >= reminderHour && !already("progression")) {
-    await weeklyProgression({ db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll });
+    await weeklyProgression({ db, user, lang, date, activePlan, workouts21, send, sendTo, markSent, sent, sendAndMark, bodyAll, appKb: p.appKb });
   }
 
   // Weekly motivational narrative — Monday late morning, solo/trainer-own users with recent

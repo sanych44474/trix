@@ -10,14 +10,17 @@ import { offerKitFit } from "./kitFit";
 import type { UserDoc, Weekday } from "../types";
 import { aiJSON, aiText } from "../ai";
 import * as P from "../ai/prompts";
-import { getRecentContext } from "../adapters/d1/v2Admin";
+import { getRecentContext } from "../adapters/d1/v2Analytics";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getActivePlan, recentAdjustments } from "../adapters/d1/v2Plans";
 import { createQuestion, getTrainer, setQuestionDraft } from "../adapters/d1/v2Trainer";
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { computeCyclePhase, phaseHint, phaseLabel } from "../domain/cycle";
 import { phaseGuidance, trainingWeek } from "../domain/mesocycle";
-import { bestSetForMetric, formatSetEntry, localParts, metricOfSets, planNextTargets, readinessAdvice } from "../domain/progression";
+import { bestSetForMetric, formatSetEntry, metricOfSets } from "../domain/setFormat";
+import { localParts } from "../domain/localTime";
+import { planNextTargets } from "../domain/progression";
+import { readinessAdvice } from "../domain/deload";
 import { getDailyCheckin } from "../adapters/d1/v2Tracking";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
 import { recentCoachingReasons } from "../domain/coachMemory";
@@ -28,9 +31,11 @@ import { deferAi } from "./aiDefer";
 import { recordFeedback } from "./feedbackIntake";
 import { partialJsonString } from "../domain/partialJson";
 import { localCutoff } from "./report";
-import { trainerStyleBlock } from "../features/trainer/trainer";
+import { trainerStyleBlock } from "../features/trainer/trainerWizard";
 import { type MyContext, HTML, planOwnerId, reply, setMode } from "../adapters/telegram/context";
-import { addExerciseByName, adjustDifficulty, deleteExerciseFromToday, menuBtn, setExerciseSets, setExerciseWeight, showSwapAlternatives, swapExerciseByName } from "../bot";
+import { addExerciseByName, deleteExerciseFromToday } from "./todayEdit";
+import { adjustDifficulty, setExerciseSets, setExerciseWeight, showSwapAlternatives, swapExerciseByName } from "./planExerciseEdit";
+import { menuBtn } from "./keyboards";
 
 // `owner` is whose plan/history the coach reasons about — the operator themselves when
 // self-coaching, or the managed client when a trainer is editing that client's plan (see

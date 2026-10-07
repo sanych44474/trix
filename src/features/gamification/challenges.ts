@@ -18,10 +18,11 @@ import {
 } from "../../domain/challenges";
 import { challengeTitleText } from "../../render";
 import { challengeMilestones } from "../../domain/records";
-import { localParts } from "../../domain/progression";
+import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, clearEditOwner, reply } from "../../adapters/telegram/context";
-import { menuBtn, waterGoalFor } from "../../bot";
+import { menuBtn } from "../../bot/keyboards";
+import { waterGoalFor } from "../../bot/nutritionCmds";
 
 // Gather the raw counts a challenge needs, over its [startDate, endDate] window. Progress is always
 // recomputed live from logs (so editing/deleting a log keeps it honest); only enrollment is stored.

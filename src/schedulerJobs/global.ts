@@ -7,10 +7,13 @@ import { sweepStaleDrafts } from "../staleDrafts";
 import { weeklyModelCheck } from "../aiModelWatch";
 import { isoDateMinus } from "../features/gamification/boards";
 import type { Env } from "../types";
-import { getOwnerChatId, getAlertState, setAlertState, errorStatsSince, aiUsageSince, pruneOldLogs, pruneAiCache, getSetting, setSetting } from "../adapters/d1/v2Admin";
+import { appMarkup } from "../notify/appKeyboard";
+import { t } from "../locales/i18n";
+import { getOwnerChatId, getAlertState, setAlertState, pruneOldLogs, getSetting, setSetting } from "../adapters/d1/v2Admin";
+import { errorStatsSince, aiUsageSince, pruneAiCache } from "../adapters/d1/v2AiTelemetry";
 import { pruneNotificationOutbox } from "../adapters/d1/v2Notifications";
 import { pruneIdempotencyKeys } from "../adapters/d1/v2Idempotency";
-import { computeBoards } from "../bot";
+import { computeBoards } from "../features/gamification/boards";
 import { logSchedulerError, type Sender } from "./shared";
 
 // Push the owner an alert when something operationally wrong is happening (no need to open /report).
@@ -35,7 +38,9 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
 
   // Trainer clients stuck on an unassigned first-plan draft: remind the trainer after a day,
   // activate it after three (staleDrafts.ts).
-  await sweepStaleDrafts(db, (chatId, text, extra) => bot.api.sendMessage(chatId, text, extra))
+  await sweepStaleDrafts(db, (chatId, text, extra) => bot.api.sendMessage(chatId, text, extra), Date.now(),
+    (lang, clientId, fallback) => (env ? appMarkup(env, t(lang, "nb_open_client"), "role", { client: clientId }) : undefined) ?? { inline_keyboard: [[{ text: t(lang, "cc_plan"), callback_data: fallback.replace("{id}", String(clientId)) }]] },
+    (lang) => (env ? appMarkup(env, t(lang, "nb_open_today"), "today") : undefined))
     .catch((e) => logSchedulerError(db, "stale_drafts", e));
 
   // Weekly: alert the owner when a configured AI model id vanished from its provider's catalog

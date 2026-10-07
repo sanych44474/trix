@@ -10,6 +10,7 @@ import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env, Lang, UserProfile, Weekday } from "../types";
+import { finalizeOnboardingPlan } from "../bot/plan";
 
 // Canonical value → i18n label key. Values MUST match the bot's obSteps() so a plan built from
 // either surface reads the same profile.
@@ -119,7 +120,11 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
 // button wizard collects and parks the session in plan_pending — the every-minute scheduler's
 // recovery sweep then generates the plan (bank-first, AI when available) and pushes "plan ready"
 // to the chat, exactly like a wizard finish that hit a Worker timeout. No new AI plumbing.
-export async function handleOnboardingApi(req: Request, url: URL, env: Env): Promise<Response> {
+function validTimeZone(tz: string): boolean {
+  try { new Intl.DateTimeFormat("en", { timeZone: tz }); return true; } catch { return false; }
+}
+
+export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
@@ -141,6 +146,14 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env): Pro
   if (inSet(body.dietPrefs, DIET)) patch.dietPrefs = body.dietPrefs as string;
   if (body.lifestyle === "sedentary" || body.lifestyle === "moderate" || body.lifestyle === "active") patch.lifestyle = body.lifestyle;
   if (body.sleepSchedule === "morning" || body.sleepSchedule === "evening") patch.sleepSchedule = body.sleepSchedule;
+  if (body.sessionMinutes === 30 || body.sessionMinutes === 45 || body.sessionMinutes === 60 || body.sessionMinutes === 90) patch.sessionMinutes = body.sessionMinutes;
+  // The phone's IANA zone, so reminders land at local time; only when the profile has none yet.
+  if (!user.profile.timezone && typeof body.timezone === "string" && body.timezone.length <= 64 && validTimeZone(body.timezone)) patch.timezone = body.timezone;
+  // A trainer's client answers the sharing question inside the wizard (body data / health).
+  if (user.role === "client" && body.share && typeof body.share === "object") {
+    const s = body.share as { body?: unknown; health?: unknown };
+    patch.shareWithTrainer = { body: s.body === true, health: s.health === true };
+  }
   if (typeof body.limitations === "string") patch.limitations = body.limitations.trim().slice(0, 500) || "none";
   // Current lifts (optional, non-beginners): starting weights are calibrated from them (domain/startWeights.ts).
   if (typeof body.baselineLifts === "string") patch.baselineLifts = body.baselineLifts.trim().slice(0, 200) || "none";
@@ -156,5 +169,9 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env): Pro
   }
   if (merged.limitations === undefined) merged.limitations = "none";
   await updateUser(env.DB, user._id, { profile: merged, session: { mode: "plan_pending" } });
+  // Build the plan now (AI first, bank fallback) instead of waiting for the recovery sweep, which
+  // only picks users pending for 90s+ and builds the bank plan. A failure leaves plan_pending, so
+  // the sweep still converges.
+  ctx?.waitUntil(finalizeOnboardingPlan(env, env.DB, { ...user, profile: merged, session: { mode: "plan_pending" } }).catch(() => false));
   return Response.json({ ok: true, pending: true });
 }

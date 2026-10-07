@@ -1,5 +1,6 @@
 // The trainer's client card in the Mini App: profile, plan, notes and their history, injuries,
 // photos, coach thread and templates.
+import { TrainerChat } from "./TrainerChat";
 import { useEffect, useState } from "react";
 import { api, ApiError, jsonBody, typedBody } from "../api";
 import type { ClientCardPayload } from "../types";
@@ -37,6 +38,16 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
     }).catch(() => setError(true));
   };
   useEffect(load, [clientId]);
+
+  // Assign the waiting draft (it becomes the client's plan and they are notified) or discard it.
+  const decideDraft = async (decision: "assign" | "discard") => {
+    setBusy("draft"); setActionError(false);
+    try {
+      await api(`/api/v2/trainer/client/${clientId}/draft`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"decideClientDraft">({ decision }) });
+      setSavedKey("draft");
+      load();
+    } catch { setActionError(true); } finally { setBusy(null); }
+  };
 
   const saveCard = async () => {
     setBusy("card"); setSavedKey(null);
@@ -107,6 +118,16 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
       <div className="button-row"><button className="button button-ghost" disabled={busy === "flag"} onClick={() => void toggleFlag()}>{busy === "flag" ? "…" : data.client.flagged ? t(lang, "unflag_client_btn") : t(lang, "flag_client_btn")}</button></div>
     </Panel>
 
+    {data.draft && <Panel tone="accent">
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "cc_draft_eyebrow")}</span><h2>{t(lang, "cc_draft_title")}</h2></div></div>
+      <p>{t(lang, "cc_draft_body", { days: data.draft.days, n: data.draft.exercises, date: data.draft.createdAt })}</p>
+      <div className="button-row">
+        <button className="button button-light" disabled={busy === "draft"} onClick={() => void decideDraft("assign")}>{busy === "draft" ? t(lang, "saving_ellipsis") : t(lang, "cc_draft_assign")}</button>
+        <button className="button button-ghost" disabled={busy === "draft"} onClick={() => void decideDraft("discard")}>{t(lang, "cc_draft_discard")}</button>
+      </div>
+    </Panel>}
+    {savedKey === "draft" && <div className="save-note">{t(lang, "cc_draft_done")}</div>}
+
     {!data.client.onboarded && <Panel tone="muted">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "interview_nudge_eyebrow")}</span><h2>{t(lang, "interview_nudge_title")}</h2></div></div>
       <div className="button-row"><button className="button button-ghost" disabled={busy === "interview"} onClick={() => void requestInterview()}>{busy === "interview" ? t(lang, "saving_ellipsis") : t(lang, "request_interview_btn")}</button></div>
@@ -138,9 +159,7 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
 
     <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "message_thread_eyebrow")}</span><h2>{t(lang, "message_thread_title")}</h2></div></div>
-      {data.messages.length > 0
-        ? <div className="record-list">{data.messages.map((message, index) => <div className="record-row" key={`${message.createdAt}-${index}`}><div><strong>{message.fromMe ? t(lang, "you_label") : data.client.name}</strong><small>{message.createdAt.slice(0, 16).replace("T", " ")}</small></div><span>{message.text}</span></div>)}</div>
-        : <p className="muted">{t(lang, "message_thread_empty")}</p>}
+      <TrainerChat lang={lang} peerId={data.client.id} canDraft />
     </Panel>
 
     {data.shared.body && <Panel><div className="section-head"><div><span className="eyebrow">{t(lang, "shared_body_eyebrow")}</span><h2>{t(lang, "shared_body_title")}</h2></div></div><div className="metric-grid compact">

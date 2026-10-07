@@ -17,16 +17,18 @@ import { handleTrainerScheduleApi } from "./trainerScheduleApi";
 import { handleOwnerApi } from "./ownerApi";
 import { handleCoachApi } from "./coachApi";
 import { handleBuddyApi } from "./buddyApi";
+import { handleMediaApi } from "./mediaApi";
+import { handleChatApi } from "./chatApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handleAppEventApi, handlePhotoApi } from "./miscApi";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
-import { recordError } from "../adapters/d1/v2Admin";
+import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { checkCronHeartbeat } from "../scheduler";
 import { logError, withHeader } from "../log";
 import { V2_ERROR_CODES, type V2ErrorCode, type V2Response } from "../contracts/v2";
 import type { Env } from "../types";
 
-type LegacyHandler = (req: Request, url: URL, env: Env) => Promise<Response>;
+type LegacyHandler = (req: Request, url: URL, env: Env, ctx?: ExecutionContext) => Promise<Response>;
 
 // Handlers that already claim the request's Idempotency-Key themselves (each calls
 // runIdempotent internally: workoutApi.ts's save, settingsApi.ts, trainerApi.ts,
@@ -36,7 +38,7 @@ type LegacyHandler = (req: Request, url: URL, env: Env) => Promise<Response>;
 // deterministic every time), so the inner handler always gets "still processing" and returns
 // 409 -- the real work (e.g. saveWorkout) never runs. Confirmed live: /api/v2/workout/save was
 // 409ing on every attempt while v2_workout_sessions received zero writes.
-const SELF_IDEMPOTENT_HANDLERS = new Set<LegacyHandler>([handleWorkoutApi, handleSettingsApi, handleTrainerApi, handleInjuriesApi]);
+const SELF_IDEMPOTENT_HANDLERS = new Set<LegacyHandler>([handleWorkoutApi, handleSettingsApi, handleTrainerApi, handleInjuriesApi, handleChatApi]);
 
 const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> = [
   { prefix: "/api/v2/workout", legacy: "/api/workout", handler: handleWorkoutApi },
@@ -66,6 +68,8 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/trainers", legacy: "/api/trainers", handler: handleExtrasApi },
   { prefix: "/api/v2/library", legacy: "/api/library", handler: handleExtrasApi },
   { prefix: "/api/v2/squads", legacy: "/api/squads", handler: handleSquadsApi },
+  { prefix: "/api/v2/chat", legacy: "/api/chat", handler: handleChatApi },
+  { prefix: "/api/v2/media", legacy: "/api/media", handler: handleMediaApi },
   { prefix: "/api/v2/buddy", legacy: "/api/buddy", handler: handleBuddyApi },
   { prefix: "/api/v2/challenges", legacy: "/api/challenges", handler: handleChallengesApi },
   { prefix: "/api/v2/injuries", legacy: "/api/injuries", handler: handleInjuriesApi },
@@ -113,13 +117,13 @@ function validateV2Headers(req: Request): Response | null {
   return null;
 }
 
-async function forward(req: Request, url: URL, env: Env, path: string, handler: LegacyHandler): Promise<Response> {
+async function forward(req: Request, url: URL, env: Env, path: string, handler: LegacyHandler, ctx?: ExecutionContext): Promise<Response> {
   const legacyUrl = new URL(url.toString());
   legacyUrl.pathname = path;
   const idempotencyKey = req.method !== "GET" ? req.headers.get("idempotency-key") : null;
   const actor = req.method !== "GET" ? await miniAppUser(req, url, env).catch(() => null) : null;
   const run = async (): Promise<{ status: number; body: unknown }> => {
-    const response = await handler(req, legacyUrl, env);
+    const response = await handler(req, legacyUrl, env, ctx);
     const body = await jsonBody(response);
     return { status: response.status, body };
   };
@@ -188,7 +192,7 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: Executio
     if (ctx) ctx.waitUntil(checkCronHeartbeat(env));
     try {
       const payload = await createD1DashboardApplication(env.DB).getDashboard(user);
-      return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded }, ...payload }, req);
+      return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded, planPending: !user.onboarded && user.session.mode === "plan_pending" }, ...payload }, req);
     } catch (err) {
       logError("v2_dashboard_failed", err, { userId: user._id });
       // Also the D1 sink, which is what /ownerreport's Errors section and the error-spike alert
@@ -207,5 +211,5 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: Executio
   if (!route) {
     return Response.json({ error: { code: "not_found", message: "Route not found" } }, { status: 404 });
   }
-  return forward(req, url, env, route.legacyPath, route.handler);
+  return forward(req, url, env, route.legacyPath, route.handler, ctx);
 }

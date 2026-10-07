@@ -214,3 +214,11 @@ export function parseMeasurements(text: string): {
 }
 
 // ---------- adherence-triggered deload ----------
+
+// Drop implausible AI-provided body metrics so the interview re-asks instead of saving nonsense.
+export function sanitizeBodyMetrics<T extends { heightCm?: number; weightKg?: number }>(p: T): T {
+  const out = { ...p };
+  if (out.heightCm !== undefined && !realisticHeightCm(out.heightCm)) out.heightCm = undefined;
+  if (out.weightKg !== undefined && !realisticWeightKg(out.weightKg)) out.weightKg = undefined;
+  return out;
+}

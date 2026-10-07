@@ -1,11 +1,11 @@
 // Nutrition suite for the Mini App (roadmap P4): today's meal history (view), portion re-weigh
-// (½ / 1.5× / 2× / grams) and item delete, plus the meal-plan display. AI photo/voice logging
-// stays in the bot (media). Same initData auth as every webapp API.
+// (½ / 1.5× / 2× / grams) and item delete, plus the meal-plan display. AI photo logging estimates
+// in mediaApi.ts and is logged here (add_items) once the user confirms. Same initData auth as every webapp API.
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getDayMeals, getMealPlan, getRecentFoods, saveMealPlan, setDayMeals, putUserFoodCorrection } from "../adapters/d1/v2Nutrition";
 import { computeTargets, per100gCorrectionFrom, scaleMealEntry, sumItems } from "../domain/mealplan";
 import { groceryList } from "../domain/groceryList";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { generateMealDayFor } from "../bot/mealPlanCmds";
 import { miniAppUser } from "./auth";
 import { aiText } from "../ai/index";
@@ -217,6 +217,29 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       { headers: { "cache-control": "no-store" } },
     );
   }
+  // Log the items of a meal-photo estimate (POST /api/v2/media/meal-photo) once the user has
+  // confirmed or fixed them. Macros come from the client (the user may re-weigh an item, which
+  // scales it), so each value is range-checked; nothing here calls the AI again.
+  if (action === "add_items") {
+    const raw = Array.isArray(body.items) ? body.items.slice(0, 12) : [];
+    const n = (v: unknown, max: number) => { const x = Number(v); return Number.isFinite(x) && x >= 0 && x <= max ? Math.round(x * 10) / 10 : null; };
+    const items: MealEntry[] = [];
+    for (const r of raw as Array<Record<string, unknown>>) {
+      const desc = typeof r?.desc === "string" ? r.desc.trim().slice(0, 80) : "";
+      const kcal = n(r?.kcal, 3000), protein = n(r?.protein, 300), fats = n(r?.fats, 300), carbs = n(r?.carbs, 500);
+      const grams = r?.grams === undefined || r?.grams === null ? undefined : n(r.grams, 3000);
+      if (!desc || kcal === null || protein === null || fats === null || carbs === null || grams === null) return Response.json({ error: "bad request" }, { status: 400 });
+      const query = typeof r.query === "string" && r.query.trim() ? r.query.trim().slice(0, 60) : undefined;
+      items.push({ desc, kcal: Math.round(kcal), protein, fats, carbs, ...(grams ? { grams } : {}), ...(query ? { query } : {}) });
+    }
+    if (!items.length || items.every((i) => i.kcal <= 0)) return Response.json({ error: "bad request" }, { status: 400 });
+    const cur = await getDayMeals(env.DB, user._id, date);
+    cur.push(...items);
+    await setDayMeals(env.DB, user._id, date, cur);
+    logInfo("nutrition_logged", { method: "photo" });
+    return Response.json({ ok: true, totals: totals(cur) });
+  }
+
   if (action === "dbadd") {
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
     const grams = Number(body.grams);

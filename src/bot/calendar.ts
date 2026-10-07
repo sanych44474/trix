@@ -9,7 +9,8 @@ import type { Lang, Weekday } from "../types";
 import { getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { dayMarker, monthGrid, monthTitle, nextMonth, prevMonth, ymOf } from "../domain/calendar";
-import { getPlanDay, localParts } from "../domain/progression";
+import { getPlanDay } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { t } from "../locales/i18n";
 import { type MyContext, clearEditOwner, reply } from "../adapters/telegram/context";
 

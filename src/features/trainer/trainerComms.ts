@@ -10,10 +10,14 @@ import { getWorkoutLog, listStrength, upsertStrengthRecord, upsertWorkoutLog, wo
 import { getActivePlan } from "../../adapters/d1/v2Plans";
 import { getClientForTrainer, getQuestion, insertMessage, setQuestionStatus } from "../../adapters/d1/v2Trainer";
 import { getUser, updateUser } from "../../adapters/d1/v2Users";
-import { bestSetForMetric, formatSetEntry, getPlanDay, metricOfSets, normalizeExercise, parseWorkoutText } from "../../domain/progression";
+import { bestSetForMetric, formatSetEntry, metricOfSets } from "../../domain/setFormat";
+import { getPlanDay } from "../../domain/progression";
+import { normalizeExercise, parseWorkoutText } from "../../domain/workoutText";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
-import { localCutoff, menuBtn, weekdayOf } from "../../bot";
+import { localCutoff } from "../../bot/report";
+import { menuBtn } from "../../bot/keyboards";
+import { weekdayOf } from "../../bot/calendar";
 import { clientCardKb } from "./trainerCommon";
 
 export async function showClientLogDays(ctx: MyContext, clientId: number) {

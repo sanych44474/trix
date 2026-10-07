@@ -10,7 +10,8 @@ import { appendMeals, getDayMeals, setDayMeals, getRecentFoods, deleteMealItem }
 import { escapeHtml, t } from "../locales/i18n";
 import { aiJSON } from "../ai";
 import * as P from "../ai/prompts";
-import { localParts, parseSteps } from "../domain/progression";
+import { localParts } from "../domain/localTime";
+import { parseSteps } from "../domain/workoutText";
 import { num, verifyItems } from "../features/nutrition/nutritionLog";
 import { isoDateMinus } from "../features/gamification/boards";
 import { showEveningSurvey } from "./survey";
@@ -195,7 +196,7 @@ export async function handleFoodProduct(ctx: MyContext, text: string) {
       db: ctx.db,
       userId: ctx.user._id,
     });
-    const { final } = await verifyItems(ctx, est.items);
+    const { final } = await verifyItems(ctx.db, ctx.env, ctx.user._id, est.items);
     const meals = await getDayMeals(ctx.db, ctx.user._id, date);
     if (final.length && meals[idx]) {
       meals.splice(idx, 1, ...final); // replace that position with the re-estimated item(s)

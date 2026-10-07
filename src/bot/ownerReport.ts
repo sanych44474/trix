@@ -2,7 +2,10 @@
 // sections, the metrics JSON and the error digest, plus their text-chart helpers. Split out of
 // owner.ts; owner.ts re-exports everything here.
 import type { Env } from "../types";
-import { aiCallStatsSince, aiTokensByKindSince, aiUsageSince, cohortMembersSince, countAdjustmentsSince, countPlanSourcesSince, dailyActiveUsers, engagementSince, errorStatsSince, eventCountsByUser, eventStatsSince, listUsersBrief, recentAudit, recentErrors, recentFeedback } from "../adapters/d1/v2Admin";
+import { aiCallStatsSince, aiTokensByKindSince, aiUsageSince, errorStatsSince, recentErrors } from "../adapters/d1/v2AiTelemetry";
+import { cohortMembersSince, countAdjustmentsSince, countPlanSourcesSince, dailyActiveUsers, engagementSince, eventCountsByUser, eventStatsSince, listUsersBrief } from "../adapters/d1/v2Analytics";
+import { recentAudit } from "../adapters/d1/v2Admin";
+import { recentFeedback } from "../adapters/d1/v2Feedback";
 import { countCompletedWorkoutsBetween } from "../adapters/d1/v2Workouts";
 import { planStatusByUser } from "../adapters/d1/v2Plans";
 import { countByRole, countClientsOf, countPendingClientRequests, listTrainerUsers, pendingRequestsAll, pendingTrainerApplications } from "../adapters/d1/v2Trainer";
@@ -11,8 +14,8 @@ import { weekStartStr } from "../domain/records";
 import { biggestDrop, cohortRetention, RETENTION_WEEKS } from "../domain/cohorts";
 import { escapeHtml } from "../locales/i18n";
 import { splitKeys } from "../ai/errors";
-import { obSteps } from "../bot";
-import { interviewProgress, OwnerUserRow } from "./owner";
+import { obSteps } from "./onboarding";
+import { interviewProgress, OwnerUserRow } from "./ownerRows";
 
 // Telegram renders no real tables — a monospace <pre> block with space-aligned columns is the
 // only table-like option. First column left-aligned (labels), the rest right-aligned (numbers).

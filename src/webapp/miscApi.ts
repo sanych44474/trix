@@ -1,11 +1,9 @@
 // Long-tail Mini App APIs (roadmap P7): challenges (view/join), injury log (view/report), and
 // the competitor leaderboards (read). Each reuses the same repos/domain as the bot; same initData
 // auth. Routed at /api/challenges, /api/injuries, /api/boards.
-import {
-  bumpEvent,
-  getSetting,
-  recordError,
-} from "../adapters/d1/v2Admin";
+import { bumpEvent } from "../adapters/d1/v2Analytics";
+import { getSetting } from "../adapters/d1/v2Admin";
+import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import {
   activeChallenges,
@@ -17,16 +15,17 @@ import {
   markChallengeDone,
 } from "../adapters/d1/v2Gamification";
 import { addProgressPhoto, createInjury, getProgressPhoto, listActiveInjuries, stepLogsSince, waterLogsSince } from "../adapters/d1/v2Tracking";
-import { getUser } from "../adapters/d1/v2Users";
+import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
-import { computeBoards } from "../bot";
+import { computeBoards } from "../features/gamification/boards";
 import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindow, challengeWindowCounts, resolveWaterGoal, seasonalChallenge, seasonMilestones } from "../domain/challenges";
 import { challengeTitleText } from "../render";
 import { checkAfterDate } from "../domain/injury";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { challengeMilestones, rankOf } from "../domain/records";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
-import { t } from "../locales/i18n";
+import { escapeHtml, t } from "../locales/i18n";
+import { appMarkup } from "../notify/appKeyboard";
 import { miniAppUser } from "./auth";
 import { cachePhoto, getCachedPhoto } from "./photoStorage";
 import { logInfo } from "../log";
@@ -200,6 +199,23 @@ async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise
   if (!res?.ok || !largest?.file_id) return Response.json({ error: "dependency_unavailable" }, { status: 502 });
   await addProgressPhoto(env.DB, user._id, largest.file_id);
   logInfo("photo_uploaded", { source: "webapp" });
+  // A trainer asked for a progress photo (photoReviewFor): the next upload goes to them too, with
+  // a button to the client's card, the same as the chat flow did.
+  const trainerId = user.session.photoReviewFor;
+  if (trainerId) {
+    await updateUser(env.DB, user._id, { session: { ...user.session, photoReviewFor: undefined } }).catch(() => {});
+    const trainer = await getUser(env.DB, trainerId).catch(() => null);
+    if (trainer) {
+      const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
+      const markup = appMarkup(env, t(trainer.lang, "nb_open_client"), "role", { client: user._id });
+      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: trainer.chatId, photo: largest.file_id, caption: t(trainer.lang, "photo_review_from", { name: who }), parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) }),
+      }).catch(() => null);
+      return Response.json({ ok: true, sentToTrainer: true });
+    }
+  }
   return Response.json({ ok: true });
 }
 

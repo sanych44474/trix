@@ -2,7 +2,8 @@
 // week, within the pass's narrative budget). Called by processUser.
 import { dailyCheckinsSince } from "../adapters/d1/v2Tracking";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
-import { adherenceDeloadDue, computePlanProgression } from "../domain/progression";
+import { adherenceDeloadDue } from "../domain/deload";
+import { computePlanProgression } from "../domain/progression";
 import { trainingWeek } from "../domain/mesocycle";
 import { escapeHtml, t } from "../locales/i18n";
 import { aiText } from "../ai/index";

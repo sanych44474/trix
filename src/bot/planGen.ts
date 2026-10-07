@@ -2,14 +2,15 @@
 // pending when the user's session was last touched, and persisting the onboarding baseline
 // bodyweight/measurements as the first body_logs row. Extracted from bot.ts (god-file split;
 // same barrel seam via bot.ts's `export * from "./bot/planGen"`).
-import { recordPlanSource } from "../adapters/d1/v2Admin";
+import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { saveBaselineBody as saveBaselineBodyDb } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
-import { localParts, nextLevel } from "../domain/progression";
+import { localParts } from "../domain/localTime";
+import { nextLevel } from "../domain/levelGoals";
 import { t } from "../locales/i18n";
 import { generateClientDraft, generatePlan, regenBankPlan } from "./plan";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { menuBtn } from "../bot";
+import { menuBtn } from "./keyboards";
 import type { UserDoc } from "../types";
 
 // "Level up" button → bump the trainee one experience tier and rebuild a harder bank plan.

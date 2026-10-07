@@ -15,6 +15,7 @@
 // does, so a question asked in the Mini App lands in the trainer's existing q:send/q:own/q:skip
 // keyboard and in their questions panel. This used to 403 the client outright, which left the
 // client role mute in the Mini App: no AI coach, and no way to reach their trainer either.
+import { appMarkup } from "../notify/appKeyboard";
 import { aiJSON, aiText } from "../ai/index";
 import * as P from "../ai/prompts";
 import { coachContext } from "../bot/coach";
@@ -22,10 +23,10 @@ import { storeFeedback } from "../bot/feedbackIntake";
 import { miniAppCoachActions, validateCoachEditResult } from "../domain/coachActions";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { getActivePlan } from "../adapters/d1/v2Plans";
-import { getRecentContext } from "../adapters/d1/v2Admin";
+import { getRecentContext } from "../adapters/d1/v2Analytics";
 import { getUser } from "../adapters/d1/v2Users";
 import { createQuestion, getTrainer, listMessages, listQuestionsForClient, setQuestionDraft } from "../adapters/d1/v2Trainer";
-import { localParts } from "../domain/progression";
+import { localParts } from "../domain/localTime";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { miniAppUser } from "./auth";
@@ -140,7 +141,8 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
       env,
       trainerUser.chatId,
       t(trainerUser.lang, "trainer_question", { name: user.profile.name ?? `id ${user._id}`, q: question }) + (draft ? `\n\n${escapeHtml(draft)}` : ""),
-      {
+      // The trainer answers in the app (Workspace → client questions), with the AI draft there.
+      appMarkup(env, t(trainerUser.lang, "nb_reply"), "role") ?? {
         inline_keyboard: [
           [{ text: t(trainerUser.lang, "q_send"), callback_data: `q:send:${qid}` }, { text: t(trainerUser.lang, "q_own"), callback_data: `q:own:${qid}` }],
           [{ text: t(trainerUser.lang, "q_skip"), callback_data: `q:skip:${qid}` }],

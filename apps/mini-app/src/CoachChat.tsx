@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, typedBody } from "./api";
 import { t, type Lang } from "./i18n";
 import { track } from "./logic/track";
+import { VoiceButton } from "./media/VoiceButton";
 
 type Action = { label: string; kind: string; weekday?: number; index?: number; exercise?: string; value?: string; note?: string };
 type Turn = { role: "user" | "coach"; text: string; actions?: Action[]; done?: number[] };
@@ -76,6 +77,7 @@ export function CoachChat({ lang, prefill }: { lang: Lang; prefill?: string }) {
     <form className="coach-input" onSubmit={(e) => { e.preventDefault(); void ask(); }}>
       <textarea value={question} maxLength={500} rows={2} placeholder={t(lang, "ai_coach_ph")} onChange={(e) => setQuestion(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(); } }} />
+      <VoiceButton lang={lang} disabled={busy !== null} onText={(spoken) => setQuestion((cur) => (cur.trim() ? `${cur.trim()} ${spoken}` : spoken).slice(0, 500))} />
       <button className="button button-primary" type="submit" disabled={!question.trim() || busy !== null}>{t(lang, "ai_coach_ask_btn")}</button>
     </form>
     {turns.length > 0 && <button type="button" className="text-button" onClick={() => setTurns([])}>{t(lang, "coach_chat_clear")}</button>}

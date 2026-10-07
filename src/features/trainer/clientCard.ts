@@ -12,11 +12,20 @@ import { getUser, updateUser } from "../../adapters/d1/v2Users";
 import { adaptPlan } from "../../domain/planAdapt";
 import { birthdayInfo, parseBirthdayInput, trainerCanSee } from "../../domain/clientCard";
 import { computeCyclePhase } from "../../domain/cycle";
-import { complianceScore, formatRecordBest, getPlanDay, localParts } from "../../domain/progression";
+import { complianceScore } from "../../domain/activity";
+import { getPlanDay } from "../../domain/progression";
+import { formatRecordBest } from "../../domain/setFormat";
+import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { renderPlan, renderSchedule, renderStrength, renderToday, upcomingSessions, weekdayName } from "../../render";
 import { type MyContext, type TKey, HTML, clearEditOwner, reply, setEditOwner, setMode } from "../../adapters/telegram/context";
-import { buildWeekCard, localCutoff, localizePlanNames, healPlanNamesForDisplay, mainMenu, menuBtn, obProgress, renderBodyDynamics, sendObStepTo, videosForDays } from "../../bot";
+import { buildWeekCard } from "../gamification/weekCard";
+import { localCutoff, renderBodyDynamics } from "../../bot/report";
+import { localizePlanNames, healPlanNamesForDisplay } from "../../bot/exerciseCatalog";
+import { mainMenu, menuBtn } from "../../bot/keyboards";
+import { obProgress, sendObStepTo } from "../../bot/onboarding";
+import { sendOnboardingPromptTo } from "../../bot/onboardingApp";
+import { videosForDays } from "../../bot/planView";
 import { showClientLogDays } from "./trainerComms";
 import { intvLabel, anthroBlock, runTrainerDraft } from "./trainerInterview";
 import { clientCardKb, editDayKb, requireTrainer } from "./trainerCommon";
@@ -276,7 +285,9 @@ export async function pingClientIntake(ctx: MyContext, client: UserDoc, clientId
   if (client.onboarded) { await clientCardAction(ctx, clientId, "intv"); return; }
   const prefix = t(client.lang, "cc_intv_remind_text");
   const transcript = client.session.transcript;
-  if (client.session.mode === "onboarding" && transcript?.length) {
+  if (await sendOnboardingPromptTo(ctx, client.chatId, client.lang, prefix)) {
+    await updateUser(ctx.db, clientId, { session: { mode: "onboarding", step: 0 } });
+  } else if (client.session.mode === "onboarding" && transcript?.length) {
     // AI-interview user — re-send the last unanswered question (same as the cron nudge).
     const lastQ = [...transcript].reverse().find((m) => m.role === "assistant");
     await ctx.api

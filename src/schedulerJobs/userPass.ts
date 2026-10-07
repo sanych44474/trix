@@ -5,6 +5,8 @@ import type { BodyLogDoc, Env, Lang, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } 
 import type { DeliveryResult } from "../schedulerOutbox";
 import type { SharedPass } from "../scheduler";
 import type { Sender } from "./shared";
+import type { InlineKeyboard } from "grammy";
+import type { AppButton } from "../notify/appKeyboard";
 
 type SendExtra = Parameters<Sender["api"]["sendMessage"]>[2];
 
@@ -36,6 +38,8 @@ export interface UserPass {
   sendAndMark: (key: string, text: string, extra?: SendExtra) => Promise<DeliveryResult>;
   durable: (r: DeliveryResult) => boolean;
   appView: (view: string) => string | undefined;
+  /** Notification buttons that open the Mini App (callback fallbacks without one), see notify/appKeyboard. */
+  appKb: (rows: AppButton[][]) => InlineKeyboard | undefined;
   workouts21: () => Promise<WorkoutLogDoc[]>;
   bodyAll: () => Promise<BodyLogDoc[]>;
 }

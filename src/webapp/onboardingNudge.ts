@@ -4,7 +4,8 @@
 // wizard at the first unanswered step. Returns false (no message) when they're already onboarded.
 import { updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
-import { obKeyboard, obProgress, obSteps } from "../bot";
+import { obKeyboard, obProgress, obSteps } from "../bot/onboarding";
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "../bot/onboardingApp";
 import type { Env, UserDoc } from "../types";
 
 type PromptKey = "cc_intv_remind_text" | "owner_intv_remind_text";
@@ -21,6 +22,11 @@ async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unkn
 export async function nudgeOnboarding(env: Env, target: UserDoc, promptKey: PromptKey): Promise<{ sent: boolean; alreadyOnboarded?: boolean }> {
   if (target.onboarded) return { sent: false, alreadyOnboarded: true };
   const prefix = t(target.lang, promptKey);
+  const appUrl = onboardingUrlFromEnv(env);
+  if (appUrl) {
+    await updateUser(env.DB, target._id, { session: { mode: "onboarding", step: 0 } });
+    return { sent: await tgSend(env, target.chatId, `${prefix}\n\n${t(target.lang, "ob_app_prompt")}`, onboardingAppMarkup(target.lang, appUrl)) };
+  }
   const transcript = target.session.transcript;
   if (target.session.mode === "onboarding" && transcript?.length) {
     const lastQ = [...transcript].reverse().find((entry) => entry.role === "assistant");
