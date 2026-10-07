@@ -687,7 +687,7 @@ export const en = {
   train_rest_prefs_aria: "Rest settings",
   train_rest_auto: "Auto",
   train_rest_sound: "Sound",
-  train_rest_plan_wins: "Your coach set this exercise's rest — it overrides the default above.",
+  train_rest_plan_hint: "The plan sets {sec} s for this exercise. Pick another and it applies to this exercise today.",
   train_rest_minus_aria: "Take {sec} seconds off the rest",
   train_rest_plus_aria: "Add {sec} seconds to the rest",
   train_as_planned_btn: "✓ As planned",

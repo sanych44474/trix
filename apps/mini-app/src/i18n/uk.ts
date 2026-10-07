@@ -688,7 +688,7 @@ export const uk: Record<keyof typeof en, string> = {
   train_rest_prefs_aria: "Налаштування відпочинку",
   train_rest_auto: "Авто",
   train_rest_sound: "Звук",
-  train_rest_plan_wins: "Тренер задав відпочинок для цієї вправи — він має перевагу над значенням вище.",
+  train_rest_plan_hint: "План задає {sec} с для цієї вправи. Вибери інше — діятиме для цієї вправи сьогодні.",
   train_rest_minus_aria: "Зменшити відпочинок на {sec} секунд",
   train_rest_plus_aria: "Додати {sec} секунд до відпочинку",
   train_as_planned_btn: "✓ За планом",
