@@ -259,6 +259,7 @@ button { cursor: pointer; }
   .card:not(.card-accent):not(.card-muted) { background: rgba(255,255,255,.94); }
   .card-muted { background: var(--surface-2); }
   .factor-list { color: #465366; }
+  .draft-note { color: #944c00; } /* #ffd09b is 1.3:1 on light grounds; this amber is 5.3:1+ */
   .input-row input, .form-field input, .form-field select, .form-field textarea, .set-row input, .meal-editor input, .plan-edit-fields input, .compact-input { background: var(--surface); color: var(--text); }
   .bottom-nav { background: rgba(244,246,248,.94); }
   .rest-bar, .save-dock { background: rgba(255,255,255,.97); box-shadow: 0 8px 24px rgba(24,32,43,.14); }
@@ -268,6 +269,7 @@ button { cursor: pointer; }
 :root[data-theme="light"] .card:not(.card-accent):not(.card-muted) { background: rgba(255,255,255,.94); }
 :root[data-theme="light"] .card-muted { background: var(--surface-2); }
 :root[data-theme="light"] .factor-list { color: #465366; }
+:root[data-theme="light"] .draft-note { color: #944c00; }
 :root[data-theme="light"] .input-row input, :root[data-theme="light"] .form-field input, :root[data-theme="light"] .form-field select, :root[data-theme="light"] .form-field textarea, :root[data-theme="light"] .set-row input, :root[data-theme="light"] .meal-editor input, :root[data-theme="light"] .plan-edit-fields input, :root[data-theme="light"] .compact-input { background: var(--surface); color: var(--text); }
 :root[data-theme="light"] .bottom-nav { background: rgba(244,246,248,.94); }
 :root[data-theme="light"] .rest-bar, :root[data-theme="light"] .save-dock { background: rgba(255,255,255,.97); box-shadow: 0 8px 24px rgba(24,32,43,.14); }
@@ -275,6 +277,7 @@ button { cursor: pointer; }
 :root[data-theme="dark"] body { background: radial-gradient(circle at 90% -10%, rgba(255,95,61,.14), transparent 34%), var(--bg); }
 :root[data-theme="dark"] .card:not(.card-accent):not(.card-muted) { background: rgba(20,24,32,.9); }
 :root[data-theme="dark"] .bottom-nav { background: rgba(11,13,17,.92); }
+:root[data-theme="dark"] .draft-note { color: #ffd09b; }
 :root[data-theme="dark"] .rest-bar, :root[data-theme="dark"] .save-dock { background: rgba(11,13,17,.96); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 
 /* ---- ProgressView: calendar day-detail, 12-week heatmap, mini line charts, macro donut ---- */
