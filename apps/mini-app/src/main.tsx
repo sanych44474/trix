@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { guessLang, loadLang, type Lang } from "./i18n";
+import "./fonts.css";
 import "./styles.css";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { installErrorReporting } from "./logic/errorReport";
