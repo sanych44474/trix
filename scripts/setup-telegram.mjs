@@ -1,5 +1,9 @@
 // Registers the Telegram webhook (with secret token), the command menu and the bot's profile
 // description (the text a new user sees before tapping Start).
+//
+// Only the WEBHOOK needs this script now: the Worker applies the command menu, profile texts and
+// menu button itself after each deploy (src/telegramSetup.ts, versioned). Keep the texts below in
+// sync with that file if you still run this for a fresh bot.
 // Usage: node scripts/setup-telegram.mjs https://trix.<subdomain>.workers.dev [ownerChatId]
 // Reads TELEGRAM_BOT_TOKEN / TELEGRAM_WEBHOOK_SECRET / OWNER_CHAT_ID from env or .dev.vars.
 // If an owner chat id is provided, the owner-only commands (/users, /ownerreport, /admin)
