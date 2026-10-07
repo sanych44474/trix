@@ -31,13 +31,13 @@ export interface ReleaseItem { icon: string; title: string; body: string }
 /**
  * A release-note body (the *bold* markdown in releaseNotes.ts) as cards for the Mini App: one per
  * paragraph shaped "emoji *Title* — text". The greeting line and the bot-only closing line
- * ("Tap *Menu → Dashboard*") are dropped; a paragraph without that shape keeps its text as body.
+ * ("Tap *Menu → Dashboard*", "Tap *📱 Open trix* below") are dropped; a paragraph without that shape keeps its text as body.
  */
 export function parseReleaseNote(text: string): ReleaseItem[] {
   const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   return paragraphs
     .slice(1) // greeting
-    .filter((p) => !/(Menu|Меню)\s*→/.test(p))
+    .filter((p) => !/(Menu|Меню)\s*→/.test(p) && !/^(Tap|Тисни)\s/.test(p)) // bot-only closing line
     .map((p) => {
       const m = /^(\S+)\s+\*([^*]+)\*\s*[—–-]?\s*([\s\S]*)$/u.exec(p);
       const strip = (s: string) => s.replace(/\*([^*]+)\*/g, "$1").replace(/_([^_]+)_/g, "$1").trim();

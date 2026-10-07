@@ -10,7 +10,7 @@ import { logError, logInfo } from "./log";
 import type { Env } from "./types";
 
 /** Bump when anything below changes; the next cron after the deploy re-applies it. */
-export const TELEGRAM_SETUP_VERSION = "2026-10-06-launcher";
+export const TELEGRAM_SETUP_VERSION = "2026-10-07-profile";
 const SETTING_KEY = "telegram_setup_version";
 
 // The chat is retired (src/bot/launcher.ts): the command list is just /start (the Open-app button).
@@ -22,24 +22,24 @@ export const PROFILE = {
   en: {
     short: "Free AI personal trainer: a workout plan for your days and gear, progression, macros from a photo. 💪",
     description:
-      "🏋️ trix is a free AI personal trainer in Telegram.\n\n" +
+      "🏋️ trix is a free AI personal trainer — all in one Telegram app.\n\n" +
       "• A workout plan for your days, equipment and injuries — at home or in the gym\n" +
       "• Log sets in one tap; it decides when to add weight\n" +
-      "• Body map: weekly load, recovery and 12-week trend per muscle\n" +
-      "• Technique pictures and a form check from a video\n" +
-      "• Macros from a photo of your plate\n\n" +
-      "No subscription, no ads. Tap Start — a 2-minute interview and your plan is ready.",
+      "• Macros from a photo of your plate, form check from a video, voice notes\n" +
+      "• Body map: weekly load, recovery and trend per muscle\n" +
+      "• Train with AI or pick a coach and chat in the app; squads with friends\n\n" +
+      "No subscription, no ads. Tap Start — a 2-minute questionnaire and your plan is ready.",
   },
   uk: {
     short: "Безкоштовний AI-тренер: програма під твої дні й обладнання, прогресія, КБЖУ за фото. 💪",
     description:
-      "🏋️ trix — безкоштовний AI-тренер у Telegram.\n\n" +
+      "🏋️ trix — безкоштовний AI-тренер, усе в одному застосунку в Telegram.\n\n" +
       "• Програма під твої дні, обладнання й травми — вдома чи в залі\n" +
       "• Запис підходів в один дотик, сам вирішує, коли додати вагу\n" +
+      "• КБЖУ за фото тарілки, перевірка техніки за відео, голосові нотатки\n" +
       "• Карта тіла: навантаження, відновлення і тренд кожного м'яза\n" +
-      "• Фото техніки й перевірка техніки за відео\n" +
-      "• КБЖУ за фото тарілки\n\n" +
-      "Без підписки й реклами. Натисни «Старт» — 2 хвилини інтерв'ю, і план готовий.",
+      "• Тренуйся з AI або обери тренера й спілкуйся в застосунку; сквади з друзями\n\n" +
+      "Без підписки й реклами. Натисни «Старт» — 2 хвилини анкети, і план готовий.",
   },
 } as const;
 

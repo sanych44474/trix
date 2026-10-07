@@ -2,6 +2,56 @@
 
 What users were told in each release, newest first — the same text the bot broadcasts and shows in *What's new* (`/whatsnew`). The Worker bundle keeps only the latest two (`src/releaseNotes.ts`); this file is the full history.
 
+## 2026-10-07
+
+### English
+
+🎉 **What's new in trix**
+
+📱 **Everything in one app** — trix now lives in the Mini App: onboarding, workouts, food, the coach and your trainer. The bot just opens the app and sends reminders.
+
+📷 **Meal by photo** — snap your plate: trix finds the foods and portions, you fix the grams if needed and log it in one tap.
+
+🎥 **Form check in the app** — film a set (up to 60 s) right from an exercise and get 2–3 technique cues.
+
+🎙 **Voice notes** — dictate a meal, a question to the coach or a message to your trainer instead of typing.
+
+💬 **Chat with your trainer** — messages, read receipts and notifications, all in the app. Don't have a trainer? **Choose a trainer** from the list.
+
+👥 **Squads without a group** — create a squad, invite friends with a link and see who trained this week.
+
+🔁 **Rebuild my plan** — changed your goal, days or equipment? Get a fresh plan in a minute. Coming from Strong or Hevy? **Import your history** from a CSV.
+
+🔕 **Calmer reminders** — none at night (22:00–07:00 unless you set your own quiet hours) and at most 3 a day.
+
+🌗 **Easier to read** — higher-contrast colours and a high-contrast theme.
+
+Tap **📱 Open trix** below! 💪
+
+### Українською
+
+🎉 **Що нового в trix**
+
+📱 **Усе в одному застосунку** — trix тепер живе в Mini App: анкета, тренування, харчування, коуч і твій тренер. Бот лише відкриває застосунок і надсилає нагадування.
+
+📷 **Їжа за фото** — сфотографуй тарілку: trix розпізнає продукти й порції, ти за потреби правиш грами й записуєш одним дотиком.
+
+🎥 **Перевірка техніки в застосунку** — зніми підхід (до 60 с) просто з вправи й отримай 2–3 підказки щодо техніки.
+
+🎙 **Голосом** — надиктуй прийом їжі, питання коучу чи повідомлення тренеру замість набору тексту.
+
+💬 **Чат із тренером** — повідомлення, позначки «прочитано» і сповіщення, усе в застосунку. Ще без тренера? **Обери тренера** зі списку.
+
+👥 **Сквади без групи** — створи сквад, запроси друзів посиланням і дивись, хто тренувався цього тижня.
+
+🔁 **Перебудувати план** — змінив ціль, дні чи обладнання? Новий план за хвилину. Переходиш зі Strong чи Hevy? **Імпортуй історію** з CSV.
+
+🔕 **Спокійніші нагадування** — жодних уночі (22:00–07:00, якщо не задав свої тихі години) і не більше 3 на день.
+
+🌗 **Легше читати** — контрастніші кольори та висококонтрастна тема.
+
+Тисни **📱 Відкрити trix** нижче! 💪
+
 ## 2026-09-29
 
 ### English
