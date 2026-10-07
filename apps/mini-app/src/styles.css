@@ -488,3 +488,28 @@ button { cursor: pointer; }
 .form-check-answer { white-space: pre-wrap; color: var(--text); font-size: 13px; }
 .owner-announce { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 14px; resize: vertical; margin-bottom: 8px; }
 .squad-block { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); } .squad-forms { display: grid; gap: 8px; margin-top: 6px; }
+
+/* ---- High-contrast theme (Settings → Readability, logic/theme.ts) ----
+   Opt-in accessibility theme on the light base: every text colour holds 7:1 on the grounds it is
+   used on, borders and controls 3:1. Same values as the design system's "contrast" theme. */
+:root[data-theme="contrast"] { color-scheme: light; color: #0b0d11; background: #ffffff; --bg: #ffffff; --surface: #ffffff; --surface-2: #eef1f5; --line: #767f8c; --text: #0b0d11; --muted: #3d4654; --accent: #7a1500; --accent-soft: rgba(122,21,0,.10); --good: #144d2c; --warn: #5c3e00; --bad: #880000; --body-map-base: #d3d9e2; --body-map-border: #6f7a8a; }
+:root[data-theme="contrast"] body { background: var(--bg); }
+:root[data-theme="contrast"] .hero { color: #fff; }
+:root[data-theme="contrast"] .hero p, :root[data-theme="contrast"] .hero .eyebrow { color: rgba(255,255,255,.72); }
+:root[data-theme="contrast"] .button-outline-light { color: #fff; border-color: rgba(255,255,255,.5); }
+:root[data-theme="contrast"] .card:not(.card-accent):not(.card-muted) { background: var(--surface); }
+:root[data-theme="contrast"] .factor-list { color: #2b3442; }
+:root[data-theme="contrast"] .input-row input, :root[data-theme="contrast"] .form-field input, :root[data-theme="contrast"] .form-field select, :root[data-theme="contrast"] .form-field textarea, :root[data-theme="contrast"] .set-row input, :root[data-theme="contrast"] .meal-editor input, :root[data-theme="contrast"] .plan-edit-fields input, :root[data-theme="contrast"] .compact-input { background: var(--surface); color: var(--text); }
+:root[data-theme="contrast"] .bottom-nav { background: rgba(255,255,255,.96); }
+:root[data-theme="contrast"] .rest-bar, :root[data-theme="contrast"] .save-dock { background: rgba(255,255,255,.97); box-shadow: 0 8px 24px rgba(24,32,43,.14); }
+/* Colours the rules above hardcode instead of reading a variable. */
+:root[data-theme="contrast"] .button-primary, :root[data-theme="contrast"] .brand-mark, :root[data-theme="contrast"] .bell-dot, :root[data-theme="contrast"] .fc-steps li.done .fc-mark { color: #fff; }
+:root[data-theme="contrast"] .card-accent { background: linear-gradient(145deg, #7a1500, #5c1000); }
+/* Inside the accent card the accent itself is the ground, so accent-coloured parts turn white. */
+:root[data-theme="contrast"] .card-accent { --accent: #ffffff; --accent-soft: rgba(255,255,255,.18); }
+:root[data-theme="contrast"] .card-accent .button-primary { color: #5c1000; }
+:root[data-theme="contrast"] .macro-grid .metric span, :root[data-theme="contrast"] .macro-grid .metric small { color: rgba(255,255,255,.84); }
+:root[data-theme="contrast"] .draft-note { color: #7a3d00; }
+:root[data-theme="contrast"] .save-dock.offline { border-color: #a85400; }
+:root[data-theme="contrast"] .strava-button { background: #b23a00; }
+:root[data-theme="contrast"] .button.danger { color: var(--bad); }

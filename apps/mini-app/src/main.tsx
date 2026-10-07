@@ -5,6 +5,7 @@ import { guessLang, loadLang, type Lang } from "./i18n";
 import "./styles.css";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { installErrorReporting } from "./logic/errorReport";
+import { applyTheme, restoreContrast } from "./logic/theme";
 
 installErrorReporting();
 
@@ -18,6 +19,9 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
 
 window.Telegram?.WebApp.ready();
 window.Telegram?.WebApp.expand();
+// Paint the theme before the first render so a high-contrast choice never flashes the default.
+applyTheme();
+restoreContrast();
 
 // Only the person's language is loaded before the first render (each is its own chunk): the
 // one the last dashboard said, else Telegram's hint. A switch later loads the other on demand.

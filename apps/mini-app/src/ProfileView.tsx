@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
 import { t, type Lang } from "./i18n";
+import { readContrast, setContrast } from "./logic/theme";
 import type { ProfilePayload, RequestBody, SettingsPayload } from "./types";
 
 type SettingsBody = RequestBody<"updateSettings">;
@@ -15,6 +16,7 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   const [saving, setSaving] = useState(false);
 
   const [settings, setSettings] = useState<SettingsPayload | null>(null);
+  const [contrast, setContrastState] = useState(readContrast);
   const [settingsError, setSettingsError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionSaved, setActionSaved] = useState<string | null>(null);
@@ -105,6 +107,8 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
 
     <div className="eyebrow">{t(lang, "account_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "settings_title")}</h1></div>
+
+    <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "display_eyebrow")}</span><h2>{t(lang, "display_title")}</h2></div></div><label className="check-row"><input type="checkbox" checked={contrast} onChange={(event) => { setContrast(event.target.checked); setContrastState(event.target.checked); }} /><span>{t(lang, "contrast_toggle_label")}</span></label><p className="muted">{t(lang, "contrast_hint")}</p></section>
 
     {settingsError && <div className="card card-muted"><div className="error-state"><strong>{t(lang, "settings_load_error")}</strong><button className="button button-ghost" onClick={loadSettings}>{t(lang, "retry")}</button></div></div>}
 
