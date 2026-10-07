@@ -7,6 +7,8 @@ import { listOnboardedUsers, updateUser } from "../adapters/d1/v2Users";
 import { recordAudit } from "../adapters/d1/v2Admin";
 import { latestRelease, releaseBody } from "../releaseNotes";
 import { releaseRecipients } from "../domain/releaseDelivery";
+import { appMarkup } from "../notify/appKeyboard";
+import { t } from "../locales/i18n";
 
 export interface ReleaseBroadcastResult { version: string; sent: number; failed: number; remaining: number }
 
@@ -23,10 +25,12 @@ export async function broadcastRelease(env: Env, ownerId: number, limit: number)
   let failed = 0;
   let blocked = 0;
   for (const u of batch) {
+    // The chat is retired: the note ends with an Open-app button, not a menu instruction.
+    const markup = appMarkup(env, t(u.lang, "launch_open_btn"), "today");
     const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: u.chatId, text: releaseBody(u.lang, note), parse_mode: "HTML" }),
+      body: JSON.stringify({ chat_id: u.chatId, text: releaseBody(u.lang, note), parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) }),
     }).catch(() => null);
     if (res?.ok) {
       sent++;

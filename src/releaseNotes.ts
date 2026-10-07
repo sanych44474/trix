@@ -14,6 +14,51 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "2026-10-07",
+    en: `🎉 *What's new in trix*
+
+📱 *Everything in one app* — trix now lives in the Mini App: onboarding, workouts, food, the coach and your trainer. The bot just opens the app and sends reminders.
+
+📷 *Meal by photo* — snap your plate: trix finds the foods and portions, you fix the grams if needed and log it in one tap.
+
+🎥 *Form check in the app* — film a set (up to 60 s) right from an exercise and get 2–3 technique cues.
+
+🎙 *Voice notes* — dictate a meal, a question to the coach or a message to your trainer instead of typing.
+
+💬 *Chat with your trainer* — messages, read receipts and notifications, all in the app. Don't have a trainer? *Choose a trainer* from the list.
+
+👥 *Squads without a group* — create a squad, invite friends with a link and see who trained this week.
+
+🔁 *Rebuild my plan* — changed your goal, days or equipment? Get a fresh plan in a minute. Coming from Strong or Hevy? *Import your history* from a CSV.
+
+🔕 *Calmer reminders* — none at night (22:00–07:00 unless you set your own quiet hours) and at most 3 a day.
+
+🌗 *Easier to read* — higher-contrast colours and a high-contrast theme.
+
+Tap *📱 Open trix* below! 💪`,
+    uk: `🎉 *Що нового в trix*
+
+📱 *Усе в одному застосунку* — trix тепер живе в Mini App: анкета, тренування, харчування, коуч і твій тренер. Бот лише відкриває застосунок і надсилає нагадування.
+
+📷 *Їжа за фото* — сфотографуй тарілку: trix розпізнає продукти й порції, ти за потреби правиш грами й записуєш одним дотиком.
+
+🎥 *Перевірка техніки в застосунку* — зніми підхід (до 60 с) просто з вправи й отримай 2–3 підказки щодо техніки.
+
+🎙 *Голосом* — надиктуй прийом їжі, питання коучу чи повідомлення тренеру замість набору тексту.
+
+💬 *Чат із тренером* — повідомлення, позначки «прочитано» і сповіщення, усе в застосунку. Ще без тренера? *Обери тренера* зі списку.
+
+👥 *Сквади без групи* — створи сквад, запроси друзів посиланням і дивись, хто тренувався цього тижня.
+
+🔁 *Перебудувати план* — змінив ціль, дні чи обладнання? Новий план за хвилину. Переходиш зі Strong чи Hevy? *Імпортуй історію* з CSV.
+
+🔕 *Спокійніші нагадування* — жодних уночі (22:00–07:00, якщо не задав свої тихі години) і не більше 3 на день.
+
+🌗 *Легше читати* — контрастніші кольори та висококонтрастна тема.
+
+Тисни *📱 Відкрити trix* нижче! 💪`,
+  },
+  {
     version: "2026-09-29",
     en: `🎉 *What's new in trix*
 
@@ -46,44 +91,6 @@ Tap *Menu → 📱 Dashboard*! 💪`,
 
 Тисни *Меню → 📱 Дашборд*! 💪`,
   },
-  {
-    version: "2026-09-28",
-    en: `🎉 *What's new in trix*
-
-🫀 *Body map* — an anatomical figure (front and back) on the Progress screen: your week muscle by muscle, a *recovery map* (🔴 still recovering, 🟡 almost, 🟢 ready), any plan day or single exercise lit up, and a *12-week trend* for each muscle. Share it to your story in one tap.
-
-⚖️ *Balanced plans* — new AI plans check themselves: if the back, hamstrings or any key muscle is missing or far behind, the right exercise is added before you ever see the plan. Existing plans get a "worth adding" card with a one-tap fix.
-
-🔋 *Recovery-aware days* — if today's muscles are still tired from the last session, trix offers to swap today with a later day whose muscles are ready.
-
-📸 *Technique pictures* — the start and finish position of each exercise, with 3–5 short steps, right in the logger.
-
-🎥 *Form check* — send a short video of a set in the chat and get 2–3 concrete technique cues.
-
-🏃 *Strava import* — runs, rides and swims land in your log by themselves.
-
-💾 *Reliable logging* — the save button is always in view, drafts sync between devices, and the real session length is recorded.
-
-Tap *Menu → 📱 Dashboard*! 💪`,
-    uk: `🎉 *Що нового в trix*
-
-🫀 *Карта тіла* — анатомічна фігура (спереду і ззаду) на екрані прогресу: твій тиждень по кожному м'язу, *карта відновлення* (🔴 ще відновлюються, 🟡 майже, 🟢 готові), підсвітка будь-якого дня плану чи окремої вправи і *тренд за 12 тижнів* для кожного м'яза. Можна поділитися в сторіс одним тапом.
-
-⚖️ *Збалансовані плани* — нові AI-плани перевіряють себе самі: якщо бракує спини, біцепса стегна чи іншого ключового м'яза, потрібна вправа додається ще до того, як ти побачиш план. Для наявних планів — картка «Варто додати» з виправленням в один тап.
-
-🔋 *Дні з урахуванням відновлення* — якщо сьогоднішні м'язи ще втомлені після минулого тренування, trix запропонує поміняти день із пізнішим, де м'язи вже готові.
-
-📸 *Фото техніки* — початок і кінець руху для кожної вправи та 3–5 коротких кроків прямо в логері.
-
-🎥 *Перевірка техніки* — надішли в чат коротке відео підходу й отримай 2–3 конкретні підказки.
-
-🏃 *Імпорт зі Strava* — біг, велосипед і плавання потрапляють у журнал самі.
-
-💾 *Надійний запис* — кнопка збереження завжди на екрані, чернетки синхронізуються між пристроями, а тривалість тренування записується точно.
-
-Тисни *Меню → 📱 Дашборд*! 💪`,
-  },
-
 ];
 
 export function latestRelease(): ReleaseNote {

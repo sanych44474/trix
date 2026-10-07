@@ -29,14 +29,15 @@ test("broadcast recipients: reachable, onboarded, not yet sent this version", ()
 });
 
 test("parseReleaseNote: one card per paragraph, greeting and bot-only closing line dropped", () => {
-  const note = RELEASE_NOTES.find((n) => n.version === V)!;
+  const note = RELEASE_NOTES.find((n) => n.version === "2026-10-07")!;
   for (const text of [note.uk, note.en]) {
     const items = parseReleaseNote(text);
-    assert.equal(items.length, 6);
+    assert.equal(items.length, 9);
     assert.ok(items.every((i) => i.icon && i.title && i.body), "every paragraph has the emoji *Title* — text shape");
     assert.ok(!items.some((i) => /\*/.test(i.title + i.body)), "markers stripped");
   }
-  assert.equal(parseReleaseNote(note.uk)[0]!.title, "Бібліотека вправ");
-  assert.equal(latestRelease().version, V);
+  assert.equal(parseReleaseNote(note.uk)[0]!.title, "Усе в одному застосунку");
+  assert.ok(!parseReleaseNote(note.en).some((i) => /Open trix/.test(i.body)), "the closing button line is not a card");
+  assert.equal(latestRelease().version, "2026-10-07");
   assert.deepEqual(parseReleaseNote("Hi\n\nPlain paragraph with no title."), [{ icon: "", title: "", body: "Plain paragraph with no title." }]);
 });
