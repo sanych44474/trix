@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
 import { t, type Lang } from "./i18n";
+import { readContrast, setContrast } from "./logic/theme";
 import type { ProfilePayload, RequestBody, SettingsPayload } from "./types";
 
 type SettingsBody = RequestBody<"updateSettings">;
@@ -15,6 +16,7 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   const [saving, setSaving] = useState(false);
 
   const [settings, setSettings] = useState<SettingsPayload | null>(null);
+  const [contrast, setContrastState] = useState(readContrast);
   const [settingsError, setSettingsError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionSaved, setActionSaved] = useState<string | null>(null);
@@ -106,6 +108,8 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
     <div className="eyebrow">{t(lang, "account_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "settings_title")}</h1></div>
 
+    <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "display_eyebrow")}</span><h2>{t(lang, "display_title")}</h2></div></div><label className="check-row"><input type="checkbox" checked={contrast} onChange={(event) => { setContrast(event.target.checked); setContrastState(event.target.checked); }} /><span>{t(lang, "contrast_toggle_label")}</span></label><p className="muted">{t(lang, "contrast_hint")}</p></section>
+
     {settingsError && <div className="card card-muted"><div className="error-state"><strong>{t(lang, "settings_load_error")}</strong><button className="button button-ghost" onClick={loadSettings}>{t(lang, "retry")}</button></div></div>}
 
     {settings && <>
@@ -136,7 +140,7 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
       {settings.role === "client" && !leftTrainer && <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "leave_trainer_eyebrow")}</span><h2>{t(lang, "leave_trainer_title")}</h2></div></div><p className="muted">{t(lang, "leave_trainer_detail")}</p>{!leaveConfirm ? <div className="button-row"><button className="button button-ghost" onClick={() => setLeaveConfirm(true)}>{t(lang, "leave_trainer_btn")}</button></div> : <><p><strong>{t(lang, "leave_trainer_confirm_title")}</strong></p><div className="button-row"><button className="button button-ghost" disabled={busy === "leaveTrainer"} onClick={() => void leaveTrainer()}>{busy === "leaveTrainer" ? "…" : t(lang, "leave_trainer_confirm_btn")}</button><button className="button button-ghost" onClick={() => setLeaveConfirm(false)}>{t(lang, "cancel_btn")}</button></div></>}{actionError === "leaveTrainer" && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>}
       {leftTrainer && <section className="card"><div className="save-note">{t(lang, "leave_trainer_done_note")}</div></section>}
 
-      <section className="card card-muted"><div className="section-head"><div><span className="eyebrow">{t(lang, "danger_zone_eyebrow")}</span><h2>{t(lang, "delete_account_title")}</h2></div></div><p className="muted">{t(lang, "delete_account_detail")}</p>{!deleteConfirm ? <div className="button-row"><button className="button button-ghost" style={{ color: "var(--bad)" }} onClick={() => setDeleteConfirm(true)}>{t(lang, "delete_account_btn")}</button></div> : <div className="button-row"><button className="button button-ghost" style={{ color: "var(--bad)" }} disabled={busy === "delete"} onClick={() => void deleteAccount()}>{busy === "delete" ? "…" : t(lang, "delete_account_confirm_btn")}</button><button className="button button-ghost" onClick={() => setDeleteConfirm(false)}>{t(lang, "cancel_btn")}</button></div>}{actionError === "delete" && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>
+      <section className="card card-muted"><div className="section-head"><div><span className="eyebrow">{t(lang, "danger_zone_eyebrow")}</span><h2>{t(lang, "delete_account_title")}</h2></div></div><p className="muted">{t(lang, "delete_account_detail")}</p>{!deleteConfirm ? <div className="button-row"><button className="button button-ghost" style={{ color: "var(--bad-ink)" }} onClick={() => setDeleteConfirm(true)}>{t(lang, "delete_account_btn")}</button></div> : <div className="button-row"><button className="button button-ghost" style={{ color: "var(--bad-ink)" }} disabled={busy === "delete"} onClick={() => void deleteAccount()}>{busy === "delete" ? "…" : t(lang, "delete_account_confirm_btn")}</button><button className="button button-ghost" onClick={() => setDeleteConfirm(false)}>{t(lang, "cancel_btn")}</button></div>}{actionError === "delete" && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>
     </>}
   </div>;
 }
