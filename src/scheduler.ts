@@ -45,6 +45,7 @@ import { advanceMesocycleWeek, weeklyReport } from "./schedulerJobs/weeklyReport
 import { weeklyProgression } from "./schedulerJobs/weeklyProgression";
 import { adaptiveCheckin, cycleNudge, deloadNudge, eveningSurvey, injuryFollowUp, plateauNudge, qualityAsk, readinessCheck, seasonalChallengeNudge, streakRescue, sundayMeasure, tomorrowPreview, waterReminder, weighInNudge } from "./schedulerJobs/nudges";
 import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
+import { runOncePer } from "./schedulerJobs/runOncePer";
 // Public surface kept here so existing `from "./scheduler"` imports keep working.
 export { runGlobalJobs, checkCronHeartbeat } from "./schedulerJobs/global";
 export { logSchedulerError, type Sender } from "./schedulerJobs/shared";
@@ -201,22 +202,13 @@ async function runScheduleInner(env: Env): Promise<void> {
   // live Worker env, never the DO's shadowed dry-run one) -- safe to run regardless of scheduler
   // cutover state. No-op until the bucket exists, and a no-op below 80% of the free tier's 10GB
   // even once it does; see photoStorage.ts for the eviction policy.
-  const lastR2Check = await getSetting(db, "last_r2_budget_check").catch(() => null);
-  if (!lastR2Check || Date.parse(lastR2Check) < Date.now() - 7 * 86_400_000) {
-    const budget = await enforceStorageBudget(env).catch((e) => {
-      logSchedulerError(db, "r2_budget", e);
-      return null;
-    });
+  await runOncePer(db, { key: "last_r2_budget_check", period: { windowMs: 7 * 86_400_000 } }, async () => {
+    const budget = await enforceStorageBudget(env);
     if (budget?.evictedCount) console.log(JSON.stringify({ level: "info", scope: "r2_budget", ...budget }));
-    await setSetting(db, "last_r2_budget_check", new Date().toISOString()).catch(() => {});
-  }
+  });
 
   // Story images (webapp/storyMedia.ts) live two days; sweep once a day.
-  const lastStorySweep = await getSetting(db, "last_story_sweep").catch(() => null);
-  if (!lastStorySweep || Date.parse(lastStorySweep) < Date.now() - 86_400_000) {
-    await purgeExpiredStories(env).catch((e) => logSchedulerError(db, "story_sweep", e));
-    await setSetting(db, "last_story_sweep", new Date().toISOString()).catch(() => {});
-  }
+  await runOncePer(db, { key: "last_story_sweep", period: { windowMs: 86_400_000 } }, () => purgeExpiredStories(env));
 
   // Strava cardio import: a few linked accounts per hourly tick, each at most every 12 h. Small
   // batches keep one invocation inside the Workers subrequest budget (2-3 Strava calls each).
@@ -235,11 +227,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   // log pruning above) so it always processes the week that just ended, exactly once, on the
   // first hourly tick after the week rolls over.
   const thisWeekKey = isoWeekKey(utcNow.date);
-  const lastDuelWeek = await getSetting(db, "last_buddy_duel_week").catch(() => null);
-  if (lastDuelWeek !== thisWeekKey) {
-    await processBuddyDuels(db, bot, utcNow.date).catch((e) => logSchedulerError(db, "buddy_duels", e));
-    await setSetting(db, "last_buddy_duel_week", thisWeekKey).catch(() => {});
-  }
+  await runOncePer(db, { key: "last_buddy_duel_week", period: { periodKey: thisWeekKey } }, () => processBuddyDuels(db, bot, utcNow.date));
 
   // Squad recap — one post per group chat, once per ISO week, covering the week that just
   // ended. Squads are chat-scoped, not user-scoped, so this sits outside the per-user loop.

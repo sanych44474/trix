@@ -6,7 +6,8 @@
 // message naming each configured id that is no longer listed. scripts/check-ai-models.mjs is the
 // manual, fuller version (it also test-calls every model).
 import type { Env } from "./types";
-import { getOwnerChatId, getSetting, setSetting } from "./adapters/d1/v2Admin";
+import { getOwnerChatId } from "./adapters/d1/v2Admin";
+import { runOncePer } from "./schedulerJobs/runOncePer";
 import { geminiFallbackModels } from "./ai/gemini";
 import { GROQ_DEFAULT_MODEL } from "./ai/groq";
 import { OPENROUTER_DEFAULT_TRANSLATE_MODEL, OPENROUTER_DEFAULT_VISION_MODEL, openrouterTextModels } from "./ai/openrouter";
@@ -80,13 +81,14 @@ export function modelAlertText(r: { missing: Partial<Record<Provider, string[]>>
   ].join("\n");
 }
 
-/** Once a week from the global pass: alert the owner when a configured model has disappeared. */
+/** Once a week from the global pass: alert the owner when a configured model has disappeared.
+ * The week is closed only after the check and the alert both went through (runOncePer), so a
+ * failed catalog read or a failed send is retried on the next tick instead of losing the week. */
 export async function weeklyModelCheck(env: Env, send: (chatId: number, text: string) => Promise<unknown>, now = Date.now()): Promise<void> {
-  const last = await getSetting(env.DB, STATE_KEY).catch(() => null);
-  if (last && Date.parse(last) > now - WEEK_MS) return;
-  await setSetting(env.DB, STATE_KEY, new Date(now).toISOString());
-  const text = modelAlertText(await checkModels(env));
-  if (!text) return;
-  const owner = await getOwnerChatId(env.DB);
-  if (owner !== undefined) await send(owner, text);
+  await runOncePer(env.DB, { key: STATE_KEY, period: { windowMs: WEEK_MS }, now }, async () => {
+    const text = modelAlertText(await checkModels(env));
+    if (!text) return;
+    const owner = await getOwnerChatId(env.DB);
+    if (owner !== undefined) await send(owner, text);
+  });
 }

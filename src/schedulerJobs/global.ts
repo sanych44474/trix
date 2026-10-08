@@ -15,6 +15,7 @@ import { pruneNotificationOutbox } from "../adapters/d1/v2Notifications";
 import { pruneIdempotencyKeys } from "../adapters/d1/v2Idempotency";
 import { computeBoards } from "../features/gamification/boards";
 import { logSchedulerError, type Sender } from "./shared";
+import { runOncePer } from "./runOncePer";
 
 // Push the owner an alert when something operationally wrong is happening (no need to open /report).
 // Each alert type is throttled to once per hour via config.alertState so it never spams.
@@ -56,35 +57,27 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
   // same report ~5× → spam). They are now part of the on-demand owner report (buildOwnerReport).
 
   // Weekly telemetry pruning (90-day retention) — cheap no-op when already done this week.
-  const lastPrune = await getSetting(db, "last_log_prune").catch(() => null);
-  if (!lastPrune || Date.parse(lastPrune) < Date.now() - 7 * 86_400_000) {
+  await runOncePer(db, { key: "last_log_prune", period: { windowMs: 7 * 86_400_000 } }, async () => {
     const cutoff = new Date(Date.now() - 90 * 86_400_000);
-    await pruneOldLogs(db, cutoff.toISOString(), cutoff.toISOString().slice(0, 10)).catch((e) =>
-      logSchedulerError(db, "log_prune", e),
-    );
+    await pruneOldLogs(db, cutoff.toISOString(), cutoff.toISOString().slice(0, 10));
     await pruneAiCache(db).catch(() => {});
-    // Idempotency keys only ever need to survive their 24h replay window (see
-    // db/repos/idempotency.ts) -- riding the same weekly pass rather than a dedicated one.
+    // Idempotency keys only ever need to survive their replay window (see
+    // adapters/d1/v2Idempotency.ts) -- riding the same weekly pass rather than a dedicated one.
     await pruneIdempotencyKeys(db, cutoff.toISOString()).catch(() => {});
     // Sent/failed/blocked outbox rows — pending rows are excluded regardless of age (see
     // pruneNotificationOutbox), so this never deletes something still awaiting delivery.
     await pruneNotificationOutbox(db, cutoff.toISOString()).catch(() => {});
     // The Mini App feed keeps 60 days.
     await pruneInbox(db, new Date(Date.now() - 60 * 86_400_000).toISOString()).catch(() => {});
-    await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
-  }
+  });
 
   // Daily product-metrics rollup (roadmap item 4 / docs/slos.md §4) — once per day, for
   // YESTERDAY (the last day guaranteed complete; "today" is still accumulating and would give
   // dau/retention/etc. a moving-target value that changes every time the pass reruns).
   // 20h, not 24h: an exact 24h minimum gap can drift a run later each day until it eventually
   // skips a calendar day; a shorter buffer keeps it comfortably once-daily without that drift.
-  const lastRollup = await getSetting(db, "last_daily_metrics_rollup").catch(() => null);
-  if (!lastRollup || Date.parse(lastRollup) < Date.now() - 20 * 3_600_000) {
-    const yesterday = isoDateMinus(new Date().toISOString().slice(0, 10), 1);
-    await rollupDailyMetrics(db, yesterday).catch((e) => logSchedulerError(db, "daily_metrics_rollup", e));
-    await setSetting(db, "last_daily_metrics_rollup", new Date().toISOString()).catch(() => {});
-  }
+  await runOncePer(db, { key: "last_daily_metrics_rollup", period: { windowMs: 20 * 3_600_000 } }, () =>
+    rollupDailyMetrics(db, isoDateMinus(new Date().toISOString().slice(0, 10), 1)));
 }
 
 async function checkOwnerAlerts(db: D1Database, bot: Sender): Promise<void> {
