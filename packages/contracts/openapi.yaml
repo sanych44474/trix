@@ -579,7 +579,7 @@ paths:
                         source:
                           description: 'dbsearch | barcode: which backend answered'
                           type: string
-                          enum: [off, ai, fatsecret]
+                          enum: [trix, off, ai, fatsecret]
                         notFound: {type: boolean, description: 'action=barcode: code not in any database'}
                         text: {type: string, description: 'recipe | recover: the AI answer, empty when unavailable'}
                         done: {type: boolean, description: 'recipe | recover: nothing further to suggest'}
@@ -3110,6 +3110,7 @@ components:
             p: {type: number}
             f: {type: number}
             c: {type: number}
+        portionG: {type: number, description: "A typical portion in grams (the app's own catalog only)"}
     ReadyProgram:
       type: object
       required: [id, place, audience, level, goal, daysPerWeek, minutes, name, summary, days]
@@ -3201,6 +3202,7 @@ components:
         q: {type: string, maxLength: 60, description: 'action=dbsearch'}
         code: {type: string, maxLength: 32, description: 'action=barcode: digits only'}
         name: {type: string, maxLength: 80, description: 'action=dbadd'}
+        brand: {type: string, maxLength: 40, description: 'action=dbadd: the picked result.s brand, if any'}
         per100:
           type: object
           description: 'action=dbadd: per-100g macros of the picked food.'

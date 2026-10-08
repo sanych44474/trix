@@ -51,7 +51,8 @@ export async function verifyItems(db: D1Database, env: Env, userId: number, item
             f = Math.round(ref.fats * k);
             c = Math.round(ref.carbs * k);
             verified++;
-            source = (ref as { source?: string }).source === "USDA" ? "USDA" : "Open Food Facts";
+            const refSource = (ref as { source?: string }).source;
+            source = refSource === "USDA" ? "USDA" : refSource === "trix" ? "trix" : "Open Food Facts";
           }
         }
       }
