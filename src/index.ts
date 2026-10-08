@@ -36,6 +36,7 @@ import { handleQuickLogApi } from "./webapp/quickLogApi";
 import { handleV2Api } from "./webapp/v2Api";
 import { logError, logInfo, runWithRequestId, withHeader } from "./log";
 import { secretMatches } from "./domain/secrets";
+import { withinLimit } from "./limits";
 import type { Env } from "./types";
 
 
@@ -46,6 +47,11 @@ function isAdmin(req: Request, env: Env): boolean {
 }
 
 async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
+  // /admin/* is guarded by one shared secret, so guessing it is the attack: throttle by client IP
+  // before the secret is even compared (an IP is the right key here -- there is no user yet).
+  if (url.pathname.startsWith("/admin/") && !(await withinLimit(env, "admin", req.headers.get("cf-connecting-ip") ?? "unknown"))) {
+    return new Response("too many requests", { status: 429, headers: { "retry-after": "60" } });
+  }
     if (url.pathname === "/" || url.pathname === "/health") {
       return new Response("trix bot up", { status: 200 });
     }

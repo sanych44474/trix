@@ -5,7 +5,7 @@ import { techniqueSteps } from "./techniqueSteps";
 import { deleteRestTimers, setRestTimer } from "../adapters/d1/v2Admin";
 import { deleteWorkoutDraft, getWorkoutLog, listStrength, putWorkoutDraft, recentWorkoutLogs, workoutLogsSince, setSessionFeelRpe } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
-import { runIdempotent } from "../adapters/d1/v2Idempotency";
+import { runIdempotent, WORKOUT_SAVE_WINDOW_HOURS } from "../adapters/d1/v2Idempotency";
 import { miniAppUser } from "./auth";
 import { num, object, readJsonBody, str, validateBody } from "./validate";
 import { stalledLifts } from "../domain/analysis";
@@ -166,10 +166,12 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       // a lost-response retry (flaky connection, not a deliberate re-log) must not repeat those.
       // Client sends the same key for every retry of one logical save (logger.js); a fresh save
       // action always gets a fresh key, so this never blocks a genuine second workout that day.
+      // The key outlives the default 24 h window (WORKOUT_SAVE_WINDOW_HOURS): an offline-queued save
+      // is replayed with the same key whenever the connection returns, up to the 14-day edit limit.
       const { status, body: out } = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => ({
         status: 200,
         body: await saveWorkout(env, user, v.entries, dateB ?? undefined, v.timing),
-      }));
+      }), { windowHours: WORKOUT_SAVE_WINDOW_HOURS });
       return Response.json(out, { status });
     }
     // Unsaved-logger autosave. Last write wins by design: it is one person's own form, and the

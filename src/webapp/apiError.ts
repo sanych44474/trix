@@ -13,6 +13,10 @@ import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { logError } from "../log";
 import type { Env } from "../types";
 
+/** Set on the 500 that apiFailure returns, so the /api/v2 pipeline can tell "already recorded" from
+ * a 5xx that came back with no trace and records that one itself (v2Api.ts). */
+export const ERROR_RECORDED_HEADER = "x-error-recorded";
+
 /**
  * Records a handler failure in both sinks and returns the 500 the caller should send.
  * `scope` doubles as the owner report's `kind`, so keep it per-surface (api_workout, api_plan, ...)
@@ -31,5 +35,5 @@ export async function apiFailure(
     errorType: "exception",
     message: String(err).slice(0, 200),
   }).catch(() => {});
-  return Response.json({ error: "error" }, { status: 500 });
+  return Response.json({ error: "error" }, { status: 500, headers: { [ERROR_RECORDED_HEADER]: "1" } });
 }
