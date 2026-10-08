@@ -28,13 +28,13 @@ import { aiCallStatsSince } from "./v2AiTelemetry";
 import { countPlanSourcesSince, dailyActiveUsers } from "./v2Analytics";
 import { dashboardExtrasBatch, getOwnerChatId } from "./v2Admin";
 import { allWorkoutLogsSince, listStrength, workoutLogsSince } from "./v2Workouts";
-import { awardAchievement, recordQuestsDone } from "./v2Gamification";
+import { awardAchievement, settleQuests } from "./v2Gamification";
 import { getActivePlan, listActivePlans, planStatusByUser } from "./v2Plans";
 import { listClients } from "./v2Trainer";
 import { bodyLogsByUser, getDailyCheckin, stepLogsSince, waterLogsSince } from "./v2Tracking";
-import { pickQuests, plannedDayCount, questProgress, QUEST_XP } from "../../domain/quests";
+import { QUEST_XP } from "../../domain/quests";
+import { evaluateWeekQuests } from "../../domain/questWeek";
 import { weeklyReport } from "../../domain/weeklyReport";
-import { toLoggedDays } from "../../domain/recoverySwap";
 import { countActiveSince, countOnboarded, countUsers, getUser } from "./v2Users";
 import { allNutritionDatesSince, nutritionLogsSince } from "./v2Nutrition";
 import {
@@ -225,23 +225,10 @@ export async function buildDashboardPayload(db: D1Database, user: UserDoc): Prom
     // recorded here (idempotent per week), which is what adds their XP; all of them earns a badge.
     try {
       const [water, steps] = await Promise.all([weekWaterP, weekStepsP]);
-      const logs = toLoggedDays(workouts);
-      const quests = questProgress(
-        pickQuests(weekStart, logs, plannedDayCount(user.profile.trainingWeekdays, plan?.split)),
-        weekStart,
-        {
-          logs,
-          waterDays: water.filter((w) => w.ml >= resolveWaterGoal(user.profile)).length,
-          foodDays: new Set(nutrition.filter((n) => n.date >= weekStart && n.meals.length > 0).map((n) => n.date)).size,
-          stepsDays: steps.filter((s) => s.steps >= resolveStepsGoal(user.profile)).length,
-        },
-      );
-      const done = quests.filter((q) => q.done).map((q) => q.code);
-      const fresh = await recordQuestsDone(db, user._id, weekStart, done).catch(() => [] as string[]);
+      const { logs, quests, ...week } = evaluateWeekQuests(user.profile, weekStart, { workouts, nutrition, steps, water, split: plan?.split });
+      const { fresh, sweep } = await settleQuests(db, user._id, weekStart, { quests, done: week.done }).catch(() => ({ fresh: [] as string[], sweep: false }));
       if (fresh.length) payload.gamification = { ...payload.gamification, ...levelFromXp(computeXp({ ...extras.statCounts, quests: extras.statCounts.quests + fresh.length })) };
-      if (quests.length && done.length === quests.length && fresh.length) {
-        if (await awardAchievement(db, user._id, "quest_sweep").catch(() => false)) payload.badges.push({ code: "quest_sweep", label: t(user.lang, "badge_quest_sweep") });
-      }
+      if (sweep) payload.badges.push({ code: "quest_sweep", label: t(user.lang, "badge_quest_sweep") });
       payload.week = {
         weekStart,
         balance: weeklyReport(logs, weekStart).balance,
