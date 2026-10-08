@@ -10,6 +10,7 @@ import {
   setUserFlag,
 } from "../adapters/d1/v2Admin";
 import { assignDraftPlan, deleteDraftPlan, getActivePlan, saveDraftPlan } from "../adapters/d1/v2Plans";
+import { postponeAutoActivation } from "../staleDrafts";
 import {
   deleteTrainerTemplate,
   getClientCard,
@@ -225,7 +226,15 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     }
     if (action === "draft") {
       // The trainer's call on a waiting draft (onboarding draft or weekly progression proposal).
-      if (body.decision !== "assign" && body.decision !== "discard") return Response.json({ error: "bad request" }, { status: 400 });
+      if (body.decision !== "assign" && body.decision !== "discard" && body.decision !== "postpone") return Response.json({ error: "bad request" }, { status: 400 });
+      if (body.decision === "postpone") {
+        // The one "wait 3 more days" on a first-plan draft (staleDrafts.ts).
+        const result = await postponeAutoActivation(env.DB, clientId);
+        if (result === "no_draft") return Response.json({ error: "not found" }, { status: 404 });
+        if (result === "already_used") return Response.json({ error: "already postponed" }, { status: 409 });
+        await recordAudit(env.DB, user._id, "postpone_draft", clientId).catch(() => {});
+        return Response.json({ ok: true });
+      }
       if (body.decision === "discard") {
         if (!(await deleteDraftPlan(env.DB, clientId))) return Response.json({ error: "not found" }, { status: 404 });
         await recordAudit(env.DB, user._id, "discard_draft", clientId).catch(() => {});

@@ -298,11 +298,19 @@ async function deleteSplit(db: DB, planId: number): Promise<void> {
 
 const NEXT_VERSION_SUBQUERY = "(SELECT COALESCE(MAX(version), 0) + 1 FROM v2_plans WHERE accountId = ?)";
 
+/** The ONE statement that retires an account's active plan. It is a statement, not a call, because
+ * its callers (setActivePlan, assignDraftPlan, unlinking a client, deleting a trainer) each batch
+ * it atomically with their own writes; keeping a copy of this SQL in each of them is how "what
+ * does deactivating mean" would drift. */
+export function deactivateActivePlan(db: DB, accountId: number): D1PreparedStatement {
+  return db.prepare("UPDATE v2_plans SET active = 0 WHERE accountId = ? AND active = 1").bind(accountId);
+}
+
 export async function setActivePlan(db: DB, plan: PlanDoc): Promise<void> {
   await lintBeforeSave(db, plan);
   const now = nowIso();
   const results = await db.batch([
-    db.prepare("UPDATE v2_plans SET active = 0 WHERE accountId = ? AND active = 1").bind(plan.userId),
+    deactivateActivePlan(db, plan.userId),
     db
       .prepare(
         `INSERT INTO v2_plans (accountId, version, schemaVersion, status, source, active, authoredBy, nutrition, supplements, methodology, meta, mesocycle, createdAt, updatedAt)
@@ -385,6 +393,46 @@ export async function updateDraftSplit(db: DB, userId: number, split: unknown): 
   if (!r) return;
   await deleteSplit(db, r.id);
   await writeSplit(db, r.id, validated);
+  await touchPlan(db, r.id);
+}
+
+/** Every edit moves updatedAt, so "when was this plan last touched" has one answer. Edits used to
+ * rewrite the days and leave the timestamp at the insert time. */
+async function touchPlan(db: DB, planId: number): Promise<void> {
+  await db.prepare("UPDATE v2_plans SET updatedAt = ? WHERE id = ?").bind(nowIso(), planId).run();
+}
+
+/** Drafts of accounts that have no active plan, oldest first. Blocked accounts are filtered in the
+ * query, not after it: filtering the 50 oldest rows afterwards let a pile of blocked clients
+ * crowd everyone else out of every sweep. */
+export async function listOrphanDrafts(db: DB, limit = 50): Promise<Array<{ planId: number; accountId: number; createdAt: string }>> {
+  const r = await db
+    .prepare(
+      `SELECT p.id AS planId, p.accountId AS accountId, p.createdAt AS createdAt
+       FROM v2_plans p JOIN v2_accounts a ON a.id = p.accountId
+       WHERE p.status = 'draft'
+         AND (a.blocked IS NULL OR a.blocked = 0)
+         AND NOT EXISTS (SELECT 1 FROM v2_plans x WHERE x.accountId = p.accountId AND x.active = 1)
+       ORDER BY p.createdAt LIMIT ?`,
+    )
+    .bind(limit)
+    .all<{ planId: number; accountId: number; createdAt: string }>();
+  return r.results ?? [];
+}
+
+/** The account's waiting draft, only when it has no active plan (a first-plan draft the trainer has
+ * to assign). A draft beside an active plan is a progression proposal and returns null. */
+export async function getOrphanDraft(db: DB, accountId: number): Promise<{ planId: number; createdAt: string } | null> {
+  const r = await db
+    .prepare(
+      `SELECT p.id AS planId, p.createdAt AS createdAt FROM v2_plans p
+       WHERE p.accountId = ? AND p.status = 'draft'
+         AND NOT EXISTS (SELECT 1 FROM v2_plans x WHERE x.accountId = p.accountId AND x.active = 1)
+       ORDER BY p.id DESC LIMIT 1`,
+    )
+    .bind(accountId)
+    .first<{ planId: number; createdAt: string }>();
+  return r ?? null;
 }
 
 // Promote the client's draft to the active plan — same id, not a new row (legacy semantics:
@@ -394,7 +442,7 @@ export async function assignDraftPlan(db: DB, userId: number): Promise<boolean> 
   if (!draft) return false;
   const now = nowIso();
   await db.batch([
-    db.prepare("UPDATE v2_plans SET active = 0 WHERE accountId = ? AND active = 1").bind(userId),
+    deactivateActivePlan(db, userId),
     db.prepare("UPDATE v2_plans SET active = 1, status = 'active', updatedAt = ? WHERE accountId = ? AND status = 'draft'").bind(now, userId),
   ]);
   await recordInbox(db, userId, "plan_assigned");
@@ -488,6 +536,7 @@ export async function updateActivePlanSplit(db: DB, userId: number, split: unkno
   if (!r) return;
   await deleteSplit(db, r.id);
   await writeSplit(db, r.id, validated);
+  await touchPlan(db, r.id);
 }
 
 /** Set/clear the mesocycle on the active plan — its own v2_plans column (migrations/0078), so

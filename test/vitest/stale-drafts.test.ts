@@ -37,7 +37,7 @@ describe("sweepStaleDrafts", () => {
 
     const sent: Array<[number, string]> = [];
     const send = async (chatId: number, text: string) => { sent.push([chatId, text]); };
-    expect(await sweepStaleDrafts(env.DB, send, now)).toEqual({ reminded: 1, activated: 2 });
+    expect(await sweepStaleDrafts(env.DB, send, now)).toEqual({ reminded: 1, warned: 0, activated: 2 });
     expect(sent.filter(([c]) => c === 9100)).toHaveLength(2); // reminder for 9101 + auto-activation note for 9102
     expect(sent.some(([c]) => c === 9102) && sent.some(([c]) => c === 9104)).toBe(true);
     expect(await statusOf(9102)).toEqual([{ status: "active", active: 1 }]);
@@ -45,8 +45,8 @@ describe("sweepStaleDrafts", () => {
     expect((await statusOf(9103))[0]).toEqual({ status: "draft", active: 0 });
 
     // Next hour: no repeat reminder; at three days the first draft activates too.
-    expect(await sweepStaleDrafts(env.DB, send, now + H)).toEqual({ reminded: 0, activated: 0 });
-    expect(await sweepStaleDrafts(env.DB, send, now + 45 * H)).toEqual({ reminded: 0, activated: 1 });
+    expect(await sweepStaleDrafts(env.DB, send, now + H)).toEqual({ reminded: 0, warned: 0, activated: 0 });
+    expect(await sweepStaleDrafts(env.DB, send, now + 45 * H)).toEqual({ reminded: 0, warned: 0, activated: 1 });
     expect(await statusOf(9101)).toEqual([{ status: "active", active: 1 }]);
   });
 });
