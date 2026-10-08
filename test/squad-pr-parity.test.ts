@@ -1,9 +1,10 @@
-// The bot and the Mini App are two surfaces over one backend, and src/webapp/workout.ts calls
-// itself a "ctx-free mirror of finalizeWorkoutLog". Mirrors drift: this one had, silently. A
-// personal record logged in chat was announced to the user's squad; the SAME record logged in the
-// Mini App was not, because only the bot path called announceSquadPr.
+// The bot and the Mini App are two surfaces over one backend. They used to be two copies of the
+// post-workout side effects, and the copies drifted, silently: a personal record logged in chat was
+// announced to the user's squad; the SAME record logged in the Mini App was not, because only the
+// bot path called announceSquadPr. Both now go through completeWorkout (bot/workoutSave.ts), which
+// owns the announcement.
 //
-// This pins the two together. It asserts behaviour through the real save path rather than
+// This keeps pinning the two entry points together, so it fails if either stops reaching it. It asserts behaviour through the real save path rather than
 // comparing source text, so it fails if either side stops announcing -- including the bot side.
 import { test } from "node:test";
 import assert from "node:assert/strict";
