@@ -72,7 +72,15 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/event", legacy: "/api/event", handler: handleAppEventApi },
 ];
 
-function codeFor(status: number, legacyError?: string): V2ErrorCode {
+/**
+ * The v2 error code for a legacy handler's failure. The HTTP status decides; the handler's own
+ * message only refines it. This used to be the other way round: a short list of known messages, and
+ * everything else -- including every 4xx whose message was not on the list ("method not allowed",
+ * "payload too large", "full", "last", ...) -- fell through to "dependency_unavailable", telling the
+ * client the service was down when the request was simply wrong. Now a 4xx is never reported as an
+ * outage, and a 5xx always is.
+ */
+export function codeFor(status: number, legacyError?: string): V2ErrorCode {
   if (legacyError === "bad request" || legacyError === "incomplete") return "validation_error";
   if (legacyError === "conflict" || status === 409) return "conflict";
   if (status === 401 || legacyError === "unauthorized") return "unauthorized";
@@ -80,7 +88,11 @@ function codeFor(status: number, legacyError?: string): V2ErrorCode {
   if (status === 404 || legacyError === "not found" || legacyError === "no_plan") return "not_found";
   if (status === 429) return "rate_limited";
   if (status >= 500) return "dependency_unavailable";
-  return V2_ERROR_CODES.includes(legacyError as V2ErrorCode) ? (legacyError as V2ErrorCode) : "dependency_unavailable";
+  const named = V2_ERROR_CODES.includes(legacyError as V2ErrorCode) ? (legacyError as V2ErrorCode) : null;
+  // Any other 4xx (400 with a specific reason, 405, 413, 422): the request was wrong. A handler that
+  // names "dependency_unavailable" on a 4xx contradicts its own status; the status wins.
+  if (status >= 400) return named && named !== "dependency_unavailable" ? named : "validation_error";
+  return named ?? "dependency_unavailable";
 }
 
 async function jsonBody(response: Response): Promise<unknown> {
