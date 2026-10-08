@@ -9,6 +9,7 @@ import { InlineKeyboard } from "grammy";
 import { offerKitFit } from "./kitFit";
 import type { UserDoc, Weekday } from "../types";
 import { aiJSON, aiText } from "../ai";
+import { knowledgeBlock, searchKnowledge } from "../knowledge/search";
 import * as P from "../ai/prompts";
 import { getRecentContext } from "../adapters/d1/v2Analytics";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
@@ -162,8 +163,9 @@ export async function handleCoach(ctx: MyContext, text: string) {
   // The coach can also propose plan edits (add/cardio, harder/easier, swap) as buttons.
   // Deferred past the webhook response — the AI chain must not block the update.
   deferAi(ctx, "coach", async () => {
+    const knowledge = await searchKnowledge(ctx.env, ctx.db, text, lang === "en" ? "en" : "uk");
     const result = await aiJSON<P.CoachEditResult>(ctx.env, {
-      system: P.coachEditSystem(lang, owner.profile, await coachContext(ctx, owner)),
+      system: P.coachEditSystem(lang, owner.profile, await coachContext(ctx, owner)) + knowledgeBlock(knowledge),
       user: text,
       schema: P.COACH_EDIT_SCHEMA,
       temperature: 0.35,

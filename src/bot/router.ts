@@ -305,7 +305,7 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
       }
       await ctx.replyWithChatAction("typing").catch(() => {});
       const audio = await downloadFile(ctx, fileId);
-      const text = (await aiTranscribe(ctx.env, audio, mime, lang)).trim();
+      const text = (await aiTranscribe(ctx.env, audio, mime, lang, ctx.db)).trim();
       if (!text) {
         await reply(ctx, t(lang, "voice_unclear"));
         return;

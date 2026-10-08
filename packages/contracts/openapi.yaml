@@ -1092,6 +1092,45 @@ paths:
                         next: {type: [integer, 'null']}
                   required: [data]
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/owner/image:
+    post:
+      operationId: ownerImage
+      description: Owner only. Generates a promo/story image with Workers AI FLUX from the prompt and sends it to the owner's chat. 429 once today's Workers AI neuron budget is spent.
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt: {type: string, minLength: 3, maxLength: 1000}
+      responses:
+        '200':
+          description: The image was sent to the owner chat
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {type: boolean}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429':
+          description: Today's Workers AI neuron budget is spent
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   /api/v2/programs:
     get:
       operationId: listReadyPrograms

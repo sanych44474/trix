@@ -86,6 +86,17 @@ database_id = "00000000-0000-0000-0000-000000000000"
 binding = "R2_PHOTOS"
 bucket_name = "trix-photos"
 
+# Knowledge base for AI Search (src/knowledge/): the Worker writes markdown docs here and the AI
+# Search instance (AI_SEARCH_INSTANCE) indexes this bucket. Create the bucket before deploying.
+[[r2_buckets]]
+binding = "KB"
+bucket_name = "trix-kb"
+
+# The AI Search instance that indexes trix-kb: the coach's knowledge base (src/knowledge/).
+[[ai_search]]
+binding = "KNOWLEDGE"
+instance_name = "wispy-breeze-ced3"
+
 # Product events (docs/slos.md) for the Grafana dashboards -- src/log.ts's logInfo() writes here
 # in addition to the structured console.log line. Free on Workers Free (no separate enablement
 # step like R2's; the dataset is created automatically on first write, unlike a D1/R2 resource
@@ -164,6 +175,12 @@ GROQ_VISION_MODEL = ""
 # @cf/openai/gpt-oss-120b), then these. [2026-10-02] Llama 3.3 70B — the previous default — is the
 # fallback, so an unverified new primary can't take the tier down.
 WORKERSAI_FALLBACK_MODELS = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+# Workers AI is free up to 10,000 neurons/day per account; the Worker stops using it for the day
+# at this estimated spend (src/ai/budget.ts). Kept below 10,000 because the spend is estimated.
+WORKERSAI_DAILY_NEURONS = "8000"
+# AI Search queries per month the Worker allows itself (free tier ~1,000); answers are cached
+# and spread evenly over the month (src/knowledge/search.ts).
+AI_SEARCH_MONTHLY_QUERIES = "900"
 # Ollama Cloud — text-only fallback after Groq (free tier: gpt-oss:120b).
 OLLAMA_MODEL = "gpt-oss:120b"
 OLLAMA_FALLBACK_MODELS = "gpt-oss:20b"
