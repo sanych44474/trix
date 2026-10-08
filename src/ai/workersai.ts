@@ -1,5 +1,6 @@
 import type { Env } from "../types";
 import { RateLimitError, type GenInput } from "./errors";
+import { NEURONS_PER_AUDIO_MINUTE, WORKERSAI_TIER_MODELS, estimateNeurons } from "./models";
 
 // Exported (not just local literals) so scripts/check-ai-models.mjs can smoke-test the actual
 // defaults instead of hand-maintained copies that can drift out of sync — index.ts used to
@@ -9,8 +10,8 @@ export const WORKERSAI_DEFAULT_TRANSCRIBE_MODEL = "@cf/openai/whisper-large-v3-t
 // Completions-style messages since 2026-02-17), the long-serving Llama 3.3 70B stays right behind
 // it — workersaiGenerate walks the list, so a model that errors or returns unusable output (e.g.
 // all of max_tokens spent on reasoning) falls to the next one instead of out of the provider.
-export const WORKERSAI_DEFAULT_MODEL = "@cf/openai/gpt-oss-120b";
-export const WORKERSAI_DEFAULT_FALLBACK_MODELS = ["@cf/meta/llama-3.3-70b-instruct-fp8-fast"];
+export const WORKERSAI_DEFAULT_MODEL = WORKERSAI_TIER_MODELS.standard[0];
+export const WORKERSAI_DEFAULT_FALLBACK_MODELS = WORKERSAI_TIER_MODELS.standard.slice(1);
 
 /** Models to try in order: WORKERSAI_MODEL (or the default), then WORKERSAI_FALLBACK_MODELS (or
  *  the default fallbacks). Exported for scripts/check-ai-models.mjs and tests. */
@@ -21,15 +22,20 @@ export function workersaiModels(env: { WORKERSAI_MODEL?: string; WORKERSAI_FALLB
 
 /** The text out of a Workers AI response: classic `{response}`, Chat Completions `{choices}`, or
  *  the Responses-style `{output:[{content:[{text}]}]}` some OpenAI-family models return. */
+const REASONING = /gpt-oss|qwen3/;
+
+/** Drop an inline `<think>…</think>` block some reasoning models (qwen3) put before the answer. */
+const stripThink = (t: string) => t.replace(/^\s*<think>[\s\S]*?<\/think>/, "").trim();
+
 export function workersaiText(res: unknown): string {
   const r = res as {
     response?: unknown;
     choices?: Array<{ message?: { content?: unknown } }>;
     output?: Array<{ type?: string; content?: Array<{ type?: string; text?: unknown }> }>;
   };
-  if (typeof r?.response === "string") return r.response.trim();
+  if (typeof r?.response === "string") return stripThink(r.response);
   const choice = r?.choices?.[0]?.message?.content;
-  if (typeof choice === "string") return choice.trim();
+  if (typeof choice === "string") return stripThink(choice);
   const out = (r?.output ?? []).filter((o) => o.type !== "reasoning").flatMap((o) => o.content ?? []);
   return out.map((c) => (typeof c.text === "string" ? c.text : "")).join("").trim();
 }
@@ -48,7 +54,7 @@ function abToB64(buf: ArrayBuffer): string {
 // Transcribe a voice/audio clip via Cloudflare Workers AI Whisper (free, keyless, on-platform).
 // `lang` is an ISO-639-1 hint. Capacity/rate errors become RateLimitError so the orchestrator
 // can fall through to Groq.
-export async function workersaiTranscribe(env: Env, audio: ArrayBuffer, lang?: string): Promise<string> {
+export async function workersaiTranscribe(env: Env, audio: ArrayBuffer, lang?: string, seconds?: number): Promise<{ text: string; neurons: number }> {
   if (!env.AI) throw new Error("Workers AI binding not configured");
   const model = env.WORKERSAI_TRANSCRIBE_MODEL || WORKERSAI_DEFAULT_TRANSCRIBE_MODEL;
   // Loose cast: model-specific run() overloads; call on the binding so `this` is preserved.
@@ -63,7 +69,9 @@ export async function workersaiTranscribe(env: Env, audio: ArrayBuffer, lang?: s
     ]);
     const text = res.text?.trim();
     if (!text) throw new Error("Workers AI returned no transcript");
-    return text;
+    // Opus voice is ~2 KB/s; without a known duration, estimate it from the size (at least 1 min).
+    const minutes = Math.max(1, Math.ceil((seconds ?? audio.byteLength / 2_000) / 60));
+    return { text, neurons: minutes * NEURONS_PER_AUDIO_MINUTE };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/capacity|rate|limit|429|503|quota/i.test(msg)) throw new RateLimitError(503, msg.slice(0, 200));
@@ -73,15 +81,14 @@ export async function workersaiTranscribe(env: Env, audio: ArrayBuffer, lang?: s
   }
 }
 
-// Cloudflare Workers AI — free, on-platform, no external key. Text-only here
-// (vision fallback is handled by OpenRouter). Uses the `AI` binding; walks workersaiModels().
+// Cloudflare Workers AI — free (within the daily neuron allowance), on-platform, no external key.
+// Walks the call's tier models (ai/models.ts), or the configured standard list. Vision models get
+// the images as Chat Completions content parts.
 export async function workersaiGenerate(env: Env, input: GenInput): Promise<string> {
   if (!env.AI) throw new Error("Workers AI binding not configured");
-  if (input.images && input.images.length) {
-    throw new Error("Workers AI provider is text-only here");
-  }
+  const models = input.workersaiModels?.length ? input.workersaiModels : workersaiModels(env);
   let lastErr: unknown;
-  for (const model of workersaiModels(env)) {
+  for (const model of models) {
     try {
       return await workersaiCall(env, input, model);
     } catch (err) {
@@ -106,10 +113,18 @@ async function workersaiCall(env: Env, input: GenInput, model: string): Promise<
       ai.run(model, {
         messages: [
           { role: "system", content: input.system },
-          { role: "user", content: input.user },
+          {
+            role: "user",
+            content: input.images?.length
+              ? [
+                  { type: "text", text: input.user },
+                  ...input.images.map((img) => ({ type: "image_url", image_url: { url: `data:${img.mimeType};base64,${img.dataBase64}` } })),
+                ]
+              : input.user,
+          },
         ],
-        // Reasoning models (gpt-oss) spend part of the budget thinking before they answer.
-        max_tokens: /gpt-oss/.test(model) ? 4096 : 1024,
+        // Reasoning models (gpt-oss, qwen3) spend part of the budget thinking before they answer.
+        max_tokens: REASONING.test(model) ? 4096 : 1024,
         temperature: input.temperature ?? 0.7,
       }),
       new Promise<never>((_, rej) => {
@@ -117,6 +132,8 @@ async function workersaiCall(env: Env, input: GenInput, model: string): Promise<
       }),
     ]);
     const text = workersaiText(res);
+    // The call cost neurons whether or not its output is usable, so count it before validating.
+    input.onNeurons?.(model, estimateNeurons(model, input.system + input.user, text || "x".repeat(1_000), input.images?.length ?? 0));
     if (!text) throw new Error(`Workers AI ${model} returned no text`);
     input.validate?.(text); // reject unusable output → next model / orchestrator falls through
     return text;

@@ -14,6 +14,7 @@ import { deleteUserData } from "../adapters/d1/v2Account";
 import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/ownerReport";
 import { switchMode } from "../domain/session";
 import { escapeHtml, t } from "../locales/i18n";
+import { ImageBudgetError, generateImage } from "../ai/image";
 import { miniAppUser } from "./auth";
 import { nudgeOnboarding } from "./onboardingNudge";
 import type { Env } from "../types";
@@ -84,6 +85,29 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const remaining = all.filter((u) => u._id > last).length;
     await recordAudit(env.DB, user._id, "broadcast", undefined, `${sent}/${batch.length} (left ${remaining}): ${text.slice(0, 80)}`).catch(() => {});
     return Response.json({ sent, failed, total: all.length, remaining, next: remaining > 0 ? last : null });
+  }
+
+  // Promo / story picture: FLUX on Workers AI (within the daily neuron budget), delivered to the
+  // owner's own chat so it can be forwarded or saved from Telegram.
+  if (req.method === "POST" && path === "/api/owner/image") {
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const prompt = typeof (parsed.body as { prompt?: unknown }).prompt === "string" ? (parsed.body as { prompt: string }).prompt.trim().slice(0, 1000) : "";
+    if (prompt.length < 3) return Response.json({ error: "bad request" }, { status: 400 });
+    let jpeg: Uint8Array;
+    try {
+      jpeg = await generateImage(env, env.DB, prompt);
+    } catch (err) {
+      if (err instanceof ImageBudgetError) return Response.json({ error: "rate_limited" }, { status: 429 });
+      throw err;
+    }
+    const form = new FormData();
+    form.append("chat_id", String(ownerChatId));
+    form.append("caption", `🎨 ${prompt.slice(0, 1000)}`);
+    form.append("photo", new Blob([jpeg], { type: "image/jpeg" }), "promo.jpg");
+    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: "POST", body: form }).catch(() => null);
+    await recordAudit(env.DB, user._id, "promo_image", undefined, prompt.slice(0, 80)).catch(() => {});
+    return Response.json({ ok: !!res?.ok });
   }
 
   // Feedback triage: the inbox as a list with a category and a status instead of a Telegram scroll.

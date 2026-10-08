@@ -11,7 +11,9 @@ import { miniAppUser } from "./auth";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
 import { renderGroceryList } from "../render";
-import { aiProductLookup, decodeEntities, fatSecretSearch } from "./foodDb";
+import { type FoodItem, aiProductLookup, decodeEntities, fatSecretSearch } from "./foodDb";
+import { bumpLearned, learnedByBarcode, rememberFoods, searchLearned } from "../adapters/d1/v2FoodLearned";
+import { searchCatalog } from "../domain/foodCatalog";
 import { readJsonBody } from "./validate";
 import { logInfo } from "../log";
 import type { Env, MealEntry, NutritionTargets, UserDoc } from "../types";
@@ -173,8 +175,21 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
   if (action === "dbsearch") {
     const q = typeof body.q === "string" ? body.q.trim().slice(0, 60) : "";
     if (q.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
+    // The app's own food base first: the catalog (instant, in the user's language) plus foods
+    // learned from earlier external lookups. Only a miss goes out to FatSecret / OFF / AI, and
+    // whatever comes back is remembered, so the next person searching it stays local.
+    const lang = user.lang === "en" ? "en" : "uk";
+    const catalog = searchCatalog(q, lang, 6).map((f) => ({ name: f[lang], brand: "", per100: f.per100, portionG: f.portionG }));
+    const learned = await searchLearned(env.DB, q, 5).catch(() => []);
+    const seen = new Set(catalog.map((i) => i.name.toLowerCase()));
+    const local = [...catalog, ...learned.filter((l) => !seen.has(l.name.toLowerCase())).map((l) => ({ name: l.name, brand: l.brand, per100: l.per100 }))].slice(0, 8);
+    if (local.length) return Response.json({ items: local, source: "trix" }, { headers: { "cache-control": "no-store" } });
+    const remember = (items: FoodItem[], source: string) => rememberFoods(env.DB, items.map((i) => ({ name: i.name, brand: i.brand, per100: i.per100, source }))).catch(() => {});
     const fs = await fatSecretSearch(env, q).catch(() => null);
-    if (fs && fs.length) return Response.json({ items: fs, source: "fatsecret" }, { headers: { "cache-control": "no-store" } });
+    if (fs && fs.length) {
+      await remember(fs, "fatsecret");
+      return Response.json({ items: fs, source: "fatsecret" }, { headers: { "cache-control": "no-store" } });
+    }
     const url2 = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=6&fields=product_name,brands,nutriments`;
     const res = await fetch(url2, { signal: AbortSignal.timeout(6000), headers: { "User-Agent": "trix-bot/1.0" } })
       .then((r) => (r.ok ? (r.json() as Promise<{ products?: { product_name?: string; brands?: string; nutriments?: Record<string, number> }[] }>) : null))
@@ -187,19 +202,26 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       }))
       .filter((p) => p.name && p.per100.kcal > 0)
       .slice(0, 5);
-    if (items.length) return Response.json({ items, source: "off" }, { headers: { "cache-control": "no-store" } });
+    if (items.length) {
+      await remember(items, "off");
+      return Response.json({ items, source: "off" }, { headers: { "cache-control": "no-store" } });
+    }
     // No database hit → AI knowledge lookup by name (reliable for well-known products).
     const ai = await aiProductLookup(env, user.lang, { name: q }, user._id).catch(() => null);
+    if (ai) await remember([ai], "ai");
     return Response.json({ items: ai ? [ai] : [], source: ai ? "ai" : "off" }, { headers: { "cache-control": "no-store" } });
   }
   // Barcode → product. Open Food Facts' v2 product endpoint is a different API from the name
   // search above (and answers HTTP 200 with status:0 for an unknown code, so res.ok proves
   // nothing — the payload's own status field is the check). Returns the SAME item shape as
-  // dbsearch so the client's existing pick → grams → add flow needs no special case.
+  // dbsearch so the client's existing pick → grams → add flow needs no special case. A code seen
+  // before is answered from the learned foods without calling OFF.
   if (action === "barcode") {
     const code = typeof body.code === "string" ? body.code.replace(/\D/g, "") : "";
     // EAN-8 through GTIN-14 covers every retail food barcode; anything else is a misread.
     if (code.length < 8 || code.length > 14) return Response.json({ error: "bad request" }, { status: 400 });
+    const known = await learnedByBarcode(env.DB, code).catch(() => null);
+    if (known) return Response.json({ items: [{ name: known.name, brand: known.brand, per100: known.per100 }], source: "trix" }, { headers: { "cache-control": "no-store" } });
     const offUrl = `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`;
     const res = await fetch(offUrl, { signal: AbortSignal.timeout(6000), headers: { "User-Agent": "trix-bot/1.0" } })
       .then((r) => (r.ok ? (r.json() as Promise<{ status?: number; product?: { product_name?: string; brands?: string; nutriments?: Record<string, number> } }>) : null))
@@ -212,10 +234,9 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       // plainly instead of returning an empty list the UI would render as a silent no-op.
       return Response.json({ items: [], source: "off", notFound: true }, { headers: { "cache-control": "no-store" } });
     }
-    return Response.json(
-      { items: [{ name, brand: decodeEntities((p?.brands || "").split(",")[0]).trim().slice(0, 30), per100 }], source: "off" },
-      { headers: { "cache-control": "no-store" } },
-    );
+    const brand = decodeEntities((p?.brands || "").split(",")[0]).trim().slice(0, 30);
+    await rememberFoods(env.DB, [{ name, brand, per100, barcode: code, source: "off" }]).catch(() => {});
+    return Response.json({ items: [{ name, brand, per100 }], source: "off" }, { headers: { "cache-control": "no-store" } });
   }
   // Log the items of a meal-photo estimate (POST /api/v2/media/meal-photo) once the user has
   // confirmed or fixed them. Macros come from the client (the user may re-weigh an item, which
@@ -260,6 +281,8 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       grams,
     });
     await setDayMeals(env.DB, user._id, date, cur);
+    const brand = typeof body.brand === "string" ? body.brand.trim().slice(0, 40) : "";
+    await bumpLearned(env.DB, name, brand).catch(() => {});
     logInfo("nutrition_logged", { method: "miniapp_search" });
     return Response.json({
       ok: true,

@@ -1327,4 +1327,11 @@ export const uk: Record<keyof typeof en, string> = {
   rp_apply_hint: "Поточний план заміниться, історія залишиться. Ваги підберуться під твоє тіло й рекорди.",
   rp_applied: "Готово: «{name}» тепер твій план. Відкрий вкладку «План».",
   rp_trainer_managed: "Твій план веде тренер, тому готова програма не може його замінити.",
+  owner_image_eyebrow: "Промо",
+  owner_image_title: "Картинка для поста чи сторіс",
+  owner_image_ph: "Опиши картинку англійською, напр. «athlete doing a barbell squat in a bright gym, minimal flat illustration»",
+  owner_image_make: "Згенерувати",
+  owner_image_sent: "Надіслано в твій чат з ботом.",
+  owner_image_budget: "Безкоштовний ліміт Workers AI на сьогодні вичерпано — він оновлюється о 00:00 UTC.",
+  owner_image_hint: "FLUX на Workers AI, безкоштовно в межах денного ліміту. Найкраще працюють англійські промпти; текст на картинці виходить погано.",
 };

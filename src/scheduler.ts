@@ -6,6 +6,7 @@ import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "
 import { acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTimers, pruneSeenUpdates, getSetting, setSetting } from "./adapters/d1/v2Admin";
 import { countNotificationsSince } from "./adapters/d1/v2Notifications";
 import { logInfo } from "./log";
+import { syncKnowledge } from "./knowledge/sync";
 import { allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
 import { awardAchievement, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
 import { getActivePlan, listActivePlans, setProgressionRate } from "./adapters/d1/v2Plans";
@@ -209,6 +210,22 @@ async function runScheduleInner(env: Env): Promise<void> {
 
   // Story images (webapp/storyMedia.ts) live two days; sweep once a day.
   await runOncePer(db, { key: "last_story_sweep", period: { windowMs: 86_400_000 } }, () => purgeExpiredStories(env));
+
+  // Knowledge base for the coach (AI Search over the KB bucket): rebuilt and diffed once a day,
+  // then on following ticks while a capped run left writes for later (knowledge/sync.ts).
+  if (env.KB && env.KNOWLEDGE) {
+    const lastKb = await getSetting(db, "last_kb_sync").catch(() => null);
+    const kbMore = (await getSetting(db, "kb_sync_more").catch(() => null)) === "1";
+    if (kbMore || !lastKb || Date.parse(lastKb) < Date.now() - 86_400_000) {
+      const kb = await syncKnowledge(env).catch((e) => {
+        logSchedulerError(db, "kb_sync", e);
+        return null;
+      });
+      if (kb && (kb.put || kb.deleted)) logInfo("kb_sync", { ...kb });
+      await setSetting(db, "kb_sync_more", kb?.more ? "1" : "0").catch(() => {});
+      await setSetting(db, "last_kb_sync", new Date().toISOString()).catch(() => {});
+    }
+  }
 
   // Strava cardio import: a few linked accounts per hourly tick, each at most every 12 h. Small
   // batches keep one invocation inside the Workers subrequest budget (2-3 Strava calls each).

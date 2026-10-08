@@ -1328,4 +1328,11 @@ export const en = {
   rp_apply_hint: "Your current plan is replaced; your history stays. Weights are set for your body and records.",
   rp_applied: "Done: “{name}” is your plan now. Open the Plan tab to see it.",
   rp_trainer_managed: "Your trainer manages your plan, so ready programs can’t replace it.",
+  owner_image_eyebrow: "Promo",
+  owner_image_title: "Picture for a post or story",
+  owner_image_ph: "Describe the picture in English, e.g. «athlete doing a barbell squat in a bright gym, minimal flat illustration»",
+  owner_image_make: "Generate",
+  owner_image_sent: "Sent to your chat with the bot.",
+  owner_image_budget: "Today's free Workers AI budget is spent — it resets at 00:00 UTC.",
+  owner_image_hint: "FLUX on Workers AI, free within the daily limit. English prompts work best; text in the picture comes out poorly.",
 } as const;

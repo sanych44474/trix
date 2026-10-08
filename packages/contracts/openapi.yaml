@@ -579,7 +579,7 @@ paths:
                         source:
                           description: 'dbsearch | barcode: which backend answered'
                           type: string
-                          enum: [off, ai, fatsecret]
+                          enum: [trix, off, ai, fatsecret]
                         notFound: {type: boolean, description: 'action=barcode: code not in any database'}
                         text: {type: string, description: 'recipe | recover: the AI answer, empty when unavailable'}
                         done: {type: boolean, description: 'recipe | recover: nothing further to suggest'}
@@ -1092,6 +1092,45 @@ paths:
                         next: {type: [integer, 'null']}
                   required: [data]
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/owner/image:
+    post:
+      operationId: ownerImage
+      description: Owner only. Generates a promo/story image with Workers AI FLUX from the prompt and sends it to the owner's chat. 429 once today's Workers AI neuron budget is spent.
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt: {type: string, minLength: 3, maxLength: 1000}
+      responses:
+        '200':
+          description: The image was sent to the owner chat
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {type: boolean}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429':
+          description: Today's Workers AI neuron budget is spent
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   /api/v2/programs:
     get:
       operationId: listReadyPrograms
@@ -3073,6 +3112,7 @@ components:
             p: {type: number}
             f: {type: number}
             c: {type: number}
+        portionG: {type: number, description: "A typical portion in grams (the app's own catalog only)"}
     ReadyProgram:
       type: object
       required: [id, place, audience, level, goal, daysPerWeek, minutes, name, summary, days]
@@ -3164,6 +3204,7 @@ components:
         q: {type: string, maxLength: 60, description: 'action=dbsearch'}
         code: {type: string, maxLength: 32, description: 'action=barcode: digits only'}
         name: {type: string, maxLength: 80, description: 'action=dbadd'}
+        brand: {type: string, maxLength: 40, description: 'action=dbadd: the picked result.s brand, if any'}
         per100:
           type: object
           description: 'action=dbadd: per-100g macros of the picked food.'

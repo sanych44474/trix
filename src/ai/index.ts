@@ -4,9 +4,11 @@ import { GEMINI_DEFAULT_LIGHT_MODEL, geminiGenerate } from "./gemini";
 import { GROQ_DEFAULT_MODEL, groqGenerate } from "./groq";
 import { OLLAMA_DEFAULT_MODEL, ollamaGenerate } from "./ollama";
 import { OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_TRANSLATE_MODEL, OPENROUTER_DEFAULT_VISION_MODEL, openrouterGenerate } from "./openrouter";
-import { WORKERSAI_DEFAULT_MODEL, workersaiGenerate, workersaiTranscribe } from "./workersai";
+import { workersaiGenerate, workersaiModels, workersaiTranscribe } from "./workersai";
 import { groqTranscribe } from "./groq";
 import { RateLimitError, type GenInput, type InlineImage } from "./errors";
+import { type AiTier, WORKERSAI_TIER_MODELS, estimateNeurons, tierFor } from "./models";
+import { addNeurons, addNeuronsStmt, workersaiAllowed } from "./budget";
 import { logInfo } from "../log";
 
 export { RateLimitError } from "./errors";
@@ -38,20 +40,26 @@ async function withQuickRetry<T>(fn: () => Promise<T>, deadline: number): Promis
   }
 }
 
-// Transcribe a voice/audio clip. Prefers Workers AI Whisper (keyless, on-platform); falls back to
-// Groq Whisper when a key is set. Rethrows the last error if every backend fails.
-export async function aiTranscribe(env: Env, audio: ArrayBuffer, mimeType: string, lang?: string): Promise<string> {
+// Transcribe a voice/audio clip. Workers AI Whisper (keyless, on-platform) leads while today's
+// neuron budget allows; past it, Groq Whisper leads and Workers AI is the last resort. Rethrows
+// the last error if every backend fails. `db` (optional) enables the budget; without it Workers
+// AI simply leads, as before.
+export async function aiTranscribe(env: Env, audio: ArrayBuffer, mimeType: string, lang?: string, db?: D1Database): Promise<string> {
+  const viaWorkers = async () => {
+    const r = await workersaiTranscribe(env, audio, lang);
+    if (db) await addNeurons(db, r.neurons);
+    return r.text;
+  };
+  const viaGroq = () => groqTranscribe(env, audio, mimeType, lang);
+  const workersFirst = !db || (await workersaiAllowed(db, env));
+  const order: Array<() => Promise<string>> = [];
+  if (env.AI && workersFirst) order.push(viaWorkers);
+  if (env.GROQ_API_KEY) order.push(viaGroq);
+  if (env.AI && !workersFirst) order.push(viaWorkers);
   let lastErr: unknown;
-  if (env.AI) {
+  for (const backend of order) {
     try {
-      return await workersaiTranscribe(env, audio, lang);
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-  if (env.GROQ_API_KEY) {
-    try {
-      return await groqTranscribe(env, audio, mimeType, lang);
+      return await backend();
     } catch (err) {
       lastErr = err;
     }
@@ -111,72 +119,39 @@ interface Provider {
   fn: (env: Env, input: GenInput) => Promise<string>;
 }
 
-// Fallback chain. For fast conversational kinds (groqFirst) Groq leads — live benchmarks
-// put it at ~180-370 ms with reliable JSON, while the free Gemini flash tier is rate-limited
-// (10 RPM) and the 3.x models 404/429/timeout. For plan/translate Gemini leads (native
-// responseSchema = the most reliable structured JSON), with Groq as a strong fallback.
-function providers(env: Env, hasImages: boolean, geminiModel: string, groqFirst = false): Provider[] {
+/**
+ * The provider order for a tier (see ai/models.ts for the reasoning per tier):
+ *   light     Workers AI (small models) → Groq → Gemini → OpenRouter
+ *   standard  Groq → Workers AI → Gemini → OpenRouter → Ollama
+ *   heavy     Gemini → Groq → Workers AI → OpenRouter → Ollama   (translate: OpenRouter's translate model)
+ *   vision    Gemini → Workers AI (vision models) → OpenRouter (vision model)
+ * Workers AI is left out when today's neuron budget is spent (`workersai: false`); a provider
+ * without a key is left out. Groq has had no vision model since 2026-07, so images skip it.
+ */
+export function chainFor(env: Env, tier: AiTier, geminiModel: string, opts: { workersai: boolean; translate?: boolean }): Provider[] {
+  const vision = tier === "vision";
   const gemini: Provider = { name: "gemini", model: geminiModel, fn: geminiGenerate };
-  // Groq deprecated every vision-capable model it offered (llama-4-scout on 2026-07-17,
-  // llama-4-maverick on 2026-02-20, both in favor of the text-only openai/gpt-oss-120b) with no
-  // replacement vision model — so for image calls Groq is skipped entirely rather than default
-  // to a model id that no longer exists on their platform.
-  const groq: Provider | null = env.GROQ_API_KEY && !hasImages
-    ? {
-        name: "groq",
-        model: env.GROQ_MODEL || GROQ_DEFAULT_MODEL,
-        fn: groqGenerate,
-      }
-    : null;
-  const list: Provider[] = [gemini];
-  if (groq) {
-    if (groqFirst) list.unshift(groq); // Groq leads for fast conversational kinds
-    else list.push(groq);
-  }
-  if (env.OPENROUTER_API_KEY) {
-    const model = hasImages
-      ? env.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL
+  const groq: Provider | null = env.GROQ_API_KEY && !vision ? { name: "groq", model: env.GROQ_MODEL || GROQ_DEFAULT_MODEL, fn: groqGenerate } : null;
+  const waiModels = tier === "standard" || tier === "heavy" ? workersaiModels(env) : WORKERSAI_TIER_MODELS[tier];
+  const workersai: Provider | null = env.AI && opts.workersai ? { name: "workersai", model: waiModels[0], fn: workersaiGenerate } : null;
+  const orModel = vision
+    ? env.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL
+    : opts.translate
+      ? env.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL
       : env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL;
-    list.push({ name: "openrouter", model, fn: openrouterGenerate });
-  }
-  if (env.AI && !hasImages) {
-    list.push({
-      name: "workersai",
-      model: env.WORKERSAI_MODEL || WORKERSAI_DEFAULT_MODEL,
-      fn: workersaiGenerate,
-    });
-  }
-  if (env.OLLAMA_API_KEY && !hasImages) {
-    list.push({ name: "ollama", model: env.OLLAMA_MODEL || OLLAMA_DEFAULT_MODEL, fn: ollamaGenerate });
-  }
-  return list;
+  const openrouter: Provider | null = env.OPENROUTER_API_KEY ? { name: "openrouter", model: orModel, fn: openrouterGenerate } : null;
+  const ollama: Provider | null = env.OLLAMA_API_KEY && !vision ? { name: "ollama", model: env.OLLAMA_MODEL || OLLAMA_DEFAULT_MODEL, fn: ollamaGenerate } : null;
+  const order: Array<Provider | null> =
+    tier === "light" ? [workersai, groq, gemini, openrouter]
+    : tier === "standard" ? [groq, workersai, gemini, openrouter, ollama]
+    : tier === "heavy" ? [gemini, groq, workersai, openrouter, ...(opts.translate ? [] : [ollama])]
+    : [gemini, workersai, openrouter];
+  return order.filter((p): p is Provider => p !== null);
 }
 
-// Dedicated translation chain. Gemini FIRST — by far the best at fluent Ukrainian, and
-// translations are cached one-time per exercise so the quota cost is negligible. Weaker
-// free models (Qwen/Groq) tend to bleed Russian words or transliterate, so they're only
-// fallbacks for when Gemini's daily quota is exhausted.
-function translateProviders(env: Env, geminiModel: string, hasImages: boolean): Provider[] {
-  const list: Provider[] = [{ name: "gemini", model: geminiModel, fn: geminiGenerate }];
-  // Same guard providers() applies below — Groq has no vision-capable model left (see the
-  // comment on that guard), so skip it for image calls rather than default to a model id that
-  // no longer exists on their platform. Currently unreachable (no caller passes images with
-  // kind:"translate") — kept so this doesn't quietly become wrong if one ever does.
-  if (env.GROQ_API_KEY && !hasImages) {
-    list.push({ name: "groq", model: env.GROQ_MODEL || GROQ_DEFAULT_MODEL, fn: groqGenerate });
-  }
-  if (env.OPENROUTER_API_KEY) {
-    const model = env.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL;
-    list.push({ name: "openrouter", model, fn: openrouterGenerate });
-  }
-  if (env.AI) {
-    list.push({
-      name: "workersai",
-      model: env.WORKERSAI_MODEL || WORKERSAI_DEFAULT_MODEL,
-      fn: workersaiGenerate,
-    });
-  }
-  return list;
+/** The Workers AI models a tier may use, in order. */
+function workersaiModelsFor(env: Env, tier: AiTier): string[] {
+  return tier === "standard" || tier === "heavy" ? workersaiModels(env) : WORKERSAI_TIER_MODELS[tier];
 }
 
 // `validate` (optional) runs on each provider's output BEFORE accepting it. For JSON
@@ -267,16 +242,20 @@ async function run(
     },
   };
   const geminiInput: GenInput = { ...baseInput, user: input.user };
-  // Fast conversational kinds lead with Groq (sub-300 ms, reliable); plan/translate keep
-  // Gemini first for native-schema structured output. (translate has its own chain.)
+  // The kind's tier picks the provider order and the Workers AI models (ai/models.ts). Workers
+  // AI joins only while today's neuron budget has room for this call (ai/budget.ts).
   const hasImages = !!(input.images && input.images.length);
   // Video (the form check) is Gemini-only: it's the one provider in the chain that accepts
   // inline video; the others would reject it or silently look at nothing.
   const hasVideo = !!input.images?.some((i) => i.mimeType.startsWith("video/"));
-  const fullChain =
-    o.kind === "translate"
-      ? translateProviders(env, geminiModel, hasImages)
-      : providers(env, hasImages, geminiModel, !isPlanLike);
+  const tier = tierFor(o.kind, hasImages);
+  const waiModels = workersaiModelsFor(env, tier);
+  const neuronsSpent: D1PreparedStatement[] = [];
+  baseInput.workersaiModels = waiModels;
+  baseInput.onNeurons = (_model, neurons) => { neuronsSpent.push(addNeuronsStmt(o.db, neurons)); };
+  const reserve = estimateNeurons(waiModels[0] ?? "", input.system + schemaUser, "x".repeat(1_500), input.images?.length ?? 0);
+  const workersai = !!env.AI && !hasVideo && (await workersaiAllowed(o.db, env, reserve));
+  const fullChain = chainFor(env, tier, geminiModel, { workersai, translate: o.kind === "translate" });
   const chain = hasVideo ? fullChain.filter((p) => p.name === "gemini") : fullChain;
   // Cache lookup — a hit returns instantly with zero provider calls. The stored text
   // passed validation when written; re-validate anyway (cheap) so a stale-schema entry
@@ -322,7 +301,7 @@ async function run(
       telemetry.push(aiUsageStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, model: p.model, ok: true, date }));
       telemetry.push(aiCallStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, latencyMs: Date.now() - startMs, tokens: lastTokens, wasFallback }));
       if (key && cacheTtl) telemetry.push(aiCacheStmt(o.db, key, text, cacheTtl)); // piggybacks the batch
-      await flushTelemetry(o.db, telemetry);
+      await flushTelemetry(o.db, [...telemetry, ...neuronsSpent]);
       // docs/slos.md's ai_call_completed -- input/output token split and cost estimate are NOT
       // populated yet: providers return bare text today (see aiCallStmt's own comment), so there
       // is no real per-call token count to split or price. `tokens` is whatever lastTokens holds
@@ -341,7 +320,7 @@ async function run(
       // always try the next provider — even on rate-limit
     }
   }
-  await flushTelemetry(o.db, telemetry);
+  await flushTelemetry(o.db, [...telemetry, ...neuronsSpent]);
   // All providers failed → log for the owner error report (best-effort), classified by
   // kind (interview/plan/…) and error type (json / rate_limit / ai).
   const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);

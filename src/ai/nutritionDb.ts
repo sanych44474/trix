@@ -1,10 +1,11 @@
 import type { Env } from "../types";
 import { getFoodCache, putFoodCache } from "../adapters/d1/v2Nutrition";
 import { aiJSON } from "./index";
+import { catalogExact } from "../domain/foodCatalog";
 import { PER100G_SCHEMA, per100gSystem, type Per100gResult } from "./prompts";
 
 export interface Per100g {
-  source: "USDA" | "OpenFoodFacts" | "Gemini";
+  source: "USDA" | "OpenFoodFacts" | "Gemini" | "trix";
   kcal: number;
   protein: number;
   fats: number;
@@ -296,12 +297,16 @@ export function foodCategory(name: string): FoodCategory {
 const PREP_WORDS =
   /\b(raw|fresh|dry|dried|cooked|boiled|steamed|grilled|baked|roasted|fried|plain|skinless|boneless|lean|whole|large|medium|small)\b/g;
 
-/** Authoritative curated lookup: exact name, then the name with prep adjectives removed. */
+/** Authoritative curated lookup: exact name, then the name with prep adjectives removed, then
+ *  an exact name/synonym match in the app's food catalog (domain/foodCatalog.ts -- covers
+ *  Ukrainian dishes and foods the curated list doesn't). */
 export function curatedPer100g(query: string): Per100g | null {
   const norm = query.toLowerCase().trim();
   if (CURATED[norm]) return CURATED[norm];
   const base = norm.replace(PREP_WORDS, "").replace(/\s+/g, " ").trim();
   if (base && CURATED[base]) return CURATED[base];
+  const food = catalogExact(norm);
+  if (food) return { source: "trix", kcal: food.per100.kcal, protein: food.per100.p, fats: food.per100.f, carbs: food.per100.c };
   return null;
 }
 
