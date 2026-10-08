@@ -35,8 +35,6 @@ import {
   setVacation,
   stampOnboardedAt,
   updateUser,
-  usersOnboardedOn,
-  usersSeenOn,
 } from "../src/adapters/d1/v2Users";
 
 // ---------- getUser / getOrCreateUser round-trip ----------
@@ -257,17 +255,6 @@ test("stampOnboardedAt is COALESCE-protected (first-ever timestamp only)", async
   await stampOnboardedAt(db, 70);
   const second = db.dump<{ onboardedAt: string }>("SELECT onboardedAt FROM v2_onboarding WHERE accountId = ?", 70)[0].onboardedAt;
   assert.equal(first, second);
-});
-
-test("usersOnboardedOn / usersSeenOn", async () => {
-  const db = newDb();
-  await getOrCreateUser(db, 80, 80, "en");
-  await stampOnboardedAt(db, 80);
-  const today = new Date().toISOString().slice(0, 10);
-  assert.deepEqual(await usersOnboardedOn(db, today), [80]);
-  await updateUser(db, 80, { lastSeenAt: new Date() });
-  const seen = await usersSeenOn(db, today, [80, 81]);
-  assert.deepEqual([...seen], [80]);
 });
 
 test("countModeration / countUsersCreatedSince / countCreatedBetween / countActiveSince / countActiveBetween", async () => {

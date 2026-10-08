@@ -5,33 +5,20 @@
 // ai_est_cost_usd is deliberately NOT computed: docs/slos.md flags the per-provider/model price
 // table as an open Phase-2+ item, and ai_call_logs doesn't even split input/output tokens yet —
 // there's no honest number to write. Add it once that data exists rather than guessing a price.
+//
+// Retention is deliberately NOT written here: retention_d1/d7/d30 had no reader, while the number
+// the owner actually sees is the cohort retention (domain/cohorts.ts cohortRetention, fed by
+// adapters/d1/v2Analytics.ts). Two definitions of one metric is how they drift; that one is the source.
 import { aiAndErrorStatsBetween } from "./adapters/d1/v2AiTelemetry";
 import { upsertDailyMetrics } from "./adapters/d1/v2DailyMetrics";
 import { countCompletedWorkoutsBetween, allWorkoutLogsSince } from "./adapters/d1/v2Workouts";
 import { countActivePlans, listActivePlans } from "./adapters/d1/v2Plans";
-import { countActiveBetween, countCreatedBetween, countOnboarded, usersOnboardedOn, usersSeenOn } from "./adapters/d1/v2Users";
+import { countActiveBetween, countCreatedBetween, countOnboarded } from "./adapters/d1/v2Users";
 import { isoDateMinus } from "./features/gamification/boards";
 import { isoWeekday } from "./domain/atrisk";
 
 function dayBoundsIso(date: string): { start: string; endExclusive: string } {
   return { start: `${date}T00:00:00.000Z`, endExclusive: `${isoDateMinus(date, -1)}T00:00:00.000Z` };
-}
-
-/** Fraction of cohort users onboarded on `cohortDate` who were seen again exactly `offsetDays`
- * later. Returns null (not 0) when the cohort is empty — an empty cohort isn't 0% retention,
- * it's "no data," and daily_metrics should simply not carry a row for it rather than plot a
- * misleading zero.
- *
- * Uses `lastSeenAt` (via usersSeenOn), unlike dau/wau/mau above which reuse countActiveBetween's
- * `updatedAt` for consistency with orOverview's existing "active" figures. Intentional, not a
- * drift bug: retention needs a per-day-exact signal (did they come back on THIS day), and
- * `lastSeenAt` is docs/slos.md §2's documented definition for it specifically. */
-async function retention(db: D1Database, date: string, offsetDays: number): Promise<number | null> {
-  const cohortDate = isoDateMinus(date, offsetDays);
-  const cohort = await usersOnboardedOn(db, cohortDate);
-  if (!cohort.length) return null;
-  const seen = await usersSeenOn(db, date, cohort);
-  return seen.size / cohort.length;
 }
 
 /** Planned-weekday-elapsed-without-a-completed-row count for `date` (docs/slos.md §2/§3 — there
@@ -53,7 +40,7 @@ export async function rollupDailyMetrics(db: D1Database, date: string): Promise<
   const { start, endExclusive } = dayBoundsIso(date);
   const nextDay = isoDateMinus(date, -1);
 
-  const [dau, wau, mau, newUsers, onboardedTotal, activePlans, completedWorkouts, skipped, aiAndErrors, r1, r7, r30] = await Promise.all([
+  const [dau, wau, mau, newUsers, onboardedTotal, activePlans, completedWorkouts, skipped, aiAndErrors] = await Promise.all([
     countActiveBetween(db, start, endExclusive),
     countActiveBetween(db, isoDateMinus(date, 6) + "T00:00:00.000Z", endExclusive),
     countActiveBetween(db, isoDateMinus(date, 29) + "T00:00:00.000Z", endExclusive),
@@ -63,9 +50,6 @@ export async function rollupDailyMetrics(db: D1Database, date: string): Promise<
     countCompletedWorkoutsBetween(db, date, nextDay),
     skippedWorkouts(db, date),
     aiAndErrorStatsBetween(db, start, endExclusive),
-    retention(db, date, 1),
-    retention(db, date, 7),
-    retention(db, date, 30),
   ]);
 
   const rows: { metric: string; value: number }[] = [
@@ -83,9 +67,6 @@ export async function rollupDailyMetrics(db: D1Database, date: string): Promise<
     { metric: "ai_fallback_rate", value: aiAndErrors.aiCalls ? aiAndErrors.aiFallbacks / aiAndErrors.aiCalls : 0 },
     { metric: "error_rate", value: aiAndErrors.aiCalls ? aiAndErrors.errors / aiAndErrors.aiCalls : 0 },
   ];
-  if (r1 !== null) rows.push({ metric: "retention_d1", value: r1 });
-  if (r7 !== null) rows.push({ metric: "retention_d7", value: r7 });
-  if (r30 !== null) rows.push({ metric: "retention_d30", value: r30 });
 
   await upsertDailyMetrics(db, date, rows);
 }

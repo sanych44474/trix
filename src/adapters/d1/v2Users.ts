@@ -358,30 +358,10 @@ export async function countOnboarded(db: DB): Promise<number> {
   return r?.c ?? 0;
 }
 
-/** Cohort anchor for retention_d1/d7/d30 — COALESCE so a stray second call never overwrites the
- * real first timestamp. Same reasoning as legacy stampOnboardedAt. */
+/** When onboarding completed -- COALESCE so a stray second call never overwrites the real first
+ * timestamp. Same reasoning as legacy stampOnboardedAt. */
 export async function stampOnboardedAt(db: DB, userId: number): Promise<void> {
   await db.prepare("UPDATE v2_onboarding SET onboardedAt = COALESCE(onboardedAt, ?) WHERE accountId = ?").bind(nowIso(), userId).run();
-}
-
-/** userId -> local onboarding date (YYYY-MM-DD, UTC-sliced) for everyone onboarded that day. */
-export async function usersOnboardedOn(db: DB, date: string): Promise<number[]> {
-  const r = await db
-    .prepare("SELECT accountId AS id FROM v2_onboarding WHERE onboardedAt IS NOT NULL AND substr(onboardedAt, 1, 10) = ?")
-    .bind(date)
-    .all<{ id: number }>();
-  return (r.results ?? []).map((row) => row.id);
-}
-
-/** Which of `userIds` have `lastSeenAt` on exactly `date` (local slice). */
-export async function usersSeenOn(db: DB, date: string, userIds: number[]): Promise<Set<number>> {
-  if (!userIds.length) return new Set();
-  const placeholders = userIds.map(() => "?").join(",");
-  const r = await db
-    .prepare(`SELECT id FROM v2_accounts WHERE substr(lastSeenAt, 1, 10) = ? AND id IN (${placeholders})`)
-    .bind(date, ...userIds)
-    .all<{ id: number }>();
-  return new Set((r.results ?? []).map((row) => row.id));
 }
 
 /** Moderation counts for the owner report. */

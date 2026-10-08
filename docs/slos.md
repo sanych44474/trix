@@ -120,8 +120,10 @@ Metrics populated into it (initial set — extend, don't fork a parallel table, 
 needed): `dau`, `wau`, `mau`, `new_users`, `onboarded_total`, `active_plans`, `completed_workouts`,
 `skipped_workouts` (planned weekdays that elapsed with no completed row — the derived metric that
 replaces the `workout_skipped` event §3 struck out),
-`ai_calls`, `ai_fallback_rate`, `ai_est_cost_usd`, `error_rate`, `retention_d1`, `retention_d7`,
-`retention_d30`.
+`ai_calls`, `ai_fallback_rate`, `ai_est_cost_usd`, `error_rate`.
+
+Retention is not a daily metric: the single definition is the cohort retention in the owner report
+(`domain/cohorts.ts`). `retention_d1/d7/d30` were written here for a while with no reader and were removed.
 
 ## 5. Grafana board — sections (reference, not re-specified here)
 
