@@ -3,9 +3,12 @@
 //   {lang}/programs/{id}.md         the 45 ready programs, day by day (domain/programCatalog.ts)
 //   {lang}/exercises/{muscle}.md    the 750-exercise library grouped by muscle, with the
 //                                   step-by-step technique already cached in v2_technique_steps
+//   {lang}/nutrition/{category}.md  the food catalog (domain/foodCatalogData.ts): kcal and
+//                                   macros per 100 g and per typical portion
 // Pure and deterministic: the same inputs give byte-identical documents, so sync.ts can skip
 // everything that didn't change (re-indexing only what changed keeps AI Search ingest small).
 import { FREE_EXERCISE_LIB } from "../../apps/mini-app/src/data/freeExerciseLib";
+import { catalogFoods } from "../domain/foodCatalog";
 import { PROGRAMS, buildProgram } from "../domain/programCatalog";
 import { GUIDES } from "./guides";
 import type { Lang } from "../types";
@@ -148,11 +151,63 @@ function programDocs(): KnowledgeDoc[] {
   return docs;
 }
 
+const FOOD_CATEGORY: Record<string, { en: string; uk: string }> = {
+  poultry: { en: "Poultry", uk: "Птиця" },
+  meat: { en: "Meat and sausages", uk: "М'ясо і ковбаси" },
+  fish: { en: "Fish and seafood", uk: "Риба і морепродукти" },
+  eggs: { en: "Eggs", uk: "Яйця" },
+  dairy: { en: "Dairy", uk: "Молочні продукти" },
+  cheese: { en: "Cheese", uk: "Сири" },
+  grains: { en: "Grains and cereals", uk: "Крупи і каші" },
+  pasta: { en: "Pasta and noodles", uk: "Макарони і локшина" },
+  bread: { en: "Bread and bakery", uk: "Хліб і випічка" },
+  legumes: { en: "Legumes and soy", uk: "Бобові і соя" },
+  veg: { en: "Vegetables and mushrooms", uk: "Овочі і гриби" },
+  fruit: { en: "Fruit", uk: "Фрукти" },
+  berries: { en: "Berries", uk: "Ягоди" },
+  dried: { en: "Dried fruit", uk: "Сухофрукти" },
+  nuts: { en: "Nuts and seeds", uk: "Горіхи і насіння" },
+  fats: { en: "Oils and fats", uk: "Олії і жири" },
+  sauce: { en: "Sauces, sugar and spreads", uk: "Соуси, цукор, мед" },
+  sweets: { en: "Sweets and snacks", uk: "Солодощі і снеки" },
+  drinks: { en: "Drinks", uk: "Напої" },
+  sport: { en: "Sports nutrition", uk: "Спортивне харчування" },
+  dishes: { en: "Dishes (typical home recipes)", uk: "Страви (типові домашні рецепти)" },
+};
+
+function nutritionDocs(): KnowledgeDoc[] {
+  const byCat = new Map<string, ReturnType<typeof catalogFoods>>();
+  for (const f of catalogFoods()) byCat.set(f.category, [...(byCat.get(f.category) ?? []), f]);
+  const docs: KnowledgeDoc[] = [];
+  for (const lang of KB_LANGS) {
+    const uk = lang === "uk";
+    for (const [cat, foods] of [...byCat].sort(([a], [b]) => a.localeCompare(b))) {
+      const title = FOOD_CATEGORY[cat]?.[lang] ?? cat;
+      const head = uk
+        ? `# Калорійність і КБЖУ: ${title}\n\nНа 100 г: ккал, білки (Б), жири (Ж), вуглеводи (В); у дужках — типова порція. Значення довідкові, округлені.`
+        : `# Calories and macros: ${title}\n\nPer 100 g: kcal, protein (P), fat (F), carbs (C); in brackets a typical portion. Reference values, rounded.`;
+      const rows = foods.map((f) => {
+        const k = f.portionG / 100;
+        const portion = uk
+          ? `порція ${f.portionG} г ≈ ${Math.round(f.per100.kcal * k)} ккал, Б ${Math.round(f.per100.p * k)} г`
+          : `portion ${f.portionG} g ≈ ${Math.round(f.per100.kcal * k)} kcal, P ${Math.round(f.per100.p * k)} g`;
+        const name = uk ? f.uk : f.en;
+        const syn = f.synonyms.length ? ` (${f.synonyms.slice(0, 4).join(", ")})` : "";
+        return uk
+          ? `- ${name}${syn}: ${f.per100.kcal} ккал, Б ${f.per100.p}, Ж ${f.per100.f}, В ${f.per100.c} (${portion})`
+          : `- ${name}: ${f.per100.kcal} kcal, P ${f.per100.p}, F ${f.per100.f}, C ${f.per100.c} (${portion})`;
+      });
+      docs.push({ key: `${lang}/nutrition/${cat}.md`, body: `${head}\n\n${rows.join("\n")}\n` });
+    }
+  }
+  return docs;
+}
+
 function guideDocs(): KnowledgeDoc[] {
   return KB_LANGS.flatMap((lang) => GUIDES.map((g) => ({ key: `${lang}/guides/${g.slug}.md`, body: `${g[lang].trim()}\n` })));
 }
 
 /** Every knowledge-base document, sorted by key. */
 export function buildKnowledgeDocs(technique: TechniqueRow[] = []): KnowledgeDoc[] {
-  return [...guideDocs(), ...programDocs(), ...exerciseDocs(technique)].sort((a, b) => a.key.localeCompare(b.key));
+  return [...guideDocs(), ...programDocs(), ...exerciseDocs(technique), ...nutritionDocs()].sort((a, b) => a.key.localeCompare(b.key));
 }
