@@ -32,6 +32,7 @@ test("checkModels reads catalogs only, flags missing ids, skips an unreachable c
     const text = modelAlertText(r)!;
     assert.match(text, /groq.*gone/);
     assert.match(text, /unreachable: openrouter/);
-    assert.equal(modelAlertText({ missing: {}, unreachable: ["groq"] }), null);
+    assert.equal(modelAlertText({ missing: {}, unreachable: [] }), null, "all clear stays silent");
+    assert.match(modelAlertText({ missing: {}, unreachable: ["groq"] })!, /check incomplete.*unreachable: groq/s);
   } finally { globalThis.fetch = orig; }
 });

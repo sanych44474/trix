@@ -72,11 +72,12 @@ export async function checkModels(env: Env): Promise<{ missing: Partial<Record<P
 
 export function modelAlertText(r: { missing: Partial<Record<Provider, string[]>>; unreachable: Provider[] }): string | null {
   const rows = Object.entries(r.missing).map(([p, ids]) => `• <b>${p}</b>: ${ids!.map((id) => `<code>${id}</code>`).join(", ")}`);
-  if (!rows.length) return null;
+  // An unreachable catalog is reported on its own: a provider whose list cannot be read is a provider
+  // whose retired ids go unnoticed, which is exactly what this check exists to prevent.
+  if (!rows.length && !r.unreachable.length) return null;
   return [
-    "🤖 <b>AI models gone</b> — configured ids no longer listed by the provider:",
-    ...rows,
-    ...(r.unreachable.length ? [`(catalog unreachable: ${r.unreachable.join(", ")})`] : []),
+    ...(rows.length ? ["🤖 <b>AI models gone</b> — configured ids no longer listed by the provider:", ...rows] : []),
+    ...(r.unreachable.length ? [`${rows.length ? "(" : "⚠️ <b>AI model check incomplete</b> — "}catalog unreachable: ${r.unreachable.join(", ")}${rows.length ? ")" : ""}`] : []),
     "Update wrangler.toml [vars]; <code>npm run check:ai-models -- --catalog</code> lists what's available.",
   ].join("\n");
 }
