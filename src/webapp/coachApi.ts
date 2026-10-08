@@ -34,15 +34,8 @@ import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env } from "../types";
 
+import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 const MAX_QUESTION = 500;
-
-async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
-  }).catch(() => {});
-}
 
 export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);

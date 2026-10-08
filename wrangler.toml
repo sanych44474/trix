@@ -86,6 +86,26 @@ database_id = "00000000-0000-0000-0000-000000000000"
 binding = "R2_PHOTOS"
 bucket_name = "trix-photos"
 
+# Request throttling (src/limits.ts). Needs Wrangler >= 4.36. Counters are per Cloudflare location and
+# eventually consistent: abuse protection, not exact accounting. The code FAILS OPEN when a binding is
+# missing or errors, so a plan or environment without it loses the protection, not the traffic.
+# RL_ADMIN: /admin/* per client IP (guessing ADMIN_SECRET). RL_EXPENSIVE: per-user cap on Mini App
+# actions that call AI or upload documents (media, coach, chat, settings). Separate namespace ids so
+# the two never share counters.
+[[ratelimits]]
+name = "RL_ADMIN"
+namespace_id = "2001"
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+[[ratelimits]]
+name = "RL_EXPENSIVE"
+namespace_id = "2002"
+  [ratelimits.simple]
+  limit = 20
+  period = 60
+
 # Knowledge base for AI Search (src/knowledge/): the Worker writes markdown docs here and the AI
 # Search instance (AI_SEARCH_INSTANCE) indexes this bucket. Create the bucket before deploying.
 [[r2_buckets]]

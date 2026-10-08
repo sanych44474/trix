@@ -537,6 +537,22 @@ export async function deleteSquad(db: DB, chatId: number): Promise<void> {
 // Weekly quests (domain/quests.ts) — only completion is stored; the XP formula counts the rows.
 // ---------------------------------------------------------------------------
 
+/** Records a week's finished quests and, when every quest of the week is now done, awards the
+ * quest_sweep badge. The one place that rule lives: the Today card and the Monday close job both
+ * settle through here. Idempotent per (week, code), so a week already recorded is a no-op
+ * (`fresh` empty, no badge). `sweep` is true only when the badge was newly awarded by this call. */
+export async function settleQuests(
+  db: DB,
+  userId: number,
+  weekStart: string,
+  week: { quests: Array<{ code: string }>; done: string[] },
+): Promise<{ fresh: string[]; sweep: boolean }> {
+  const fresh = await recordQuestsDone(db, userId, weekStart, week.done);
+  const all = week.quests.length > 0 && week.done.length === week.quests.length;
+  const sweep = all && fresh.length > 0 && (await awardAchievement(db, userId, "quest_sweep").catch(() => false));
+  return { fresh, sweep };
+}
+
 /** Records finished quests for the week; returns the codes that were newly recorded. */
 export async function recordQuestsDone(db: DB, userId: number, weekStart: string, codes: string[]): Promise<string[]> {
   if (!codes.length) return [];

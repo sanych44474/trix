@@ -16,6 +16,8 @@ import { readJsonBody } from "./validate";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import type { Env, UserDoc } from "../types";
 
+import { notify } from "../notify";
+import { rawTelegramApi } from "../adapters/telegram/rawApi";
 export const MAX_CHAT_TEXT = 2000;
 export const CHAT_PUSH_QUIET_MIN = 15;
 
@@ -26,17 +28,21 @@ export async function chatPeer(env: Env, user: UserDoc, withId?: number): Promis
   return null;
 }
 
-async function push(env: Env, from: UserDoc, to: UserDoc, text: string): Promise<void> {
+/** Tells `to` a message arrived. The message itself is already stored; this is only the ping, sent
+ * through the notification outbox (keyed on the message) so a rate limit retries instead of leaving
+ * the other side without any sign that someone wrote. */
+async function push(env: Env, from: UserDoc, to: UserDoc, text: string, messageId: number): Promise<void> {
   const name = escapeHtml(from.profile.name ?? `id ${from._id}`);
   const toTrainer = from.trainerId === to._id;
   const markup = toTrainer
     ? appMarkup(env, t(to.lang, "nb_reply"), "role", { client: from._id })
     : appMarkup(env, t(to.lang, "nb_reply"), "coach");
   const preview = escapeHtml(text.length > 300 ? `${text.slice(0, 300)}…` : text);
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: to.chatId, text: t(to.lang, "chat_push", { name, text: preview }), parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) }),
+  await notify(env, { api: rawTelegramApi(env) }, { userId: to._id, chatId: to.chatId }, {
+    kind: "app_chat_ping",
+    key: `app_chat:${messageId}`,
+    text: t(to.lang, "chat_push", { name, text: preview }),
+    extra: { parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) },
   }).catch(() => null);
 }
 
@@ -73,7 +79,7 @@ export async function handleChatApi(req: Request, url: URL, env: Env): Promise<R
       const quietSince = new Date(Date.now() - CHAT_PUSH_QUIET_MIN * 60_000).toISOString();
       const alreadyPinged = (await unreadFromSince(env.DB, peer._id, user._id, quietSince).catch(() => 0)) > 0;
       const id = await insertMessage(env.DB, user._id, peer._id, text);
-      if (!alreadyPinged) await push(env, user, peer, text);
+      if (!alreadyPinged) await push(env, user, peer, text, id);
       logInfo("chat_message_sent", { fromTrainer: peer.trainerId === user._id, pinged: !alreadyPinged });
       return { status: 200, body: { ok: true, id } };
     });

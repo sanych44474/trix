@@ -2,11 +2,8 @@
 // acknowledges an AI request at once and finishes it in the background with a Thinking draft.
 import { RateLimitError } from "../ai";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
-import { userStatCounts } from "../adapters/d1/v2Analytics";
 import { startThinking } from "../adapters/telegram/thinking";
-import { awardAchievement } from "../adapters/d1/v2Gamification";
-import { updateUser } from "../adapters/d1/v2Users";
-import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
+import { advanceLevel } from "../features/gamification/level";
 import { t } from "../locales/i18n";
 import { MyContext, reply } from "../adapters/telegram/context";
 
@@ -25,25 +22,12 @@ export async function onError(ctx: MyContext, err: unknown, where: string) {
   await reply(ctx, t(ctx.user.lang, "ai_retry"));
 }
 
-// Celebrate crossing an XP level — called after XP-earning actions (workout, meal, check-in,
-// steps). The first sighting is persisted silently so existing users aren't congratulated
-// retroactively for levels they passed before the feature shipped.
+// Celebrate crossing an XP level -- called after XP-earning actions (meal, check-in, steps). The
+// bookkeeping (and the silent first sighting) lives in features/gamification/level.ts, shared with
+// the workout save; this only decides how the chat says it.
 export async function maybeCelebrateLevel(ctx: MyContext) {
-  try {
-    const counts = await userStatCounts(ctx.db, ctx.user._id);
-    const lv = levelFromXp(computeXp(counts));
-    const transition = levelTransition(lv.level, ctx.user.reminders?.lastLevel);
-    if (!transition.changed) return;
-    const reminders = { ...ctx.user.reminders, lastLevel: transition.level };
-    await updateUser(ctx.db, ctx.user._id, { reminders });
-    ctx.user.reminders = reminders;
-    if (transition.leveledUp) {
-      await reply(ctx, t(ctx.user.lang, "levelup_msg", { level: lv.level, xp: lv.xp }), undefined, "celebrate");
-      if (transition.badge) await awardAchievement(ctx.db, ctx.user._id, transition.badge).catch(() => {});
-    }
-  } catch {
-    /* celebration is best-effort */
-  }
+  const lv = await advanceLevel(ctx.db, ctx.user);
+  if (lv?.leveledUp) await reply(ctx, t(ctx.user.lang, "levelup_msg", { level: lv.level, xp: lv.xp }), undefined, "celebrate").catch(() => {});
 }
 
 // Run a conversational AI handler past the webhook response (waitUntil) so the user gets

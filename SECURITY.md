@@ -45,8 +45,17 @@ These are properties of the deployment, not bugs, but they decide how safe your 
 - **`TELEGRAM_WEBHOOK_SECRET` is what keeps `/webhook` from accepting forged updates.** It is
   verified as the `X-Telegram-Bot-Api-Secret-Token` header. Set it, and make it random.
 - **Mini App requests are authenticated by Telegram `initData` HMAC** on every `/api/*` call.
-  The `?debugUser=` bypass is only active when `WORKER_URL` is unset, i.e. in local dev — never
-  set an empty `WORKER_URL` on a public deployment.
+  The `?debugUser=` bypass is a separate, explicit opt-in: it works only when
+  `ALLOW_DEBUG_USER` is `"1"` (set in `.dev.vars` for local development). `wrangler.toml` ships it
+  as `"0"` — never enable it on a public deployment.
+- **Secrets and signatures are compared in constant time** (`src/domain/secrets.ts`): the admin
+  header, the webhook secret, `initData`, and the signed `/v`, `/weekmap.png` and Strava-state
+  links. Link signatures are keyed on the bot token, so rotating it invalidates links already sent.
+- **Throttling** (`src/limits.ts`, the Workers Rate Limiting binding declared in `wrangler.toml`):
+  `/admin/*` is limited per client IP, and the expensive Mini App actions (media, coach, trainer
+  chat, settings) per user, plus the existing per-user AI cap. Counters are per Cloudflare location
+  and eventually consistent, so this is abuse protection, not exact accounting. If the binding is
+  not available on your plan the limiter fails open — check that it is bound after you deploy.
 - **The bot stores personal health data** (body measurements, injuries, optionally cycle
   tracking). If you run an instance for other people, that carries real obligations under GDPR
   and similar regimes. `/deleteme` implements user-initiated erasure across every table.

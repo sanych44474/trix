@@ -1,5 +1,6 @@
 import { Bot, } from "grammy";
-import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from "./schedulerOutbox";
+import { deliverDueNotifications } from "./schedulerOutbox";
+import { isDurable, notify, type DeliveryResult } from "./notify";
 import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "./types";
@@ -46,6 +47,7 @@ import { advanceMesocycleWeek, weeklyReport } from "./schedulerJobs/weeklyReport
 import { weeklyProgression } from "./schedulerJobs/weeklyProgression";
 import { adaptiveCheckin, cycleNudge, deloadNudge, eveningSurvey, injuryFollowUp, plateauNudge, qualityAsk, readinessCheck, seasonalChallengeNudge, streakRescue, sundayMeasure, tomorrowPreview, waterReminder, weighInNudge } from "./schedulerJobs/nudges";
 import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
+import { runOncePer } from "./schedulerJobs/runOncePer";
 // Public surface kept here so existing `from "./scheduler"` imports keep working.
 export { runGlobalJobs, checkCronHeartbeat } from "./schedulerJobs/global";
 export { logSchedulerError, type Sender } from "./schedulerJobs/shared";
@@ -202,22 +204,13 @@ async function runScheduleInner(env: Env): Promise<void> {
   // live Worker env, never the DO's shadowed dry-run one) -- safe to run regardless of scheduler
   // cutover state. No-op until the bucket exists, and a no-op below 80% of the free tier's 10GB
   // even once it does; see photoStorage.ts for the eviction policy.
-  const lastR2Check = await getSetting(db, "last_r2_budget_check").catch(() => null);
-  if (!lastR2Check || Date.parse(lastR2Check) < Date.now() - 7 * 86_400_000) {
-    const budget = await enforceStorageBudget(env).catch((e) => {
-      logSchedulerError(db, "r2_budget", e);
-      return null;
-    });
+  await runOncePer(db, { key: "last_r2_budget_check", period: { windowMs: 7 * 86_400_000 } }, async () => {
+    const budget = await enforceStorageBudget(env);
     if (budget?.evictedCount) console.log(JSON.stringify({ level: "info", scope: "r2_budget", ...budget }));
-    await setSetting(db, "last_r2_budget_check", new Date().toISOString()).catch(() => {});
-  }
+  });
 
   // Story images (webapp/storyMedia.ts) live two days; sweep once a day.
-  const lastStorySweep = await getSetting(db, "last_story_sweep").catch(() => null);
-  if (!lastStorySweep || Date.parse(lastStorySweep) < Date.now() - 86_400_000) {
-    await purgeExpiredStories(env).catch((e) => logSchedulerError(db, "story_sweep", e));
-    await setSetting(db, "last_story_sweep", new Date().toISOString()).catch(() => {});
-  }
+  await runOncePer(db, { key: "last_story_sweep", period: { windowMs: 86_400_000 } }, () => purgeExpiredStories(env));
 
   // Knowledge base for the coach (AI Search over the KB bucket): rebuilt and diffed once a day,
   // then on following ticks while a capped run left writes for later (knowledge/sync.ts).
@@ -252,11 +245,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   // log pruning above) so it always processes the week that just ended, exactly once, on the
   // first hourly tick after the week rolls over.
   const thisWeekKey = isoWeekKey(utcNow.date);
-  const lastDuelWeek = await getSetting(db, "last_buddy_duel_week").catch(() => null);
-  if (lastDuelWeek !== thisWeekKey) {
-    await processBuddyDuels(db, bot, utcNow.date).catch((e) => logSchedulerError(db, "buddy_duels", e));
-    await setSetting(db, "last_buddy_duel_week", thisWeekKey).catch(() => {});
-  }
+  await runOncePer(db, { key: "last_buddy_duel_week", period: { periodKey: thisWeekKey } }, () => processBuddyDuels({ ...env, DB: db }, bot, utcNow.date));
 
   // Squad recap — one post per group chat, once per ISO week, covering the week that just
   // ended. Squads are chat-scoped, not user-scoped, so this sits outside the per-user loop.
@@ -360,11 +349,9 @@ async function runScheduleInner(env: Env): Promise<void> {
       // question the bot never asked. Enqueue-and-deliver also means a transient failure retries
       // from the outbox instead of being lost, and an un-marked user is simply picked up again on
       // the next tick (a duplicate opener being the worst case, not a silent dead end).
-      const delivered = await enqueueAndDeliver(env, bot, {
-        userId: u._id,
-        chatId: u.chatId,
+      const delivered = await notify(env, bot, { userId: u._id, chatId: u.chatId }, {
         kind: "comeback_opener",
-        idempotencyKey: `${nowIso.slice(0, 10)}:comeback:${u._id}`,
+        key: `${nowIso.slice(0, 10)}:comeback:${u._id}`,
         text: `${t(u.lang, "vacation_ended")}\n\n${t(u.lang, "comeback_q_feel")}`,
         extra: HTML,
       });
@@ -433,11 +420,9 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     // defense in depth against a double-enqueue, not the primary dedup (that's the cutover
     // mutual-exclusion flag, durable/cutover.ts, which decides whether this call happens at all).
     const idempotencyKey = `${date}:${text.slice(0, 200)}`;
-    const result = await enqueueAndDeliver(env, bot, {
-      userId: user._id,
-      chatId: user.chatId,
+    const result = await notify(env, bot, { userId: user._id, chatId: user.chatId }, {
       kind: "reminder",
-      idempotencyKey,
+      key: idempotencyKey,
       text,
       extra: extra ?? HTML,
     }).catch((e) => {
@@ -449,7 +434,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   };
   // Sends to someone OTHER than the user this pass is about (their trainer, their inviter). The
   // `send` closure above is bound to user.chatId, which is why these used to bypass the outbox
-  // entirely — enqueueAndDeliver takes the recipient explicitly, so they no longer have to.
+  // entirely — notify() takes the recipient explicitly, so they no longer have to.
   // The idempotency key names the SUBJECT (this user), not the recipient: two different clients'
   // at-risk alerts to the same trainer on the same day must not collapse into one row.
   const sendTo = (
@@ -458,11 +443,9 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     text: string,
     extra?: Parameters<typeof bot.api.sendMessage>[2],
   ): Promise<DeliveryResult> =>
-    enqueueAndDeliver(env, bot, {
-      userId: target._id,
-      chatId: target.chatId,
+    notify(env, bot, { userId: target._id, chatId: target.chatId }, {
       kind,
-      idempotencyKey: `${date}:${kind}:${user._id}`,
+      key: `${date}:${kind}:${user._id}`,
       text,
       extra: extra ?? HTML,
     }).catch((e) => {
@@ -473,7 +456,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // "retrying" counts: the outbox row persists and deliverDueNotifications drains it on a later
   // tick. "failed"/"blocked" mean it is gone — writing the key there would consume the
   // once-per-user-per-day slot for a message nobody ever received (the bug this closes).
-  const durable = (r: DeliveryResult) => r === "sent" || r === "retrying" || r === "duplicate";
+  const durable = isDurable;
   // Explicit reminderHour wins; otherwise derive from sleep schedule (early risers get a
   // morning nudge, night owls keep the 18:00 default).
   const reminderHour = user.profile.reminderHour ?? (user.profile.sleepSchedule === "morning" ? 8 : 18);

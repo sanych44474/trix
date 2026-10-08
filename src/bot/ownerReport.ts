@@ -68,8 +68,10 @@ export function ownerReportWindows() {
   };
 }
 
-// 📊 Overview: trainers/clients summary + 7-day engagement KPIs (carries the report header).
-export async function orOverview(db: D1Database): Promise<string> {
+/** The headline numbers behind the overview section, the full report and the Grafana owner feed.
+ * Each of those used to run this same set of queries itself (buildOwnerMetrics even said it did not
+ * "re-derive" them while repeating all fifteen). Load once, render from it. */
+export async function loadOwnerSnapshot(db: D1Database) {
   const { since7Iso, since14Iso, since30Iso } = ownerReportWindows();
   const since7Date = since7Iso.slice(0, 10);
   const nowIsoStr = new Date().toISOString();
@@ -90,8 +92,23 @@ export async function orOverview(db: D1Database): Promise<string> {
     listChurnedUsers(db, since14Iso, since7Iso).catch(() => [] as { id: number; name: string }[]),
     countInactive(db, since7Iso, nowIsoStr).catch(() => 0),
   ]);
-  const usersWithPlan = [...planStatus.values()].filter((p) => p.active).length;
-  const retentionPct = share(active7, onboarded);
+  return {
+    trainersCount, clientsCount, pendingApps, pendingReqs, active7, active30, engagement,
+    totalUsers, onboarded, new7, moderation, churned, inactive7,
+    usersWithPlan: [...planStatus.values()].filter((p) => p.active).length,
+    // Share of onboarded users active in the last 7 days. NOT retention: retention is the cohort
+    // view in orRetention (domain/cohorts.ts), which asks "did people who joined come back".
+    activityRate7d: share(active7, onboarded),
+  };
+}
+export type OwnerSnapshot = Awaited<ReturnType<typeof loadOwnerSnapshot>>;
+
+// 📊 Overview: trainers/clients summary + 7-day engagement KPIs (carries the report header).
+export async function orOverview(db: D1Database, snapshot?: OwnerSnapshot): Promise<string> {
+  const { since7Iso } = ownerReportWindows();
+  const since7Date = since7Iso.slice(0, 10);
+  const { trainersCount, clientsCount, pendingApps, pendingReqs, active7, active30, engagement,
+    totalUsers, onboarded, new7, moderation, churned, inactive7, usersWithPlan, activityRate7d } = snapshot ?? (await loadOwnerSnapshot(db));
   const todayStr = new Date().toISOString().slice(0, 10);
   const thisWkStart = weekStartStr(todayStr);
   const lastWkStart = weekStartStr(new Date(Date.parse(todayStr) - 7 * 86_400_000).toISOString().slice(0, 10));
@@ -124,7 +141,7 @@ export async function orOverview(db: D1Database): Promise<string> {
     "👥 <b>People</b>",
     `${pctBar(onboarded, totalUsers)} onboarded <b>${onboarded}</b>/${totalUsers} (${share(onboarded, totalUsers)}%)`,
     `• New 7d: <b>+${new7}</b> · Trainers <b>${trainersCount}</b> · Clients <b>${clientsCount}</b>`,
-    `• Active: 7d <b>${active7}</b> · 30d <b>${active30}</b> · retention 7d/onb <b>${retentionPct}%</b>`,
+    `• Active: 7d <b>${active7}</b> · 30d <b>${active30}</b> · activity rate 7d/onb <b>${activityRate7d}%</b>`,
     `• DAU 7d: <code>${sparkline(days)}</code> peak ${dauPeak}`,
     `🔻 ${totalUsers} → ${onboarded} onboarded → ${active7} active 7d`,
     "",
@@ -296,13 +313,13 @@ export async function orTrainers(db: D1Database): Promise<string> {
 }
 
 // 🚧 Onboarding & churn: who is mid-interview / stuck / generating, and who went quiet.
-export async function orOnboarding(db: D1Database): Promise<string> {
+export async function orOnboarding(db: D1Database, snapshot?: OwnerSnapshot): Promise<string> {
   const { since7Iso, since14Iso } = ownerReportWindows();
   const [onboarding, planPending, churned, byMode] = await Promise.all([
     listOnboardingUsers(db).catch(() => []),
     // Far-future cutoff → every plan-generation-stage user, not just stale ones.
     listPlanPendingUsers(db, new Date(Date.now() + 86_400_000).toISOString()).catch(() => []),
-    listChurnedUsers(db, since14Iso, since7Iso).catch(() => [] as { id: number; name: string }[]),
+    snapshot ? Promise.resolve(snapshot.churned) : listChurnedUsers(db, since14Iso, since7Iso).catch(() => [] as { id: number; name: string }[]),
     nonOnboardedByMode(db).catch(() => [] as { mode: string; n: number }[]),
   ]);
   const lines: string[] = [];
@@ -502,11 +519,12 @@ export async function orUsers(db: D1Database): Promise<string> {
 
 // Full report (used by the scheduled weekly owner push) = all sections concatenated.
 export async function buildOwnerReport(db: D1Database, env?: Env): Promise<string> {
+  const snapshot = await loadOwnerSnapshot(db);
   const sections = await Promise.all([
-    orOverview(db),
+    orOverview(db, snapshot),
     orAI(db, env),
     orTrainers(db),
-    orOnboarding(db),
+    orOnboarding(db, snapshot),
     orErrors(db),
     orEngagement(db),
     orRetention(db),
@@ -518,34 +536,15 @@ export async function buildOwnerReport(db: D1Database, env?: Env): Promise<strin
 }
 
 // Structured counterpart to buildOwnerReport, for the Grafana "owner metrics" dashboard
-// (GET /admin/metrics/owner in src/index.ts). Calls the same repo functions as
-// orOverview/orAI above rather than re-deriving the numbers, so the two stay in sync by
-// construction instead of by hand-maintained duplication.
+// (GET /admin/metrics/owner in src/index.ts). Built from the same loadOwnerSnapshot as the text
+// report, so the two agree by construction instead of by a hand-kept copy of the queries.
 export async function buildOwnerMetrics(db: D1Database) {
-  const { since7Iso, since14Iso, since30Iso } = ownerReportWindows();
-  const since7Date = since7Iso.slice(0, 10);
-  const nowIsoStr = new Date().toISOString();
-  const [
-    trainersCount, clientsCount, pendingApps, pendingReqs, pendingReqRows, active7, active30, engagement,
-    totalUsers, onboarded, new7, moderation, planStatus, churned, inactive7,
-  ] = await Promise.all([
-    countByRole(db, "trainer"),
-    countByRole(db, "client"),
-    pendingTrainerApplications(db),
-    countPendingClientRequests(db),
-    pendingRequestsAll(db, 20),
-    countActiveSince(db, since7Iso),
-    countActiveSince(db, since30Iso),
-    engagementSince(db, since7Date),
-    countUsers(db),
-    countOnboarded(db),
-    countUsersCreatedSince(db, since7Iso),
-    countModeration(db),
-    planStatusByUser(db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
-    listChurnedUsers(db, since14Iso, since7Iso).catch(() => [] as { id: number; name: string }[]),
-    countInactive(db, since7Iso, nowIsoStr).catch(() => 0),
-  ]);
-  const usersWithPlan = [...planStatus.values()].filter((p) => p.active).length;
+  const { since7Iso } = ownerReportWindows();
+  const [snap, pendingReqRows] = await Promise.all([loadOwnerSnapshot(db), pendingRequestsAll(db, 20)]);
+  const {
+    trainersCount, clientsCount, pendingApps, pendingReqs, active7, active30, engagement,
+    totalUsers, onboarded, new7, moderation, churned, inactive7, usersWithPlan, activityRate7d,
+  } = snap;
   const pendingRequestRows = await Promise.all(
     pendingReqRows.map(async (r) => {
       const [cl, tr] = await Promise.all([getUser(db, r.clientId), getUser(db, r.trainerId)]);
@@ -595,7 +594,7 @@ export async function buildOwnerMetrics(db: D1Database) {
     people: {
       totalUsers, onboarded, trainers: trainersCount, clients: clientsCount,
       new7d: new7, active7d: active7, active30d: active30,
-      retentionPct: share(active7, onboarded),
+      activityRate7d,
       pendingTrainerApps: pendingApps.length, pendingClientRequests: pendingReqs,
       churned7to14d: churned.length, inactive7dPlus: inactive7,
       blockedByOwner: moderation.blocked, blockedBot: moderation.botBlocked,

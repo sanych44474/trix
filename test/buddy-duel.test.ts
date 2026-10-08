@@ -73,3 +73,44 @@ test("recordBuddyDuel + buddyWinCount + buddyDuelHistory: round-trip and idempot
   assert.deepEqual(history.map((h) => h.weekKey), ["2026-W22", "2026-W21", "2026-W20"]); // most recent first
   assert.equal(history[2].aCount, 4); // confirms the idempotent re-run didn't clobber the original counts
 });
+
+// ---------- results go through the notification outbox ----------
+
+test("processBuddyDuels: both sides are told through the outbox, a re-run tells nobody twice, a refused send is queued", async () => {
+  const { processBuddyDuels } = await import("../src/schedulerJobs/social");
+  const { upsertWorkoutLog } = await import("../src/adapters/d1/v2Workouts");
+  const { GrammyError } = await import("grammy");
+  const db = newDb();
+  const a = (await getOrCreateUser(db, 1, 1, "en", "Ann")) as unknown as UserDoc;
+  const b = (await getOrCreateUser(db, 2, 2, "en", "Bob")) as unknown as UserDoc;
+  await updateUser(db, 1, { profile: { ...a.profile, buddyId: 2 } });
+  await updateUser(db, 2, { profile: { ...b.profile, buddyId: 1 } });
+
+  // The week that just ended is the one before "today": log two workouts for Ann, none for Bob.
+  const today = "2026-10-08";
+  for (const date of ["2026-09-29", "2026-09-30"]) {
+    await upsertWorkoutLog(db, 1, date, 2, [{ name: "Squat", setsDone: [{ reps: 5, weight: 100 }], skipped: false }], true, "x");
+  }
+
+  const sent: Array<{ chatId: number; text: string }> = [];
+  let limitedFor: number | null = null;
+  const bot = { api: { sendMessage: (async (chatId: number, text: string) => {
+    if (chatId === limitedFor) throw new GrammyError("x", { ok: false, error_code: 429, description: "slow", parameters: { retry_after: 5 } }, "sendMessage", {});
+    sent.push({ chatId, text });
+    return {} as never;
+  }) as never } };
+  const env = { DB: db, TELEGRAM_BOT_TOKEN: "t" } as never;
+
+  limitedFor = 2; // Bob's chat is rate limited this time
+  await processBuddyDuels(env, bot as never, today);
+  assert.equal(sent.filter((m) => m.chatId === 1).length, 1, "the winner is told");
+  const rows = await db.prepare("SELECT kind, status FROM v2_notifications ORDER BY kind").all<{ kind: string; status: string }>();
+  const byKind = Object.fromEntries((rows.results ?? []).map((r) => [r.kind, r.status]));
+  assert.deepEqual(byKind, { duel_lost: "pending", duel_won: "sent" }, "the loser's message is queued for retry, not lost");
+
+  // The gate may re-run the week after a failure: nobody is told twice.
+  limitedFor = null;
+  await processBuddyDuels(env, bot as never, today);
+  assert.equal(sent.filter((m) => m.chatId === 1).length, 1, "winner not told twice");
+  assert.equal(sent.filter((m) => m.chatId === 2).length, 0, "the queued message is the retry sweep's job, not re-sent here");
+});

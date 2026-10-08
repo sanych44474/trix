@@ -51,14 +51,7 @@ import { shortCode } from "../features/trainer/trainerCommon";
 import { appViewUrlFromEnv, webAppMarkup } from "../bot/appLinks";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "../bot/onboardingApp";
 
-async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
-  }).catch(() => {});
-}
-
+import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 const bad = () => Response.json({ error: "bad request" }, { status: 400 });
 const notFound = () => Response.json({ error: "not found" }, { status: 404 });
 

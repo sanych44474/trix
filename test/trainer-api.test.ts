@@ -173,3 +173,21 @@ test("broadcast: rejects an empty message", async () => {
   const res = await call(db, 10, "POST", "/api/trainer/broadcast", { text: "   " });
   assert.equal(res.status, 400);
 });
+
+// "Wait 3 more days" on a first-plan draft (staleDrafts.ts): one postponement per draft.
+test("draft decision 'postpone': allowed once, then 409; 404 when there is no waiting draft", async () => {
+  const db = newDb();
+  await trainerAndClient(db);
+  const none = await call(db, 10, "POST", "/api/trainer/client/20/draft", { decision: "postpone" });
+  assert.equal(none.status, 404, "no draft to postpone");
+
+  await db.prepare("INSERT INTO v2_plans (accountId, version, status, active, createdAt, updatedAt) VALUES (20, 1, 'draft', 0, ?, ?)")
+    .bind(new Date().toISOString(), new Date().toISOString()).run();
+  const first = await call(db, 10, "POST", "/api/trainer/client/20/draft", { decision: "postpone" });
+  assert.equal(first.status, 200);
+  const second = await call(db, 10, "POST", "/api/trainer/client/20/draft", { decision: "postpone" });
+  assert.equal(second.status, 409, "the single postponement is spent");
+
+  const bad = await call(db, 10, "POST", "/api/trainer/client/20/draft", { decision: "later" });
+  assert.equal(bad.status, 400);
+});

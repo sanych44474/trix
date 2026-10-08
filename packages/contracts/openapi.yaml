@@ -2432,7 +2432,7 @@ paths:
               type: object
               required: [decision]
               properties:
-                decision: {type: string, enum: [assign, discard]}
+                decision: {type: string, enum: [assign, discard, postpone]}
       responses:
         '200':
           description: Done
@@ -2443,6 +2443,8 @@ paths:
                 properties:
                   ok: {const: true}
         '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: The single postponement of this draft was already used
   /api/v2/trainer/client/{id}/interview-nudge:
     post:
       operationId: nudgeClientInterview
@@ -4462,6 +4464,12 @@ components:
               days: {type: integer}
               exercises: {type: integer}
               createdAt: {type: string}
+              autoActivatesAt:
+                description: Date the draft goes live on its own (first-plan drafts only).
+                type: string
+              postponed:
+                description: True once the trainer used the single 'wait 3 more days'.
+                type: boolean
         client:
           type: object
           properties:

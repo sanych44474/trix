@@ -1,25 +1,20 @@
-// Guided workout logger backend for the Mini App (roadmap P2): today's session payload and a
-// ctx-free save that mirrors the bot's finalizeWorkoutLog (log + strength records + badges +
-// level bookkeeping + trainer notify) so both surfaces stay in parity. Assembly and validation
+// Guided workout logger backend for the Mini App (roadmap P2): today's session payload and the save
+// route's body. The save is completeWorkout (bot/workoutSave.ts), the same call the chat's
+// finalizeWorkoutLog makes, so both surfaces share one set of side effects. Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
 import { parseRestSec } from "../domain/restTime";
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";
-import type { Api } from "grammy";
-import { applyWorkoutSave, type WorkoutSaveEntry } from "../bot/workoutSave";
+import { rawTelegramApi } from "../adapters/telegram/rawApi";
+import { completeWorkout, type WorkoutSaveEntry } from "../bot/workoutSave";
 import { muscleGroupToEnum } from "../domain/exerciseDefaults";
 import { planRepsMid, planSetsCount, planWeight } from "../bot/guidedLog";
-import { formatPrBest } from "../bot/workoutSave";
-import { announceSquadPr } from "../bot/squad";
-import { computeXp, levelFromXp, levelTransition } from "../domain/gamification";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscles";
 import { exerciseMetric, formatSetEntry } from "../domain/setFormat";
 import { getPlanDay, nextTargetSet, workingSets, type TargetStep } from "../domain/progression";
 import { resolveWeightMode } from "../domain/exerciseClass";
 import { localParts } from "../domain/localTime";
-import { userStatCounts } from "../adapters/d1/v2Analytics";
 import { deleteWorkoutDraft, getWorkoutDraft, getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
-import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import {
   getCatalogExercise,
@@ -30,7 +25,6 @@ import {
   listCandidatesByMuscles,
   searchExercisesByName,
 } from "../adapters/d1/v2Catalog";
-import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { isoDateMinus } from "../features/gamification/boards";
 import { cleanAi, t } from "../locales/i18n";
 import { aiText } from "../ai/index";
@@ -346,27 +340,9 @@ export interface SaveResult {
 
 const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
 
-/** The `sendMessage`-only surface announceSquadPr needs, over the raw Bot API — same reason the
- * trainer notify below uses fetch rather than grammY: this path is deliberately ctx-free and has
- * no Bot instance. The result is never read; a failed post must not disturb the save. */
-function tgApi(env: Env): { sendMessage: Api["sendMessage"] } {
-  return {
-    sendMessage: (async (chatId: number | string, text: string, other?: Record<string, unknown>) => {
-      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text, ...other }),
-      });
-      return undefined as never;
-    }) as Api["sendMessage"],
-  };
-}
-
-/** Ctx-free mirror of finalizeWorkoutLog, sharing its record-keeping via applyWorkoutSave.
- * Idempotent by construction: the log upserts on (userId, date), records only ever improve,
- * badges are INSERT OR IGNORE, lastLevel is monotonic — so a network retry after a 401/timeout
- * is safe. Celebrations are returned to the app instead of being sent to chat; the trainer
- * notification still goes out. */
+/** The Mini App's save. The work -- log, records, badges, level, trainer notification, squad post --
+ * is completeWorkout (bot/workoutSave.ts), shared with the chat path; this only shapes the result
+ * for the app. Celebrations are returned in the response instead of being sent to chat. */
 export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[], dateOverride?: string, timing?: SaveTiming): Promise<SaveResult> {
   const local = localParts(user.profile.timezone);
   const date = dateOverride ?? local.date;
@@ -374,68 +350,18 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
   const isPastEdit = date !== local.date;
 
   const saveEntries: WorkoutSaveEntry[] = entries.map((e) => ({ name: e.name, sets: e.sets, rpe: e.rpe, ...(e.planName ? { planName: e.planName } : {}) }));
-  const outcome = await applyWorkoutSave(env.DB, user, saveEntries, date, weekday, buildRawText(entries), isPastEdit, timing);
+  const done = await completeWorkout(env, user, saveEntries, { date, weekday, rawText: buildRawText(entries), isPastEdit, timing, api: rawTelegramApi(env) });
   // The unsaved-logger copy for this day is now superseded by the real log.
   await deleteWorkoutDraft(env.DB, user._id, date).catch(() => {});
-  const fresh = [...outcome.freshBadges];
-
-  // Level bookkeeping — same decision as maybeCelebrateLevel, minus the chat message (the app
-  // shows it in the response instead).
-  let level = 1;
-  let leveledUp = false;
-  try {
-    const counts = await userStatCounts(env.DB, user._id);
-    const lv = levelFromXp(computeXp(counts));
-    const transition = levelTransition(lv.level, user.reminders?.lastLevel);
-    level = transition.level;
-    leveledUp = transition.leveledUp;
-    if (transition.changed) {
-      const reminders = { ...user.reminders, lastLevel: transition.level };
-      await updateUser(env.DB, user._id, { reminders });
-      user.reminders = reminders;
-      if (transition.badge && (await awardAchievement(env.DB, user._id, transition.badge).catch(() => false))) fresh.push(transition.badge);
-    }
-  } catch {
-    /* level display is best-effort */
-  }
-
-  // Trainer notify (parity with notifyTrainerWorkout) — raw Bot API, never fails the save.
-  // Suppressed for past-date corrections: "client just trained" would be misleading.
-  try {
-    if (!isPastEdit && user.role === "client" && user.trainerId) {
-      const trainer = await getUser(env.DB, user.trainerId);
-      if (trainer) {
-        await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: trainer.chatId,
-            text: t(trainer.lang, "trainer_notify_done", { name: user.profile.name ?? `id ${user._id}`, n: outcome.exercises.length }),
-            parse_mode: "HTML",
-          }),
-        });
-      }
-    }
-  } catch {
-    /* notify is best-effort */
-  }
-
-  // Twin of the bot path's announcement in src/bot/workoutSave.ts. This was missing: a PR logged
-  // in chat reached the user's squad, the SAME PR logged in the Mini App did not. Both surfaces
-  // are pinned together by test/squad-pr-parity.test.ts. Never allowed to fail the save — the
-  // rows are already committed by this point, and announceSquadPr swallows per-chat failures.
-  if (outcome.prHit) {
-    const pr = outcome.prHit;
-    await announceSquadPr(env.DB, tgApi(env), user._id, cleanAi(pr.name), formatPrBest(pr)).catch(() => {});
-  }
+  const fresh = done.levelBadge ? [...done.freshBadges, done.levelBadge] : done.freshBadges;
 
   return {
     ok: true,
-    prExercises: outcome.prExercises,
+    prExercises: done.prExercises,
     newBadges: fresh.map((c) => t(user.lang, badgeKey(c))),
-    level,
-    leveledUp,
-    totalWorkouts: outcome.totalWorkouts,
+    level: done.level,
+    leveledUp: done.leveledUp,
+    totalWorkouts: done.totalWorkouts,
   };
 }
 

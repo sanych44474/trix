@@ -3,6 +3,7 @@
 // which only this Worker and Strava know. Rotating that secret invalidates stored tokens; the
 // affected users simply see "reconnect Strava".
 import { nowIso, type DB } from "./shared";
+import { macHex, verifyMac } from "../../domain/secrets";
 
 export interface StravaTokens {
   access: string;
@@ -44,16 +45,13 @@ export async function decryptTokens(stored: string, secret: string): Promise<Str
   }
 }
 
-async function hmacHex(secret: string, message: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", enc.encode(`strava-state:${secret}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
-  return [...new Uint8Array(sig)].slice(0, 16).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+const STATE_MAC_BYTES = 16;
+const stateSecret = (secret: string) => `strava-state:${secret}`;
 
 /** OAuth `state` binding the callback to the account that started it, valid for 15 minutes. */
 export async function signState(accountId: number, secret: string, now = Date.now()): Promise<string> {
   const exp = Math.floor(now / 1000) + 15 * 60;
-  return `${accountId}.${exp}.${await hmacHex(secret, `${accountId}.${exp}`)}`;
+  return `${accountId}.${exp}.${await macHex(stateSecret(secret), `${accountId}.${exp}`, STATE_MAC_BYTES)}`;
 }
 
 export async function verifyState(state: string, secret: string, now = Date.now()): Promise<number | null> {
@@ -61,7 +59,7 @@ export async function verifyState(state: string, secret: string, now = Date.now(
   if (!m) return null;
   const [, id, exp, sig] = m;
   if (Number(exp) < Math.floor(now / 1000)) return null;
-  return (await hmacHex(secret, `${id}.${exp}`)) === sig ? Number(id) : null;
+  return (await verifyMac(stateSecret(secret), `${id}.${exp}`, sig!, STATE_MAC_BYTES)) ? Number(id) : null;
 }
 
 export async function saveStravaLink(db: DB, accountId: number, athleteId: number, tokens: StravaTokens, secret: string): Promise<void> {

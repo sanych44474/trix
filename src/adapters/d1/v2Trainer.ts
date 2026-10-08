@@ -61,6 +61,7 @@ import type {
 } from "../../types";
 import { buildUpdate, nowIso, safeJsonParse, type DB } from "./shared";
 import { getUser, getUsersByIds } from "./v2Users";
+import { deactivateActivePlan } from "./v2Plans";
 
 // ---------- trainer client notes ----------
 
@@ -364,8 +365,7 @@ export async function unlinkClient(db: DB, clientId: number): Promise<void> {
   await db.batch([
     db.prepare("DELETE FROM v2_trainer_relationships WHERE clientId = ?").bind(clientId),
     db.prepare("UPDATE v2_accounts SET role='solo', updatedAt=? WHERE id=?").bind(now, clientId),
-    // v2-native since Domain 3 (plans) landed — same shape v2Plans.ts's own deactivation uses.
-    db.prepare("UPDATE v2_plans SET active = 0 WHERE accountId = ? AND active = 1").bind(clientId),
+    deactivateActivePlan(db, clientId),
   ]);
 }
 

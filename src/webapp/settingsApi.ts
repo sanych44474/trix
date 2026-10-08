@@ -18,6 +18,7 @@ import { readJsonBody } from "./validate";
 import type { Env, Lang, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 
+import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 type TKey = Parameters<typeof t>[1];
 
 // Same toggleable reminder keys the bot's settings screen exposes (REM map in bot.ts), plus the
@@ -26,14 +27,6 @@ const REM_KEYS: [string, string][] = [
   ["workout", "rem_workout"], ["nutrition", "rem_nutrition"], ["steps", "rem_steps"], ["water", "rem_water"],
   ["checkin", "rem_checkin"], ["wellbeing", "rem_wellbeing"], ["tomorrow", "rem_tomorrow"], ["measure", "rem_measure"], ["weighin", "rem_weighin"],
 ];
-
-async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
-  }).catch(() => {});
-}
 
 // Push the markdown export as a document (multipart) — the app can't download files (CSP), so
 // delivery goes to the user's Telegram chat, same as /export in the bot.

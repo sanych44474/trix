@@ -1,13 +1,15 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { OfflineSync } from "./OfflineSync";
 import { InboxBell, InboxView } from "./Inbox";
-import { registerLearnedMuscles } from "./logic/exerciseMuscles";
 import { api, ApiError, typedBody } from "./api";
-import type { RequestBody, Dashboard, RecoveryFactor, RecoveryLabel, WeekCardResponse } from "./types";
+import type { RequestBody, Dashboard, RecoveryFactor, RecoveryLabel } from "./types";
 import { guessLang, hasLang, loadLang, t, type Key, type Lang } from "./i18n";
 import { WhatsNewCard } from "./WhatsNew";
 import { BadgeCelebration, WeekCard, WeekSummaryCard } from "./Week";
 import { track } from "./logic/track";
+import { navigationFor, viewFromSearch, type View } from "./logic/navigation";
+import { DASHBOARD_CACHE_KEY, useDashboard } from "./useDashboard";
+import { useTelegramChrome } from "./useTelegramChrome";
 const WorkspaceView = lazy(() => import("./Workspace").then((m) => ({ default: m.WorkspaceView })));
 const OnboardingView = lazy(() => import("./Onboarding").then((m) => ({ default: m.OnboardingView })));
 const ProfileView = lazy(() => import("./ProfileView").then((m) => ({ default: m.ProfileView })));
@@ -21,15 +23,6 @@ const loadTrainView = () => import("./TrainView");
 const TrainView = lazy(() => loadTrainView().then((m) => ({ default: m.TrainView })));
 const CoachView = lazy(() => import("./workspace/AiCoachView").then((m) => ({ default: m.AiCoachView })));
 const LibraryView = lazy(() => import("./Library").then((m) => ({ default: m.LibraryView })));
-
-type View = "today" | "train" | "plan" | "fuel" | "progress" | "role" | "more" | "settings" | "library" | "inbox" | "coach";
-
-function viewFromLocation(): View {
-  const raw = new URLSearchParams(window.location.search).get("view") ?? new URLSearchParams(window.location.search).get("startapp");
-  const aliases: Record<string, View> = { home: "today", log: "train", workout: "train", survey: "progress", nutrition: "fuel", food: "fuel", profile: "settings", owner: "role", chat: "coach", ask: "coach" };
-  const value = raw ? aliases[raw] ?? (raw as View) : "today";
-  return ["today", "train", "plan", "fuel", "progress", "role", "more", "settings", "library", "coach", "inbox"].includes(value) ? value : "today";
-}
 
 function navLabel(lang: Lang, view: View): string {
   return t(lang, view === "today" ? "nav_today" : view === "train" ? "nav_train" : view === "plan" ? "nav_plan" : view === "fuel" ? "nav_fuel" : view === "progress" ? "nav_progress" : view === "role" ? "nav_role" : view === "more" ? "nav_more" : "nav_settings");
@@ -152,161 +145,29 @@ function RoleView({ dashboard, lang, onOpenPlan }: { dashboard: Dashboard; lang:
   return <Suspense fallback={<Loading />}><WorkspaceView dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} initialClientId={linkClientId} /></Suspense>;
 }
 
-// ---- Extras helpers: week-card / photo-compare image composition, upload ----
-
-/** Same debug-query passthrough api.ts's appendDebugQuery does (not exported there) -- lets a
- * localhost session without real Telegram initData still authorize via ?debugUser=. */
-function debugAppend(path: string): string {
-  if (window.Telegram?.WebApp?.initData) return path;
-  const query = window.location.search.slice(1);
-  if (!query) return path;
-  return `${path}${path.includes("?") ? "&" : "?"}${query}`;
-}
-
-function photoQuery(): string {
-  const tma = window.Telegram?.WebApp?.initData;
-  if (tma) return `&tma=${encodeURIComponent(tma)}`;
-  return window.location.search.replace(/^\?/, "&");
-}
-
-export function photoUrl(id: number): string {
-  return `/api/v2/photo?id=${id}${photoQuery()}`;
-}
-
-/** api() forces an "application/json" Content-Type on any request body, which corrupts a
- * multipart FormData upload (the browser needs to set its own boundary) -- so the two
- * image-upload endpoints (weekcard/photocompare) go through this instead, mirroring api()'s
- * auth/envelope handling but never touching Content-Type. */
-export async function apiUpload(path: string, form: FormData): Promise<{ ok: boolean }> {
-  const requestHeaders = new Headers();
-  const initData = window.Telegram?.WebApp?.initData ?? "";
-  if (initData) requestHeaders.set("Authorization", `tma ${initData}`);
-  requestHeaders.set("Accept", "application/json");
-  const response = await fetch(debugAppend(path), { method: "POST", headers: requestHeaders, body: form });
-  let body: unknown = null;
-  try { body = await response.json(); } catch { /* empty response */ }
-  if (!response.ok) {
-    const failure = body as { error?: { code?: string; message?: string } } | null;
-    throw new ApiError(failure?.error?.code ?? "dependency_unavailable", failure?.error?.message ?? "Request failed", response.status);
-  }
-  if (body && typeof body === "object" && "data" in body) return (body as { data: { ok: boolean } }).data;
-  return body as { ok: boolean };
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("image load failed"));
-    img.src = src;
-  });
-}
-
-/** Side-by-side before/after canvas, matching the legacy vanilla webapp's photo-compare intent
- * (client composes the image; the bot has no server-side rendering) -- normalized to a common
- * height so two differently-cropped photos still line up. */
-export async function composeCompare(urlA: string, urlB: string): Promise<Blob | null> {
-  const [a, b] = await Promise.all([loadImage(urlA), loadImage(urlB)]);
-  const h = 900;
-  const wA = Math.round((a.width / a.height) * h);
-  const wB = Math.round((b.width / b.height) * h);
-  const canvas = document.createElement("canvas");
-  canvas.width = wA + wB + 8;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.fillStyle = "#0b0d11";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(a, 0, 0, wA, h);
-  ctx.drawImage(b, wA + 8, 0, wB, h);
-  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), "image/png"));
-}
-
-/** Canvas-rendered week-card PNG (same numbers as the text card /api/v2/weekcard already
- * returns) -- pushed to the viewer's own Telegram chat afterward, the same "webview can't offer
- * a file download" workaround every other export in this app uses. */
-export function drawWeekCard(lang: Lang, stats: NonNullable<WeekCardResponse["stats"]>, name: string): HTMLCanvasElement {
-  const W = 900;
-  const H = 1180;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const g = canvas.getContext("2d")!;
-  const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, "#242b38");
-  grad.addColorStop(1, "#141820");
-  g.fillStyle = grad;
-  g.fillRect(0, 0, W, H);
-  g.fillStyle = "#eef1f6";
-  g.font = "700 52px system-ui, -apple-system, sans-serif";
-  g.fillText(`🏋️ ${name}`, 56, 130);
-  g.fillStyle = "#ff5f3d";
-  g.font = "400 30px system-ui, -apple-system, sans-serif";
-  g.fillText(`${stats.since.slice(5)} → ${stats.until.slice(5)}`, 56, 178);
-  g.strokeStyle = "rgba(255,95,61,.35)";
-  g.lineWidth = 2;
-  g.beginPath();
-  g.moveTo(56, 210);
-  g.lineTo(W - 56, 210);
-  g.stroke();
-  const rows: [string, string][] = [
-    [t(lang, "weekcard_workouts"), stats.planned ? `${stats.done}/${stats.planned}` : `${stats.done}`],
-    [t(lang, "weekcard_sets"), `${stats.totalSets}`],
-    [t(lang, "weekcard_volume"), `${stats.volumeKg} kg`],
-    ...(stats.prs > 0 ? ([[t(lang, "weekcard_prs"), `${stats.prs} 🏆`]] as [string, string][]) : []),
-    [t(lang, "metric_streak"), `${stats.streak} 🔥`],
-    [t(lang, "weekcard_level"), `${stats.level} ⭐ (${stats.xp} XP)`],
-  ];
-  let y = 300;
-  for (const [label, value] of rows) {
-    g.fillStyle = "#8f99aa";
-    g.font = "400 32px system-ui, -apple-system, sans-serif";
-    g.fillText(label, 56, y);
-    g.fillStyle = "#eef1f6";
-    g.font = "700 46px system-ui, -apple-system, sans-serif";
-    g.textAlign = "right";
-    g.fillText(value, W - 56, y);
-    g.textAlign = "left";
-    y += 120;
-  }
-  g.fillStyle = "#4d7568";
-  g.font = "400 24px system-ui, -apple-system, sans-serif";
-  g.fillText("trix", 56, H - 36);
-  return canvas;
-}
+export { photoUrl, apiUpload, composeCompare, drawWeekCard } from "./media";
 
 export function Loading() { return <div className="view-stack"><div className="skeleton skeleton-hero" /><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div>; }
 
 export function App() {
   const [lang, setLangState] = useState<Lang>(() => {
-    try { const l = (JSON.parse(localStorage.getItem("trix:v2:dashboard") ?? "null") as { lang?: Lang } | null)?.lang; if (l === "en" || l === "uk") return l; } catch { /* storage is optional */ }
+    try { const l = (JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY) ?? "null") as { lang?: Lang } | null)?.lang; if (l === "en" || l === "uk") return l; } catch { /* storage is optional */ }
     return guessLang();
   });
   // Each language is its own chunk (i18n.ts): load it before switching, so no text flashes in
   // the other language.
   const setLang = (next: Lang) => { if (hasLang(next)) setLangState(next); else void loadLang(next).then(() => setLangState(next)).catch(() => setLangState(next)); };
-  const [view, setView] = useState<View>(() => viewFromLocation()); const [planClientId, setPlanClientId] = useState<number | null>(null); const [dashboard, setDashboard] = useState<Dashboard | null>(null); const [error, setError] = useState<unknown>(null); const [loading, setLoading] = useState(true); const [onboardingPending, setOnboardingPending] = useState(false);
+  const [view, setView] = useState<View>(() => viewFromSearch(window.location.search));
+  const [planClientId, setPlanClientId] = useState<number | null>(null);
+  const { dashboard, error, loading, onboardingPending, setOnboardingPending, load: loadDashboard } = useDashboard(setLang);
   // The coach chat as its own screen, reachable from Today and the workout summary; a prefill
   // drops a ready question in the box (the user still taps send).
   const [coachPrefill, setCoachPrefill] = useState<string | undefined>(linkAsk);
   const openCoach = (prefill?: string) => { track(prefill ? "app_coach_open_summary" : "app_coach_open_today"); setCoachPrefill(prefill); setView("coach"); };
   const pullStart = useRef<number | null>(null);
-  const loadDashboard = () => { setLoading(true); setError(null); api<Dashboard>("/api/v2/dashboard").then((data) => { registerLearnedMuscles(data.calendar?.learnedMuscles ?? []); setDashboard(data); setLang(data.lang); try { localStorage.setItem("trix:v2:dashboard", JSON.stringify(data)); } catch { /* cache is optional */ } }).catch(setError).finally(() => setLoading(false)); };
-  useEffect(() => { try { const cached = localStorage.getItem("trix:v2:dashboard"); if (cached) { const data = JSON.parse(cached) as Dashboard; if (data?.viewer && data?.today) { registerLearnedMuscles(data.calendar?.learnedMuscles ?? []); setDashboard(data); setLang(data.lang); setLoading(false); } } } catch { try { localStorage.removeItem("trix:v2:dashboard"); } catch { /* storage is optional */ } } loadDashboard(); }, []);
   useEffect(() => { const id = setTimeout(() => { void loadTrainView().catch(() => {}); }, 1200); return () => clearTimeout(id); }, []);
-  // While the plan is being built, re-check every few seconds and switch over by itself.
-  const waitingForPlan = !!dashboard && !dashboard.viewer.onboarded && (onboardingPending || !!dashboard.viewer.planPending);
-  useEffect(() => {
-    if (!waitingForPlan) return;
-    const id = setInterval(() => { api<Dashboard>("/api/v2/dashboard").then((data) => { if (data.viewer.onboarded) { setOnboardingPending(false); setDashboard(data); } }).catch(() => {}); }, 4000);
-    return () => clearInterval(id);
-  }, [waitingForPlan]);
-
-  useEffect(() => { const handler = (event: MouseEvent) => { if ((event.target as HTMLElement).closest("button")) window.Telegram?.WebApp.HapticFeedback?.impactOccurred("light"); }; document.addEventListener("click", handler); return () => document.removeEventListener("click", handler); }, []);
-  // Telegram's own "Settings" item in the Mini App's ⋮ menu (SettingsButton, 7.0+) opens our settings.
-  useEffect(() => { const sb = window.Telegram?.WebApp.SettingsButton; if (!sb) return; const open = () => setView("settings"); sb.show(); sb.onClick(open); return () => sb.offClick(open); }, []);
-  useEffect(() => { const back = window.Telegram?.WebApp.BackButton; if (!back) return; if (view === "today") { back.hide(); return; } const handler = () => setView("today"); back.show(); back.onClick(handler); return () => back.offClick(handler); }, [view]);
-  const navigation = useMemo(() => dashboard?.viewer.role === "trainer" || dashboard?.viewer.role === "solo" || dashboard?.viewer.role === "client" ? ["today", "train", "plan", "fuel", "progress", "more", "role"] as View[] : ["today", "role"] as View[], [dashboard?.viewer.role]);
+  useTelegramChrome(view, setView);
+  const navigation = useMemo(() => navigationFor(dashboard?.viewer.role), [dashboard?.viewer.role]);
   if (loading && !dashboard) return <main className="app-shell"><Loading /></main>;
   if (error && !dashboard) return <main className="app-shell"><ErrorState lang={lang} error={error} retry={loadDashboard} /></main>;
   if (!dashboard) return null;

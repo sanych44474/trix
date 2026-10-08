@@ -9,6 +9,7 @@ import { getClientCard, getClientNote, listClientNoteHistory, listMessages, type
 import { listActiveInjuries, listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { buildDashboardPayload } from "../adapters/d1/dashboardReader";
 import { getDraftPlan } from "../adapters/d1/v2Plans";
+import { autoActivationFor } from "../staleDrafts";
 import type { DashboardPayload } from "./dashboard";
 import type { ClientCardDoc, InjuryDoc, UserDoc } from "../types";
 
@@ -23,7 +24,7 @@ export interface ClientCardMessage {
 export interface ClientCardPayload {
   client: { id: number; name: string; onboarded: boolean; flagged: boolean };
   /** A plan draft waiting for the trainer to assign or discard. */
-  draft?: { days: number; exercises: number; createdAt: string } | null;
+  draft?: { days: number; exercises: number; createdAt: string; autoActivatesAt?: string; postponed?: boolean } | null;
   // Female + cycleTracking + health consent only.
   cycle?: { phase: string; day: number };
   note: string | null;
@@ -143,8 +144,14 @@ export async function buildClientCardPayload(db: D1Database, trainer: UserDoc, c
   const messages: ClientCardMessage[] = rawMessages.map((m) => ({ fromMe: m.fromId === trainer._id, text: m.text, createdAt: m.createdAt }));
   const payload = assembleClientCardPayload(client, today, { card, note, injuries, dashboard, noteHistory, messages });
   payload.photos = photos.map((ph) => ({ id: ph.id, takenAt: ph.takenAt.slice(0, 10) }));
+  const auto = draft ? await autoActivationFor(db, client._id).catch(() => null) : null;
   payload.draft = draft
-    ? { days: draft.split.length, exercises: draft.split.reduce((n, d) => n + d.exercises.length, 0), createdAt: draft.generatedAt.toISOString().slice(0, 10) }
+    ? {
+        days: draft.split.length,
+        exercises: draft.split.reduce((n, d) => n + d.exercises.length, 0),
+        createdAt: draft.generatedAt.toISOString().slice(0, 10),
+        ...(auto ? { autoActivatesAt: auto.activatesAt.slice(0, 10), postponed: auto.postponed } : {}),
+      }
     : null;
   return payload;
 }

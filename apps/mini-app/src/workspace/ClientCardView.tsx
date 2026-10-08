@@ -40,7 +40,7 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
   useEffect(load, [clientId]);
 
   // Assign the waiting draft (it becomes the client's plan and they are notified) or discard it.
-  const decideDraft = async (decision: "assign" | "discard") => {
+  const decideDraft = async (decision: "assign" | "discard" | "postpone") => {
     setBusy("draft"); setActionError(false);
     try {
       await api(`/api/v2/trainer/client/${clientId}/draft`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"decideClientDraft">({ decision }) });
@@ -121,8 +121,10 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
     {data.draft && <Panel tone="accent">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "cc_draft_eyebrow")}</span><h2>{t(lang, "cc_draft_title")}</h2></div></div>
       <p>{t(lang, "cc_draft_body", { days: data.draft.days, n: data.draft.exercises, date: data.draft.createdAt })}</p>
+      {data.draft.autoActivatesAt && <p className="muted">{t(lang, data.draft.postponed ? "cc_draft_postponed_line" : "cc_draft_auto_line", { date: data.draft.autoActivatesAt })}</p>}
       <div className="button-row">
         <button className="button button-light" disabled={busy === "draft"} onClick={() => void decideDraft("assign")}>{busy === "draft" ? t(lang, "saving_ellipsis") : t(lang, "cc_draft_assign")}</button>
+        {data.draft.autoActivatesAt && !data.draft.postponed && <button className="button button-ghost" disabled={busy === "draft"} onClick={() => void decideDraft("postpone")}>{t(lang, "cc_draft_postpone")}</button>}
         <button className="button button-ghost" disabled={busy === "draft"} onClick={() => void decideDraft("discard")}>{t(lang, "cc_draft_discard")}</button>
       </div>
     </Panel>}

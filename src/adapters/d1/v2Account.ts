@@ -6,6 +6,7 @@ import type { Env } from "../../types";
 import { r2Key } from "../../webapp/photoStorage";
 import { logError } from "../../log";
 import { nowIso } from "./shared";
+import { deactivateActivePlan } from "./v2Plans";
 
 export async function deleteUserData(env: Env, userId: number): Promise<void> {
   const db = env.DB;
@@ -106,7 +107,7 @@ export async function deleteUserData(env: Env, userId: number): Promise<void> {
   for (const clientId of clientIds) {
     // Same as unlinkClient() (v2Trainer.ts): the relationship rows go with the batch above.
     statements.push(db.prepare("UPDATE v2_accounts SET role='solo', updatedAt=? WHERE id=? AND role='client'").bind(nowIso(), clientId));
-    statements.push(db.prepare("UPDATE v2_plans SET active=0 WHERE accountId=? AND active=1").bind(clientId));
+    statements.push(deactivateActivePlan(db, clientId));
   }
   await db.batch(statements);
 }

@@ -20,6 +20,12 @@ import type { DB } from "./shared";
 import { nowIso } from "./shared";
 
 const WINDOW_HOURS = 24; // a retry hours later is a NEW action, not a duplicate of the first
+/** A workout save is the one action a client can hold for days: the Mini App queues it offline and
+ * replays it with the SAME key when the connection returns (apps/mini-app/src/logic/offlineSaves.ts),
+ * and the server accepts a day up to 14 days back. A replay after the default 24 h window would
+ * count as a new action: overwrite an edit made in between and fire the trainer notification and XP
+ * again. The window must cover the longest time a client can sit on a request, plus a day. */
+export const WORKOUT_SAVE_WINDOW_HOURS = 15 * 24;
 const CLAIM_STALE_MS = 30_000; // a request realistically never runs this long -- an older
 // "processing" row means the original claimant crashed between claiming and completing, so it's
 // safe to take over rather than leave the key permanently wedged until the 24h window lapses.
@@ -36,7 +42,7 @@ export type ClaimResult =
 
 /** Atomically claims (accountId, key) before the handler runs. See the module comment for why
  * this replaced a plain get-then-execute-then-record flow. */
-export async function claimIdempotencyKey(db: DB, userId: number, key: string): Promise<ClaimResult> {
+export async function claimIdempotencyKey(db: DB, userId: number, key: string, windowHours = WINDOW_HOURS): Promise<ClaimResult> {
   try {
     await db
       .prepare("INSERT INTO v2_idempotency (accountId, key, response, status, state, createdAt) VALUES (?, ?, '{}', 0, 'processing', ?)")
@@ -46,7 +52,7 @@ export async function claimIdempotencyKey(db: DB, userId: number, key: string): 
   } catch {
     // Assume a PK conflict -- the only realistic cause of an INSERT failure on this table. Read
     // the existing row back to decide what to tell the caller.
-    const cutoff = new Date(Date.now() - WINDOW_HOURS * 3_600_000).toISOString();
+    const cutoff = new Date(Date.now() - windowHours * 3_600_000).toISOString();
     let row: { response: string; status: number; state: string; createdAt: string } | null;
     try {
       row = await db
@@ -88,6 +94,12 @@ export async function completeIdempotencyClaim(db: DB, userId: number, key: stri
     .run();
 }
 
+/** Gives a claim back after a failed attempt, so a retry with the same key runs fresh instead of
+ * replaying the failure for the whole window. Only a claim that is still "processing" is removed. */
+export async function releaseIdempotencyClaim(db: DB, userId: number, key: string): Promise<void> {
+  await db.prepare("DELETE FROM v2_idempotency WHERE accountId = ? AND key = ? AND state = 'processing'").bind(userId, key).run();
+}
+
 /** Runs `run()` under an idempotency claim when `idemKey` is given (a plain passthrough when it
  * isn't). Centralizes the claim -> run -> complete flow so a handler doesn't re-implement the
  * three ClaimResult branches inline every time it needs this. */
@@ -96,15 +108,25 @@ export async function runIdempotent<T>(
   userId: number,
   idemKey: string | null | undefined,
   run: () => Promise<{ status: number; body: T }>,
+  opts: { windowHours?: number } = {},
 ): Promise<{ status: number; body: T | { error: string } }> {
   if (!idemKey) return run();
-  const claim = await claimIdempotencyKey(db, userId, idemKey).catch(() => ({ claimed: true }) as const);
+  const claim = await claimIdempotencyKey(db, userId, idemKey, opts.windowHours).catch(() => ({ claimed: true }) as const);
   if (!claim.claimed) {
     if (claim.cached) return { status: claim.cached.status, body: claim.cached.response as T };
     return { status: 409, body: { error: "processing" } }; // another attempt with this key is in flight
   }
-  const result = await run();
-  await completeIdempotencyClaim(db, userId, idemKey, result.status, result.body).catch(() => {});
+  let result: { status: number; body: T };
+  try {
+    result = await run();
+  } catch (err) {
+    await releaseIdempotencyClaim(db, userId, idemKey).catch(() => {});
+    throw err;
+  }
+  // A 5xx is the server failing, not an answer worth replaying: caching it would make a transient
+  // outage permanent for this key (for a workout save, 15 days). Release so the retry runs fresh.
+  if (result.status >= 500) await releaseIdempotencyClaim(db, userId, idemKey).catch(() => {});
+  else await completeIdempotencyClaim(db, userId, idemKey, result.status, result.body).catch(() => {});
   return result;
 }
 

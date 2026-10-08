@@ -3,7 +3,7 @@
 import { pruneInbox } from "../adapters/d1/v2Inbox";
 import { learnUnknownExercises } from "../exerciseMuscleLearning";
 import { rollupDailyMetrics } from "../dailyMetricsRollup";
-import { sweepStaleDrafts } from "../staleDrafts";
+import { sweepStaleDrafts, type Deliver } from "../staleDrafts";
 import { weeklyModelCheck } from "../aiModelWatch";
 import { isoDateMinus } from "../features/gamification/boards";
 import type { Env } from "../types";
@@ -15,9 +15,24 @@ import { pruneNotificationOutbox } from "../adapters/d1/v2Notifications";
 import { pruneIdempotencyKeys } from "../adapters/d1/v2Idempotency";
 import { computeBoards } from "../features/gamification/boards";
 import { logSchedulerError, type Sender } from "./shared";
+import { runOncePer } from "./runOncePer";
+import { isDurable, notify } from "../notify";
 
 // Push the owner an alert when something operationally wrong is happening (no need to open /report).
 // Each alert type is throttled to once per hour via config.alertState so it never spams.
+/** How the stale-draft sweep delivers: through the notification outbox when there is an env (a
+ * failed send retries and a block is recorded), and straight through the bot otherwise (the dry-run
+ * stand-in has no env). The outbox env is built from `db` on purpose: in the Durable Object's
+ * dry run `db` is the shadow database, and writing a real outbox row from there would take the
+ * dedup key and make the live cron skip the message as a duplicate. */
+export function draftDeliver(db: D1Database, bot: Sender, env?: Env): Deliver {
+  if (!env) {
+    return (m) => bot.api.sendMessage(m.chatId, m.text, m.extra as never).then(() => true, () => false);
+  }
+  const outboxEnv = { ...env, DB: db } as Env;
+  return (m) => notify(outboxEnv, bot, { userId: m.userId, chatId: m.chatId }, { kind: m.kind, key: m.key, text: m.text, extra: m.extra }).then(isDurable);
+}
+
 /** The account-wide (not per-user, not per-squad) jobs: owner alerts, the leaderboard cache,
  * and telemetry pruning. Extracted so the still-live cron path (below) and the dry-run
  * GlobalSchedulerDO (durable/globalScheduler.ts) run the EXACT same logic, not two copies that
@@ -38,7 +53,7 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
 
   // Trainer clients stuck on an unassigned first-plan draft: remind the trainer after a day,
   // activate it after three (staleDrafts.ts).
-  await sweepStaleDrafts(db, (chatId, text, extra) => bot.api.sendMessage(chatId, text, extra), Date.now(),
+  await sweepStaleDrafts(db, draftDeliver(db, bot, env), Date.now(),
     (lang, clientId, fallback) => (env ? appMarkup(env, t(lang, "nb_open_client"), "role", { client: clientId }) : undefined) ?? { inline_keyboard: [[{ text: t(lang, "cc_plan"), callback_data: fallback.replace("{id}", String(clientId)) }]] },
     (lang) => (env ? appMarkup(env, t(lang, "nb_open_today"), "today") : undefined))
     .catch((e) => logSchedulerError(db, "stale_drafts", e));
@@ -56,35 +71,27 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
   // same report ~5× → spam). They are now part of the on-demand owner report (buildOwnerReport).
 
   // Weekly telemetry pruning (90-day retention) — cheap no-op when already done this week.
-  const lastPrune = await getSetting(db, "last_log_prune").catch(() => null);
-  if (!lastPrune || Date.parse(lastPrune) < Date.now() - 7 * 86_400_000) {
+  await runOncePer(db, { key: "last_log_prune", period: { windowMs: 7 * 86_400_000 } }, async () => {
     const cutoff = new Date(Date.now() - 90 * 86_400_000);
-    await pruneOldLogs(db, cutoff.toISOString(), cutoff.toISOString().slice(0, 10)).catch((e) =>
-      logSchedulerError(db, "log_prune", e),
-    );
+    await pruneOldLogs(db, cutoff.toISOString(), cutoff.toISOString().slice(0, 10));
     await pruneAiCache(db).catch(() => {});
-    // Idempotency keys only ever need to survive their 24h replay window (see
-    // db/repos/idempotency.ts) -- riding the same weekly pass rather than a dedicated one.
+    // Idempotency keys only ever need to survive their replay window (see
+    // adapters/d1/v2Idempotency.ts) -- riding the same weekly pass rather than a dedicated one.
     await pruneIdempotencyKeys(db, cutoff.toISOString()).catch(() => {});
     // Sent/failed/blocked outbox rows — pending rows are excluded regardless of age (see
     // pruneNotificationOutbox), so this never deletes something still awaiting delivery.
     await pruneNotificationOutbox(db, cutoff.toISOString()).catch(() => {});
     // The Mini App feed keeps 60 days.
     await pruneInbox(db, new Date(Date.now() - 60 * 86_400_000).toISOString()).catch(() => {});
-    await setSetting(db, "last_log_prune", new Date().toISOString()).catch(() => {});
-  }
+  });
 
   // Daily product-metrics rollup (roadmap item 4 / docs/slos.md §4) — once per day, for
   // YESTERDAY (the last day guaranteed complete; "today" is still accumulating and would give
   // dau/retention/etc. a moving-target value that changes every time the pass reruns).
   // 20h, not 24h: an exact 24h minimum gap can drift a run later each day until it eventually
   // skips a calendar day; a shorter buffer keeps it comfortably once-daily without that drift.
-  const lastRollup = await getSetting(db, "last_daily_metrics_rollup").catch(() => null);
-  if (!lastRollup || Date.parse(lastRollup) < Date.now() - 20 * 3_600_000) {
-    const yesterday = isoDateMinus(new Date().toISOString().slice(0, 10), 1);
-    await rollupDailyMetrics(db, yesterday).catch((e) => logSchedulerError(db, "daily_metrics_rollup", e));
-    await setSetting(db, "last_daily_metrics_rollup", new Date().toISOString()).catch(() => {});
-  }
+  await runOncePer(db, { key: "last_daily_metrics_rollup", period: { windowMs: 20 * 3_600_000 } }, () =>
+    rollupDailyMetrics(db, isoDateMinus(new Date().toISOString().slice(0, 10), 1)));
 }
 
 async function checkOwnerAlerts(db: D1Database, bot: Sender): Promise<void> {

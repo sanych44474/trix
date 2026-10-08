@@ -1,6 +1,6 @@
 // Daily metrics rollup (roadmap item 4 / docs/slos.md §4) — no live Grafana wiring exists yet,
 // so this only tests that the numbers landing in `daily_metrics` are actually correct: bounded
-// day windows (not "since X through now"), retention cohort math, and the derived
+// day windows (not "since X through now"), the retention rows that must NOT be written, and the derived
 // skipped-workout definition (planned weekday elapsed with no completed row).
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -73,29 +73,19 @@ test("rollupDailyMetrics: new_users is bounded to exactly the target day", async
   assert.equal(await metric(db, "2026-06-10", "new_users"), 1);
 });
 
-test("rollupDailyMetrics: retention_dN is the fraction of the N-days-back cohort seen again today", async () => {
+// Retention has ONE definition: the cohort retention the owner sees (domain/cohorts.ts). The rollup
+// used to also write retention_d1/d7/d30 -- a second, unread definition built on lastSeenAt. This
+// pins that it stays gone, so the two cannot drift apart again.
+test("rollupDailyMetrics: writes no retention_dN rows, even for a cohort that would have had one", async () => {
   const db = newDb();
-  // Cohort onboarded exactly 7 days before the target date.
   await getOrCreateUser(db, 1, 1, "en", "Retained");
-  await getOrCreateUser(db, 2, 2, "en", "Churned");
   await setTimestamps(db, 1, { onboardedAt: "2026-06-03T09:00:00.000Z", lastSeenAt: "2026-06-10T09:00:00.000Z" });
-  await setTimestamps(db, 2, { onboardedAt: "2026-06-03T09:00:00.000Z", lastSeenAt: "2026-06-05T09:00:00.000Z" }); // not seen on target day
-
-  await rollupDailyMetrics(db, "2026-06-10");
-
-  assert.equal(await metric(db, "2026-06-10", "retention_d7"), 0.5);
-});
-
-test("rollupDailyMetrics: an empty cohort writes no retention row at all (not a misleading 0)", async () => {
-  const db = newDb();
-  await getOrCreateUser(db, 1, 1, "en", "Solo"); // never onboarded -> onboardedAt stays null
 
   await rollupDailyMetrics(db, "2026-06-10");
 
   const rows = await getDailyMetrics(db, "2026-06-10", "2026-06-10");
-  assert.equal(rows.some((r) => r.metric === "retention_d1"), false);
-  assert.equal(rows.some((r) => r.metric === "retention_d7"), false);
-  assert.equal(rows.some((r) => r.metric === "retention_d30"), false);
+  assert.ok(rows.some((r) => r.metric === "dau"), "the rest of the rollup still runs");
+  assert.equal(rows.some((r) => r.metric.startsWith("retention_")), false);
 });
 
 test("rollupDailyMetrics: skipped_workouts counts a planned weekday with no completed log, not an unplanned or logged one", async () => {

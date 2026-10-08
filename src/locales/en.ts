@@ -1449,6 +1449,7 @@ export const en = {
   plan_assigned: "✅ Plan assigned to {name}.",
   client_plan_assigned: "🎉 Your trainer assigned your plan! Open the app to see today's session.",
   draft_stale_trainer: "⏳ <b>{name}</b> has been waiting a day for a plan — the draft is ready but not assigned. Review and assign it, or it activates automatically {days} days after onboarding.",
+  draft_final_trainer: "⏰ The plan draft for <b>{name}</b> goes live automatically in about {hours} h. Review and assign it now, or open the client card and tap \"Wait 3 more days\" (available once).",
   draft_auto_client: "🎉 Your plan is active! Your trainer can still fine-tune it later. Open the app to see today's session.",
   draft_auto_trainer: "✅ The plan draft for <b>{name}</b> was activated automatically — the client had waited 3 days. You can still edit it.",
   msg_prompt: "Type your message to {name}:",

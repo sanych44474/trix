@@ -3,9 +3,9 @@
 // applyWorkoutSave), and the post-save UX (momentum recap, PR/badge celebration, trainer
 // notify, next-session preview). Extracted from bot.ts (god-file split; same barrel seam via
 // bot.ts's `export * from "./bot/workoutSave"`).
-import { InlineKeyboard } from "grammy";
+import { InlineKeyboard, type Api } from "grammy";
 import { logInfo } from "../log";
-import type { ExerciseMetric, Lang, LoggedExercise, PlanDay, SetEntry, UserDoc, Weekday } from "../types";
+import type { Env, ExerciseMetric, Lang, LoggedExercise, PlanDay, SetEntry, UserDoc, Weekday } from "../types";
 import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
 import { adoptLoggedWeights } from "../domain/startWeights";
 import {
@@ -23,7 +23,8 @@ import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { announceSquadPr } from "./squad";
 import { upcomingSessions } from "../render";
 import { badgeLabel, computeBoards } from "../features/gamification/boards";
-import { maybeCelebrateLevel } from "./aiDefer";
+import { advanceLevel } from "../features/gamification/level";
+import { notify } from "../notify";
 import { localCutoff } from "./report";
 import { reactToUser, type MyContext, HTML, type TKey, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "./keyboards";
@@ -180,6 +181,75 @@ export async function applyWorkoutSave(
   return { exercises, prExercises, prHit, freshBadges: fresh, totalWorkouts: total };
 }
 
+/** What a finished workout produces: the record-keeping outcome plus the level it earned. */
+export interface WorkoutCompletion extends WorkoutSaveOutcome {
+  level: number;
+  xp: number;
+  leveledUp: boolean;
+  /** A level_5 / level_10 badge newly awarded by this save. Kept apart from `freshBadges` because
+   * only the Mini App lists it in its response; the chat announces the level-up itself. */
+  levelBadge: string | null;
+}
+
+/**
+ * Everything a finished workout does, whichever surface saved it: the log and records
+ * (applyWorkoutSave), the level, the trainer's "your client trained" message and the squad's PR post.
+ * The chat (finalizeWorkoutLog) and the Mini App (webapp/workout.ts saveWorkout) both call this and
+ * only decide how to SAY the result. Before, each carried its own copy of the side effects, and the
+ * copies had drifted (see test/squad-pr-parity.test.ts for the first time that bit).
+ *
+ * Replay safety: the log upserts on (user, date), records only improve, badges are INSERT OR IGNORE,
+ * and the trainer message goes through the notification outbox under the key (date, client), so a
+ * second save of the same day -- an offline replay, an edit -- cannot notify the trainer twice. A
+ * past-date correction does not notify at all ("just trained" would be misleading).
+ *
+ * `api` is any sender of Telegram messages (grammY's ctx.api, or the raw-fetch one the Mini App
+ * uses); `defer` lets the chat post to the squad after its reply instead of before it.
+ */
+export async function completeWorkout(
+  env: Env,
+  user: UserDoc,
+  entries: WorkoutSaveEntry[],
+  o: {
+    date: string;
+    weekday: Weekday;
+    rawText: string;
+    isPastEdit?: boolean;
+    timing?: { durationSec?: number; restTotalSec?: number };
+    api: Pick<Api, "sendMessage">;
+    defer?: (work: Promise<unknown>) => void;
+  },
+): Promise<WorkoutCompletion> {
+  const isPastEdit = o.isPastEdit ?? false;
+  const outcome = await applyWorkoutSave(env.DB, user, entries, o.date, o.weekday, o.rawText, isPastEdit, o.timing);
+  const lv = await advanceLevel(env.DB, user);
+
+  if (!isPastEdit && user.role === "client" && user.trainerId) {
+    try {
+      const trainer = await getUser(env.DB, user.trainerId);
+      if (trainer) {
+        await notify(env, { api: o.api }, { userId: trainer._id, chatId: trainer.chatId }, {
+          kind: "trainer_workout_done",
+          key: `${o.date}:${user._id}`,
+          text: t(trainer.lang, "trainer_notify_done", { name: user.profile.name ?? `id ${user._id}`, n: outcome.exercises.length }),
+          extra: HTML,
+        });
+      }
+    } catch { /* the trainer message must never fail the save */ }
+  }
+
+  if (outcome.prHit) {
+    const pr = outcome.prHit;
+    // announceSquadPr swallows per-chat failures; the catch covers the lookup. The rows are already
+    // committed, so a squad post can never be allowed to fail the save.
+    const post = announceSquadPr(env.DB, o.api, user._id, cleanAi(pr.name), formatPrBest(pr)).catch(() => {});
+    if (o.defer) o.defer(post);
+    else await post;
+  }
+
+  return { ...outcome, level: lv?.level ?? 1, xp: lv?.xp ?? 0, leveledUp: lv?.leveledUp ?? false, levelBadge: lv?.freshBadge ?? null };
+}
+
 /** Persist a completed workout, update strength records, and send ONE consolidated coach recap
  * (roadmap item 6) instead of the up-to-4 separate messages this used to send (saved+summary,
  * PR, badges, next session): what was saved, PR/badges, per-key-lift "what to do next time"
@@ -203,7 +273,11 @@ export async function finalizeWorkoutLog(
     sets,
     ...(rpeByExercise.has(name) ? { rpe: rpeByExercise.get(name)! } : {}),
   }));
-  const outcome = await applyWorkoutSave(ctx.db, ctx.user, entries, date, weekday, rawText);
+  // The chat can log a past day too (cmdLogPast); a correction is not "just trained".
+  const isPastEdit = date !== localParts(ctx.user.profile.timezone).date;
+  const outcome = await completeWorkout(ctx.env, ctx.user, entries, {
+    date, weekday, rawText, isPastEdit, api: ctx.api, defer: (work) => ctx.waitUntil(work),
+  });
 
   await setMode(ctx, "idle"); // resets session to {mode} — also clears any logDraft
 
@@ -246,8 +320,7 @@ export async function finalizeWorkoutLog(
   const record = outcome.prExercises.length > 0;
   await reactToUser(ctx, record ? "🏆" : "🔥");
   await reply(ctx, sections.join("\n\n"), kb ?? menuBtn(lang), record ? "celebrate" : "fire");
-  await notifyTrainerWorkout(ctx, true, outcome.exercises.length);
-  await maybeCelebrateLevel(ctx);
+  if (outcome.leveledUp) await reply(ctx, t(lang, "levelup_msg", { level: outcome.level, xp: outcome.xp }), undefined, "celebrate");
 }
 
 /** Share + invite offered at a celebration moment (PR, badge, level-up). */
@@ -290,11 +363,7 @@ async function celebrationLines(ctx: MyContext, outcome: WorkoutSaveOutcome): Pr
     // and invite here is the whole reason the referral machinery exists — buried in a settings
     // menu it never fires, because nobody opens settings feeling proud.
     kb = celebrationShareKb(lang);
-    // …and if they're in a squad, the group hears about it without anyone having to brag. Sent
-    // past the response: a group post must never be able to fail the workout save behind it.
-    // Twin: src/webapp/workout.ts's saveWorkout does the same for a Mini App save — the two are
-    // pinned together by test/squad-pr-parity.test.ts.
-    ctx.waitUntil(announceSquadPr(ctx.db, ctx.api, ctx.user._id, cleanAi(prHit.name), formatPrBest(prHit)));
+    // The squad hears about it too, but that is completeWorkout's job now, for both surfaces.
   }
   if (fresh.length) {
     lines.push(t(lang, "badge_unlocked", { badges: fresh.map((c) => badgeLabel(lang, c)).join(", ") }));
