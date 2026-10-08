@@ -38,17 +38,10 @@ import { readJsonBody } from "./validate";
 import type { BankPlan, Env, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 
+import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|photo-request|interview-nudge|draft)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
 const MAX_TEXT = 2000;
-
-async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<void> {
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
-  }).catch(() => {});
-}
 
 /** "" clears (→ null); otherwise a trimmed string capped by validation. undefined = invalid. */
 function textField(v: unknown): string | null | undefined {

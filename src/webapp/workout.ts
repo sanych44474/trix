@@ -4,7 +4,7 @@
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
 import { parseRestSec } from "../domain/restTime";
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";
-import type { Api } from "grammy";
+import { rawTelegramApi } from "../adapters/telegram/rawApi";
 import { completeWorkout, type WorkoutSaveEntry } from "../bot/workoutSave";
 import { muscleGroupToEnum } from "../domain/exerciseDefaults";
 import { planRepsMid, planSetsCount, planWeight } from "../bot/guidedLog";
@@ -340,22 +340,6 @@ export interface SaveResult {
 
 const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
 
-/** The `sendMessage`-only surface announceSquadPr needs, over the raw Bot API — same reason the
- * trainer notify below uses fetch rather than grammY: this path is deliberately ctx-free and has
- * no Bot instance. The result is never read; a failed post must not disturb the save. */
-function tgApi(env: Env): { sendMessage: Api["sendMessage"] } {
-  return {
-    sendMessage: (async (chatId: number | string, text: string, other?: Record<string, unknown>) => {
-      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text, ...other }),
-      });
-      return undefined as never;
-    }) as Api["sendMessage"],
-  };
-}
-
 /** The Mini App's save. The work -- log, records, badges, level, trainer notification, squad post --
  * is completeWorkout (bot/workoutSave.ts), shared with the chat path; this only shapes the result
  * for the app. Celebrations are returned in the response instead of being sent to chat. */
@@ -366,7 +350,7 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
   const isPastEdit = date !== local.date;
 
   const saveEntries: WorkoutSaveEntry[] = entries.map((e) => ({ name: e.name, sets: e.sets, rpe: e.rpe, ...(e.planName ? { planName: e.planName } : {}) }));
-  const done = await completeWorkout(env, user, saveEntries, { date, weekday, rawText: buildRawText(entries), isPastEdit, timing, api: tgApi(env) });
+  const done = await completeWorkout(env, user, saveEntries, { date, weekday, rawText: buildRawText(entries), isPastEdit, timing, api: rawTelegramApi(env) });
   // The unsaved-logger copy for this day is now superseded by the real log.
   await deleteWorkoutDraft(env.DB, user._id, date).catch(() => {});
   const fresh = done.levelBadge ? [...done.freshBadges, done.levelBadge] : done.freshBadges;

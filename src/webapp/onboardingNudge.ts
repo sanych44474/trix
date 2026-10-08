@@ -8,16 +8,8 @@ import { obKeyboard, obProgress, obSteps } from "../bot/onboarding";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "../bot/onboardingApp";
 import type { Env, UserDoc } from "../types";
 
+import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 type PromptKey = "cc_intv_remind_text" | "owner_intv_remind_text";
-
-async function tgSend(env: Env, chatId: number, text: string, replyMarkup?: unknown): Promise<boolean> {
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
-  }).catch(() => null);
-  return !!res?.ok;
-}
 
 export async function nudgeOnboarding(env: Env, target: UserDoc, promptKey: PromptKey): Promise<{ sent: boolean; alreadyOnboarded?: boolean }> {
   if (target.onboarded) return { sent: false, alreadyOnboarded: true };

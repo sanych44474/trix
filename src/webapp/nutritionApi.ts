@@ -19,18 +19,10 @@ import { logInfo } from "../log";
 import type { Env, MealEntry, NutritionTargets, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 
+import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 // Same "the webview can't offer a file download, so push it to the viewer's own Telegram chat"
 // pattern extrasApi.ts/settingsApi.ts/trainerApi.ts already each define locally -- this endpoint
 // gets its own copy rather than a shared import, matching that convention.
-async function tgSend(env: Env, chatId: number, text: string): Promise<boolean> {
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
-  }).catch(() => null);
-  return !!res?.ok;
-}
-
 function totals(meals: MealEntry[]) {
   return meals.reduce(
     (a, m) => ({ kcal: a.kcal + (m.kcal || 0), protein: a.protein + (m.protein || 0), fats: a.fats + (m.fats || 0), carbs: a.carbs + (m.carbs || 0) }),
