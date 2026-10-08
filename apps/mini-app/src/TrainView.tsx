@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, typedBody } from "./api";
 import type { Dashboard, SaveResponse, WorkoutCopyExercise, WorkoutHistoryItem, WorkoutToday } from "./types";
 import { t, type Lang } from "./i18n";
-import { density, fmtDuration, restMetricKey } from "./logic/rest";
+import { clampRest, density, fmtDuration, restMetricKey } from "./logic/rest";
 import { hydrateSaved } from "./logic/hydrate";
 import {
   buildSaveEntries, chooseStart, copyToLoggerExercises, countFilledSets, DENSITY_MIN_SESSION_SEC, DRAFT_KEY,
@@ -81,6 +81,10 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
   const [historyBusy, setHistoryBusy] = useState<string | null>(null);
   const [missedDate, setMissedDate] = useState("");
   const [restEditFor, setRestEditFor] = useState<number | null>(null);
+  // A rest picked on an exercise whose plan sets its own rest: applies to that exercise for this
+  // session (by name, so it survives a swap of another slot). Picking used to change only the
+  // global default, which the plan's value then overrode -- the chip looked dead.
+  const [restOverride, setRestOverride] = useState<Record<string, number>>({});
   const [swapFor, setSwapFor] = useState<number | null>(null);
   const [swapChoices, setSwapChoices] = useState<Array<{ id: string; name: string }>>([]);
   const [planNotice, setPlanNotice] = useState<string | null>(null);
@@ -429,7 +433,7 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
       {workout.exercises.length > 1 && <div className="button-row"><button className="button button-ghost" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button></div>}
       <div className="exercise-list">
         {workout.exercises.map((exercise) => {
-          const restSec = exercise.restSec ?? session.restPrefs[restMetricKey(exercise.metric)];
+          const restSec = clampRest(restOverride[exercise.name] ?? exercise.restSec ?? session.restPrefs[restMetricKey(exercise.metric)]);
           return (
             <ExerciseCard
               key={`${exercise.index}-${exercise.name}`}
@@ -445,6 +449,10 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
               onStartRest={session.startRest}
               onToggleRestPrefs={() => setRestEditFor((current) => current === exercise.index ? null : exercise.index)}
               onPatchRestPrefs={session.patchRestPrefs}
+              onPickRest={(sec) => {
+                if (exercise.restSec != null) setRestOverride((cur) => ({ ...cur, [exercise.name]: sec }));
+                else session.patchRestPrefs({ [restMetricKey(exercise.metric)]: sec });
+              }}
               onFillPlanned={() => fillPlanned(exercise.index)}
               onFillLast={() => fillLast(exercise.index)}
               onOpenSwap={() => void openSwap(exercise)}

@@ -1,7 +1,7 @@
 import { TechniqueFrames } from "./TechniqueFrames";
 import { FormCheck } from "../media/FormCheck";
 import { t, type Lang } from "../i18n";
-import { restMetricKey, type RestPrefs } from "../logic/rest";
+import type { RestPrefs } from "../logic/rest";
 import { isExerciseFilled, type LoggerExercise, type LoggerSet } from "../logic/logger";
 import { Card } from "./ui";
 
@@ -23,6 +23,8 @@ export interface ExerciseCardProps {
   onStartRest: (seconds: number, label: string) => void;
   onToggleRestPrefs: () => void;
   onPatchRestPrefs: (patch: Partial<RestPrefs>) => void;
+  /** A rest chip: this exercise's rest (an override when the plan sets one, else the default). */
+  onPickRest: (sec: number) => void;
   onFillPlanned: () => void;
   onFillLast: () => void;
   onOpenSwap: () => void;
@@ -44,7 +46,6 @@ export function ExerciseCard(props: ExerciseCardProps) {
   const { lang, exercise, restSec, restPrefs } = props;
   const sets = exercise.setsDone ?? [];
   const completed = isExerciseFilled(exercise);
-  const prefKey = restMetricKey(exercise.metric);
   return (
     <Card tone={completed ? "muted" : "default"}>
       <div className="exercise-head">
@@ -62,11 +63,11 @@ export function ExerciseCard(props: ExerciseCardProps) {
       {props.restPrefsOpen && (
         <div className="rest-prefs">
           {REST_CHOICES.map((sec) => (
-            <button type="button" key={sec} className={restPrefs[prefKey] === sec ? "rest-chip selected" : "rest-chip"} onClick={() => props.onPatchRestPrefs({ [prefKey]: sec })}>{sec}s</button>
+            <button type="button" key={sec} className={restSec === sec ? "rest-chip selected" : "rest-chip"} onClick={() => props.onPickRest(sec)}>{sec}s</button>
           ))}
           <button type="button" className={restPrefs.auto ? "rest-chip selected" : "rest-chip"} onClick={() => props.onPatchRestPrefs({ auto: !restPrefs.auto })}>{t(lang, "train_rest_auto")}</button>
           <button type="button" className={restPrefs.sound ? "rest-chip selected" : "rest-chip"} onClick={() => props.onPatchRestPrefs({ sound: !restPrefs.sound })}>{t(lang, "train_rest_sound")}</button>
-          {exercise.restSec != null && <small className="muted">{t(lang, "train_rest_plan_wins")}</small>}
+          {exercise.restSec != null && <small className="muted">{t(lang, "train_rest_plan_hint", { sec: exercise.restSec })}</small>}
         </div>
       )}
       <p className="muted">

@@ -525,3 +525,11 @@ button { cursor: pointer; }
 :root[data-theme="contrast"] .strava-button { background: #b23a00; }
 :root[data-theme="contrast"] .button.danger { color: var(--bad); }
 :root[data-theme="contrast"] .chip.active, :root[data-theme="contrast"] .owner-tab.active { color: #fff; }
+.ready-programs { display: grid; gap: 10px; }
+.rp-item { border-top: 1px solid var(--line); padding: 10px 0; }
+.rp-item:first-child { border-top: 0; }
+.rp-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: none; border: 0; color: var(--text); text-align: left; padding: 0; cursor: pointer; font: inherit; }
+.rp-head span:first-child { display: grid; gap: 3px; min-width: 0; }
+.rp-head small { color: var(--muted); font-size: 12px; }
+.rp-body { display: grid; gap: 10px; margin-top: 10px; }
+.rp-day strong { font-size: 13px; }

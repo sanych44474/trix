@@ -2,6 +2,7 @@
 import { FormCheck } from "./media/FormCheck";
 import { ImportCsv } from "./media/ImportCsv";
 import { SquadsCard } from "./Squads";
+import { ReadyPrograms } from "./ReadyPrograms";
 import { FindTrainer } from "./FindTrainer";
 import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
@@ -119,6 +120,12 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
       <div className="section-head"><div><span className="eyebrow">{t(lang, "exlib_eyebrow")}</span><h2>{t(lang, "library_card_title")}</h2></div><span className="action-arrow">📚</span></div>
       <p>{t(lang, "library_card_body")}</p>
       <div className="button-row"><button className="button button-light" onClick={onOpenLibrary}>{t(lang, "library_open_btn")}</button></div>
+    </Card>
+
+    <Card>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "rp_eyebrow")}</span><h2>{t(lang, "rp_title")}</h2></div><span className="action-arrow">📋</span></div>
+      <p className="muted">{t(lang, "rp_detail")}</p>
+      <ReadyPrograms lang={lang} />
     </Card>
 
     <Card>

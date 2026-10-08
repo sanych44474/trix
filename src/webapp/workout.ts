@@ -2,6 +2,7 @@
 // ctx-free save that mirrors the bot's finalizeWorkoutLog (log + strength records + badges +
 // level bookkeeping + trainer notify) so both surfaces stay in parity. Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
+import { parseRestSec } from "../domain/restTime";
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";
 import type { Api } from "grammy";
 import { applyWorkoutSave, type WorkoutSaveEntry } from "../bot/workoutSave";
@@ -59,7 +60,7 @@ export interface WorkoutTodayExercise {
   target?: { w: number; r: number; lastW: number; lastR: number; step: TargetStep };
   ssGroup?: string; // superset/circuit group letter (shared with adjacent exercises)
   wmode?: "total" | "perSide" | "perHand"; // how the weight is entered (label only; number as-is)
-  restSec?: number; // planned rest between sets in seconds, parsed from PlanExercise.rest ("90s")
+  restSec?: number; // planned rest between sets in seconds, parsed from PlanExercise.rest ("90s", "2-3 min") by domain/restTime.ts
 }
 
 export interface WorkoutTodayPayload {
@@ -91,7 +92,7 @@ export function assembleWorkoutToday(
   const exercises = (day?.exercises ?? []).map((ex, i) => {
     const video = videos?.get(exerciseVideoKey(ex));
     const technique = ex.technique ? cleanAi(ex.technique).trim() : "";
-    const restSec = ex.rest ? parseInt(ex.rest, 10) : NaN;
+    const restSec = parseRestSec(ex.rest);
     return {
       index: i,
       name: ex.name,
@@ -107,7 +108,7 @@ export function assembleWorkoutToday(
       ...(ex.canonicalName && ex.canonicalName !== ex.name ? { canonicalName: ex.canonicalName } : {}),
       ...(video?.url ? { videoUrl: video.url } : {}),
       ...(video?.title ? { videoTitle: video.title } : {}),
-      ...(restSec > 0 ? { restSec } : {}),
+      ...(restSec ? { restSec } : {}),
     };
   });
   return {
