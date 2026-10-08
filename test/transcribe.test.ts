@@ -10,11 +10,12 @@ function envWith(run: (m: string, o: unknown) => Promise<{ text?: string }>, ext
   return { AI: { run }, ...extra } as unknown as Env;
 }
 
-test("workersaiTranscribe: returns trimmed text and uses the default model", async () => {
+test("workersaiTranscribe: returns trimmed text, its neuron cost, and uses the default model", async () => {
   let usedModel = "";
   const env = envWith(async (m) => { usedModel = m; return { text: "  жим 80 3x8  " }; });
   const out = await workersaiTranscribe(env, audio, "uk");
-  assert.equal(out, "жим 80 3x8");
+  assert.equal(out.text, "жим 80 3x8");
+  assert.ok(out.neurons > 0, "the clip's neurons are reported for the daily budget");
   assert.equal(usedModel, "@cf/openai/whisper-large-v3-turbo");
 });
 

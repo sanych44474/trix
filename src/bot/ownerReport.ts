@@ -1,6 +1,8 @@
 // The owner report: overview, engagement, retention, AI, trainers, onboarding, errors and users
 // sections, the metrics JSON and the error digest, plus their text-chart helpers. Split out of
 // owner.ts; owner.ts re-exports everything here.
+import { dailyBudget, neuronsToday } from "../ai/budget";
+import { knowledgeQueryUsage } from "../knowledge/search";
 import type { Env } from "../types";
 import { aiCallStatsSince, aiTokensByKindSince, aiUsageSince, errorStatsSince, recentErrors } from "../adapters/d1/v2AiTelemetry";
 import { cohortMembersSince, countAdjustmentsSince, countPlanSourcesSince, dailyActiveUsers, engagementSince, eventCountsByUser, eventStatsSince, listUsersBrief } from "../adapters/d1/v2Analytics";
@@ -200,7 +202,7 @@ export async function orAI(db: D1Database, env?: Env): Promise<string> {
     ["groq", "Groq (fallback)", "GROQ_API_KEY"],
     ["ollama", "Ollama (fallback)", "OLLAMA_API_KEY"],
     ["openrouter", "OpenRouter (fallback)", "OPENROUTER_API_KEY"],
-    ["workersai", "Workers AI (fallback)", ""],
+    ["workersai", "Workers AI", ""],
   ];
   const keyCount = (k: string) => (env && k ? splitKeys((env as unknown as Record<string, string>)[k]).length : 0);
   const usageRows: (string | number)[][] = PROVIDERS.filter(([p, , k]) => okBy.has(p) || failBy.has(p) || keyCount(k) > 0).map(
@@ -228,6 +230,11 @@ export async function orAI(db: D1Database, env?: Env): Promise<string> {
     "📋 <b>AI calls by task (7d)</b>",
     monoTable(["Task", "calls", "tok"], taskRows.length ? taskRows : [["—", 0, "0"]]),
   ];
+  // Free-tier meters: Workers AI neurons today (resets 00:00 UTC) and AI Search queries this month.
+  if (env) {
+    const [neurons, kb] = await Promise.all([neuronsToday(db), knowledgeQueryUsage(db, env)]);
+    lines.push("", "🧮 <b>Free limits</b>", `• Workers AI today: ~${neurons} / ${dailyBudget(env)} neurons (free 10k/day)`, `• Knowledge search this month: ${kb.used} / ${kb.cap} queries`);
+  }
   if (callStats.length) {
     const totalCalls = callStats.reduce((s, c) => s + c.calls, 0);
     const totalFallbacks = callStats.reduce((s, c) => s + c.fallbacks, 0);

@@ -60,6 +60,7 @@ export function OwnerWorkspace({ lang }: { lang: Lang }) {
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <ReleaseBroadcastPanel lang={lang} />
     <AnnouncePanel lang={lang} />
+    <PromoImagePanel lang={lang} />
     {/* All sections at once as a grid of icon chips -- the old one-line scroller hid the last
         tabs off-screen on a phone. */}
     <nav className="owner-tabs" aria-label={t(lang, "owner_ops_eyebrow")}>
@@ -162,5 +163,30 @@ export function AnnouncePanel({ lang }: { lang: Lang }) {
             </>
           : <button className="button button-ghost" disabled={!text.trim()} onClick={() => setConfirm(true)}>{t(lang, progress ? "owner_announce_continue" : "owner_announce_send")}</button>}
     </div>
+  </Panel>;
+}
+
+// A promo / story picture from a prompt (FLUX on Workers AI); it arrives in the owner's chat.
+export function PromoImagePanel({ lang }: { lang: Lang }) {
+  const [prompt, setPrompt] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<"sent" | "budget" | "error" | null>(null);
+  const make = async () => {
+    setBusy(true); setStatus(null);
+    try {
+      const r = await api<{ ok: boolean }>("/api/v2/owner/image", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"ownerImage">({ prompt: prompt.trim() }) });
+      setStatus(r.ok ? "sent" : "error");
+    } catch (err) {
+      setStatus((err as { status?: number })?.status === 429 ? "budget" : "error");
+    } finally { setBusy(false); }
+  };
+  return <Panel>
+    <div className="section-head"><div><span className="eyebrow">{t(lang, "owner_image_eyebrow")}</span><h2>{t(lang, "owner_image_title")}</h2></div></div>
+    <textarea className="owner-announce" value={prompt} maxLength={1000} rows={3} placeholder={t(lang, "owner_image_ph")} onChange={(e) => setPrompt(e.target.value)} />
+    {status && <p className="muted">{t(lang, status === "sent" ? "owner_image_sent" : status === "budget" ? "owner_image_budget" : "generic_error")}</p>}
+    <div className="button-row">
+      <button className="button button-primary" disabled={busy || prompt.trim().length < 3} onClick={() => void make()}>{busy ? "…" : t(lang, "owner_image_make")}</button>
+    </div>
+    <p className="muted">{t(lang, "owner_image_hint")}</p>
   </Panel>;
 }

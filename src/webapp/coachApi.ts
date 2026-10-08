@@ -17,6 +17,7 @@
 // client role mute in the Mini App: no AI coach, and no way to reach their trainer either.
 import { appMarkup } from "../notify/appKeyboard";
 import { aiJSON, aiText } from "../ai/index";
+import { knowledgeBlock, searchKnowledge } from "../knowledge/search";
 import * as P from "../ai/prompts";
 import { coachContext } from "../bot/coach";
 import { storeFeedback } from "../bot/feedbackIntake";
@@ -159,9 +160,10 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     .filter((h): h is { role: string; text: string } => !!h && typeof h === "object" && typeof (h as { text?: unknown }).text === "string")
     .map((h) => `${h.role === "coach" ? "Coach" : "User"}: ${h.text.slice(0, 600)}`);
   const userMsg = history.length ? `Earlier in this chat:\n${history.join("\n")}\n\nNow: ${question}` : question;
+  const knowledge = await searchKnowledge(env, env.DB, question, user.lang === "en" ? "en" : "uk");
   try {
     const result = await aiJSON<P.CoachEditResult>(env, {
-      system: P.coachEditSystem(user.lang, user.profile, await coachContext({ db: env.DB }, user)),
+      system: P.coachEditSystem(user.lang, user.profile, await coachContext({ db: env.DB }, user)) + knowledgeBlock(knowledge),
       user: userMsg,
       schema: P.COACH_EDIT_SCHEMA,
       temperature: 0.35,
@@ -176,7 +178,7 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     );
   } catch {
     // The structured call failed on every provider — still answer in plain text.
-    const answer = await aiText(env, { system, user: userMsg, temperature: 0.6, kind: "coach", db: env.DB, userId: user._id }).catch(() => "");
+    const answer = await aiText(env, { system: system + knowledgeBlock(knowledge), user: userMsg, temperature: 0.6, kind: "coach", db: env.DB, userId: user._id }).catch(() => "");
     return Response.json({ answer: cleanAi(answer).slice(0, 1500), actions: [] }, { headers: { "cache-control": "no-store" } });
   }
 }

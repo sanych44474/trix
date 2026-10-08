@@ -96,7 +96,7 @@ export async function handleMediaApi(req: Request, url: URL, env: Env): Promise<
     if (!audio) return bad("bad request");
     if (audio.size > MAX_AUDIO_BYTES) return bad("too_big");
     try {
-      const text = (await aiTranscribe(env, await audio.arrayBuffer(), audio.type || "audio/webm", user.lang)).trim().slice(0, 1000);
+      const text = (await aiTranscribe(env, await audio.arrayBuffer(), audio.type || "audio/webm", user.lang, env.DB)).trim().slice(0, 1000);
       logInfo("voice_transcribed", { source: "webapp", empty: !text });
       return Response.json({ text });
     } catch (err) {

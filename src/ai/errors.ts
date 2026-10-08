@@ -66,4 +66,6 @@ export interface GenInput {
                        // stop starting new attempts past it so the chain can still reach fallbacks
   onUsage?: (totalTokens: number) => void; // reports token usage of the SUCCESSFUL generation
   onPartial?: (textSoFar: string) => void; // stream: called with the accumulated text as it arrives
+  workersaiModels?: string[]; // Workers AI models for this call's tier (ai/models.ts), in order
+  onNeurons?: (model: string, neurons: number) => void; // Workers AI: estimated spend of the answer
 }
