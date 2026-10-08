@@ -258,9 +258,11 @@ test("listActivePlans / countActivePlans / planStatusByUser", async () => {
   assert.deepEqual(status.get(22), { active: false, draft: true });
 });
 
-test("listPlanBank: empty table (unseeded) returns []", async () => {
+test("listPlanBank: an unseeded table still offers the ready-program catalog", async () => {
   const db = newDb();
-  assert.deepEqual(await listPlanBank(db), []);
+  const entries = await listPlanBank(db);
+  assert.ok(entries.length >= 45);
+  assert.ok(entries.every((e) => e.id.startsWith("catalog:")), "nothing from the empty table");
 });
 
 // ---------- plan adjustments ----------

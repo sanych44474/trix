@@ -30,6 +30,7 @@
 // id, batch the children) — each phase is atomic on its own via db.batch(), but a crash between
 // phases could in principle leave a plan row with no days yet. Accepted as consistent with that
 // existing precedent rather than a new risk introduced here.
+import { catalogBankEntries } from "../../domain/programCatalog";
 import { recordInbox } from "./v2Inbox";
 import type {
   ExerciseMetric,
@@ -411,7 +412,13 @@ export async function deleteDraftPlan(db: DB, userId: number): Promise<boolean> 
 
 /** All bank entries (small table, ~144 rows). Returns [] if the table isn't seeded yet so the
  * bot falls back to AI generation cleanly — same as legacy listPlanBank. */
+/** The pre-generated bank (v2_plan_bank) plus the hand-written ready programs
+ *  (domain/programCatalog.ts), which ship with the code and need no seeding. */
 export async function listPlanBank(db: DB): Promise<PlanBankEntry[]> {
+  return [...(await listStoredPlanBank(db)), ...catalogBankEntries()];
+}
+
+async function listStoredPlanBank(db: DB): Promise<PlanBankEntry[]> {
   try {
     const r = await db.prepare("SELECT * FROM v2_plan_bank").all<V2PlanBankRow>();
     return (r.results ?? []).map((row) => ({

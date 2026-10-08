@@ -19,6 +19,7 @@ import { handleCoachApi } from "./coachApi";
 import { handleBuddyApi } from "./buddyApi";
 import { handleMediaApi } from "./mediaApi";
 import { handleChatApi } from "./chatApi";
+import { handleProgramsApi } from "./programsApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handleAppEventApi, handlePhotoApi } from "./miscApi";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
@@ -69,6 +70,7 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/library", legacy: "/api/library", handler: handleExtrasApi },
   { prefix: "/api/v2/squads", legacy: "/api/squads", handler: handleSquadsApi },
   { prefix: "/api/v2/chat", legacy: "/api/chat", handler: handleChatApi },
+  { prefix: "/api/v2/programs", legacy: "/api/programs", handler: handleProgramsApi },
   { prefix: "/api/v2/media", legacy: "/api/media", handler: handleMediaApi },
   { prefix: "/api/v2/buddy", legacy: "/api/buddy", handler: handleBuddyApi },
   { prefix: "/api/v2/challenges", legacy: "/api/challenges", handler: handleChallengesApi },

@@ -1092,6 +1092,69 @@ paths:
                         next: {type: [integer, 'null']}
                   required: [data]
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/programs:
+    get:
+      operationId: listReadyPrograms
+      description: The 45 ready programs (gym, dumbbells, no equipment; three load levels each) in the viewer's language.
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [role, programs]
+                      properties:
+                        role: {type: string, enum: [solo, trainer, client]}
+                        programs:
+                          type: array
+                          items: {$ref: '#/components/schemas/ReadyProgram'}
+                  required: [data]
+    post:
+      operationId: applyReadyProgram
+      description: Make a ready program the viewer's active plan, adapted to their body, records and training days. Not for a trainer's client (403).
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: {type: string, maxLength: 60}
+      responses:
+        '200':
+          description: Applied
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok, name, weekdays]
+                      properties:
+                        ok: {type: boolean}
+                        name: {type: string}
+                        weekdays:
+                          type: array
+                          items: {type: integer, minimum: 1, maximum: 7}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/chat:
     get:
       operationId: getChatThread
@@ -3008,6 +3071,34 @@ components:
             p: {type: number}
             f: {type: number}
             c: {type: number}
+    ReadyProgram:
+      type: object
+      required: [id, place, audience, level, goal, daysPerWeek, minutes, name, summary, days]
+      properties:
+        id: {type: string}
+        place: {type: string, enum: [gym, dumbbells, bodyweight]}
+        audience: {type: string, enum: [men, women, all]}
+        level: {type: string, enum: [beginner, intermediate, advanced]}
+        goal: {type: string, enum: [fatloss, muscle, recomp, strength, endurance]}
+        daysPerWeek: {type: integer}
+        minutes: {type: integer}
+        name: {type: string}
+        summary: {type: string}
+        days:
+          type: array
+          items:
+            type: object
+            required: [title, exercises]
+            properties:
+              title: {type: string}
+              exercises:
+                type: array
+                items:
+                  type: object
+                  required: [name, sets]
+                  properties:
+                    name: {type: string}
+                    sets: {type: string}
     ChatThread:
       type: object
       required: [peer, messages]

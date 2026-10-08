@@ -73,6 +73,7 @@ export type SchedulePayload = Schemas["SchedulePayload"];
 export type FinancePayload = Schemas["FinancePayload"];
 export type CoachThread = Schemas["CoachThread"];
 export type ChatThread = Schemas["ChatThread"];
+export type ReadyProgram = Schemas["ReadyProgram"];
 export type ClientCardPayload = Schemas["ClientCardPayload"];
 export type OwnerUsers = Schemas["OwnerUsers"];
 
