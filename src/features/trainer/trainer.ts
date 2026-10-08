@@ -423,10 +423,10 @@ export async function cmdTrainerReport(ctx: MyContext) {
   // Retention snapshot: active in the last 7 days / total clients.
   const todayStr = localParts(ctx.user.profile.timezone).date;
   const active7 = clients.filter((c) => c.lastSeenAt && c.lastSeenAt.toISOString().slice(0, 10) >= isoDateMinus(todayStr, 7)).length;
-  const retentionPct = clients.length ? Math.round((active7 / clients.length) * 100) : 0;
+  const activePct = clients.length ? Math.round((active7 / clients.length) * 100) : 0;
   const biz = [
     `💰 <b>${t(lang, "tr_biz")}</b>`,
-    `• ${t(lang, "tr_biz_clients")}: <b>${clients.length}</b> · ${t(lang, "tr_biz_active")}: <b>${active7}</b> (${retentionPct}%)`,
+    `• ${t(lang, "tr_biz_clients")}: <b>${clients.length}</b> · ${t(lang, "tr_biz_active")}: <b>${active7}</b> (${activePct}%)`,
     "",
   ].join("\n");
   const zero = { workouts: 0, checkins: 0, nutrition: 0, steps: 0 };
