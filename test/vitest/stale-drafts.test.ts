@@ -36,7 +36,7 @@ describe("sweepStaleDrafts", () => {
     await plan(9104, 1, "draft", new Date(now - 1 * H).toISOString()); // no trainer → activate now
 
     const sent: Array<[number, string]> = [];
-    const send = async (chatId: number, text: string) => { sent.push([chatId, text]); };
+    const send = async (m: { chatId: number; text: string }) => { sent.push([m.chatId, m.text]); return true; };
     expect(await sweepStaleDrafts(env.DB, send, now)).toEqual({ reminded: 1, warned: 0, activated: 2 });
     expect(sent.filter(([c]) => c === 9100)).toHaveLength(2); // reminder for 9101 + auto-activation note for 9102
     expect(sent.some(([c]) => c === 9102) && sent.some(([c]) => c === 9104)).toBe(true);

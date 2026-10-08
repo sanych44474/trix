@@ -33,7 +33,7 @@ export async function advanceMesocycleWeek(p: UserPass): Promise<void> {
 }
 
 export async function weeklyReport(p: UserPass): Promise<void> {
-  const { env, bot, user, pass, db, lang, tz, date, markSent, send } = p;
+  const { env, user, pass, db, lang, tz, date, markSent, send } = p;
   const ownerChatId = await getOwnerChatId(db);
   if (ownerChatId !== undefined && user.chatId === ownerChatId) {
     try {
@@ -134,9 +134,8 @@ export async function weeklyReport(p: UserPass): Promise<void> {
     // a leaderboard nudge congratulating nothing just teaches them to ignore the bot.
     if (rank || streak > 0) {
       const boardKb = p.appKb([[{ text: t(lang, "app_log_btn"), view: "train" }]]);
-      await bot.api
-        .sendMessage(user.chatId, t(lang, "weekly_nudge", { rank: rank || "—", streak }) + rankLine, { ...HTML, ...(boardKb ? { reply_markup: boardKb } : {}) })
-        .catch((e) => console.error("nudge send", e));
+      // Through the outbox (p.send): a refused send retries instead of being swallowed by a console line.
+      await send(t(lang, "weekly_nudge", { rank: rank || "—", streak }) + rankLine, { ...HTML, ...(boardKb ? { reply_markup: boardKb } : {}) });
     }
   }
   } catch (err) {

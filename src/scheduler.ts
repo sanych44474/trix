@@ -1,5 +1,6 @@
 import { Bot, } from "grammy";
-import { deliverDueNotifications, enqueueAndDeliver, type DeliveryResult } from "./schedulerOutbox";
+import { deliverDueNotifications } from "./schedulerOutbox";
+import { isDurable, notify, type DeliveryResult } from "./notify";
 import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "./types";
@@ -244,7 +245,7 @@ async function runScheduleInner(env: Env): Promise<void> {
   // log pruning above) so it always processes the week that just ended, exactly once, on the
   // first hourly tick after the week rolls over.
   const thisWeekKey = isoWeekKey(utcNow.date);
-  await runOncePer(db, { key: "last_buddy_duel_week", period: { periodKey: thisWeekKey } }, () => processBuddyDuels(db, bot, utcNow.date));
+  await runOncePer(db, { key: "last_buddy_duel_week", period: { periodKey: thisWeekKey } }, () => processBuddyDuels({ ...env, DB: db }, bot, utcNow.date));
 
   // Squad recap — one post per group chat, once per ISO week, covering the week that just
   // ended. Squads are chat-scoped, not user-scoped, so this sits outside the per-user loop.
@@ -348,11 +349,9 @@ async function runScheduleInner(env: Env): Promise<void> {
       // question the bot never asked. Enqueue-and-deliver also means a transient failure retries
       // from the outbox instead of being lost, and an un-marked user is simply picked up again on
       // the next tick (a duplicate opener being the worst case, not a silent dead end).
-      const delivered = await enqueueAndDeliver(env, bot, {
-        userId: u._id,
-        chatId: u.chatId,
+      const delivered = await notify(env, bot, { userId: u._id, chatId: u.chatId }, {
         kind: "comeback_opener",
-        idempotencyKey: `${nowIso.slice(0, 10)}:comeback:${u._id}`,
+        key: `${nowIso.slice(0, 10)}:comeback:${u._id}`,
         text: `${t(u.lang, "vacation_ended")}\n\n${t(u.lang, "comeback_q_feel")}`,
         extra: HTML,
       });
@@ -421,11 +420,9 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     // defense in depth against a double-enqueue, not the primary dedup (that's the cutover
     // mutual-exclusion flag, durable/cutover.ts, which decides whether this call happens at all).
     const idempotencyKey = `${date}:${text.slice(0, 200)}`;
-    const result = await enqueueAndDeliver(env, bot, {
-      userId: user._id,
-      chatId: user.chatId,
+    const result = await notify(env, bot, { userId: user._id, chatId: user.chatId }, {
       kind: "reminder",
-      idempotencyKey,
+      key: idempotencyKey,
       text,
       extra: extra ?? HTML,
     }).catch((e) => {
@@ -437,7 +434,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   };
   // Sends to someone OTHER than the user this pass is about (their trainer, their inviter). The
   // `send` closure above is bound to user.chatId, which is why these used to bypass the outbox
-  // entirely — enqueueAndDeliver takes the recipient explicitly, so they no longer have to.
+  // entirely — notify() takes the recipient explicitly, so they no longer have to.
   // The idempotency key names the SUBJECT (this user), not the recipient: two different clients'
   // at-risk alerts to the same trainer on the same day must not collapse into one row.
   const sendTo = (
@@ -446,11 +443,9 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     text: string,
     extra?: Parameters<typeof bot.api.sendMessage>[2],
   ): Promise<DeliveryResult> =>
-    enqueueAndDeliver(env, bot, {
-      userId: target._id,
-      chatId: target.chatId,
+    notify(env, bot, { userId: target._id, chatId: target.chatId }, {
       kind,
-      idempotencyKey: `${date}:${kind}:${user._id}`,
+      key: `${date}:${kind}:${user._id}`,
       text,
       extra: extra ?? HTML,
     }).catch((e) => {
@@ -461,7 +456,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // "retrying" counts: the outbox row persists and deliverDueNotifications drains it on a later
   // tick. "failed"/"blocked" mean it is gone — writing the key there would consume the
   // once-per-user-per-day slot for a message nobody ever received (the bug this closes).
-  const durable = (r: DeliveryResult) => r === "sent" || r === "retrying" || r === "duplicate";
+  const durable = isDurable;
   // Explicit reminderHour wins; otherwise derive from sleep schedule (early risers get a
   // morning nudge, night owls keep the 18:00 default).
   const reminderHour = user.profile.reminderHour ?? (user.profile.sleepSchedule === "morning" ? 8 : 18);

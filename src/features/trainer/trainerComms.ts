@@ -3,7 +3,7 @@
 // re-exports everything here.
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
-import { enqueueAndDeliver, type DeliveryResult } from "../../schedulerOutbox";
+import { notify, type DeliveryResult } from "../../notify";
 import type { SetEntry } from "../../types";
 import { recordAudit } from "../../adapters/d1/v2Admin";
 import { getWorkoutLog, listStrength, upsertStrengthRecord, upsertWorkoutLog, workoutLogsSince } from "../../adapters/d1/v2Workouts";
@@ -140,11 +140,9 @@ export async function handleTrainerMessage(ctx: MyContext, text: string) {
   const replyKb = new InlineKeyboard().text(t(client.lang, "msg_reply_btn"), `msg:reply:${ctx.user._id}`);
   // Through the outbox: a failed send now retries instead of vanishing, and the trainer is told
   // what actually happened instead of an unconditional "Sent."
-  const result: DeliveryResult = await enqueueAndDeliver(ctx.env, { api: ctx.api }, {
-    userId: clientId,
-    chatId: client.chatId,
+  const result: DeliveryResult = await notify(ctx.env, { api: ctx.api }, { userId: clientId, chatId: client.chatId }, {
     kind: "trainer_msg",
-    idempotencyKey: `trainer_msg:${ctx.user._id}:${Date.now()}`,
+    key: `trainer_msg:${ctx.user._id}:${Date.now()}`,
     text: t(client.lang, "msg_from_trainer", { text: escapeHtml(text) }),
     extra: { ...HTML, reply_markup: replyKb },
   }).catch((e) => { console.error("trainer msg enqueue", e); return "failed" as const; });
@@ -166,11 +164,9 @@ export async function handleClientReply(ctx: MyContext, text: string) {
   await insertMessage(ctx.db, ctx.user._id, trainerId, text);
   const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`);
   const kb = new InlineKeyboard().text(t(trainer.lang, "msg_reply_btn"), `cl:${ctx.user._id}:msg`);
-  const result: DeliveryResult = await enqueueAndDeliver(ctx.env, { api: ctx.api }, {
-    userId: trainerId,
-    chatId: trainer.chatId,
+  const result: DeliveryResult = await notify(ctx.env, { api: ctx.api }, { userId: trainerId, chatId: trainer.chatId }, {
     kind: "client_reply",
-    idempotencyKey: `client_reply:${ctx.user._id}:${Date.now()}`,
+    key: `client_reply:${ctx.user._id}:${Date.now()}`,
     text: t(trainer.lang, "msg_from_client", { name: who, text: escapeHtml(text) }),
     extra: { ...HTML, reply_markup: kb },
   }).catch((e) => { console.error("client reply enqueue", e); return "failed" as const; });

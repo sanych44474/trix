@@ -6,6 +6,10 @@ import {
   autoActivationFor, postponeAutoActivation, staleDraftStep, sweepStaleDrafts,
 } from "../src/staleDrafts";
 import { getOrphanDraft, updateDraftSplit } from "../src/adapters/d1/v2Plans";
+import { draftDeliver } from "../src/schedulerJobs/global";
+import { deliverDueNotifications } from "../src/schedulerOutbox";
+import { GrammyError } from "grammy";
+import type { Env } from "../src/types";
 
 const H = 3_600_000;
 const WARN_AT = ACTIVATE_H - WARN_BEFORE_H;
@@ -62,9 +66,11 @@ const planStatus = async (db: Db, accountId: number) =>
 
 function recorder(opts: { failFor?: (chatId: number, text: string) => boolean } = {}) {
   const sent: Array<[number, string]> = [];
-  const send = async (chatId: number, text: string) => {
-    if (opts.failFor?.(chatId, text)) throw new Error("telegram down");
-    sent.push([chatId, text]);
+  // A Deliver: resolves true when the message is safe (delivered or durably queued), false if not.
+  const send = async (m: { chatId: number; text: string }) => {
+    if (opts.failFor?.(m.chatId, m.text)) return false;
+    sent.push([m.chatId, m.text]);
+    return true;
   };
   return { sent, send };
 }
@@ -187,4 +193,53 @@ test("editing a draft moves updatedAt (the plan's single 'last touched' answer)"
   assert.ok(Date.parse(after!.updatedAt) > Date.parse(before!.updatedAt));
   const written = await db.prepare("SELECT COUNT(*) AS n FROM v2_plan_exercises WHERE name = 'Squat'").first<{ n: number }>();
   assert.equal(written!.n, 1, "the edit itself still lands");
+});
+
+// ---- through the real notification outbox (draftDeliver) ----
+
+const grammyErr = (code: number, retryAfter?: number) =>
+  new GrammyError("x", { ok: false, error_code: code, description: "x", parameters: retryAfter ? { retry_after: retryAfter } : undefined }, "sendMessage", {});
+
+test("draftDeliver: a rate-limited reminder is queued and delivered by the retry sweep, once", async () => {
+  const db = newDb();
+  const now = Date.parse("2026-10-08T12:00:00Z");
+  const trainer = await account(db, "trainer");
+  const client = await account(db, "client");
+  await link(db, client, trainer);
+  await draft(db, client, new Date(now - 30 * H).toISOString());
+  const env = { DB: db, TELEGRAM_BOT_TOKEN: "t" } as unknown as Env;
+
+  const texts: string[] = [];
+  let limited = true;
+  const bot = { api: { sendMessage: (async (chatId: number, text: string) => {
+    if (limited && chatId === trainer) throw grammyErr(429, 1);
+    texts.push(text);
+    return {} as never;
+  }) as never } };
+
+  const first = await sweepStaleDrafts(db, draftDeliver(db, bot, env), now);
+  assert.equal(first.reminded, 1, "queued for retry counts as safe: it will arrive");
+  assert.equal(texts.length, 0);
+  const pending = await db.prepare("SELECT status FROM v2_notifications WHERE kind = 'draft_remind'").first<{ status: string }>();
+  assert.equal(pending?.status, "pending");
+
+  limited = false;
+  await db.prepare("UPDATE v2_notifications SET nextAttemptAt = ? WHERE kind = 'draft_remind'").bind("2000-01-01T00:00:00.000Z").run(); // the sweep reads the wall clock, so "due" must be unambiguously past
+  const swept = await deliverDueNotifications(env, bot as never);
+  assert.equal(swept.sent, 1);
+  assert.equal(texts.length, 1);
+
+  // The next hourly pass does not remind again.
+  assert.equal((await sweepStaleDrafts(db, draftDeliver(db, bot, env), now + H)).reminded, 0);
+  assert.equal(texts.length, 1);
+});
+
+test("draftDeliver: without an env (the dry-run stand-in) it sends straight through the bot and reports failure", async () => {
+  const db = newDb();
+  const ok = await draftDeliver(db, { api: { sendMessage: (async () => ({})) as never } })({ userId: 1, chatId: 1, kind: "k", key: "k", text: "x" });
+  assert.equal(ok, true);
+  const bad = await draftDeliver(db, { api: { sendMessage: (async () => { throw new Error("down"); }) as never } })({ userId: 1, chatId: 1, kind: "k", key: "k", text: "x" });
+  assert.equal(bad, false);
+  const rows = await db.prepare("SELECT COUNT(*) AS n FROM v2_notifications").first<{ n: number }>();
+  assert.equal(rows!.n, 0, "the dry-run path leaves the outbox alone");
 });

@@ -91,3 +91,19 @@ test("chat: empty text is rejected", async () => {
   await pair(db);
   assert.equal((await call(db, 20, "POST", "/api/chat", { text: "   " })).status, 400);
 });
+
+test("chat: the ping goes through the outbox - a rate-limited ping is queued, the message itself is stored", async () => {
+  const db = newDb();
+  await pair(db);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ ok: false, error_code: 429, description: "Too Many Requests", parameters: { retry_after: 5 } }), { status: 429 })) as unknown as typeof fetch;
+  try {
+    const res = await call(db, 20, "POST", "/api/chat", { text: "are you there?" });
+    assert.equal(res.status, 200, "a refused ping never fails the message");
+    const stored = await db.prepare("SELECT COUNT(*) AS n FROM v2_messages").first<{ n: number }>();
+    assert.equal(stored!.n, 1);
+    const ping = await db.prepare("SELECT status FROM v2_notifications WHERE kind = 'app_chat_ping'").first<{ status: string }>();
+    assert.equal(ping?.status, "pending", "queued for the retry sweep instead of vanishing");
+  } finally { globalThis.fetch = realFetch; }
+});

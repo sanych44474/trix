@@ -3,7 +3,7 @@
 import { pruneInbox } from "../adapters/d1/v2Inbox";
 import { learnUnknownExercises } from "../exerciseMuscleLearning";
 import { rollupDailyMetrics } from "../dailyMetricsRollup";
-import { sweepStaleDrafts } from "../staleDrafts";
+import { sweepStaleDrafts, type Deliver } from "../staleDrafts";
 import { weeklyModelCheck } from "../aiModelWatch";
 import { isoDateMinus } from "../features/gamification/boards";
 import type { Env } from "../types";
@@ -16,9 +16,23 @@ import { pruneIdempotencyKeys } from "../adapters/d1/v2Idempotency";
 import { computeBoards } from "../features/gamification/boards";
 import { logSchedulerError, type Sender } from "./shared";
 import { runOncePer } from "./runOncePer";
+import { isDurable, notify } from "../notify";
 
 // Push the owner an alert when something operationally wrong is happening (no need to open /report).
 // Each alert type is throttled to once per hour via config.alertState so it never spams.
+/** How the stale-draft sweep delivers: through the notification outbox when there is an env (a
+ * failed send retries and a block is recorded), and straight through the bot otherwise (the dry-run
+ * stand-in has no env). The outbox env is built from `db` on purpose: in the Durable Object's
+ * dry run `db` is the shadow database, and writing a real outbox row from there would take the
+ * dedup key and make the live cron skip the message as a duplicate. */
+export function draftDeliver(db: D1Database, bot: Sender, env?: Env): Deliver {
+  if (!env) {
+    return (m) => bot.api.sendMessage(m.chatId, m.text, m.extra as never).then(() => true, () => false);
+  }
+  const outboxEnv = { ...env, DB: db } as Env;
+  return (m) => notify(outboxEnv, bot, { userId: m.userId, chatId: m.chatId }, { kind: m.kind, key: m.key, text: m.text, extra: m.extra }).then(isDurable);
+}
+
 /** The account-wide (not per-user, not per-squad) jobs: owner alerts, the leaderboard cache,
  * and telemetry pruning. Extracted so the still-live cron path (below) and the dry-run
  * GlobalSchedulerDO (durable/globalScheduler.ts) run the EXACT same logic, not two copies that
@@ -39,7 +53,7 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
 
   // Trainer clients stuck on an unassigned first-plan draft: remind the trainer after a day,
   // activate it after three (staleDrafts.ts).
-  await sweepStaleDrafts(db, (chatId, text, extra) => bot.api.sendMessage(chatId, text, extra), Date.now(),
+  await sweepStaleDrafts(db, draftDeliver(db, bot, env), Date.now(),
     (lang, clientId, fallback) => (env ? appMarkup(env, t(lang, "nb_open_client"), "role", { client: clientId }) : undefined) ?? { inline_keyboard: [[{ text: t(lang, "cc_plan"), callback_data: fallback.replace("{id}", String(clientId)) }]] },
     (lang) => (env ? appMarkup(env, t(lang, "nb_open_today"), "today") : undefined))
     .catch((e) => logSchedulerError(db, "stale_drafts", e));

@@ -9,6 +9,8 @@ import { currentWinStreak, decideDuel } from "../domain/buddyDuel";
 import { postSquadDigest } from "../bot/squad";
 import { escapeHtml, t } from "../locales/i18n";
 import { HTML, logSchedulerError } from "./shared";
+import { notify } from "../notify";
+import type { Env } from "../types";
 
 // Squad recaps go to GROUP chats, which have no timezone of their own — a single sensible UTC
 // hour is the honest answer (09:00 UTC = noon in Kyiv, morning across Europe).
@@ -36,7 +38,8 @@ export async function postSquadRecaps(db: D1Database, bot: Bot, todayUtc: string
   }
 }
 
-export async function processBuddyDuels(db: D1Database, bot: Bot, todayStr: string): Promise<void> {
+export async function processBuddyDuels(env: Env, bot: Bot, todayStr: string): Promise<void> {
+  const db = env.DB;
   const pairs = await allBuddyPairs(db);
   if (!pairs.length) return;
   const { from, to } = weekRangeOffset(todayStr, 1); // the week that just ended
@@ -64,20 +67,22 @@ export async function processBuddyDuels(db: D1Database, bot: Bot, todayStr: stri
       if (!winner || !loser) continue;
       const winnerCount = result.winnerId === userA ? aCount : bCount;
       const loserCount = result.winnerId === userA ? bCount : aCount;
-      await bot.api
-        .sendMessage(
-          winner.chatId,
-          t(winner.lang, "duel_won", { name: escapeHtml(loser.profile.name ?? `id ${loser._id}`), mine: winnerCount, theirs: loserCount }),
-          HTML,
-        )
-        .catch(() => {});
-      await bot.api
-        .sendMessage(
-          loser.chatId,
-          t(loser.lang, "duel_lost", { name: escapeHtml(winner.profile.name ?? `id ${winner._id}`), mine: loserCount, theirs: winnerCount }),
-          HTML,
-        )
-        .catch(() => {});
+      // Through the outbox, keyed on the duel and the recipient: a Telegram hiccup retries instead
+      // of dropping the result, and a re-run of the week (the gate retries a failed job) cannot
+      // tell anyone twice.
+      const duel = `${weekKey}:${Math.min(userA, userB)}:${Math.max(userA, userB)}`;
+      await notify(env, bot, { userId: winner._id, chatId: winner.chatId }, {
+        kind: "duel_won",
+        key: `duel:${duel}:${winner._id}`,
+        text: t(winner.lang, "duel_won", { name: escapeHtml(loser.profile.name ?? `id ${loser._id}`), mine: winnerCount, theirs: loserCount }),
+        extra: HTML,
+      }).catch((e) => logSchedulerError(db, "duel_notify", e, winner._id));
+      await notify(env, bot, { userId: loser._id, chatId: loser.chatId }, {
+        kind: "duel_lost",
+        key: `duel:${duel}:${loser._id}`,
+        text: t(loser.lang, "duel_lost", { name: escapeHtml(winner.profile.name ?? `id ${winner._id}`), mine: loserCount, theirs: winnerCount }),
+        extra: HTML,
+      }).catch((e) => logSchedulerError(db, "duel_notify", e, loser._id));
       // Badges: first-ever win, and a 4-in-a-row win streak against this same buddy.
       const wins = await buddyWinCount(db, result.winnerId).catch(() => 0);
       if (wins === 1) await awardAchievement(db, result.winnerId, "buddy_first_win").catch(() => {});

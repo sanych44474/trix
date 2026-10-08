@@ -94,21 +94,23 @@ export async function postponeAutoActivation(db: D1Database, accountId: number, 
   return "ok";
 }
 
-type Send = (chatId: number, text: string, extra?: Record<string, unknown>) => Promise<unknown>;
+/** Delivers one message and says whether it is safe: delivered, or durably queued for retry (notify.ts
+ * isDurable). The sweep marks a reminder as sent only when this resolves true. */
+export type Deliver = (m: { userId: number; chatId: number; kind: string; key: string; text: string; extra?: Record<string, unknown> }) => Promise<boolean>;
 
 /** Builds the reply_markup for "open this client" (app button, or the old callback without the app). */
 type ClientButton = (lang: Lang, clientId: number, fallback: string) => Record<string, unknown>;
 const callbackButton: ClientButton = (lang, clientId, fallback) => ({ inline_keyboard: [[{ text: t(lang, "cc_plan"), callback_data: fallback.replace("{id}", String(clientId)) }]] });
 
 export async function sweepStaleDrafts(
-  db: D1Database, send: Send, now = Date.now(), clientButton: ClientButton = callbackButton, todayButton?: (lang: Lang) => Record<string, unknown> | undefined,
+  db: D1Database, deliver: Deliver, now = Date.now(), clientButton: ClientButton = callbackButton, todayButton?: (lang: Lang) => Record<string, unknown> | undefined,
 ): Promise<{ reminded: number; warned: number; activated: number }> {
   const drafts = await listOrphanDrafts(db);
   const state = await readState(db);
   const next: Record<string, DraftState> = {};
   let reminded = 0, warned = 0, activated = 0;
   // A message that did not go out must not be recorded as sent: the next hourly pass tries again.
-  const delivered = (p: Promise<unknown>) => p.then(() => true, () => false);
+  const delivered = (p: Promise<boolean>) => p.catch(() => false);
   for (const d of drafts) {
     const key = String(d.planId);
     const mine = state[key] ?? {};
@@ -121,17 +123,17 @@ export async function sweepStaleDrafts(
     const stamp = new Date(now).toISOString();
     const reply_markup = trainer ? clientButton(trainer.lang, client._id, "cl:{id}:plan") : undefined;
     if (step === "remind" && trainer) {
-      const ok = await delivered(send(trainer.chatId, t(trainer.lang, "draft_stale_trainer", { name: who, days: Math.round(ACTIVATE_H / 24) }), { parse_mode: "HTML", reply_markup }));
+      const ok = await delivered(deliver({ userId: trainer._id, chatId: trainer.chatId, kind: "draft_remind", key: `draft_remind:${d.planId}`, text: t(trainer.lang, "draft_stale_trainer", { name: who, days: Math.round(ACTIVATE_H / 24) }), extra: { parse_mode: "HTML", reply_markup } }));
       if (ok) { next[key] = { ...mine, reminded: stamp }; reminded++; } else if (state[key]) next[key] = mine;
     } else if (step === "warn" && trainer) {
       const hours = Math.max(1, Math.round(activateAfterHours(mine) - ageHours));
-      const ok = await delivered(send(trainer.chatId, t(trainer.lang, "draft_final_trainer", { name: who, hours }), { parse_mode: "HTML", reply_markup }));
+      const ok = await delivered(deliver({ userId: trainer._id, chatId: trainer.chatId, kind: "draft_warn", key: `draft_warn:${d.planId}`, text: t(trainer.lang, "draft_final_trainer", { name: who, hours }), extra: { parse_mode: "HTML", reply_markup } }));
       if (ok) { next[key] = { ...mine, warned: stamp, reminded: mine.reminded ?? stamp }; warned++; } else if (state[key]) next[key] = mine;
     } else if (step === "activate") {
       if (!(await assignDraftPlan(db, client._id))) continue;
       activated++;
-      await send(client.chatId, t(client.lang, "draft_auto_client"), { parse_mode: "HTML", ...(todayButton ? { reply_markup: todayButton(client.lang) } : {}) }).catch(() => {});
-      if (trainer) await send(trainer.chatId, t(trainer.lang, "draft_auto_trainer", { name: who }), { parse_mode: "HTML", reply_markup }).catch(() => {});
+      await delivered(deliver({ userId: client._id, chatId: client.chatId, kind: "draft_auto_client", key: `draft_auto_client:${d.planId}`, text: t(client.lang, "draft_auto_client"), extra: { parse_mode: "HTML", ...(todayButton ? { reply_markup: todayButton(client.lang) } : {}) } }));
+      if (trainer) await delivered(deliver({ userId: trainer._id, chatId: trainer.chatId, kind: "draft_auto_trainer", key: `draft_auto_trainer:${d.planId}`, text: t(trainer.lang, "draft_auto_trainer", { name: who }), extra: { parse_mode: "HTML", reply_markup } }));
     } else if (state[key]) {
       next[key] = mine; // keep the marks until the draft is gone
     }

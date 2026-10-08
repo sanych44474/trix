@@ -24,7 +24,7 @@ import { announceSquadPr } from "./squad";
 import { upcomingSessions } from "../render";
 import { badgeLabel, computeBoards } from "../features/gamification/boards";
 import { advanceLevel } from "../features/gamification/level";
-import { enqueueAndDeliver } from "../schedulerOutbox";
+import { notify } from "../notify";
 import { localCutoff } from "./report";
 import { reactToUser, type MyContext, HTML, type TKey, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "./keyboards";
@@ -228,11 +228,9 @@ export async function completeWorkout(
     try {
       const trainer = await getUser(env.DB, user.trainerId);
       if (trainer) {
-        await enqueueAndDeliver(env, { api: o.api }, {
-          userId: trainer._id,
-          chatId: trainer.chatId,
+        await notify(env, { api: o.api }, { userId: trainer._id, chatId: trainer.chatId }, {
           kind: "trainer_workout_done",
-          idempotencyKey: `${o.date}:${user._id}`,
+          key: `${o.date}:${user._id}`,
           text: t(trainer.lang, "trainer_notify_done", { name: user.profile.name ?? `id ${user._id}`, n: outcome.exercises.length }),
           extra: HTML,
         });
