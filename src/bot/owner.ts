@@ -26,6 +26,7 @@ import { mainMenu, menuBtn } from "./keyboards";
 import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/clientCard";
 import { monoTable, ownerReportWindows, orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "./ownerReport";
 import { isOwner } from "./ownerAccess";
+import { secretMatches } from "../domain/secrets";
 export * from "./ownerRows";
 export * from "./ownerAccess";
 export * from "./ownerVideos";
@@ -36,7 +37,7 @@ export * from "./ownerReport";
 
 export async function cmdAdmin(ctx: MyContext, secret: string) {
   const lang = ctx.user.lang;
-  if (!ctx.env.ADMIN_SECRET || !secret || secret !== ctx.env.ADMIN_SECRET) {
+  if (!secretMatches(secret, ctx.env.ADMIN_SECRET)) {
     await reply(ctx, t(lang, "admin_bad"));
     return;
   }

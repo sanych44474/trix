@@ -11,9 +11,7 @@
 // (already the shared secret every client of this bot proves knowledge of), but this is a
 // separate concern with a separate payload -- a fixed (uid, url) pair, not initData's whole field
 // set -- so it gets its own small module rather than overloading that one.
-async function hmacKey(botToken: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", new TextEncoder().encode(botToken), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-}
+import { macHex, verifyMac } from "./secrets";
 
 function payload(uid: number, targetUrl: string): string {
   return `${uid}:${targetUrl}`;
@@ -23,13 +21,11 @@ function payload(uid: number, targetUrl: string): string {
 // redirect, not a bearer credential guarding anything sensitive -- 2^64 is far past what's worth
 // spending to forge a low-value analytics counter, and the short param keeps the link tidy.
 export async function signVideoOpen(uid: number, targetUrl: string, botToken: string): Promise<string> {
-  const sig = await crypto.subtle.sign("HMAC", await hmacKey(botToken), new TextEncoder().encode(payload(uid, targetUrl)));
-  return [...new Uint8Array(sig)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return macHex(botToken, payload(uid, targetUrl), 8);
 }
 
 export async function verifyVideoOpen(uid: number, targetUrl: string, sig: string, botToken: string): Promise<boolean> {
-  if (!sig) return false;
-  return (await signVideoOpen(uid, targetUrl, botToken)) === sig;
+  return verifyMac(botToken, payload(uid, targetUrl), sig, 8);
 }
 
 /** Builds the full /v redirect link, signature included -- the ONE place every caller constructs

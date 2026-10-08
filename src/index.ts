@@ -35,13 +35,14 @@ import { handleStravaCallback } from "./webapp/stravaApi";
 import { handleQuickLogApi } from "./webapp/quickLogApi";
 import { handleV2Api } from "./webapp/v2Api";
 import { logError, logInfo, runWithRequestId, withHeader } from "./log";
+import { secretMatches } from "./domain/secrets";
 import type { Env } from "./types";
 
 
 // Query strings routinely end up in proxy access logs and browser history, so the operator
 // credential travels as a header instead — never compare env.ADMIN_SECRET against a URL param.
 function isAdmin(req: Request, env: Env): boolean {
-  return !!env.ADMIN_SECRET && req.headers.get("X-Admin-Secret") === env.ADMIN_SECRET;
+  return secretMatches(req.headers.get("X-Admin-Secret"), env.ADMIN_SECRET);
 }
 
 async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
@@ -296,7 +297,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
 
     if (req.method === "POST" && url.pathname === "/webhook") {
       // Verify the secret header Telegram echoes back.
-      if (req.headers.get("x-telegram-bot-api-secret-token") !== env.TELEGRAM_WEBHOOK_SECRET) {
+      if (!secretMatches(req.headers.get("x-telegram-bot-api-secret-token"), env.TELEGRAM_WEBHOOK_SECRET)) {
         return new Response("unauthorized", { status: 401 });
       }
       let update: Update;
