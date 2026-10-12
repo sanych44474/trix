@@ -720,6 +720,62 @@ paths:
                           type: array
                           items: {$ref: '#/components/schemas/CatalogExercise'}
                   required: [data]
+  /api/v2/onboarding/draft:
+    get:
+      operationId: getOnboardingDraft
+      description: The questionnaire answers saved so far (null when none, or once onboarded).
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: The draft
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [answers]
+                      properties:
+                        answers: {type: [object, 'null'], additionalProperties: true}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    post:
+      operationId: saveOnboardingDraft
+      description: Save the questionnaire answers so far (owner console progress, resume on another device). A no-op once onboarded.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers, answered, total]
+              properties:
+                answers: {type: object, additionalProperties: true, description: The wizard's answers, at most 4 KB as JSON}
+                answered: {type: integer, minimum: 0, maximum: 30}
+                total: {type: integer, minimum: 1, maximum: 30}
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {type: boolean}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/onboarding:
     post:
       operationId: completeOnboarding

@@ -8,6 +8,7 @@ import { acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTime
 import { countNotificationsSince } from "./adapters/d1/v2Notifications";
 import { logInfo } from "./log";
 import { syncKnowledge } from "./knowledge/sync";
+import { pruneLearned } from "./adapters/d1/v2FoodLearned";
 import { allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
 import { awardAchievement, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
 import { getActivePlan, listActivePlans, setProgressionRate } from "./adapters/d1/v2Plans";
@@ -226,6 +227,13 @@ async function runScheduleInner(env: Env): Promise<void> {
       await setSetting(db, "kb_sync_more", kb?.more ? "1" : "0").catch(() => {});
       await setSetting(db, "last_kb_sync", new Date().toISOString()).catch(() => {});
     }
+  }
+
+  // Learned foods (v2_food_learned) nobody picked in half a year: swept once a month.
+  const lastFoodPrune = await getSetting(db, "last_food_learned_prune").catch(() => null);
+  if (!lastFoodPrune || Date.parse(lastFoodPrune) < Date.now() - 30 * 86_400_000) {
+    await pruneLearned(db, new Date(Date.now() - 180 * 86_400_000).toISOString()).catch((e) => logSchedulerError(db, "food_learned_prune", e));
+    await setSetting(db, "last_food_learned_prune", new Date().toISOString()).catch(() => {});
   }
 
   // Strava cardio import: a few linked accounts per hourly tick, each at most every 12 h. Small

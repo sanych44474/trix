@@ -75,7 +75,11 @@ export async function logMeal(ctx: MyContext, items: P.NutritionItem[], method: 
       : lang === "uk"
         ? `Ліміт калорій вичерпано (${-remaining} ккал понад ціль).`
         : `Calorie target reached (${-remaining} kcal over).`);
-  if (verified > 0) advice += t(lang, "verified_suffix", { n: verified, total: final.length, src: source });
+  if (verified > 0) {
+    // "user" and "trix" are codes, not names a person should read.
+    const src = source === "user" ? t(lang, "verified_src_user") : source === "trix" ? t(lang, "verified_src_trix") : source;
+    advice += t(lang, "verified_suffix", { n: verified, total: final.length, src });
+  }
 
   // List every recognised item so the user sees all foods (USDA-verified or AI-estimated).
   const macros = (p: number, f: number, c: number) => (lang === "uk" ? `Б${p}/Ж${f}/В${c}` : `P${p}/F${f}/C${c}`);

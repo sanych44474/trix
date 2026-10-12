@@ -2,14 +2,27 @@
 // unset secret relied on `null !== undefined` happening to be true. These pin the behaviour through
 // the real Worker entry point: wrong, missing and (the dangerous case) UNSET secrets are all 401,
 // and only the exact secret passes the gate.
-import { test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import worker from "../src/index";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
 
+// Past the gate the request reaches the bot / admin handlers, which call the Telegram API. No real
+// network in a unit test: a request that can't connect (or hangs behind a proxy) used to keep this
+// file's process alive after its last assertion.
+const realFetch = globalThis.fetch;
+before(() => {
+  globalThis.fetch = (async () => Response.json({ ok: true, result: {} })) as typeof fetch;
+});
+after(() => {
+  globalThis.fetch = realFetch;
+});
+
 const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
-const envWith = (extra: Partial<Env>): Env => ({ DB: newDb(), TELEGRAM_BOT_TOKEN: "1:t", ...extra } as unknown as Env);
+// BOT_ID + BOT_USERNAME preset grammY's botInfo, so a passed gate doesn't trigger a getMe call
+// (grammY's own HTTP client, which the fetch stub above doesn't reach).
+const envWith = (extra: Partial<Env>): Env => ({ DB: newDb(), TELEGRAM_BOT_TOKEN: "1:t", BOT_ID: "1", BOT_USERNAME: "trix_test_bot", ...extra } as unknown as Env);
 
 const adminCall = (env: Env, headers: Record<string, string> = {}) =>
   worker.fetch(new Request("https://w.example/admin/ping-stuck", { method: "POST", headers }), env, ctx);

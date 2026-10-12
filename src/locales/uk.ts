@@ -626,6 +626,8 @@ export const uk: Dict = {
   photo_help:
     "Надішли фото (або кілька) своєї їжі — я оціню калорії та КБЖУ. Можеш також просто написати, що з'їв.",
   verified_suffix: "\n✅ {n}/{total} позиц. звірено з {src} (решта — оцінка ШІ).",
+  verified_src_user: "твоїми виправленнями",
+  verified_src_trix: "довідником trix",
 
   menu_report: "📊 Звіт",
   menu_checkin: "🌡️ Чек-ін",

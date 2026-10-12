@@ -44,6 +44,24 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
   const isLast = index === steps.length - 1;
 
   useEffect(() => { saveDraft(answers); }, [answers]);
+  // The server keeps a copy too (owner console shows how far people got; another device resumes).
+  // Debounced, only for the questionnaire, best-effort.
+  useEffect(() => {
+    if (ready !== "off" || index < 0) return;
+    const all = stepsFor(answers, isClient);
+    const answered = all.filter((s) => isAnswered(s, answers)).length;
+    const timer = window.setTimeout(() => {
+      void api("/api/v2/onboarding/draft", { method: "POST", body: typedBody<"saveOnboardingDraft">({ answers: answers as Record<string, unknown>, answered, total: all.length }) }).catch(() => {});
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [answers, index, ready, isClient]);
+  // Nothing on this phone yet: pick up a draft started on another device.
+  useEffect(() => {
+    if (Object.keys(readDraft()).length) return;
+    api<{ answers: Answers | null }>("/api/v2/onboarding/draft")
+      .then((r) => { const restored = parseDraft(r.answers ? JSON.stringify(r.answers) : null); if (Object.keys(restored).length) setAnswers((cur) => (Object.keys(cur).length ? cur : restored)); })
+      .catch(() => {});
+  }, []);
   useEffect(() => () => window.clearTimeout(advanceTimer.current), []);
   useEffect(() => { window.scrollTo?.(0, 0); }, [index]);
 

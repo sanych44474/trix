@@ -2,6 +2,8 @@
 // fields plus localized option lists; POST validates a patch against the allowed enum values and
 // merges it into the profile. AI replan is NOT triggered here — the plan refreshes weekly, or the
 // user rebuilds it in the bot (/replan); this screen just keeps the profile in sync.
+import { safeJsonParse } from "../adapters/d1/shared";
+import { deleteOnboardingDraft, getOnboardingDraft, saveOnboardingDraft } from "../adapters/d1/v2OnboardingDraft";
 import { CALORIE_FIELDS } from "../domain/profileGaps";
 import { computeTargets, restDayTargets } from "../domain/mealplan";
 import { updateActivePlanNutrition } from "../adapters/d1/v2Plans";
@@ -147,6 +149,28 @@ function validTimeZone(tz: string): boolean {
 export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+
+  // The questionnaire's draft: saved while the person answers, read back on another device.
+  if (url.pathname.endsWith("/onboarding/draft")) {
+    if (req.method === "GET") {
+      const draft = user.onboarded ? null : await getOnboardingDraft(env.DB, user._id).catch(() => null);
+      return Response.json({ answers: draft ? safeJsonParse<Record<string, unknown>>(draft.answers, {}) : null }, { headers: { "cache-control": "no-store" } });
+    }
+    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (user.onboarded) return Response.json({ ok: true });
+    const parsedDraft = await readJsonBody(req);
+    if (!parsedDraft.ok) return parsedDraft.response;
+    const d = parsedDraft.body as { answers?: unknown; answered?: unknown; total?: unknown };
+    const answers = d.answers && typeof d.answers === "object" && !Array.isArray(d.answers) ? JSON.stringify(d.answers) : "";
+    const total = Number(d.total);
+    const answered = Number(d.answered);
+    if (!answers || answers.length > 4096 || !Number.isInteger(total) || total < 1 || total > 30 || !Number.isInteger(answered) || answered < 0 || answered > total) {
+      return Response.json({ error: "bad request" }, { status: 400 });
+    }
+    await saveOnboardingDraft(env.DB, user._id, answers, answered, total);
+    return Response.json({ ok: true });
+  }
+
   if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
   if (user.onboarded) return Response.json({ error: "already onboarded" }, { status: 400 });
 
@@ -189,6 +213,7 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?
   }
   if (merged.limitations === undefined) merged.limitations = "none";
   await updateUser(env.DB, user._id, { profile: merged, session: { mode: "plan_pending" } });
+  await deleteOnboardingDraft(env.DB, user._id).catch(() => {});
   // Build the plan now (AI first, bank fallback) instead of waiting for the recovery sweep, which
   // only picks users pending for 90s+ and builds the bank plan. A failure leaves plan_pending, so
   // the sweep still converges.

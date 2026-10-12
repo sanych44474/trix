@@ -1,6 +1,7 @@
 // The owner report: overview, engagement, retention, AI, trainers, onboarding, errors and users
 // sections, the metrics JSON and the error digest, plus their text-chart helpers. Split out of
 // owner.ts; owner.ts re-exports everything here.
+import { onboardingDraftProgress } from "../adapters/d1/v2OnboardingDraft";
 import { dailyBudget, neuronsToday } from "../ai/budget";
 import { knowledgeQueryUsage } from "../knowledge/search";
 import type { Env } from "../types";
@@ -423,6 +424,7 @@ export async function ownerUsersData(
     planStatusByUser(db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
     recentFeedback(db, 10),
   ]);
+  const drafts = await onboardingDraftProgress(db).catch(() => new Map<number, { answered: number; total: number }>());
   const trainerName = new Map<number, string>();
   for (const tr of trainers) trainerName.set(tr._id, tr.profile.name ?? `id ${tr._id}`);
   const zero = { workouts: 0, checkins: 0, nutrition: 0, steps: 0 };
@@ -447,7 +449,9 @@ export async function ownerUsersData(
       nick: u.username ? `@${u.username}` : "",
       trainer: u.trainerId ? trainerName.get(u.trainerId) ?? `id ${u.trainerId}` : "",
       status,
-      onb: u.onboarded ? "" : `${prog.filled}/${prog.total}`,
+      // The Mini App questionnaire's own progress when there is a draft; "0" = never answered a
+      // question in the app. The old chat-interview count only for accounts that went that way.
+      onb: u.onboarded ? "" : drafts.has(u.id) ? `${drafts.get(u.id)!.answered}/${drafts.get(u.id)!.total}` : prog.filled > 1 ? `${prog.filled}/${prog.total}` : "0",
       w: ev.workouts, c: ev.checkins, n: ev.nutrition, s: ev.steps,
       last: u.lastSeenAt ? u.lastSeenAt.slice(5, 10) : "",
       total: ev.workouts + ev.checkins + ev.nutrition + ev.steps,

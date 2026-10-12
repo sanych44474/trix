@@ -7,6 +7,10 @@ import type * as P from "../../ai/prompts";
 import { getUserFoodCorrection } from "../../adapters/d1/v2Nutrition";
 import type { Env } from "../../types";
 
+/** Where the verified numbers came from: the user's own corrections, USDA, the app's food
+ *  catalog, or Open Food Facts (older cached rows). "" when nothing was verified. */
+export type VerifySource = "" | "user" | "USDA" | "trix" | "Open Food Facts";
+
 export type VerifiedItem = { desc: string; kcal: number; protein: number; fats: number; carbs: number; grams?: number; query?: string };
 
 // Coerce any AI value (number, numeric string, or junk) to a finite integer.
@@ -19,7 +23,7 @@ export function num(x: unknown): number {
 // matches and a portion (grams) is known, recompute macros from reference per-100g.
 export async function verifyItems(db: D1Database, env: Env, userId: number, items: P.NutritionItem[]) {
   let verified = 0;
-  let source = "";
+  let source: VerifySource = "";
   const final: VerifiedItem[] = [];
   // A weak/free fallback model in the AI chain only guarantees valid JSON *syntax*, not that
   // `items` is present — degrade to "nothing recognized" (logMeal below) instead of throwing.
@@ -50,9 +54,13 @@ export async function verifyItems(db: D1Database, env: Env, userId: number, item
             p = Math.round(ref.protein * k);
             f = Math.round(ref.fats * k);
             c = Math.round(ref.carbs * k);
-            verified++;
+            // A per-100g figure the AI looked up is a second estimate, not a check against a
+            // database: it may replace the numbers, but the reply must not call it verified.
             const refSource = (ref as { source?: string }).source;
-            source = refSource === "USDA" ? "USDA" : refSource === "trix" ? "trix" : "Open Food Facts";
+            if (refSource !== "Gemini") {
+              verified++;
+              source = refSource === "USDA" ? "USDA" : refSource === "trix" ? "trix" : "Open Food Facts";
+            }
           }
         }
       }
