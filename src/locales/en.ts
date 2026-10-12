@@ -1382,7 +1382,7 @@ export const en = {
   launch_chat_retired: "The chat is no longer used — trix now lives in the app. Reminders will still come here.",
   ob_app_btn: "📝 Fill in the questionnaire",
   ob_app_start_btn: "💪 Start with AI — 2 min",
-  ob_app_prompt: "📝 Answer a few short questions in the app — about 2 minutes. Your plan is built from them, so this step comes first.",
+  ob_app_prompt: "📝 Answer a few short questions in the app — about 2 minutes, one tap each. Your plan is built from them. Or pick a ready program for the gym, home with dumbbells or no equipment right there — then just 4 questions about you.",
   ob_app_reminder: "Let's finish your questionnaire first — about 2 minutes. Your plan, reminders and menu all depend on it 👇",
   ob_app_welcome: "👋 Hi! I'm *trix*, your AI coach in Telegram: a training plan, workout logging, nutrition and progress.\n\nTap *Start* to answer a few questions — your plan will be ready right after.",
   ob_resume_nudge: "Let's finish setting you up — a few taps and your plan is ready 💪",

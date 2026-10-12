@@ -96,6 +96,18 @@ export function stepsFor(answers: Answers, isClient: boolean): Step[] {
   return ids.map((id) => STEPS[id]);
 }
 
+/** The body-data questions asked before a ready program is applied (the no-questionnaire entry):
+ *  the program's start weights and calorie targets need them. */
+export function basicSteps(): Step[] {
+  return (["sex", "age", "height", "weight"] as StepId[]).map((id) => STEPS[id]);
+}
+
+/** The profile patch for the basics (POST /api/v2/profile); null while one is missing. */
+export function basicsRequest(a: Answers) {
+  if (!basicSteps().every((s) => isAnswered(s, a))) return null;
+  return { sex: a.sex!, age: Math.round(a.age!), heightCm: Math.round(a.heightCm!), weightKg: Math.round(a.weightKg! * 10) / 10 };
+}
+
 /** Whether the step has a valid answer (the Next button and the final submit both use this). */
 export function isAnswered(step: Step, a: Answers): boolean {
   const inRange = (v: number | undefined) => v !== undefined && Number.isFinite(v) && v >= (step.number?.min ?? -Infinity) && v <= (step.number?.max ?? Infinity);

@@ -3043,6 +3043,7 @@ components:
         sleepSchedule:
           type: string
           enum: [morning, evening]
+        sessionMinutes: {type: number, enum: [30, 45, 60, 90]}
         reminderHour: {type: number, minimum: 0, maximum: 23}
         waterGoalMl: {anyOf: [{type: number}, {type: 'null'}, {type: string, maxLength: 0}]}
         stepsGoal: {anyOf: [{type: number}, {type: 'null'}, {type: string, maxLength: 0}]}
@@ -3428,6 +3429,10 @@ components:
               enum: [solo, trainer, client]
             onboarded: {type: boolean}
             planPending: {type: boolean, description: 'Questionnaire submitted, plan still being built'}
+            profileGaps:
+              type: array
+              description: Profile fields still missing (asked by the Today fine-tune card); absent for trainers and before onboarding
+              items: {type: string, enum: [sex, age, heightCm, weightKg, sessionMinutes, lifestyle, dietPrefs]}
         lang:
           type: string
           enum: [uk, en]

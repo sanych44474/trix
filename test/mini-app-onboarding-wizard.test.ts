@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { choose, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers } from "../apps/mini-app/src/logic/onboardingWizard";
+import { basicSteps, basicsRequest, choose, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers } from "../apps/mini-app/src/logic/onboardingWizard";
 import { en } from "../apps/mini-app/src/i18n/en";
 
 const full: Answers = {
@@ -72,4 +72,10 @@ test("a malformed draft is ignored", () => {
   assert.deepEqual(parseDraft("[1,2]"), {});
   assert.deepEqual(parseDraft(null), {});
   assert.deepEqual(parseDraft('{"sex":"male"}'), { sex: "male" });
+});
+
+test("ready-program entry asks the four basics, all required", () => {
+  assert.deepEqual(basicSteps().map((s) => s.id), ["sex", "age", "height", "weight"]);
+  assert.equal(basicsRequest({ sex: "male", age: 30, heightCm: 180 }), null);
+  assert.deepEqual(basicsRequest({ sex: "female", age: 27.4, heightCm: 168.2, weightKg: 58.44 }), { sex: "female", age: 27, heightCm: 168, weightKg: 58.4 });
 });

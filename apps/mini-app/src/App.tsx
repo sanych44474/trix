@@ -5,6 +5,7 @@ import { api, ApiError, typedBody } from "./api";
 import type { RequestBody, Dashboard, RecoveryFactor, RecoveryLabel } from "./types";
 import { guessLang, hasLang, loadLang, t, type Key, type Lang } from "./i18n";
 import { WhatsNewCard } from "./WhatsNew";
+import { FineTuneCard } from "./FineTuneCard";
 import { BadgeCelebration, WeekCard, WeekSummaryCard } from "./Week";
 import { track } from "./logic/track";
 import { navigationFor, viewFromSearch, type View } from "./logic/navigation";
@@ -100,6 +101,7 @@ function TodayView({ dashboard, lang, onOpen, onReload, onAskCoach }: { dashboar
       <div><span className="eyebrow hero-eyebrow">{t(lang, "today_hero_eyebrow")}</span><h1>{dashboard.name ? t(lang, "today_greeting", { name: dashboard.name }) : t(lang, "today_ready")}</h1><p>{hasExercises ? t(lang, "today_exercises_waiting", { n: dashboard.logForm!.exercises.length }) : t(lang, "today_momentum")}</p></div>
       <button className="button button-light" onClick={() => onOpen("train")}>{hasExercises ? t(lang, "start_session") : t(lang, "open_training")}</button>
     </div>
+    {dashboard.viewer.profileGaps && dashboard.viewer.profileGaps.length > 0 && <FineTuneCard lang={lang} gaps={dashboard.viewer.profileGaps} onSaved={onReload} />}
     {dashboard.whatsnew && <WhatsNewCard lang={lang} version={dashboard.whatsnew.version} text={dashboard.whatsnew.text} />}
     {dashboard.recoverySwap && <RecoverySwapCard lang={lang} swap={dashboard.recoverySwap} onDone={onReload} />}
     <WeekSummaryCard lang={lang} dashboard={dashboard} />

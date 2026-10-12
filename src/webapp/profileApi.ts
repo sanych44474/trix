@@ -2,6 +2,9 @@
 // fields plus localized option lists; POST validates a patch against the allowed enum values and
 // merges it into the profile. AI replan is NOT triggered here — the plan refreshes weekly, or the
 // user rebuilds it in the bot (/replan); this screen just keeps the profile in sync.
+import { CALORIE_FIELDS } from "../domain/profileGaps";
+import { computeTargets, restDayTargets } from "../domain/mealplan";
+import { updateActivePlanNutrition } from "../adapters/d1/v2Plans";
 import { listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
 import { countReferrals } from "../adapters/d1/v2Gamification";
@@ -82,6 +85,13 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
   if (inSet(body.equipment, EQUIP)) patch.equipment = body.equipment as string;
   if (inSet(body.dietPrefs, DIET)) patch.dietPrefs = body.dietPrefs as string;
   if (typeof body.limitations === "string") patch.limitations = body.limitations.trim().slice(0, 500);
+  // Body data and lifestyle (the Today fine-tune card), same ranges as onboarding.
+  if (body.sex === "male" || body.sex === "female") patch.sex = body.sex;
+  if (typeof body.age === "number" && body.age >= 13 && body.age <= 120) patch.age = Math.round(body.age);
+  if (typeof body.heightCm === "number" && body.heightCm >= 100 && body.heightCm <= 250) patch.heightCm = Math.round(body.heightCm);
+  if (typeof body.weightKg === "number" && body.weightKg >= 30 && body.weightKg <= 300) patch.weightKg = Math.round(body.weightKg * 10) / 10;
+  if (body.lifestyle === "sedentary" || body.lifestyle === "moderate" || body.lifestyle === "active") patch.lifestyle = body.lifestyle;
+  if (body.sessionMinutes === 30 || body.sessionMinutes === 45 || body.sessionMinutes === 60 || body.sessionMinutes === 90) patch.sessionMinutes = body.sessionMinutes;
   if (body.goalWeight === null || body.goalWeight === "") patch.goalWeight = undefined;
   else if (typeof body.goalWeight === "number" && body.goalWeight >= 30 && body.goalWeight <= 300) patch.goalWeight = Math.round(body.goalWeight * 10) / 10;
   if (typeof body.reminderHour === "number" && Number.isInteger(body.reminderHour) && body.reminderHour >= 0 && body.reminderHour <= 23) patch.reminderHour = body.reminderHour;
@@ -112,7 +122,17 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
   }
 
   const profile = { ...user.profile, ...patch };
-  await updateUser(env.DB, user._id, { profile });
+  // A calorie input that was missing (defaults were in use) and is now known: recompute the
+  // targets from the real numbers. Changing a value that was already set leaves the targets alone
+  // -- they may carry adaptive-calorie corrections (domain/adaptiveCalories.ts) a recompute would lose.
+  const filledGap = CALORIE_FIELDS.some((k) => user.profile[k] === undefined && profile[k] !== undefined);
+  if (filledGap && user.onboarded) {
+    const nutrition = computeTargets(profile);
+    await updateUser(env.DB, user._id, { profile, nutrition });
+    await updateActivePlanNutrition(env.DB, user._id, nutrition, restDayTargets(nutrition)).catch(() => {});
+  } else {
+    await updateUser(env.DB, user._id, { profile });
+  }
   return Response.json({ ok: true });
 }
 

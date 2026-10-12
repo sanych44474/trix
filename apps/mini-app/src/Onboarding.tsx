@@ -3,7 +3,8 @@ import { ApiError, api, typedBody } from "./api";
 import { t, type Key, type Lang } from "./i18n";
 import { BecomeTrainerCard } from "./BecomeTrainer";
 import { FindTrainer } from "./FindTrainer";
-import { DRAFT_KEY, choose, chosen, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers, type Step } from "./logic/onboardingWizard";
+import { ReadyPrograms } from "./ReadyPrograms";
+import { DRAFT_KEY, basicSteps, basicsRequest, choose, chosen, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers, type Step } from "./logic/onboardingWizard";
 
 type Props = { lang: Lang; isClient: boolean; onComplete: () => void; onLangChange: (lang: Lang) => void; onReload?: () => void };
 
@@ -19,6 +20,10 @@ const deviceTimeZone = () => { try { return Intl.DateTimeFormat().resolvedOption
  * The onboarding questionnaire: a welcome screen, then one question per screen. Choice answers
  * advance on tap; typed answers have a Next button. Answers are kept on the phone as a draft, so
  * closing the app resumes at the first open question.
+ *
+ * The other way in is a ready program: the four body-data questions (sex, age, height, weight --
+ * start weights and calories need them), then the program list; applying one onboards the person.
+ * The remaining questions are asked later by the Today fine-tune card.
  */
 export function OnboardingView({ lang, isClient, onComplete, onLangChange, onReload }: Props) {
   const [answers, setAnswers] = useState<Answers>(readDraft);
@@ -31,8 +36,10 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
   const [coach, setCoach] = useState(false);
   // "Choose a trainer": the directory and the pending request.
   const [findTrainer, setFindTrainer] = useState(false);
+  // "A ready program": the basics, then the program list ("pick" once the basics are saved).
+  const [ready, setReady] = useState<"off" | "basics" | "pick">("off");
   const advanceTimer = useRef<number | undefined>(undefined);
-  const steps = stepsFor(answers, isClient);
+  const steps = ready === "basics" ? basicSteps() : stepsFor(answers, isClient);
   const step = index >= 0 ? steps[Math.min(index, steps.length - 1)] : undefined;
   const isLast = index === steps.length - 1;
 
@@ -42,17 +49,33 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
 
   // Telegram's own Back button steps back through the questions.
   useEffect(() => {
-    const back = window.Telegram?.WebApp.BackButton;
-    if (!back) return;
-    if (index < 0) { back.hide(); return; }
-    const handler = () => setIndex((i) => i - 1);
-    back.show();
-    back.onClick(handler);
-    return () => back.offClick(handler);
-  }, [index]);
+    const tgBack = window.Telegram?.WebApp.BackButton;
+    if (!tgBack) return;
+    if (index < 0) { tgBack.hide(); return; }
+    const handler = () => back();
+    tgBack.show();
+    tgBack.onClick(handler);
+    return () => tgBack.offClick(handler);
+  }, [index, ready]);
 
   const update = (next: Answers) => { setError(null); setAnswers(next); };
-  const goNext = () => { if (step && isAnswered(step, answers)) { if (isLast) void submit(answers); else setIndex(index + 1); } };
+  const goNext = () => { if (step && isAnswered(step, answers)) { if (isLast) void finish(answers); else setIndex(index + 1); } };
+  const finish = (final: Answers) => (ready === "basics" ? saveBasics(final) : submit(final));
+
+  // Ready-program path: store the basics on the profile, then show the programs.
+  const saveBasics = async (final: Answers) => {
+    const body = basicsRequest(final);
+    if (!body) return;
+    setSaving(true); setError(null);
+    try {
+      await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateProfile">(body) });
+      setReady("pick");
+      setIndex(-1);
+    } catch {
+      setError(t(lang, "onboarding_save_error"));
+    } finally { setSaving(false); }
+  };
+  const back = () => { if (ready === "basics" && index === 0) { setReady("off"); setIndex(-1); } else setIndex(index - 1); };
 
   const submit = async (final: Answers) => {
     const body = toRequest(final, isClient, deviceTimeZone());
@@ -73,8 +96,8 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
     window.clearTimeout(advanceTimer.current);
     // A short beat so the tap visibly lands before the next question slides in.
     advanceTimer.current = window.setTimeout(() => {
-      const nextSteps = stepsFor(next, isClient);
-      if (index >= nextSteps.length - 1) void submit(next);
+      const nextSteps = ready === "basics" ? basicSteps() : stepsFor(next, isClient);
+      if (index >= nextSteps.length - 1) void finish(next);
       else setIndex(index + 1);
     }, 180);
   };
@@ -90,6 +113,13 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
 
   if (!step && findTrainer && !isClient) {
     return <FindTrainer lang={lang} onBack={() => setFindTrainer(false)} onAccepted={() => { setFindTrainer(false); onReload?.(); }} />;
+  }
+
+  if (ready === "pick" && !isClient) {
+    return <div className="ob-wizard view-stack">
+      <div className="ob-question"><h1>{t(lang, "ob_ready_title")}</h1><p className="muted">{t(lang, "ob_ready_body")}</p></div>
+      <ReadyPrograms lang={lang} onApplied={() => { clearDraft(); onReload?.(); }} />
+    </div>;
   }
 
   if (!step && coach) {
@@ -111,6 +141,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
       </div>
       <div className="ob-options">
         <button type="button" className="ob-option selected" onClick={() => setIndex(firstOpenStep(answers, isClient))}>{t(lang, isClient ? "ob_start_btn" : "ob_role_athlete_btn")}</button>
+        {!isClient && <button type="button" className="ob-option" onClick={() => { setReady("basics"); setIndex(0); }}>{t(lang, "ob_ready_btn")}</button>}
         {!isClient && <button type="button" className="ob-option" onClick={() => setFindTrainer(true)}>{t(lang, "ob_role_trainer_btn")}</button>}
         {!isClient && <button type="button" className="ob-option" onClick={() => setCoach(true)}>{t(lang, "ob_role_coach_btn")}</button>}
       </div>
@@ -131,7 +162,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
 
   return <div className="ob-wizard view-stack">
     <div className="ob-progress">
-      <button type="button" className="text-button" onClick={() => setIndex(index - 1)}>← {t(lang, "ob_back_btn")}</button>
+      <button type="button" className="text-button" onClick={back}>← {t(lang, "ob_back_btn")}</button>
       <span className="muted">{t(lang, "ob_step_of", { n: shown + 1, total: steps.length })}</span>
     </div>
     <div className="ob-bar" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
@@ -159,7 +190,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
 
       {step.kind === "text" && <div className="ob-text">
         <textarea maxLength={500} placeholder={t(lang, "limitations_ph")} value={answers.limitations && answers.limitations !== "none" ? answers.limitations : ""} onChange={(e) => update({ ...answers, limitations: e.target.value })} />
-        <button type="button" className={answers.limitations === "none" ? "ob-option selected" : "ob-option"} disabled={saving} onClick={() => { const next = { ...answers, limitations: "none" }; update(next); if (isLast) void submit(next); else setIndex(index + 1); }}>{t(lang, "ob_no_limits_btn")}</button>
+        <button type="button" className={answers.limitations === "none" ? "ob-option selected" : "ob-option"} disabled={saving} onClick={() => { const next = { ...answers, limitations: "none" }; update(next); if (isLast) void finish(next); else setIndex(index + 1); }}>{t(lang, "ob_no_limits_btn")}</button>
       </div>}
     </div>
 
