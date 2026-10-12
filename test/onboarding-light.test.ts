@@ -1,12 +1,12 @@
-// Lighter onboarding: the questionnaire asks only the essentials (height/weight optional), a ready
-// program is a no-questionnaire way in, and the Today fine-tune card fills the rest -- recomputing
-// calorie targets once a missing calorie input becomes known.
+// The second way into the app: the four body-data questions, then a ready program (no full
+// questionnaire); the Today fine-tune card asks the rest later -- recomputing calorie targets once
+// a missing calorie input becomes known.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { getActivePlan } from "../src/adapters/d1/v2Plans";
-import { handleOnboardingApi, handleProfileApi } from "../src/webapp/profileApi";
+import { handleProfileApi } from "../src/webapp/profileApi";
 import { handleProgramsApi } from "../src/webapp/programsApi";
 import { profileGaps } from "../src/domain/profileGaps";
 import type { UserDoc } from "../src/types";
@@ -22,27 +22,18 @@ test("profileGaps: the calorie inputs first, then session length and diet", () =
   assert.deepEqual(profileGaps({ sex: "male", age: 30, heightCm: 180, weightKg: 80, lifestyle: "active", sessionMinutes: 60, dietPrefs: "none" }), []);
 });
 
-test("onboarding without height and weight is accepted", async () => {
-  const db = newDb();
-  await getOrCreateUser(db, 1, 1, "uk", "Оля");
-  const res = await call(handleOnboardingApi, db, 1, "POST", "/api/onboarding", {
-    sex: "female", age: 28, goal: "fat loss", level: "beginner", equipment: "full gym", trainingWeekdays: [1, 3, 5], limitations: "none", baselineLifts: "none",
-  });
-  assert.equal(res.status, 200);
-  const u = (await getUser(db, 1)) as UserDoc;
-  assert.equal(u.session.mode, "plan_pending");
-  assert.equal(u.profile.weightKg, undefined);
-});
-
-test("no questionnaire: applying a ready program onboards the person, gaps remain for the card", async () => {
+test("ready-program entry: basics saved, program applied, person onboarded, the rest left for the card", async () => {
   const db = newDb();
   await getOrCreateUser(db, 2, 2, "uk", "Макс");
+  await call(handleProfileApi, db, 2, "POST", "/api/profile", { sex: "male", age: 31, heightCm: 182, weightKg: 84.5 });
   const res = await call(handleProgramsApi, db, 2, "POST", "/api/programs", { id: "gym-fullbody-beginner" });
   assert.equal(res.status, 200, await res.clone().text());
   const u = (await getUser(db, 2)) as UserDoc;
   assert.equal(u.onboarded, true);
   assert.ok(await getActivePlan(db, 2));
-  assert.ok(profileGaps(u.profile).includes("weightKg"));
+  assert.equal(u.profile.weightKg, 84.5);
+  assert.deepEqual(profileGaps(u.profile), ["lifestyle", "sessionMinutes", "dietPrefs"]);
+  assert.ok(u.nutrition && u.nutrition.calories > 1500);
 });
 
 test("fine-tune: filling a missing calorie input recomputes the targets; editing a known one does not", async () => {

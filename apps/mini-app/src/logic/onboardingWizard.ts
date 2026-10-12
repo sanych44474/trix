@@ -1,10 +1,7 @@
-// The onboarding questionnaire as data: one question per screen. Only what the first plan needs
-// is asked up front -- the training questions first (they feel like progress), body data last,
-// height and weight skippable. Session length, daily activity, sleep and diet are NOT asked here:
-// the plan has sensible defaults for them and the Today "fine-tune" card (FineTuneCard) asks once
-// the person has a plan. Which steps appear depends on the answers so far (current lifts only past
-// beginner) and on the role (a trainer's client is also asked what the trainer may see). Pure, so
-// the order, validation and request are tested without rendering.
+// The onboarding questionnaire as data: one question per screen. Which steps appear depends on
+// the answers so far (current lifts only past beginner) and on the role (a trainer's client is
+// also asked what the trainer may see). Pure, so the order, validation and request are tested
+// without rendering.
 import type { Key } from "../i18n";
 
 export type Sex = "male" | "female";
@@ -27,14 +24,11 @@ export interface Answers {
   dietPrefs?: string;
   limitations?: string;
   share?: ShareChoice;
-  /** Optional steps the person chose to skip (height, weight). */
-  skipped?: StepId[];
 }
 
-export type StepId = "sex" | "age" | "height" | "weight" | "goal" | "level" | "lifts" | "days" | "equipment" | "limits" | "share";
-
-/** Steps with a Skip button: the plan works without them (defaults), calories get better with them. */
-export const SKIPPABLE: StepId[] = ["height", "weight"];
+export type StepId =
+  | "sex" | "age" | "height" | "weight" | "goal" | "level" | "lifts" | "days" | "duration"
+  | "equipment" | "lifestyle" | "sleep" | "diet" | "limits" | "share";
 
 export type Option = { value: string; label: Key };
 
@@ -66,12 +60,25 @@ const STEPS: Record<StepId, Step> = {
   },
   lifts: { id: "lifts", q: "obq_lifts", hint: "ob_lifts_hint", kind: "lifts" },
   days: { id: "days", q: "obq_days", hint: "obh_days", kind: "days" },
+  duration: {
+    id: "duration", q: "obq_duration", kind: "choice",
+    options: [{ value: "30", label: "obo_min_30" }, { value: "45", label: "obo_min_45" }, { value: "60", label: "obo_min_60" }, { value: "90", label: "obo_min_90" }],
+  },
   equipment: {
     id: "equipment", q: "obq_equipment", kind: "choice",
     options: [
       { value: "full gym", label: "equip_full_gym" }, { value: "home basics (dumbbells, bands)", label: "equip_home_basics" },
       { value: "dumbbells only", label: "equip_dumbbells_only" }, { value: "bodyweight only", label: "equip_bodyweight_only" },
     ],
+  },
+  lifestyle: {
+    id: "lifestyle", q: "obq_lifestyle", kind: "choice",
+    options: [{ value: "sedentary", label: "obo_life_sedentary" }, { value: "moderate", label: "obo_life_moderate" }, { value: "active", label: "obo_life_active" }],
+  },
+  sleep: { id: "sleep", q: "obq_sleep", kind: "choice", options: [{ value: "morning", label: "obo_sleep_morning" }, { value: "evening", label: "obo_sleep_evening" }] },
+  diet: {
+    id: "diet", q: "obq_diet", kind: "choice",
+    options: [{ value: "none", label: "diet_everything" }, { value: "vegetarian", label: "diet_vegetarian" }, { value: "vegan", label: "diet_vegan" }],
   },
   limits: { id: "limits", q: "obq_limits", hint: "obh_limits", kind: "text" },
   share: {
@@ -82,34 +89,42 @@ const STEPS: Record<StepId, Step> = {
 
 /** The steps for this person, in order. Lifts appear only past beginner; sharing only for a client. */
 export function stepsFor(answers: Answers, isClient: boolean): Step[] {
-  const ids: StepId[] = ["goal", "level"];
+  const ids: StepId[] = ["sex", "age", "height", "weight", "goal", "level"];
   if (answers.level && answers.level !== "beginner") ids.push("lifts");
-  ids.push("equipment", "days", "sex", "age", "height", "weight", "limits");
+  ids.push("days", "duration", "equipment", "lifestyle", "sleep", "diet", "limits");
   if (isClient) ids.push("share");
   return ids.map((id) => STEPS[id]);
 }
 
-/** Mark an optional step as skipped (its value is cleared). */
-export function skip(step: Step, a: Answers): Answers {
-  if (!SKIPPABLE.includes(step.id)) return a;
-  const cleared = step.id === "height" ? { ...a, heightCm: undefined } : { ...a, weightKg: undefined };
-  return { ...cleared, skipped: [...new Set([...(a.skipped ?? []), step.id])] };
+/** The body-data questions asked before a ready program is applied (the no-questionnaire entry):
+ *  the program's start weights and calorie targets need them. */
+export function basicSteps(): Step[] {
+  return (["sex", "age", "height", "weight"] as StepId[]).map((id) => STEPS[id]);
+}
+
+/** The profile patch for the basics (POST /api/v2/profile); null while one is missing. */
+export function basicsRequest(a: Answers) {
+  if (!basicSteps().every((s) => isAnswered(s, a))) return null;
+  return { sex: a.sex!, age: Math.round(a.age!), heightCm: Math.round(a.heightCm!), weightKg: Math.round(a.weightKg! * 10) / 10 };
 }
 
 /** Whether the step has a valid answer (the Next button and the final submit both use this). */
 export function isAnswered(step: Step, a: Answers): boolean {
   const inRange = (v: number | undefined) => v !== undefined && Number.isFinite(v) && v >= (step.number?.min ?? -Infinity) && v <= (step.number?.max ?? Infinity);
-  const skipped = (a.skipped ?? []).includes(step.id);
   switch (step.id) {
     case "sex": return !!a.sex;
     case "age": return inRange(a.age);
-    case "height": return inRange(a.heightCm) || (skipped && a.heightCm === undefined);
-    case "weight": return inRange(a.weightKg) || (skipped && a.weightKg === undefined);
+    case "height": return inRange(a.heightCm);
+    case "weight": return inRange(a.weightKg);
     case "goal": return !!a.goal;
     case "level": return !!a.level;
     case "lifts": return true; // optional: an empty answer means "start from technique weights"
     case "days": return (a.trainingWeekdays ?? []).length > 0;
+    case "duration": return a.sessionMinutes !== undefined;
     case "equipment": return !!a.equipment;
+    case "lifestyle": return !!a.lifestyle;
+    case "sleep": return !!a.sleepSchedule;
+    case "diet": return !!a.dietPrefs;
     case "limits": return a.limitations !== undefined;
     case "share": return !!a.share;
   }
@@ -121,7 +136,11 @@ export function choose(step: Step, a: Answers, value: string): Answers {
     case "sex": return { ...a, sex: value as Sex };
     case "goal": return { ...a, goal: value };
     case "level": return { ...a, level: value as Level, lifts: value === "beginner" ? undefined : a.lifts };
+    case "duration": return { ...a, sessionMinutes: Number(value) as Answers["sessionMinutes"] };
     case "equipment": return { ...a, equipment: value };
+    case "lifestyle": return { ...a, lifestyle: value as Answers["lifestyle"] };
+    case "sleep": return { ...a, sleepSchedule: value as Answers["sleepSchedule"] };
+    case "diet": return { ...a, dietPrefs: value };
     case "share": return { ...a, share: value as ShareChoice };
     default: return a;
   }
@@ -133,7 +152,11 @@ export function chosen(step: Step, a: Answers): string | undefined {
     case "sex": return a.sex;
     case "goal": return a.goal;
     case "level": return a.level;
+    case "duration": return a.sessionMinutes !== undefined ? String(a.sessionMinutes) : undefined;
     case "equipment": return a.equipment;
+    case "lifestyle": return a.lifestyle;
+    case "sleep": return a.sleepSchedule;
+    case "diet": return a.dietPrefs;
     case "share": return a.share;
     default: return undefined;
   }
@@ -152,26 +175,25 @@ const liftsText = (l: Answers["lifts"]) =>
     .map(([k, v]) => `${k} ${v}kg`)
     .join(", ") || "none";
 
-/** The /api/v2/onboarding body; null while a required answer is missing. Answers to questions
- *  the wizard no longer asks (an old draft) still go along. */
+/** The /api/v2/onboarding body; null while a required answer is missing. */
 export function toRequest(a: Answers, isClient: boolean, timezone?: string) {
   const steps = stepsFor(a, isClient);
   if (!steps.every((s) => isAnswered(s, a))) return null;
   return {
     sex: a.sex!,
     age: Math.round(a.age!),
-    ...(a.heightCm !== undefined ? { heightCm: Math.round(a.heightCm) } : {}),
-    ...(a.weightKg !== undefined ? { weightKg: Math.round(a.weightKg * 10) / 10 } : {}),
+    heightCm: Math.round(a.heightCm!),
+    weightKg: Math.round(a.weightKg! * 10) / 10,
     goal: a.goal!,
     level: a.level!,
     equipment: a.equipment!,
+    dietPrefs: a.dietPrefs!,
     trainingWeekdays: [...a.trainingWeekdays!].sort((x, y) => x - y),
     limitations: a.limitations!.trim() || "none",
     baselineLifts: a.level === "beginner" ? "none" : liftsText(a.lifts),
-    ...(a.dietPrefs ? { dietPrefs: a.dietPrefs } : {}),
-    ...(a.sessionMinutes ? { sessionMinutes: a.sessionMinutes } : {}),
-    ...(a.lifestyle ? { lifestyle: a.lifestyle } : {}),
-    ...(a.sleepSchedule ? { sleepSchedule: a.sleepSchedule } : {}),
+    sessionMinutes: a.sessionMinutes!,
+    lifestyle: a.lifestyle!,
+    sleepSchedule: a.sleepSchedule!,
     ...(timezone ? { timezone } : {}),
     ...(isClient ? { share: { body: a.share === "both" || a.share === "body", health: a.share === "both" || a.share === "health" } } : {}),
   };

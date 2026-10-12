@@ -3241,8 +3241,7 @@ components:
         stress: {type: number, minimum: 1, maximum: 5, description: 'kind=checkin'}
     OnboardingRequest:
       type: object
-      required: [sex, age, goal, level, equipment, trainingWeekdays, limitations]
-      description: Height, weight and the lifestyle questions are optional -- the plan uses defaults until the person adds them (Today → fine-tune card).
+      required: [sex, age, heightCm, weightKg, goal, level, equipment, dietPrefs, trainingWeekdays, limitations]
       properties:
         sex:
           type: string
