@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { choose, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers } from "../apps/mini-app/src/logic/onboardingWizard";
+import { choose, firstOpenStep, isAnswered, parseDraft, skip, stepsFor, toRequest, type Answers } from "../apps/mini-app/src/logic/onboardingWizard";
 import { en } from "../apps/mini-app/src/i18n/en";
 
 const full: Answers = {
@@ -11,7 +11,9 @@ const full: Answers = {
 
 test("onboarding steps: one question each, lifts only past beginner, sharing only for a trainer's client", () => {
   const ids = (a: Answers, client: boolean) => stepsFor(a, client).map((s) => s.id);
-  assert.deepEqual(ids({}, false), ["sex", "age", "height", "weight", "goal", "level", "days", "duration", "equipment", "lifestyle", "sleep", "diet", "limits"]);
+  // Training questions first, body data last; session length, activity, sleep and diet moved to
+  // the Today fine-tune card.
+  assert.deepEqual(ids({}, false), ["goal", "level", "equipment", "days", "sex", "age", "height", "weight", "limits"]);
   assert.ok(ids({ level: "intermediate" }, false).includes("lifts"));
   assert.ok(!ids({ level: "beginner" }, false).includes("lifts"));
   assert.equal(ids({}, true).at(-1), "share");
@@ -44,12 +46,12 @@ test("switching to beginner drops lifts typed earlier", () => {
 
 test("a draft resumes at the first unanswered question", () => {
   assert.equal(firstOpenStep({}, false), 0);
-  assert.equal(firstOpenStep({ sex: "male", age: 30 }, false), 2);
+  assert.equal(firstOpenStep({ goal: "strength", level: "beginner" }, false), 2);
   assert.equal(firstOpenStep(full, true), stepsFor(full, true).length - 1); // only the sharing question left
 });
 
 test("request: null until complete; sorted days, rounded numbers, 'none' lifts for beginners", () => {
-  assert.equal(toRequest({ ...full, sessionMinutes: undefined }, false), null);
+  assert.equal(toRequest({ ...full, age: undefined }, false), null);
   const body = toRequest(full, false, "Europe/Kyiv")!;
   assert.deepEqual(body.trainingWeekdays, [1, 3, 5]);
   assert.equal(body.weightKg, 58.4);
@@ -72,4 +74,29 @@ test("a malformed draft is ignored", () => {
   assert.deepEqual(parseDraft("[1,2]"), {});
   assert.deepEqual(parseDraft(null), {});
   assert.deepEqual(parseDraft('{"sex":"male"}'), { sex: "male" });
+});
+
+test("height and weight can be skipped: answered, cleared, left out of the request", () => {
+  const steps = stepsFor({}, false);
+  const height = steps.find((s) => s.id === "height")!;
+  const weight = steps.find((s) => s.id === "weight")!;
+  const age = steps.find((s) => s.id === "age")!;
+  const a = skip(weight, skip(height, { ...full, heightCm: 170 }));
+  assert.equal(isAnswered(height, a), true);
+  assert.equal(isAnswered(weight, a), true);
+  assert.equal(skip(age, full), full); // only the optional ones skip
+  const body = toRequest(a, false)!;
+  assert.equal("heightCm" in body, false);
+  assert.equal("weightKg" in body, false);
+  // An answer typed after skipping still counts.
+  assert.equal(toRequest({ ...a, weightKg: 70 }, false)!.weightKg, 70);
+});
+
+test("answers to questions no longer asked (an old draft) still go along", () => {
+  const body = toRequest(full, false)!;
+  assert.equal(body.sessionMinutes, 60);
+  assert.equal(body.lifestyle, "moderate");
+  assert.equal(body.dietPrefs, "none");
+  const minimal = toRequest({ ...full, sessionMinutes: undefined, lifestyle: undefined, sleepSchedule: undefined, dietPrefs: undefined }, false)!;
+  assert.equal("lifestyle" in minimal, false);
 });

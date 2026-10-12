@@ -3,7 +3,8 @@ import { ApiError, api, typedBody } from "./api";
 import { t, type Key, type Lang } from "./i18n";
 import { BecomeTrainerCard } from "./BecomeTrainer";
 import { FindTrainer } from "./FindTrainer";
-import { DRAFT_KEY, choose, chosen, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers, type Step } from "./logic/onboardingWizard";
+import { ReadyPrograms } from "./ReadyPrograms";
+import { DRAFT_KEY, SKIPPABLE, choose, chosen, firstOpenStep, isAnswered, parseDraft, skip, stepsFor, toRequest, type Answers, type Step } from "./logic/onboardingWizard";
 
 type Props = { lang: Lang; isClient: boolean; onComplete: () => void; onLangChange: (lang: Lang) => void; onReload?: () => void };
 
@@ -31,6 +32,9 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
   const [coach, setCoach] = useState(false);
   // "Choose a trainer": the directory and the pending request.
   const [findTrainer, setFindTrainer] = useState(false);
+  // "Just give me a program": pick one of the ready programs, no questionnaire. Applying it makes
+  // the person onboarded on the server; the profile is filled in later from Today.
+  const [readyPick, setReadyPick] = useState(false);
   const advanceTimer = useRef<number | undefined>(undefined);
   const steps = stepsFor(answers, isClient);
   const step = index >= 0 ? steps[Math.min(index, steps.length - 1)] : undefined;
@@ -92,6 +96,14 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
     return <FindTrainer lang={lang} onBack={() => setFindTrainer(false)} onAccepted={() => { setFindTrainer(false); onReload?.(); }} />;
   }
 
+  if (!step && readyPick && !isClient) {
+    return <div className="ob-wizard view-stack">
+      <div className="ob-progress"><button type="button" className="text-button" onClick={() => setReadyPick(false)}>← {t(lang, "ob_back_btn")}</button></div>
+      <div className="ob-question"><h1>{t(lang, "ob_ready_title")}</h1><p className="muted">{t(lang, "ob_ready_body")}</p></div>
+      <ReadyPrograms lang={lang} onApplied={() => { clearDraft(); onReload?.(); }} />
+    </div>;
+  }
+
   if (!step && coach) {
     return <div className="ob-wizard view-stack">
       <div className="ob-progress"><button type="button" className="text-button" onClick={() => setCoach(false)}>← {t(lang, "ob_back_btn")}</button></div>
@@ -111,6 +123,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
       </div>
       <div className="ob-options">
         <button type="button" className="ob-option selected" onClick={() => setIndex(firstOpenStep(answers, isClient))}>{t(lang, isClient ? "ob_start_btn" : "ob_role_athlete_btn")}</button>
+        {!isClient && <button type="button" className="ob-option" onClick={() => setReadyPick(true)}>{t(lang, "ob_ready_btn")}</button>}
         {!isClient && <button type="button" className="ob-option" onClick={() => setFindTrainer(true)}>{t(lang, "ob_role_trainer_btn")}</button>}
         {!isClient && <button type="button" className="ob-option" onClick={() => setCoach(true)}>{t(lang, "ob_role_coach_btn")}</button>}
       </div>
@@ -167,6 +180,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
 
     {step.kind !== "choice" && <div className="ob-actions">
       {step.kind === "lifts" && <button type="button" className="button button-ghost" onClick={() => { update({ ...answers, lifts: undefined }); setIndex(index + 1); }}>{t(lang, "ob_skip_btn")}</button>}
+      {SKIPPABLE.includes(step.id) && <button type="button" className="button button-ghost" disabled={saving} onClick={() => { const next = skip(step, answers); update(next); if (isLast) void submit(next); else setIndex(index + 1); }}>{t(lang, "ob_skip_btn")}</button>}
       <button type="button" className="button button-primary button-wide" disabled={saving || !isAnswered(step, answers) || (step.kind === "text" && !answers.limitations?.trim())} onClick={goNext}>{saving ? t(lang, "building_plan_ellipsis") : isLast ? t(lang, "ob_finish_btn") : t(lang, "ob_next_btn")}</button>
     </div>}
     {step.kind === "choice" && saving && <div className="save-note">{t(lang, "building_plan_ellipsis")}</div>}

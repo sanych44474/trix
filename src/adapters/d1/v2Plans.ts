@@ -539,6 +539,18 @@ export async function updateActivePlanSplit(db: DB, userId: number, split: unkno
   await touchPlan(db, r.id);
 }
 
+/** Replace the active plan's training-day and rest-day targets in place (no new plan version):
+ *  the profile gained real body data, so the formula targets were recomputed. */
+export async function updateActivePlanNutrition(db: DB, userId: number, nutrition: PlanDoc["nutrition"], restDay: NonNullable<PlanDoc["restDayNutrition"]>): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE v2_plans SET nutrition = ?, meta = json_set(COALESCE(meta, '{}'), '$.restDayNutrition', json(?)), updatedAt = ?
+       WHERE accountId = ? AND active = 1`,
+    )
+    .bind(JSON.stringify(nutrition), JSON.stringify(restDay), nowIso(), userId)
+    .run();
+}
+
 /** Set/clear the mesocycle on the active plan — its own v2_plans column (migrations/0078), so
  * unlike legacy (which json_set/json_remove's it inside the `meta` blob) this is a plain
  * single-column UPDATE; no read-modify-write window either way. */
