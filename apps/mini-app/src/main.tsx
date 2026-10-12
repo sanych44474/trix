@@ -7,6 +7,7 @@ import "./styles.css";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { installErrorReporting } from "./logic/errorReport";
 import { applyTheme, restoreContrast } from "./logic/theme";
+import { prefetchDashboard } from "./useDashboard";
 
 installErrorReporting();
 
@@ -35,6 +36,8 @@ function initialLang(): Lang {
 }
 
 const lang = initialLang();
+// The dashboard request and the language chunk load in parallel; the first render needs both.
+prefetchDashboard();
 void loadLang(lang).catch(() => {}).finally(() => {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>

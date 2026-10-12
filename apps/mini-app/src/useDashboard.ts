@@ -12,6 +12,14 @@ export const DASHBOARD_CACHE_KEY = "trix:v2:dashboard";
 /** How often to re-check while the plan is being built after onboarding. */
 const PLAN_POLL_MS = 4000;
 
+// main.tsx starts the first dashboard request while the language chunk is still loading, instead
+// of after the first render; the hook's first load() picks that request up.
+let prefetched: Promise<Dashboard> | null = null;
+export function prefetchDashboard(): void {
+  prefetched = api<Dashboard>("/api/v2/dashboard");
+  prefetched.catch(() => {}); // a failure surfaces when load() awaits it
+}
+
 export function useDashboard(setLang: (lang: Lang) => void) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -21,7 +29,9 @@ export function useDashboard(setLang: (lang: Lang) => void) {
   const load = () => {
     setLoading(true);
     setError(null);
-    api<Dashboard>("/api/v2/dashboard")
+    const request = prefetched ?? api<Dashboard>("/api/v2/dashboard");
+    prefetched = null;
+    request
       .then((data) => {
         registerLearnedMuscles(data.calendar?.learnedMuscles ?? []);
         setDashboard(data);

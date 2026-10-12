@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0d11" />
     <title>trix</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- defer: no longer blocks parsing or the CSS / module preloads behind it. Deferred classic
+         scripts and module scripts run in document order, so window.Telegram is still set before
+         main.tsx executes. -->
+    <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- The app's dark background before the stylesheet arrives (no white flash on open). -->
+    <style>html,body{background:#0b0d11;margin:0}</style>
   </head>
   <body>
     <div id="root"></div>
