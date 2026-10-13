@@ -996,6 +996,7 @@ export const en = {
   progress_photo_upload_eyebrow: "PROGRESS PHOTO",
   progress_photo_upload_title: "Add a photo",
   progress_photo_upload_hint: "Sent privately to your own Telegram chat and saved to your gallery.",
+  progress_photo_upload_btn: "Take a photo",
   progress_photo_uploaded_note: "Photo saved. Check Settings to view your gallery.",
 
   // trainer client card: photo request + interview nudge

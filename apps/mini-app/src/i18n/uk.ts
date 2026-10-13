@@ -997,6 +997,7 @@ export const uk: Record<keyof typeof en, string> = {
   progress_photo_upload_eyebrow: "ФОТО ПРОГРЕСУ",
   progress_photo_upload_title: "Додати фото",
   progress_photo_upload_hint: "Надсилається приватно у твій чат Telegram і зберігається в галереї.",
+  progress_photo_upload_btn: "Зробити фото",
   progress_photo_uploaded_note: "Фото збережено. Перевір галерею в Налаштуваннях.",
 
   // trainer client card: photo request + interview nudge
