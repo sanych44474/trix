@@ -6,6 +6,7 @@ import { setActivePlan } from "../adapters/d1/v2Plans";
 import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { listStrength } from "../adapters/d1/v2Workouts";
 import { stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
+import { deleteOnboardingDraft } from "../adapters/d1/v2OnboardingDraft";
 import { adaptPlan } from "../domain/planAdapt";
 import { PROGRAMS, buildProgram, findProgram } from "../domain/programCatalog";
 import { formatRecordBest } from "../domain/setFormat";
@@ -66,6 +67,7 @@ export async function handleProgramsApi(req: Request, url: URL, env: Env): Promi
     logInfo("onboarding_completed", { role: user.role });
     logInfo("first_plan_ready", { source: "template" });
     await stampOnboardedAt(env.DB, user._id).catch(() => {});
+    await deleteOnboardingDraft(env.DB, user._id).catch(() => {});
   }
   await updateUser(env.DB, user._id, { onboarded: true, nutrition: plan.nutrition, profile });
   await recordPlanSource(env.DB, user._id, "workout", "template").catch(() => {});

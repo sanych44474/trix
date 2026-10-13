@@ -50,6 +50,7 @@ export async function deleteUserData(env: Env, userId: number): Promise<void> {
      db.prepare("DELETE FROM v2_trainer_relationships WHERE clientId = ? OR trainerId = ?").bind(userId, userId),
      db.prepare("DELETE FROM v2_preferences WHERE accountId = ?").bind(userId),
      db.prepare("DELETE FROM v2_onboarding WHERE accountId = ?").bind(userId),
+     db.prepare("DELETE FROM v2_onboarding_drafts WHERE accountId = ?").bind(userId),
      db.prepare("DELETE FROM v2_plan_changes WHERE accountId = ? OR actorId = ?").bind(userId, userId),
      db.prepare("DELETE FROM v2_workout_cardio_metrics WHERE accountId = ?").bind(userId),
      db.prepare("DELETE FROM v2_nutrition_corrections WHERE accountId = ?").bind(userId),

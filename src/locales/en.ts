@@ -621,6 +621,8 @@ export const en = {
   photo_help:
     "Send me a photo (or a few) of your meal and I'll estimate its calories & macros. You can also just type what you ate.",
   verified_suffix: "\n✅ {n}/{total} item(s) cross-checked against {src} (rest estimated by AI).",
+  verified_src_user: "your own corrections",
+  verified_src_trix: "the trix food catalog",
 
   menu_report: "📊 Report",
   menu_checkin: "🌡️ Check-in",

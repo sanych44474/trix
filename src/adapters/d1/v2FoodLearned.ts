@@ -84,3 +84,14 @@ export async function learnedByBarcode(db: D1Database, barcode: string): Promise
 export async function bumpLearned(db: D1Database, name: string, brand = ""): Promise<void> {
   await db.prepare("UPDATE v2_food_learned SET hits = hits + 1 WHERE id = ?").bind(learnedId(name, brand)).run();
 }
+
+/** Drop learned foods nobody ever picked, last seen before `beforeIso`, with their words. Returns
+ *  how many went. Picked foods (hits > 0) stay however old they are. */
+export async function pruneLearned(db: D1Database, beforeIso: string): Promise<number> {
+  const stale = "SELECT id FROM v2_food_learned WHERE hits = 0 AND updatedAt < ?";
+  const [, res] = await db.batch([
+    db.prepare(`DELETE FROM v2_food_learned_words WHERE foodId IN (${stale})`).bind(beforeIso),
+    db.prepare("DELETE FROM v2_food_learned WHERE hits = 0 AND updatedAt < ?").bind(beforeIso),
+  ]);
+  return res?.meta?.changes ?? 0;
+}
