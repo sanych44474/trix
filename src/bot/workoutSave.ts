@@ -27,7 +27,7 @@ import { advanceLevel } from "../features/gamification/level";
 import { notify } from "../notify";
 import { localCutoff } from "./report";
 import { reactToUser, type MyContext, HTML, type TKey, reply, setMode } from "../adapters/telegram/context";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 
 export async function handleWorkoutLog(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;

@@ -1,4 +1,5 @@
 import { Bot, } from "grammy";
+import { sendBestEffort } from "./adapters/telegram/rawApi";
 import { deliverDueNotifications } from "./schedulerOutbox";
 import { isDurable, notify, type DeliveryResult } from "./notify";
 import { closeQuestWeek } from "./questClose";
@@ -24,11 +25,11 @@ import { isCutOver } from "./durable/cutover";
 import { ADJUST_COOLDOWN_DAYS } from "./domain/adaptiveCalories";
 import { DAILY_NUDGE_CAP, daysBetween, isQuietHour, nudgesSentToday } from "./domain/reminderTiming";
 import { escapeHtml, t } from "./locales/i18n";
-import { onboardingAppMarkup, onboardingUrlFromEnv } from "./bot/onboardingApp";
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "./notify/onboardingApp";
 import { appKeyboard, } from "./notify/appKeyboard";
 import { finalizeOnboardingPlan, retryInterviewStep } from "./bot/plan";
 import { APP_VERSION } from "./webapp/appVersion";
-import { enforceStorageBudget } from "./webapp/photoStorage";
+import { enforceStorageBudget } from "./adapters/r2/photoStorage";
 import { purgeExpiredStories } from "./webapp/storyMedia";
 import { stravaAccountsDue } from "./adapters/d1/v2Strava";
 import { syncStrava } from "./features/strava/stravaSync";
@@ -170,11 +171,7 @@ async function runScheduleInner(env: Env): Promise<void> {
         const appUrl = onboardingUrlFromEnv(env);
         const lastBotMsg = [...transcript].reverse().find((m) => m.role === "assistant");
         const nudgeText = appUrl ? t(u.lang, "ob_app_reminder") : lastBotMsg?.text ?? t(u.lang, "ob_resume_nudge");
-        await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: u.chatId, text: nudgeText, parse_mode: "HTML", ...(appUrl ? { reply_markup: onboardingAppMarkup(u.lang, appUrl) } : {}) }),
-        });
+        await sendBestEffort(env, u.chatId, nudgeText, appUrl ? onboardingAppMarkup(u.lang, appUrl) : undefined);
         // Mark today's nudge so we don't send it again today (in the reminders column, so a
         // user-facing session write can't wipe it).
         await updateUser(db, u._id, { reminders: { ...u.reminders, lastNudge: today } });

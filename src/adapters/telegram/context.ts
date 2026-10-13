@@ -17,7 +17,7 @@ import { getActivePlan } from "../d1/v2Plans";
 import { getUser, updateUser } from "../d1/v2Users";
 import { switchMode } from "../../domain/session";
 import { t } from "../../locales/i18n";
-import { menuBtn } from "../../bot/keyboards";
+import { menuBtn } from "./keyboards";
 
 export type MyContext = Context & {
   env: Env;

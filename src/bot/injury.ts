@@ -15,7 +15,7 @@ import { shouldEscalateForPainScore, shouldEscalateForSeverity } from "../domain
 import { localParts } from "../domain/localTime";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { type MyContext, type TKey, HTML, reply } from "../adapters/telegram/context";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 
 export const INJURY_AREA_LABEL: Record<string, TKey> = {
   shoulder: "inj_area_shoulder", elbow: "inj_area_elbow", wrist: "inj_area_wrist",

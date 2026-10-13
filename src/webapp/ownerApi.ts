@@ -1,6 +1,7 @@
 // Owner console in the Mini App: the /ownerreport sections rendered in-app (they're already
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
+import { sendBestEffort, telegramUpload } from "../adapters/telegram/rawApi";
 import { broadcastRelease, pendingReleaseRecipients } from "../bot/releaseBroadcast";
 import { latestRelease } from "../releaseNotes";
 import { getOwnerChatId, recordAudit } from "../adapters/d1/v2Admin";
@@ -74,12 +75,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     let failed = 0;
     for (const u of batch) {
       const markup = appMarkup(env, t(u.lang, "launch_open_btn"), "today");
-      const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: u.chatId, text: `📢 ${escapeHtml(text)}`, parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) }),
-      }).catch(() => null);
-      if (res?.ok) sent++; else failed++;
+      if (await sendBestEffort(env, u.chatId, `📢 ${escapeHtml(text)}`, markup)) sent++; else failed++;
     }
     const last = batch.at(-1)?._id ?? after;
     const remaining = all.filter((u) => u._id > last).length;
@@ -105,9 +101,9 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     form.append("chat_id", String(ownerChatId));
     form.append("caption", `🎨 ${prompt.slice(0, 1000)}`);
     form.append("photo", new Blob([jpeg], { type: "image/jpeg" }), "promo.jpg");
-    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: "POST", body: form }).catch(() => null);
+    const sent = (await telegramUpload(env, "sendPhoto", form)) !== null;
     await recordAudit(env.DB, user._id, "promo_image", undefined, prompt.slice(0, 80)).catch(() => {});
-    return Response.json({ ok: !!res?.ok });
+    return Response.json({ ok: sent });
   }
 
   // Feedback triage: the inbox as a list with a category and a status instead of a Telegram scroll.
@@ -132,12 +128,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
       const author = await getUser(env.DB, before.userId).catch(() => null);
       if (author && !author.blocked && !author.botBlocked) {
         const preview = before.text.replace(/^\[AI coach\]\s*/, "").split("\n")[0]!.slice(0, 140);
-        const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: author.chatId, text: t(author.lang, "feedback_done_user", { text: escapeHtml(preview) }), parse_mode: "HTML" }),
-        }).catch(() => null);
-        notified = !!res?.ok;
+        notified = await sendBestEffort(env, author.chatId, t(author.lang, "feedback_done_user", { text: escapeHtml(preview) }));
         await recordInbox(env.DB, author._id, "feedback_done", { preview }).catch(() => {});
       }
     }
@@ -159,12 +150,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     });
     let sent = 0;
     for (const u of targets) {
-      const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: u.chatId, text: t(u.lang, "inact_fb_ask"), parse_mode: "HTML" }),
-      }).catch(() => null);
-      if (res?.ok) {
+      if (await sendBestEffort(env, u.chatId, t(u.lang, "inact_fb_ask"))) {
         sent++;
         await updateUser(env.DB, u._id, {
           session: switchMode(u.session, "inact_feedback"),

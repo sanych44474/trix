@@ -1,5 +1,6 @@
 // Account-wide scheduler jobs (owner alerts, leaderboard cache, pruning, metrics rollup,
 // stale drafts, AI model watch) and the cron dead-man switch. Split out of scheduler.ts.
+import { sendBestEffort } from "../adapters/telegram/rawApi";
 import { pruneInbox } from "../adapters/d1/v2Inbox";
 import { learnUnknownExercises } from "../exerciseMuscleLearning";
 import { rollupDailyMetrics } from "../dailyMetricsRollup";
@@ -150,13 +151,5 @@ export async function checkCronHeartbeat(env: Env): Promise<void> {
   const ownerChatId = await getOwnerChatId(db).catch(() => undefined);
   if (!ownerChatId) return;
   await setSetting(db, "cron_alerted", new Date().toISOString()).catch(() => {});
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: ownerChatId,
-      text: `🚨 <b>Cron is not running</b> — last heartbeat ${Math.round(age / 60_000)} min ago. Reminders and digests are NOT being sent. Check the Worker's triggers/limits.`,
-      parse_mode: "HTML",
-    }),
-  }).catch(() => {});
+  await sendBestEffort(env, ownerChatId, `🚨 <b>Cron is not running</b> — last heartbeat ${Math.round(age / 60_000)} min ago. Reminders and digests are NOT being sent. Check the Worker's triggers/limits.`);
 }

@@ -3,7 +3,7 @@
 import { RateLimitError } from "../ai";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { startThinking } from "../adapters/telegram/thinking";
-import { advanceLevel } from "../features/gamification/level";
+import { advanceLevel } from "./gamification/level";
 import { t } from "../locales/i18n";
 import { MyContext, reply } from "../adapters/telegram/context";
 

@@ -13,7 +13,7 @@ import { reply, type MyContext } from "../adapters/telegram/context";
 import { cmdCheckin } from "./checkinCmds";
 import { cmdNutrition, cmdSteps, cmdWater } from "./nutritionCmds";
 import { handleWorkoutLog } from "./workoutSave";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 import type { Lang, UserDoc } from "../types";
 
 // ===================== Evening survey checklist =====================

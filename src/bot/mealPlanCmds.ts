@@ -4,7 +4,7 @@ import { InlineKeyboard } from "grammy";
 import { RateLimitError, aiJSON } from "../ai";
 import { type Per100g, lookupPer100gCached } from "../ai/nutritionDb";
 import * as P from "../ai/prompts";
-import { mealActionsKb, menuBtn } from "./keyboards";
+import { mealActionsKb, menuBtn } from "../adapters/telegram/keyboards";
 import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { updateUser } from "../adapters/d1/v2Users";

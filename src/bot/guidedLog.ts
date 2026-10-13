@@ -25,7 +25,7 @@ import { finalizeWorkoutLog } from "./workoutSave";
 import { type MyContext, clearEditOwner, reply, setMode } from "../adapters/telegram/context";
 import { MENU_MAP } from "./router";
 import { cmdMenu, menuActionFor } from "./menus";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 
 export type LogDraft = NonNullable<UserDoc["session"]["logDraft"]>;
 

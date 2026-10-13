@@ -1,4 +1,6 @@
 import { ensureTelegramSetup } from "./telegramSetup";
+import { GrammyError } from "grammy";
+import { sendBestEffort, telegramCall } from "./adapters/telegram/rawApi";
 import type { Update } from "grammy/types";
 export { UserSchedulerDO } from "./durable/userScheduler";
 export { SquadSchedulerDO } from "./durable/squadScheduler";
@@ -78,15 +80,9 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
       const chatId = url.searchParams.get("chatId");
       const text = url.searchParams.get("text");
       if (!chatId || !text) return new Response("missing chatId or text", { status: 400 });
-      const res = await fetch(
-        `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: Number(chatId), text, parse_mode: "HTML" }),
-        },
-      );
-      return Response.json({ ok: res.ok, status: res.status });
+      const status = await telegramCall(env, "sendMessage", { chat_id: Number(chatId), text, parse_mode: "HTML" })
+        .then(() => 200, (e: unknown) => (e instanceof GrammyError ? e.error_code : 502));
+      return Response.json({ ok: status === 200, status });
     }
 
     // Admin: ping every non-onboarded reachable user to finish their interview (resumes each
@@ -113,11 +109,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
         const plan = await buildPlanDocRaw(env, env.DB, user.lang, user.profile, user._id);
         await setActivePlan(env.DB, plan);
         await updateUser(env.DB, user._id, { session: { mode: "idle" } });
-        await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: chatId, text: "✅ Твій план тренувань оновлено!", parse_mode: "HTML" }),
-        });
+        await sendBestEffort(env, chatId, "✅ Твій план тренувань оновлено!");
         return Response.json({ ok: true, days: plan.split.length, exercisesPerDay: plan.split.map(d => d.exercises.length) });
       } catch (err) {
         return Response.json({ ok: false, error: String(err) }, { status: 500 });

@@ -10,7 +10,7 @@ import { nextLevel } from "../domain/levelGoals";
 import { t } from "../locales/i18n";
 import { generateClientDraft, generatePlan, regenBankPlan } from "./plan";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 import type { UserDoc } from "../types";
 
 // "Level up" button → bump the trainee one experience tier and rebuild a harder bank plan.

@@ -28,7 +28,7 @@ import { recentCoachingReasons } from "../domain/coachMemory";
 import { validateCoachActionForApply, validateCoachEditResult } from "../domain/coachActions";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { upcomingSessions, weekdayName } from "../render";
-import { deferAi } from "./aiDefer";
+import { deferAi } from "../features/aiDefer";
 import { recordFeedback } from "./feedbackIntake";
 import { partialJsonString } from "../domain/partialJson";
 import { localCutoff } from "./report";
@@ -36,7 +36,7 @@ import { trainerStyleBlock } from "../features/trainer/trainerWizard";
 import { type MyContext, HTML, planOwnerId, reply, setMode } from "../adapters/telegram/context";
 import { addExerciseByName, deleteExerciseFromToday } from "./todayEdit";
 import { adjustDifficulty, setExerciseSets, setExerciseWeight, showSwapAlternatives, swapExerciseByName } from "./planExerciseEdit";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 
 // `owner` is whose plan/history the coach reasons about — the operator themselves when
 // self-coaching, or the managed client when a trainer is editing that client's plan (see

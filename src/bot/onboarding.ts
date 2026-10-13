@@ -2,7 +2,8 @@
 // from bot.ts. No per-turn AI — instant, no hangs, no parse ambiguity. The one AI call is the
 // final plan gen, which stays in bot.ts (generatePlan / generateClientDraft — imported back,
 // same value-cycle pattern as features/trainer/trainer.ts; calls happen at request time only).
-import { onboardingAppMarkup, onboardingUrlFromEnv } from "./onboardingApp";
+import { sendBestEffort } from "../adapters/telegram/rawApi";
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingApp";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import { parseHeightWeight } from "../domain/workoutText";
@@ -151,12 +152,7 @@ export async function pingIncompleteOnboarding(env: Env, db: D1Database): Promis
         // routes to whatever stale mode they were in (e.g. msg_trainer) and never onboards.
         await updateUser(db, u._id, { session: { mode: "onboarding", step: idx } });
       }
-      const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: u.chatId, text, parse_mode: "HTML", reply_markup }),
-      });
-      if (res.ok) pinged++;
+      if (await sendBestEffort(env, u.chatId, text, reply_markup)) pinged++;
     } catch (err) {
       console.error("pingIncompleteOnboarding", u._id, err);
     }

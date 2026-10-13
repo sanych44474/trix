@@ -4,7 +4,7 @@
 // v2Admin.ts (dashboardExtrasBatch mixes SELECTs into one db.batch() — the node:sqlite-backed
 // node:test harness fakes db.batch() as a sequential no-`results` `.run()` loop and cannot
 // exercise that at all, see test/v2-admin.test.ts's own comment on this exact limitation), then
-// hands the fetched rows to webapp/dashboard.ts's PURE assemblePayload (already covered,
+// hands the fetched rows to domain/dashboardPayload.ts's PURE assemblePayload (already covered,
 // data-shape-wise, by test/dashboard-payload.test.ts's hand-built-row unit tests). This file's
 // job is the wiring: seed a realistic multi-domain account with real D1 and confirm
 // buildDashboardPayload assembles the derived sections (recovery, weekly volume, exercises,
@@ -22,7 +22,7 @@ import { recordDailyCheckin, setWater, upsertBodyLog, upsertStepLog } from "../.
 import { awardAchievement } from "../../src/adapters/d1/v2Gamification";
 import { setOwnerChatId } from "../../src/adapters/d1/v2Admin";
 import { localParts } from "../../src/domain/progression";
-import { isoDaysBefore, isoWeekdayOf } from "../../src/webapp/dashboard";
+import { isoDaysBefore, isoWeekdayOf } from "../../src/domain/dashboardPayload";
 import type { PlanDoc, Weekday } from "../../src/types";
 
 const today = localParts("UTC").date;

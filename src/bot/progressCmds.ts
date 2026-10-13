@@ -21,16 +21,16 @@ import { strengthStandard, type StrengthLevel } from "../domain/standards";
 import { localCutoff } from "./report";
 import { num } from "../features/nutrition/nutritionLog";
 import { buildWeekCard } from "../features/gamification/weekCard";
-import { menuBtn } from "./keyboards";
-import { botDeepLink } from "./links";
-import { deferAi } from "./aiDefer";
+import { menuBtn } from "../adapters/telegram/keyboards";
+import { botDeepLink } from "../notify/links";
+import { deferAi } from "../features/aiDefer";
 import { computeXp, levelFromXp } from "../domain/gamification";
 import { weeklyVolume, projectWeight, stalledLifts, type MuscleVolume } from "../domain/analysis";
 import { conditioningWeek } from "../domain/conditioning";
 import { platePlan, warmupRamp } from "../domain/calc";
 import { progressBar } from "../domain/challenges";
 import { clearEditOwner, reply, setMode, type MyContext, type TKey } from "../adapters/telegram/context";
-import { dashboardUrl } from "./appLinks";
+import { dashboardUrl } from "../notify/appLinks";
 
 export async function cmdProgress(ctx: MyContext) {
   const lang = ctx.user.lang;

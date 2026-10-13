@@ -1,4 +1,4 @@
-import { CURATED, foodCategory, type FoodCategory, type Per100g } from "../ai/nutritionDb";
+import { CURATED, foodCategory, type FoodCategory, type Per100g } from "./curatedFoods";
 import type { GoalBucket, Lang } from "../types";
 
 // Deterministic meal-plan builder: picks whole foods from the curated catalog to assemble a

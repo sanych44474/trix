@@ -13,11 +13,11 @@ import { appendMeals } from "../../adapters/d1/v2Nutrition";
 import { scaleMealEntry } from "../../domain/mealplan";
 import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
-import { deferAi, maybeCelebrateLevel } from "../../bot/aiDefer";
+import { deferAi, maybeCelebrateLevel } from "../aiDefer";
 import { showEveningSurvey } from "../../bot/survey";
 import { reactToUser, type MyContext, reply, setMode } from "../../adapters/telegram/context";
 import { cleanFoodName } from "../../bot/nutritionCmds";
-import { menuBtn } from "../../bot/keyboards";
+import { menuBtn } from "../../adapters/telegram/keyboards";
 
 import { num, verifyItems } from "./verifyItems";
 

@@ -18,7 +18,7 @@ import { readJsonBody } from "./validate";
 import type { Env, Lang, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 
-import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
+import { sendBestEffort as tgSend, telegramUpload } from "../adapters/telegram/rawApi";
 type TKey = Parameters<typeof t>[1];
 
 // Same toggleable reminder keys the bot's settings screen exposes (REM map in bot.ts), plus the
@@ -35,8 +35,7 @@ async function tgSendDocument(env: Env, chatId: number, filename: string, conten
   form.append("chat_id", String(chatId));
   form.append("caption", caption);
   form.append("document", new Blob([new TextEncoder().encode(content)], { type: mime }), filename);
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendDocument`, { method: "POST", body: form }).catch(() => null);
-  return !!res?.ok;
+  return (await telegramUpload(env, "sendDocument", form)) !== null;
 }
 
 function state(user: UserDoc, lang: Lang) {

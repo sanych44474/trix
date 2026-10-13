@@ -17,13 +17,13 @@ import { exerciseVideoKey, renderPlan, renderSchedule, renderToday, upcomingSess
 import { localCutoff } from "./report";
 import { renderDayInline } from "./workoutSave";
 import { showPlanEditDay } from "../features/trainer/clientCard";
-import { menuBtn, planViewKb, difficultyKeyboard, todayWorkoutKeyboard } from "./keyboards";
+import { menuBtn, planViewKb, difficultyKeyboard, todayWorkoutKeyboard } from "../adapters/telegram/keyboards";
 import { healPlanIfDegenerate } from "./plan";
 import { readinessWithConditioning, recentConditioningStrain } from "../domain/conditioning";
 import { lookupExerciseVideoCached } from "../youtube";
 import { clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 import { healPlanNamesForDisplay, sendExerciseDescriptions } from "./exerciseCatalog";
-import { APP_URL } from "./appLinks";
+import { APP_URL } from "../notify/appLinks";
 
 // A weekday + exercise index packed into a single numeric session.targetId (weekday*1000 + idx).
 export function encodePlanRef(weekday: number, index: number): number {

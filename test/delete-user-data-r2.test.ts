@@ -8,7 +8,7 @@ import { newDb } from "./harness";
 import { deleteUserData } from "../src/adapters/d1/v2Account";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { addProgressPhoto, listProgressPhotos } from "../src/adapters/d1/v2Tracking";
-import { r2Key } from "../src/webapp/photoStorage";
+import { r2Key } from "../src/adapters/r2/photoStorage";
 import type { Env } from "../src/types";
 
 function fakeBucket(): { deletedKeys: string[]; bucket: Partial<R2Bucket> } {

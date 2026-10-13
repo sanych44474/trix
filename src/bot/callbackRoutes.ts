@@ -4,7 +4,7 @@ import { applyKitFit } from "./kitFit";
 import { applyRecoverySwap } from "./recoverySwap";
 import { onSupportAmount } from "./support";
 import { InlineKeyboard } from "grammy";
-import { aliasMenu, menuBtn, roleMenu } from "./keyboards";
+import { aliasMenu, menuBtn, roleMenu } from "../adapters/telegram/keyboards";
 import { onWhatsNewSend, showWhatsNewConfirm } from "./owner";
 import { onPlanRegenAi } from "./plan";
 import { showCardioMenu } from "./survey";

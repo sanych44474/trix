@@ -30,7 +30,7 @@ import { areaLabelKey } from "./injury";
 import { badgeLabel } from "../features/gamification/boards";
 import { weekdayName } from "../render";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 import { num } from "../features/nutrition/nutritionLog";
 
 export async function cmdReplan(ctx: MyContext) {

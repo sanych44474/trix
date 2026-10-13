@@ -7,7 +7,7 @@ import { insertFeedback } from "../adapters/d1/v2Feedback";
 import { localParts } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../adapters/telegram/context";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 
 /** Store a feedback row and forward it to the owner, if one is registered. `viaCoach` carries the
  *  user's own message when the AI coach summarised it (the coach "feedback" action, in the bot

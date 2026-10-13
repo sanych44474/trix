@@ -1,6 +1,7 @@
 // Plan authoring — the app's deepest module: AI interview retry, bank fallback, plan build /
 // heal / translate, dynamic progression regeneration. Extracted from bot.ts (god-file split);
 // behavior unchanged.
+import { sendBestEffort } from "../adapters/telegram/rawApi";
 import { appLink, appMarkup } from "../notify/appKeyboard";
 import { InlineKeyboard } from "grammy";
 import type { Env, Lang, PlanDoc, UserDoc, Weekday } from "../types";
@@ -9,8 +10,8 @@ import { HTML, reply } from "../adapters/telegram/context";
 import { localizePlanNames } from "./exerciseCatalog";
 import { saveBaselineBody } from "./planGen";
 import { videosForDays } from "./planView";
-import { mainMenu, menuBtn, planActionsKb } from "./keyboards";
-import { botDeepLink, shareUrl } from "./links";
+import { mainMenu, menuBtn, planActionsKb } from "../adapters/telegram/keyboards";
+import { botDeepLink, shareUrl } from "../notify/links";
 import { logInfo } from "../log";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { recordPlanSource } from "../adapters/d1/v2Analytics";
@@ -41,11 +42,7 @@ export async function retryInterviewStep(env: Env, db: D1Database, user: UserDoc
   // but the Telegram message may have been lost. Re-send it silently — no AI call needed.
   const lastTurn = transcript[transcript.length - 1];
   if (lastTurn?.role === "assistant") {
-    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: user.chatId, text: escapeHtml(lastTurn.text), parse_mode: "HTML" }),
-    });
+    await sendBestEffort(env, user.chatId, escapeHtml(lastTurn.text));
     // Clear retryAfter — message re-delivered.
     await updateUser(db, user._id, {
       session: { ...user.session, retryAfter: undefined } as typeof user.session,
@@ -70,11 +67,7 @@ export async function retryInterviewStep(env: Env, db: D1Database, user: UserDoc
       profile: mergedProfile,
       session: { mode: "onboarding", transcript },
     });
-    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: user.chatId, text: escapeHtml(result.message), parse_mode: "HTML" }),
-    });
+    await sendBestEffort(env, user.chatId, escapeHtml(result.message));
     if (result.done) {
       // Onboarding complete — generate the plan. MUST be awaited: in a cron isolate a
       // fire-and-forget promise is killed when runSchedule resolves, which left users with
@@ -124,7 +117,6 @@ async function bankFallbackPlan(
 // plan FIRST so a slow/degraded AI chain can't block the cron for tens of seconds per stuck
 // user — which starves the reminder/check-in section that runs after the sweep. The interview
 // done-branch leaves it false so a fresh interview still gets a tailored AI plan (bank fallback).
-const withMarkup = (m: unknown) => (m ? { reply_markup: m } : {});
 
 export async function finalizeOnboardingPlan(
   env: Env, db: D1Database, user: UserDoc, opts: { preferBank?: boolean } = {},
@@ -162,11 +154,7 @@ export async function finalizeOnboardingPlan(
       // first_plan_ready is defined as the first setActivePlan, which this branch never calls.
       await saveDraftPlan(db, plan);
       await updateUser(db, user._id, { onboarded: true, nutrition: plan.nutrition, session: { mode: "idle" } });
-      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "client_plan_pending"), parse_mode: "HTML", ...withMarkup(appMarkup(env, t(lang, "launch_open_btn"), "today")) }),
-      });
+      await sendBestEffort(env, user.chatId, t(lang, "client_plan_pending"), appMarkup(env, t(lang, "launch_open_btn"), "today"));
       // Notify the trainer.
       const trainer = user.trainerId ? await getUser(db, user.trainerId) : null;
       if (trainer) {
@@ -179,11 +167,7 @@ export async function finalizeOnboardingPlan(
             { text: t(trainer.lang, "cc_assign"), callback_data: `cl:${user._id}:assign` },
           ]],
         };
-        await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: trainer.chatId, text: t(trainer.lang, "trainer_client_draft_ready", { name: who }), parse_mode: "HTML", reply_markup }),
-        }).catch(() => {});
+        await sendBestEffort(env, trainer.chatId, t(trainer.lang, "trainer_client_draft_ready", { name: who }), reply_markup);
       }
     } else {
       await setActivePlan(db, plan);
@@ -200,11 +184,7 @@ export async function finalizeOnboardingPlan(
         ...(buddy ? [[{ text: t(lang, "buddy_offer_btn"), url: shareUrl(buddy, t(lang, "buddy_offer_share")) }]] : []),
       ];
       const reply_markup = rows.length ? { inline_keyboard: rows } : undefined;
-      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "plan_ready"), parse_mode: "HTML", ...(reply_markup ? { reply_markup } : {}) }),
-      });
+      await sendBestEffort(env, user.chatId, t(lang, "plan_ready"), reply_markup);
     }
     return true;
   } catch (e) {
@@ -253,11 +233,7 @@ export async function rebuildPlan(env: Env, db: D1Database, user: UserDoc): Prom
     await updateUser(db, user._id, { nutrition: plan.nutrition, session: { ...(fresh?.session ?? user.session), replanAt: undefined } });
     logInfo("plan_rebuilt", { source });
     const markup = appMarkup(env, t(lang, "nb_open_plan"), "plan");
-    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: user.chatId, text: t(lang, "plan_rebuilt"), parse_mode: "HTML", ...withMarkup(markup) }),
-    }).catch(() => {});
+    await sendBestEffort(env, user.chatId, t(lang, "plan_rebuilt"), markup);
     return true;
   } catch (e) {
     console.error("rebuildPlan failed", user._id, e);

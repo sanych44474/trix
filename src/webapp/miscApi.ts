@@ -1,6 +1,7 @@
 // Long-tail Mini App APIs (roadmap P7): challenges (view/join), injury log (view/report), and
 // the competitor leaderboards (read). Each reuses the same repos/domain as the bot; same initData
 // auth. Routed at /api/challenges, /api/injuries, /api/boards.
+import { fetchTelegramFile, telegramTry, telegramUpload } from "../adapters/telegram/rawApi";
 import { trainerCanSee } from "../domain/clientCard";
 import { bumpEvent } from "../adapters/d1/v2Analytics";
 import { getSetting } from "../adapters/d1/v2Admin";
@@ -28,7 +29,7 @@ import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { escapeHtml, t } from "../locales/i18n";
 import { appMarkup } from "../notify/appKeyboard";
 import { miniAppUser } from "./auth";
-import { cachePhoto, getCachedPhoto } from "./photoStorage";
+import { cachePhoto, getCachedPhoto } from "../adapters/r2/photoStorage";
 import { logInfo } from "../log";
 import { object, oneOf, readJsonBody, str, validateBody } from "./validate";
 import type { Env, UserDoc } from "../types";
@@ -192,12 +193,10 @@ async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise
   const tgForm = new FormData();
   tgForm.append("chat_id", String(user.chatId));
   tgForm.append("photo", file, "progress.jpg");
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: "POST", body: tgForm })
-    .then((r) => r.json() as Promise<{ ok: boolean; result?: { photo?: Array<{ file_id: string }> } }>)
-    .catch(() => null);
-  const photos = res?.result?.photo;
+  const sent = await telegramUpload<{ photo?: Array<{ file_id: string }> }>(env, "sendPhoto", tgForm);
+  const photos = sent?.photo;
   const largest = photos?.[photos.length - 1];
-  if (!res?.ok || !largest?.file_id) return Response.json({ error: "dependency_unavailable" }, { status: 502 });
+  if (!largest?.file_id) return Response.json({ error: "dependency_unavailable" }, { status: 502 });
   await addProgressPhoto(env.DB, user._id, largest.file_id);
   logInfo("photo_uploaded", { source: "webapp" });
   // A trainer asked for a progress photo (photoReviewFor): the next upload goes to them too, with
@@ -209,11 +208,7 @@ async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise
     if (trainer) {
       const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
       const markup = appMarkup(env, t(trainer.lang, "nb_open_client"), "role", { client: user._id });
-      await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: trainer.chatId, photo: largest.file_id, caption: t(trainer.lang, "photo_review_from", { name: who }), parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) }),
-      }).catch(() => null);
+      await telegramTry(env, "sendPhoto", { chat_id: trainer.chatId, photo: largest.file_id, caption: t(trainer.lang, "photo_review_from", { name: who }), parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) });
       return Response.json({ ok: true, sentToTrainer: true });
     }
   }
@@ -246,14 +241,10 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: Exec
     });
   }
   logInfo("telegram_photo_fallback", {}); // R2 miss or R2_PHOTOS unconfigured -- either way, falling through to Telegram
-  const fileRes = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getFile`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ file_id: photo.fileId }),
-  }).then((r) => r.json() as Promise<{ ok: boolean; result?: { file_path?: string } }>).catch(() => null);
-  const path = fileRes?.ok ? fileRes.result?.file_path : undefined;
+  const fileInfo = await telegramTry<{ file_path?: string }>(env, "getFile", { file_id: photo.fileId });
+  const path = fileInfo?.file_path;
   if (!path) return new Response("gone", { status: 410 });
-  const bytes = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${path}`);
+  const bytes = await fetchTelegramFile(env, path);
   if (!bytes.ok || !bytes.body) return new Response("gone", { status: 410 });
   // Tee the stream: one branch streams to the client now, the other fills the cache in the
   // background (ctx.waitUntil, off the response's critical path) so the NEXT view of this same

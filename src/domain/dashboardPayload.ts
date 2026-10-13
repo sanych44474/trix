@@ -6,16 +6,16 @@
 // file — now lives in src/adapters/d1/dashboardReader.ts, the concrete v2-native adapter for the
 // `DashboardReader` application seam (src/application/dashboard.ts, Domain 10 of the v2 cutover —
 // see docs/adr/0001-v2-seams-and-staged-cutover.md). This file has no D1 access at all.
-import { knownByRules, musclesForExercise } from "../domain/exerciseMuscles";
-import { releaseDueInApp } from "../domain/releaseDelivery";
+import { knownByRules, musclesForExercise } from "./exerciseMuscles";
+import { releaseDueInApp } from "./releaseDelivery";
 import { latestRelease } from "../releaseNotes";
-import { projectWeight, weeklyVolume } from "../domain/analysis";
-import { CONDITIONING_LANDMARK, conditioningWeek } from "../domain/conditioning";
-import { recoveryScore, type RecoveryFactor, type RecoveryLabel } from "../domain/recovery";
-import { muscleGroupOf } from "../domain/exerciseClass";
-import { e1rm } from "../domain/records";
-import { latestBodyFat } from "../domain/bodyFat";
-import { recoverySwapFor } from "../domain/recoverySwap";
+import { projectWeight, weeklyVolume } from "./analysis";
+import { CONDITIONING_LANDMARK, conditioningWeek } from "./conditioning";
+import { recoveryScore, type RecoveryFactor, type RecoveryLabel } from "./recovery";
+import { muscleGroupOf } from "./exerciseClass";
+import { e1rm } from "./records";
+import { latestBodyFat } from "./bodyFat";
+import { recoverySwapFor } from "./recoverySwap";
 import type {
   BodyLogDoc,
   DailyCheckinDoc,

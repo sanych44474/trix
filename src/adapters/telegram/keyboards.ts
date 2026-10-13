@@ -3,9 +3,9 @@
 // (COMMON_TZ, dashboardUrl) that are referenced lazily inside function bodies, so the value-cycle
 // with ../bot is load-safe.
 import { InlineKeyboard } from "grammy";
-import type { Lang } from "../types";
-import { t } from "../locales/i18n";
-import { COMMON_TZ, dashboardUrl } from "./appLinks";
+import type { Lang } from "../../types";
+import { t } from "../../locales/i18n";
+import { COMMON_TZ, dashboardUrl } from "../../notify/appLinks";
 
 // Common athlete menu — shown to EVERY role (trainers/owner get extra rows appended in cmdMenu).
 // Kept deliberately light: daily actions only; everything else lives one tap away in "More"

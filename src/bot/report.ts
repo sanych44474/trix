@@ -11,7 +11,7 @@ import { aiText } from "../ai";
 import * as P from "../ai/prompts";
 import { type MyContext, reply } from "../adapters/telegram/context";
 import { REPORT_DAYS } from "./commonCmds";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 import { num } from "../features/nutrition/nutritionLog";
 
 export function localCutoff(timezone: string | undefined, days: number): string {

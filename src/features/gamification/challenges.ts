@@ -21,7 +21,7 @@ import { challengeMilestones } from "../../domain/records";
 import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, clearEditOwner, reply } from "../../adapters/telegram/context";
-import { menuBtn } from "../../bot/keyboards";
+import { menuBtn } from "../../adapters/telegram/keyboards";
 import { waterGoalFor } from "../../bot/nutritionCmds";
 
 // Gather the raw counts a challenge needs, over its [startDate, endDate] window. Progress is always

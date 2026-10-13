@@ -61,7 +61,7 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   STRAVA_CLIENT_SECRET?: string;
   V2_APP_ENABLED: string;
   ALLOW_DEBUG_USER?: string;
-  // R2_PHOTOS (read-through cache for progress photos, webapp/photoStorage.ts) is NOT hand-
+  // R2_PHOTOS (read-through cache for progress photos, adapters/r2/photoStorage.ts) is NOT hand-
   // declared here -- wrangler.toml's [[r2_buckets]] binding makes Cloudflare.Env already provide
   // it, required. photoStorage.ts still treats it defensively (a real binding can still be
   // missing in a harness/mock Env that doesn't model every production binding).

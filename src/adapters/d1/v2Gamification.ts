@@ -33,7 +33,7 @@
 // 0057) specifically so a mutuality self-join stays index-backed. v2_buddies has NO writer in the
 // live v2-native call graph — only that one historical backfill. Two writers racing to keep a
 // SEPARATE v2_buddies table in sync with v2_profiles.buddyId (which bot.ts's handler would still
-// need to keep writing, since UserDoc.profile.buddyId is read directly by webapp/dashboard.ts —
+// need to keep writing, since UserDoc.profile.buddyId is read directly by domain/dashboardPayload.ts —
 // Domain 10, not yet migrated) would be a new correctness hazard this port must not introduce,
 // and rebuilding bot.ts's pairing handler to write v2_buddies instead is a call-site redesign, not
 // an import swap — out of scope for a repo-module port (same reasoning v2Trainer.ts's header

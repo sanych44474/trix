@@ -5,6 +5,8 @@
 //
 // The webhook is NOT set here: it carries the secret token and drop_pending_updates, and a working
 // webhook should never be touched by a routine deploy. scripts/setup-telegram.mjs still does that.
+import { GrammyError } from "grammy";
+import { telegramCall } from "./adapters/telegram/rawApi";
 import { getOwnerChatId, getSetting, setSetting } from "./adapters/d1/v2Admin";
 import { logError, logInfo } from "./log";
 import type { Env } from "./types";
@@ -81,12 +83,11 @@ export async function ensureTelegramSetup(env: Env): Promise<void> {
   const owner = await getOwnerChatId(env.DB).catch(() => undefined);
   const failed: string[] = [];
   for (const call of setupCalls(`${base}${String(env.V2_APP_ENABLED) === "1" ? "/app-v2" : "/app"}`, owner)) {
-    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${call.method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(call.body),
-    }).then((r) => r.json() as Promise<{ ok?: boolean; description?: string }>).catch((e: unknown) => ({ ok: false, description: String(e) }));
-    if (!res.ok) failed.push(`${call.method}: ${res.description ?? "?"}`);
+    const err = await telegramCall(env, call.method, call.body as Record<string, unknown>).then(
+      () => null,
+      (e: unknown) => (e instanceof GrammyError ? e.description : String(e)),
+    );
+    if (err !== null) failed.push(`${call.method}: ${err || "?"}`);
   }
   if (failed.length) {
     await setSetting(env.DB, SETTING_KEY, "failed").catch(() => {});

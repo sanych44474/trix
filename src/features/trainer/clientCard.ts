@@ -22,9 +22,9 @@ import { type MyContext, type TKey, HTML, clearEditOwner, reply, setEditOwner, s
 import { buildWeekCard } from "../gamification/weekCard";
 import { localCutoff, renderBodyDynamics } from "../../bot/report";
 import { localizePlanNames, healPlanNamesForDisplay } from "../../bot/exerciseCatalog";
-import { mainMenu, menuBtn } from "../../bot/keyboards";
+import { mainMenu, menuBtn } from "../../adapters/telegram/keyboards";
 import { obProgress, sendObStepTo } from "../../bot/onboarding";
-import { sendOnboardingPromptTo } from "../../bot/onboardingApp";
+import { sendOnboardingPromptTo } from "../../notify/onboardingApp";
 import { videosForDays } from "../../bot/planView";
 import { showClientLogDays } from "./trainerComms";
 import { intvLabel, anthroBlock, runTrainerDraft } from "./trainerInterview";

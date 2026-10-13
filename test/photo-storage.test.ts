@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cachePhoto, enforceStorageBudget, getCachedPhoto } from "../src/webapp/photoStorage";
+import { cachePhoto, enforceStorageBudget, getCachedPhoto } from "../src/adapters/r2/photoStorage";
 import type { Env } from "../src/types";
 
 function fakeEnv(bucket?: Partial<R2Bucket>): Env {

@@ -5,6 +5,7 @@
 //   DELETE /api/strava          -- revoke + forget
 //   GET    /strava/callback     -- Strava redirects here; not a Mini App call (no initData)
 // Everything is hidden (available: false) until STRAVA_CLIENT_ID/SECRET are configured.
+import { sendBestEffort } from "../adapters/telegram/rawApi";
 import { miniAppUser } from "./auth";
 import { getStravaLink, signState, verifyState } from "../adapters/d1/v2Strava";
 import { authorizeUrl, connectStrava, disconnectStrava, syncStrava, type StravaConfig } from "../features/strava/stravaSync";
@@ -76,10 +77,6 @@ export async function handleStravaCallback(url: URL, env: Env): Promise<Response
   }
   const result = await syncStrava(env.DB, cfg, user._id, user.lang).catch(() => null);
   const message = result ? t(lang, "strava_connected_synced", { n: result.imported }) : t(lang, "strava_connected");
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: user.chatId, text: message, parse_mode: "HTML" }),
-  }).catch(() => null);
+  await sendBestEffort(env, user.chatId, message);
   return page(t(lang, "strava_connected_title"), message, env.BOT_USERNAME);
 }

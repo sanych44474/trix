@@ -6,7 +6,7 @@ import { getTrainer } from "../adapters/d1/v2Trainer";
 import { t } from "../locales/i18n";
 import { cmdReport } from "./report";
 import { isOwner } from "./ownerAccess";
-import { mainMenu, moreMenu, progressHubMenu, trainerHubMenu, trainerClientsMenu, appendOwnerRow, menuBtn } from "./keyboards";
+import { mainMenu, moreMenu, progressHubMenu, trainerHubMenu, trainerClientsMenu, appendOwnerRow, menuBtn } from "../adapters/telegram/keyboards";
 import { cmdLog } from "./guidedLog";
 import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 import { cmdProgress } from "./progressCmds";
@@ -37,7 +37,7 @@ export async function showProgressHub(ctx: MyContext) {
 
 // cmdTrainerReport/cmdTrainerBroadcast/handleTrainerBroadcast moved to features/trainer/trainer.ts;
 // showOwnerHub moved to bot/owner.ts; difficultyKeyboard/todayWorkoutKeyboard/difficultyLabel
-// moved to bot/keyboards.ts — each belongs to that file's existing concept, not this one.
+// moved to adapters/telegram/keyboards.ts — each belongs to that file's existing concept, not this one.
 // Re-exported via the barrel below.
 
 // Persistent bottom button menu (reply keyboard) — always visible after onboarding.

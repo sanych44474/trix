@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assemblePayload, isoDaysBefore, isoWeekdayOf } from "../src/webapp/dashboard";
+import { assemblePayload, isoDaysBefore, isoWeekdayOf } from "../src/domain/dashboardPayload";
 import type { BodyLogDoc, NutritionLogDoc, StrengthRecordDoc, UserDoc, WorkoutLogDoc } from "../src/types";
 
 // 2026-07-01 is a Wednesday (ISO weekday 3).

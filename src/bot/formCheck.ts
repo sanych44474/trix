@@ -8,8 +8,8 @@ import type { Lang } from "../types";
 import { aiVisionText } from "../ai/index";
 import { cleanAi, t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { deferAi } from "./aiDefer";
-import { abToB64, downloadFile } from "./telegramFiles";
+import { deferAi } from "../features/aiDefer";
+import { abToB64, downloadFile } from "../adapters/telegram/files";
 
 export const FORM_CHECKS_PER_DAY = 5;
 export const MAX_VIDEO_BYTES = 14 * 1024 * 1024; // ~19 MB once base64-encoded, under Gemini's 20 MB inline cap

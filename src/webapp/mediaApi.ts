@@ -5,7 +5,7 @@
 import { aiTranscribe, aiVisionJSON, aiVisionText } from "../ai/index";
 import * as P from "../ai/prompts";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
-import { abToB64 } from "../bot/telegramFiles";
+import { abToB64 } from "../adapters/telegram/files";
 import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, aiCallsToday, formCheckGate, formCheckPrompt, formCheckSystem } from "../bot/formCheck";
 import { MAX_DAYS_IMPORTED, MAX_FILE_BYTES as MAX_CSV_BYTES, importWorkoutCsv } from "../bot/importCsv";
 import { verifyItems } from "../features/nutrition/verifyItems";

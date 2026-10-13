@@ -10,7 +10,7 @@ import { updateActivePlanNutrition } from "../adapters/d1/v2Plans";
 import { listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
 import { countReferrals } from "../adapters/d1/v2Gamification";
-import { botDeepLink } from "../bot/links";
+import { botDeepLink } from "../notify/links";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";

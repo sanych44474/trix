@@ -9,7 +9,7 @@
 // recomputing the standings a different way. Membership is derived entirely from the
 // authenticated user's own row (squadsForUser); no client-supplied squad id is ever trusted.
 import { createAppSquad, deleteSquad, getSquad, isAppSquad, joinSquad, leaveSquad, squadByInviteCode, squadCompletedDates, squadMembers, squadsForUser } from "../adapters/d1/v2Gamification";
-import { botDeepLink } from "../bot/links";
+import { botDeepLink } from "../notify/links";
 import { logInfo } from "../log";
 import { readJsonBody } from "./validate";
 import { localParts } from "../domain/localTime";

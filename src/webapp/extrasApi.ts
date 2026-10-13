@@ -46,12 +46,12 @@ import type { Env } from "../types";
 import { putStoryImage } from "./storyMedia";
 import { isSupportAmount } from "../adapters/d1/v2Support";
 import { supportInvoice } from "../bot/support";
-import { botDeepLink } from "../bot/links";
+import { botDeepLink } from "../notify/links";
 import { shortCode } from "../features/trainer/trainerCommon";
-import { appViewUrlFromEnv, webAppMarkup } from "../bot/appLinks";
-import { onboardingAppMarkup, onboardingUrlFromEnv } from "../bot/onboardingApp";
+import { appViewUrlFromEnv, webAppMarkup } from "../notify/appLinks";
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingApp";
 
-import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
+import { sendBestEffort as tgSend, telegramTry, telegramUpload } from "../adapters/telegram/rawApi";
 const bad = () => Response.json({ error: "bad request" }, { status: 400 });
 const notFound = () => Response.json({ error: "not found" }, { status: 404 });
 
@@ -124,8 +124,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       tgForm.append("chat_id", String(user.chatId));
       tgForm.append("caption", t(lang, "wcard_image_caption", { name: target.profile.name ?? `id ${target._id}` }));
       tgForm.append("photo", file, "weekcard.png");
-      const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: "POST", body: tgForm }).catch(() => null);
-      return Response.json({ ok: !!res?.ok });
+      return Response.json({ ok: (await telegramUpload(env, "sendPhoto", tgForm)) !== null });
     }
     return Response.json({ error: "method not allowed" }, { status: 405 });
   }
@@ -145,8 +144,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     tgForm.append("chat_id", String(user.chatId));
     tgForm.append("caption", t(lang, "photocompare_caption", { from, to }));
     tgForm.append("photo", file, "progress.png");
-    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, { method: "POST", body: tgForm }).catch(() => null);
-    return Response.json({ ok: !!res?.ok });
+    return Response.json({ ok: (await telegramUpload(env, "sendPhoto", tgForm)) !== null });
   }
 
   // ---- Story image upload (shareToStory needs a public URL; see storyMedia.ts) ----
@@ -167,14 +165,9 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     if (!parsed.ok) return parsed.response;
     const stars = Number((parsed.body as { stars?: unknown } | null)?.stars);
     if (!isSupportAmount(stars)) return bad();
-    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/createInvoiceLink`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(supportInvoice(lang, stars)),
-    }).catch(() => null);
-    const data = res ? ((await res.json().catch(() => null)) as { ok?: boolean; result?: string } | null) : null;
-    if (!data?.ok || !data.result) return Response.json({ error: "unavailable" }, { status: 503 });
-    return Response.json({ link: data.result });
+    const link = await telegramTry<string>(env, "createInvoiceLink", supportInvoice(lang, stars));
+    if (!link) return Response.json({ error: "unavailable" }, { status: 503 });
+    return Response.json({ link });
   }
 
   // ---- What's new ----

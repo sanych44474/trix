@@ -16,7 +16,7 @@ import { normalizeExercise, parseWorkoutText } from "../../domain/workoutText";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
 import { localCutoff } from "../../bot/report";
-import { menuBtn } from "../../bot/keyboards";
+import { menuBtn } from "../../adapters/telegram/keyboards";
 import { weekdayOf } from "../../bot/calendar";
 import { clientCardKb } from "./trainerCommon";
 
