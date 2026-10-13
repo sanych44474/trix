@@ -58,7 +58,7 @@ const PAGES = [
       ["Що робити, якщо вправа не підходить?", "Її можна замінити в один дотик на альтернативу з того ж м'яза або ввести свою — застосунок запам'ятає заміну."],
     ],
     related: ["ai-trener-telegram", "kbzhu-za-foto"],
-    shot: "app-summary.png",
+    shot: "screen-summary.webp",
     cta: "Отримати програму в Telegram",
   },
   {
@@ -82,7 +82,7 @@ const PAGES = [
       ["Це безкоштовно?", "Так, без підписки й реклами, прямо в Telegram."],
     ],
     related: ["ai-trener-telegram", "programa-trenuvan-vdoma"],
-    shot: "app-progress.png",
+    shot: "screen-nutrition.webp",
     cta: "Порахувати КБЖУ в Telegram",
   },
   {
@@ -130,7 +130,7 @@ const PAGES = [
       ["What if an exercise doesn't suit me?", "Swap it in one tap for an alternative for the same muscle, or type your own — the app remembers the swap."],
     ],
     related: ["en/ai-fitness-coach-telegram", "en/calorie-counter-from-photo"],
-    shot: "app-summary.png",
+    shot: "screen-summary.webp",
     cta: "Get your plan in Telegram",
   },
   {
@@ -154,7 +154,7 @@ const PAGES = [
       ["Is it free?", "Yes — no subscription, no ads, right in Telegram."],
     ],
     related: ["en/ai-fitness-coach-telegram", "en/home-workout-plan"],
-    shot: "app-progress.png",
+    shot: "screen-nutrition.webp",
     cta: "Count macros in Telegram",
   },
 ];
@@ -232,7 +232,7 @@ function page(p) {
     <h1>${esc(p.h1)}</h1>
     <p class="lead">${esc(p.lead)}</p>
     <p><a class="cta" href="${BOT}">${esc(p.cta)} →</a> <span class="note">${ui.free}</span></p>
-    <figure class="shot"><img src="${up}img/${p.shot ?? "app-train.png"}" alt="${esc(p.kicker)} — trix" width="390" height="844" loading="lazy"></figure>
+    <figure class="shot"><img src="${up}img/${p.shot ?? "screen-train.webp"}" alt="${esc(p.kicker)} — trix" width="430" height="932" loading="lazy" decoding="async"></figure>
 ${p.sections.map(([h, t]) => `    <section><h2>${esc(h)}</h2><p>${esc(t)}</p></section>`).join("\n")}
     <section class="faq"><h2>${ui.faq}</h2>
 ${p.faq.map(([q, a]) => `      <details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("\n")}
