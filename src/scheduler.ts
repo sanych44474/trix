@@ -23,7 +23,7 @@ import { wakeGlobalScheduler } from "./durable/globalScheduler";
 import { isCutOver } from "./durable/cutover";
 import { ADJUST_COOLDOWN_DAYS } from "./domain/adaptiveCalories";
 import { DAILY_NUDGE_CAP, daysBetween, isQuietHour, nudgesSentToday } from "./domain/reminderTiming";
-import { t } from "./locales/i18n";
+import { escapeHtml, t } from "./locales/i18n";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "./bot/onboardingApp";
 import { appKeyboard, } from "./notify/appKeyboard";
 import { finalizeOnboardingPlan, retryInterviewStep } from "./bot/plan";
@@ -535,7 +535,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     const inviter = await getUser(db, user.profile.referredBy).catch(() => null);
     if (inviter && !inviter.blocked) {
       await awardAchievement(db, inviter._id, "referral").catch(() => {});
-      const name = user.profile.name ?? `id ${user._id}`;
+      const name = escapeHtml(user.profile.name ?? `id ${user._id}`);
       await sendTo(inviter, "ref_joined", t(inviter.lang, "ref_joined", { name }));
     }
     markSent("ref_reward");

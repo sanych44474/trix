@@ -281,7 +281,8 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
       <div className="section-head"><div><span className="eyebrow">{t(lang, "progress_photo_upload_eyebrow")}</span><h2>{t(lang, "progress_photo_upload_title")}</h2></div></div>
       <PhotoPair lang={lang} weights={dashboard.weight.points} reloadKey={photoReload} />
       <p className="muted">{t(lang, "progress_photo_upload_hint")}</p>
-      <div className="input-row"><input ref={fileInputRef} type="file" accept="image/*" capture="environment" disabled={photoBusy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadPhoto(file); }} /></div>
+      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadPhoto(file); }} />
+      <button type="button" className="button button-primary" disabled={photoBusy} onClick={() => fileInputRef.current?.click()}>📷 {t(lang, "progress_photo_upload_btn")}</button>
       {photoBusy && <p className="muted">{t(lang, "saving_ellipsis")}</p>}
       {photoNotice && <div className="save-note">{photoNotice}</div>}
     </Card>

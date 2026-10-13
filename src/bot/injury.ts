@@ -80,7 +80,7 @@ export async function reportInjury(ctx: MyContext, area: InjuryArea, severity: S
     if (ctx.user.trainerId) {
       const trainer = await getUser(ctx.db, ctx.user.trainerId);
       if (trainer) {
-        const who = ctx.user.profile.name ?? `id ${uid}`;
+        const who = escapeHtml(ctx.user.profile.name ?? `id ${uid}`);
         const kb = new InlineKeyboard().text(t(trainer.lang, "cc_open_card"), `cl:${uid}:card`);
         await ctx.api.sendMessage(trainer.chatId, t(trainer.lang, "inj_client_notify", { name: who, area: t(trainer.lang, areaLabelKey(area)), sev: t(trainer.lang, severity === "strong" ? "inj_sev_strong" : "inj_sev_mild") }), { ...HTML, reply_markup: kb }).catch(() => {});
       }

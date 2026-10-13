@@ -3,7 +3,7 @@ import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getUser } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { missedConsecutiveWorkouts, nutritionLapse } from "../domain/atrisk";
-import { t } from "../locales/i18n";
+import { escapeHtml, t } from "../locales/i18n";
 import { HTML, isoDaysAgo } from "./shared";
 import type { UserPass } from "./userPass";
 
@@ -30,7 +30,7 @@ export async function trainerAtRiskAlert(p: UserPass): Promise<void> {
   if (fireWorkout || fireNutrition) {
     const trainer = user.trainerId ? await getUser(db, user.trainerId) : null;
     if (trainer) {
-      const name = user.profile.name ?? `id ${user._id}`;
+      const name = escapeHtml(user.profile.name ?? `id ${user._id}`);
       const kb = p.appKb([[{ text: t(trainer.lang, "nb_open_client"), view: "role", params: { client: user._id }, fallback: `cl:${user._id}:msg` }]]);
       if (fireWorkout) {
         const r = await sendTo(trainer, "atrisk_workout", t(trainer.lang, "atrisk_workout_alert", { name, d1: missed![0], d2: missed![1] }), kb ? { ...HTML, reply_markup: kb } : HTML);

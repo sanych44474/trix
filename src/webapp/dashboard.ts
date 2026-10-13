@@ -162,12 +162,18 @@ export function assemblePayload(
     user.profile.trainingWeekdays ?? plan?.split.map((d) => d.weekday) ?? [],
   );
   const doneDates = new Set(workouts.filter((w) => w.completed).map((w) => w.date));
+  // Nothing can be "missed" before the person started: the earlier of sign-up and the first
+  // logged workout (imports and back-fills can predate sign-up). Without this a new user's
+  // 12-week heatmap opened mostly red.
+  const signedUp = user.createdAt instanceof Date && !Number.isNaN(user.createdAt.getTime()) ? user.createdAt.toISOString().slice(0, 10) : "";
+  const firstLog = workouts.reduce((min, w) => (w.date < min ? w.date : min), signedUp || "9999-12-31");
+  const startedOn = signedUp ? (firstLog < signedUp ? firstLog : signedUp) : "";
   const days: DashboardPayload["calendar"]["days"] = [];
   for (let i = CALENDAR_DAYS - 1; i >= 0; i--) {
     const date = isoDaysBefore(today, i);
     const s = doneDates.has(date)
       ? "done"
-      : date < today && planned.has(isoWeekdayOf(date))
+      : date < today && date >= startedOn && planned.has(isoWeekdayOf(date))
         ? "missed"
         : "rest";
     days.push({ date, s });

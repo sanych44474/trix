@@ -133,3 +133,16 @@ test("recovery: a poor check-in lowers the score and names the factor", () => {
   assert.ok(p.recovery.score < 100);
   assert.deepEqual(p.recovery.factors[0], { code: "low_energy" });
 });
+
+test("calendar: no misses before the person started (sign-up, or an earlier logged workout)", () => {
+  const fresh = { ...user(), createdAt: new Date(`${isoDaysBefore(TODAY, 3)}T09:00:00Z`) } as UserDoc;
+  const p = assemblePayload(fresh, TODAY, empty);
+  const missed = p.calendar.days.filter((d) => d.s === "missed").map((d) => d.date);
+  assert.ok(missed.every((d) => d >= isoDaysBefore(TODAY, 3)), `missed before sign-up: ${missed}`);
+  assert.ok(missed.includes("2026-06-29"), "a planned Monday after sign-up is still missed");
+  // A back-filled workout three weeks before sign-up moves the start back to it.
+  const early = isoDaysBefore(TODAY, 21);
+  const q = assemblePayload(fresh, TODAY, { ...empty, workouts: [wlog(early)] });
+  const qMissed = q.calendar.days.filter((d) => d.s === "missed").map((d) => d.date);
+  assert.ok(qMissed.length > 0 && qMissed.every((d) => d >= early));
+});

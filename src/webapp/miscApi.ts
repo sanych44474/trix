@@ -1,6 +1,7 @@
 // Long-tail Mini App APIs (roadmap P7): challenges (view/join), injury log (view/report), and
 // the competitor leaderboards (read). Each reuses the same repos/domain as the bot; same initData
 // auth. Routed at /api/challenges, /api/injuries, /api/boards.
+import { trainerCanSee } from "../domain/clientCard";
 import { bumpEvent } from "../adapters/d1/v2Analytics";
 import { getSetting } from "../adapters/d1/v2Admin";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
@@ -231,9 +232,10 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: Exec
   const photo = await getProgressPhoto(env.DB, id).catch(() => null);
   if (!photo) return new Response("not found", { status: 404 });
   if (photo.userId !== user._id) {
-    // A trainer may view their own client's photos; anyone else gets an opaque 404.
+    // A trainer may view their own client's photos, and only when the client shares body data
+    // (shareWithTrainer.body); anyone else gets an opaque 404.
     const owner = await getUser(env.DB, photo.userId).catch(() => null);
-    if (!(user.role === "trainer" && owner?.trainerId === user._id)) return new Response("not found", { status: 404 });
+    if (!(user.role === "trainer" && owner?.trainerId === user._id && owner && trainerCanSee(owner.profile, "body"))) return new Response("not found", { status: 404 });
   }
   // Read-through cache: once R2_PHOTOS exists, most views never touch Telegram at all. Until
   // then getCachedPhoto is always a no-op and this falls straight through, same as before.
