@@ -136,7 +136,8 @@ export async function buildClientCardPayload(db: D1Database, trainer: UserDoc, c
       ? listActiveInjuries(db, client._id).catch(() => [] as InjuryDoc[])
       : Promise.resolve([] as InjuryDoc[]),
     buildDashboardPayload(db, client),
-    listProgressPhotos(db, client._id, 8).catch(() => []),
+    // Progress photos are body data: shown only with the client's "body" consent.
+    trainerCanSee(client.profile, "body") ? listProgressPhotos(db, client._id, 8).catch(() => []) : Promise.resolve([]),
     listClientNoteHistory(db, trainer._id, client._id).catch(() => []),
     listMessages(db, trainer._id, client._id).catch(() => []),
     getDraftPlan(db, client._id).catch(() => null),
