@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { handleOnboardingApi } from "../src/webapp/profileApi";
-import { ownerUsersData } from "../src/bot/ownerReport";
+import { ownerUsersData } from "../src/features/owner/ownerReport";
 import { getOnboardingDraft } from "../src/adapters/d1/v2OnboardingDraft";
 import { putFoodCache } from "../src/adapters/d1/v2Nutrition";
 import { verifyItems } from "../src/features/nutrition/verifyItems";

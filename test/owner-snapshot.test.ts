@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
-import { buildOwnerMetrics, buildOwnerReport, loadOwnerSnapshot, orOverview } from "../src/bot/ownerReport";
+import { buildOwnerMetrics, buildOwnerReport, loadOwnerSnapshot, orOverview } from "../src/features/owner/ownerReport";
 
 type Db = ReturnType<typeof newDb>;
 

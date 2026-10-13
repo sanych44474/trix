@@ -27,7 +27,7 @@ import { DAILY_NUDGE_CAP, daysBetween, isQuietHour, nudgesSentToday } from "./do
 import { escapeHtml, t } from "./locales/i18n";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "./notify/onboardingApp";
 import { appKeyboard, } from "./notify/appKeyboard";
-import { finalizeOnboardingPlan, retryInterviewStep } from "./bot/plan";
+import { finalizeOnboardingPlan, retryInterviewStep } from "./features/plan/planService";
 import { APP_VERSION } from "./webapp/appVersion";
 import { enforceStorageBudget } from "./adapters/r2/photoStorage";
 import { purgeExpiredStories } from "./webapp/storyMedia";

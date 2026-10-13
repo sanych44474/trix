@@ -5,9 +5,9 @@
 import { parseRestSec } from "../domain/restTime";
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";
 import { rawTelegramApi } from "../adapters/telegram/rawApi";
-import { completeWorkout, type WorkoutSaveEntry } from "../bot/workoutSave";
+import { completeWorkout, type WorkoutSaveEntry } from "../features/workout/completeWorkout";
 import { muscleGroupToEnum } from "../domain/exerciseDefaults";
-import { planRepsMid, planSetsCount, planWeight } from "../bot/guidedLog";
+import { planRepsMid, planSetsCount, planWeight } from "../features/workout/planTargets";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscles";
 import { exerciseMetric, formatSetEntry } from "../domain/setFormat";

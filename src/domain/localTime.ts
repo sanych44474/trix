@@ -55,3 +55,9 @@ export function localParts(timezone?: string, now: Date = new Date()): LocalPart
   const weekday = wmap[get("weekday")] ?? 1;
   return { date, weekday, hour, minute };
 }
+
+/** The local date `days` before today in `timezone`, as YYYY-MM-DD (a "since" cutoff). */
+export function localCutoff(timezone: string | undefined, days: number): string {
+  const { date } = localParts(timezone);
+  return new Date(Date.parse(date) - days * 86_400_000).toISOString().slice(0, 10);
+}

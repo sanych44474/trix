@@ -15,7 +15,7 @@ import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env, Lang, UserProfile, Weekday } from "../types";
-import { finalizeOnboardingPlan } from "../bot/plan";
+import { finalizeOnboardingPlan } from "../features/plan/planService";
 
 // Canonical value → i18n label key. Values MUST match the bot's obSteps() so a plan built from
 // either surface reads the same profile.

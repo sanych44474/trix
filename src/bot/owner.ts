@@ -1,6 +1,6 @@
 // Owner / admin section — extracted verbatim from src/bot.ts (mechanical split).
 
-import { broadcastRelease, pendingReleaseRecipients } from "./releaseBroadcast";
+import { broadcastRelease, pendingReleaseRecipients } from "../features/owner/releaseBroadcast";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { Lang, UserDoc, Weekday } from "../types";
@@ -20,17 +20,17 @@ import { aiJSON } from "../ai/index";
 import * as P from "../ai/prompts";
 import { ownerHubMenu } from "../adapters/telegram/keyboards";
 import { type MyContext, HTML, clearEditOwner, reply, setMode } from "../adapters/telegram/context";
-import { buildPlanDoc } from "./planBuild";
+import { buildPlanDoc } from "../features/plan/planBuild";
 import { deferAi } from "../features/aiDefer";
 import { mainMenu, menuBtn } from "../adapters/telegram/keyboards";
 import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/clientCard";
-import { monoTable, ownerReportWindows, orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "./ownerReport";
+import { monoTable, ownerReportWindows, orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "../features/owner/ownerReport";
 import { isOwner } from "./ownerAccess";
 import { secretMatches } from "../domain/secrets";
-export * from "./ownerRows";
+export * from "../features/owner/ownerRows";
 export * from "./ownerAccess";
 export * from "./ownerVideos";
-export * from "./ownerReport";
+export * from "../features/owner/ownerReport";
 
 
 // ---------------- owner / admin ----------------

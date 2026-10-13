@@ -22,7 +22,7 @@ import { switchMode } from "../domain/session";
 import { cleanAi, t } from "../locales/i18n";
 import { renderToday } from "../render";
 import { weekdayName } from "../render";
-import { translatePlanExercises } from "./planBuild";
+import { translatePlanExercises } from "../features/plan/planBuild";
 import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply, setMode } from "../adapters/telegram/context";
 import { type LogDraft, cmdLog, logExerciseKeyboard, logPickExercise, persistLogDraft } from "./guidedLog";
 import { cmdToday, decodePlanRef, encodePlanRef, reRenderEditDay, videosForDays } from "./planView";

@@ -5,7 +5,7 @@
 // kick-off) go out via the Bot API.
 import { listInbox, markInboxRead } from "../adapters/d1/v2Inbox";
 import { computeWeekCardStats, formatWeekCardText } from "../features/gamification/weekCard";
-import { obKeyboard, obSteps } from "../bot/onboarding";
+import { obKeyboard, obSteps } from "../features/onboarding/questions";
 import {
   getOwnerChatId,
 } from "../adapters/d1/v2Admin";
@@ -45,7 +45,7 @@ import { num, object, oneOf, optional, readJsonBody, str, validateBody } from ".
 import type { Env } from "../types";
 import { putStoryImage } from "./storyMedia";
 import { isSupportAmount } from "../adapters/d1/v2Support";
-import { supportInvoice } from "../bot/support";
+import { supportInvoice } from "../features/support/invoice";
 import { botDeepLink } from "../notify/links";
 import { shortCode } from "../features/trainer/trainerCommon";
 import { appViewUrlFromEnv, webAppMarkup } from "../notify/appLinks";

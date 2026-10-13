@@ -57,28 +57,9 @@ src/features/trainer/clientCard.ts -> src/bot/report
 src/features/trainer/programSharing.ts -> src/bot/exerciseCatalog
 src/features/trainer/programSharing.ts -> src/bot/ownerAccess
 src/features/trainer/trainer.ts -> src/bot/onboarding
-src/features/trainer/trainer.ts -> src/bot/ownerRows
 src/features/trainer/trainerComms.ts -> src/bot/calendar
-src/features/trainer/trainerComms.ts -> src/bot/report
-src/features/trainer/trainerInterview.ts -> src/bot/planBuild
 src/schedulerJobs/nudges.ts -> src/bot/survey
-src/schedulerJobs/social.ts -> src/bot/squad
-src/schedulerJobs/weeklyReport.ts -> src/bot/ownerReport
-src/webapp/coachApi.ts -> src/bot/coach
-src/webapp/coachApi.ts -> src/bot/feedbackIntake
-src/webapp/extrasApi.ts -> src/bot/onboarding
-src/webapp/extrasApi.ts -> src/bot/support
-src/webapp/mediaApi.ts -> src/bot/formCheck
-src/webapp/mediaApi.ts -> src/bot/importCsv
-src/webapp/nutritionApi.ts -> src/bot/mealPlanCmds
-src/webapp/onboardingNudge.ts -> src/bot/onboarding
-src/webapp/ownerApi.ts -> src/bot/ownerReport
-src/webapp/ownerApi.ts -> src/bot/releaseBroadcast
-src/webapp/planApi.ts -> src/bot/plan
-src/webapp/profileApi.ts -> src/bot/plan
 src/webapp/settingsApi.ts -> src/bot/exportData
-src/webapp/workout.ts -> src/bot/guidedLog
-src/webapp/workout.ts -> src/bot/workoutSave
 `.trim().split("\n").filter(Boolean));
 
 test("layering: no new cross-layer imports (and fixed ones leave the baseline)", () => {

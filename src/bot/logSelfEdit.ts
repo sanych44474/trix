@@ -4,6 +4,7 @@
 // window; picking a day shows a summary + a "Rewrite" button that re-parses the whole day in
 // one message. Extracted from bot.ts (god-file split; same barrel seam via bot.ts's
 // `export * from "./bot/logSelfEdit"`).
+import { localCutoff } from "../domain/localTime";
 import { InlineKeyboard } from "grammy";
 import type { MealEntry, SetEntry } from "../types";
 import * as P from "../ai/prompts";
@@ -19,7 +20,7 @@ import { normalizeExercise, parseWorkoutText } from "../domain/workoutText";
 import { escapeHtml, t } from "../locales/i18n";
 import { num } from "../features/nutrition/nutritionLog";
 import { weekdayOf } from "./calendar";
-import { localCutoff } from "./report";
+
 import { type MyContext, reply, setMode } from "../adapters/telegram/context";
 import { alcoholKcalOf, cleanFoodName } from "./nutritionCmds";
 

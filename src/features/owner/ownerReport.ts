@@ -1,23 +1,23 @@
 // The owner report: overview, engagement, retention, AI, trainers, onboarding, errors and users
 // sections, the metrics JSON and the error digest, plus their text-chart helpers. Split out of
 // owner.ts; owner.ts re-exports everything here.
-import { onboardingDraftProgress } from "../adapters/d1/v2OnboardingDraft";
-import { dailyBudget, neuronsToday } from "../ai/budget";
-import { knowledgeQueryUsage } from "../knowledge/search";
-import type { Env } from "../types";
-import { aiCallStatsSince, aiTokensByKindSince, aiUsageSince, errorStatsSince, recentErrors } from "../adapters/d1/v2AiTelemetry";
-import { cohortMembersSince, countAdjustmentsSince, countPlanSourcesSince, dailyActiveUsers, engagementSince, eventCountsByUser, eventStatsSince, listUsersBrief } from "../adapters/d1/v2Analytics";
-import { recentAudit } from "../adapters/d1/v2Admin";
-import { recentFeedback } from "../adapters/d1/v2Feedback";
-import { countCompletedWorkoutsBetween } from "../adapters/d1/v2Workouts";
-import { planStatusByUser } from "../adapters/d1/v2Plans";
-import { countByRole, countClientsOf, countPendingClientRequests, listTrainerUsers, pendingRequestsAll, pendingTrainerApplications } from "../adapters/d1/v2Trainer";
-import { countActiveSince, countInactive, countModeration, countOnboarded, countUsers, countUsersCreatedSince, getUser, listChurnedUsers, listOnboardingUsers, listPlanPendingUsers, nonOnboardedByMode } from "../adapters/d1/v2Users";
-import { weekStartStr } from "../domain/records";
-import { biggestDrop, cohortRetention, RETENTION_WEEKS } from "../domain/cohorts";
-import { escapeHtml } from "../locales/i18n";
-import { splitKeys } from "../ai/errors";
-import { obSteps } from "./onboarding";
+import { onboardingDraftProgress } from "../../adapters/d1/v2OnboardingDraft";
+import { dailyBudget, neuronsToday } from "../../ai/budget";
+import { knowledgeQueryUsage } from "../../knowledge/search";
+import type { Env } from "../../types";
+import { aiCallStatsSince, aiTokensByKindSince, aiUsageSince, errorStatsSince, recentErrors } from "../../adapters/d1/v2AiTelemetry";
+import { cohortMembersSince, countAdjustmentsSince, countPlanSourcesSince, dailyActiveUsers, engagementSince, eventCountsByUser, eventStatsSince, listUsersBrief } from "../../adapters/d1/v2Analytics";
+import { recentAudit } from "../../adapters/d1/v2Admin";
+import { recentFeedback } from "../../adapters/d1/v2Feedback";
+import { countCompletedWorkoutsBetween } from "../../adapters/d1/v2Workouts";
+import { planStatusByUser } from "../../adapters/d1/v2Plans";
+import { countByRole, countClientsOf, countPendingClientRequests, listTrainerUsers, pendingRequestsAll, pendingTrainerApplications } from "../../adapters/d1/v2Trainer";
+import { countActiveSince, countInactive, countModeration, countOnboarded, countUsers, countUsersCreatedSince, getUser, listChurnedUsers, listOnboardingUsers, listPlanPendingUsers, nonOnboardedByMode } from "../../adapters/d1/v2Users";
+import { weekStartStr } from "../../domain/records";
+import { biggestDrop, cohortRetention, RETENTION_WEEKS } from "../../domain/cohorts";
+import { escapeHtml } from "../../locales/i18n";
+import { splitKeys } from "../../ai/errors";
+import { obSteps } from "../onboarding/questions";
 import { interviewProgress, OwnerUserRow } from "./ownerRows";
 
 // Telegram renders no real tables — a monospace <pre> block with space-aligned columns is the

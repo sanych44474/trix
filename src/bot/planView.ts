@@ -10,11 +10,11 @@ import { getDailyCheckin } from "../adapters/d1/v2Tracking";
 import { getExerciseVideos, getUserVideos } from "../adapters/d1/v2Catalog";
 import { escapeHtml, t } from "../locales/i18n";
 import { deloadSets, readinessAdvice } from "../domain/deload";
-import { localParts } from "../domain/localTime";
+import { localParts, localCutoff } from "../domain/localTime";
 import { phaseKey as mesoPhaseKey, trainingWeek } from "../domain/mesocycle";
 import { buildVideoOpenLink } from "../domain/videoLink";
 import { exerciseVideoKey, renderPlan, renderSchedule, renderToday, upcomingSessions } from "../render";
-import { localCutoff } from "./report";
+
 import { renderDayInline } from "./workoutSave";
 import { showPlanEditDay } from "../features/trainer/clientCard";
 import { menuBtn, planViewKb, difficultyKeyboard, todayWorkoutKeyboard } from "../adapters/telegram/keyboards";

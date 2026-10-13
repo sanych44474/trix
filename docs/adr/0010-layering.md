@@ -55,23 +55,25 @@ grammY's `ctx.api` stays the adapter inside bot handlers.
   | `webapp/dashboard.ts` | `domain/dashboardPayload.ts` (pure assembly) |
   | `CURATED` food table and `foodCategory`, from `ai/nutritionDb.ts` | `domain/curatedFoods.ts` (re-exported by `nutritionDb.ts`) |
 
-- Cross-layer imports went from 48 to 32.
+- Second pass: the plan use cases (`features/plan/planService.ts`: interview retry,
+  `finalizeOnboardingPlan`, `rebuildPlan`) and `planBuild`; the onboarding questions
+  (`features/onboarding/questions.ts`); the owner report and release broadcast (`features/owner/`);
+  and the shared, chat-free functions of `feedbackIntake`, `support`, `squad`, `importCsv`,
+  `formCheck`, `guidedLog`, `coach`, `mealPlanCmds` and `workoutSave` (in `features/feedback`,
+  `support`, `squad`, `workout`, `coach`, `nutrition`). The bot modules re-export what they gave
+  away, so their own callers are unchanged. `localCutoff` moved to `domain/localTime.ts`.
+- Cross-layer imports went from 48 to 13.
 
 ## Consequences / next steps
 
-The remaining 32 lines in `KNOWN` are use cases that still live in `bot/` but are shared with the
-Mini App. Each one should move to `features/` when it is next touched, then its line comes out of
-`KNOWN`:
+The 13 lines left in `KNOWN` are mostly the trainer flows in `features/trainer/`. These are
+chat-facing themselves, rendering plan views and onboarding steps through the bot. The rest:
 
-- **Plan building:** `bot/plan.ts`, `planBuild`, `planView`, `exerciseCatalog`. This is the biggest
-  knot, because `webapp/planApi` and `profileApi` call `finalizeOnboardingPlan` / `rebuildPlan`.
-- **Onboarding interview:** `bot/onboarding.ts`, used by `obSteps` and the owner report.
-- **Owner report:** `bot/ownerReport.ts`, `ownerRows`. These are reporting queries; target
-  `features/owner/`.
-- **Workout save and guided log:** `bot/workoutSave`, `guidedLog`, used by `webapp/workout.ts`.
-- **Smaller ones:** `survey`, `nutritionCmds`, `mealPlanCmds`, `report`, `calendar`, `squad`,
-  `support`, `exportData`, `feedbackIntake`, `coach`, `formCheck`, `importCsv`,
-  `releaseBroadcast`, `ownerAccess`.
+- `webapp/settingsApi` → `bot/exportData`: the export builders need `bot/report`'s report lines
+  and `bot/injury`'s labels to move first.
+- `schedulerJobs/nudges` and `features/nutrition/nutritionLog` → `bot/survey`, and
+  `nutritionLog` / `gamification/challenges` → `bot/nutritionCmds`: the evening survey and the
+  nutrition command helpers.
 
-The two remaining `adapters/` → `webapp/` and `adapters/` → `bot/` edges were removed in this
-change. No infrastructure module depends on an interface any more.
+Move each when it is next touched, then delete its line from `KNOWN`. The test will not let one
+come back. No infrastructure (`adapters/`, `ai/`) or domain module depends on an interface.

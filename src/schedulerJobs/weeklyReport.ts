@@ -10,7 +10,7 @@ import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { rankOf, streakMilestones, weekStartStr, weekStreak } from "../domain/records";
 import { escapeHtml, t } from "../locales/i18n";
 import { chunkReport } from "../render";
-import { buildOwnerReport } from "../bot/ownerReport";
+import { buildOwnerReport } from "../features/owner/ownerReport";
 import { computeBoards } from "../features/gamification/boards";
 import { advanceMesocycle, phaseGuidance, phaseKey } from "../domain/mesocycle";
 import { HTML, logSchedulerError, isoDaysAgo } from "./shared";

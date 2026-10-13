@@ -5,7 +5,7 @@ import type { BodyLogDoc, Lang } from "../types";
 import { loadActivityWindow } from "../adapters/d1/v2Analytics";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
-import { localParts } from "../domain/localTime";
+import { localCutoff } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
 import { aiText } from "../ai";
 import * as P from "../ai/prompts";
@@ -13,11 +13,6 @@ import { type MyContext, reply } from "../adapters/telegram/context";
 import { REPORT_DAYS } from "./commonCmds";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { num } from "../features/nutrition/nutritionLog";
-
-export function localCutoff(timezone: string | undefined, days: number): string {
-  const { date } = localParts(timezone);
-  return new Date(Date.parse(date) - days * 86_400_000).toISOString().slice(0, 10);
-}
 
 // Average daily nutrition over the logged days, as a localized report line.
 export function reportNutritionLine(

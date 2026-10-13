@@ -2,7 +2,7 @@
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
 import { sendBestEffort, telegramUpload } from "../adapters/telegram/rawApi";
-import { broadcastRelease, pendingReleaseRecipients } from "../bot/releaseBroadcast";
+import { broadcastRelease, pendingReleaseRecipients } from "../features/owner/releaseBroadcast";
 import { latestRelease } from "../releaseNotes";
 import { getOwnerChatId, recordAudit } from "../adapters/d1/v2Admin";
 import { listFeedback, updateFeedback } from "../adapters/d1/v2Feedback";
@@ -12,7 +12,7 @@ import { readJsonBody } from "./validate";
 import { getUser, listInactive, listOnboardedUsers, updateUser } from "../adapters/d1/v2Users";
 import { appMarkup } from "../notify/appKeyboard";
 import { deleteUserData } from "../adapters/d1/v2Account";
-import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../bot/ownerReport";
+import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../features/owner/ownerReport";
 import { switchMode } from "../domain/session";
 import { escapeHtml, t } from "../locales/i18n";
 import { ImageBudgetError, generateImage } from "../ai/image";

@@ -14,11 +14,11 @@ import { aiText } from "../ai";
 import * as P from "../ai/prompts";
 import { buildActivityCells } from "../domain/activity";
 import { deloadDue } from "../domain/deload";
-import { localParts } from "../domain/localTime";
+import { localParts, localCutoff } from "../domain/localTime";
 import { e1rm, weekStartStr, weekStreak } from "../domain/records";
 import { conditioningLoadLabel, renderActivityGrid, renderStrength, exerciseChart, wellbeingChart } from "../render";
 import { strengthStandard, type StrengthLevel } from "../domain/standards";
-import { localCutoff } from "./report";
+
 import { num } from "../features/nutrition/nutritionLog";
 import { buildWeekCard } from "../features/gamification/weekCard";
 import { menuBtn } from "../adapters/telegram/keyboards";

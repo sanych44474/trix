@@ -3,14 +3,14 @@
 // "continue" later -- resumes without sending anyone the same note twice. Used by the bot's
 // /whatsnew owner button and by the owner console in the Mini App (in batches there).
 import { GrammyError } from "grammy";
-import { telegramCall } from "../adapters/telegram/rawApi";
-import type { Env } from "../types";
-import { listOnboardedUsers, updateUser } from "../adapters/d1/v2Users";
-import { recordAudit } from "../adapters/d1/v2Admin";
-import { latestRelease, releaseBody } from "../releaseNotes";
-import { releaseRecipients } from "../domain/releaseDelivery";
-import { appMarkup } from "../notify/appKeyboard";
-import { t } from "../locales/i18n";
+import { telegramCall } from "../../adapters/telegram/rawApi";
+import type { Env } from "../../types";
+import { listOnboardedUsers, updateUser } from "../../adapters/d1/v2Users";
+import { recordAudit } from "../../adapters/d1/v2Admin";
+import { latestRelease, releaseBody } from "../../releaseNotes";
+import { releaseRecipients } from "../../domain/releaseDelivery";
+import { appMarkup } from "../../notify/appKeyboard";
+import { t } from "../../locales/i18n";
 
 export interface ReleaseBroadcastResult { version: string; sent: number; failed: number; remaining: number }
 

@@ -1,6 +1,7 @@
 // Trainer <-> client communication: reviewing and correcting a client's logged workouts, direct
 // messages and replies, and answering client questions. Split out of trainer.ts; trainer.ts
 // re-exports everything here.
+import { localCutoff } from "../../domain/localTime";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
 import { notify, type DeliveryResult } from "../../notify";
@@ -15,7 +16,7 @@ import { getPlanDay } from "../../domain/progression";
 import { normalizeExercise, parseWorkoutText } from "../../domain/workoutText";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
-import { localCutoff } from "../../bot/report";
+
 import { menuBtn } from "../../adapters/telegram/keyboards";
 import { weekdayOf } from "../../bot/calendar";
 import { clientCardKb } from "./trainerCommon";

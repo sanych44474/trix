@@ -6,7 +6,7 @@ import { getDayMeals, getMealPlan, getRecentFoods, saveMealPlan, setDayMeals, pu
 import { computeTargets, per100gCorrectionFrom, scaleMealEntry, sumItems } from "../domain/mealplan";
 import { groceryList } from "../domain/groceryList";
 import { localParts } from "../domain/localTime";
-import { generateMealDayFor } from "../bot/mealPlanCmds";
+import { generateMealDayFor } from "../features/nutrition/mealDay";
 import { miniAppUser } from "./auth";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";

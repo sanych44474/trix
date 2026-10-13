@@ -12,7 +12,7 @@ import { approveTrainer, countClientsOf, getRequest, getTrainer, getTrainerByCod
 import { getUser, getUsersByIds, updateUser } from "../../adapters/d1/v2Users";
 import { isoDateMinus } from "../gamification/boards";
 import { botDeepLink } from "../../notify/links";
-import { interviewProgress } from "../../bot/ownerRows";
+import { interviewProgress } from "../owner/ownerRows";
 import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";

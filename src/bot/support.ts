@@ -7,23 +7,13 @@
 // in v2_support_payments (the charge id keeps a refund possible). The webhook must subscribe to
 // pre_checkout_query for this to work: scripts/setup-telegram.mjs registers it.
 import { InlineKeyboard } from "grammy";
-import type { Lang } from "../types";
 import { t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { parseSupportPayload, recordSupportPayment, SUPPORT_STAR_AMOUNTS, supportPayload } from "../adapters/d1/v2Support";
+import { parseSupportPayload, recordSupportPayment, SUPPORT_STAR_AMOUNTS } from "../adapters/d1/v2Support";
 import { getOwnerChatId } from "../adapters/d1/v2Admin";
 import { logInfo } from "../log";
-
-/** The createInvoiceLink / sendInvoice body for a support payment (Bot API field names). */
-export function supportInvoice(lang: Lang, stars: number) {
-  return {
-    title: t(lang, "support_invoice_title"),
-    description: t(lang, "support_invoice_desc"),
-    payload: supportPayload(stars),
-    currency: "XTR",
-    prices: [{ label: t(lang, "support_invoice_label"), amount: stars }],
-  };
-}
+import { supportInvoice } from "../features/support/invoice";
+export { supportInvoice } from "../features/support/invoice";
 
 export async function cmdSupport(ctx: MyContext): Promise<void> {
   const lang = ctx.user.lang;
