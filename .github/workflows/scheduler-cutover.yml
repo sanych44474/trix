@@ -47,13 +47,15 @@ jobs:
     timeout-minutes: 15
     environment:
       name: production
+    # The Cloudflare token is NOT job-wide: it is given only to the steps that call wrangler, so
+    # the dependency install (npm ci runs third-party install scripts on a cache miss) never sees it.
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       FLAG_TYPE: ${{ inputs.type }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node and install dependencies
         uses: ./.github/actions/node-deps
@@ -71,6 +73,9 @@ jobs:
           bot-name: ${{ vars.BOT_NAME }}
 
       - name: Current flag state
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           npx wrangler d1 execute trix --remote --command \
@@ -80,6 +85,9 @@ jobs:
       # so there is nothing to drain. User and squad are woken lazily and can lag.
       - name: Wake gate
         if: inputs.action != 'disable' && inputs.type != 'global'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           if [ "${FLAG_TYPE}" = "user" ]; then
@@ -108,7 +116,10 @@ jobs:
       - name: Dry-run parity report
         if: inputs.action != 'disable'
         continue-on-error: true
-        run: node scripts/verify-scheduler-dryrun.mjs --type=${{ inputs.type }} --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/verify-scheduler-dryrun.mjs --type="${FLAG_TYPE}" --remote
 
       - name: Stop here (check only)
         if: inputs.action == 'check'
@@ -117,6 +128,8 @@ jobs:
       - name: Flip the flag
         if: inputs.action != 'check'
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           FLAG_VALUE: ${{ inputs.action == 'enable' && '1' || '0' }}
         run: |
           set -euo pipefail
@@ -127,6 +140,9 @@ jobs:
 
       - name: Resulting flag state
         if: inputs.action != 'check'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           npx wrangler d1 execute trix --remote --command \
