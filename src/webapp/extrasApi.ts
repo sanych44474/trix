@@ -12,26 +12,8 @@ import {
 import { listStrength } from "../adapters/d1/v2Workouts";
 import { listAchievements } from "../adapters/d1/v2Gamification";
 import { setActivePlan } from "../adapters/d1/v2Plans";
-import {
-  applyTrainer,
-  bumpSharedTaken,
-  cancelPendingRequest,
-  countClientsOf,
-  createProspect,
-  createRequest,
-  getClientForTrainer,
-  getRequest,
-  getSharedProgram,
-  getTrainer,
-  linkClient,
-  listDirectoryTrainers,
-  listProspects,
-  listPublicPrograms,
-  pendingRequestForClient,
-  pendingRequestsForTrainer,
-  setRequestStatus,
-  updateTrainer,
-} from "../adapters/d1/v2Trainer";
+import { applyTrainer, cancelPendingRequest, countClientsOf, createProspect, createRequest, getClientForTrainer, getRequest, getTrainer, linkClient, listDirectoryTrainers, listProspects, pendingRequestForClient, pendingRequestsForTrainer, setRequestStatus, updateTrainer } from "../adapters/d1/v2Trainer";
+import { bumpSharedTaken, getSharedProgram, listPublicPrograms } from "../adapters/d1/v2TrainerPrograms";
 import { getUser, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
 import { adaptPlan } from "../domain/planAdapt";
 import { platePlan, warmupRamp } from "../domain/calc";

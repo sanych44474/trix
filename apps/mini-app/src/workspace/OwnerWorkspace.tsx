@@ -94,55 +94,60 @@ export function OwnerWorkspace({ lang }: { lang: Lang }) {
   </div>;
 }
 
-// Release notes to every chat from the console (bot/releaseBroadcast.ts): shows how many chats are
-// still owed the latest version, asks once, then sends a batch per tap -- resumable, never twice.
+// Release notes to every chat from the console (features/owner/releaseBroadcast.ts): shows how many
+// chats are still owed the latest version and asks once. With the broadcast queue one tap queues
+// everyone; without it, a batch of 25 per tap -- resumable, never twice.
 export function ReleaseBroadcastPanel({ lang }: { lang: Lang }) {
-  const [info, setInfo] = useState<{ version: string; pending: number } | null>(null);
+  const [info, setInfo] = useState<{ version: string; pending: number; queue: boolean } | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ sent: number; failed: number; remaining: number } | null>(null);
+  const [result, setResult] = useState<{ sent: number; failed: number; remaining: number; queued?: number } | null>(null);
   const [error, setError] = useState(false);
-  const load = () => api<{ version: string; pending: number }>("/api/v2/owner/release").then(setInfo).catch(() => setError(true));
+  const load = () => api<{ version: string; pending: number; queue: boolean }>("/api/v2/owner/release").then(setInfo).catch(() => setError(true));
   useEffect(() => { void load(); }, []);
   if (!info) return null;
   const send = async () => {
     setBusy(true); setError(false);
     try {
-      const r = await api<{ version: string; sent: number; failed: number; remaining: number }>("/api/v2/owner/release/send", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
+      const r = await api<{ version: string; sent: number; failed: number; remaining: number; queued?: number }>("/api/v2/owner/release/send", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
       setResult(r);
-      setInfo({ version: r.version, pending: r.remaining });
+      setInfo({ version: r.version, pending: r.remaining, queue: info.queue });
       setConfirm(false);
     } catch { setError(true); } finally { setBusy(false); }
   };
   return <Panel>
     <div className="section-head"><div><span className="eyebrow">{t(lang, "owner_release_eyebrow")}</span><h2>{t(lang, "owner_release_title")}</h2></div></div>
     <p className="muted">{info.pending > 0 ? t(lang, "owner_release_pending", { v: info.version, n: info.pending }) : t(lang, "owner_release_none", { v: info.version })}</p>
-    {result && <p>{t(lang, "owner_release_result", result)}</p>}
+    {result && <p>{result.queued !== undefined ? t(lang, "owner_broadcast_queued", { n: result.queued }) : t(lang, "owner_release_result", result)}</p>}
     {error && <p className="muted">{t(lang, "generic_error")}</p>}
     {info.pending > 0 && <div className="button-row">
       {confirm
         ? <>
-            <button className="button button-primary" disabled={busy} onClick={() => void send()}>{busy ? "…" : t(lang, "owner_release_confirm", { n: Math.min(25, info.pending) })}</button>
+            <button className="button button-primary" disabled={busy} onClick={() => void send()}>{busy ? "…" : info.queue ? t(lang, "owner_release_confirm_all", { n: info.pending }) : t(lang, "owner_release_confirm", { n: Math.min(25, info.pending) })}</button>
             <button className="button button-ghost" disabled={busy} onClick={() => setConfirm(false)}>{t(lang, "close")}</button>
           </>
-        : <button className="button button-ghost" onClick={() => setConfirm(true)}>{t(lang, "owner_release_send", { n: Math.min(25, info.pending) })}</button>}
+        : <button className="button button-ghost" onClick={() => setConfirm(true)}>{info.queue ? t(lang, "owner_release_send_all", { n: info.pending }) : t(lang, "owner_release_send", { n: Math.min(25, info.pending) })}</button>}
     </div>}
-    <p className="muted">{t(lang, "owner_release_hint")}</p>
+    <p className="muted">{t(lang, info.queue ? "owner_release_hint_queue" : "owner_release_hint")}</p>
   </Panel>;
 }
 
-// An announcement to every user (the in-app /announce): write it, confirm, then it goes out in
-// batches of 25 per tap, continuing from where the last batch stopped.
+// An announcement to every user (the in-app /announce): write it, confirm, then it is queued for
+// everyone (broadcast queue) or, without the queue, goes out in batches of 25 per tap,
+// continuing from where the last batch stopped.
 export function AnnouncePanel({ lang }: { lang: Lang }) {
   const [text, setText] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<{ sent: number; failed: number; remaining: number; total: number; next: number | null } | null>(null);
+  const [progress, setProgress] = useState<{ sent: number; failed: number; remaining: number; total: number; next: number | null; queued?: number } | null>(null);
   const [error, setError] = useState(false);
+  // Queue mode (one tap reaches everyone) is reported by the release endpoint.
+  const [queue, setQueue] = useState(false);
+  useEffect(() => { void api<{ queue: boolean }>("/api/v2/owner/release").then((r) => setQueue(r.queue)).catch(() => {}); }, []);
   const send = async () => {
     setBusy(true); setError(false);
     try {
-      const r = await api<{ sent: number; failed: number; remaining: number; total: number; next: number | null }>("/api/v2/owner/announce", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"ownerAnnounce">({ text: text.trim(), ...(progress?.next ? { after: progress.next } : {}) }) });
+      const r = await api<{ sent: number; failed: number; remaining: number; total: number; next: number | null; queued?: number }>("/api/v2/owner/announce", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"ownerAnnounce">({ text: text.trim(), ...(progress?.next ? { after: progress.next } : {}) }) });
       setProgress((prev) => ({ ...r, sent: (prev?.sent ?? 0) + r.sent, failed: (prev?.failed ?? 0) + r.failed }));
       setConfirm(false);
     } catch { setError(true); } finally { setBusy(false); }
@@ -151,14 +156,14 @@ export function AnnouncePanel({ lang }: { lang: Lang }) {
   return <Panel>
     <div className="section-head"><div><span className="eyebrow">{t(lang, "owner_announce_eyebrow")}</span><h2>{t(lang, "owner_announce_title")}</h2></div></div>
     <textarea className="owner-announce" value={text} maxLength={3000} rows={4} disabled={progress !== null && !finished} placeholder={t(lang, "owner_announce_ph")} onChange={(e) => setText(e.target.value)} />
-    {progress && <p>{t(lang, "owner_announce_progress", { sent: progress.sent, failed: progress.failed, remaining: progress.remaining })}</p>}
+    {progress && <p>{progress.queued !== undefined ? t(lang, "owner_broadcast_queued", { n: progress.queued }) : t(lang, "owner_announce_progress", { sent: progress.sent, failed: progress.failed, remaining: progress.remaining })}</p>}
     {error && <p className="muted">{t(lang, "generic_error")}</p>}
     <div className="button-row">
       {finished
         ? <button className="button button-ghost" onClick={() => { setProgress(null); setText(""); }}>{t(lang, "owner_announce_new")}</button>
         : confirm
           ? <>
-              <button className="button button-primary" disabled={busy || !text.trim()} onClick={() => void send()}>{busy ? "…" : t(lang, progress ? "owner_announce_continue" : "owner_announce_confirm")}</button>
+              <button className="button button-primary" disabled={busy || !text.trim()} onClick={() => void send()}>{busy ? "…" : t(lang, progress ? "owner_announce_continue" : queue ? "owner_announce_confirm_all" : "owner_announce_confirm")}</button>
               <button className="button button-ghost" disabled={busy} onClick={() => setConfirm(false)}>{t(lang, "close")}</button>
             </>
           : <button className="button button-ghost" disabled={!text.trim()} onClick={() => setConfirm(true)}>{t(lang, progress ? "owner_announce_continue" : "owner_announce_send")}</button>}

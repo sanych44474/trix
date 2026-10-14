@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { barList, monoTable, pctBar, share, sparkline } from "../src/features/owner/ownerReport";
+import { barList, monoTable, pctBar, share, sparkline } from "../src/features/owner/reportFormat";
 
 test("monoTable: first column left-aligned, the rest right-aligned, HTML-escaped inside <pre>", () => {
   const out = monoTable(["name", "n"], [["a<b", 5], ["long", 120]]);

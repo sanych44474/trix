@@ -3,6 +3,7 @@
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
 import { sendBestEffort, telegramUpload } from "../adapters/telegram/rawApi";
 import { broadcastRelease, pendingReleaseRecipients } from "../features/owner/releaseBroadcast";
+import { broadcastQueue, queueAnnouncement, queueReleaseBroadcast } from "../features/owner/broadcastQueue";
 import { latestRelease } from "../releaseNotes";
 import { getOwnerChatId, recordAudit } from "../adapters/d1/v2Admin";
 import { listFeedback, updateFeedback } from "../adapters/d1/v2Feedback";
@@ -50,12 +51,18 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     return Response.json({ html }, { headers: { "cache-control": "no-store" } });
   }
 
-  // Release notes to every chat, in batches small enough for one Worker request's subrequest
-  // budget; each tap continues where the last stopped (bot/releaseBroadcast.ts marks deliveries).
+  // Release notes to every chat. With the broadcast queue one tap queues everyone; without it,
+  // batches small enough for one Worker request's subrequest budget, each tap continuing where
+  // the last stopped (features/owner/releaseBroadcast.ts marks deliveries).
   if (req.method === "GET" && path === "/api/owner/release") {
-    return Response.json({ version: latestRelease().version, pending: await pendingReleaseRecipients(env) }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ version: latestRelease().version, pending: await pendingReleaseRecipients(env), queue: broadcastQueue(env) !== null }, { headers: { "cache-control": "no-store" } });
   }
   if (req.method === "POST" && path === "/api/owner/release/send") {
+    const queue = broadcastQueue(env);
+    if (queue) {
+      const { version, queued } = await queueReleaseBroadcast(env, queue, user._id);
+      return Response.json({ version, sent: 0, failed: 0, remaining: 0, queued });
+    }
     return Response.json(await broadcastRelease(env, user._id, RELEASE_BATCH));
   }
 
@@ -69,6 +76,11 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const text = typeof b.text === "string" ? b.text.trim().slice(0, 3000) : "";
     const after = Math.max(0, Math.round(Number(b.after) || 0));
     if (!text) return Response.json({ error: "bad request" }, { status: 400 });
+    const queue = broadcastQueue(env);
+    if (queue) {
+      const { queued } = await queueAnnouncement(env, queue, user._id, text);
+      return Response.json({ sent: 0, failed: 0, total: queued, remaining: 0, next: null, queued });
+    }
     const all = (await listOnboardedUsers(env.DB)).filter((u) => !u.blocked && !u.botBlocked).sort((a, b) => a._id - b._id);
     const batch = all.filter((u) => u._id > after).slice(0, RELEASE_BATCH);
     let sent = 0;

@@ -7,12 +7,14 @@ export { SquadSchedulerDO } from "./durable/squadScheduler";
 export { GlobalSchedulerDO } from "./durable/globalScheduler";
 import { loadLearnedMuscles } from "./exerciseMuscleLearning";
 import { createBot } from "./bot/router";
-import { buildOwnerMetrics, ownerUsersData } from "./features/owner/ownerReport";
+import { buildOwnerMetrics } from "./features/owner/ownerMetrics";
+import { ownerUsersData } from "./features/owner/ownerReport";
 import { buildPlanDocRaw } from "./features/plan/planBuild";
 import { pingIncompleteOnboarding } from "./bot/onboarding";
 import { checkCronHeartbeat } from "./schedulerJobs/global";
 import { runSchedule } from "./scheduler";
 import { healthcheckDue, pingHealthcheck } from "./adapters/monitoring/healthchecks";
+import { handleBroadcastBatch, type BroadcastMessage } from "./features/owner/broadcastQueue";
 import { activityRaw } from "./adapters/d1/activityMetrics";
 import { buildActivityMetrics } from "./domain/activityMetrics";
 import { serveWeekMap } from "./webapp/weekMap";
@@ -367,4 +369,9 @@ export default {
       }),
     );
   },
-} satisfies ExportedHandler<Env>;
+
+  // Owner broadcasts, one message per recipient (features/owner/broadcastQueue.ts).
+  async queue(batch: MessageBatch<BroadcastMessage>, env: Env): Promise<void> {
+    await runWithRequestId(crypto.randomUUID(), env, () => handleBroadcastBatch(batch, env));
+  },
+} satisfies ExportedHandler<Env, BroadcastMessage>;

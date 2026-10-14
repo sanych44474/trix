@@ -5,7 +5,8 @@
 // action=fitkit), which shares the pure core (domain/equipmentFit.ts).
 import { InlineKeyboard } from "grammy";
 import type { UserDoc } from "../types";
-import { getActivePlan, recordPlanChange, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { fitSplitToKit, kitFromEquipment, kitMismatches, type Kit } from "../domain/equipmentFit";
 import { escapeHtml, t } from "../locales/i18n";

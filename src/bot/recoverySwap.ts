@@ -3,7 +3,8 @@
 // later one. The Mini App shows the same suggestion on its Today screen (dashboard.recoverySwap).
 import { InlineKeyboard } from "grammy";
 import type { PlanDoc, Weekday, WorkoutLogDoc } from "../types";
-import { getActivePlan, recordPlanChange, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
 import { t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { recoverySwapFor, swapPlanDays } from "../domain/recoverySwap";

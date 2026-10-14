@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, updateUser, getUser } from "../src/adapters/d1/v2Users";
-import { createQuestion, saveTrainerTemplate } from "../src/adapters/d1/v2Trainer";
+import { createQuestion } from "../src/adapters/d1/v2TrainerMessages";
+import { saveTrainerTemplate } from "../src/adapters/d1/v2TrainerPrograms";
 import { handleTrainerApi } from "../src/webapp/trainerApi";
 import type { BankPlan, UserDoc } from "../src/types";
 

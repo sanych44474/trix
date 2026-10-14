@@ -4,7 +4,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
-import { getClientNote, insertMessage, listClientNoteHistory, listMessages, setClientCard, setClientNote } from "../src/adapters/d1/v2Trainer";
+import { getClientNote, listClientNoteHistory, setClientCard, setClientNote } from "../src/adapters/d1/v2Trainer";
+import { insertMessage, listMessages } from "../src/adapters/d1/v2TrainerMessages";
 
 test("setClientNote: overwriting archives the previous value instead of losing it", async () => {
   const db = newDb();

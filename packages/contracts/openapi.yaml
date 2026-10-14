@@ -1112,7 +1112,7 @@ paths:
   /api/v2/owner/announce:
     post:
       operationId: ownerAnnounce
-      description: Owner only. Sends the text to the next batch of 25 onboarded users after account id `after`.
+      description: Owner only. With the broadcast queue, queues the text for every onboarded user at once (`queued`); without it, sends to the next batch of 25 onboarded users after account id `after`.
       security:
       - telegramInitData: []
       parameters:
@@ -1146,6 +1146,7 @@ paths:
                         total: {type: integer}
                         remaining: {type: integer}
                         next: {type: [integer, 'null']}
+                        queued: {type: integer, description: Messages queued for delivery (queue mode only)}
                   required: [data]
         '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/owner/image:
@@ -2884,12 +2885,13 @@ paths:
                       properties:
                         version: {type: string}
                         pending: {type: integer}
-                      required: [version, pending]
+                        queue: {type: boolean, description: Broadcasts go through the queue (one tap reaches everyone) rather than 25 per tap}
+                      required: [version, pending, queue]
                   required: [data]
   /api/v2/owner/release/send:
     post:
       operationId: sendOwnerRelease
-      description: Sends the latest release note to the next batch of chats not yet sent it (resumable).
+      description: Sends the latest release note to the chats not yet sent it. With the broadcast queue every one is queued at once (`queued`); without it, the next batch of 25 is sent (resumable).
       security:
       - telegramInitData: []
       parameters:
@@ -2911,6 +2913,7 @@ paths:
                         sent: {type: integer}
                         failed: {type: integer}
                         remaining: {type: integer}
+                        queued: {type: integer, description: Messages queued for delivery (queue mode only)}
                       required: [version, sent, failed, remaining]
                   required: [data]
   /api/v2/owner/ask-inactive:

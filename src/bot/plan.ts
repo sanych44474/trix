@@ -12,7 +12,8 @@ import { mainMenu, menuBtn, planActionsKb } from "../adapters/telegram/keyboards
 import { logInfo } from "../log";
 import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { listStrength } from "../adapters/d1/v2Workouts";
-import { getActivePlan, listPlanBank, recentAdjustments, saveDraftPlan, setActivePlan } from "../adapters/d1/v2Plans";
+import { getActivePlan, listPlanBank, saveDraftPlan, setActivePlan } from "../adapters/d1/v2Plans";
+import { recentAdjustments } from "../adapters/d1/v2PlanHistory";
 import { getTrainer } from "../adapters/d1/v2Trainer";
 import { getUser, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
 import { trainerStyleBlock } from "../features/trainer/trainerWizard";

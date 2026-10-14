@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { handleV2Api } from "../src/webapp/v2Api";
 import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
-import { listQuestionsForClient } from "../src/adapters/d1/v2Trainer";
+import { listQuestionsForClient } from "../src/adapters/d1/v2TrainerMessages";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
 

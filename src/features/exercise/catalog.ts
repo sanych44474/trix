@@ -120,13 +120,30 @@ export async function groundExercise(
 // translation), then swaps in the cached/seeded/AI-translated name. English plans and
 // already-Cyrillic names are skipped, so a healthy plan costs only a scan — no AI, no writes.
 // Mutates `plan` in place; returns whether anything changed. Call right after adaptPlan().
-export async function localizePlanNames(ctx: MyContext, plan: PlanDoc, lang: Lang): Promise<boolean> {
+/** What localizePlanNames resolved for one English exercise name, reusable across plans. */
+export type LocalizedName = { id: string; canonicalName?: string; name: string };
+
+/** `memo` (optional) carries results between calls -- a trainer assigning one template to many
+ *  clients localizes the same exercises once, not once per client. Keyed by language and name. */
+export async function localizePlanNames(ctx: MyContext, plan: PlanDoc, lang: Lang, memo?: Map<string, LocalizedName>): Promise<boolean> {
   if (lang === "en") return false;
   const CYR = /[Ѐ-ӿ]/;
   let changed = false;
   for (const day of plan.split) {
     for (const ex of day.exercises ?? []) {
       if (CYR.test(ex.name)) continue; // already localized
+      const key = `${lang}|${ex.exerciseId ?? ""}|${ex.name}`;
+      const known = memo?.get(key);
+      if (known) {
+        if (ex.exerciseId !== known.id || ex.name !== known.name) changed = true;
+        ex.exerciseId = known.id;
+        if (known.canonicalName) ex.canonicalName = known.canonicalName;
+        if (known.name !== ex.name) {
+          if (!ex.canonicalName) ex.canonicalName = ex.name;
+          ex.name = known.name;
+        }
+        continue;
+      }
       let id = ex.exerciseId;
       if (!id) {
         const g = await groundExercise(ctx, day, ex);
@@ -140,6 +157,7 @@ export async function localizePlanNames(ctx: MyContext, plan: PlanDoc, lang: Lan
         ex.name = localized;
         changed = true;
       }
+      memo?.set(key, { id, ...(ex.canonicalName ? { canonicalName: ex.canonicalName } : {}), name: ex.name });
     }
   }
   return changed;

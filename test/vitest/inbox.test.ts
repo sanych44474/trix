@@ -3,8 +3,8 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { awardAchievement } from "../../src/adapters/d1/v2Gamification";
 import { listInbox, markInboxRead } from "../../src/adapters/d1/v2Inbox";
-import { insertMessage } from "../../src/adapters/d1/v2Trainer";
-import { recordPlanChange } from "../../src/adapters/d1/v2Plans";
+import { insertMessage } from "../../src/adapters/d1/v2TrainerMessages";
+import { recordPlanChange } from "../../src/adapters/d1/v2PlanHistory";
 
 describe("inbox", () => {
   it("records badges, trainer messages and trainer plan edits; read clears the count", async () => {
