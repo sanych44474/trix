@@ -198,6 +198,12 @@ updates: re-run `node scripts/setup-telegram.mjs` once after deploying this vers
 
 D1 and Workers AI need no secret — they are bound via `[[d1_databases]]` and `[ai]`.
 
+Owner broadcasts (release notes, announcements) go through Cloudflare Queues: `trix-broadcast`
+and its dead-letter queue `trix-broadcast-dlq`. The deploy workflow creates both if they are
+missing, which needs the **Queues: Edit** permission on `CLOUDFLARE_API_TOKEN`. For a manual
+deploy, run `npx wrangler queues create trix-broadcast` and `npx wrangler queues create
+trix-broadcast-dlq` once.
+
 Model choices (`GEMINI_MODEL`, `GROQ_MODEL`, `OPENROUTER_MODEL`, fallback ladders, …) are
 non-secret `[vars]` in `wrangler.toml`; adjust them without touching code.
 

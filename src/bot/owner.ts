@@ -1,6 +1,7 @@
 // Owner / admin section — extracted verbatim from src/bot.ts (mechanical split).
 
 import { broadcastRelease, pendingReleaseRecipients } from "../features/owner/releaseBroadcast";
+import { broadcastQueue, queueAnnouncement, queueReleaseBroadcast } from "../features/owner/broadcastQueue";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { Lang, UserDoc, Weekday } from "../types";
@@ -124,6 +125,12 @@ export async function handleAnnounce(ctx: MyContext, text: string) {
   await setMode(ctx, "idle");
   const body = text.trim();
   if (!body) { await reply(ctx, t(lang, "announce_empty"), menuBtn(lang)); return; }
+  const queue = broadcastQueue(ctx.env);
+  if (queue) {
+    const { queued } = await queueAnnouncement(ctx.env, queue, ctx.user._id, body);
+    await reply(ctx, t(lang, "broadcast_queued", { n: queued }), menuBtn(lang));
+    return;
+  }
   const recipients = (await listOnboardedUsers(ctx.db)).filter((u) => !u.blocked && !u.botBlocked);
   let ok = 0;
   let fail = 0;
@@ -170,6 +177,12 @@ export async function showWhatsNewConfirm(ctx: MyContext) {
 export async function onWhatsNewSend(ctx: MyContext) {
   const lang = ctx.user.lang;
   if (!(await isOwner(ctx))) { await reply(ctx, t(lang, "admin_only")); return; }
+  const queue = broadcastQueue(ctx.env);
+  if (queue) {
+    const { queued } = await queueReleaseBroadcast(ctx.env, queue, ctx.user._id);
+    await reply(ctx, t(lang, "broadcast_queued", { n: queued }), menuBtn(lang));
+    return;
+  }
   const pending = await pendingReleaseRecipients(ctx.env);
   await reply(ctx, t(lang, "whatsnew_sending", { n: pending }));
   // Resumable: whoever already got this version (from here or the Mini App console) is skipped.

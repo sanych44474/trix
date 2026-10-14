@@ -722,6 +722,7 @@ export const uk: Dict = {
   whatsnew_confirm_btn: "✅ Так, надіслати всім",
   whatsnew_cancel: "Скасувати",
   whatsnew_sending: "Надсилаю нотатки релізу {n} користувачам…",
+  broadcast_queued: "📢 У черзі для {n} користувачів. Доставка займе кілька хвилин.",
   owner_users_header: "👥 Користувачі ({n}) — тапни, щоб керувати:",
   owner_user_card: "👤 <b>{name}</b>\nРоль: {role} · {status} · режим: {mode}",
   owner_regen: "♻️ Перегенерувати план",

@@ -13,6 +13,7 @@ import { pingIncompleteOnboarding } from "./bot/onboarding";
 import { checkCronHeartbeat } from "./schedulerJobs/global";
 import { runSchedule } from "./scheduler";
 import { healthcheckDue, pingHealthcheck } from "./adapters/monitoring/healthchecks";
+import { handleBroadcastBatch, type BroadcastMessage } from "./features/owner/broadcastQueue";
 import { activityRaw } from "./adapters/d1/activityMetrics";
 import { buildActivityMetrics } from "./domain/activityMetrics";
 import { serveWeekMap } from "./webapp/weekMap";
@@ -367,4 +368,9 @@ export default {
       }),
     );
   },
-} satisfies ExportedHandler<Env>;
+
+  // Owner broadcasts, one message per recipient (features/owner/broadcastQueue.ts).
+  async queue(batch: MessageBatch<BroadcastMessage>, env: Env): Promise<void> {
+    await runWithRequestId(crypto.randomUUID(), env, () => handleBroadcastBatch(batch, env));
+  },
+} satisfies ExportedHandler<Env, BroadcastMessage>;

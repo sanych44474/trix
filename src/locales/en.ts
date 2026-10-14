@@ -717,6 +717,7 @@ export const en = {
   whatsnew_confirm_btn: "✅ Yes, send to all",
   whatsnew_cancel: "Cancel",
   whatsnew_sending: "Sending release notes to {n} users…",
+  broadcast_queued: "📢 Queued for {n} users. Delivery takes a few minutes.",
   owner_users_header: "👥 Users ({n}) — tap to manage:",
   owner_user_card: "👤 <b>{name}</b>\nRole: {role} · {status} · mode: {mode}",
   owner_regen: "♻️ Regenerate plan",
