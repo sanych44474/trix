@@ -6,27 +6,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import type { PlanDay, PlanDoc } from "../src/types";
-import {
-  assignDraftPlan,
-  countActivePlans,
-  countAdjustmentWeeksSince,
-  deleteDraftPlan,
-  getActivePlan,
-  getDraftPlan,
-  listActivePlans,
-  listPlanBank,
-  listPlanChanges,
-  planStatusByUser,
-  recentAdjustments,
-  recordAdjustment,
-  recordPlanChange,
-  saveDraftPlan,
-  setActivePlan,
-  setProgressionRate,
-  updateActivePlanSplit,
-  updateDraftSplit,
-  updatePlanMesocycle,
-} from "../src/adapters/d1/v2Plans";
+import { assignDraftPlan, countActivePlans, deleteDraftPlan, getActivePlan, getDraftPlan, listActivePlans, listPlanBank, planStatusByUser, saveDraftPlan, setActivePlan, setProgressionRate, updateActivePlanSplit, updateDraftSplit, updatePlanMesocycle } from "../src/adapters/d1/v2Plans";
+import { countAdjustmentWeeksSince, listPlanChanges, recentAdjustments, recordAdjustment, recordPlanChange } from "../src/adapters/d1/v2PlanHistory";
 
 // v2_plans/v2_plan_adjustments/v2_plan_changes.accountId all FK to v2_accounts(id) — seed a
 // minimal account row directly (this domain doesn't own v2_accounts; test/v2-users.test.ts

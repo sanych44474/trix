@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
-import { listPlanChanges, recordPlanChange } from "../src/adapters/d1/v2Plans";
+import { listPlanChanges, recordPlanChange } from "../src/adapters/d1/v2PlanHistory";
 
 test("recordPlanChange + listPlanChanges: round-trips source and summary, newest first", async () => {
   const db = newDb();

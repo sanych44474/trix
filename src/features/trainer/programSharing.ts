@@ -7,7 +7,8 @@ import type { BankPlan, Lang, PlanDoc, UserDoc } from "../../types";
 import { recordAudit } from "../../adapters/d1/v2Admin";
 import { listStrength } from "../../adapters/d1/v2Workouts";
 import { getActivePlan, setActivePlan } from "../../adapters/d1/v2Plans";
-import { getTrainer, getTrainerTemplate, listClients, listTrainerTemplates, createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken } from "../../adapters/d1/v2Trainer";
+import { getTrainer, listClients } from "../../adapters/d1/v2Trainer";
+import { getTrainerTemplate, listTrainerTemplates, createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken } from "../../adapters/d1/v2TrainerPrograms";
 import { stampOnboardedAt, updateUser } from "../../adapters/d1/v2Users";
 import { botDeepLink } from "../../notify/links";
 import { isOwner } from "../owner/ownerAccess";
@@ -15,7 +16,7 @@ import { adaptPlan } from "../../domain/planAdapt";
 import { formatRecordBest } from "../../domain/setFormat";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
-import { localizePlanNames } from "../exercise/catalog";
+import { localizePlanNames, type LocalizedName } from "../exercise/catalog";
 import { mainMenu, menuBtn } from "../../adapters/telegram/keyboards";
 import { shortCode } from "./trainerCommon";
 
@@ -118,12 +119,13 @@ export async function shareAssignToClients(ctx: MyContext) {
   await reply(ctx, t(lang, "share_running", { n: clients.length }));
   let ok = 0;
   const assigned: UserDoc[] = [];
+  const names = new Map<string, LocalizedName>(); // one localization per exercise, not per client
   for (const c of clients) {
     try {
       const records = await listStrength(ctx.db, c._id, 8).catch(() => []);
       const prs = records.length ? records.map((r) => `${r.exercise}: ${formatRecordBest(r)}`).join("\n") : undefined;
       const draft = adaptPlan(tpl.plan, c.profile, c._id, { prs, authoredBy: ctx.user._id });
-      await localizePlanNames(ctx, draft, c.lang);
+      await localizePlanNames(ctx, draft, c.lang, names);
       await setActivePlan(ctx.db, draft);
       await updateUser(ctx.db, c._id, { nutrition: draft.nutrition });
       await ctx.api.sendMessage(c.chatId, t(c.lang, "share_client_got", { name: escapeHtml(tpl.name) }), { ...HTML, reply_markup: mainMenu(c.lang) }).catch(() => {});

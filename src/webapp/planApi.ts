@@ -7,13 +7,8 @@ import { FREE_EXERCISE_IDS } from "../../apps/mini-app/src/data/freeExerciseIds"
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { fitSplitToKit, kitFromEquipment, kitMismatches } from "../domain/equipmentFit";
 import { swapPlanDays } from "../domain/recoverySwap";
-import {
-  getActivePlan,
-  listPlanChanges,
-  recordPlanChange,
-  updateActivePlanSplit,
-  updatePlanMesocycle,
-} from "../adapters/d1/v2Plans";
+import { getActivePlan, updateActivePlanSplit, updatePlanMesocycle } from "../adapters/d1/v2Plans";
+import { listPlanChanges, recordPlanChange } from "../adapters/d1/v2PlanHistory";
 import { defaultMesocycle, type Mesocycle } from "../domain/mesocycle";
 import { getClientForTrainer } from "../adapters/d1/v2Trainer";
 import { updateUser } from "../adapters/d1/v2Users";

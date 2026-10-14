@@ -8,54 +8,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, getUser } from "../src/adapters/d1/v2Users";
-import {
-  applyTrainer,
-  approveTrainer,
-  bumpSharedTaken,
-  countByRole,
-  countClientsOf,
-  countPendingClientRequests,
-  createProspect,
-  createQuestion,
-  createRequest,
-  createSharedProgram,
-  deleteProspect,
-  deleteTrainerTemplate,
-  getClientCard,
-  getClientForTrainer,
-  getClientNote,
-  getProspect,
-  getQuestion,
-  getRequest,
-  getSharedProgram,
-  getTrainer,
-  getTrainerByCode,
-  getTrainerTemplate,
-  insertMessage,
-  linkClient,
-  listClientNoteHistory,
-  listClients,
-  listMessages,
-  listProspects,
-  listPublicPrograms,
-  listQuestionsForTrainer,
-  listTrainerTemplates,
-  listTrainerUsers,
-  pendingRequestForClient,
-  pendingRequestsAll,
-  pendingRequestsForTrainer,
-  pendingTrainerApplications,
-  rejectTrainer,
-  saveTrainerTemplate,
-  setClientCard,
-  setClientNote,
-  setQuestionDraft,
-  setQuestionStatus,
-  setRequestStatus,
-  setRole,
-  unlinkClient,
-  updateTrainer,
-} from "../src/adapters/d1/v2Trainer";
+import { applyTrainer, approveTrainer, countByRole, countClientsOf, countPendingClientRequests, createProspect, createRequest, deleteProspect, getClientCard, getClientForTrainer, getClientNote, getProspect, getRequest, getTrainer, getTrainerByCode, linkClient, listClientNoteHistory, listClients, listProspects, listTrainerUsers, pendingRequestForClient, pendingRequestsAll, pendingRequestsForTrainer, pendingTrainerApplications, rejectTrainer, setClientCard, setClientNote, setRequestStatus, setRole, unlinkClient, updateTrainer } from "../src/adapters/d1/v2Trainer";
+import { bumpSharedTaken, createSharedProgram, deleteTrainerTemplate, getSharedProgram, getTrainerTemplate, listPublicPrograms, listTrainerTemplates, saveTrainerTemplate } from "../src/adapters/d1/v2TrainerPrograms";
+import { createQuestion, getQuestion, insertMessage, listMessages, listQuestionsForTrainer, setQuestionDraft, setQuestionStatus } from "../src/adapters/d1/v2TrainerMessages";
 
 const BANK_PLAN = {
   split: [],

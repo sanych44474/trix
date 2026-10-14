@@ -5,7 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { createProspect, createSharedProgram, getProspect, getSharedProgram, getTrainerTemplate, linkClient, listClientNoteHistory, saveTrainerTemplate, setClientNote } from "../src/adapters/d1/v2Trainer";
+import { createProspect, getProspect, linkClient, listClientNoteHistory, setClientNote } from "../src/adapters/d1/v2Trainer";
+import { createSharedProgram, getSharedProgram, getTrainerTemplate, saveTrainerTemplate } from "../src/adapters/d1/v2TrainerPrograms";
 import { deleteUserData } from "../src/adapters/d1/v2Account";
 import { getOrCreateUser, getUser } from "../src/adapters/d1/v2Users";
 import { getUserFoodCorrection, putUserFoodCorrection } from "../src/adapters/d1/v2Nutrition";

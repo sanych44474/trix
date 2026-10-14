@@ -11,21 +11,9 @@ import {
 } from "../adapters/d1/v2Admin";
 import { assignDraftPlan, deleteDraftPlan, getActivePlan, saveDraftPlan } from "../adapters/d1/v2Plans";
 import { postponeAutoActivation } from "../staleDrafts";
-import {
-  deleteTrainerTemplate,
-  getClientCard,
-  getClientForTrainer,
-  getQuestion,
-  getTrainerTemplate,
-  insertMessage,
-  listClients,
-  listQuestionsForTrainer,
-  listTrainerTemplates,
-  saveTrainerTemplate,
-  setClientCard,
-  setClientNote,
-  setQuestionStatus,
-} from "../adapters/d1/v2Trainer";
+import { deleteTrainerTemplate, getTrainerTemplate, listTrainerTemplates, saveTrainerTemplate } from "../adapters/d1/v2TrainerPrograms";
+import { getClientCard, getClientForTrainer, listClients, setClientCard, setClientNote } from "../adapters/d1/v2Trainer";
+import { getQuestion, insertMessage, listQuestionsForTrainer, setQuestionStatus } from "../adapters/d1/v2TrainerMessages";
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { logInfo } from "../log";

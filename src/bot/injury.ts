@@ -3,7 +3,8 @@
 // bot.ts (god-file split; same barrel seam via bot.ts's `export * from "./bot/injury"`).
 import { InlineKeyboard } from "grammy";
 import type { InjurySwap } from "../types";
-import { getActivePlan, recordPlanChange, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
 import { appendInjuryCheckin, createInjury, extendInjury, getActiveInjuryByArea, getInjury, listActiveInjuries, resolveInjury, updateInjury } from "../adapters/d1/v2Tracking";
 import { getExerciseTranslation, listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
 import { getUser } from "../adapters/d1/v2Users";

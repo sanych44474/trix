@@ -7,7 +7,8 @@
 // fills the trainer's input box, nothing is sent until the trainer sends it.
 import { aiText } from "../ai/index";
 import { getUser } from "../adapters/d1/v2Users";
-import { getClientForTrainer, getTrainer, insertMessage, listMessages, markThreadRead, unreadBySender, unreadFromSince } from "../adapters/d1/v2Trainer";
+import { getClientForTrainer, getTrainer } from "../adapters/d1/v2Trainer";
+import { insertMessage, listMessages, markThreadRead, unreadBySender, unreadFromSince } from "../adapters/d1/v2TrainerMessages";
 import { appMarkup } from "../notify/appKeyboard";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { logInfo } from "../log";

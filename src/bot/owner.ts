@@ -25,7 +25,9 @@ import { buildPlanDoc } from "../features/plan/planBuild";
 import { deferAi } from "../features/aiDefer";
 import { mainMenu, menuBtn } from "../adapters/telegram/keyboards";
 import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/clientCard";
-import { monoTable, ownerReportWindows, orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "../features/owner/ownerReport";
+import { monoTable } from "../features/owner/reportFormat";
+import { ownerReportWindows } from "../features/owner/ownerMetrics";
+import { orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "../features/owner/ownerReport";
 import { isOwner } from "../features/owner/ownerAccess";
 import { secretMatches } from "../domain/secrets";
 

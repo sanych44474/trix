@@ -3,7 +3,8 @@
 // split); bot.ts re-exports everything here.
 import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Lang, PlanDay, Weekday } from "../types";
-import { getActivePlan, recordPlanChange, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
 import { listActiveInjuries } from "../adapters/d1/v2Tracking";
 import { getCatalogExercise, searchExercisesByName } from "../adapters/d1/v2Catalog";
 import { updateUser } from "../adapters/d1/v2Users";
@@ -13,7 +14,8 @@ import { getPlanDay } from "../domain/progression";
 import { exerciseMetric } from "../domain/setFormat";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { onError } from "../features/aiDefer";
-import { endSelfEdit, swapExerciseByName } from "./planExerciseEdit";
+import { endSelfEdit } from "./planReorder";
+import { swapExerciseByName } from "./planExerciseEdit";
 import { switchMode } from "../domain/session";
 import { isEditingOther, planOwnerId, planOwnerLang, reply, setMode, type MyContext } from "../adapters/telegram/context";
 import { reRenderEditDay, PendingExercise } from "./planView";

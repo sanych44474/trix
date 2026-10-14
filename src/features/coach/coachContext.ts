@@ -1,7 +1,8 @@
 // The athlete context the AI coach is grounded in (plan, recent logs, today's check-in), shared by the bot's coach and the Mini App's. Moved from bot/coach.ts.
 import type { UserDoc } from "../../types";
 import { getRecentContext } from "../../adapters/d1/v2Analytics";
-import { getActivePlan, recentAdjustments } from "../../adapters/d1/v2Plans";
+import { getActivePlan } from "../../adapters/d1/v2Plans";
+import { recentAdjustments } from "../../adapters/d1/v2PlanHistory";
 import { computeCyclePhase, phaseHint, phaseLabel } from "../../domain/cycle";
 import { phaseGuidance, trainingWeek } from "../../domain/mesocycle";
 import { bestSetForMetric, formatSetEntry, metricOfSets } from "../../domain/setFormat";
