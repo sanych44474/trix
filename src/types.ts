@@ -39,7 +39,8 @@ type SecretKey =
   | "FATSECRET_CLIENT_ID"
   | "FATSECRET_CLIENT_SECRET"
   | "STRAVA_CLIENT_ID"
-  | "STRAVA_CLIENT_SECRET";
+  | "STRAVA_CLIENT_SECRET"
+  | "HEALTHCHECK_PING_URL";
 
 export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   TELEGRAM_BOT_TOKEN: string;
@@ -59,6 +60,7 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   FATSECRET_CLIENT_SECRET?: string;
   STRAVA_CLIENT_ID?: string; // Strava API app -- cardio import (features/strava); both unset = feature hidden
   STRAVA_CLIENT_SECRET?: string;
+  HEALTHCHECK_PING_URL?: string; // Healthchecks.io ping URL -- external cron monitoring (adapters/monitoring); unset = off
   V2_APP_ENABLED: string;
   ALLOW_DEBUG_USER?: string;
   // R2_PHOTOS (read-through cache for progress photos, adapters/r2/photoStorage.ts) is NOT hand-

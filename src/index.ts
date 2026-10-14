@@ -11,6 +11,7 @@ import { buildOwnerMetrics, ownerUsersData } from "./features/owner/ownerReport"
 import { buildPlanDocRaw } from "./features/plan/planBuild";
 import { pingIncompleteOnboarding } from "./bot/onboarding";
 import { checkCronHeartbeat, runSchedule } from "./scheduler";
+import { healthcheckDue, pingHealthcheck } from "./adapters/monitoring/healthchecks";
 import { activityRaw } from "./adapters/d1/activityMetrics";
 import { buildActivityMetrics } from "./domain/activityMetrics";
 import { serveWeekMap } from "./webapp/weekMap";
@@ -346,7 +347,7 @@ export default {
     });
   },
 
-  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const reqId = crypto.randomUUID();
     await loadLearnedMuscles(env.DB).catch(() => {});
     ctx.waitUntil(
@@ -357,8 +358,10 @@ export default {
         try {
           await runSchedule(env);
           logInfo("cron_run", { durationMs: Date.now() - start });
+          if (healthcheckDue("ok", event.scheduledTime)) await pingHealthcheck(env.HEALTHCHECK_PING_URL, "ok");
         } catch (err) {
           logError("cron_failure", err, { durationMs: Date.now() - start });
+          await pingHealthcheck(env.HEALTHCHECK_PING_URL, "fail", err instanceof Error ? err.message : String(err));
         }
       }),
     );
