@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { saveWorkout } from "../src/webapp/workout";
-import { formatPrBest } from "../src/bot/workoutSave";
+import { formatPrBest } from "../src/features/workout/completeWorkout";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { joinSquad, upsertSquad } from "../src/adapters/d1/v2Gamification";
 import type { Env, UserDoc } from "../src/types";

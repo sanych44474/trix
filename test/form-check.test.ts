@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, formCheckGate, formCheckSystem } from "../src/bot/formCheck";
+import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, formCheckGate, formCheckSystem } from "../src/features/workout/formCheck";
 
 test("form check gate: size and length before the daily quota", () => {
   assert.equal(formCheckGate({ bytes: 5_000_000, seconds: 20 }, 0), "ok");

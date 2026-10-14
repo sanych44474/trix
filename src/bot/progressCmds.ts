@@ -19,7 +19,7 @@ import { e1rm, weekStartStr, weekStreak } from "../domain/records";
 import { conditioningLoadLabel, renderActivityGrid, renderStrength, exerciseChart, wellbeingChart } from "../render";
 import { strengthStandard, type StrengthLevel } from "../domain/standards";
 
-import { num } from "../features/nutrition/nutritionLog";
+import { num } from "../features/nutrition/verifyItems";
 import { buildWeekCard } from "../features/gamification/weekCard";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { botDeepLink } from "../notify/links";

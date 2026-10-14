@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
-import { cmdPlanChanges } from "../src/bot";
+import { cmdPlanChanges } from "../src/bot/plan";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { recordAdjustment } from "../src/adapters/d1/v2Plans";
 import type { UserDoc } from "../src/types";

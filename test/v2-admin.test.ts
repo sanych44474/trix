@@ -8,55 +8,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import {
-  acquireScheduleLock,
-  aiAndErrorStatsBetween,
-  aiAttemptCountForUserSince,
-  aiCacheStmt,
-  aiCallStatsSince,
-  aiCallStmt,
-  aiTokensByKindSince,
-  aiUsageSince,
-  aiUsageStmt,
-  bumpEvent,
-  countAdjustmentsSince,
-  countFeedbackSince,
-  countPlanSourcesSince,
-  dailyActiveUsers,
-  deleteRestTimers,
-  deleteSetting,
-  dueRestTimers,
-  engagementSince,
-  errorStatsSince,
-  eventCountsByUser,
-  eventStatsSince,
-  getAiCache,
-  getAlertState,
-  getOwnerChatId,
-  getSetting,
-  insertFeedback,
-  listUsersBrief,
-  markUpdateSeen,
-  pingDb,
-  pruneAiCache,
-  pruneOldLogs,
-  pruneSeenUpdates,
-  recentAudit,
-  recentErrors,
-  recentEventsForUser,
-  recentFeedback,
-  recordAudit,
-  recordError,
-  recordPlanSource,
-  releaseScheduleLock,
-  setAlertState,
-  setLastSeen,
-  setOwnerChatId,
-  setRestTimer,
-  setSetting,
-  setUserFlag,
-  userStatCounts,
-} from "../src/adapters/d1/v2Admin";
+import { acquireScheduleLock, deleteRestTimers, deleteSetting, dueRestTimers, getAlertState, getOwnerChatId, getSetting, markUpdateSeen, pingDb, pruneOldLogs, pruneSeenUpdates, recentAudit, recordAudit, releaseScheduleLock, setAlertState, setOwnerChatId, setRestTimer, setSetting, setUserFlag } from "../src/adapters/d1/v2Admin";
+import { aiAndErrorStatsBetween, aiAttemptCountForUserSince, aiCacheStmt, aiCallStatsSince, aiCallStmt, aiTokensByKindSince, aiUsageSince, aiUsageStmt, errorStatsSince, getAiCache, pruneAiCache, recentErrors, recordError } from "../src/adapters/d1/v2AiTelemetry";
+import { bumpEvent, countAdjustmentsSince, countPlanSourcesSince, dailyActiveUsers, engagementSince, eventCountsByUser, eventStatsSince, listUsersBrief, recentEventsForUser, recordPlanSource, setLastSeen, userStatCounts } from "../src/adapters/d1/v2Analytics";
+import { countFeedbackSince, insertFeedback, recentFeedback } from "../src/adapters/d1/v2Feedback";
 import { dueNotifications, enqueueNotification, markPermanentFailure, markRetry, markSent, pruneNotificationOutbox } from "../src/adapters/d1/v2Notifications";
 import { getDailyMetrics, pruneDailyMetricsBefore, upsertDailyMetric, upsertDailyMetrics } from "../src/adapters/d1/v2DailyMetrics";
 import { claimIdempotencyKey, completeIdempotencyClaim, pruneIdempotencyKeys, runIdempotent } from "../src/adapters/d1/v2Idempotency";

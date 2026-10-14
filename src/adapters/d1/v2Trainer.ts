@@ -19,16 +19,14 @@
 // DELETE-then-(re)INSERT the client's whole relationship row-set in ONE db.batch() — never two
 // independent awaited calls — so there is no window where a partial write leaves more than one
 // row, or a request's status flips without the edge actually moving. This mirrors, byte for byte,
-// the delete-then-insert pattern v2Users.ts's updateUser() (trainerId branch) and
-// v2Projection.ts's projectUserCore() already use against this same table, so if either of those
-// two (Domain-1-owned, deliberately left as-is — see below) ever runs against a client this
-// module has also touched, both leave the table in the identical shape (absence = unlinked,
+// the delete-then-insert pattern v2Users.ts's updateUser() (trainerId branch) already uses
+// against this same table, so if that (Domain-1-owned, deliberately left as-is — see below) ever
+// runs against a client this module has also touched, both leave the table in the identical shape (absence = unlinked,
 // exactly one 'active' row = linked) instead of disagreeing on what "cleared" means.
 //
-// Domain-1/updateUser overlap: v2Users.ts's updateUser() still has its own trainerId branch, and
-// v2Projection.ts's projectUserCore() still writes this table too — both predate this module and
-// are explicitly called out in the migration plan as "may need to stay as-is". Decision: left
-// BOTH untouched. Nothing in the bot/webapp call graph actually invokes updateUser(db, id,
+// Domain-1/updateUser overlap: v2Users.ts's updateUser() still has its own trainerId branch,
+// which predates this module and was called out in the migration plan as "may need to stay
+// as-is". Decision: left untouched. Nothing in the bot/webapp call graph actually invokes updateUser(db, id,
 // {trainerId}) with a real trainerId (grepped — only this module's own linkClient/unlinkClient
 // and the test suites set it), so there is no live code path where the two writers race today;
 // keeping the exact same delete-then-insert shape in both places means even a future caller that
@@ -46,8 +44,7 @@
 // unlinkClient()'s plan-deactivation side effect targets v2_plans (updated once Domain 3 landed
 // concurrently with this domain — see v2Plans.ts, which uses the identical
 // `UPDATE v2_plans SET active = 0 WHERE accountId = ? AND active = 1` shape for its own
-// deactivation). Same side effect legacy trainer.ts always ran against `plans`, just folded into
-// this module's atomic batch.
+// deactivation), folded into this module's atomic batch.
 import { recordInbox } from "./v2Inbox";
 import type {
   BankPlan,

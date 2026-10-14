@@ -7,7 +7,6 @@
 import { weeklyMuscleSets, type LoggedDay, type Lookup } from "./muscleLoad";
 import { musclesForExercise, type Slug } from "./exerciseMuscles";
 import { weeklyReport } from "./weeklyReport";
-export { QUEST_XP } from "./gamification";
 
 export type QuestKind = "workouts" | "muscle_sets" | "balance" | "water_days" | "food_days" | "steps_days";
 

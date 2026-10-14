@@ -3,14 +3,6 @@ import { exerciseMetric, metricOfSets, bestSetForMetric } from "./setFormat";
 import { tokens } from "./workoutText";
 import { isLowerBody } from "./exerciseClass";
 import { poorWellbeing } from "./deload";
-export * from "./activity";
-export * from "./levelGoals";
-export * from "./deload";
-export * from "./exerciseClass";
-export type { MuscleGroup } from "./muscleRegions";
-export * from "./workoutText";
-export * from "./setFormat";
-export * from "./localTime";
 
 export function getPlanDay(plan: PlanDoc, weekday: Weekday): PlanDay | undefined {
   return plan.split.find((d) => d.weekday === weekday);

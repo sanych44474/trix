@@ -87,20 +87,3 @@ export function muscleGroupToEnum(group: string): string | null {
   }
   return null;
 }
-
-// ============ Plan-day management: add / delete whole days ============
-// Moved to bot/planDays.ts (god-file split); re-exported below so existing `from "./bot"`
-// imports (router.ts) keep working.
-
-// swapMenu/showSwapAlternatives/swapFromCatalog/showLogSwapAlternatives/showGymSwapPicker/
-// applyGymSwap/logSwapFromCatalog/logBackToPick/startSwapCustom/swapExerciseByName/
-// handleSwapCustom/setExerciseWeight/setExerciseSets/adjustDifficulty/openWeightEditor/
-// openSetsEditor/selfEditDayKb/endSelfEdit moved to bot/planExerciseEdit.ts as one file (see
-// its header comment for why they were not split further); re-exported below.
-
-// showReorder/moveExercise/endReorder/selectExerciseWeight/selectExerciseSets/handleWeightEdit/
-// handleSetsEdit moved to bot/planExerciseEdit.ts (same file, same reasons as the swap family).
-
-// The guided per-exercise logger (LogDraft type, cmdLog/cmdLogPast/logPickExercise/logFinish,
-// the exit guard, and the free-text switch) moved to bot/guidedLog.ts (god-file split; it was
-// filed under the unrelated "Reorder exercises" banner). Re-exported below.

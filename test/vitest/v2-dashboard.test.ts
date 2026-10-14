@@ -21,7 +21,7 @@ import { appendMeals } from "../../src/adapters/d1/v2Nutrition";
 import { recordDailyCheckin, setWater, upsertBodyLog, upsertStepLog } from "../../src/adapters/d1/v2Tracking";
 import { awardAchievement } from "../../src/adapters/d1/v2Gamification";
 import { setOwnerChatId } from "../../src/adapters/d1/v2Admin";
-import { localParts } from "../../src/domain/progression";
+import { localParts } from "../../src/domain/localTime";
 import { isoDaysBefore, isoWeekdayOf } from "../../src/domain/dashboardPayload";
 import type { PlanDoc, Weekday } from "../../src/types";
 

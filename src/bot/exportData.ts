@@ -21,7 +21,6 @@ import { generatePlan } from "./plan";
 import { type MyContext, reply } from "../adapters/telegram/context";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { buildExportJson, buildExportMd } from "../features/export/exportData";
-export { bodyExportLine, buildExportJson, buildExportMd, planExportLines, prDate } from "../features/export/exportData";
 
 export async function cmdReplan(ctx: MyContext) {
   const lang = ctx.user.lang;

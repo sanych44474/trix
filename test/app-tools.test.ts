@@ -5,7 +5,7 @@ import { newDb } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { getWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
-import { replanRunning } from "../src/bot/plan";
+import { replanRunning } from "../src/features/plan/planService";
 import { handleMediaApi } from "../src/webapp/mediaApi";
 import { handlePlanApi } from "../src/webapp/planApi";
 import { handleOwnerApi } from "../src/webapp/ownerApi";

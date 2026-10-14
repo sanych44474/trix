@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
-import { insertFeedback, listFeedback, updateFeedback } from "../src/adapters/d1/v2Admin";
+import { insertFeedback, listFeedback, updateFeedback } from "../src/adapters/d1/v2Feedback";
 
 test("feedback triage: auto category on insert, status filter and counts, close/reopen", async () => {
   const db = newDb();

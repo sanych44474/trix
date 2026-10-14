@@ -9,7 +9,6 @@ import { escapeHtml, t } from "../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { storeFeedback } from "../features/feedback/storeFeedback";
-export { storeFeedback } from "../features/feedback/storeFeedback";
 
 export async function recordFeedback(ctx: MyContext, text: string, viaCoach?: { original?: string }) {
   await storeFeedback(

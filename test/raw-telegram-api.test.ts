@@ -8,7 +8,7 @@ import { GrammyError } from "grammy";
 import { newDb } from "./harness";
 import { rawTelegramApi, sendBestEffort } from "../src/adapters/telegram/rawApi";
 import { enqueueAndDeliver } from "../src/schedulerOutbox";
-import { completeWorkout } from "../src/bot/workoutSave";
+import { completeWorkout } from "../src/features/workout/completeWorkout";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { linkClient } from "../src/adapters/d1/v2Trainer";
 import type { Env, UserDoc, Weekday } from "../src/types";

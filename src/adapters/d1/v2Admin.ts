@@ -1,5 +1,5 @@
 // Feedback, AI telemetry and engagement analytics moved to v2Feedback.ts, v2AiTelemetry.ts and
-// v2Analytics.ts (re-exported below, so older imports keep working). What stays here: owner config
+// v2Analytics.ts. What stays here: owner config
 // and alert state, audit log, moderation flag, housekeeping sweeps, rest-timer nudges, settings,
 // the cron lock and dashboardExtrasBatch.
 // v2-native owner/admin repo (Domain 9 of the v2 cutover — see
@@ -33,9 +33,6 @@
 // (Trainer) already used for v2_client_note_history/v2_shared_programs, per that function's own
 // comments. deleteUserData now lives in v2Account.ts (the legacy repo layer was removed).
 import { nowIso, type DB } from "./shared";
-export * from "./v2Analytics";
-export * from "./v2AiTelemetry";
-export * from "./v2Feedback";
 // ---------- feedback ----------
 
 export async function getOwnerChatId(db: DB): Promise<number | undefined> {

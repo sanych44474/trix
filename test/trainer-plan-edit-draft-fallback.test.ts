@@ -11,7 +11,7 @@ import { newDb, makeCtx } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { linkClient } from "../src/adapters/d1/v2Trainer";
 import { getActivePlan, saveDraftPlan, setActivePlan } from "../src/adapters/d1/v2Plans";
-import { clientCardAction, showPlanEditDay, showPlanEditPicker } from "../src/features/trainer/trainer";
+import { clientCardAction, showPlanEditDay, showPlanEditPicker } from "../src/features/trainer/clientCard";
 import type { PlanDoc, UserDoc, Weekday } from "../src/types";
 
 function plan(userId: number, exerciseName: string): PlanDoc {

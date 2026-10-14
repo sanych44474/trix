@@ -14,7 +14,6 @@ import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { type MyContext, HTML, reply } from "../adapters/telegram/context";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { areaLabelKey } from "../domain/injuryAreas";
-export { INJURY_AREA_LABEL, areaLabelKey } from "../domain/injuryAreas";
 
 export async function showInjuryMenu(ctx: MyContext) {
   const lang = ctx.user.lang;

@@ -4,7 +4,7 @@ import { logInfo } from "../log";
 import { aiJSON } from "../ai";
 import * as P from "../ai/prompts";
 import { checkinScale, menuBtn } from "../adapters/telegram/keyboards";
-import { showEveningSurvey } from "./survey";
+import { showEveningSurvey } from "../features/survey/eveningSurvey";
 import { getWorkoutLog } from "../adapters/d1/v2Workouts";
 import { getActivePlan, recordAdjustment, setActivePlan } from "../adapters/d1/v2Plans";
 import { recordDailyCheckin } from "../adapters/d1/v2Tracking";
@@ -13,7 +13,7 @@ import { localParts } from "../domain/localTime";
 import { weeksSincePlan } from "../domain/deload";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { MyContext, reply, setMode } from "../adapters/telegram/context";
-import { coachContext } from "./coach";
+import { coachContext } from "../features/coach/coachContext";
 import { maybeCelebrateLevel, deferAi } from "../features/aiDefer";
 
 export async function cmdCheckin(ctx: MyContext) {

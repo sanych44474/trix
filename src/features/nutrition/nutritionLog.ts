@@ -5,7 +5,8 @@
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
 import type { Weekday } from "../../types";
-import { type InlineImage, aiJSON, aiVisionJSON } from "../../ai";
+import { type InlineImage } from "../../ai/errors";
+import { aiJSON, aiVisionJSON } from "../../ai";
 import * as P from "../../ai/prompts";
 import { getActivePlan } from "../../adapters/d1/v2Plans";
 import { updateUser } from "../../adapters/d1/v2Users";

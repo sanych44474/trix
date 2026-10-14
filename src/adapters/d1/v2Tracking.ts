@@ -6,10 +6,7 @@
 // schema gaps that migration closed: v2_measurements.createdAt, v2_injuries.lastAskedAt/
 // checkinsHistory).
 //
-// Out of scope, deliberately NOT ported here (see tracking.ts's own "---------- challenges
-// ----------" section): joinChallenge/activeChallenges/activeChallengeCodes/markChallengeDone/
-// countCompletedChallenges/ChallengeRow. Those read/write `challenges`/`v2_challenges`, which is
-// Domain 8 (gamification) per the migration plan, not this domain — left on legacy tracking.ts.
+// Challenges (joinChallenge/activeChallenges/markChallengeDone/...) live in v2Gamification.ts.
 //
 // v2_activity_days (migrations/0070_v2_long_tail.sql) is NOT used by this module. It's a
 // separate (accountId, date) rollup shaped differently from v2_water_logs/v2_step_logs (one row

@@ -5,7 +5,7 @@
 // thresholds would let the bot tell you to back off today while ratcheting the plan up anyway.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { poorWellbeing, readinessAdvice } from "../src/domain/progression";
+import { poorWellbeing, readinessAdvice } from "../src/domain/deload";
 import type { DailyCheckinDoc } from "../src/types";
 
 const ci = (energy: number, sleep: number, stress: number): DailyCheckinDoc => ({

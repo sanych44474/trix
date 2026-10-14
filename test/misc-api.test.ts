@@ -4,7 +4,7 @@ import { newDb } from "./harness";
 import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import { addProgressPhoto } from "../src/adapters/d1/v2Tracking";
 import { listAchievements } from "../src/adapters/d1/v2Gamification";
-import { recentErrors } from "../src/adapters/d1/v2Admin";
+import { recentErrors } from "../src/adapters/d1/v2AiTelemetry";
 import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { handleChallengesApi, handleInjuriesApi, handleClientErrorApi, handlePhotoApi, handleBoardsApi } from "../src/webapp/miscApi";
 import type { UserDoc, WorkoutLogDoc } from "../src/types";

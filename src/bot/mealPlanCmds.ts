@@ -1,7 +1,7 @@
 // Meal plans in the chat: the allergen intake, day and week plans (AI or template), grocery list
 // and localized meal names. Split out of router.ts; router.ts re-exports everything here.
 import { InlineKeyboard } from "grammy";
-import { RateLimitError } from "../ai";
+import { RateLimitError } from "../ai/errors";
 import { mealActionsKb, menuBtn } from "../adapters/telegram/keyboards";
 import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { getActivePlan } from "../adapters/d1/v2Plans";
@@ -15,7 +15,6 @@ import { groceryList } from "../domain/groceryList";
 import { type Lang, type Meal, type MealPlanDoc, type NutritionTargets } from "../types";
 import { MyContext, TKey, reply } from "../adapters/telegram/context";
 import { generateMealDayFor } from "../features/nutrition/mealDay";
-export { generateMealDayFor, localizeMealNames } from "../features/nutrition/mealDay";
 
 // Quick nutrition intake (checkin-style buttons): allergens → likes → dislikes, then generate.
 export const MP_ALLERGENS = ["lactose", "gluten", "nuts", "eggs", "seafood", "soy"] as const;

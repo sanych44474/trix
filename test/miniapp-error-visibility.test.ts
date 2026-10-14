@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { handleV2Api } from "../src/webapp/v2Api";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
-import { errorStatsSince } from "../src/adapters/d1/v2Admin";
+import { errorStatsSince } from "../src/adapters/d1/v2AiTelemetry";
 import { apiFailure } from "../src/webapp/apiError";
 import type { Env } from "../src/types";
 

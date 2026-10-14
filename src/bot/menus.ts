@@ -23,23 +23,6 @@ export async function showProgressHub(ctx: MyContext) {
   await reply(ctx, t(ctx.user.lang, "proghub_title"), progressHubMenu(ctx.user.lang));
 }
 
-// ================= Solo self-correct: user rewrites a past workout / nutrition day =================
-// Mirrors the trainer's clog* flow but scoped to ctx.user._id so a solo athlete who logged the
-// wrong weight (or wrong meal) yesterday doesn't have to wait for a coach. Both surfaces list the
-// same 30-day window; picking a day shows a summary + a "Rewrite" button that re-parses the whole
-// day in one message.
-
-// Moved to bot/logSelfEdit.ts (god-file split); re-exported below so existing from "./bot"
-// imports (router.ts) keep working.
-
-// startMealMacroEdit/handleMealMacroEdit moved to bot/logSelfEdit.ts (they end by calling
-// showMyLogNutritionDay, defined there) — re-exported via the barrel below.
-
-// cmdTrainerReport/cmdTrainerBroadcast/handleTrainerBroadcast moved to features/trainer/trainer.ts;
-// showOwnerHub moved to bot/owner.ts; difficultyKeyboard/todayWorkoutKeyboard/difficultyLabel
-// moved to adapters/telegram/keyboards.ts — each belongs to that file's existing concept, not this one.
-// Re-exported via the barrel below.
-
 // Persistent bottom button menu (reply keyboard) — always visible after onboarding.
 // Map a tapped reply-keyboard label (in the user's language) to its command.
 // Kept so a lingering legacy bottom keyboard (pre-update users) still routes correctly

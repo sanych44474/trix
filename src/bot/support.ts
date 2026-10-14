@@ -13,7 +13,6 @@ import { parseSupportPayload, recordSupportPayment, SUPPORT_STAR_AMOUNTS } from 
 import { getOwnerChatId } from "../adapters/d1/v2Admin";
 import { logInfo } from "../log";
 import { supportInvoice } from "../features/support/invoice";
-export { supportInvoice } from "../features/support/invoice";
 
 export async function cmdSupport(ctx: MyContext): Promise<void> {
   const lang = ctx.user.lang;

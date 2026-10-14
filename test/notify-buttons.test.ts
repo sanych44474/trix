@@ -3,7 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { middayZone, newDb } from "./harness";
-import { buildSinglePass, processUser, type Sender } from "../src/scheduler";
+import { buildSinglePass, processUser } from "../src/scheduler";
+import { type Sender } from "../src/schedulerJobs/shared";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import { appKeyboard, appLink } from "../src/notify/appKeyboard";

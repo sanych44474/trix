@@ -73,3 +73,15 @@ test("transport: only adapters/telegram/rawApi.ts builds Bot API URLs (it embeds
     .map(rel);
   assert.deepEqual(offenders, []);
 });
+
+// Re-exports hide where a symbol lives. The two allowed: the Worker entry (must export the Durable
+// Object classes) and the prompt namespace read as `P`.
+const REEXPORT_ALLOWED = new Set(["src/index.ts", "src/ai/prompts.ts"]);
+
+test("no re-export shims: import from the module that declares the symbol", () => {
+  const offenders = sourceFiles()
+    .filter((f) => !REEXPORT_ALLOWED.has(rel(f)))
+    .filter((f) => /^export\s+(\*|(type\s+)?\{[^}]*\})\s+from\s+"/m.test(readFileSync(f, "utf8")))
+    .map(rel);
+  assert.deepEqual(offenders, []);
+});

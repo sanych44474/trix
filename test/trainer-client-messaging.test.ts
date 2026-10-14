@@ -11,7 +11,7 @@ import { GrammyError } from "grammy";
 import { newDb, makeCtx } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { linkClient } from "../src/adapters/d1/v2Trainer";
-import { handleClientReply, handleTrainerMessage } from "../src/features/trainer/trainer";
+import { handleClientReply, handleTrainerMessage } from "../src/features/trainer/trainerComms";
 import type { UserDoc } from "../src/types";
 
 function grammyErr(errorCode: number, retryAfterSeconds?: number): GrammyError {

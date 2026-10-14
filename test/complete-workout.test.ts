@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { linkClient } from "../src/adapters/d1/v2Trainer";
-import { completeWorkout } from "../src/bot/workoutSave";
+import { completeWorkout } from "../src/features/workout/completeWorkout";
 import { advanceLevel } from "../src/features/gamification/level";
 import type { Env, UserDoc, Weekday } from "../src/types";
 

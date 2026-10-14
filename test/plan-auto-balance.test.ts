@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { autoBalanceSplit } from "../src/domain/planAutoBalance";
 import { planBalance } from "../src/domain/muscleLoad";
-import { planWeight } from "../src/bot/guidedLog";
+import { planWeight } from "../src/features/workout/planTargets";
 import type { PlanDay } from "../src/types";
 
 const day = (weekday: number, names: string[]): PlanDay => ({

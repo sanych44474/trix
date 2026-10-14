@@ -20,7 +20,6 @@ import { badgeLabel, computeBoards } from "../features/gamification/boards";
 import { reactToUser, type MyContext, HTML, type TKey, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { WorkoutSaveEntry, WorkoutSaveOutcome, completeWorkout } from "../features/workout/completeWorkout";
-export { applyWorkoutSave, completeWorkout, formatPrBest, type PrHit, type WorkoutCompletion, type WorkoutSaveEntry, type WorkoutSaveOutcome } from "../features/workout/completeWorkout";
 
 export async function handleWorkoutLog(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;

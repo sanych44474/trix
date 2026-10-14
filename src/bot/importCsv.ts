@@ -7,7 +7,6 @@ import { type MyContext, reply } from "../adapters/telegram/context";
 import { downloadFile } from "../adapters/telegram/files";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { MAX_DAYS_IMPORTED, MAX_FILE_BYTES, importWorkoutCsv } from "../features/workout/importCsv";
-export { type ImportResult, MAX_DAYS_IMPORTED, MAX_FILE_BYTES, importWorkoutCsv } from "../features/workout/importCsv";
 
 export async function cmdImport(ctx: MyContext) {
   const lang = ctx.user.lang;

@@ -53,15 +53,14 @@ grammY's `ctx.api` stays the adapter inside bot handlers.
   | `bot/aiDefer.ts` | `features/aiDefer.ts` |
   | `webapp/photoStorage.ts` | `adapters/r2/photoStorage.ts` |
   | `webapp/dashboard.ts` | `domain/dashboardPayload.ts` (pure assembly) |
-  | `CURATED` food table and `foodCategory`, from `ai/nutritionDb.ts` | `domain/curatedFoods.ts` (re-exported by `nutritionDb.ts`) |
+  | `CURATED` food table and `foodCategory`, from `ai/nutritionDb.ts` | `domain/curatedFoods.ts` |
 
 - Second pass: the plan use cases (`features/plan/planService.ts`: interview retry,
   `finalizeOnboardingPlan`, `rebuildPlan`) and `planBuild`; the onboarding questions
   (`features/onboarding/questions.ts`); the owner report and release broadcast (`features/owner/`);
   and the shared, chat-free functions of `feedbackIntake`, `support`, `squad`, `importCsv`,
   `formCheck`, `guidedLog`, `coach`, `mealPlanCmds` and `workoutSave` (in `features/feedback`,
-  `support`, `squad`, `workout`, `coach`, `nutrition`). The bot modules re-export what they gave
-  away, so their own callers are unchanged. `localCutoff` moved to `domain/localTime.ts`.
+  `support`, `squad`, `workout`, `coach`, `nutrition`). `localCutoff` moved to `domain/localTime.ts`.
 - Cross-layer imports went from 48 to 13.
 
 - Third pass: the last 13 went. Moved out of `bot/`: the evening survey checklist
@@ -71,6 +70,10 @@ grammY's `ctx.api` stays the adapter inside bot handlers.
   (`features/plan/exerciseVideos.ts`), sending onboarding steps (`features/onboarding/sendStep.ts`),
   `isOwner` (`features/owner/ownerAccess.ts`), and the pure helpers `weekdayOf`, `cleanFoodName`
   and the injury area labels (`domain/`). `KNOWN` is now empty.
+- Clean-up: the temporary re-exports left behind by the moves, and the `src/bot.ts` barrel, are
+  gone. Every import names the module that declares the symbol, so "where does this live" has
+  one answer. The only barrels left are `ai/prompts.ts` (read as the `P` namespace) and
+  `index.ts` (the Worker entry, which must export the Durable Object classes).
 
 ## Consequences
 

@@ -25,11 +25,10 @@
 //
 // Multi-row writes (plan row + its days/exercises) are NOT one single atomic transaction: the
 // plan row's own INSERT must commit first to get its assigned id before day/exercise rows (whose
-// ids are derived from it, `planId * 10 + weekday`) can be built. This mirrors the same
-// two-phase shape v2Projection.ts's projectWorkout already uses (insert session, read back its
-// id, batch the children) — each phase is atomic on its own via db.batch(), but a crash between
-// phases could in principle leave a plan row with no days yet. Accepted as consistent with that
-// existing precedent rather than a new risk introduced here.
+// ids are derived from it, `planId * 10 + weekday`) can be built. Same two-phase shape as
+// v2Workouts.ts's session writes (insert the parent, read back its id, batch the children) —
+// each phase is atomic on its own via db.batch(), but a crash between phases could in principle
+// leave a plan row with no days yet. Accepted trade-off.
 import { catalogBankEntries } from "../../domain/programCatalog";
 import { recordInbox } from "./v2Inbox";
 import type {
@@ -109,9 +108,8 @@ interface V2PlanBankRow {
   plan: string;
 }
 
-// Plan-level extras with no dedicated columns, packed into v2_plans.meta — same fields/shape
-// legacy plans.ts's planMetaJson packs into plans.meta (mesocycle excluded: it has its own
-// v2_plans column, see migrations/0078).
+// Plan-level extras with no dedicated columns, packed into v2_plans.meta (mesocycle excluded: it
+// has its own v2_plans column, see migrations/0078).
 interface PlanMetaExtras {
   stepsTarget?: number;
   restDayNutrition?: PlanDoc["restDayNutrition"];
@@ -154,9 +152,8 @@ function toDay(row: V2PlanDayRow, exercises: PlanExercise[]): PlanDay {
   };
 }
 
-// Strict: throws PlanValidationError on malformed JSON or a schema mismatch — same reasoning as
-// legacy plans.ts's toPlan (a corrupted plan must surface as an error, not render as if the user
-// simply has no plan). Single-user reads let this propagate; listActivePlans catches it per-row.
+// Strict: throws PlanValidationError on malformed JSON or a schema mismatch (a corrupted plan
+// must surface as an error, not render as if the user simply has no plan). Single-user reads let this propagate; listActivePlans catches it per-row.
 async function toPlan(db: DB, r: V2PlanRow): Promise<PlanDoc> {
   const days = await db.prepare("SELECT * FROM v2_plan_days WHERE planId = ? ORDER BY weekday ASC").bind(r.id).all<V2PlanDayRow>();
   const dayRows = days.results ?? [];
@@ -267,9 +264,8 @@ export async function getActivePlan(db: DB, userId: number): Promise<PlanDoc | n
 }
 
 /** All users' active plans — bulk prefetch for the hourly scheduler pass. A single corrupted
- * row must NOT throw (see listActivePlans in legacy plans.ts for the full reasoning: both cron
- * call sites `.catch(() => [])` around this, so one bad plan must not drop reminders for
- * everyone) — skipped and logged instead. */
+ * row must NOT throw (both cron call sites `.catch(() => [])` around this, so one bad plan would
+ * drop reminders for everyone) — skipped and logged instead. */
 export async function listActivePlans(db: DB): Promise<PlanDoc[]> {
   const r = await db.prepare("SELECT * FROM v2_plans WHERE active = 1 ORDER BY id ASC").all<V2PlanRow>();
   const rows = r.results ?? [];
@@ -291,10 +287,8 @@ export async function countActivePlans(db: DB): Promise<number> {
 }
 
 // Inserts the day/exercise child rows for a freshly-created plan row. Ids are derived from
-// planId (same `planId * 10 + weekday` / `dayId * 100 + position + 1` convention
-// v2Projection.ts's projectPlan already uses) so both write paths land in the same id space.
-// Chunked the same way v2Projection.ts's batchInChunks is (D1 batch has a per-call statement
-// ceiling) — each chunk is atomic, the whole split is not, same trade-off projectPlan accepts.
+// planId (`planId * 10 + weekday` / `dayId * 100 + position + 1`). Chunked because D1 batch has
+// a per-call statement ceiling — each chunk is atomic, the whole split is not (accepted).
 async function writeSplit(db: DB, planId: number, split: PlanDay[]): Promise<void> {
   const statements: D1PreparedStatement[] = [];
   for (const day of split) {
@@ -568,8 +562,7 @@ export async function recentAdjustments(db: DB, userId: number, limit = 10): Pro
   return (r.results ?? []).map((x) => ({ userId: x.userId, week: x.week, changes: x.changes, ts: new Date(x.ts) }));
 }
 
-// setProgressionRate touches the user's account row, not a plan row — same "filed under an
-// unrelated banner" reasoning legacy plans.ts's header comment gives; mirrors that by writing
+// setProgressionRate touches the user's account row, not a plan row: it writes
 // v2_accounts.progressionRate directly rather than duplicating v2Users.ts's updateUser.
 export async function setProgressionRate(db: DB, userId: number, rate: ProgressionRate): Promise<void> {
   await db.prepare("UPDATE v2_accounts SET progressionRate = ? WHERE id = ?").bind(rate, userId).run();

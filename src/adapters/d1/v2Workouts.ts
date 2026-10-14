@@ -6,14 +6,7 @@
 // 0070_v2_long_tail.sql) and the new v2_strength_records (migrations/0079_v2_workouts_complete.sql,
 // which also added v2_workout_sets.rpe — see that file's header comment for both gaps).
 //
-// Out of scope, deliberately left on legacy src/db/repos/workouts.ts (Domain 8's — buddy/
-// achievements/challenges/leaderboard/squads, per the plan's domain inventory — being built by a
-// concurrent session): awardAchievement/listAchievements (v2_achievements already exists as a
-// table but migrating its readers is Domain 8's job, not this one's); friendIds/allBuddyPairs/
-// recordBuddyDuel/buddyWinCount/buddyDuelHistory (buddy_duels has no v2 table at all yet); and
-// listCompetitors/competitorWorkoutDates/competitorStrength/competitorBodyweights (leaderboard
-// composite queries that join users+workout/strength/body tables for board-building — Domain 8's
-// rollup surface, not workout-log CRUD or PR bookkeeping).
+// Achievements, buddies, competitors and leaderboards live in v2Gamification.ts.
 import type { ExerciseMetric, LoggedExercise, StrengthRecordDoc, Weekday, WorkoutLogDoc } from "../../types";
 import { nowIso, type DB } from "./shared";
 
@@ -274,7 +267,7 @@ async function loadWorkoutLogs(db: DB, sessions: V2SessionRow[]): Promise<Workou
 }
 
 // Replaces the session's whole exercise/set tree (delete-then-insert) — same convention as
-// v2Plans.ts's writeSplit/v2Projection.ts's projectWorkout: ids are derived from the parent
+// v2Plans.ts's writeSplit: ids are derived from the parent
 // (`sessionId * 100 + position + 1` for exercises, `exerciseId * 100 + setPosition + 1` for
 // sets), and writes are chunked at 50 statements per db.batch() call (D1's per-call ceiling) —
 // each chunk is atomic, the whole tree is not (accepted trade-off, same as those precedents).
@@ -328,8 +321,8 @@ export async function upsertWorkoutLog(
     )
     .bind(userId, date, weekday, completed ? 1 : 0, notes ?? null, now, now, timing?.durationSec ?? null, timing?.restTotalSec ?? null)
     .run();
-  // ON CONFLICT DO UPDATE doesn't reliably surface last_row_id across drivers -- same two-step
-  // shape v2Projection.ts's projectWorkout already uses (insert/upsert, then re-select the id).
+  // ON CONFLICT DO UPDATE doesn't reliably surface last_row_id across drivers, so upsert and then
+  // re-select the id.
   const session = await db.prepare("SELECT id FROM v2_workout_sessions WHERE accountId = ? AND date = ?").bind(userId, date).first<{ id: number }>();
   if (!session) return;
   await writeExercises(db, session.id, exercises);

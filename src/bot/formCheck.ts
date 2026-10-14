@@ -11,7 +11,6 @@ import { type MyContext, reply } from "../adapters/telegram/context";
 import { deferAi } from "../features/aiDefer";
 import { abToB64, downloadFile } from "../adapters/telegram/files";
 import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, MAX_VIDEO_SEC, aiCallsToday, formCheckGate, formCheckPrompt, formCheckSystem } from "../features/workout/formCheck";
-export { FORM_CHECKS_PER_DAY, type FormCheckGate, MAX_VIDEO_BYTES, MAX_VIDEO_SEC, aiCallsToday, formCheckGate, formCheckPrompt, formCheckSystem } from "../features/workout/formCheck";
 
 /** The form-check answer under its header and footer; the empty-answer text when the AI gave none. */
 export function formCheckReply(lang: Lang, answer: string): string | null {

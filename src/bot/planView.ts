@@ -18,9 +18,9 @@ import { menuBtn, planViewKb, difficultyKeyboard, todayWorkoutKeyboard } from ".
 import { healPlanIfDegenerate } from "./plan";
 import { readinessWithConditioning, recentConditioningStrain } from "../domain/conditioning";
 import { clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
-import { healPlanNamesForDisplay, sendExerciseDescriptions } from "./exerciseCatalog";
+import { healPlanNamesForDisplay } from "../features/exercise/catalog";
+import { sendExerciseDescriptions } from "./exerciseCatalog";
 import { videosForDays } from "../features/plan/exerciseVideos";
-export { videosForDays } from "../features/plan/exerciseVideos";
 
 // A weekday + exercise index packed into a single numeric session.targetId (weekday*1000 + idx).
 export function encodePlanRef(weekday: number, index: number): number {

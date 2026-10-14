@@ -18,9 +18,7 @@ import { wakeSquadScheduler } from "../durable/squadScheduler";
 import { t } from "../locales/i18n";
 import type { Lang } from "../types";
 import { postSquadDigest } from "../features/squad/digest";
-export { announceSquadPr } from "../features/squad/prAnnounce";
 
-export { type DigestWindow, type SquadApi, isChatGone, postSquadDigest, renderSquadBoard } from "../features/squad/digest";
 
 const GROUP_COMMAND = /^\/(squad|squadleave|squadboard)(?:@[\w_]+)?(?:\s|$)/i;
 

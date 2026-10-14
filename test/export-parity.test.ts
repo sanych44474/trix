@@ -13,7 +13,7 @@ import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import { createInjury } from "../src/adapters/d1/v2Tracking";
 import { awardAchievement } from "../src/adapters/d1/v2Gamification";
 import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
-import { buildExportJson, buildExportMd } from "../src/bot/exportData";
+import { buildExportJson, buildExportMd } from "../src/features/export/exportData";
 import type { PlanDoc, UserDoc, Weekday } from "../src/types";
 
 function plan(userId: number): PlanDoc {
