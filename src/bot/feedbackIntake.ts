@@ -7,30 +7,9 @@ import { insertFeedback } from "../adapters/d1/v2Feedback";
 import { localParts } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../adapters/telegram/context";
-import { menuBtn } from "./keyboards";
-
-/** Store a feedback row and forward it to the owner, if one is registered. `viaCoach` carries the
- *  user's own message when the AI coach summarised it (the coach "feedback" action, in the bot
- *  and in the Mini App), so the owner reads both the summary and the words it came from. */
-export async function storeFeedback(
-  db: D1Database,
-  notify: (chatId: number, html: string) => Promise<unknown>,
-  who: { userId: number; username?: string; timezone?: string },
-  text: string,
-  viaCoach?: { original?: string },
-): Promise<void> {
-  const { date } = localParts(who.timezone);
-  const original = viaCoach?.original?.trim();
-  const stored = viaCoach ? `[AI coach] ${text}${original && original !== text ? `\n— "${original}"` : ""}` : text;
-  await insertFeedback(db, { userId: who.userId, username: who.username, text: stored, date });
-  const ownerChatId = await getOwnerChatId(db);
-  if (!ownerChatId) return;
-  const tag = who.username ? `@${who.username}` : `id ${who.userId}`;
-  const body = viaCoach
-    ? `🤖 <b>Feedback via AI coach</b> from ${escapeHtml(tag)}:\n${escapeHtml(text)}${original && original !== text ? `\n\n<i>Their message:</i> ${escapeHtml(original)}` : ""}`
-    : `✍️ <b>Feedback</b> from ${escapeHtml(tag)}:\n${escapeHtml(text)}`;
-  await notify(ownerChatId, body).catch(() => {});
-}
+import { menuBtn } from "../adapters/telegram/keyboards";
+import { storeFeedback } from "../features/feedback/storeFeedback";
+export { storeFeedback } from "../features/feedback/storeFeedback";
 
 export async function recordFeedback(ctx: MyContext, text: string, viaCoach?: { original?: string }) {
   await storeFeedback(

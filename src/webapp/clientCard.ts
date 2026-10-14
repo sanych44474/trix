@@ -10,7 +10,7 @@ import { listActiveInjuries, listProgressPhotos } from "../adapters/d1/v2Trackin
 import { buildDashboardPayload } from "../adapters/d1/dashboardReader";
 import { getDraftPlan } from "../adapters/d1/v2Plans";
 import { autoActivationFor } from "../staleDrafts";
-import type { DashboardPayload } from "./dashboard";
+import type { DashboardPayload } from "../domain/dashboardPayload";
 import type { ClientCardDoc, InjuryDoc, UserDoc } from "../types";
 
 /** One trainer<->client message, from the client-card viewer's perspective (no raw account ids

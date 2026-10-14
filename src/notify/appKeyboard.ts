@@ -3,7 +3,7 @@
 // dev, tests) a button falls back to its old callback so the chat flow still works there.
 import { InlineKeyboard } from "grammy";
 import type { InlineKeyboardButton } from "grammy/types";
-import { appViewUrlFromEnv } from "../bot/appLinks";
+import { appViewUrlFromEnv } from "./appLinks";
 
 /** Screens the Mini App opens from ?view= (apps/mini-app/src/App.tsx viewFromLocation). */
 export type AppView =

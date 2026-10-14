@@ -3,7 +3,7 @@ import { InlineKeyboard } from "grammy";
 import type { Lang } from "../../types";
 import { t } from "../../locales/i18n";
 import { MyContext, reply } from "../../adapters/telegram/context";
-import { trainerHubMenu } from "../../bot/keyboards";
+import { trainerHubMenu } from "../../adapters/telegram/keyboards";
 
 export function clientCardKb(lang: Lang, id: number): InlineKeyboard {
   return new InlineKeyboard()

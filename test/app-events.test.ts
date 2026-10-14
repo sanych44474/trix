@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { bumpEvent } from "../src/adapters/d1/v2Admin";
-import { orEngagement } from "../src/bot/ownerReport";
+import { orEngagement } from "../src/features/owner/ownerReport";
 import { APP_EVENT_RE } from "../src/webapp/miscApi";
 import { targetUse } from "../apps/mini-app/src/logic/logger";
 

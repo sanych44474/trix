@@ -1,5 +1,5 @@
 import type { UserDoc } from "../types";
-import type { DashboardPayload } from "../webapp/dashboard";
+import type { DashboardPayload } from "../domain/dashboardPayload";
 
 /** The application seam for the dashboard. HTTP and Telegram never need to know how
  * the snapshot is assembled or which storage adapter supplies it. */

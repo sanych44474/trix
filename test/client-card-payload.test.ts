@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assembleClientCardPayload } from "../src/webapp/clientCard";
-import { assemblePayload } from "../src/webapp/dashboard";
+import { assemblePayload } from "../src/domain/dashboardPayload";
 import type { ClientCardDoc, InjuryDoc, UserDoc } from "../src/types";
 
 const TODAY = "2026-07-01";

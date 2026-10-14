@@ -144,7 +144,8 @@ npx wrangler secret put TELEGRAM_BOT_TOKEN
 npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
 npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put ADMIN_SECRET
-# optional: GROQ_API_KEY, OPENROUTER_API_KEY, OLLAMA_API_KEY, YOUTUBE_API_KEY, USDA_FDC_API_KEY
+# optional: GROQ_API_KEY, OPENROUTER_API_KEY, OLLAMA_API_KEY, YOUTUBE_API_KEY, USDA_FDC_API_KEY,
+#           HEALTHCHECK_PING_URL
 
 # 3. Register the webhook against the deployed Worker (once per bot). The command menu, profile
 #    texts and menu button are applied by the Worker itself after each deploy
@@ -189,6 +190,7 @@ the environment. `database_id` in `wrangler.toml` is a placeholder you replace w
 | `YOUTUBE_API_KEY` | optional | Exercise-technique shorts (cache-first) |
 | `USDA_FDC_API_KEY` | optional | Raises the nutrition-lookup limit above the shared `DEMO_KEY` |
 | `EXERCISES_API_KEY` | optional | Used only by `scripts/seed-exercises.mjs`, never at runtime |
+| `HEALTHCHECK_PING_URL` | optional | External cron monitoring. Create a free check at healthchecks.io with **Period 5 minutes, Grace 10 minutes** and paste its ping URL (`https://hc-ping.com/<uuid>`). The cron pings it every 5 minutes and pings `/fail` when a run throws, so you get an alert if the cron stops or keeps failing. Unset = off. |
 | `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` | optional | Strava cardio import. Create an API app at strava.com/settings/api and set its **Authorization Callback Domain** to your Worker's domain (the callback is `<WORKER_URL>/strava/callback`). Unset = the Strava card is hidden. |
 
 Telegram Stars support needs no secret, but the webhook must receive `pre_checkout_query`

@@ -1,6 +1,6 @@
 // Owner roster data shapes: intake progress and the user-row type the report and the Mini App
 // owner console share.
-import type { UserProfile } from "../types";
+import type { UserProfile } from "../../types";
 
 // Intake essentials the interview must collect — used to show onboarding progress (X/N) in the
 // owner report. Keep in sync with the "essentials" list in P.interviewSystem.

@@ -4,7 +4,7 @@
 // an empty or half-built report.
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { buildErrorReport, buildOwnerMetrics, buildOwnerReport } from "../../src/bot/ownerReport";
+import { buildErrorReport, buildOwnerMetrics, buildOwnerReport } from "../../src/features/owner/ownerReport";
 import { aiCallStmt, recordError } from "../../src/adapters/d1/v2Admin";
 
 async function seedAccount(id: number, role = "solo"): Promise<void> {

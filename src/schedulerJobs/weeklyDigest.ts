@@ -1,6 +1,7 @@
 // The Sunday digest: the week's workouts, food, steps and weight, the muscle week with its badges
 // and body-map picture, and next week's quests. Called by processUser (scheduler.ts); returns true
 // when it sent something (one user-facing message per tick).
+import { telegramTry } from "../adapters/telegram/rawApi";
 import { appKeyboard } from "../notify/appKeyboard";
 import { isoDateMinus } from "../features/gamification/boards";
 import type { Env, Lang, UserDoc } from "../types";
@@ -85,13 +86,7 @@ export async function weeklyDigest(p: WeeklyDigestCtx): Promise<boolean> {
     // the text rides as the caption. Any failure there falls back to the plain text digest.
     let sentAsPhoto = false;
     if (photoUrl && !botBlocked) {
-      sentAsPhoto = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: user.chatId, photo: photoUrl, caption: parts.join("\n").slice(0, 1024), parse_mode: "HTML", ...(kb ? { reply_markup: { inline_keyboard: kb.inline_keyboard } } : {}) }),
-      })
-        .then(async (res) => res.ok && ((await res.json()) as { ok?: boolean }).ok === true)
-        .catch(() => false);
+      sentAsPhoto = (await telegramTry(env, "sendPhoto", { chat_id: user.chatId, photo: photoUrl, caption: parts.join("\n").slice(0, 1024), parse_mode: "HTML", ...(kb ? { reply_markup: { inline_keyboard: kb.inline_keyboard } } : {}) })) !== null;
       if (sentAsPhoto) markSent("digest");
     }
     if (!sentAsPhoto) await sendAndMark("digest", parts.join("\n"), kb ? { ...HTML, reply_markup: kb } : HTML);

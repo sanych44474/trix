@@ -10,8 +10,8 @@ import { formatRecordBest } from "../../domain/setFormat";
 import { escapeHtml, t } from "../../locales/i18n";
 import { renderPlan } from "../../render";
 import { type MyContext, type TKey, reply } from "../../adapters/telegram/context";
-import { buildPlanDoc } from "../../bot/planBuild";
-import { deferAi } from "../../bot/aiDefer";
+import { buildPlanDoc } from "../plan/planBuild";
+import { deferAi } from "../aiDefer";
 import { trainerStyleBlock } from "./trainerWizard";
 import { clientCardKb } from "./trainerCommon";
 

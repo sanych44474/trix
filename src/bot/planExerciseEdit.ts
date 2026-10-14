@@ -22,14 +22,14 @@ import { switchMode } from "../domain/session";
 import { cleanAi, t } from "../locales/i18n";
 import { renderToday } from "../render";
 import { weekdayName } from "../render";
-import { translatePlanExercises } from "./planBuild";
+import { translatePlanExercises } from "../features/plan/planBuild";
 import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply, setMode } from "../adapters/telegram/context";
 import { type LogDraft, cmdLog, logExerciseKeyboard, logPickExercise, persistLogDraft } from "./guidedLog";
 import { cmdToday, decodePlanRef, encodePlanRef, reRenderEditDay, videosForDays } from "./planView";
 import { createExerciseCatalogEntry, exerciseInfoEntry, searchExerciseCatalog, swapTuneKb, translateExerciseQueryToEnglish, promptExerciseConfirmation } from "./exerciseCatalog";
 import { muscleGroupToEnum, extractExerciseQuery } from "../domain/exerciseDefaults";
-import { difficultyLabel, menuBtn } from "./keyboards";
-import { onError } from "./aiDefer";
+import { difficultyLabel, menuBtn } from "../adapters/telegram/keyboards";
+import { onError } from "../features/aiDefer";
 
 // Show exercises of a day as buttons to pick one to replace.
 export async function swapMenu(ctx: MyContext, weekday: Weekday) {

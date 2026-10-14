@@ -2,8 +2,8 @@
 // of the v2 cutover, see docs/adr/0001-v2-seams-and-staged-cutover.md. This is the "deep module"
 // the ADR calls out by name: it owns ALL the D1 fetching + fan-out for the Mini App dashboard
 // (formerly `buildDashboardPayload`/`buildTrainerSection`/`buildOwnerSection`, which used to be
-// inlined in src/webapp/dashboard.ts), then hands the raw rows to that file's PURE
-// `assemblePayload` for shaping. src/webapp/dashboard.ts now has no D1 access at all — see its
+// inlined in src/domain/dashboardPayload.ts), then hands the raw rows to that file's PURE
+// `assemblePayload` for shaping. src/domain/dashboardPayload.ts now has no D1 access at all — see its
 // own header comment.
 //
 // Every read below is a call into an already-completed domain's own v2-native repo module
@@ -44,7 +44,7 @@ import {
   isoWeekdayOf,
   MACRO_DAYS,
   type DashboardPayload,
-} from "../../webapp/dashboard";
+} from "../../domain/dashboardPayload";
 import { createDashboardApplication, type DashboardReader } from "../../application/dashboard";
 import type { UserDoc, WorkoutLogDoc } from "../../types";
 

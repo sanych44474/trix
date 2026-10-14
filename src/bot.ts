@@ -19,7 +19,7 @@ export { MIN_EXERCISES_PER_DAY } from "./domain/plan-lint";
 // The AI provider's raw plan response shape — canonical definition + runtime validation live in
 // domain/plan-schema.ts (AiPlanResponse/parseAiPlanResponse), not duplicated here.
 export type { AiPlanResponse as AiPlan } from "./domain/plan-schema";
-export * from "./bot/appLinks";
+export * from "./notify/appLinks";
 export * from "./bot/exerciseCatalog";
 export * from "./bot/todayEdit";
 export * from "./bot/recordsCmds";
@@ -33,7 +33,7 @@ export * from "./features/gamification/boards";
 export * from "./features/gamification/weekCard";
 export * from "./bot/survey";
 export * from "./bot/onboarding";
-export * from "./bot/keyboards";
+export * from "./adapters/telegram/keyboards";
 export * from "./bot/plan";
 export * from "./bot/router";
 export * from "./features/gamification/challenges";

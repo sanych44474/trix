@@ -17,8 +17,11 @@ export interface WeighInInput {
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
 
 /** Days since the last weigh-in when the nudge is due, else null. */
+/** Weigh-ins are asked for in the morning only. Checked before loading any history. */
+export const isWeighInHour = (hour: number) => hour >= 7 && hour <= 10;
+
 export function weighInDue(i: WeighInInput): number | null {
-  if (i.hour < 7 || i.hour > 10) return null;
+  if (!isWeighInHour(i.hour)) return null;
   const sorted = [...new Set(i.weightDates)].filter((d) => d <= i.today).sort();
   const recent = sorted.filter((d) => days(d, i.today) <= 30);
   if (!i.hasGoalWeight && recent.length < 2) return null;

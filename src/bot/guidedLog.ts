@@ -25,27 +25,12 @@ import { finalizeWorkoutLog } from "./workoutSave";
 import { type MyContext, clearEditOwner, reply, setMode } from "../adapters/telegram/context";
 import { MENU_MAP } from "./router";
 import { cmdMenu, menuActionFor } from "./menus";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
+import { planRepsMid, planSetsCount, planWeight } from "../features/workout/planTargets";
+export { planRepsMid, planSetsCount, planWeight } from "../features/workout/planTargets";
 
 export type LogDraft = NonNullable<UserDoc["session"]["logDraft"]>;
 
-// Plan display strings → numeric prefill hints for the guided logger (user types freely).
-export function planSetsCount(sets: string): number {
-  const m = /^\s*(\d+)/.exec(sets || "");
-  const n = m ? parseInt(m[1], 10) : 0;
-  return n > 0 && n <= 20 ? n : 3;
-}
-export function planRepsMid(sets: string): number {
-  const m = /[x×]\s*(\d+)(?:\s*[-–]\s*(\d+))?/i.exec(sets || "");
-  if (!m) return 8;
-  const lo = parseInt(m[1], 10);
-  const hi = m[2] ? parseInt(m[2], 10) : lo;
-  return Math.max(1, Math.round((lo + hi) / 2));
-}
-export function planWeight(startWeight: string): number {
-  const m = /(\d+(?:[.,]\d+)?)/.exec(startWeight || "");
-  return m ? parseFloat(m[1].replace(",", ".")) : 0;
-}
 export function parseFirstNumber(text: string): number | undefined {
   const m = /(\d+(?:[.,]\d+)?)/.exec(text);
   if (!m) return undefined;

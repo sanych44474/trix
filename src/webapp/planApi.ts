@@ -2,7 +2,7 @@
 // trainer's client via ?clientId=); POST applies one edit op (weight / sets / delete / move /
 // swap / add), mirroring the bot's day editor. All writes go through updateActivePlanSplit, so
 // the client and the bot editor stay in sync. Same initData auth as every other webapp API.
-import { rebuildPlan, replanRunning } from "../bot/plan";
+import { rebuildPlan, replanRunning } from "../features/plan/planService";
 import { FREE_EXERCISE_IDS } from "../../apps/mini-app/src/data/freeExerciseIds";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { fitSplitToKit, kitFromEquipment, kitMismatches } from "../domain/equipmentFit";

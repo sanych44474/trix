@@ -11,9 +11,9 @@ import { joinByCode, joinByProspectCode } from "../features/trainer/trainer";
 import { showSharedProgram } from "../features/trainer/programSharing";
 import { trainerMenu } from "../features/trainer/trainerCommon";
 import { onboardingStep, renderObStep } from "./onboarding";
-import { langMenu } from "./keyboards";
+import { langMenu } from "../adapters/telegram/keyboards";
 import { showNextBestAction } from "./nextBestAction";
-import { sendOnboardingPrompt } from "./onboardingApp";
+import { sendOnboardingPrompt } from "../notify/onboardingApp";
 import { sendLauncher } from "./launcher";
 import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 

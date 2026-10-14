@@ -1,24 +1,24 @@
 // Building a plan document: the AI split, exercise and methodology translation, technique
 // validation, and swaps for exercises the user dislikes. No Telegram context in here.
-import { computeTargets, restDayTargets } from "../domain/mealplan";
-import { autoBalanceSplit } from "../domain/planAutoBalance";
-import type { CatalogExercise, Env, Lang, PlanDay, PlanExercise, PlanDoc, UserDoc, Weekday } from "../types";
-import type { AiPlanResponse as AiPlan } from "../domain/plan-schema";
-import type { MyContext } from "../adapters/telegram/context";
-import { logInfo } from "../log";
-import { countExercises, getCatalogExercise, getExerciseTranslation, listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
-import { finishGeneratedSplit } from "../domain/planAdapt";
-import { fitsKit, kitFromEquipment } from "../domain/equipmentFit";
-import { fitsEquipmentPreset } from "../domain/gymSwap";
-import { PLAN_SCHEMA_VERSION, parseAiPlanResponse } from "../domain/plan-schema";
-import { exerciseCountLimits } from "../domain/plan-lint";
-import { API_MUSCLES } from "../domain/exerciseClass";
-import { reconcileGrounding } from "../domain/progression";
-import { localParts } from "../domain/localTime";
-import { computeCyclePhase, phaseHint, phaseLabel } from "../domain/cycle";
-import { cleanAi } from "../locales/i18n";
-import { aiJSON } from "../ai/index";
-import * as P from "../ai/prompts";
+import { computeTargets, restDayTargets } from "../../domain/mealplan";
+import { autoBalanceSplit } from "../../domain/planAutoBalance";
+import type { CatalogExercise, Env, Lang, PlanDay, PlanExercise, PlanDoc, UserDoc, Weekday } from "../../types";
+import type { AiPlanResponse as AiPlan } from "../../domain/plan-schema";
+import type { MyContext } from "../../adapters/telegram/context";
+import { logInfo } from "../../log";
+import { countExercises, getCatalogExercise, getExerciseTranslation, listCandidatesByMuscles } from "../../adapters/d1/v2Catalog";
+import { finishGeneratedSplit } from "../../domain/planAdapt";
+import { fitsKit, kitFromEquipment } from "../../domain/equipmentFit";
+import { fitsEquipmentPreset } from "../../domain/gymSwap";
+import { PLAN_SCHEMA_VERSION, parseAiPlanResponse } from "../../domain/plan-schema";
+import { exerciseCountLimits } from "../../domain/plan-lint";
+import { API_MUSCLES } from "../../domain/exerciseClass";
+import { reconcileGrounding } from "../../domain/progression";
+import { localParts } from "../../domain/localTime";
+import { computeCyclePhase, phaseHint, phaseLabel } from "../../domain/cycle";
+import { cleanAi } from "../../locales/i18n";
+import { aiJSON } from "../../ai/index";
+import * as P from "../../ai/prompts";
 
 // AI-build a PlanDoc for `forUserId` from a profile (not saved). Reused by solo plans,
 // client onboarding drafts, and trainer-generated drafts.

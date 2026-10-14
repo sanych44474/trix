@@ -6,7 +6,7 @@ import { allBuddyPairs, awardAchievement, buddyDuelHistory, buddyWinCount, recor
 import { getUser } from "../adapters/d1/v2Users";
 import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
 import { currentWinStreak, decideDuel } from "../domain/buddyDuel";
-import { postSquadDigest } from "../bot/squad";
+import { postSquadDigest } from "../features/squad/digest";
 import { escapeHtml, t } from "../locales/i18n";
 import { HTML, logSchedulerError } from "./shared";
 import { notify } from "../notify";

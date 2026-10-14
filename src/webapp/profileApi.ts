@@ -10,12 +10,12 @@ import { updateActivePlanNutrition } from "../adapters/d1/v2Plans";
 import { listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
 import { countReferrals } from "../adapters/d1/v2Gamification";
-import { botDeepLink } from "../bot/links";
+import { botDeepLink } from "../notify/links";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env, Lang, UserProfile, Weekday } from "../types";
-import { finalizeOnboardingPlan } from "../bot/plan";
+import { finalizeOnboardingPlan } from "../features/plan/planService";
 
 // Canonical value → i18n label key. Values MUST match the bot's obSteps() so a plan built from
 // either surface reads the same profile.

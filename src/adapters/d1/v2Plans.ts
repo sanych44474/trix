@@ -159,11 +159,54 @@ function toDay(row: V2PlanDayRow, exercises: PlanExercise[]): PlanDay {
 // simply has no plan). Single-user reads let this propagate; listActivePlans catches it per-row.
 async function toPlan(db: DB, r: V2PlanRow): Promise<PlanDoc> {
   const days = await db.prepare("SELECT * FROM v2_plan_days WHERE planId = ? ORDER BY weekday ASC").bind(r.id).all<V2PlanDayRow>();
-  const split: PlanDay[] = [];
-  for (const day of days.results ?? []) {
-    const exercises = await db.prepare("SELECT * FROM v2_plan_exercises WHERE dayId = ? ORDER BY position ASC").bind(day.id).all<V2PlanExerciseRow>();
-    split.push(toDay(day, (exercises.results ?? []).map(toExercise)));
+  const dayRows = days.results ?? [];
+  const exercises = dayRows.length
+    ? await db
+        .prepare(`SELECT * FROM v2_plan_exercises WHERE dayId IN (${dayRows.map(() => "?").join(",")}) ORDER BY dayId, position ASC`)
+        .bind(...dayRows.map((d) => d.id))
+        .all<V2PlanExerciseRow>()
+    : { results: [] };
+  return assemblePlan(r, dayRows, groupBy(exercises.results ?? [], (e) => e.dayId));
+}
+
+function groupBy<T, K>(rows: T[], key: (row: T) => K): Map<K, T[]> {
+  const out = new Map<K, T[]>();
+  for (const row of rows) {
+    const list = out.get(key(row));
+    if (list) list.push(row);
+    else out.set(key(row), [row]);
   }
+  return out;
+}
+
+/** Child rows of many plans in two chunked queries (days, then exercises) instead of one query
+ *  per plan day. Rows come back ordered, so each group keeps weekday / position order. */
+async function loadPlanChildren(db: DB, planIds: number[]): Promise<{ daysByPlan: Map<number, V2PlanDayRow[]>; exercisesByDay: Map<number, V2PlanExerciseRow[]> }> {
+  const CHUNK = 100;
+  const dayRows: V2PlanDayRow[] = [];
+  for (let i = 0; i < planIds.length; i += CHUNK) {
+    const chunk = planIds.slice(i, i + CHUNK);
+    const r = await db
+      .prepare(`SELECT * FROM v2_plan_days WHERE planId IN (${chunk.map(() => "?").join(",")}) ORDER BY planId, weekday ASC`)
+      .bind(...chunk)
+      .all<V2PlanDayRow>();
+    dayRows.push(...(r.results ?? []));
+  }
+  const exerciseRows: V2PlanExerciseRow[] = [];
+  const dayIds = dayRows.map((d) => d.id);
+  for (let i = 0; i < dayIds.length; i += CHUNK) {
+    const chunk = dayIds.slice(i, i + CHUNK);
+    const r = await db
+      .prepare(`SELECT * FROM v2_plan_exercises WHERE dayId IN (${chunk.map(() => "?").join(",")}) ORDER BY dayId, position ASC`)
+      .bind(...chunk)
+      .all<V2PlanExerciseRow>();
+    exerciseRows.push(...(r.results ?? []));
+  }
+  return { daysByPlan: groupBy(dayRows, (d) => d.planId), exercisesByDay: groupBy(exerciseRows, (e) => e.dayId) };
+}
+
+function assemblePlan(r: V2PlanRow, dayRows: V2PlanDayRow[], exercisesByDay: Map<number, V2PlanExerciseRow[]>): PlanDoc {
+  const split: PlanDay[] = dayRows.map((day) => toDay(day, (exercisesByDay.get(day.id) ?? []).map(toExercise)));
   let nutrition: unknown, supplements: unknown;
   try {
     nutrition = r.nutrition ? JSON.parse(r.nutrition) : {};
@@ -229,10 +272,12 @@ export async function getActivePlan(db: DB, userId: number): Promise<PlanDoc | n
  * everyone) — skipped and logged instead. */
 export async function listActivePlans(db: DB): Promise<PlanDoc[]> {
   const r = await db.prepare("SELECT * FROM v2_plans WHERE active = 1 ORDER BY id ASC").all<V2PlanRow>();
+  const rows = r.results ?? [];
+  const { daysByPlan, exercisesByDay } = await loadPlanChildren(db, rows.map((row) => row.id));
   const plans: PlanDoc[] = [];
-  for (const row of r.results ?? []) {
+  for (const row of rows) {
     try {
-      plans.push(await toPlan(db, row));
+      plans.push(assemblePlan(row, daysByPlan.get(row.id) ?? [], exercisesByDay));
     } catch (err) {
       console.error("listActivePlans: skipping corrupted plan row", row.accountId, err);
     }

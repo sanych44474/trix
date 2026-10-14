@@ -8,8 +8,8 @@
 // wrangler.toml declares the binding AND the bucket is created (both live/billable actions --
 // not done by this code). Until then every call here is a no-op and every read falls straight
 // through to Telegram, exactly like before this module existed.
-import { logInfo } from "../log";
-import type { Env } from "../types";
+import { logInfo } from "../../log";
+import type { Env } from "../../types";
 
 const KEY_PREFIX = "progress-photos/";
 

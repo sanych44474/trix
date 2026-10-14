@@ -10,7 +10,7 @@ import { localParts } from "../domain/localTime";
 import { parseMeasurements, parseHeightWeight } from "../domain/workoutText";
 import { weekdayName } from "../render";
 import { cmdReplan } from "./exportData";
-import { menuBtn, langMenu, hourMenu, tzMenu, settingsMenu } from "./keyboards";
+import { menuBtn, langMenu, hourMenu, tzMenu, settingsMenu } from "../adapters/telegram/keyboards";
 import { showInjuryMenu } from "./injury";
 import { reply, setMode, type MyContext, type TKey } from "../adapters/telegram/context";
 

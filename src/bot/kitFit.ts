@@ -11,7 +11,7 @@ import { fitSplitToKit, kitFromEquipment, kitMismatches, type Kit } from "../dom
 import { escapeHtml, t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { type MyContext, planOwnerId, reply } from "../adapters/telegram/context";
-import { menuBtn } from "./keyboards";
+import { menuBtn } from "../adapters/telegram/keyboards";
 
 const KIT_EQUIPMENT: Record<Kit, string> = {
   gym: "full gym",

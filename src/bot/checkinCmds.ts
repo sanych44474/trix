@@ -3,7 +3,7 @@
 import { logInfo } from "../log";
 import { aiJSON } from "../ai";
 import * as P from "../ai/prompts";
-import { checkinScale, menuBtn } from "./keyboards";
+import { checkinScale, menuBtn } from "../adapters/telegram/keyboards";
 import { showEveningSurvey } from "./survey";
 import { getWorkoutLog } from "../adapters/d1/v2Workouts";
 import { getActivePlan, recordAdjustment, setActivePlan } from "../adapters/d1/v2Plans";
@@ -14,7 +14,7 @@ import { weeksSincePlan } from "../domain/deload";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { MyContext, reply, setMode } from "../adapters/telegram/context";
 import { coachContext } from "./coach";
-import { maybeCelebrateLevel, deferAi } from "./aiDefer";
+import { maybeCelebrateLevel, deferAi } from "../features/aiDefer";
 
 export async function cmdCheckin(ctx: MyContext) {
   const lang = ctx.user.lang;

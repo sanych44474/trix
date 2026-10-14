@@ -80,6 +80,7 @@ interface CallOpts {
   groqModel?: string; // per-call Groq primary override (meal-plan stages pick 8b/70b/120b)
   validate?: (parsed: unknown) => void; // semantic check on the PARSED result (aiJSON only)
   onPartial?: (textSoFar: string) => void; // stream the raw answer as it arrives (providers that can)
+  cacheTtlMs?: number; // opt this call into the response cache; only for prompts that do not depend on the user
 }
 
 function utcDate(): string {
@@ -260,7 +261,7 @@ async function run(
   // Cache lookup — a hit returns instantly with zero provider calls. The stored text
   // passed validation when written; re-validate anyway (cheap) so a stale-schema entry
   // falls through to a live generation instead of crashing downstream.
-  const cacheTtl = !input.images?.length ? CACHE_TTL_MS[o.kind] : undefined;
+  const cacheTtl = !input.images?.length ? (o.cacheTtlMs ?? CACHE_TTL_MS[o.kind]) : undefined;
   const key = cacheTtl ? await cacheKey(o.kind, input.system, input.user) : undefined;
   if (key) {
     try {

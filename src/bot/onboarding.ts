@@ -2,120 +2,26 @@
 // from bot.ts. No per-turn AI — instant, no hangs, no parse ambiguity. The one AI call is the
 // final plan gen, which stays in bot.ts (generatePlan / generateClientDraft — imported back,
 // same value-cycle pattern as features/trainer/trainer.ts; calls happen at request time only).
-import { onboardingAppMarkup, onboardingUrlFromEnv } from "./onboardingApp";
+import { sendBestEffort } from "../adapters/telegram/rawApi";
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingApp";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import { parseHeightWeight } from "../domain/workoutText";
 import { listIncompleteOnboarding, updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
-import { HTML, reply, type MyContext, type TKey } from "../adapters/telegram/context";
+import { reply, type MyContext } from "../adapters/telegram/context";
 import { generateClientDraft, generatePlan } from "./plan";
-import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
+import type { Env, UserProfile, Weekday } from "../types";
+import { obKeyboard, obProgress, obSteps, type ObStep } from "../features/onboarding/questions";
+import { renderObQuestion } from "../features/onboarding/sendStep";
+export { renderObQuestion, sendFirstObStep, sendObStepTo } from "../features/onboarding/sendStep";
 
-export interface ObStep {
-  field: "sex" | "age" | "hw" | "goal" | "level" | "baselineLifts" | "daysPerWeek" | "trainingWeekdays" | "sessionMinutes" | "equipment" | "lifestyle" | "sleepSchedule" | "dietPrefs" | "limitations";
-  q: TKey; // i18n question key
-  buttons?: { label: string; value: string }[];
-  input?: "number" | "number2" | "text";
-  acceptsText?: boolean; // a button step that also accepts a typed free-text answer
-  multiselect?: boolean; // weekday picker
-  noneKey?: TKey; // optional "skip/none" button (i18n key) for text steps
-}
+export { OB_WEEKDAY_KEYS, obKeyboard, obProgress, obSteps, type ObStep } from "../features/onboarding/questions";
 
-export function obSteps(lang: Lang): ObStep[] {
-  const b = (label: TKey, value: string) => ({ label: t(lang, label), value });
-  return [
-    { field: "sex", q: "ob_q_sex", buttons: [b("ob_sex_male", "male"), b("ob_sex_female", "female")] },
-    { field: "age", q: "ob_q_age", input: "number" },
-    { field: "hw", q: "ob_q_hw", input: "number2" },
-    { field: "goal", q: "ob_q_goal", buttons: [b("ob_goal_fatloss", "fat loss"), b("ob_goal_muscle", "muscle gain"), b("ob_goal_recomp", "recomposition"), b("ob_goal_strength", "strength"), b("ob_goal_endurance", "endurance")] },
-    { field: "level", q: "ob_q_level", buttons: [b("ob_level_beginner", "beginner"), b("ob_level_intermediate", "intermediate"), b("ob_level_advanced", "advanced")] },
-    { field: "baselineLifts", q: "ob_q_baseline", input: "text", noneKey: "ob_baseline_none" },
-    // Single source of truth for training frequency: the day picker. daysPerWeek is derived
-    // from the count (no separate "how many days" question → no contradictions).
-    { field: "trainingWeekdays", q: "ob_q_weekdays", multiselect: true },
-    { field: "sessionMinutes", q: "ob_q_duration", buttons: [b("ob_dur_30", "30"), b("ob_dur_45", "45"), b("ob_dur_60", "60"), b("ob_dur_90", "90")] },
-    { field: "equipment", q: "ob_q_equipment", buttons: [b("ob_eq_gym", "full gym"), b("ob_eq_home", "home basics (dumbbells, bands)"), b("ob_eq_dumbbells", "dumbbells only"), b("ob_eq_bodyweight", "bodyweight only")] },
-    { field: "lifestyle", q: "ob_q_lifestyle", buttons: [b("ob_life_sedentary", "sedentary"), b("ob_life_moderate", "moderate"), b("ob_life_active", "active")] },
-    { field: "sleepSchedule", q: "ob_q_sleep", buttons: [b("ob_sleep_morning", "morning"), b("ob_sleep_evening", "evening")] },
-    { field: "dietPrefs", q: "ob_q_diet", acceptsText: true, buttons: [b("ob_diet_none", "none"), b("ob_diet_vegetarian", "vegetarian"), b("ob_diet_vegan", "vegan")] },
-    { field: "limitations", q: "ob_q_injuries", input: "text", noneKey: "ob_injuries_none" },
-  ];
-}
-
-export const OB_WEEKDAY_KEYS: Record<number, TKey> = { 1: "wd_mon", 2: "wd_tue", 3: "wd_wed", 4: "wd_thu", 5: "wd_fri", 6: "wd_sat", 7: "wd_sun" };
-
-// Build the inline keyboard for a step (shared by first render, in-place edits, and the
-// cross-context push to a freshly-accepted client). Context-free so it can target any chat.
-export function obKeyboard(lang: Lang, step: ObStep, selectedDays: number[] = [], canBack = false): InlineKeyboard | undefined {
-  const kb = new InlineKeyboard();
-  if (step.multiselect) {
-    const sel = new Set(selectedDays);
-    for (let d = 1; d <= 7; d++) {
-      kb.text(`${sel.has(d as Weekday) ? "✅ " : ""}${t(lang, OB_WEEKDAY_KEYS[d])}`, `ob:wd:${d}`);
-      if (d % 4 === 0) kb.row();
-    }
-    kb.row().text(t(lang, "ob_done"), "ob:wddone");
-  } else if (step.buttons) {
-    step.buttons.forEach((bt, idx) => {
-      kb.text(bt.label, `ob:v:${idx}`);
-      if ((idx + 1) % 2 === 0) kb.row();
-    });
-  } else if (step.noneKey) {
-    kb.text(t(lang, step.noneKey), "ob:none");
-  }
-  // Back button to fix a previous answer without restarting (also gives typed steps a keyboard).
-  if (canBack) kb.row().text(t(lang, "ob_back"), "ob:back");
-  return kb.inline_keyboard.length ? kb : undefined;
-}
-
-// Render the question + keyboard for step i (also used to resume an in-progress wizard).
 export async function renderObStep(ctx: MyContext, i: number) {
-  const lang = ctx.user.lang;
-  const steps = obSteps(lang);
-  const step = steps[i];
-  if (!step) return finishOnboarding(ctx);
-  const progress = `(${i + 1}/${steps.length})`;
-  await reply(ctx, `${progress} ${t(lang, step.q)}`, obKeyboard(lang, step, ctx.user.profile.trainingWeekdays ?? [], i > 0));
+  if (!(await renderObQuestion(ctx, i))) await finishOnboarding(ctx);
 }
 
-// Answered-question progress for the onboarding wizard, derived from the profile itself — works
-// for both the button wizard and AI-interview users. `next` = first unanswered step (resume target).
-// The checks mirror obSteps() order exactly.
-export function obProgress(profile: UserProfile): { answered: number; total: number; next: number } {
-  const checks: boolean[] = [
-    !!profile.sex,
-    profile.age !== undefined,
-    profile.heightCm !== undefined && profile.weightKg !== undefined,
-    !!profile.goal,
-    !!profile.level,
-    profile.baselineLifts !== undefined,
-    (profile.trainingWeekdays ?? []).length > 0,
-    profile.sessionMinutes !== undefined,
-    !!profile.equipment,
-    !!profile.lifestyle,
-    !!profile.sleepSchedule,
-    !!profile.dietPrefs,
-    profile.limitations !== undefined,
-  ];
-  const next = checks.indexOf(false);
-  return { answered: checks.filter(Boolean).length, total: checks.length, next: next === -1 ? checks.length - 1 : next };
-}
-
-// Push onboarding step i (question + buttons) into an arbitrary chat. Needed when a trainer
-// accepts a client — that runs in the trainer's context, so the client must be walked into
-// the wizard proactively (otherwise they sit idle, never onboard, get no plan).
-export async function sendObStepTo(ctx: MyContext, target: UserDoc, i: number, prefix: string) {
-  const steps = obSteps(target.lang);
-  const idx = Math.max(0, Math.min(i, steps.length - 1));
-  const step = steps[idx];
-  await ctx.api
-    .sendMessage(target.chatId, `${prefix}\n\n(${idx + 1}/${steps.length}) ${t(target.lang, step.q)}`, {
-      ...HTML,
-      reply_markup: obKeyboard(target.lang, step, target.profile.trainingWeekdays ?? [], idx > 0),
-    })
-    .catch(() => {});
-}
 
 // One-off "finish your interview" ping to every non-onboarded reachable user (owner-triggered,
 // ctx-free). Resumes at the right place: AI-interview users get their last question re-sent;
@@ -151,25 +57,12 @@ export async function pingIncompleteOnboarding(env: Env, db: D1Database): Promis
         // routes to whatever stale mode they were in (e.g. msg_trainer) and never onboards.
         await updateUser(db, u._id, { session: { mode: "onboarding", step: idx } });
       }
-      const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: u.chatId, text, parse_mode: "HTML", reply_markup }),
-      });
-      if (res.ok) pinged++;
+      if (await sendBestEffort(env, u.chatId, text, reply_markup)) pinged++;
     } catch (err) {
       console.error("pingIncompleteOnboarding", u._id, err);
     }
   }
   return { pinged, total: users.length };
-}
-
-export async function sendFirstObStep(ctx: MyContext, chatId: number, lang: Lang, prefix: string) {
-  const steps = obSteps(lang);
-  const step = steps[0];
-  await ctx.api
-    .sendMessage(chatId, `${prefix}\n\n(1/${steps.length}) ${t(lang, step.q)}`, { ...HTML, reply_markup: obKeyboard(lang, step, []) })
-    .catch(() => {});
 }
 
 // Save a value to the profile, advance the wizard, render the next step (or finish).

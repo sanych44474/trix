@@ -3,7 +3,7 @@
 // what the statements below clear. When a new table gets an accountId/userId/trainerId/clientId/
 // ownerId column, add it here (test/delete-user-data-coverage.test.ts enforces it).
 import type { Env } from "../../types";
-import { r2Key } from "../../webapp/photoStorage";
+import { r2Key } from "../r2/photoStorage";
 import { logError } from "../../log";
 import { nowIso } from "./shared";
 import { deactivateActivePlan } from "./v2Plans";

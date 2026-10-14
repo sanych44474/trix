@@ -11,14 +11,14 @@ import { planStatusByUser } from "../../adapters/d1/v2Plans";
 import { approveTrainer, countClientsOf, getRequest, getTrainer, getTrainerByCode, linkClient, listClients, pendingRequestsForTrainer, rejectTrainer, createProspect, deleteProspect, getProspect, listProspects, setRequestStatus, unlinkClient, updateTrainer } from "../../adapters/d1/v2Trainer";
 import { getUser, getUsersByIds, updateUser } from "../../adapters/d1/v2Users";
 import { isoDateMinus } from "../gamification/boards";
-import { botDeepLink } from "../../bot/links";
-import { interviewProgress } from "../../bot/ownerRows";
+import { botDeepLink } from "../../notify/links";
+import { interviewProgress } from "../owner/ownerRows";
 import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
-import { menuBtn, roleMenu } from "../../bot/keyboards";
-import { renderObStep, sendFirstObStep } from "../../bot/onboarding";
-import { sendOnboardingPrompt, sendOnboardingPromptTo } from "../../bot/onboardingApp";
+import { menuBtn, roleMenu } from "../../adapters/telegram/keyboards";
+import { renderObQuestion, sendFirstObStep } from "../onboarding/sendStep";
+import { sendOnboardingPrompt, sendOnboardingPromptTo } from "../../notify/onboardingApp";
 import { trainerCardText, startTrainerWizard } from "./trainerWizard";
 import { requireTrainer, shortCode, trainerMenu } from "./trainerCommon";
 export * from "./clientCard";
@@ -100,7 +100,7 @@ async function pairWithTrainer(ctx: MyContext, trainerId: number, trainerName: s
   await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
   if (await sendOnboardingPrompt(ctx)) return;
   await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
-  await renderObStep(ctx, 0);
+  await renderObQuestion(ctx, 0);
 }
 
 export async function joinByCode(ctx: MyContext, code: string) {

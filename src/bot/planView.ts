@@ -3,27 +3,24 @@
 import { offerRecoverySwap } from "./recoverySwap";
 import { kitFitButton } from "./kitFit";
 import { InlineKeyboard } from "grammy";
-import type { ExerciseVideo, PlanDay, Weekday } from "../types";
+import type { Weekday } from "../types";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getDailyCheckin } from "../adapters/d1/v2Tracking";
-import { getExerciseVideos, getUserVideos } from "../adapters/d1/v2Catalog";
 import { escapeHtml, t } from "../locales/i18n";
 import { deloadSets, readinessAdvice } from "../domain/deload";
-import { localParts } from "../domain/localTime";
+import { localParts, localCutoff } from "../domain/localTime";
 import { phaseKey as mesoPhaseKey, trainingWeek } from "../domain/mesocycle";
-import { buildVideoOpenLink } from "../domain/videoLink";
-import { exerciseVideoKey, renderPlan, renderSchedule, renderToday, upcomingSessions } from "../render";
-import { localCutoff } from "./report";
+import { renderPlan, renderSchedule, renderToday, upcomingSessions } from "../render";
 import { renderDayInline } from "./workoutSave";
 import { showPlanEditDay } from "../features/trainer/clientCard";
-import { menuBtn, planViewKb, difficultyKeyboard, todayWorkoutKeyboard } from "./keyboards";
+import { menuBtn, planViewKb, difficultyKeyboard, todayWorkoutKeyboard } from "../adapters/telegram/keyboards";
 import { healPlanIfDegenerate } from "./plan";
 import { readinessWithConditioning, recentConditioningStrain } from "../domain/conditioning";
-import { lookupExerciseVideoCached } from "../youtube";
 import { clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 import { healPlanNamesForDisplay, sendExerciseDescriptions } from "./exerciseCatalog";
-import { APP_URL } from "./appLinks";
+import { videosForDays } from "../features/plan/exerciseVideos";
+export { videosForDays } from "../features/plan/exerciseVideos";
 
 // A weekday + exercise index packed into a single numeric session.targetId (weekday*1000 + idx).
 export function encodePlanRef(weekday: number, index: number): number {
@@ -46,44 +43,6 @@ export async function reRenderEditDay(ctx: MyContext, weekday: Weekday) {
 }
 
 // ---------------- command implementations ----------------
-
-// Cached technique videos for the exercises in the given days, for rendering. Any exercise that
-// has never been searched is queued for a background YouTube lookup (fire-and-forget, stops on
-// quota) so it appears on the next view — the current render is never blocked or slowed.
-export async function videosForDays(ctx: MyContext, days: PlanDay[]): Promise<Map<string, ExerciseVideo>> {
-  const keys = [...new Set(days.flatMap((d) => d.exercises.map((e) => exerciseVideoKey(e))))];
-  if (!keys.length) return new Map();
-  const map = await getExerciseVideos(ctx.db, keys).catch(() => new Map<string, ExerciseVideo>());
-  // A viewer's personal override (set via 🎥 Відео) wins over the shared/global video.
-  const overrides = await getUserVideos(ctx.db, ctx.user._id, keys).catch(() => new Map<string, ExerciseVideo>());
-  for (const [k, v] of overrides) map.set(k, v);
-  // Route links through the Worker's /v redirect so opens are counted (video_open event).
-  // Only when deployed (APP_URL set) — local dev keeps direct links.
-  for (const [k, v] of map) {
-    if (v.url) map.set(k, { ...v, url: await buildVideoOpenLink(APP_URL, v.url, ctx.user._id, ctx.env.TELEGRAM_BOT_TOKEN) });
-  }
-  if (ctx.env.YOUTUBE_API_KEY) {
-    const missing = days.flatMap((d) => d.exercises).filter((e) => !map.has(exerciseVideoKey(e)));
-    if (missing.length) {
-      ctx.waitUntil(
-        (async () => {
-          const seen = new Set<string>();
-          for (const e of missing) {
-            const k = exerciseVideoKey(e);
-            if (seen.has(k)) continue;
-            seen.add(k);
-            try {
-              await lookupExerciseVideoCached(ctx.db, ctx.env, e.canonicalName || e.name);
-            } catch {
-              break; // quota (or other error) — stop the batch
-            }
-          }
-        })(),
-      );
-    }
-  }
-  return map;
-}
 
 export async function cmdPlan(ctx: MyContext) {
   await clearEditOwner(ctx);

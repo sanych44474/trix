@@ -43,3 +43,7 @@ USDA_FDC_API_KEY=""
 # --- Admin ---
 # Guards the /admin/* routes. Use a long random string; anyone holding it is the operator.
 ADMIN_SECRET=""
+
+# --- Monitoring ---
+# Healthchecks.io ping URL (https://hc-ping.com/<uuid>) -- external cron monitoring. Leave empty locally.
+HEALTHCHECK_PING_URL=""

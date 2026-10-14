@@ -14,15 +14,14 @@ import { stepLogsSince, waterLogsSince } from "../../adapters/d1/v2Tracking";
 import { nutritionLogsSince } from "../../adapters/d1/v2Nutrition";
 import {
   CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindow, challengeWindowCounts, progressBar,
-  seasonalChallenge, seasonMilestones, type ChallengeData, type ChallengeTemplate,
+  resolveWaterGoal, seasonalChallenge, seasonMilestones, type ChallengeData, type ChallengeTemplate,
 } from "../../domain/challenges";
 import { challengeTitleText } from "../../render";
 import { challengeMilestones } from "../../domain/records";
 import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, clearEditOwner, reply } from "../../adapters/telegram/context";
-import { menuBtn } from "../../bot/keyboards";
-import { waterGoalFor } from "../../bot/nutritionCmds";
+import { menuBtn } from "../../adapters/telegram/keyboards";
 
 // Gather the raw counts a challenge needs, over its [startDate, endDate] window. Progress is always
 // recomputed live from logs (so editing/deleting a log keeps it honest); only enrollment is stored.
@@ -34,7 +33,7 @@ export async function challengeData(ctx: MyContext, startDate: string, endDate: 
     stepLogsSince(ctx.db, uid, startDate),
     waterLogsSince(ctx.db, uid, startDate),
   ]);
-  return challengeWindowCounts({ workouts: wl, nutrition: nl, steps: sl, water }, startDate, endDate, waterGoalFor(ctx));
+  return challengeWindowCounts({ workouts: wl, nutrition: nl, steps: sl, water }, startDate, endDate, resolveWaterGoal(ctx.user.profile));
 }
 
 export function challengeTitle(lang: Lang, tpl: ChallengeTemplate): string {

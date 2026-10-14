@@ -4,8 +4,8 @@
 // wizard at the first unanswered step. Returns false (no message) when they're already onboarded.
 import { updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
-import { obKeyboard, obProgress, obSteps } from "../bot/onboarding";
-import { onboardingAppMarkup, onboardingUrlFromEnv } from "../bot/onboardingApp";
+import { obKeyboard, obProgress, obSteps } from "../features/onboarding/questions";
+import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingApp";
 import type { Env, UserDoc } from "../types";
 
 import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
