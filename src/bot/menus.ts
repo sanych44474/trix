@@ -5,7 +5,7 @@ import type { Lang } from "../types";
 import { getTrainer } from "../adapters/d1/v2Trainer";
 import { t } from "../locales/i18n";
 import { cmdReport } from "./report";
-import { isOwner } from "./ownerAccess";
+import { isOwner } from "../features/owner/ownerAccess";
 import { mainMenu, moreMenu, progressHubMenu, trainerHubMenu, trainerClientsMenu, appendOwnerRow, menuBtn } from "../adapters/telegram/keyboards";
 import { cmdLog } from "./guidedLog";
 import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";

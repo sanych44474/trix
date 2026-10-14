@@ -17,7 +17,7 @@ import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
 import { menuBtn, roleMenu } from "../../adapters/telegram/keyboards";
-import { renderObStep, sendFirstObStep } from "../../bot/onboarding";
+import { renderObQuestion, sendFirstObStep } from "../onboarding/sendStep";
 import { sendOnboardingPrompt, sendOnboardingPromptTo } from "../../notify/onboardingApp";
 import { trainerCardText, startTrainerWizard } from "./trainerWizard";
 import { requireTrainer, shortCode, trainerMenu } from "./trainerCommon";
@@ -100,7 +100,7 @@ async function pairWithTrainer(ctx: MyContext, trainerId: number, trainerName: s
   await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
   if (await sendOnboardingPrompt(ctx)) return;
   await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
-  await renderObStep(ctx, 0);
+  await renderObQuestion(ctx, 0);
 }
 
 export async function joinByCode(ctx: MyContext, code: string) {

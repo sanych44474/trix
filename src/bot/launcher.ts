@@ -8,7 +8,7 @@
 import { InlineKeyboard } from "grammy";
 import { t } from "../locales/i18n";
 import { dashboardUrl } from "../notify/appLinks";
-import { isOwner } from "./ownerAccess";
+import { isOwner } from "../features/owner/ownerAccess";
 import { updateUser } from "../adapters/d1/v2Users";
 import { HTML, reply, type MyContext } from "../adapters/telegram/context";
 import type { AppView } from "../notify/appKeyboard";

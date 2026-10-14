@@ -4,7 +4,7 @@ import type { Lang } from "../types";
 import { t } from "../locales/i18n";
 import { reply, setMode, type MyContext } from "../adapters/telegram/context";
 
-export const REPORT_DAYS = 14;
+export { REPORT_DAYS } from "../features/report/reportLines";
 
 export function defaultLang(code?: string): Lang {
   return code?.toLowerCase().startsWith("uk") ? "uk" : "en";

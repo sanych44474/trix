@@ -9,36 +9,19 @@ import { logInfo } from "../log";
 import { parseHeightWeight } from "../domain/workoutText";
 import { listIncompleteOnboarding, updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
-import { HTML, reply, type MyContext } from "../adapters/telegram/context";
+import { reply, type MyContext } from "../adapters/telegram/context";
 import { generateClientDraft, generatePlan } from "./plan";
-import type { Env, Lang, UserDoc, UserProfile, Weekday } from "../types";
+import type { Env, UserProfile, Weekday } from "../types";
 import { obKeyboard, obProgress, obSteps, type ObStep } from "../features/onboarding/questions";
+import { renderObQuestion } from "../features/onboarding/sendStep";
+export { renderObQuestion, sendFirstObStep, sendObStepTo } from "../features/onboarding/sendStep";
+
 export { OB_WEEKDAY_KEYS, obKeyboard, obProgress, obSteps, type ObStep } from "../features/onboarding/questions";
 
 export async function renderObStep(ctx: MyContext, i: number) {
-  const lang = ctx.user.lang;
-  const steps = obSteps(lang);
-  const step = steps[i];
-  if (!step) return finishOnboarding(ctx);
-  const progress = `(${i + 1}/${steps.length})`;
-  await reply(ctx, `${progress} ${t(lang, step.q)}`, obKeyboard(lang, step, ctx.user.profile.trainingWeekdays ?? [], i > 0));
+  if (!(await renderObQuestion(ctx, i))) await finishOnboarding(ctx);
 }
 
-
-// Push onboarding step i (question + buttons) into an arbitrary chat. Needed when a trainer
-// accepts a client — that runs in the trainer's context, so the client must be walked into
-// the wizard proactively (otherwise they sit idle, never onboard, get no plan).
-export async function sendObStepTo(ctx: MyContext, target: UserDoc, i: number, prefix: string) {
-  const steps = obSteps(target.lang);
-  const idx = Math.max(0, Math.min(i, steps.length - 1));
-  const step = steps[idx];
-  await ctx.api
-    .sendMessage(target.chatId, `${prefix}\n\n(${idx + 1}/${steps.length}) ${t(target.lang, step.q)}`, {
-      ...HTML,
-      reply_markup: obKeyboard(target.lang, step, target.profile.trainingWeekdays ?? [], idx > 0),
-    })
-    .catch(() => {});
-}
 
 // One-off "finish your interview" ping to every non-onboarded reachable user (owner-triggered,
 // ctx-free). Resumes at the right place: AI-interview users get their last question re-sent;
@@ -80,14 +63,6 @@ export async function pingIncompleteOnboarding(env: Env, db: D1Database): Promis
     }
   }
   return { pinged, total: users.length };
-}
-
-export async function sendFirstObStep(ctx: MyContext, chatId: number, lang: Lang, prefix: string) {
-  const steps = obSteps(lang);
-  const step = steps[0];
-  await ctx.api
-    .sendMessage(chatId, `${prefix}\n\n(1/${steps.length}) ${t(lang, step.q)}`, { ...HTML, reply_markup: obKeyboard(lang, step, []) })
-    .catch(() => {});
 }
 
 // Save a value to the profile, advance the wizard, render the next step (or finish).

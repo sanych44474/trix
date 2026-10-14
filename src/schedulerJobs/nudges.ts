@@ -23,7 +23,7 @@ import { daysBetween } from "../domain/reminderTiming";
 import { weighInDue } from "../domain/weighIn";
 import type { Weekday } from "../types";
 import { renderDay, challengeTitleText } from "../render";
-import { surveyKb, surveyRemaining } from "../bot/survey";
+import { surveyKb, surveyRemaining } from "../features/survey/eveningSurvey";
 import { appKeyboardEnabled } from "../notify/appKeyboard";
 import { isoDaysAgo } from "./shared";
 

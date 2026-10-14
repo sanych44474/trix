@@ -18,7 +18,7 @@ import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
 
 import { menuBtn } from "../../adapters/telegram/keyboards";
-import { weekdayOf } from "../../bot/calendar";
+import { weekdayOf } from "../../domain/weekday";
 import { clientCardKb } from "./trainerCommon";
 
 export async function showClientLogDays(ctx: MyContext, clientId: number) {

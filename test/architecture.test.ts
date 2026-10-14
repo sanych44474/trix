@@ -46,21 +46,8 @@ function violates(from: string, to: string): boolean {
 }
 
 // Baseline (2026-10-13). Each line is "<file> -> <module>"; remove lines as they get fixed.
-const KNOWN = new Set(`
-src/features/gamification/challenges.ts -> src/bot/nutritionCmds
-src/features/nutrition/nutritionLog.ts -> src/bot/nutritionCmds
-src/features/nutrition/nutritionLog.ts -> src/bot/survey
-src/features/trainer/clientCard.ts -> src/bot/exerciseCatalog
-src/features/trainer/clientCard.ts -> src/bot/onboarding
-src/features/trainer/clientCard.ts -> src/bot/planView
-src/features/trainer/clientCard.ts -> src/bot/report
-src/features/trainer/programSharing.ts -> src/bot/exerciseCatalog
-src/features/trainer/programSharing.ts -> src/bot/ownerAccess
-src/features/trainer/trainer.ts -> src/bot/onboarding
-src/features/trainer/trainerComms.ts -> src/bot/calendar
-src/schedulerJobs/nudges.ts -> src/bot/survey
-src/webapp/settingsApi.ts -> src/bot/exportData
-`.trim().split("\n").filter(Boolean));
+// Every violation from the original baseline has been fixed (ADR-0010); keep this empty.
+const KNOWN = new Set<string>([]);
 
 test("layering: no new cross-layer imports (and fixed ones leave the baseline)", () => {
   const found = new Set<string>();

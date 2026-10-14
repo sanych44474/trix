@@ -19,6 +19,8 @@ import { menuBtn } from "../adapters/telegram/keyboards";
 import { deferAi } from "../features/aiDefer";
 import { progressBar, resolveWaterGoal } from "../domain/challenges";
 import { clearEditOwner, reply, setMode, type MyContext } from "../adapters/telegram/context";
+import { cleanFoodName } from "../domain/foodName";
+export { cleanFoodName } from "../domain/foodName";
 
 export async function cmdNutrition(ctx: MyContext) {
   await setMode(ctx, "nutrition");
@@ -104,11 +106,6 @@ export async function showFoodItem(ctx: MyContext, index: number) {
     .text(t(lang, "food_delete"), `food:del:${index}`)
     .text(t(lang, "back"), "menu:nutrition");
   await reply(ctx, info, kb);
-}
-
-// Strip a trailing weight token ("~250 г" / "(250 g)") from a food desc so the grams shown stay in sync.
-export function cleanFoodName(desc: string): string {
-  return desc.replace(/[~(]?\s*\d+[.,]?\d*\s*(г|g|грам\w*|gram\w*)\.?\)?\s*$/iu, "").trim() || desc;
 }
 
 // Ethanol energy in a meal item, inferred from the kcal surplus over 4P + 9F + 4C. Rounded to

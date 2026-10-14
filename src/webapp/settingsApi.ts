@@ -3,7 +3,7 @@
 // opt-in + alias, feedback, data export (pushed as a document to the chat), leave-trainer and
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
 import { appMarkup } from "../notify/appKeyboard";
-import { buildExportJson, buildExportMd } from "../bot/exportData";
+import { buildExportJson, buildExportMd } from "../features/export/exportData";
 import { resolveWaitlistNudge } from "../features/trainer/trainer";
 import { deleteUserData } from "../adapters/d1/v2Account";
 import { getOwnerChatId } from "../adapters/d1/v2Admin";

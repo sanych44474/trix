@@ -5,7 +5,7 @@
 // unrelated settings handlers (handleBodyEdit, onSetHour, onSmartHour, onSetTz, onToggleDay) —
 // none of them are calendar code, so they stayed in bot.ts.
 import { InlineKeyboard } from "grammy";
-import type { Lang, Weekday } from "../types";
+import type { Lang } from "../types";
 import { getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { dayMarker, monthGrid, monthTitle, nextMonth, prevMonth, ymOf } from "../domain/calendar";
@@ -13,14 +13,13 @@ import { getPlanDay } from "../domain/progression";
 import { localParts } from "../domain/localTime";
 import { t } from "../locales/i18n";
 import { type MyContext, clearEditOwner, reply } from "../adapters/telegram/context";
+import { weekdayOf } from "../domain/weekday";
+export { weekdayOf } from "../domain/weekday";
 
 export const WD_SHORT: Record<Lang, string[]> = {
   uk: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"],
   en: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
 };
-export function weekdayOf(date: string): Weekday {
-  return (((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7) + 1) as Weekday;
-}
 // Generic month-grid keyboard. `marker` labels each day; `dayCb`/`navCb` build callback data.
 export function calendarKeyboard(
   lang: Lang,

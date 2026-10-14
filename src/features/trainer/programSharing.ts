@@ -10,12 +10,12 @@ import { getActivePlan, setActivePlan } from "../../adapters/d1/v2Plans";
 import { getTrainer, getTrainerTemplate, listClients, listTrainerTemplates, createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken } from "../../adapters/d1/v2Trainer";
 import { stampOnboardedAt, updateUser } from "../../adapters/d1/v2Users";
 import { botDeepLink } from "../../notify/links";
-import { isOwner } from "../../bot/ownerAccess";
+import { isOwner } from "../owner/ownerAccess";
 import { adaptPlan } from "../../domain/planAdapt";
 import { formatRecordBest } from "../../domain/setFormat";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
-import { localizePlanNames } from "../../bot/exerciseCatalog";
+import { localizePlanNames } from "../exercise/catalog";
 import { mainMenu, menuBtn } from "../../adapters/telegram/keyboards";
 import { shortCode } from "./trainerCommon";
 

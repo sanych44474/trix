@@ -14,9 +14,9 @@ import { scaleMealEntry } from "../../domain/mealplan";
 import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { deferAi, maybeCelebrateLevel } from "../aiDefer";
-import { showEveningSurvey } from "../../bot/survey";
+import { showEveningSurvey } from "../survey/eveningSurvey";
 import { reactToUser, type MyContext, reply, setMode } from "../../adapters/telegram/context";
-import { cleanFoodName } from "../../bot/nutritionCmds";
+import { cleanFoodName } from "../../domain/foodName";
 import { menuBtn } from "../../adapters/telegram/keyboards";
 
 import { num, verifyItems } from "./verifyItems";

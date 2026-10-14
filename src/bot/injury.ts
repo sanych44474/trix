@@ -4,25 +4,17 @@
 import { InlineKeyboard } from "grammy";
 import type { InjurySwap } from "../types";
 import { getActivePlan, recordPlanChange, updateActivePlanSplit } from "../adapters/d1/v2Plans";
-import {
-  appendInjuryCheckin, createInjury, extendInjury, getActiveInjuryByArea,
-  getInjury, listActiveInjuries, resolveInjury, updateInjury,
-} from "../adapters/d1/v2Tracking";
+import { appendInjuryCheckin, createInjury, extendInjury, getActiveInjuryByArea, getInjury, listActiveInjuries, resolveInjury, updateInjury } from "../adapters/d1/v2Tracking";
 import { getExerciseTranslation, listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
 import { getUser } from "../adapters/d1/v2Users";
 import { INJURY_AREAS, checkAfterDate, conflictingSlots, isSafeCandidate, restorable, safeMusclesFor, type InjuryArea, type Severity } from "../domain/injury";
 import { shouldEscalateForPainScore, shouldEscalateForSeverity } from "../domain/safety";
 import { localParts } from "../domain/localTime";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
-import { type MyContext, type TKey, HTML, reply } from "../adapters/telegram/context";
+import { type MyContext, HTML, reply } from "../adapters/telegram/context";
 import { menuBtn } from "../adapters/telegram/keyboards";
-
-export const INJURY_AREA_LABEL: Record<string, TKey> = {
-  shoulder: "inj_area_shoulder", elbow: "inj_area_elbow", wrist: "inj_area_wrist",
-  lower_back: "inj_area_lower_back", knee: "inj_area_knee", hip: "inj_area_hip",
-  ankle: "inj_area_ankle", neck: "inj_area_neck",
-};
-export const areaLabelKey = (area: string): TKey => INJURY_AREA_LABEL[area] ?? "inj_area_shoulder";
+import { areaLabelKey } from "../domain/injuryAreas";
+export { INJURY_AREA_LABEL, areaLabelKey } from "../domain/injuryAreas";
 
 export async function showInjuryMenu(ctx: MyContext) {
   const lang = ctx.user.lang;

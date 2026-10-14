@@ -64,16 +64,16 @@ grammY's `ctx.api` stays the adapter inside bot handlers.
   away, so their own callers are unchanged. `localCutoff` moved to `domain/localTime.ts`.
 - Cross-layer imports went from 48 to 13.
 
-## Consequences / next steps
+- Third pass: the last 13 went. Moved out of `bot/`: the evening survey checklist
+  (`features/survey/eveningSurvey.ts`), report lines and body dynamics (`features/report/`), the
+  data export builders (`features/export/`), exercise catalog use cases and plan-name
+  localization (`features/exercise/catalog.ts`), exercise videos for plan days
+  (`features/plan/exerciseVideos.ts`), sending onboarding steps (`features/onboarding/sendStep.ts`),
+  `isOwner` (`features/owner/ownerAccess.ts`), and the pure helpers `weekdayOf`, `cleanFoodName`
+  and the injury area labels (`domain/`). `KNOWN` is now empty.
 
-The 13 lines left in `KNOWN` are mostly the trainer flows in `features/trainer/`. These are
-chat-facing themselves, rendering plan views and onboarding steps through the bot. The rest:
+## Consequences
 
-- `webapp/settingsApi` → `bot/exportData`: the export builders need `bot/report`'s report lines
-  and `bot/injury`'s labels to move first.
-- `schedulerJobs/nudges` and `features/nutrition/nutritionLog` → `bot/survey`, and
-  `nutritionLog` / `gamification/challenges` → `bot/nutritionCmds`: the evening survey and the
-  nutrition command helpers.
-
-Move each when it is next touched, then delete its line from `KNOWN`. The test will not let one
-come back. No infrastructure (`adapters/`, `ai/`) or domain module depends on an interface.
+No module outside the interfaces imports `bot/` or `webapp/`, and no infrastructure or domain
+module depends on anything above it. The baseline is empty, so any new cross-layer import fails
+the test; put shared code in `features/` (or `domain/` when it is pure) instead.

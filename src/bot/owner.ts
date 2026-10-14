@@ -25,10 +25,10 @@ import { deferAi } from "../features/aiDefer";
 import { mainMenu, menuBtn } from "../adapters/telegram/keyboards";
 import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/clientCard";
 import { monoTable, ownerReportWindows, orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "../features/owner/ownerReport";
-import { isOwner } from "./ownerAccess";
+import { isOwner } from "../features/owner/ownerAccess";
 import { secretMatches } from "../domain/secrets";
 export * from "../features/owner/ownerRows";
-export * from "./ownerAccess";
+export * from "../features/owner/ownerAccess";
 export * from "./ownerVideos";
 export * from "../features/owner/ownerReport";
 
