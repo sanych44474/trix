@@ -8,7 +8,7 @@ import { localParts } from "../domain/localTime";
 import { formatRecordBest } from "../domain/setFormat";
 import { weekStreak } from "../domain/records";
 import { renderBoard } from "../render";
-import { prDate } from "./exportData";
+import { prDate } from "../features/export/exportData";
 import { computeBoards, isoDateMinus, recordsTabs, renderBadges } from "../features/gamification/boards";
 import { clearEditOwner, reply, setMode, type MyContext } from "../adapters/telegram/context";
 

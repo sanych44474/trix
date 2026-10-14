@@ -14,7 +14,6 @@ import { localParts } from "../domain/localTime";
 import { t } from "../locales/i18n";
 import { type MyContext, clearEditOwner, reply } from "../adapters/telegram/context";
 import { weekdayOf } from "../domain/weekday";
-export { weekdayOf } from "../domain/weekday";
 
 export const WD_SHORT: Record<Lang, string[]> = {
   uk: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"],

@@ -29,7 +29,6 @@ import { addExerciseByName, deleteExerciseFromToday } from "./todayEdit";
 import { adjustDifficulty, setExerciseSets, setExerciseWeight, showSwapAlternatives, swapExerciseByName } from "./planExerciseEdit";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { coachContext } from "../features/coach/coachContext";
-export { coachContext } from "../features/coach/coachContext";
 
 export async function handleCoach(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;

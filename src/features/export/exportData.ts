@@ -13,7 +13,7 @@ import { BODY_FIELDS, bodyFieldLabel, renderBodyDynamics, reportNutritionLine } 
 import { areaLabelKey } from "../../domain/injuryAreas";
 import { badgeLabel } from "../gamification/boards";
 import { weekdayName } from "../../render";
-import { num } from "../nutrition/nutritionLog";
+import { num } from "../nutrition/verifyItems";
 
 // The date a strength PR was set: the most recent history entry that hit the stored best
 // (by reps metric); falls back to the record's updatedAt for time/distance lifts.

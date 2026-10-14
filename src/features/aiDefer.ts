@@ -1,6 +1,6 @@
 // Shared bot plumbing: the update error handler, level-up celebration, and deferAi, which
 // acknowledges an AI request at once and finishes it in the background with a Thinking draft.
-import { RateLimitError } from "../ai";
+import { RateLimitError } from "../ai/errors";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { startThinking } from "../adapters/telegram/thinking";
 import { advanceLevel } from "./gamification/level";

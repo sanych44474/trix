@@ -69,14 +69,6 @@ export async function onReminderToggle(ctx: MyContext, key: string) {
   await showReminderSettings(ctx);
 }
 
-// ===================== Vacation / pause mode =====================
-// Moved to bot/vacation.ts (god-file split), including the comeback interview; re-exported
-// below so existing `from "./bot"` imports (router.ts) keep working.
-
-// ===================== Owner-confirmed cleanup (NEVER auto) =====================
-// Moved to bot/cleanup.ts (god-file split); re-exported below so existing `from "./bot"`
-// imports (router.ts) keep working.
-
 export function daysMenu(lang: Lang, selected: Weekday[]): InlineKeyboard {
   const kb = new InlineKeyboard();
   for (let w = 1 as Weekday; w <= 7; w++) {
@@ -153,21 +145,6 @@ export async function handleGoalWeight(ctx: MyContext, text: string) {
   await reply(ctx, t(lang, "set_goalweight_saved", { w: Math.round(w * 10) / 10 }), menuBtn(lang));
 }
 
-// ===================== Injury / pain tracking =====================
-// Moved to bot/injury.ts (god-file split); re-exported below so existing `from "./bot"`
-// imports (router.ts) keep working.
-
-// ============ Menstrual-cycle tracking (opt-in, female profiles) ============
-// Moved to bot/cycle.ts (god-file split); re-exported below so existing `from "./bot"` imports
-// (router.ts) keep working.
-
-// ============ Sharing with trainer (client-owned consent toggles) ============
-// Moved to bot/shareConsent.ts (god-file split); re-exported below.
-
-// ===================== Calendar & session booking =====================
-// Moved to bot/calendar.ts (god-file split); re-exported below so existing `from "./bot"`
-// imports (router.ts, features/trainer/trainer.ts) keep working.
-
 // Edit body height+weight from settings. Reuses the onboarding realism check + auto-swap.
 export async function handleBodyEdit(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;
@@ -233,41 +210,7 @@ export async function onToggleDay(ctx: MyContext, arg: string) {
   await ctx.editMessageReplyMarkup({ reply_markup: daysMenu(lang, arr) }).catch(() => {});
 }
 
-// ---------------- onboarding & plan generation ----------------
-
-// TKey moved to adapters/telegram/context.ts (re-exported near the top of this file) along with
-// the rest of the core plumbing.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// onLevelUp, onGoalMaintain, resumePendingPlan, saveBaselineBody moved to bot/planGen.ts
-// (god-file split); re-exported below so existing `from "./bot"` imports keep working.
-
-// ---------------- nutrition ----------------
-// Moved to features/nutrition/nutritionLog.ts; re-exported above so existing `from "./bot"`
-// imports (router.ts) keep working.
-
-// ---------------- coach / logging / measurements / feedback ----------------
-// coach* moved to bot/coach.ts, workout-log/save moved to bot/workoutSave.ts, feedback moved
-// to bot/feedbackIntake.ts (god-file split); re-exported below. handleMeasure (the only
-// "measurements" function — too small on its own for a new file) stayed here.
+// ---------------- measurements ----------------
 
 export async function handleMeasure(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;
@@ -287,14 +230,6 @@ export async function handleMeasure(ctx: MyContext, text: string) {
   await setMode(ctx, "idle");
   await reply(ctx, t(lang, "measure_saved"), menuBtn(lang));
 }
-
-// ---------------- user report ----------------
-// Moved to bot/report.ts (god-file split); re-exported below so existing `from "./bot"`
-// imports (router.ts, features/trainer/trainer.ts) keep working.
-
-// ---------------- replan / delete / export ----------------
-// Moved to bot/exportData.ts (god-file split); re-exported below so existing `from "./bot"`
-// imports (router.ts, webapp/settingsApi.ts) keep working.
 
 
 // ---------------- bot factory ----------------

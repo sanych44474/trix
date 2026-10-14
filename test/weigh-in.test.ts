@@ -20,7 +20,7 @@ test("weighInDue: not for people who don't track weight; not twice within 3 days
 test("measure mode takes a bare number as the weight (the weigh-in nudge asks for just that)", async () => {
   const { newDb, makeCtx } = await import("./harness");
   const { getOrCreateUser } = await import("../src/adapters/d1/v2Users");
-  const { handleMeasure } = await import("../src/bot");
+  const { handleMeasure } = await import("../src/bot/settingsCmds");
   const db = newDb();
   const user = await getOrCreateUser(db, 41, 41, "uk", "Ann");
   const { ctx } = makeCtx(db, user as unknown as Record<string, unknown>);

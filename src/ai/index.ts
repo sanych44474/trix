@@ -11,8 +11,6 @@ import { type AiTier, WORKERSAI_TIER_MODELS, estimateNeurons, tierFor } from "./
 import { addNeurons, addNeuronsStmt, workersaiAllowed } from "./budget";
 import { logInfo } from "../log";
 
-export { RateLimitError } from "./errors";
-export type { InlineImage } from "./errors";
 
 // A network-level blip (dropped connection, DNS hiccup) is worth one immediate retry on the
 // SAME provider before giving up on it — often cheaper/faster than escalating to the next

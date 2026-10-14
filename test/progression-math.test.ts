@@ -2,7 +2,8 @@
 // the weekly plan progression reading them. Pure.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computePlanProgression, isLowerBody, loadStep, workingSets } from "../src/domain/progression";
+import { computePlanProgression, loadStep, workingSets } from "../src/domain/progression";
+import { isLowerBody } from "../src/domain/exerciseClass";
 import { e1rm } from "../src/domain/records";
 import type { PlanDoc, SetEntry, WorkoutLogDoc } from "../src/types";
 

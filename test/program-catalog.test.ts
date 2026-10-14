@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { PROGRAMS, buildProgram, catalogBankEntries } from "../src/domain/programCatalog";
 import { selectBest } from "../src/domain/planBank";
 import { adaptPlan, finishGeneratedSplit } from "../src/domain/planAdapt";
-import { planSetsCount } from "../src/bot/guidedLog";
+import { planSetsCount } from "../src/features/workout/planTargets";
 import type { UserProfile } from "../src/types";
 
 test("catalog: 15 programs per place, men / women / everyone, three load levels each", () => {

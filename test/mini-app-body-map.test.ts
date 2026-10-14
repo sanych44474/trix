@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { exerciseParts, PRIMARY_COLOR, recentExerciseNames, REGION_MUSCLES, regionOfMuscle, SECONDARY_COLOR, weekParts, ZONE_COLORS } from "../apps/mini-app/src/logic/bodyMap";
-import { musclesForExercise } from "../apps/mini-app/src/logic/exerciseMuscles";
+import { musclesForExercise } from "../src/domain/exerciseMuscles";
 
 test("week view: each trained region is coloured by its zone; untrained ones stay base", () => {
   const parts = weekParts([

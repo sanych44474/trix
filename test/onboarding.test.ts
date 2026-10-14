@@ -3,7 +3,7 @@
 // is a real regression risk. This guards it directly instead of relying on eyeballing the diff.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { obProgress, obSteps } from "../src/bot/onboarding";
+import { obProgress, obSteps } from "../src/features/onboarding/questions";
 import type { UserProfile } from "../src/types";
 
 const FULL_PROFILE: UserProfile = {

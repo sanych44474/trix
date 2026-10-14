@@ -5,7 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
-import { applyCatalogExerciseChoice, type PendingExercise } from "../src/bot";
+import { applyCatalogExerciseChoice } from "../src/bot/exerciseCatalog";
+import { type PendingExercise } from "../src/bot/planView";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { getActivePlan, listPlanChanges, setActivePlan } from "../src/adapters/d1/v2Plans";
 import { createInjury } from "../src/adapters/d1/v2Tracking";

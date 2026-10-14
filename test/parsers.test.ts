@@ -1,32 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  applyProgression,
-  computePlanProgression,
-  deloadSets,
-  evaluateProgressionRate,
-  inQuietHours,
-  localParts,
-  nextTarget,
-  normalizeExercise,
-  muscleGroupOf,
-  resolveWeightMode,
-  parseHeightWeight,
-  parseMeasurements,
-  parseSteps,
-  parseWorkoutText,
-  parseDuration,
-  parseDistance,
-  exerciseMetric,
-  metricOfSets,
-  formatSetEntry,
-  formatRecordBest,
-  fmtDuration,
-  fmtDistance,
-  reconcileGrounding,
-  shouldDeload,
-  weeksSincePlan,
-} from "../src/domain/progression";
+import { applyProgression, computePlanProgression, evaluateProgressionRate, nextTarget, reconcileGrounding } from "../src/domain/progression";
+import { deloadSets, shouldDeload, weeksSincePlan } from "../src/domain/deload";
+import { inQuietHours, localParts } from "../src/domain/localTime";
+import { normalizeExercise, parseHeightWeight, parseMeasurements, parseSteps, parseWorkoutText, parseDuration, parseDistance } from "../src/domain/workoutText";
+import { muscleGroupOf, resolveWeightMode } from "../src/domain/exerciseClass";
+import { exerciseMetric, metricOfSets, formatSetEntry, formatRecordBest, fmtDuration, fmtDistance } from "../src/domain/setFormat";
 import type { DailyCheckinDoc, PlanDoc, PlanExercise, WorkoutLogDoc } from "../src/types";
 import { computeTargets, restDayTargets, splitMeals, solvePortions, isPlausiblePer100g, per100gCorrectionFrom, scaleMealEntry } from "../src/domain/mealplan";
 import { curatedPer100g } from "../src/ai/nutritionDb";

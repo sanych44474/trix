@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
-import { buildExportJson } from "../src/bot/exportData";
+import { buildExportJson } from "../src/features/export/exportData";
 import type { UserDoc } from "../src/types";
 
 test("buildExportJson: no activity at all -> null", async () => {

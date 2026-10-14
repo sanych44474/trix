@@ -21,12 +21,6 @@ import { renderObQuestion, sendFirstObStep } from "../onboarding/sendStep";
 import { sendOnboardingPrompt, sendOnboardingPromptTo } from "../../notify/onboardingApp";
 import { trainerCardText, startTrainerWizard } from "./trainerWizard";
 import { requireTrainer, shortCode, trainerMenu } from "./trainerCommon";
-export * from "./clientCard";
-export * from "./trainerCommon";
-export * from "./trainerInterview";
-export * from "./trainerComms";
-export * from "./programSharing";
-export * from "./trainerWizard";
 
 // ================ trainers & clients ================
 

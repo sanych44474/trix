@@ -27,10 +27,6 @@ import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/clientC
 import { monoTable, ownerReportWindows, orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "../features/owner/ownerReport";
 import { isOwner } from "../features/owner/ownerAccess";
 import { secretMatches } from "../domain/secrets";
-export * from "../features/owner/ownerRows";
-export * from "../features/owner/ownerAccess";
-export * from "./ownerVideos";
-export * from "../features/owner/ownerReport";
 
 
 // ---------------- owner / admin ----------------

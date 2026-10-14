@@ -4,7 +4,6 @@ import { aiJSON } from "./index";
 import { catalogExact } from "../domain/foodCatalog";
 import { PER100G_SCHEMA, per100gSystem, type Per100gResult } from "./prompts";
 
-export { CURATED, CURATED_NAMES, foodCategory, type FoodCategory, type Per100g } from "../domain/curatedFoods";
 import { CURATED, type Per100g } from "../domain/curatedFoods";
 
 // Cooking/prep adjectives stripped to map "grilled salmon" / "steamed broccoli" / "raw egg"

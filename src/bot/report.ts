@@ -8,10 +8,9 @@ import { escapeHtml, t } from "../locales/i18n";
 import { aiText } from "../ai";
 import * as P from "../ai/prompts";
 import { type MyContext, reply } from "../adapters/telegram/context";
-import { REPORT_DAYS } from "./commonCmds";
+import { REPORT_DAYS } from "../features/report/reportLines";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { renderBodyDynamics, reportNutritionLine } from "../features/report/reportLines";
-export { BODY_FIELDS, bodyFieldLabel, renderBodyDynamics, reportNutritionLine } from "../features/report/reportLines";
 
 export async function cmdReport(ctx: MyContext) {
   const lang = ctx.user.lang;

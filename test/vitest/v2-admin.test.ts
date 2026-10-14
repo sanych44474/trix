@@ -8,7 +8,8 @@
 // since real D1 enforces v2_accounts(id) FKs that the node:sqlite harness doesn't reliably model.
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { cohortMembersSince, dashboardExtrasBatch } from "../../src/adapters/d1/v2Admin";
+import { cohortMembersSince } from "../../src/adapters/d1/v2Analytics";
+import { dashboardExtrasBatch } from "../../src/adapters/d1/v2Admin";
 import { enqueueNotification } from "../../src/adapters/d1/v2Notifications";
 import { countCompletedSeasons, recordQuestsDone } from "../../src/adapters/d1/v2Gamification";
 

@@ -7,7 +7,8 @@
 // runGlobalJobs (scheduler.ts) against a shadowed D1 and a logging Sender.
 import { loadLearnedMuscles } from "../exerciseMuscleLearning";
 import { Bot } from "grammy";
-import { logSchedulerError, runGlobalJobs, type Sender } from "../scheduler";
+import { logSchedulerError, type Sender } from "../schedulerJobs/shared";
+import { runGlobalJobs } from "../schedulerJobs/global";
 import { isCutOver } from "./cutover";
 import { logDryRun } from "./dryrunLog";
 import type { Env } from "../types";

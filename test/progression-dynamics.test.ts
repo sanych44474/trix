@@ -1,16 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  adherenceDeloadDue,
-  buildActivityCells,
-  deloadDue,
-  complianceScore,
-  computePlanProgression,
-  fatLossGoalReached,
-  gainGoalReached,
-  nextLevel,
-  shouldLevelUp,
-} from "../src/domain/progression";
+import { adherenceDeloadDue, deloadDue } from "../src/domain/deload";
+import { buildActivityCells, complianceScore } from "../src/domain/activity";
+import { computePlanProgression } from "../src/domain/progression";
+import { fatLossGoalReached, gainGoalReached, nextLevel, shouldLevelUp } from "../src/domain/levelGoals";
 import type { PlanDoc, PlanExercise, StrengthRecordDoc, WorkoutLogDoc } from "../src/types";
 
 const wlog = (completed: boolean): WorkoutLogDoc => ({

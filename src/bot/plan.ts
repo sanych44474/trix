@@ -5,9 +5,9 @@ import { InlineKeyboard } from "grammy";
 import type { Lang, PlanDoc, UserDoc, Weekday } from "../types";
 import type { MyContext } from "../adapters/telegram/context";
 import { HTML, reply } from "../adapters/telegram/context";
-import { localizePlanNames } from "./exerciseCatalog";
+import { localizePlanNames } from "../features/exercise/catalog";
 import { saveBaselineBody } from "./planGen";
-import { videosForDays } from "./planView";
+import { videosForDays } from "../features/plan/exerciseVideos";
 import { mainMenu, menuBtn, planActionsKb } from "../adapters/telegram/keyboards";
 import { logInfo } from "../log";
 import { recordPlanSource } from "../adapters/d1/v2Analytics";
@@ -22,11 +22,9 @@ import { MATCH_THRESHOLD, selectBest } from "../domain/planBank";
 import { formatRecordBest } from "../domain/setFormat";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
 import { renderPlan } from "../render";
-import { RateLimitError } from "../ai/index";
+import { RateLimitError } from "../ai/errors";
 import { buildPlanDoc, resolveDislikedSwaps } from "../features/plan/planBuild";
-export * from "../features/plan/planBuild";
 
-export * from "../features/plan/planService";
 import { bankFallbackPlan } from "../features/plan/planService";
 
 // Client finished onboarding under a trainer: build an AI DRAFT for the trainer to review

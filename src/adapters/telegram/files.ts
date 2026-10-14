@@ -1,5 +1,5 @@
 // Downloading photos, voice notes and documents a user sent, via the Bot API file endpoint.
-import { type InlineImage } from "../../ai";
+import { type InlineImage } from "../../ai/errors";
 import type { MyContext } from "./context";
 import { fetchTelegramFile } from "./rawApi";
 

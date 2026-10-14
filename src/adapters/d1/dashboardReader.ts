@@ -32,7 +32,7 @@ import { awardAchievement, settleQuests } from "./v2Gamification";
 import { getActivePlan, listActivePlans, planStatusByUser } from "./v2Plans";
 import { listClients } from "./v2Trainer";
 import { bodyLogsByUser, getDailyCheckin, stepLogsSince, waterLogsSince } from "./v2Tracking";
-import { QUEST_XP } from "../../domain/quests";
+import { QUEST_XP } from "../../domain/gamification";
 import { evaluateWeekQuests } from "../../domain/questWeek";
 import { weeklyReport } from "../../domain/weeklyReport";
 import { countActiveSince, countOnboarded, countUsers, getUser } from "./v2Users";

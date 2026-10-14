@@ -1,7 +1,8 @@
 // Free-text routing: which handler gets a plain message, by the user's current session mode.
 import { handleAnnounce } from "./owner";
 import { handleVideoUrl } from "./ownerVideos";
-import { obProgress, onboardingStep } from "./onboarding";
+import { obProgress } from "../features/onboarding/questions";
+import { onboardingStep } from "./onboarding";
 import { handleAnswerQuestion } from "../features/trainer/trainerComms";
 import { handleTemplateName } from "../features/trainer/clientCard";
 import { handleTrainerBroadcast, trainerMenuActionFor } from "../features/trainer/trainer";

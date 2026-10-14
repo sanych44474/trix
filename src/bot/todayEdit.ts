@@ -10,9 +10,11 @@ import { menuBtn, todayWorkoutKeyboard } from "../adapters/telegram/keyboards";
 import { onError } from "../features/aiDefer";
 import { switchMode } from "../domain/session";
 import { isEditingOther, planOwnerId, reply, setMode, type MyContext } from "../adapters/telegram/context";
-import { reRenderEditDay, videosForDays } from "./planView";
+import { reRenderEditDay } from "./planView";
+import { videosForDays } from "../features/plan/exerciseVideos";
 import { extractExerciseQuery } from "../domain/exerciseDefaults";
-import { translateExerciseQueryToEnglish, searchExerciseCatalog, promptExerciseConfirmation, createExerciseCatalogEntry } from "./exerciseCatalog";
+import { translateExerciseQueryToEnglish, searchExerciseCatalog, createExerciseCatalogEntry } from "../features/exercise/catalog";
+import { promptExerciseConfirmation } from "./exerciseCatalog";
 
 export async function startAddExercise(ctx: MyContext, weekday: Weekday) {
   const lang = ctx.user.lang;

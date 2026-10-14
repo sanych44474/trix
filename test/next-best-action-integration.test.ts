@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
-import { cmdStart } from "../src/bot";
+import { cmdStart } from "../src/bot/start";
 import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";

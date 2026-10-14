@@ -6,12 +6,10 @@
 // that edge has no other home in the v2 schema — see migrations/0069_v2_core.sql).
 //
 // Schema note (migrations/0073_v2_users_complete.sql): v2_profiles.profile and
-// v2_onboarding.session are the v2-native full-fidelity JSON blobs (mirroring legacy
-// users.profile / users.session exactly) — NOT the same columns the existing shadow-parity
-// projector (src/adapters/d1/v2Projection.ts's projectUserCore) writes into v2_profiles'
-// extracted columns (name/timezone/sex/...) or v2_onboarding.step/answers. Those stay owned by
-// the projector for other, not-yet-migrated domains' parity/dashboard reads; this module never
-// reads or writes them.
+// v2_onboarding.session are the full-fidelity JSON blobs, and they are the source of truth.
+// v2_profiles' extracted columns (name/timezone/sex/...) and v2_onboarding.step/answers were
+// written by the cutover-era shadow projector, which is gone; this module never reads or writes
+// them, and readers that touch them fall back to the JSON (e.g. COALESCE(name, profile.name)).
 import type {
   Lang,
   NutritionTargets,

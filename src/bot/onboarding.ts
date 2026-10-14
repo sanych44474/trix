@@ -14,9 +14,7 @@ import { generateClientDraft, generatePlan } from "./plan";
 import type { Env, UserProfile, Weekday } from "../types";
 import { obKeyboard, obProgress, obSteps, type ObStep } from "../features/onboarding/questions";
 import { renderObQuestion } from "../features/onboarding/sendStep";
-export { renderObQuestion, sendFirstObStep, sendObStepTo } from "../features/onboarding/sendStep";
 
-export { OB_WEEKDAY_KEYS, obKeyboard, obProgress, obSteps, type ObStep } from "../features/onboarding/questions";
 
 export async function renderObStep(ctx: MyContext, i: number) {
   if (!(await renderObQuestion(ctx, i))) await finishOnboarding(ctx);

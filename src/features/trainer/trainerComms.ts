@@ -4,7 +4,8 @@
 import { localCutoff } from "../../domain/localTime";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
-import { notify, type DeliveryResult } from "../../notify";
+import { notify } from "../../notify";
+import { type DeliveryResult } from "../../schedulerOutbox";
 import type { SetEntry } from "../../types";
 import { recordAudit } from "../../adapters/d1/v2Admin";
 import { getWorkoutLog, listStrength, upsertStrengthRecord, upsertWorkoutLog, workoutLogsSince } from "../../adapters/d1/v2Workouts";

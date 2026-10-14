@@ -6,8 +6,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { aiText, RateLimitError } from "../src/ai/index";
-import { aiCallStmt } from "../src/adapters/d1/v2Admin";
+import { aiText } from "../src/ai";
+import { RateLimitError } from "../src/ai/errors";
+import { aiCallStmt } from "../src/adapters/d1/v2AiTelemetry";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import type { Env } from "../src/types";
 

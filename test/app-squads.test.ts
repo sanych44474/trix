@@ -5,7 +5,8 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import { getSquad, isAppSquad, squadsForUser } from "../src/adapters/d1/v2Gamification";
-import { announceSquadPr, postSquadDigest } from "../src/bot/squad";
+import { announceSquadPr } from "../src/features/squad/prAnnounce";
+import { postSquadDigest } from "../src/features/squad/digest";
 import { handleSquadsApi, joinByInviteCode, MAX_SQUAD_MEMBERS } from "../src/webapp/squadApi";
 import { inviteCodeFrom } from "../apps/mini-app/src/Squads";
 

@@ -6,8 +6,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
-import { coachContext, coachEditWeekday } from "../src/bot/coach";
-import { setEditOwner } from "../src/bot";
+import { coachContext } from "../src/features/coach/coachContext";
+import { coachEditWeekday } from "../src/bot/coach";
+import { setEditOwner } from "../src/adapters/telegram/context";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { applyTrainer, approveTrainer, linkClient } from "../src/adapters/d1/v2Trainer";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";

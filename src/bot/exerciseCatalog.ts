@@ -20,9 +20,7 @@ import { reRenderEditDay, PendingExercise } from "./planView";
 import { extractExerciseQuery, defaultStartWeightForExercise, defaultSetsForMetric } from "../domain/exerciseDefaults";
 import { addExerciseByName } from "./todayEdit";
 import { createExerciseCatalogEntry, exerciseInfoEntry, groundExercise } from "../features/exercise/catalog";
-export { createExerciseCatalogEntry, exerciseIdForName, exerciseInfoEntry, groundExercise, healPlanNamesForDisplay, localizePlanNames, searchExerciseCatalog, translateExerciseQueryToEnglish } from "../features/exercise/catalog";
 
-export * from "../domain/exerciseDefaults";
 
 export async function promptExerciseConfirmation(
   ctx: MyContext,
@@ -267,11 +265,6 @@ export async function handleExerciseAltText(ctx: MyContext, text: string) {
     await addExerciseByName(ctx, pending.weekday, query);
   }
 }
-
-// ---------------- warm-up editing (user + trainer/owner) ----------------
-// showWarmupEditor/saveWarmup/suggestWarmup/handleWarmupEdit moved to bot/warmup.ts (god-file
-// split). The rest of this section (below) is core plan/exercise infrastructure most other
-// bot/*.ts files depend on — stayed in the kernel.
 
 // Send full 📖 instructions + ⚠️ safety for EVERY exercise of a day as a separate message.
 // Exercises that aren't catalog-grounded yet are grounded on demand (match or AI-author) and

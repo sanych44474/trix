@@ -27,7 +27,7 @@ import { runIdempotent, WORKOUT_SAVE_WINDOW_HOURS } from "../adapters/d1/v2Idemp
 import { expensiveBucket, withinLimit } from "../limits";
 import { apiFailure, ERROR_RECORDED_HEADER } from "./apiError";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
-import { checkCronHeartbeat } from "../scheduler";
+import { checkCronHeartbeat } from "../schedulerJobs/global";
 import { logError, withHeader } from "../log";
 import { V2_ERROR_CODES, type V2ErrorCode, type V2Response } from "../contracts/v2";
 import type { Env } from "../types";

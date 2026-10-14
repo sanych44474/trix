@@ -13,7 +13,6 @@ import { cmdNutrition, cmdSteps, cmdWater } from "./nutritionCmds";
 import { handleWorkoutLog } from "./workoutSave";
 import type { Lang } from "../types";
 import { showEveningSurvey } from "../features/survey/eveningSurvey";
-export { showEveningSurvey, surveyKb, surveyRemaining, type SurveyItem } from "../features/survey/eveningSurvey";
 
 // A survey button tapped — arm the checklist for today, then launch that item's normal flow.
 // On completion the flow calls showEveningSurvey (via the session.survey flag) to continue.

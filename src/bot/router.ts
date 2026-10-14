@@ -46,12 +46,6 @@ import { onError } from "../features/aiDefer";
 import { launcherGate } from "./launcher";
 import { CB_EXACT, CB_PREFIX } from "./callbackRoutes";
 import { routeUserText } from "./textRoutes";
-export * from "./textRoutes";
-export * from "./callbackRoutes";
-export * from "../features/aiDefer";
-export * from "../adapters/telegram/files";
-export * from "./checkinCmds";
-export * from "./mealPlanCmds";
 
 export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
   "menu:today": cmdToday,

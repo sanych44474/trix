@@ -1,7 +1,8 @@
 import { Bot, } from "grammy";
 import { sendBestEffort } from "./adapters/telegram/rawApi";
 import { deliverDueNotifications } from "./schedulerOutbox";
-import { isDurable, notify, type DeliveryResult } from "./notify";
+import { isDurable, notify } from "./notify";
+import { type DeliveryResult } from "./schedulerOutbox";
 import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "./types";
@@ -51,8 +52,6 @@ import { adaptiveCheckin, cycleNudge, deloadNudge, eveningSurvey, injuryFollowUp
 import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
 import { runOncePer } from "./schedulerJobs/runOncePer";
 // Public surface kept here so existing `from "./scheduler"` imports keep working.
-export { runGlobalJobs, checkCronHeartbeat } from "./schedulerJobs/global";
-export { logSchedulerError, type Sender } from "./schedulerJobs/shared";
 import type { Sender } from "./schedulerJobs/shared";
 
 
@@ -375,7 +374,7 @@ export interface SharedPass {
   narrativeBudget: number;
   // Leaderboards memoized by the viewer's local "today" (1-2 distinct values per tick) —
   // computing them per competitor re-ran the same aggregate queries N times.
-  boardsByDay: Map<string, Promise<import("./bot").BoardsResult>>;
+  boardsByDay: Map<string, Promise<import("./features/gamification/boards").BoardsResult>>;
 }
 
 /** Single-user equivalent of the bulk SharedPass built in runScheduleInner — for a DO

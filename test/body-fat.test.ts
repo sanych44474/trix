@@ -26,7 +26,7 @@ test("latestBodyFat: combines each measurement's newest value", () => {
 });
 
 test("parseMeasurements reads the neck in both languages", async () => {
-  const { parseMeasurements } = await import("../src/domain/progression");
+  const { parseMeasurements } = await import("../src/domain/workoutText");
   assert.deepEqual(parseMeasurements("талія 82, шия 38").measurements, { waist: 82, neck: 38 });
   assert.deepEqual(parseMeasurements("waist 85 neck 39.5").measurements, { waist: 85, neck: 39.5 });
 });

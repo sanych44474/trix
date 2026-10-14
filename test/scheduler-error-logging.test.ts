@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
-import { logSchedulerError } from "../src/scheduler";
+import { logSchedulerError } from "../src/schedulerJobs/shared";
 
 // The three cutover DOs (src/durable/{user,squad,global}Scheduler.ts) each now wrap their
 // real-send call in `.catch((err) => logSchedulerError(db, "<kind>", err, id))` -- mirroring

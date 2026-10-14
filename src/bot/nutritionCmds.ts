@@ -12,15 +12,14 @@ import { aiJSON } from "../ai";
 import * as P from "../ai/prompts";
 import { localParts } from "../domain/localTime";
 import { parseSteps } from "../domain/workoutText";
-import { num, verifyItems } from "../features/nutrition/nutritionLog";
+import { num, verifyItems } from "../features/nutrition/verifyItems";
 import { isoDateMinus } from "../features/gamification/boards";
-import { showEveningSurvey } from "./survey";
+import { showEveningSurvey } from "../features/survey/eveningSurvey";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { deferAi } from "../features/aiDefer";
 import { progressBar, resolveWaterGoal } from "../domain/challenges";
 import { clearEditOwner, reply, setMode, type MyContext } from "../adapters/telegram/context";
 import { cleanFoodName } from "../domain/foodName";
-export { cleanFoodName } from "../domain/foodName";
 
 export async function cmdNutrition(ctx: MyContext) {
   await setMode(ctx, "nutrition");
@@ -286,8 +285,3 @@ export async function onWaterAction(ctx: MyContext, action: string) {
   await showWater(ctx);
   if (ctx.user.session.survey) await showEveningSurvey(ctx);
 }
-
-// ===================== Challenges =====================
-// challengeData/challengeTitle/cmdChallenges/showChallengePicker/onChallengeJoin moved to
-// features/gamification/challenges.ts; re-exported above so existing `from "./bot"` imports
-// (router.ts) keep working.

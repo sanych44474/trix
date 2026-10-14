@@ -8,8 +8,13 @@ import { getOrCreateUser, updateUser, getUser } from "../src/adapters/d1/v2Users
 import { setActivePlan, getActivePlan } from "../src/adapters/d1/v2Plans";
 import { applyTrainer, approveTrainer, updateTrainer, getTrainer, linkClient, saveTrainerTemplate } from "../src/adapters/d1/v2Trainer";
 import { getWorkoutLog } from "../src/adapters/d1/v2Workouts";
-import { setMode, startAddExercise, cmdLog, logPickExercise, handleLogDraftInput, guardLogExit, onLogExit, healPlanNamesForDisplay, setEntryRpe, logFinish, routeUserText, moveExercise } from "../src/bot";
-import { startShareSelect, toggleShareClient, shareAssignToClients, shareLink, sharePublish, takeSharedProgram } from "../src/features/trainer/trainer";
+import { setMode } from "../src/adapters/telegram/context";
+import { startAddExercise } from "../src/bot/todayEdit";
+import { cmdLog, logPickExercise, handleLogDraftInput, guardLogExit, onLogExit, setEntryRpe, logFinish } from "../src/bot/guidedLog";
+import { healPlanNamesForDisplay } from "../src/features/exercise/catalog";
+import { routeUserText } from "../src/bot/textRoutes";
+import { moveExercise } from "../src/bot/planExerciseEdit";
+import { startShareSelect, toggleShareClient, shareAssignToClients, shareLink, sharePublish, takeSharedProgram } from "../src/features/trainer/programSharing";
 import { listPublicPrograms } from "../src/adapters/d1/v2Trainer";
 import { upsertExercise, upsertExerciseTranslation } from "../src/adapters/d1/v2Catalog";
 import type { PlanDoc, UserDoc } from "../src/types";
@@ -290,7 +295,7 @@ test("exit guard: Save persists the workout before navigating on", async () => {
 // (specific prefix before its shorter parent, exact key beating a covering prefix).
 
 test("callback routing: exact keys beat covering prefixes; specific prefixes beat parents", async () => {
-  const { cbRouteFor } = await import("../src/bot");
+  const { cbRouteFor } = await import("../src/bot/callbackRoutes");
   // exact beats prefix
   assert.equal(cbRouteFor("set:compete"), "set:compete");
   assert.equal(cbRouteFor("set:body"), "set:");
@@ -316,7 +321,7 @@ test("callback routing: exact keys beat covering prefixes; specific prefixes bea
 });
 
 test("text routing: every mode is classified exactly once (no overlap)", async () => {
-  const { MODE_TEXT_HANDLERS, COACH_TEXT_MODES } = await import("../src/bot");
+  const { MODE_TEXT_HANDLERS, COACH_TEXT_MODES } = await import("../src/bot/textRoutes");
   for (const m of COACH_TEXT_MODES) {
     assert.ok(!(m in MODE_TEXT_HANDLERS), `mode "${m}" is both a text handler and a coach fallthrough`);
   }

@@ -11,7 +11,7 @@ import {
 } from "../src/domain/planBank";
 import { adaptPlan, parsePrs } from "../src/domain/planAdapt";
 import { buildTemplateMealDay, expandExclusions } from "../src/domain/mealTemplate";
-import { CURATED } from "../src/ai/nutritionDb";
+import { CURATED } from "../src/domain/curatedFoods";
 import type { BankPlan, PlanBankEntry, PlanDay, PlanExercise, UserProfile } from "../src/types";
 
 // ---------- planBank: bucketing ----------
