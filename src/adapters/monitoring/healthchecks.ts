@@ -18,8 +18,9 @@ export function healthcheckDue(outcome: CronOutcome, scheduledTime: number): boo
 
 /** The URL to ping, or null when unset or not an https URL (a typo must not become a fetch). */
 export function healthcheckUrl(base: string | undefined, outcome: CronOutcome): string | null {
-  const url = base?.trim().replace(/\/+$/, "");
-  if (!url?.startsWith("https://")) return null;
+  let url = base?.trim() ?? "";
+  while (url.endsWith("/")) url = url.slice(0, -1);
+  if (!url.startsWith("https://")) return null;
   return outcome === "fail" ? `${url}/fail` : url;
 }
 
