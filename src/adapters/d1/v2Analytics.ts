@@ -161,14 +161,16 @@ export async function setLastSeen(db: DB, userId: number, iso: string): Promise<
   await db.prepare("UPDATE v2_accounts SET lastSeenAt = ? WHERE id = ?").bind(iso, userId).run();
 }
 
+const BUMP_EVENT_SQL = `INSERT INTO v2_analytics_events (accountId, event, date, count) VALUES (?, ?, ?, 1)
+       ON CONFLICT(accountId, event, date) DO UPDATE SET count = count + 1`;
+
 export async function bumpEvent(db: DB, userId: number, event: string, day: string): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO v2_analytics_events (accountId, event, date, count) VALUES (?, ?, ?, 1)
-       ON CONFLICT(accountId, event, date) DO UPDATE SET count = count + 1`,
-    )
-    .bind(userId, event, day)
-    .run();
+  await db.prepare(BUMP_EVENT_SQL).bind(userId, event, day).run();
+}
+
+/** Several events in one round trip (the Mini App reports them in batches). */
+export async function bumpEvents(db: DB, userId: number, events: string[], day: string): Promise<void> {
+  if (events.length) await db.batch(events.map((e) => db.prepare(BUMP_EVENT_SQL).bind(userId, e, day)));
 }
 
 export async function eventStatsSince(db: DB, sinceDay: string, limit = 20): Promise<{ event: string; n: number }[]> {

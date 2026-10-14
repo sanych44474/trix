@@ -3,7 +3,7 @@
 // auth. Routed at /api/challenges, /api/injuries, /api/boards.
 import { fetchTelegramFile, telegramTry, telegramUpload } from "../adapters/telegram/rawApi";
 import { trainerCanSee } from "../domain/clientCard";
-import { bumpEvent } from "../adapters/d1/v2Analytics";
+import { bumpEvents } from "../adapters/d1/v2Analytics";
 import { getSetting } from "../adapters/d1/v2Admin";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
@@ -174,7 +174,7 @@ export async function handleAppEventApi(req: Request, url: URL, env: Env): Promi
   const events = (Array.isArray(raw) ? raw : []).filter((e): e is string => typeof e === "string" && APP_EVENT_RE.test(e)).slice(0, 10);
   if (!events.length) return Response.json({ error: "bad request" }, { status: 400 });
   const { date } = localParts(user.profile.timezone);
-  for (const e of events) await bumpEvent(env.DB, user._id, e, date).catch(() => {});
+  await bumpEvents(env.DB, user._id, events, date).catch(() => {});
   return Response.json({ ok: true, counted: events.length });
 }
 

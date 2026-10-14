@@ -59,15 +59,10 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   // Q&A inbox — list the trainer's client questions (pending first).
   if (req.method === "GET" && url.pathname === "/api/trainer/questions") {
     const qs = await listQuestionsForTrainer(env.DB, user._id, 30).catch(() => []);
-    const names = new Map<number, string>();
-    const out = [];
-    for (const q of qs) {
-      if (!names.has(q.clientId)) {
-        const c = await getUser(env.DB, q.clientId).catch(() => null);
-        names.set(q.clientId, c?.profile.name ?? `id ${q.clientId}`);
-      }
-      out.push({ id: q.id, clientId: q.clientId, client: names.get(q.clientId), text: q.text, draft: q.aiDraft ?? "", status: q.status });
-    }
+    const clientIds = [...new Set(qs.map((q) => q.clientId))];
+    const clients = await Promise.all(clientIds.map((id) => getUser(env.DB, id).catch(() => null)));
+    const names = new Map(clientIds.map((id, i) => [id, clients[i]?.profile.name ?? `id ${id}`]));
+    const out = qs.map((q) => ({ id: q.id, clientId: q.clientId, client: names.get(q.clientId), text: q.text, draft: q.aiDraft ?? "", status: q.status }));
     return Response.json({ questions: out }, { headers: { "cache-control": "no-store" } });
   }
 

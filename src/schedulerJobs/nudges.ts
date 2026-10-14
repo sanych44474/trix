@@ -20,7 +20,7 @@ import { getPlanDay } from "../domain/progression";
 import { isoWeekKey, streakRisk } from "../domain/records";
 import { stalledLifts } from "../domain/analysis";
 import { daysBetween } from "../domain/reminderTiming";
-import { weighInDue } from "../domain/weighIn";
+import { isWeighInHour, weighInDue } from "../domain/weighIn";
 import type { Weekday } from "../types";
 import { renderDay, challengeTitleText } from "../render";
 import { surveyKb, surveyRemaining } from "../features/survey/eveningSurvey";
@@ -74,10 +74,15 @@ export async function waterReminder(p: UserPass): Promise<boolean> {
 export async function streakRescue(p: UserPass): Promise<boolean> {
   const { user, db, lang, date, weekday, hour, reminderHour, remOff, sent } = p;
   const week = isoWeekKey(date);
-  if (!user.onboarded || remOff("workout") || weekday < 5 || hour < reminderHour || sent["streak_rescue"] === week) return false;
+  if (!user.onboarded || remOff("workout") || weekday < 5 || hour < reminderHour || sent["streak_rescue"] === week || sent["streak_rescue_ok"] === date) return false;
   const dates = (await workoutLogsSince(db, user._id, isoDaysAgo(120)).catch(() => [])).filter((l) => l.completed).map((l) => l.date);
   const risk = streakRisk(dates, date, user.reminders?.lastVacation);
-  if (!risk.atRisk || risk.current < 2) return false;
+  if (!risk.atRisk || risk.current < 2) {
+    // Not at risk today; only a new workout changes that, and it lowers the risk. Skip the
+    // 120-day reload on the rest of today's hourly passes.
+    p.setSent("streak_rescue_ok", date);
+    return false;
+  }
   const kb = p.appKb([[{ text: t(lang, "app_log_btn"), view: "train", fallback: "log:done" }]]);
   const r = await p.send(t(lang, "streak_rescue", { weeks: risk.current }), withKb(kb));
   // Week-keyed, so marking a dropped send would skip the rescue for the whole week.
@@ -144,7 +149,8 @@ export async function qualityAsk(p: UserPass): Promise<boolean> {
 /** Morning weigh-in (domain/weighIn): weight trackers only, 3+ days since the last weigh-in. */
 export async function weighInNudge(p: UserPass): Promise<boolean> {
   const { user, lang, date, hour, remOff, sent } = p;
-  if (!user.onboarded || remOff("weighin")) return false;
+  // Outside the morning window weighInDue is always null: skip loading the body history.
+  if (!user.onboarded || remOff("weighin") || !isWeighInHour(hour)) return false;
   const body = await p.bodyAll();
   const gap = weighInDue({
     today: date, hour,

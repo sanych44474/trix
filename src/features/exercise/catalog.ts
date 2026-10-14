@@ -60,6 +60,9 @@ export async function translateExerciseQueryToEnglish(ctx: MyContext, query: str
       user: query,
       temperature: 0.2,
       kind: "translate",
+      // The fixed prompt makes the answer depend on the query alone, and every catalog search by a
+      // non-English user asks for it: cache it like nutrition estimates.
+      cacheTtlMs: 30 * 86_400_000,
       db: ctx.db,
       userId: ctx.user._id,
     });
