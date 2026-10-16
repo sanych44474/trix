@@ -9,7 +9,7 @@ import { clampRest, density, fmtDuration, restMetricKey } from "./logic/rest";
 import { hydrateSaved } from "./logic/hydrate";
 import {
   buildSaveEntries, chooseStart, copyToLoggerExercises, countFilledSets, DENSITY_MIN_SESSION_SEC, DRAFT_KEY,
-  emptyLoggerSet, isExerciseFilled, isoDate, isoWeekday, parseDraft, plannedSetsFor, sessionElapsedSec, swapExercise,
+  emptyLoggerSet, isExerciseFilled, isoDate, isoWeekday, parseDraft, plannedSetsFor, removeLoggerSet, sessionElapsedSec, swapExercise,
   isSetFilled, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
   targetUse,
 } from "./logic/logger";
@@ -181,7 +181,7 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
   const fillPlannedAll = () => mutate((exercises) => exercises.map((exercise) => ({ ...exercise, setsDone: plannedSetsFor(exercise) })));
   const fillLast = (index: number) => mapExercise(index, (exercise) => !exercise.last?.length ? exercise : { ...exercise, setsDone: exercise.last.map((set) => ({ weight: set.w, reps: set.r, seconds: set.sec || undefined, meters: set.m || undefined })) });
   const addSet = (index: number) => mapExercise(index, (exercise) => ({ ...exercise, setsDone: [...(exercise.setsDone ?? []), emptyLoggerSet(exercise.metric)] }));
-  const removeSet = (index: number, setIndex: number) => mapExercise(index, (exercise) => ({ ...exercise, setsDone: (exercise.setsDone ?? []).filter((_, i) => i !== setIndex) }));
+  const removeSet = (index: number, setIndex: number) => mapExercise(index, (exercise) => removeLoggerSet(exercise, setIndex));
   const moveExercise = (index: number, direction: -1 | 1) => mutate((exercises) => {
     const at = exercises.findIndex((exercise) => exercise.index === index);
     const to = at + direction;
