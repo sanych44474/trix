@@ -3,6 +3,7 @@
 import type { PlanDoc, PlanExercise } from "../types";
 import { findHarderExercise, getCatalogExercise, getExerciseTranslation, listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
 import { cleanAi, t } from "../locales/i18n";
+import { logSchedulerError } from "./shared";
 
 /** Drop a "60 kg" load by ~10% (rounded to 2.5 kg) to restart progression on a plateau swap. */
 function deload10(s: string): string {
@@ -58,17 +59,22 @@ export async function applySwaps(
   const lines: string[] = [];
   const usedIds = new Set(plan.split.flatMap((d) => d.exercises.map((e) => e.exerciseId).filter(Boolean) as string[]));
   for (const { name, harder } of names) {
-    for (const day of plan.split) {
-      const i = day.exercises.findIndex((e) => e.name === name);
-      if (i < 0) continue;
-      const repl = await swapExercise(db, lang, day.exercises[i], usedIds, harder);
-      if (repl) {
-        if (repl.exerciseId) usedIds.add(repl.exerciseId);
-        const from = day.exercises[i].name;
-        day.exercises[i] = repl;
-        lines.push(t(lang as "en" | "uk", harder ? "progression_levelup_ex" : "progression_swap_ex", { from, to: repl.name }));
+    // One failed lookup (a D1 read, a catalog row) must not drop the swaps for the other names.
+    try {
+      for (const day of plan.split) {
+        const i = day.exercises.findIndex((e) => e.name === name);
+        if (i < 0) continue;
+        const repl = await swapExercise(db, lang, day.exercises[i], usedIds, harder);
+        if (repl) {
+          if (repl.exerciseId) usedIds.add(repl.exerciseId);
+          const from = day.exercises[i].name;
+          day.exercises[i] = repl;
+          lines.push(t(lang as "en" | "uk", harder ? "progression_levelup_ex" : "progression_swap_ex", { from, to: repl.name }));
+        }
+        break;
       }
-      break;
+    } catch (err) {
+      logSchedulerError(db, "plateau_swap", err);
     }
   }
   return lines;

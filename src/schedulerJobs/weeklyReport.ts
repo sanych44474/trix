@@ -60,29 +60,34 @@ export async function weeklyReport(p: UserPass): Promise<void> {
       const cutoff = isoDaysAgo(7);
       const lines = [t(lang, "digest_header")];
       for (const c of clients) {
-        const plan = pass.planByUser.get(c._id) ?? null;
-        const streakLogs = await workoutLogsSince(db, c._id, isoDaysAgo(45));
-        const logs = streakLogs.filter((l) => l.date >= cutoff); // 7-day slice of the 45-day pull
-        const done = logs.filter((l) => l.completed).length;
-        const skipped = logs.filter((l) => !l.completed).length;
-        const planned = plan?.split.length ?? 0;
-        const planWeekdays = new Set((plan?.split ?? []).map((d) => d.weekday));
-        const offPlan = logs.filter((l) => l.completed && planWeekdays.size > 0 && !planWeekdays.has(l.weekday)).length;
-        const streak = weekStreak(streakLogs.filter((l) => l.completed).map((l) => l.date), date, c.reminders?.lastVacation);
-        // Traffic-light at a glance: hit the plan / partial / nothing.
-        const emoji = planned > 0 ? (done >= planned ? "🟢" : done >= 1 ? "🟡" : "🔴") : done >= 1 ? "🟢" : "⚪";
-        const who = (c.flagged ? "⚠️ " : "") + escapeHtml(c.profile.name ?? `id ${c._id}`);
-        lines.push(
-          t(lang, "digest_line", {
-            emoji,
-            name: who,
-            done,
-            planned: planned || done,
-            skipped,
-            streak,
-            offplan: offPlan > 0 ? t(lang, "digest_offplan", { n: offPlan }) : "",
-          }),
-        );
+        // One client's bad data must not drop the other clients' lines from the trainer's digest.
+        try {
+          const plan = pass.planByUser.get(c._id) ?? null;
+          const streakLogs = await workoutLogsSince(db, c._id, isoDaysAgo(45));
+          const logs = streakLogs.filter((l) => l.date >= cutoff); // 7-day slice of the 45-day pull
+          const done = logs.filter((l) => l.completed).length;
+          const skipped = logs.filter((l) => !l.completed).length;
+          const planned = plan?.split.length ?? 0;
+          const planWeekdays = new Set((plan?.split ?? []).map((d) => d.weekday));
+          const offPlan = logs.filter((l) => l.completed && planWeekdays.size > 0 && !planWeekdays.has(l.weekday)).length;
+          const streak = weekStreak(streakLogs.filter((l) => l.completed).map((l) => l.date), date, c.reminders?.lastVacation);
+          // Traffic-light at a glance: hit the plan / partial / nothing.
+          const emoji = planned > 0 ? (done >= planned ? "🟢" : done >= 1 ? "🟡" : "🔴") : done >= 1 ? "🟢" : "⚪";
+          const who = (c.flagged ? "⚠️ " : "") + escapeHtml(c.profile.name ?? `id ${c._id}`);
+          lines.push(
+            t(lang, "digest_line", {
+              emoji,
+              name: who,
+              done,
+              planned: planned || done,
+              skipped,
+              streak,
+              offplan: offPlan > 0 ? t(lang, "digest_offplan", { n: offPlan }) : "",
+            }),
+          );
+        } catch (err) {
+          logSchedulerError(db, "trainer_digest", err, c._id);
+        }
       }
       await send(lines.join("\n"));
     }
