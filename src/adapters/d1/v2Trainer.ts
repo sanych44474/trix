@@ -298,7 +298,7 @@ export async function updateTrainer(
 
 // ---------- personal prospect invites (minimal "add a client before they've joined") ----------
 
-export interface ProspectDoc {
+interface ProspectDoc {
   code: string;
   trainerId: number;
   name: string;

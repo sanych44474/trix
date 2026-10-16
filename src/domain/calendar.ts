@@ -53,7 +53,7 @@ export function monthTitle(ym: string, lang: Lang): string {
   return `${(lang === "uk" ? MONTHS_UK : MONTHS_EN)[m - 1]} ${y}`;
 }
 
-export interface DayCtx {
+interface DayCtx {
   today: string;
   plannedWeekdays: Set<number>;
   logs: Map<string, { completed: boolean }>;

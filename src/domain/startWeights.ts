@@ -132,7 +132,7 @@ function parseKg(s: string): number | undefined {
   return m ? parseFloat(m[1]!.replace(",", ".")) : undefined;
 }
 
-export interface WeightProfile {
+interface WeightProfile {
   level?: "beginner" | "intermediate" | "advanced";
   baselineLifts?: string;
   weightKg?: number;

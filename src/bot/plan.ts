@@ -196,7 +196,7 @@ export async function generatePlan(ctx: MyContext, profile: UserDoc["profile"], 
 // Heavy plan build + activation + delivery. Runs in the background (waitUntil) or, if that
 // dies, is re-run by the cron plan-pending sweep (finalizeOnboardingPlan). On success it
 // flips mode→idle so the sweep won't double-process.
-export async function deliverPlan(ctx: MyContext, profile: UserDoc["profile"], prs?: string) {
+async function deliverPlan(ctx: MyContext, profile: UserDoc["profile"], prs?: string) {
   const lang = ctx.user.lang;
   const wasOnboarded = ctx.user.onboarded; // captured before any mutation below -- see docs/slos.md
   try {
@@ -241,7 +241,7 @@ export async function onPlanRegenAi(ctx: MyContext) {
   ctx.waitUntil(regenPlanAi(ctx));
 }
 
-export async function regenPlanAi(ctx: MyContext) {
+async function regenPlanAi(ctx: MyContext) {
   const lang = ctx.user.lang;
   try {
     await ctx.replyWithChatAction("typing").catch(() => {});

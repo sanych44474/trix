@@ -112,7 +112,7 @@ export async function countPlanSourcesSince(db: DB, cutoff: string): Promise<{ k
 /** All of a user's logged activity since `cutoff`, fetched in ONE parallel round-trip. Report
  * (`cmdReport`) and export (`buildExportMd`) built the identical 6-7 read fan-out separately —
  * this collapses that duplication so a new logged metric is added in exactly one place. */
-export interface ActivitySnapshot {
+interface ActivitySnapshot {
   workouts: WorkoutLogDoc[];
   nutrition: NutritionLogDoc[];
   strength: StrengthRecordDoc[];

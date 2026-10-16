@@ -30,12 +30,12 @@ const CLAIM_STALE_MS = 30_000; // a request realistically never runs this long -
 // "processing" row means the original claimant crashed between claiming and completing, so it's
 // safe to take over rather than leave the key permanently wedged until the 24h window lapses.
 
-export interface CachedResponse {
+interface CachedResponse {
   status: number;
   response: unknown;
 }
 
-export type ClaimResult =
+type ClaimResult =
   | { claimed: true } // this call owns the key -- run the handler, then completeIdempotencyClaim
   | { claimed: false; cached: CachedResponse } // another attempt already finished -- replay it
   | { claimed: false; cached: null }; // another attempt is genuinely in flight right now -- retry shortly
@@ -96,7 +96,7 @@ export async function completeIdempotencyClaim(db: DB, userId: number, key: stri
 
 /** Gives a claim back after a failed attempt, so a retry with the same key runs fresh instead of
  * replaying the failure for the whole window. Only a claim that is still "processing" is removed. */
-export async function releaseIdempotencyClaim(db: DB, userId: number, key: string): Promise<void> {
+async function releaseIdempotencyClaim(db: DB, userId: number, key: string): Promise<void> {
   await db.prepare("DELETE FROM v2_idempotency WHERE accountId = ? AND key = ? AND state = 'processing'").bind(userId, key).run();
 }
 

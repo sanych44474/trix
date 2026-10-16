@@ -21,7 +21,7 @@ import { nowIso, type DB } from "./shared";
 /** The remindersOff key that silences every background message, not one reminder type. */
 export const ALL_NOTIFICATIONS = "all";
 
-export interface OutboxPayload {
+interface OutboxPayload {
   text: string;
   extra?: unknown; // grammY SendMessage `other` param (parse_mode, reply_markup, ...) — opaque here
 }

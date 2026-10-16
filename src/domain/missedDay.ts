@@ -2,7 +2,7 @@
 // atrisk.ts's missedConsecutiveWorkouts (which waits for TWO consecutive misses before alerting
 // a trainer): this fires on the very first miss, for the solo/trainer-own user themselves, and
 // picks which recovery option to lead with instead of just flagging the gap.
-export type MissedDayOption = "makeup" | "shorten" | "deload";
+type MissedDayOption = "makeup" | "shorten" | "deload";
 
 /**
  * Rank the three recovery options for a single missed day, given how busy the recent stretch

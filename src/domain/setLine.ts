@@ -12,12 +12,12 @@
 //                       the caller falls back to asking reps (kind "weight")
 import type { SetEntry } from "../types";
 
-export interface SetLineOpts {
+interface SetLineOpts {
   defaultSets: number; // plan's set count, used when the line doesn't state one
   bodyweight?: boolean; // plan prescribes bodyweight → a bare number means reps
 }
 
-export type SetLineResult =
+type SetLineResult =
   | { kind: "sets"; sets: SetEntry[] }
   | { kind: "weight"; weight: number } // partial input — ask reps next
   | null;

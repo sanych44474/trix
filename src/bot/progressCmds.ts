@@ -175,7 +175,7 @@ export async function cmdStandards(ctx: MyContext) {
 
 // Weight-goal projection line for the progress screen — trend toward the user's target, ETA when
 // on track. Returns null when no goal is set or there's too little weight history.
-export function weightGoalLine(ctx: MyContext, weights: { date: string; weight: number }[]): string | null {
+function weightGoalLine(ctx: MyContext, weights: { date: string; weight: number }[]): string | null {
   const lang = ctx.user.lang;
   const goal = ctx.user.profile.goalWeight;
   if (!goal || goal <= 0) return null;
@@ -189,11 +189,11 @@ export function weightGoalLine(ctx: MyContext, weights: { date: string; weight: 
   return t(lang, "goal_off_track", { current: Math.round(p.current), goal, trend });
 }
 
-export const VOL_GROUP_LABEL: Record<string, TKey> = {
+const VOL_GROUP_LABEL:Record<string, TKey> = {
   legs: "mg_legs", back: "mg_back", chest: "mg_chest", shoulders: "mg_shoulders", arms: "mg_arms", core: "mg_core",
 };
 
-export const VOL_ZONE_EMOJI: Record<string, string> = { below: "🔻", optimal: "✅", above: "🔺" };
+const VOL_ZONE_EMOJI:Record<string, string> = { below: "🔻", optimal: "✅", above: "🔺" };
 
 // Weekly training volume (working sets) per muscle group vs. MEV/MAV landmarks.
 export async function cmdVolume(ctx: MyContext) {
@@ -299,7 +299,7 @@ export async function onMacrosSuggest(ctx: MyContext) {
 }
 
 // POST a QuickChart config and upload the PNG (used by overview + per-exercise charts).
-export async function sendChartPng(ctx: MyContext, chart: string) {
+async function sendChartPng(ctx: MyContext, chart: string) {
   try {
     const res = await fetch("https://quickchart.io/chart", {
       method: "POST",
@@ -318,7 +318,7 @@ export async function sendChartPng(ctx: MyContext, chart: string) {
 }
 
 // Tracked lifts with ≥2 weighted sessions — the ones that can form a per-exercise trend line.
-export async function chartableLifts(ctx: MyContext) {
+async function chartableLifts(ctx: MyContext) {
   return (await listStrength(ctx.db, ctx.user._id)).filter(
     (r) => r.metric !== "time" && r.metric !== "distance" && r.history.filter((h) => h.weight > 0).length >= 2,
   );

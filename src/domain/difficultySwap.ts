@@ -5,7 +5,7 @@ import type { CatalogExercise, PlanExercise } from "../types";
 
 const LEVEL_ORDER = ["beginner", "intermediate", "advanced", "expert"];
 
-export interface DifficultySwapOutcome {
+interface DifficultySwapOutcome {
   exercises: PlanExercise[];
   swappedCount: number;
 }

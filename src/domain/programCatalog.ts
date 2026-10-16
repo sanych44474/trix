@@ -11,8 +11,8 @@
 // into the person's own start weights (beginners pick by feel, baseline lifts calibrate).
 import type { BankPlan, ExperienceLevel, GoalBucket, Lang, PlanBankEntry, PlanDay, PlanExercise, Weekday } from "../types";
 
-export type ProgramPlace = "gym" | "dumbbells" | "bodyweight";
-export type ProgramAudience = "men" | "women" | "all";
+type ProgramPlace = "gym" | "dumbbells" | "bodyweight";
+type ProgramAudience = "men" | "women" | "all";
 type Bi = { en: string; uk: string };
 type Kind = "kg" | "bw" | "time";
 
@@ -125,7 +125,7 @@ const EX = {
   skater_jump: { en: "Skater Jumps", uk: "Стрибки ковзаняра", kind: "bw", muscles: "glutes, cardio", cue: { en: "Leap side to side, land softly on one leg.", uk: "Стрибки з боку в бік, м'яко на одну ногу." } },
 } satisfies Record<string, ExerciseDef>;
 
-export type ExerciseKey = keyof typeof EX;
+type ExerciseKey = keyof typeof EX;
 
 /** One exercise slot: a key, or a different exercise per load level (easier → harder). */
 type Slot = ExerciseKey | { b: ExerciseKey; i: ExerciseKey; a: ExerciseKey };
@@ -415,7 +415,7 @@ const DURATION: Record<Style, [number, number, number]> = {
   strength: [45, 60, 75], muscle: [45, 60, 70], glutes: [45, 55, 65], toned: [30, 40, 45], conditioning: [25, 35, 40],
 };
 
-export interface CatalogProgram {
+interface CatalogProgram {
   id: string;
   styleId: string;
   place: ProgramPlace;

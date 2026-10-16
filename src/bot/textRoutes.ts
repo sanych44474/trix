@@ -45,7 +45,7 @@ import { handleAdaptiveCheckin } from "./checkinCmds";
 // makes adding a new SessionMode a compile error until it's placed here, so a mode can no
 // longer silently leak typed text into the AI coach (the "answered 32 to the trainer" family
 // of bugs).
-export type TextHandler = (ctx: MyContext, text: string) => Promise<unknown>;
+type TextHandler = (ctx: MyContext, text: string) => Promise<unknown>;
 
 export const MODE_TEXT_HANDLERS = {
   onboarding: (ctx, text) => onboardingStep(ctx, text),
@@ -111,13 +111,13 @@ export const COACH_TEXT_MODES = [
 ] as const satisfies readonly SessionMode[];
 
 // Compile-time exhaustiveness: this type is `never` only when every SessionMode is classified.
-export type _ModeUnclassified = Exclude<SessionMode, keyof typeof MODE_TEXT_HANDLERS | (typeof COACH_TEXT_MODES)[number]>;
+type _ModeUnclassified = Exclude<SessionMode, keyof typeof MODE_TEXT_HANDLERS | (typeof COACH_TEXT_MODES)[number]>;
 
-export const _assertAllModesClassified: _ModeUnclassified[] = []; // becomes unassignable if a mode is missed
+const _assertAllModesClassified: _ModeUnclassified[] = []; // becomes unassignable if a mode is missed
 void _assertAllModesClassified;
 
 // Modes a NOT-yet-onboarded athlete may legitimately be in; anything else is drift → pull back.
-export const PRE_ONBOARD_MODES = new Set<SessionMode>(["onboarding", "plan_pending", "role_pick", "client_code", "trainer_setup"]);
+const PRE_ONBOARD_MODES =new Set<SessionMode>(["onboarding", "plan_pending", "role_pick", "client_code", "trainer_setup"]);
 
 export async function routeUserText(ctx: MyContext, text: string) {
   const mode = ctx.user.session.mode;

@@ -12,7 +12,7 @@ const FLOOR_KCAL = { female: 1200, male: 1500 } as const;
 const CEIL_KCAL = 4500;
 const ON_PACE_TOLERANCE = 0.15; // kg/week
 
-export interface CalorieAdjustInput {
+interface CalorieAdjustInput {
   currentCalories: number;
   goalWeight: number;
   /** Recent bodyweight logs, date ASC, within the lookback window. */
@@ -23,7 +23,7 @@ export interface CalorieAdjustInput {
   sex?: "male" | "female"; // the floor: 1500 kcal for men, 1200 for women (and when unknown)
 }
 
-export interface CalorieAdjustment {
+interface CalorieAdjustment {
   newCalories: number;
   deltaKcal: number; // signed change applied
   slopePerWeek: number; // actual trend

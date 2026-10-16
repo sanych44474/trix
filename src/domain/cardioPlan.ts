@@ -2,10 +2,10 @@
 // session templates. Pure + testable; the bot renders these into a followable session and the
 // existing cardio logger records the actual time/distance afterwards.
 
-export interface HrZone { z: number; name: string; loPct: number; hiPct: number }
+interface HrZone { z: number; name: string; loPct: number; hiPct: number }
 
 // Standard 5-zone model as % of max HR (max ≈ 220 − age, Fox formula).
-export const HR_ZONES: HrZone[] = [
+const HR_ZONES: HrZone[] = [
   { z: 1, name: "recovery", loPct: 50, hiPct: 60 },
   { z: 2, name: "endurance", loPct: 60, hiPct: 70 },
   { z: 3, name: "tempo", loPct: 70, hiPct: 80 },
@@ -24,8 +24,8 @@ export function zoneBpm(age: number, z: number): { lo: number; hi: number } {
   return { lo: Math.round((hr * zone.loPct) / 100), hi: Math.round((hr * zone.hiPct) / 100) };
 }
 
-export interface CardioStep { label: string; minutes: number; zone: number; reps?: number }
-export interface CardioTemplate {
+interface CardioStep { label: string; minutes: number; zone: number; reps?: number }
+interface CardioTemplate {
   key: string;
   emoji: string;
   totalMin: number; // approximate total duration

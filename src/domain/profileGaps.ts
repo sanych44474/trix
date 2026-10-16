@@ -4,7 +4,7 @@
 // engine uses defaults (mealplan.computeTargets: 75 kg, 175 cm, 30 y, light activity).
 import type { UserProfile } from "../types";
 
-export type ProfileGap = "sex" | "age" | "heightCm" | "weightKg" | "sessionMinutes" | "lifestyle" | "dietPrefs";
+type ProfileGap = "sex" | "age" | "heightCm" | "weightKg" | "sessionMinutes" | "lifestyle" | "dietPrefs";
 
 /** The gaps in the order the card asks them: the ones that move calories the most first. */
 export function profileGaps(p: UserProfile): ProfileGap[] {

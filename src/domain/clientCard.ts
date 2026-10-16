@@ -4,7 +4,7 @@
 
 import type { UserProfile } from "../types";
 
-export type ShareKey = "body" | "health";
+type ShareKey = "body" | "health";
 
 /** Strict opt-in: only an explicit `true` grants visibility (absent/false = hidden). */
 export function trainerCanSee(profile: UserProfile, key: ShareKey): boolean {

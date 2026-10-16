@@ -19,12 +19,12 @@ import { generateMealDayFor } from "../features/nutrition/mealDay";
 // Quick nutrition intake (checkin-style buttons): allergens → likes → dislikes, then generate.
 export const MP_ALLERGENS = ["lactose", "gluten", "nuts", "eggs", "seafood", "soy"] as const;
 
-export const MP_ALLERGEN_KEY: Record<string, TKey> = {
+const MP_ALLERGEN_KEY:Record<string, TKey> = {
   lactose: "mp_al_lactose", gluten: "mp_al_gluten", nuts: "mp_al_nuts",
   eggs: "mp_al_eggs", seafood: "mp_al_seafood", soy: "mp_al_soy",
 };
 
-export function mpAllergenKb(lang: Lang, selected: string[]): InlineKeyboard {
+function mpAllergenKb(lang: Lang, selected: string[]): InlineKeyboard {
   const sel = new Set(selected);
   const kb = new InlineKeyboard();
   MP_ALLERGENS.forEach((a, idx) => {
@@ -34,7 +34,7 @@ export function mpAllergenKb(lang: Lang, selected: string[]): InlineKeyboard {
   return kb.row().text(t(lang, "mp_al_none"), "mpa:none").text(t(lang, "ob_done"), "mpa:done");
 }
 
-export const mpSkipKb = (lang: Lang) => new InlineKeyboard().text(t(lang, "mp_skip"), "mp:skip");
+const mpSkipKb =(lang: Lang) => new InlineKeyboard().text(t(lang, "mp_skip"), "mp:skip");
 
 export async function cmdMealPlan(ctx: MyContext) {
   const lang = ctx.user.lang;
@@ -184,7 +184,7 @@ export async function startMealGeneration(ctx: MyContext) {
   ctx.waitUntil(deliverMealPlan(ctx, targets));
 }
 
-export async function generateMealDay(
+async function generateMealDay(
   ctx: MyContext,
   targets: NutritionTargets,
   mealsPerDay: number,
@@ -196,7 +196,7 @@ export async function generateMealDay(
   return generateMealDayFor(ctx.env, ctx.db, ctx.user.lang, ctx.user.profile, ctx.user._id, targets, mealsPerDay, excluded, likes, useAi, seedOffset);
 }
 
-export function mealPlanSharedInputs(ctx: MyContext) {
+function mealPlanSharedInputs(ctx: MyContext) {
   const p = ctx.user.profile;
   const excluded = [p.allergies, p.dietPrefs, p.foodDislikes]
     .filter((x) => x && x.toLowerCase() !== "none")
@@ -231,9 +231,9 @@ export async function deliverMealPlan(ctx: MyContext, targets: NutritionTargets,
 // (round-robin) instead of the single day the default flow builds. Template-only (free, instant)
 // -- generating 7 independent AI days would be 7x the cost for a feature whose whole point is
 // reusing the SAME ingredients across days, which the rotation already gives for free.
-export const WEEKLY_TEMPLATE_COUNT = 3;
+const WEEKLY_TEMPLATE_COUNT = 3;
 
-export const WEEKLY_DAYS = 7;
+const WEEKLY_DAYS = 7;
 
 export async function deliverWeeklyMealPlan(ctx: MyContext, targets: NutritionTargets) {
   const lang = ctx.user.lang;

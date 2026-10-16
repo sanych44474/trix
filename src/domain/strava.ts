@@ -43,7 +43,7 @@ export function activityKind(a: Pick<StravaActivity, "sport_type" | "type">): Ki
   return t ? "other" : null;
 }
 
-export function activityDate(a: StravaActivity): string {
+function activityDate(a: StravaActivity): string {
   return a.start_date_local.slice(0, 10);
 }
 

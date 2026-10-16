@@ -2,7 +2,7 @@
 // new device, shown as "answered/total" in the owner console, deleted on completion.
 import { nowIso } from "./shared";
 
-export interface OnboardingDraft {
+interface OnboardingDraft {
   answers: string;
   answered: number;
   total: number;

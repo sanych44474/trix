@@ -43,7 +43,7 @@ function prFor(ex: PlanExercise, prs: Map<string, number>): number | undefined {
   return undefined;
 }
 
-export interface AdaptOpts {
+interface AdaptOpts {
   prs?: string;
   /** Disliked/contraindicated swaps resolved by the caller (EN+UK already attached). Keyed by
    * the lowercased original exercise name OR canonicalName. Only the movement fields

@@ -11,7 +11,7 @@ export function computeBackoffMs(attempts: number): number {
   return Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** Math.max(0, attempts - 1));
 }
 
-export interface SendErrorInfo {
+interface SendErrorInfo {
   /** Telegram Bot API error_code, when the failure was a GrammyError (an API-level rejection,
    * as opposed to a network/HTTP failure reaching Telegram at all). */
   errorCode?: number;
@@ -19,7 +19,7 @@ export interface SendErrorInfo {
   retryAfterSeconds?: number;
 }
 
-export type DeliveryOutcome =
+type DeliveryOutcome =
   | { kind: "sent" }
   | { kind: "blocked" } // 403 — the chat is gone (user blocked the bot); never retry
   | { kind: "retry"; nextAttemptAt: Date }

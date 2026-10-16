@@ -66,7 +66,7 @@ export async function pingIncompleteOnboarding(env: Env, db: D1Database): Promis
 }
 
 // Save a value to the profile, advance the wizard, render the next step (or finish).
-export async function obApplyAndAdvance(ctx: MyContext, step: ObStep, raw: string | number) {
+async function obApplyAndAdvance(ctx: MyContext, step: ObStep, raw: string | number) {
   const profile = { ...ctx.user.profile };
   if (step.field === "daysPerWeek") profile.daysPerWeek = Number(raw);
   else if (step.field === "age") profile.age = Number(raw);
@@ -198,7 +198,7 @@ export async function onboardingStep(ctx: MyContext, userText?: string) {
 const funnel = (ctx: MyContext, event: string) =>
   bumpEvent(ctx.db, ctx.user._id, event, localParts(ctx.user.profile.timezone).date).catch(() => {});
 
-export async function finishOnboarding(ctx: MyContext) {
+async function finishOnboarding(ctx: MyContext) {
   const profile = ctx.user.profile;
   ctx.waitUntil(funnel(ctx, "funnel_onboarding_finished"));
   // Park in plan_pending (not idle) before the slow AI call so a Worker timeout

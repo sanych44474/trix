@@ -11,7 +11,7 @@ export interface CohortMember {
   trainedWeeks: number[]; // week offsets since joining with a completed workout (0 = days 0–6)
 }
 
-export interface CohortRow {
+interface CohortRow {
   cohort: string; // Monday of the signup week, or "all"
   size: number;
   rates: Array<number | null>; // per RETENTION_WEEKS entry, 0–100; null = too young to tell

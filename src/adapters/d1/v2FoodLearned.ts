@@ -4,7 +4,7 @@
 import { foodTokens, normalizeFood, stem } from "../../domain/foodCatalog";
 import { nowIso } from "./shared";
 
-export interface LearnedFood {
+interface LearnedFood {
   name: string;
   brand: string;
   per100: { kcal: number; p: number; f: number; c: number };
@@ -22,7 +22,7 @@ const toFood = (r: Row): LearnedFood => ({
   source: r.source,
 });
 
-export const learnedId = (name: string, brand: string) => `${normalizeFood(name)}|${normalizeFood(brand)}`;
+const learnedId = (name: string, brand: string) => `${normalizeFood(name)}|${normalizeFood(brand)}`;
 
 /** Upsert foods (one batch). Values must already be validated per-100 g numbers. */
 export async function rememberFoods(db: D1Database, foods: LearnedFood[]): Promise<void> {

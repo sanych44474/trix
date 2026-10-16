@@ -54,7 +54,7 @@ const ALLOWED: Record<Kit, Set<Gear>> = {
   bodyweight: new Set<Gear>([]),
 };
 
-export interface FitExercise {
+interface FitExercise {
   name: string;
   canonicalName?: string;
   sets: string;
@@ -116,7 +116,7 @@ const OUTDOOR_CARDIO: Sub = { ...s("Brisk walk or run outdoors", "Швидка �
 export const SELF_SELECT_WEIGHT = { uk: "підбери вагу", en: "pick a weight" } as const;
 const BODYWEIGHT_LABEL = { uk: "Власна вага", en: "Bodyweight" } as const;
 
-export interface KitSwap { weekday: number; from: string; to: string }
+interface KitSwap { weekday: number; from: string; to: string }
 
 /** A hold or cardio stand-in is done for time: "3 × 10" reps becomes "3 × 30–45 s". */
 function timedSets(sets: string, kind: "hold" | "cardio", lang: "uk" | "en"): string {

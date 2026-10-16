@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-export const COACH_ACTION_KINDS = ["add", "delete", "swap", "weight", "sets", "harder", "easier", "feedback", "none"] as const;
-export type CoachActionKind = (typeof COACH_ACTION_KINDS)[number];
+const COACH_ACTION_KINDS =["add", "delete", "swap", "weight", "sets", "harder", "easier", "feedback", "none"] as const;
+type CoachActionKind = (typeof COACH_ACTION_KINDS)[number];
 
-export interface CoachAction {
+interface CoachAction {
   label: string;
   kind: CoachActionKind;
   weekday?: number;

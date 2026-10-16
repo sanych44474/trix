@@ -289,7 +289,7 @@ export async function dailyCheckinsSince(db: DB, userId: number, cutoff: string)
 
 // ---------------- progress photos (Mini App gallery; bytes proxied via /api/photo) ----------------
 
-export interface ProgressPhotoRow { id: number; userId: number; fileId: string; takenAt: string }
+interface ProgressPhotoRow { id: number; userId: number; fileId: string; takenAt: string }
 
 interface V2ProgressPhotoRow { id: number; accountId: number; legacyFileId: string; takenAt: string }
 function toProgressPhoto(r: V2ProgressPhotoRow): ProgressPhotoRow {

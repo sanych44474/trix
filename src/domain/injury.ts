@@ -98,7 +98,7 @@ export interface ExerciseLike {
   muscles?: string;
   movementPattern?: string;
 }
-export interface ConflictSlot {
+interface ConflictSlot {
   weekday: number;
   index: number;
   exercise: ExerciseLike;

@@ -12,7 +12,7 @@ export async function insertFeedback(
     .run();
 }
 
-export interface FeedbackRow {
+interface FeedbackRow {
   id: number;
   userId: number;
   username?: string;
