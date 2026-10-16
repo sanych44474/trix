@@ -1,12 +1,12 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { OfflineSync } from "./OfflineSync";
 import { InboxBell, InboxView } from "./Inbox";
-import { api, ApiError, typedBody } from "./api";
-import type { RequestBody, Dashboard, RecoveryFactor, RecoveryLabel } from "./types";
+import { ApiError } from "./api";
+import type { RequestBody, Dashboard } from "./types";
 import { guessLang, hasLang, loadLang, t, type Key, type Lang } from "./i18n";
-import { WhatsNewCard } from "./WhatsNew";
-import { FineTuneCard } from "./FineTuneCard";
-import { BadgeCelebration, WeekCard, WeekSummaryCard } from "./Week";
+import { BadgeCelebration } from "./Week";
+import { TodayView } from "./Today";
+import { Icon, type IconName } from "./icons";
 import { track } from "./logic/track";
 import { navigationFor, viewFromSearch, type View } from "./logic/navigation";
 import { DASHBOARD_CACHE_KEY, useDashboard } from "./useDashboard";
@@ -24,6 +24,18 @@ const loadTrainView = () => import("./TrainView");
 const TrainView = lazy(() => loadTrainView().then((m) => ({ default: m.TrainView })));
 const CoachView = lazy(() => import("./workspace/AiCoachView").then((m) => ({ default: m.AiCoachView })));
 const LibraryView = lazy(() => import("./Library").then((m) => ({ default: m.LibraryView })));
+
+/** "Friday, 16 October" in the person's language, for the top bar. The weekday is formatted on
+ *  its own: inside a full date ICU inflects it ("пʼятницю"), alone it is the plain name. */
+function longDate(lang: Lang, iso: string): string {
+  try {
+    const locale = lang === "uk" ? "uk-UA" : "en-GB";
+    const date = new Date(`${iso}T12:00:00Z`);
+    const weekday = new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(date);
+    const dayMonth = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", timeZone: "UTC" }).format(date);
+    return `${weekday.charAt(0).toLocaleUpperCase()}${weekday.slice(1)}, ${dayMonth}`;
+  } catch { return iso; }
+}
 
 function navLabel(lang: Lang, view: View): string {
   return t(lang, view === "today" ? "nav_today" : view === "train" ? "nav_train" : view === "plan" ? "nav_plan" : view === "fuel" ? "nav_fuel" : view === "progress" ? "nav_progress" : view === "role" ? "nav_role" : view === "more" ? "nav_more" : "nav_settings");
@@ -50,77 +62,10 @@ export function ErrorState({ lang, error, retry }: { lang: Lang; error: unknown;
   return <Card tone="muted"><div className="error-state"><strong>{message}</strong><button className="button button-ghost" onClick={retry}>{t(lang, "retry")}</button></div></Card>;
 }
 
-// The dashboard sends stable recovery codes (src/domain/recovery.ts), never prose -- rendered here.
-const recoveryLabel = (lang: Lang, label: RecoveryLabel) => t(lang, `recovery_label_${label}` as Key);
-const recoveryFactor = (lang: Lang, factor: RecoveryFactor) => t(lang, `recovery_factor_${factor.code}` as Key, { n: factor.count ?? 0 });
-
 // PlanView's exercise.wmode is a stable code ("total"|"perSide"|"perHand", planApi.ts) rendered
-// straight into a sentence -- same class of bug as the recovery/volume codes above.
+// straight into a sentence -- same class of bug as the recovery/volume codes Today renders.
 export const wmodeLabel = (lang: Lang, wmode: "total" | "perSide" | "perHand") =>
   t(lang, wmode === "perSide" ? "wmode_persidem" : wmode === "perHand" ? "wmode_perhandm" : "wmode_total");
-
-// "Chest is still recovering -- swap today with Thursday's legs?" (dashboard.recoverySwap, computed
-// server-side from the plan and recent logs). One tap trades the two plan days' weekdays.
-function RecoverySwapCard({ lang, swap, onDone }: { lang: Lang; swap: NonNullable<Dashboard["recoverySwap"]>; onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
-  const muscles = swap.tired.map((slug) => t(lang, `muscle_${slug.replace("-", "_")}` as Key).toLowerCase()).join(", ");
-  const apply = async () => {
-    setBusy(true); setError(null);
-    try {
-      await api("/api/v2/plan", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editPlan">({ action: "dayswap", weekday: swap.weekday, other: swap.other }) });
-      onDone();
-    } catch (err) { setError(err); } finally { setBusy(false); }
-  };
-  return <Card tone="accent">
-    <div className="section-head"><div><span className="eyebrow">{t(lang, "rswap_eyebrow")}</span><h2>{t(lang, "rswap_title", { muscles })}</h2></div></div>
-    <p>{t(lang, "rswap_body", { because: swap.because.join(", "), other: t(lang, WEEKDAY_KEYS[swap.other - 1]), otherGroup: swap.otherGroup, todayGroup: swap.todayGroup })}</p>
-    {error !== null && <p className="muted">{t(lang, "generic_error")}</p>}
-    <div className="button-row">
-      <button className="button button-primary" disabled={busy} onClick={() => void apply()}>{busy ? t(lang, "saving_ellipsis") : t(lang, "rswap_btn", { other: t(lang, WEEKDAY_KEYS[swap.other - 1]) })}</button>
-      <button className="button button-ghost" disabled={busy} onClick={() => setDismissed(true)}>{t(lang, "rswap_keep")}</button>
-    </div>
-  </Card>;
-}
-
-function TodayView({ dashboard, lang, onOpen, onReload, onAskCoach }: { dashboard: Dashboard; lang: Lang; onOpen: (view: View) => void; onReload: () => void; onAskCoach: () => void }) {
-  const stats = dashboard.todayStats;
-  const recovery = dashboard.recovery;
-  const workoutCount = dashboard.calendar.logs.filter((log) => log.date === dashboard.today && log.done).length;
-  const hasExercises = !!dashboard.logForm?.exercises?.length;
-  const rings = [
-    { label: t(lang, "metric_sessions"), value: workoutCount, goal: Math.max(1, dashboard.calendar.split.filter((day) => day.weekday > 0).length || 3) },
-    { label: t(lang, "metric_water"), value: stats?.waterMl ?? 0, goal: stats?.waterGoal ?? 2000, suffix: ` ${t(lang, "unit_ml")}` },
-    { label: t(lang, "metric_steps"), value: stats?.steps ?? 0, goal: stats?.stepsGoal ?? 8000 },
-  ];
-  return <div className="view-stack">
-    <div className="eyebrow">{dashboard.today}</div>
-    <div className="hero">
-      <div><span className="eyebrow hero-eyebrow">{t(lang, "today_hero_eyebrow")}</span><h1>{dashboard.name ? t(lang, "today_greeting", { name: dashboard.name }) : t(lang, "today_ready")}</h1><p>{hasExercises ? t(lang, "today_exercises_waiting", { n: dashboard.logForm!.exercises.length }) : t(lang, "today_momentum")}</p></div>
-      <button className="button button-light" onClick={() => onOpen("train")}>{hasExercises ? t(lang, "start_session") : t(lang, "open_training")}</button>
-    </div>
-    {dashboard.viewer.profileGaps && dashboard.viewer.profileGaps.length > 0 && <FineTuneCard lang={lang} gaps={dashboard.viewer.profileGaps} onSaved={onReload} />}
-    {dashboard.whatsnew && <WhatsNewCard lang={lang} version={dashboard.whatsnew.version} text={dashboard.whatsnew.text} />}
-    {dashboard.recoverySwap && <RecoverySwapCard lang={lang} swap={dashboard.recoverySwap} onDone={onReload} />}
-    <WeekSummaryCard lang={lang} dashboard={dashboard} />
-    {dashboard.week && <WeekCard lang={lang} week={dashboard.week} />}
-    <button type="button" className="coach-entry" onClick={onAskCoach}><span aria-hidden="true">💬</span><span><strong>{t(lang, dashboard.viewer.role === "client" ? "ask_trainer_nav_btn" : "coach_entry_title")}</strong><small>{t(lang, "coach_entry_detail")}</small></span><span aria-hidden="true">›</span></button>
-    <div className="metric-grid">
-      <Metric label={t(lang, "metric_recovery")} value={`${recovery.score}`} detail={recoveryLabel(lang, recovery.label)} />
-      <Metric label={t(lang, "metric_streak")} value={t(lang, "streak_weeks", { n: dashboard.gamification?.streak ?? 0 })} detail={t(lang, "level_n", { n: dashboard.gamification?.level ?? 1 })} />
-      <Metric label={t(lang, "metric_sessions")} value={`${workoutCount}`} detail={t(lang, "today_detail")} />
-    </div>
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "activity_rings_eyebrow")}</span><h2>{t(lang, "activity_rings_title")}</h2></div><button className="text-button" onClick={() => onOpen("progress")}>{t(lang, "details_arrow")}</button></div><div className="ring-grid">{rings.map((ring) => { const pct = Math.min(100, Math.round((ring.value / Math.max(1, ring.goal)) * 100)); return <div className="ring-item" key={ring.label}><div className="ring" style={{ background: `conic-gradient(var(--accent) ${pct}%, var(--surface-2) 0)` }}><div><strong>{pct}%</strong><small>{ring.value}{ring.suffix ?? ""}</small></div></div><span>{ring.label}</span></div>; })}</div></Card>
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "readiness_eyebrow")}</span><h2>{recoveryLabel(lang, recovery.label)}</h2></div><span className={`status-dot status-${recovery.score >= 70 ? "good" : recovery.score >= 45 ? "warn" : "bad"}`} /></div>
-      {recovery.factors.length ? <ul className="factor-list">{recovery.factors.slice(0, 3).map((factor) => <li key={factor.code}>{recoveryFactor(lang, factor)}</li>)}</ul> : <p className="muted">{t(lang, "no_recovery_blockers")}</p>}
-    </Card>
-    {stats && <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "daily_load_eyebrow")}</span><h2>{t(lang, "small_actions_count")}</h2></div><button className="text-button" onClick={() => onOpen("progress")}>{t(lang, "details_arrow")}</button></div><div className="metric-grid compact"><Metric label={t(lang, "metric_water")} value={`${formatNumber(stats.waterMl)} ${t(lang, "unit_ml")}`} detail={t(lang, "goal_ml", { n: formatNumber(stats.waterGoal) })} /><Metric label={t(lang, "metric_steps")} value={formatNumber(stats.steps)} detail={t(lang, "goal_n", { n: formatNumber(stats.stepsGoal) })} /></div></Card>}
-    <Card tone="accent"><div className="section-head"><div><span className="eyebrow">{t(lang, "nba_eyebrow")}</span><h2>{hasExercises ? t(lang, "nba_log_session") : t(lang, "nba_keep_baseline")}</h2></div><span className="action-arrow">↗</span></div><p>{hasExercises ? t(lang, "nba_evidence") : t(lang, "nba_open_plan")}</p><div className="button-row"><button className="button button-light" onClick={() => onOpen(hasExercises ? "train" : "plan")}>{hasExercises ? t(lang, "log_workout") : t(lang, "review_plan")}</button><button className="button button-outline-light" onClick={() => onOpen("fuel")}>{t(lang, "fuel_btn")}</button></div></Card>
-  </div>;
-}
 
 export type PlanAction = "weight" | "sets" | "del" | "move" | "swap" | "add" | "link" | "video";
 // The plan-edit request body straight from the contract, so every field name the editor sends
@@ -179,5 +124,5 @@ export function App() {
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => { if (window.scrollY === 0) pullStart.current = event.touches[0]?.clientY ?? null; };
   const onTouchEnd = (event: React.TouchEvent<HTMLElement>) => { const start = pullStart.current; pullStart.current = null; const end = event.changedTouches[0]?.clientY ?? 0; if (start !== null && end - start > 72 && !loading) loadDashboard(); };
   const openPlan = (clientId?: number) => { setPlanClientId(clientId ?? null); setView("plan"); };
-  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="brand-mark">T</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div><button className="icon-button" onClick={loadDashboard} aria-label={t(lang, "refresh_aria")}>↻</button><InboxBell lang={lang} open={view === "inbox"} onOpen={() => setView("inbox")} /><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}>⚙</button></header><div className="content"><OfflineSync lang={lang} />{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onReload={loadDashboard} onAskCoach={() => openCoach()} />}{view === "train" && <Suspense fallback={<Loading />}><TrainView lang={lang} gamification={dashboard.gamification} onAskCoach={() => openCoach(t(lang, "coach_prefill_session"))} /></Suspense>}{view === "coach" && <Suspense fallback={<Loading />}><CoachView lang={lang} routed={dashboard.viewer.role === "client"} prefill={coachPrefill} onBack={() => { setCoachPrefill(undefined); setView("today"); }} /></Suspense>}{view === "plan" && <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={planClientId} canRebuild={dashboard.viewer.role !== "client"} onOpenLibrary={() => setView("library")} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} /></Suspense>}{view === "fuel" && <Suspense fallback={<Loading />}><FuelView lang={lang} /></Suspense>}{view === "progress" && <Suspense fallback={<Loading />}><ProgressView dashboard={dashboard} lang={lang} /></Suspense>}{view === "more" && <Suspense fallback={<Loading />}><ExtrasView lang={lang} role={dashboard.viewer.role} onOpenLibrary={() => setView("library")} /></Suspense>}{view === "library" && <Suspense fallback={<Loading />}><LibraryView lang={lang} onBack={() => setView("more")} /></Suspense>}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "inbox" && <InboxView lang={lang} onBack={() => setView("today")} onGo={(target) => setView(target)} />}{view === "settings" && <Suspense fallback={<Loading />}><ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} /></Suspense>}</div>{dashboard.badges && <BadgeCelebration lang={lang} badges={dashboard.badges} />}<nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { if (item !== "plan") setPlanClientId(null); setView(item); }}><span className="nav-icon">{item === "today" ? "⌂" : item === "train" ? "◈" : item === "plan" ? "▤" : item === "fuel" ? "◌" : item === "progress" ? "↗" : item === "more" ? "✦" : "◎"}</span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
+  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="topbar-title"><strong>{longDate(lang, dashboard.today)}</strong>{dashboard.name && <span>{dashboard.name}</span>}</div><InboxBell lang={lang} open={view === "inbox"} onOpen={() => setView("inbox")} /><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}><Icon name="gear" /></button></header><div className="content"><OfflineSync lang={lang} />{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onReload={loadDashboard} onAskCoach={() => openCoach()} />}{view === "train" && <Suspense fallback={<Loading />}><TrainView lang={lang} onAskCoach={() => openCoach(t(lang, "coach_prefill_session"))} /></Suspense>}{view === "coach" && <Suspense fallback={<Loading />}><CoachView lang={lang} routed={dashboard.viewer.role === "client"} prefill={coachPrefill} onBack={() => { setCoachPrefill(undefined); setView("today"); }} /></Suspense>}{view === "plan" && <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={planClientId} canRebuild={dashboard.viewer.role !== "client"} onOpenLibrary={() => setView("library")} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} /></Suspense>}{view === "fuel" && <Suspense fallback={<Loading />}><FuelView lang={lang} /></Suspense>}{view === "progress" && <Suspense fallback={<Loading />}><ProgressView dashboard={dashboard} lang={lang} /></Suspense>}{view === "more" && <Suspense fallback={<Loading />}><ExtrasView lang={lang} role={dashboard.viewer.role} onOpenLibrary={() => setView("library")} /></Suspense>}{view === "library" && <Suspense fallback={<Loading />}><LibraryView lang={lang} onBack={() => setView("more")} /></Suspense>}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "inbox" && <InboxView lang={lang} onBack={() => setView("today")} onGo={(target) => setView(target)} />}{view === "settings" && <Suspense fallback={<Loading />}><ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} /></Suspense>}</div>{dashboard.badges && <BadgeCelebration lang={lang} badges={dashboard.badges} />}<nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} type="button" className={view === item ? "nav-item active" : "nav-item"} aria-current={view === item ? "page" : undefined} onClick={() => { if (item !== "plan") setPlanClientId(null); track(`app_nav_${item}`); setView(item); }}><span className="nav-icon"><Icon name={item as IconName} /></span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
 }

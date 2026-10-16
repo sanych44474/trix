@@ -8,6 +8,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { installErrorReporting } from "./logic/errorReport";
 import { applyTheme, restoreContrast } from "./logic/theme";
 import { prefetchDashboard } from "./useDashboard";
+import { onTelegramEvent } from "./telegram";
 
 installErrorReporting();
 
@@ -24,6 +25,8 @@ window.Telegram?.WebApp.expand();
 // Paint the theme before the first render so a high-contrast choice never flashes the default.
 applyTheme();
 restoreContrast();
+// Telegram switched between day and night while the app is open: repaint to match.
+onTelegramEvent("themeChanged", applyTheme);
 
 // Only the person's language is loaded before the first render (each is its own chunk): the
 // one the last dashboard said, else Telegram's hint. A switch later loads the other on demand.

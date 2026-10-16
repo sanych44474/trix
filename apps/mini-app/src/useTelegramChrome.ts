@@ -2,6 +2,7 @@
 // Mini App's menu, and the native Back button. Moved out of App() unchanged.
 import { useEffect } from "react";
 import type { View } from "./logic/navigation";
+import { setVerticalSwipes } from "./telegram";
 
 export function useTelegramChrome(view: View, setView: (view: View) => void) {
   useEffect(() => {
@@ -31,5 +32,11 @@ export function useTelegramChrome(view: View, setView: (view: View) => void) {
     back.show();
     back.onClick(handler);
     return () => back.offClick(handler);
+  }, [view]);
+
+  // Logging a workout means scrolling a long list with a sweaty thumb: a swipe that starts at the
+  // top must scroll, not minimise the app.
+  useEffect(() => {
+    setVerticalSwipes(view !== "train");
   }, [view]);
 }
