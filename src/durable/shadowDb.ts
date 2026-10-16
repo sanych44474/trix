@@ -132,9 +132,9 @@ export function shadowD1(real: D1Database, onWrite: (w: ShadowWrite) => void): D
       return real.exec(query);
     },
     withSession(_constraintOrBookmark?: D1SessionConstraint | D1SessionBookmark) {
-      // Sessions are not used anywhere in this codebase (grep confirmed) — real.withSession()
+      // The real adapter does use D1 Sessions (src/adapters/d1/session.ts). real.withSession()
       // would bypass the write interception above entirely, so refuse rather than silently
-      // create an escape hatch the day someone does start using them.
+      // create an escape hatch.
       throw new Error("shadowD1: withSession() is not supported by the dry-run shadow");
     },
     async dump() {

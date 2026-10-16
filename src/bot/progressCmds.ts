@@ -303,6 +303,7 @@ export async function sendChartPng(ctx: MyContext, chart: string) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ chart, width: 720, height: 360, backgroundColor: "white", format: "png", version: "2" }),
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
       await recordError(ctx.db, { userId: ctx.user._id, kind: "chart", errorType: `http_${res.status}`, message: (await res.text()).slice(0, 180) }).catch(() => {});

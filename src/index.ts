@@ -68,10 +68,10 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
         const ok = await pingDb(env.DB);
         return Response.json({ ok });
       } catch (err) {
-        return Response.json(
-          { ok: false, error: err instanceof Error ? err.message : String(err) },
-          { status: 500 },
-        );
+        // Anonymous callers get no D1 error text (it can name tables, columns or binding details);
+        // the real error goes to the logs instead.
+        logError("health_db", err);
+        return Response.json({ ok: false, error: "db unavailable" }, { status: 500 });
       }
     }
 

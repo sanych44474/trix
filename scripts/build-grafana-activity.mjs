@@ -72,8 +72,8 @@ const panels = [
     grid(0, 21, 12, 10), { overrides: pctCells(["Тиждень 1", "Тиждень 2", "Тиждень 4", "Тиждень 8"]) }),
   table("Найпопулярніші дії (7 днів)", "topEvents", [["event", "Дія", "string"], ["n", "Разів", "number"], ["users", "Людей", "number"]], grid(12, 21, 12, 10),
     { sortBy: [{ displayName: "Разів", desc: true }] }),
-  table("Найактивніші користувачі (30 днів)", "topUsers",
-    [["name", "Ім'я", "string"], ["activeDays", "Активних днів", "number"], ["workouts", "Тренувань", "number"], ["nutritionDays", "Днів з їжею", "number"], ["lastActive", "Остання активність", "string"], ["id", "id", "number"]],
+  table("Концентрація активності: топ-15 за 30 днів (анонімно)", "topUsers",
+    [["rank", "№", "number"], ["activeDays", "Активних днів", "number"], ["workouts", "Тренувань", "number"], ["nutritionDays", "Днів з їжею", "number"], ["lastActive", "Остання активність", "string"], ["id", "id", "number"]],
     grid(0, 31, 24, 9), { sortBy: [{ displayName: "Активних днів", desc: true }] }),
 ];
 

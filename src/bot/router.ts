@@ -14,7 +14,8 @@ import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdRequests, cmdTrainer,
 import { cmdLibrary, cmdShareProgram, startShareMyPlan } from "../features/trainer/programSharing";
 import { cmdTrainerQuestions } from "../features/trainer/clientCard";
 import { trainerSteps, twAdvance } from "../features/trainer/trainerWizard";
-import { bumpEvent, setLastSeen } from "../adapters/d1/v2Analytics";
+import { bumpEvent } from "../adapters/d1/v2Analytics";
+import { recordPresence } from "../adapters/d1/v2Presence";
 import { addProgressPhoto } from "../adapters/d1/v2Tracking";
 import { getOrCreateUser, getUser, updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";
@@ -87,8 +88,6 @@ export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
   "menu:whatsnew": cmdWhatsNew,
 };
 
-// The idle gap that separates one session from the next — docs/slos.md §2's "visit / session".
-const SESSION_IDLE_MS = 30 * 60 * 1000;
 
 export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
   setAppUrl(env.WORKER_URL, env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app");
@@ -169,15 +168,10 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
       ctx.user.username = from.username;
       await updateUser(ctx.db, ctx.user._id, { username: from.username });
     }
-    // docs/slos.md's session_started, computed off the value lastSeenAt still holds RIGHT HERE
-    // (before the write below overwrites it): a gap wider than the idle window means this
-    // interaction opens a new session. No extra storage and no extra read -- the signal the
-    // session definition needs is already sitting in the user row.
-    const prevSeen = ctx.user.lastSeenAt ? ctx.user.lastSeenAt.getTime() : 0;
-    if (Date.now() - prevSeen > SESSION_IDLE_MS) logInfo("session_started", { surface: "bot" });
-    // Record the LAST GENUINE interaction (only here — never from the cron). This is the only
-    // reliable "is this user active" signal (users.updatedAt is bumped by the scheduler too).
-    ctx.waitUntil(setLastSeen(ctx.db, ctx.user._id, new Date().toISOString()));
+    // Record the LAST GENUINE interaction (only here and in the Mini App's auth -- never from the
+    // cron) and open a session when the gap is wide (domain/presence.ts). This is the only reliable
+    // "is this user active" signal: updatedAt is bumped by the scheduler too.
+    ctx.waitUntil(recordPresence(ctx.db, ctx.user, "bot"));
     // Owner-banned users are ignored entirely until the owner unblocks them.
     if (ctx.user.blocked) return;
     await next();

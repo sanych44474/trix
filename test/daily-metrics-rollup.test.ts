@@ -10,6 +10,7 @@ import { getDailyMetrics } from "../src/adapters/d1/v2DailyMetrics";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { rollupDailyMetrics } from "../src/dailyMetricsRollup";
+import { bumpEvent, SESSION_EVENT } from "../src/adapters/d1/v2Analytics";
 import type { PlanDoc } from "../src/types";
 
 async function setTimestamps(db: ReturnType<typeof newDb>, id: number, fields: { createdAt?: string; updatedAt?: string; lastSeenAt?: string; onboardedAt?: string }) {
@@ -36,29 +37,59 @@ async function metric(db: ReturnType<typeof newDb>, date: string, name: string):
   return rows[0]?.value;
 }
 
-test("rollupDailyMetrics: dau counts only users active on the exact target day, not before or after", async () => {
+// An account was "active" on a day when it had a session that day (the session mark v2Presence writes).
+// It is NOT updatedAt: a reminder or a cron sweep bumps that, and the old rollup counted it.
+const session = (db: ReturnType<typeof newDb>, id: number, day: string) => bumpEvent(db, id, SESSION_EVENT, day);
+
+test("rollupDailyMetrics: dau counts only accounts with a session on the exact target day, not before or after", async () => {
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "en", "InWindow");
   await getOrCreateUser(db, 2, 2, "en", "TooEarly");
   await getOrCreateUser(db, 3, 3, "en", "TooLate");
-  await setTimestamps(db, 1, { updatedAt: "2026-06-10T12:00:00.000Z" });
-  await setTimestamps(db, 2, { updatedAt: "2026-06-09T23:59:00.000Z" }); // day before
-  await setTimestamps(db, 3, { updatedAt: "2026-06-11T00:00:00.000Z" }); // day after
+  await session(db, 1, "2026-06-10");
+  await session(db, 2, "2026-06-09"); // day before
+  await session(db, 3, "2026-06-11"); // day after
 
   await rollupDailyMetrics(db, "2026-06-10");
 
   assert.equal(await metric(db, "2026-06-10", "dau"), 1);
 });
 
-test("rollupDailyMetrics: wau/mau widen the window but stay anchored on the target day, not 'through now'", async () => {
+test("rollupDailyMetrics: an account that came back the next day still counts for the earlier day", async () => {
   const db = newDb();
-  await getOrCreateUser(db, 1, 1, "en", "FiveDaysBack");
-  await setTimestamps(db, 1, { updatedAt: "2026-06-05T12:00:00.000Z" }); // 5 days before target
+  await getOrCreateUser(db, 1, 1, "en", "Returner");
+  await session(db, 1, "2026-06-10");
+  await session(db, 1, "2026-06-11"); // lastSeenAt would say 06-11 only; the per-day log keeps both
 
   await rollupDailyMetrics(db, "2026-06-10");
 
-  assert.equal(await metric(db, "2026-06-10", "dau"), 0); // not active ON the target day
-  assert.equal(await metric(db, "2026-06-10", "wau"), 1); // within the trailing 7-day window
+  assert.equal(await metric(db, "2026-06-10", "dau"), 1);
+});
+
+test("rollupDailyMetrics: background writes (updatedAt) alone make nobody active", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Sleeping");
+  await setTimestamps(db, 1, { updatedAt: "2026-06-10T12:00:00.000Z" }); // a cron sweep touched the row
+
+  await rollupDailyMetrics(db, "2026-06-10");
+
+  assert.equal(await metric(db, "2026-06-10", "dau"), 0);
+  assert.equal(await metric(db, "2026-06-10", "wau"), 0);
+  assert.equal(await metric(db, "2026-06-10", "mau"), 0);
+});
+
+test("rollupDailyMetrics: wau/mau widen the window but stay anchored on the target day, not 'through now'", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "FiveDaysBack");
+  await getOrCreateUser(db, 2, 2, "en", "TwentyDaysBack");
+  await session(db, 1, "2026-06-05"); // 5 days before target
+  await session(db, 2, "2026-05-21"); // 20 days before target
+
+  await rollupDailyMetrics(db, "2026-06-10");
+
+  assert.equal(await metric(db, "2026-06-10", "dau"), 0); // nobody active ON the target day
+  assert.equal(await metric(db, "2026-06-10", "wau"), 1); // only the first is inside the trailing 7 days
+  assert.equal(await metric(db, "2026-06-10", "mau"), 2); // both are inside the trailing 30 days
 });
 
 test("rollupDailyMetrics: new_users is bounded to exactly the target day", async () => {
@@ -119,7 +150,7 @@ test("rollupDailyMetrics: ai_fallback_rate and error_rate are 0 (not NaN) on a d
 test("rollupDailyMetrics: re-running the same day upserts in place, not duplicate rows", async () => {
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "en", "Ann");
-  await setTimestamps(db, 1, { updatedAt: "2026-06-10T12:00:00.000Z" });
+  await session(db, 1, "2026-06-10");
 
   await rollupDailyMetrics(db, "2026-06-10");
   await rollupDailyMetrics(db, "2026-06-10");
