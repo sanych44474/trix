@@ -388,19 +388,13 @@ export async function countCreatedBetween(db: DB, fromIso: string, toExclusiveIs
   return r?.c ?? 0;
 }
 
+// "Active in the last N days" = seen in the last N days. lastSeenAt is written only by a genuine
+// interaction (domain/presence.ts); updatedAt is bumped by every write including background jobs, so
+// it said a sleeping user was active.
 export async function countActiveSince(db: DB, sinceIso: string): Promise<number> {
   const r = await db
-    .prepare("SELECT COUNT(*) AS c FROM v2_accounts WHERE updatedAt >= ?")
+    .prepare("SELECT COUNT(*) AS c FROM v2_accounts WHERE lastSeenAt >= ?")
     .bind(sinceIso)
-    .first<{ c: number }>();
-  return r?.c ?? 0;
-}
-
-// Users last active in [fromIso, toExclusiveIso) — for the churn window.
-export async function countActiveBetween(db: DB, fromIso: string, toExclusiveIso: string): Promise<number> {
-  const r = await db
-    .prepare("SELECT COUNT(*) AS c FROM v2_accounts WHERE updatedAt >= ? AND updatedAt < ?")
-    .bind(fromIso, toExclusiveIso)
     .first<{ c: number }>();
   return r?.c ?? 0;
 }
@@ -414,7 +408,7 @@ export async function listChurnedUsers(db: DB, priorFromIso: string, thisWeekIso
        LEFT JOIN v2_profiles p ON p.accountId = a.id
        LEFT JOIN v2_onboarding o ON o.accountId = a.id
        WHERE o.status = 'completed' AND a.blocked = 0 AND a.botBlocked = 0
-         AND a.updatedAt >= ? AND a.updatedAt < ?`,
+         AND a.lastSeenAt >= ? AND a.lastSeenAt < ?`,
     )
     .bind(priorFromIso, thisWeekIso)
     .all<{ id: number; profile: string | null }>();

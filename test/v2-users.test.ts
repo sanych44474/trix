@@ -8,7 +8,6 @@ import { newDb } from "./harness";
 import {
   clearInactiveAsk,
   clearVacation,
-  countActiveBetween,
   countActiveSince,
   countCreatedBetween,
   countInactive,
@@ -257,7 +256,7 @@ test("stampOnboardedAt is COALESCE-protected (first-ever timestamp only)", async
   assert.equal(first, second);
 });
 
-test("countModeration / countUsersCreatedSince / countCreatedBetween / countActiveSince / countActiveBetween", async () => {
+test("countModeration / countUsersCreatedSince / countCreatedBetween / countActiveSince", async () => {
   const db = newDb();
   await getOrCreateUser(db, 90, 90, "en");
   await updateUser(db, 90, { blocked: true });
@@ -272,14 +271,17 @@ test("countModeration / countUsersCreatedSince / countCreatedBetween / countActi
   const future = new Date(Date.now() + 3_600_000).toISOString();
   assert.equal(await countUsersCreatedSince(db, past), 2);
   assert.equal(await countCreatedBetween(db, past, future), 2);
-  assert.equal(await countActiveSince(db, past), 2);
-  assert.equal(await countActiveBetween(db, past, future), 2);
+  // "Active" means seen (lastSeenAt), not written to (updatedAt): both accounts were just updated
+  // above, and neither has been seen.
+  assert.equal(await countActiveSince(db, past), 0);
+  await updateUser(db, 90, { lastSeenAt: new Date() });
+  assert.equal(await countActiveSince(db, past), 1);
 });
 
 test("listChurnedUsers: onboarded, not blocked, active in the prior window but not since", async () => {
   const db = newDb();
   await getOrCreateUser(db, 95, 95, "en", "Churned");
-  await updateUser(db, 95, { onboarded: true });
+  await updateUser(db, 95, { onboarded: true, lastSeenAt: new Date() });
   const priorFrom = new Date(Date.now() - 3_600_000).toISOString();
   const thisWeek = new Date(Date.now() + 3_600_000).toISOString();
   const churned = await listChurnedUsers(db, priorFrom, thisWeek);

@@ -58,5 +58,5 @@ test("a full owner report asks for the churned users once, not once per section"
   const c = counting(base);
   await buildOwnerReport(c.db);
   // The overview and the onboarding section both list churned users; they share the snapshot's.
-  assert.equal(c.count("a.updatedAt >= ? AND a.updatedAt < ?"), 1);
+  assert.equal(c.count("a.lastSeenAt >= ? AND a.lastSeenAt < ?"), 1);
 });

@@ -164,6 +164,28 @@ export async function setLastSeen(db: DB, userId: number, iso: string): Promise<
 const BUMP_EVENT_SQL = `INSERT INTO v2_analytics_events (accountId, event, date, count) VALUES (?, ?, ?, 1)
        ON CONFLICT(accountId, event, date) DO UPDATE SET count = count + 1`;
 
+/** The event that marks "this account had a session on this day" (written by recordPresence when a
+ * new session opens). DAU/WAU/MAU are distinct accounts with this event in the window: an
+ * activity log per day, unlike lastSeenAt which only remembers the latest visit. */
+export const SESSION_EVENT = "session";
+
+/** `lastSeenAt = whenIso`, plus the day's session mark when this interaction opens a session, in one
+ * round trip. */
+export async function markSeen(db: DB, userId: number, whenIso: string, sessionDay: string | null): Promise<void> {
+  const statements = [db.prepare("UPDATE v2_accounts SET lastSeenAt = ? WHERE id = ?").bind(whenIso, userId)];
+  if (sessionDay) statements.push(db.prepare(BUMP_EVENT_SQL).bind(userId, SESSION_EVENT, sessionDay));
+  await db.batch(statements);
+}
+
+/** Distinct accounts that had a session on a day in [fromDay, toExclusiveDay) (YYYY-MM-DD). */
+export async function countSessionAccountsBetween(db: DB, fromDay: string, toExclusiveDay: string): Promise<number> {
+  const r = await db
+    .prepare("SELECT COUNT(DISTINCT accountId) AS c FROM v2_analytics_events WHERE event = ? AND date >= ? AND date < ?")
+    .bind(SESSION_EVENT, fromDay, toExclusiveDay)
+    .first<{ c: number }>();
+  return r?.c ?? 0;
+}
+
 export async function bumpEvent(db: DB, userId: number, event: string, day: string): Promise<void> {
   await db.prepare(BUMP_EVENT_SQL).bind(userId, event, day).run();
 }

@@ -1,5 +1,6 @@
 // Mini App auth: resolve the requesting user from the Telegram initData header.
 import { getUser } from "../adapters/d1/v2Users";
+import { recordPresence } from "../adapters/d1/v2Presence";
 import { validateInitData } from "./initData";
 import type { Env, UserDoc } from "../types";
 
@@ -24,5 +25,9 @@ export async function miniAppUser(req: Request, url: URL, env: Env): Promise<Use
   }
   if (!userId) return null;
   const user = await getUser(env.DB, userId);
-  return user && !user.blocked ? user : null;
+  if (!user || user.blocked) return null;
+  // Every authenticated Mini App request is proof the person is here. This is the Mini App's half of
+  // "last seen" (the bot writes the other half), throttled to one write a minute.
+  await recordPresence(env.DB, user, "miniapp");
+  return user;
 }
