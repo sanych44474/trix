@@ -66,11 +66,15 @@ test("rawTelegramApi: every request carries an AbortSignal, and a hung Telegram 
       seen!.addEventListener("abort", () => reject(seen!.reason));
     });
   });
+  // AbortSignal.timeout's timer is unref'd, so with nothing else pending the event loop would
+  // drain and the abort never fire. This ref'd timer keeps the process alive until the abort.
+  const keepAlive = setTimeout(() => {}, 5_000);
   try {
     assert.equal(await sendBestEffort(env, 1, "x"), false, "a timed-out send is a failed send, not a throw");
     assert.ok(seen instanceof AbortSignal, "the fetch init carries an AbortSignal");
     assert.equal(seen!.aborted, true, "the signal fired, so the request was abandoned");
   } finally {
+    clearTimeout(keepAlive);
     telegramTimeouts.json = realJson;
     hung.restore();
   }
