@@ -57,6 +57,34 @@ export function openInvoice(link: string): Promise<"paid" | "cancelled" | "faile
   });
 }
 
+/** Telegram's frame (header, background, bottom bar) in the app's own ground colour, so the app
+ *  doesn't sit inside a differently coloured strip; called whenever the theme changes. */
+export function syncFrameColors(): void {
+  const tg = webApp();
+  if (!tg?.initData) return;
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  if (!/^#[0-9a-f]{6}$/i.test(bg)) return;
+  try { if (atLeast("6.9")) tg.setHeaderColor?.(bg); } catch { /* unsupported client */ }
+  try { if (atLeast("6.1")) tg.setBackgroundColor?.(bg); } catch { /* unsupported client */ }
+  try { if (atLeast("7.10")) tg.setBottomBarColor?.(bg); } catch { /* unsupported client */ }
+}
+
+/** Swipe-down closes the Mini App on 7.7+; mid-workout a scroll that starts at the top shouldn't. */
+export function setVerticalSwipes(enabled: boolean): void {
+  if (!atLeast("7.7")) return;
+  try { if (enabled) webApp()?.enableVerticalSwipes?.(); else webApp()?.disableVerticalSwipes?.(); } catch { /* unsupported client */ }
+}
+
+/** The brand's primary-button colours for the native bottom button (Telegram's default is the
+ *  chat theme's blue): the accent with dark text, or white text where the accent is dark. */
+function brandButtonColors(): { color: string; text_color: string } | null {
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+  if (!/^#[0-9a-f]{6}$/i.test(accent)) return null;
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(accent.slice(i, i + 2), 16) / 255).map((c) => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return { color: accent, text_color: lum > 0.18 ? "#1c0d08" : "#ffffff" };
+}
+
 export interface MainButtonState {
   text: string;
   active: boolean;
@@ -69,7 +97,7 @@ export function showMainButton(state: MainButtonState, onClick: () => void): () 
   const button = webApp()?.MainButton;
   if (!button) return () => {};
   try {
-    button.setParams({ text: state.text, is_active: state.active, is_visible: true });
+    button.setParams({ text: state.text, is_active: state.active, is_visible: true, ...brandButtonColors() });
     if (state.progress) button.showProgress(false); else button.hideProgress();
     button.onClick(onClick);
   } catch { /* unsupported client */ }

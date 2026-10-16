@@ -3,14 +3,14 @@
 // ./train/useSession.ts, and the pieces of the screen in ./train/*.tsx.
 import { useEffect, useRef, useState } from "react";
 import { api, typedBody } from "./api";
-import type { Dashboard, SaveResponse, WorkoutCopyExercise, WorkoutHistoryItem, WorkoutToday } from "./types";
+import type { SaveResponse, WorkoutCopyExercise, WorkoutHistoryItem, WorkoutToday } from "./types";
 import { t, type Lang } from "./i18n";
 import { clampRest, density, fmtDuration, restMetricKey } from "./logic/rest";
 import { hydrateSaved } from "./logic/hydrate";
 import {
   buildSaveEntries, chooseStart, copyToLoggerExercises, countFilledSets, DENSITY_MIN_SESSION_SEC, DRAFT_KEY,
   emptyLoggerSet, isExerciseFilled, isoDate, isoWeekday, parseDraft, plannedSetsFor, sessionElapsedSec, swapExercise,
-  type LoggerDraft, type LoggerExercise, type LoggerWorkout, type StartSource,
+  isSetFilled, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
   targetUse,
 } from "./logic/logger";
 import { cachedToday, cacheToday, enqueueSave, isNetworkError, OFFLINE_SAVES_KEY } from "./logic/offlineSaves";
@@ -18,7 +18,7 @@ import { registerLearnedMuscles } from "./logic/exerciseMuscles";
 
 type CustomExercise = { name: string; videoUrl?: string; videoTitle?: string; muscles?: { primary: string[]; secondary: string[] } };
 import { useSession } from "./train/useSession";
-import { ExerciseCard, type SetField } from "./train/ExerciseCard";
+import { ExerciseCard } from "./train/ExerciseCard";
 import { HistoryPanel } from "./train/HistoryPanel";
 import { RestBar } from "./train/RestBar";
 import { SaveDock, type DockAction, type SyncState } from "./train/SaveDock";
@@ -53,7 +53,7 @@ function scrollToTop(): void {
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); }
 }
 
-export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gamification?: Dashboard["gamification"]; onAskCoach?: () => void }) {
+export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () => void }) {
   const session = useSession();
   const [subview, setSubview] = useState<"today" | "history">("today");
   const [server, setServer] = useState<WorkoutToday | null>(null);
@@ -81,6 +81,8 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
   const [historyBusy, setHistoryBusy] = useState<string | null>(null);
   const [missedDate, setMissedDate] = useState("");
   const [restEditFor, setRestEditFor] = useState<number | null>(null);
+  // Which cards are open: the person's own toggles; otherwise only the exercise they are on.
+  const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
   // A rest picked on an exercise whose plan sets its own rest: applies to that exercise for this
   // session (by name, so it survives a swap of another slot). Picking used to change only the
   // global default, which the plan's value then overrode -- the chip looked dead.
@@ -165,12 +167,13 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
   const mapExercise = (index: number, change: (exercise: LoggerExercise) => LoggerExercise) =>
     mutate((exercises) => exercises.map((exercise) => exercise.index === index ? change(exercise) : exercise));
 
-  const updateSet = (index: number, setIndex: number, field: SetField, value: number) => {
+  /** "Done" on a set (or an edit of one): the whole set at once, padding any skipped rows. */
+  const writeSet = (index: number, setIndex: number, set: LoggerSet) => {
     session.markActive();
     mapExercise(index, (exercise) => {
       const sets = [...(exercise.setsDone ?? [])];
       while (sets.length <= setIndex) sets.push(emptyLoggerSet(exercise.metric));
-      sets[setIndex] = { ...sets[setIndex], [field]: value };
+      sets[setIndex] = set;
       return { ...exercise, setsDone: sets };
     });
   };
@@ -383,9 +386,9 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
   if (loading) return <Loading />;
   if (error) return <ErrorState lang={lang} error={error} retry={load} />;
   const tabs = (
-    <div className="button-row tabs">
-      <button className={subview === "today" ? "button button-primary" : "button button-ghost"} onClick={() => setSubview("today")}>{t(lang, "train_tab_today")}</button>
-      <button className={subview === "history" ? "button button-primary" : "button button-ghost"} onClick={() => setSubview("history")}>{t(lang, "train_tab_history")}</button>
+    <div className="segmented" role="tablist">
+      <button type="button" role="tab" aria-selected={subview === "today"} onClick={() => setSubview("today")}>{t(lang, "train_tab_today")}</button>
+      <button type="button" role="tab" aria-selected={subview === "history"} onClick={() => setSubview("history")}>{t(lang, "train_tab_history")}</button>
     </div>
   );
   if (subview === "history") {
@@ -400,21 +403,19 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
   }
   if (!workout?.exercises?.length) return <div className="view-stack">{tabs}<Empty title={t(lang, "rest_day_title")} detail={t(lang, "rest_day_detail")} /></div>;
   const filled = workout.exercises.filter(isExerciseFilled).length;
+  // The exercise being worked on: the first with sets still to do (all done: none open).
+  const currentIndex = workout.exercises.find((exercise) => (exercise.setsDone ?? []).filter(isSetFilled).length < Math.max(1, exercise.sets || 1))?.index ?? -1;
   const liveDensity = density(session.clock && !session.clock.endedAt ? session.clock.startedAt : null, session.clock?.quality.restTotalSec ?? 0, Date.now());
   const savedTitle = summaryDate ? t(lang, "session_saved_for_date", { date: summaryDate }) : t(lang, "session_saved");
 
   return (
     <div className="view-stack">
-      <div className="eyebrow">{t(lang, "guided_logger_eyebrow", { date: logDate ?? workout.date })}</div>
-      <div className="page-title"><h1>{t(lang, "training_session_title")}</h1><span>{filled}/{workout.exercises.length}</span></div>
+      <div className="screen-head">
+        <h1>{workout.title || workout.muscleGroup || t(lang, "training_session_title")}</h1>
+        <span className="num">{t(lang, "train_progress_line", { done: filled, total: workout.exercises.length })}</span>
+      </div>
+      <div className="meter-track" aria-hidden="true"><span style={{ width: `${workout.exercises.length ? filled / workout.exercises.length * 100 : 0}%` }} /></div>
       {tabs}
-      {gamification && !saved && (
-        <div className="train-progress">
-          <span className="tag">{t(lang, "level_n", { n: gamification.level })}</span>
-          <div className="progress-track"><span style={{ width: `${gamification.needed ? Math.min(100, gamification.intoLevel / gamification.needed * 100) : 100}%` }} /></div>
-          {gamification.streak ? <span className="tag">{t(lang, "streak_weeks", { n: gamification.streak })}</span> : null}
-        </div>
-      )}
       {planNotice && <div className="offline-banner done" role="status" onClick={() => setPlanNotice(null)}>{planNotice}</div>}
       {actionError !== null && (
         <Card tone="muted">
@@ -429,16 +430,18 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
       {restoredFrom === "server-draft" && drafted && <div className="draft-note">{t(lang, "restored_other_device_note")}</div>}
       {logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}
       {copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}
-      <div className="progress-track session-progress"><span style={{ width: `${workout.exercises.length ? filled / workout.exercises.length * 100 : 0}%` }} /></div>
-      {workout.exercises.length > 1 && <div className="button-row"><button className="button button-ghost" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button></div>}
+      {workout.exercises.length > 1 && filled === 0 && <button type="button" className="button button-quiet button-block" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button>}
       <div className="exercise-list">
         {workout.exercises.map((exercise) => {
+          const cardKey = `${exercise.index}-${exercise.name}`;
           const restSec = clampRest(restOverride[exercise.name] ?? exercise.restSec ?? session.restPrefs[restMetricKey(exercise.metric)]);
           return (
             <ExerciseCard
-              key={`${exercise.index}-${exercise.name}`}
+              key={cardKey}
               lang={lang}
               exercise={exercise}
+              expanded={openCards[cardKey] ?? exercise.index === currentIndex}
+              onToggle={() => setOpenCards((cur) => ({ ...cur, [cardKey]: !(cur[cardKey] ?? exercise.index === currentIndex) }))}
               restSec={restSec}
               restPrefs={session.restPrefs}
               restPrefsOpen={restEditFor === exercise.index}
@@ -459,7 +462,7 @@ export function TrainView({ lang, gamification, onAskCoach }: { lang: Lang; gami
               onApplySwap={(choice) => void applySwap(choice)}
               onSearchSwap={(text) => void searchSwap(exercise, text)}
               onOpenInfo={() => void openInfo(exercise)}
-              onUpdateSet={(setIndex, field, value) => updateSet(exercise.index, setIndex, field, value)}
+              onWriteSet={(setIndex, set) => writeSet(exercise.index, setIndex, set)}
               onAddSet={() => addSet(exercise.index)}
               onRemoveSet={(setIndex) => removeSet(exercise.index, setIndex)}
               onMove={(direction) => moveExercise(exercise.index, direction)}

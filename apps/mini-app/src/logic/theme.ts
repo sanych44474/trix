@@ -2,6 +2,7 @@
 // an accessibility preference of this device, so it lives in localStorage and is mirrored to
 // Telegram DeviceStorage (like the offline queue) to survive the WebView clearing its storage.
 import { mirrorToDevice, restoreFromDevice } from "./deviceStorage";
+import { syncFrameColors } from "../telegram";
 
 export const CONTRAST_KEY = "trix:v2:contrast";
 export type Theme = "light" | "dark" | "contrast";
@@ -19,6 +20,7 @@ export function applyTheme(): void {
   const theme = resolveTheme(readContrast(), window.Telegram?.WebApp?.colorScheme);
   if (theme) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
+  syncFrameColors();
 }
 
 export function setContrast(on: boolean): void {

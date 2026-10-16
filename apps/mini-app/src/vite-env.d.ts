@@ -34,6 +34,14 @@ interface TelegramWebApp {
     impactOccurred(style: "light" | "medium" | "heavy"): void;
     notificationOccurred(type: "error" | "success" | "warning"): void;
   };
+  // Colours of Telegram's own frame around the app: header and background take "#rrggbb" from
+  // 6.9 (6.1 for the background), the bottom bar from 7.10.
+  setHeaderColor?(color: string): void;
+  setBackgroundColor?(color: string): void;
+  setBottomBarColor?(color: string): void;
+  // Swipe-down-to-minimise (7.7+): off while a workout is being logged.
+  disableVerticalSwipes?(): void;
+  enableVerticalSwipes?(): void;
   SettingsButton?: { show(): void; hide(): void; onClick(callback: () => void): void; offClick(callback: () => void): void }; // 7.0+
   BackButton?: {
     show(): void;

@@ -2,6 +2,7 @@
 // trainer, a trainer's message, a new badge, the weekly progression (server: adapters/d1/v2Inbox.ts).
 // A bell in the top bar shows the unread count; opening the feed marks everything read.
 import { useEffect, useState } from "react";
+import { Icon } from "./icons";
 import { api } from "./api";
 import { t, type Lang } from "./i18n";
 
@@ -45,7 +46,7 @@ export function InboxBell({ lang, open, onOpen }: { lang: Lang; open: boolean; o
   }, [open]);
   return (
     <button className="icon-button bell" onClick={onOpen} aria-label={t(lang, "inbox_title")}>
-      🔔{unread > 0 && <span className="bell-dot" aria-label={String(unread)}>{unread > 9 ? "9+" : unread}</span>}
+      <Icon name="bell" />{unread > 0 && <span className="bell-dot" aria-label={String(unread)}>{unread > 9 ? "9+" : unread}</span>}
     </button>
   );
 }
