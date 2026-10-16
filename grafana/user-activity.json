@@ -1274,7 +1274,7 @@
     {
       "id": 15,
       "type": "table",
-      "title": "Найактивніші користувачі (30 днів)",
+      "title": "Концентрація активності: топ-15 за 30 днів (анонімно)",
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
         "uid": "${ds}"
@@ -1304,9 +1304,9 @@
           "root_selector": "topUsers",
           "columns": [
             {
-              "selector": "name",
-              "text": "Ім'я",
-              "type": "string"
+              "selector": "rank",
+              "text": "№",
+              "type": "number"
             },
             {
               "selector": "activeDays",

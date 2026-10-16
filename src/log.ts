@@ -41,6 +41,37 @@ function baseFields(): Record<string, unknown> {
   return { ts: new Date().toISOString(), ...(reqId ? { reqId } : {}) };
 }
 
+// What may LEAVE D1. Workers Logs and Analytics Engine are different trust boundaries: the console
+// line stays inside Cloudflare next to D1 and keeps whatever helps debugging (userId, stack), but
+// Analytics Engine feeds an external dashboard and is kept for months. docs/slos.md forbids a raw
+// user id, username or chat id there. So the data point carries only the keys below - things like an
+// event's source, a provider, a duration, a status - and drops everything else, including any key
+// added later until someone decides it is safe and lists it here. Identifiers stay in D1
+// (error_events) and reach only the owner-only views.
+const ANALYTICS_KEYS = new Set([
+  "source", "role", "surface", "kind", "action", "method", "path", "status", "ok",
+  "provider", "toProvider", "wasFallback", "tokens", "latencyMs", "durationMs",
+  "doType", "cutOver", "version", "users", "sends", "processed", "place", "level",
+  "pinged", "pastDate", "fromTrainer", "ownerScope", "stars", "exerciseCount", "keys",
+]);
+const MAX_ANALYTICS_STRING = 64;
+
+/** A URL path with its ids removed: /api/v2/trainer/client/20/card -> /api/v2/trainer/client/:id/card. */
+function routeShape(path: string): string {
+  return path.split("/").map((seg) => (/^\d+$/.test(seg) || /^[0-9a-f-]{16,}$/i.test(seg) ? ":id" : seg)).join("/");
+}
+
+/** The slice of a log call's extras that is allowed into Analytics Engine. Pure; test/log-analytics.test.ts. */
+export function analyticsExtra(extra?: Record<string, unknown>): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(extra ?? {})) {
+    if (!ANALYTICS_KEYS.has(key)) continue;
+    if (typeof value === "number" || typeof value === "boolean") out[key] = value;
+    else if (typeof value === "string") out[key] = (key === "path" ? routeShape(value) : value).slice(0, MAX_ANALYTICS_STRING);
+  }
+  return out;
+}
+
 // Analytics Engine's data model is positional, not named columns -- blob1/blob2/blob3 and
 // index1 below are the actual column names a Grafana SQL query reads back. Keep this the single
 // place that convention is defined, since it's shared by every event.
@@ -50,7 +81,7 @@ function writeAnalytics(level: "info" | "error", scope: string, extra?: Record<s
   try {
     env.ANALYTICS.writeDataPoint({
       indexes: [scope], // what a query cheaply filters/groups by
-      blobs: [scope, level, JSON.stringify(extra ?? {})],
+      blobs: [scope, level, JSON.stringify(analyticsExtra(extra))],
       doubles: [1], // a constant "1" per row so SUM(double1) counts events, same as COUNT(*)
     });
   } catch {

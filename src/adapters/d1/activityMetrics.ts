@@ -56,12 +56,11 @@ export async function activityRaw(db: DB, since: string, since7: string, since30
       LEFT JOIN v2_workout_sessions w ON w.accountId = a.id AND w.completed = 1 AND w.date >= substr(a.createdAt, 1, 10)
       WHERE a.createdAt >= ?1 GROUP BY a.id`).bind(since),
     db.prepare(`
-      SELECT p.accountId AS id, COALESCE(p.name, 'id ' || p.accountId) AS name,
-        (SELECT COUNT(*) FROM v2_workout_sessions w WHERE w.accountId = p.accountId AND w.completed = 1 AND w.date >= ?1) AS workouts,
-        (SELECT COUNT(*) FROM v2_nutrition_days n WHERE n.accountId = p.accountId AND n.date >= ?1) AS nutritionDays,
+      SELECT
+        (SELECT COUNT(*) FROM v2_workout_sessions w WHERE w.accountId = x.accountId AND w.completed = 1 AND w.date >= ?1) AS workouts,
+        (SELECT COUNT(*) FROM v2_nutrition_days n WHERE n.accountId = x.accountId AND n.date >= ?1) AS nutritionDays,
         x.activeDays AS activeDays, x.lastActive AS lastActive
       FROM (SELECT accountId, COUNT(DISTINCT date) AS activeDays, MAX(date) AS lastActive FROM (${ACTIVE_PAIRS}) GROUP BY accountId) x
-      JOIN v2_profiles p ON p.accountId = x.accountId
       ORDER BY x.activeDays DESC, workouts DESC LIMIT 15`).bind(since30),
   ]);
   const perDayParts = results.slice(0, DAILY.length + 2);
@@ -81,6 +80,6 @@ export async function activityRaw(db: DB, since: string, since7: string, since30
       joined: x.joined,
       trainedWeeks: x.weeks ? x.weeks.split(",").map(Number).filter((n) => Number.isFinite(n)) : [],
     })),
-    topUsers: rows<ActivityRaw["topUsers"][number]>(topUsers),
+    topUsers: rows<Omit<ActivityRaw["topUsers"][number], "rank">>(topUsers).map((u, i) => ({ ...u, rank: i + 1 })),
   };
 }
