@@ -222,6 +222,7 @@ button { cursor: pointer; }
    has scrolled to. Replaces a line of muted text at the very end of the exercise list, which
    nobody mid-session was looking at. The ring is a conic-gradient driven by --rest-pct. */
 .train-dock { position: fixed; z-index: 11; right: 12px; bottom: calc(66px + var(--safe-bottom)); left: 12px; display: grid; gap: 6px; width: min(calc(100% - 24px), 656px); margin: 0 auto; }
+.train-dock[hidden] { display: none; }
 /* Save state + the one action that matters, pinned with the rest bar above the bottom nav.
    The old save button sat at the end of the list while its confirmation rendered at the top. */
 .save-dock { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(11,13,17,.96); box-shadow: 0 8px 24px rgba(0,0,0,.35); backdrop-filter: blur(18px); }
