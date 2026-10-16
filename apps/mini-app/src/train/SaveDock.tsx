@@ -12,6 +12,20 @@ export type DockAction =
   | { kind: "backfill"; date: string } // logging a past day
   | { kind: "saved" }; // nothing to save
 
+/** True while a text field has focus, i.e. the on-screen keyboard is (or is about to be) up. */
+function useTyping(): boolean {
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const isField = (el: EventTarget | null) => el instanceof HTMLElement && (el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el.tagName === "INPUT" && !["button", "checkbox", "radio", "range", "submit"].includes((el as HTMLInputElement).type)));
+    const onIn = (e: FocusEvent) => { if (isField(e.target)) setTyping(true); };
+    const onOut = () => setTimeout(() => setTyping(isField(document.activeElement)), 0);
+    document.addEventListener("focusin", onIn);
+    document.addEventListener("focusout", onOut);
+    return () => { document.removeEventListener("focusin", onIn); document.removeEventListener("focusout", onOut); };
+  }, []);
+  return typing;
+}
+
 function hhmm(epochMs: number): string {
   const d = new Date(epochMs);
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -44,6 +58,9 @@ export function SaveDock({ lang, action, saving, disabled, savedAt, drafted, syn
   const pressRef = useRef(onPress);
   pressRef.current = onPress;
   const buttonDisabled = disabled || saving || action.kind === "saved";
+  // While typing (exercise search, a note, a weight) the dock, the rest bar and Telegram's bottom
+  // button would sit on top of the field above the keyboard, so they step aside until it closes.
+  const typing = useTyping();
 
   // Re-render once a second only while the clock is actually running.
   const [now, setNow] = useState(() => Date.now());
@@ -71,12 +88,12 @@ export function SaveDock({ lang, action, saving, disabled, savedAt, drafted, syn
         : action.kind === "backfill" ? t(lang, "save_for_date", { date: action.date })
           : t(lang, "saved_btn");
   useEffect(() => {
-    if (!native) return;
+    if (!native || typing) return;
     return showMainButton({ text: label, active: !buttonDisabled, progress: saving }, () => { if (!buttonDisabled) pressRef.current(); });
-  }, [native, label, buttonDisabled, saving]);
+  }, [native, typing, label, buttonDisabled, saving]);
 
   return (
-    <div className="train-dock">
+    <div className="train-dock" hidden={typing}>
       {restBar}
       <div className={`save-dock${sync === "offline" && drafted ? " offline" : ""}`} role="status" aria-live="polite">
         <div className="save-dock-meta">
