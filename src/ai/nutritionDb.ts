@@ -82,7 +82,7 @@ async function usdaLookup(apiKey: string, query: string): Promise<Per100g | null
   const url =
     `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(apiKey)}` +
     `&query=${encodeURIComponent(query)}&pageSize=5&dataType=Foundation,SR%20Legacy`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) return null;
   const data = (await res.json()) as {
     foods?: { description?: string; foodNutrients?: { nutrientId?: number; value?: number }[] }[];

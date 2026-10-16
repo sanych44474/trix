@@ -20,7 +20,7 @@ export function parseSteps(text: string): string[] {
 }
 
 async function sourceInstructions(id: string): Promise<string[]> {
-  const res = await fetch(`https://raw.githubusercontent.com/yuhonas/free-exercise-db/${FREE_EXERCISE_DB_COMMIT}/exercises/${encodeURIComponent(id)}.json`);
+  const res = await fetch(`https://raw.githubusercontent.com/yuhonas/free-exercise-db/${FREE_EXERCISE_DB_COMMIT}/exercises/${encodeURIComponent(id)}.json`, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`free-exercise-db ${res.status}`);
   const body = (await res.json()) as { instructions?: unknown };
   return Array.isArray(body.instructions) ? body.instructions.filter((s): s is string => typeof s === "string") : [];
