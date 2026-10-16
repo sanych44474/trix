@@ -131,3 +131,20 @@ test("session clock: running, finished, and stale", () => {
   assert.equal(sessionElapsedSec(clock, T0 + 6 * 60 * MIN), 0, "a clock left over from the morning is not a session length");
   assert.equal(sessionElapsedSec(undefined, T0), 0);
 });
+
+test("removeLoggerSet: a planned set can be dropped for this session, an added one keeps the plan count", async () => {
+  const { removeLoggerSet } = await import("../apps/mini-app/src/logic/logger");
+  const base = { index: 0, name: "Curl", metric: "reps" as const, sets: 5, setsDone: [{ weight: 30, reps: 24 }, { weight: 30, reps: 24 }, { weight: 30, reps: 20 }, { weight: 30, reps: 20 }] };
+  // The unlogged 5th planned set goes: 4 planned now, the logged ones untouched.
+  const fewer = removeLoggerSet(base, 4);
+  assert.equal(fewer.sets, 4);
+  assert.equal(fewer.setsDone?.length, 4);
+  // An added 6th set: the plan count stays.
+  const added = { ...base, setsDone: [...base.setsDone, { weight: 30, reps: 20 }, { weight: 0, reps: 0 }] };
+  const back = removeLoggerSet(added, 5);
+  assert.equal(back.sets, 5);
+  assert.equal(back.setsDone?.length, 5);
+  // The last remaining set is never removed.
+  const one = { ...base, sets: 1, setsDone: [] };
+  assert.equal(removeLoggerSet(one, 0), one);
+});

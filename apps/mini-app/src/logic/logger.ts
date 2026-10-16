@@ -63,6 +63,20 @@ export function isExerciseFilled(exercise: LoggerExercise): boolean {
 }
 
 /** Sets a "did exactly what was planned" fill for one exercise would produce. */
+/** Drop one set from this session. Removing a planned set (not only an added one) also lowers the
+ *  session's planned count, so the row doesn't come back as "not done"; the plan itself is
+ *  untouched. At least one set always stays. */
+export function removeLoggerSet(exercise: LoggerExercise, setIndex: number): LoggerExercise {
+  const planned = Math.max(1, exercise.sets || 1);
+  const done = exercise.setsDone ?? [];
+  if (Math.max(planned, done.length) <= 1) return exercise;
+  return {
+    ...exercise,
+    setsDone: done.filter((_, i) => i !== setIndex),
+    ...(setIndex < planned ? { sets: Math.max(1, planned - 1) } : {}),
+  };
+}
+
 export function plannedSetsFor(exercise: LoggerExercise): LoggerSet[] {
   return Array.from({ length: exercise.sets || 1 }, () => exercise.metric === "reps" ? { weight: exercise.weightKg ?? 0, reps: exercise.reps ?? 0 } : exercise.metric === "time" ? { weight: 0, reps: 0, seconds: exercise.reps ?? 0 } : { weight: 0, reps: 0, meters: exercise.reps ?? 0 });
 }

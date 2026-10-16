@@ -219,9 +219,9 @@ export function ExerciseCard(props: ExerciseCardProps) {
       {active !== null && draft && (
         <div className="active-set" aria-label={extra ? t(lang, "set_extra_n", { n: active + 1 }) : t(lang, "set_n_of", { n: active + 1, total: planned })}>
           <div className="row-between"><strong>{extra ? t(lang, "set_extra_n", { n: active + 1 }) : t(lang, "set_n_of", { n: active + 1, total: planned })}</strong>
-            {(activeDone || extra) && <span className="row-actions">
+            {(activeDone || rows > 1) && <span className="row-actions">
               {activeDone && <button type="button" className="button button-quiet button-small" onClick={undo}>{t(lang, "set_not_done_btn")}</button>}
-              {extra && <button type="button" className="button button-quiet button-small danger" onClick={() => { props.onRemoveSet(active); setPicked(null); }}>{t(lang, "set_remove_btn")}</button>}
+              {rows > 1 && <button type="button" className="button button-quiet button-small danger" onClick={() => { props.onRemoveSet(active); setPicked(null); }}>{t(lang, "set_remove_btn")}</button>}
             </span>}
           </div>
           <div className={exercise.metric === "reps" ? "steppers two" : "steppers"}>
