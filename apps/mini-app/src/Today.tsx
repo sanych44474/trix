@@ -99,7 +99,6 @@ export function TodayView({ dashboard, lang, onOpen, onReload, onAskCoach }: { d
   const hidden = plan.exercises.length - shown.length;
   const recovery = dashboard.recovery;
   const stats = dashboard.todayStats;
-  const streak = dashboard.gamification?.streak ?? 0;
   const dayMarkClass = (mark: DayMark) => `status-${mark}`;
 
   return <div className="view-stack today">
@@ -111,11 +110,10 @@ export function TodayView({ dashboard, lang, onOpen, onReload, onAskCoach }: { d
       {plan.state === "rest"
         ? <p className="muted">{t(lang, "today_rest_body")}</p>
         : <>
-          <p className="workout-meta">
-            {plan.state === "continue" ? t(lang, "today_continue_meta", { done: plan.started, total: plan.exercises.length, sets: plan.sets })
-              : plan.state === "done" ? t(lang, "today_done_meta", { n: plan.exercises.length, sets: plan.sets })
-              : t(lang, "today_exercises_n", { n: plan.exercises.length })}
-          </p>
+          {plan.state !== "start" && <p className="workout-meta">
+            {plan.state === "continue" ? t(lang, "today_continue_meta", { done: plan.started, total: plan.exercises.length })
+              : t(lang, "today_done_meta", { sets: plan.sets })}
+          </p>}
           <ul className="workout-list">
             {shown.map((name, i) => <li key={`${i}-${name}`}>{name}</li>)}
             {hidden > 0 && <li className="muted">{t(lang, "today_more_n", { n: hidden })}</li>}
@@ -129,7 +127,6 @@ export function TodayView({ dashboard, lang, onOpen, onReload, onAskCoach }: { d
     <section className="week-block" aria-label={t(lang, "today_week_line", { done: plan.weekDone, planned: plan.weekPlanned })}>
       <div className="week-line">
         <span>{t(lang, "today_week_line", { done: plan.weekDone, planned: plan.weekPlanned })}</span>
-        {streak > 0 && <span className="muted">{t(lang, "metric_streak")}: {t(lang, "streak_weeks", { n: streak })}</span>}
       </div>
       <WeekStrip lang={lang} week={plan.week} />
     </section>
@@ -139,7 +136,7 @@ export function TodayView({ dashboard, lang, onOpen, onReload, onAskCoach }: { d
 
     <button type="button" className="list-row" onClick={onAskCoach}>
       <Icon name="chat" />
-      <span><strong>{t(lang, dashboard.viewer.role === "client" ? "ask_trainer_nav_btn" : "coach_entry_title")}</strong><small>{t(lang, "coach_entry_detail")}</small></span>
+      <strong>{t(lang, dashboard.viewer.role === "client" ? "ask_trainer_nav_btn" : "coach_entry_title")}</strong>
       <Icon name="chevron" size={20} className="row-chevron" />
     </button>
 

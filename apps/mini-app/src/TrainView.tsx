@@ -405,7 +405,6 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
   const filled = workout.exercises.filter(isExerciseFilled).length;
   // The exercise being worked on: the first with sets still to do (all done: none open).
   const currentIndex = workout.exercises.find((exercise) => (exercise.setsDone ?? []).filter(isSetFilled).length < Math.max(1, exercise.sets || 1))?.index ?? -1;
-  const liveDensity = density(session.clock && !session.clock.endedAt ? session.clock.startedAt : null, session.clock?.quality.restTotalSec ?? 0, Date.now());
   const savedTitle = summaryDate ? t(lang, "session_saved_for_date", { date: summaryDate }) : t(lang, "session_saved");
 
   return (
@@ -430,7 +429,7 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
       {restoredFrom === "server-draft" && drafted && <div className="draft-note">{t(lang, "restored_other_device_note")}</div>}
       {logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}
       {copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}
-      {workout.exercises.length > 1 && filled === 0 && <button type="button" className="button button-quiet button-block" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button>}
+      {logDate && workout.exercises.length > 1 && filled === 0 && <button type="button" className="button button-quiet button-block" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button>}
       <div className="exercise-list">
         {workout.exercises.map((exercise) => {
           const cardKey = `${exercise.index}-${exercise.name}`;
@@ -494,7 +493,7 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
         filledSets={filledSets}
         onPress={() => void save()}
         restBar={session.rest.endAt != null ? (
-          <RestBar lang={lang} rest={session.rest} density={liveDensity} streak={session.clock?.quality.onTargetStreak ?? 0} onAdjust={session.adjustRest} onSkip={session.stopRest} />
+          <RestBar lang={lang} rest={session.rest} onAdjust={session.adjustRest} onSkip={session.stopRest} />
         ) : null}
       />
     </div>

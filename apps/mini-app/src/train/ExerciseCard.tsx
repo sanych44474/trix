@@ -77,6 +77,7 @@ export function ExerciseCard(props: ExerciseCardProps) {
   const [picked, setPicked] = useState<number | null>(null);
   const active = picked ?? firstOpen ?? null;
   const [menu, setMenu] = useState(false);
+  const [rpeOpen, setRpeOpen] = useState(false);
 
   // The active set's working values: the logged set when editing one, else the suggestion
   // (keeping a load the person already stepped to on this row).
@@ -168,7 +169,6 @@ export function ExerciseCard(props: ExerciseCardProps) {
         <p className="target-hint">
           {t(lang, "target_last", { set: setLabel(exercise.target.lastW, exercise.target.lastR) })}
           {" → "}<strong>{t(lang, "target_today", { set: setLabel(exercise.target.w, exercise.target.r) })}</strong>
-          <small>{t(lang, exercise.target.step === "load" ? "target_why_load" : exercise.target.step === "hold" ? "target_why_hold" : "target_why_reps")}</small>
         </p>
       )}
 
@@ -228,12 +228,12 @@ export function ExerciseCard(props: ExerciseCardProps) {
             {exercise.metric === "reps" && <Stepper lang={lang} label={t(lang, "field_load")} unit={t(lang, "ph_kg")} value={draft.weight ?? 0} inputMode="decimal" onStep={(d) => bump("weight", d * weightStep)} onType={(v) => type("weight", v)} />}
             <Stepper lang={lang} label={fieldLabel} unit={main === "reps" ? t(lang, "ph_reps") : main === "seconds" ? t(lang, "ph_sec") : t(lang, "ph_m")} value={draft[main] ?? 0} inputMode={main === "meters" ? "decimal" : "numeric"} onStep={(d) => bump(main, d * mainStep)} onType={(v) => type(main, v)} />
           </div>
-          <div className="rpe" role="group" aria-label={t(lang, "set_rpe_label")}>
+          {rpeOpen || draft.rpe ? <div className="rpe" role="group" aria-label={t(lang, "set_rpe_label")}>
             <span>{t(lang, "set_rpe_label")}</span>
             <div className="chip-row">
               {RPE_CHOICES.map((rpe) => <button type="button" key={rpe} className="chip-button chip-num" aria-pressed={draft.rpe === rpe} onClick={() => setDraft((d) => d ? { ...d, rpe: d.rpe === rpe ? undefined : rpe } : d)}>{rpe}</button>)}
             </div>
-          </div>
+          </div> : <button type="button" className="button button-quiet button-small rpe-open" onClick={() => setRpeOpen(true)}>+ {t(lang, "set_rpe_label")}</button>}
           <button type="button" className="button button-primary button-block button-tall" disabled={!(draft[main] ?? 0)} onClick={commit}><Icon name="check" />{t(lang, "set_done_btn")}</button>
         </div>
       )}

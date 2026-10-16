@@ -572,7 +572,7 @@ button { cursor: pointer; }
 .day-today .day-dot { box-shadow: inset 0 0 0 2px var(--accent); }
 .day-today.day-done .day-dot { box-shadow: none; }
 
-.list-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 12px 14px; border: 0; border-radius: 16px; background: var(--surface); color: var(--text); font: inherit; text-align: left; }
+.list-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 12px 14px; border: 0; border-radius: 16px; background: var(--surface); color: var(--text); font: inherit; text-align: left; }
 .list-row > .icon:first-child { color: var(--muted); }
 .list-row strong { display: block; font-size: 15px; }
 .list-row small { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; }
@@ -676,3 +676,4 @@ button { cursor: pointer; }
 :root[data-theme="contrast"] .card, :root[data-theme="contrast"] .workout-block, :root[data-theme="contrast"] .exercise-card, :root[data-theme="contrast"] .list-row, :root[data-theme="contrast"] .segmented, :root[data-theme="contrast"] .day-dot, :root[data-theme="contrast"] .stepper-body { box-shadow: inset 0 0 0 1px var(--line); }
 :root[data-theme="contrast"] .day-today .day-dot { box-shadow: inset 0 0 0 2px var(--accent); }
 :root[data-theme="contrast"] .day-done .day-dot, :root[data-theme="contrast"] .is-done .exercise-state { color: #fff; }
+.rpe-open { justify-self: start; color: var(--muted); }
