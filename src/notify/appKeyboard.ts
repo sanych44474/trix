@@ -5,7 +5,7 @@ import { InlineKeyboard } from "grammy";
 import type { InlineKeyboardButton } from "grammy/types";
 import { appViewUrlFromEnv } from "./appLinks";
 
-/** Screens the Mini App opens from ?view= (apps/mini-app/src/App.tsx viewFromLocation). */
+/** Screens the Mini App opens from ?view= (apps/mini-app/src/logic/navigation.ts viewFromSearch). */
 export type AppView =
   | "today" | "train" | "plan" | "fuel" | "progress" | "more" | "settings" | "library" | "inbox" | "coach" | "role" | "onboarding";
 
