@@ -52,8 +52,9 @@ function**, so the total below is a count rather than a slogan.
 ## 1. Onboarding & roles
 
 1. **Role choice at `/start`**: solo with the AI coach, find a trainer, or become a trainer.
-2. **Button-driven intake wizard**, 11 steps: sex, age, height/weight, goal, level, training
-   weekdays, equipment, lifestyle, sleep schedule, diet, limitations. Deterministic, no AI call
+2. **Button-driven intake wizard**, 13 steps for a beginner: sex, age, height, weight, goal, level,
+   training weekdays, session duration, equipment, lifestyle, sleep schedule, diet, limitations.
+   A non-beginner also gets a lifts step (14); a client also gets a share step. Deterministic, no AI call
    per step.
 3. **Intake as a web form in the Mini App** for profiles left incomplete.
 4. **Plan generated on finish**, bank-first: a pre-built plan bank and templates cost zero AI.

@@ -26,9 +26,9 @@ sides read the *same* flag, so they can never both act on the same work:
 
 <table>
 <tr><th>Flag</th><th>Off (default)</th><th>On</th></tr>
-<tr><td><code>scheduler_cutover_user</code></td><td>Cron runs <code>processUser</code> for real; the DO shadow-runs and logs what it <em>would</em> have done</td><td>Cron <code>continue</code>s past every user (<code>scheduler.ts:522</code>); <code>UserSchedulerDO.alarm()</code> sends for real (<code>userScheduler.ts:91</code>)</td></tr>
-<tr><td><code>scheduler_cutover_squad</code></td><td>Cron sends squad recaps</td><td>Cron skips the recap block (<code>scheduler.ts:470</code>); <code>SquadSchedulerDO</code> owns it</td></tr>
-<tr><td><code>scheduler_cutover_global</code></td><td>Cron runs <code>runGlobalJobs</code></td><td>Cron skips it (<code>scheduler.ts:437</code>); <code>GlobalSchedulerDO</code> owns it</td></tr>
+<tr><td><code>scheduler_cutover_user</code></td><td>Cron runs <code>processUser</code> for real; the DO shadow-runs and logs what it <em>would</em> have done</td><td>Cron <code>continue</code>s past every user (<code>runScheduleInner</code>, <code>if (userCutOver) continue</code>); <code>UserSchedulerDO.alarm()</code> sends for real</td></tr>
+<tr><td><code>scheduler_cutover_squad</code></td><td>Cron sends squad recaps</td><td>Cron skips the recap block (<code>runScheduleInner</code>, <code>isCutOver(db, "squad")</code> guard); <code>SquadSchedulerDO</code> owns it</td></tr>
+<tr><td><code>scheduler_cutover_global</code></td><td>Cron runs <code>runGlobalJobs</code></td><td>Cron skips it (<code>runScheduleInner</code>, <code>isCutOver(db, "global")</code> guard); <code>GlobalSchedulerDO</code> owns it</td></tr>
 </table>
 
 Turning one on is a single D1 write — no code change, no redeploy. Turning it off again is the
@@ -39,13 +39,13 @@ same write with `'0'`, which is the whole rollback.
 **A DO only does work if its alarm was ever armed.** The cron arms them lazily, and only for
 entities that have never been woken:
 
-- **user** — `scheduler.ts:512` wakes only users whose `doWokenAt` is NULL, then records it.
+- **user** — `runScheduleInner` wakes only users whose `doWokenAt` is NULL, then records it.
   This runs *before* the `if (userCutOver) continue`, so waking survives cutover — but a user who
   has never been woken **and** whose wake keeps failing would get nothing once the cron stops.
-- **squad** — `scheduler.ts:477` wakes a bounded batch (`SQUAD_RECAP_BATCH`) of squads with
+- **squad** — `runScheduleInner` wakes a bounded batch (`SQUAD_RECAP_BATCH`) of squads with
   `doWokenAt IS NULL`. With more unwoken squads than the batch size, it takes several ticks to
   drain.
-- **global** — `scheduler.ts:438` wakes unconditionally every tick, so there is nothing to drain.
+- **global** — `runScheduleInner` wakes unconditionally every tick (`wakeGlobalScheduler(env)`), so there is nothing to drain.
 
 So the gate before flipping `user` or `squad` is: **zero unwoken entities.** Read-only, safe to
 run any time:
@@ -98,7 +98,7 @@ next one.
    ```
 
 4. **Watch the next few hours.** `do_alarm_run` is logged on every DO alarm with its `cutOver`
-   value (`userScheduler.ts:90`), and a real failure after cutover goes through
+   value (`UserSchedulerDO.alarm()`), and a real failure after cutover goes through
    `logSchedulerError` into `error_logs` and the owner report — the same channel the cron path
    used, which is the point of the try/catch around `processUser` there. Check that reminders are
    still arriving and are not arriving twice.
