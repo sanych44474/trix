@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GrammyError } from "grammy";
 import { newDb } from "./harness";
-import { rawTelegramApi, sendBestEffort } from "../src/adapters/telegram/rawApi";
+import { fetchTelegramFile, rawTelegramApi, sendBestEffort, telegramTimeouts } from "../src/adapters/telegram/rawApi";
 import { enqueueAndDeliver } from "../src/schedulerOutbox";
 import { completeWorkout } from "../src/features/workout/completeWorkout";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
@@ -53,6 +53,42 @@ test("rawTelegramApi: a non-JSON error body still fails with the HTTP status", a
   try {
     await assert.rejects(rawTelegramApi(env).sendMessage(1, "x"), (e: unknown) => e instanceof GrammyError && e.error_code === 502);
   } finally { s.restore(); }
+});
+
+test("rawTelegramApi: every request carries an AbortSignal, and a hung Telegram call is aborted and fails", async () => {
+  const realJson = telegramTimeouts.json;
+  telegramTimeouts.json = 20;
+  // A stub that never answers, but rejects with the signal's reason once aborted -- what fetch does.
+  let seen: AbortSignal | undefined;
+  const hung = stubFetch((_url, init) => {
+    seen = init.signal as AbortSignal;
+    return new Promise<Response>((_resolve, reject) => {
+      seen!.addEventListener("abort", () => reject(seen!.reason));
+    });
+  });
+  try {
+    assert.equal(await sendBestEffort(env, 1, "x"), false, "a timed-out send is a failed send, not a throw");
+    assert.ok(seen instanceof AbortSignal, "the fetch init carries an AbortSignal");
+    assert.equal(seen!.aborted, true, "the signal fired, so the request was abandoned");
+  } finally {
+    telegramTimeouts.json = realJson;
+    hung.restore();
+  }
+});
+
+test("fetchTelegramFile: the file download carries an AbortSignal", async () => {
+  const realFetchOrig = globalThis.fetch;
+  let fileSignal: unknown;
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    fileSignal = init.signal;
+    return new Response("bytes", { status: 200 });
+  }) as typeof fetch;
+  try {
+    await fetchTelegramFile(env, "photos/a.jpg");
+    assert.ok(fileSignal instanceof AbortSignal, "file download is bounded by a signal");
+  } finally {
+    globalThis.fetch = realFetchOrig;
+  }
 });
 
 test("sendBestEffort: true on success, false on a refusal or a network error, never throws", async () => {

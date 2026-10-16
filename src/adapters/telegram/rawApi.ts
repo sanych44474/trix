@@ -12,12 +12,17 @@ import { GrammyError, type Api } from "grammy";
 
 type Params = Record<string, unknown>;
 
+// Every Telegram request is awaited inside a per-user scheduler pass, so a hung connection must not
+// hold that pass open. A JSON call is a short round-trip; uploads and file downloads move bytes.
+// Exported (mutable) only so the timeout test can shorten them instead of waiting real seconds.
+export const telegramTimeouts = { json: 10_000, upload: 30_000 };
+
 // The one place in the codebase that builds a Bot API URL (test/architecture.test.ts holds every
 // other module to that). FormData bodies (photo / document uploads) go as multipart.
 async function call(token: string, method: string, params: Params | FormData): Promise<unknown> {
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, params instanceof FormData
-    ? { method: "POST", body: params }
-    : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params) });
+    ? { method: "POST", body: params, signal: AbortSignal.timeout(telegramTimeouts.upload) }
+    : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params), signal: AbortSignal.timeout(telegramTimeouts.json) });
   const body = (await res.json().catch(() => null)) as
     | { ok: true; result: unknown }
     | { ok: false; error_code: number; description: string; parameters?: { retry_after?: number } }
@@ -78,5 +83,5 @@ export async function sendBestEffort(env: { TELEGRAM_BOT_TOKEN: string }, chatId
 /** The bytes of a file Telegram stores (`file_path` from getFile). The file endpoint is the other
  *  Bot API URL; it embeds the token too, so it is built here as well. */
 export function fetchTelegramFile(env: Token, filePath: string): Promise<Response> {
-  return fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${filePath}`);
+  return fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${filePath}`, { signal: AbortSignal.timeout(telegramTimeouts.upload) });
 }
