@@ -275,7 +275,9 @@ export function assemblePayload(
           done: w.completed,
           ex: w.exercises
             .filter((e) => !e.skipped)
-            .slice(0, 10)
+            // 10 cut real sessions short (weekly sets and the body map undercounted); 25 only
+            // bounds the payload against a runaway log.
+            .slice(0, 25)
             .map((e) => ({ n: e.name, s: e.setsDone.length })),
         })),
       ...(learnedMuscles.length ? { learnedMuscles } : {}),

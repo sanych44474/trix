@@ -205,8 +205,13 @@ export interface BalanceIssue {
   suggestion?: { uk: string; en: string; weekday: number };
 }
 
-/** "4 × 8–10" → 4; anything unparseable counts as a typical 3 sets. */
+/** A time or distance with no "N ×" in front ("20-25 min", "20–30 хв", "5 km"): one block of cardio. */
+export const DURATION_ONLY = /^(?!.*[×x*х]\s*\d).*\d\s*(min|хв|мин|sec|сек|с|s|km|км|m|м)(?!\p{L})/iu;
+
+/** "4 × 8–10" → 4; a duration or distance ("20-25 min") is one set, not 20; anything
+ *  unparseable counts as a typical 3 sets. */
 export function planSetCount(sets: string | undefined): number {
+  if (DURATION_ONLY.test(sets ?? "")) return 1;
   const n = parseInt((sets ?? "").trim(), 10);
   return Number.isFinite(n) && n > 0 && n <= 20 ? n : 3;
 }

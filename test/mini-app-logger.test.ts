@@ -148,3 +148,14 @@ test("removeLoggerSet: a planned set can be dropped for this session, an added o
   const one = { ...base, sets: 1, setsDone: [] };
   assert.equal(removeLoggerSet(one, 0), one);
 });
+
+test("a swap drops the old exercise's target, weight and history, and re-derives the metric", () => {
+  const bench: LoggerExercise = { index: 0, name: "Bench Press", metric: "reps", sets: 3, reps: 6, weightKg: 82.5, planWeight: "82.5 kg", last: [{ w: 80, r: 8, sec: 0, m: 0 }], target: { w: 82.5, r: 6, lastW: 80, lastR: 8, step: "load" } };
+  const pushups = swapExercise([bench], 0, "Віджимання")[0];
+  assert.equal(pushups.weightKg, undefined, "no bench-press weight on push-ups");
+  assert.equal(pushups.target, undefined);
+  assert.equal(pushups.last, undefined);
+  assert.equal(pushups.planWeight, undefined);
+  assert.equal(pushups.metric, "reps");
+  assert.equal(swapExercise([bench], 0, "Планка")[0].metric, "time");
+});

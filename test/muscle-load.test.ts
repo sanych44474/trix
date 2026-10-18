@@ -110,3 +110,12 @@ test("weekly series: 7-day buckets ending today, oldest first, unfinished workou
   assert.equal(series.triceps![11], 3.5, "bench helps triceps: 7 → 3.5");
   assert.equal(series.chest!.slice(0, 10).reduce((a, b) => a + b, 0), 0);
 });
+
+test("planSetCount: a cardio duration or distance is one block, not that many sets", () => {
+  assert.equal(planSetCount("20-25 min"), 1);
+  assert.equal(planSetCount("20–30 хв"), 1);
+  assert.equal(planSetCount("5 km"), 1);
+  assert.equal(planSetCount("4 × 8-10"), 4);
+  assert.equal(planSetCount("3 × 30 s"), 3);
+  assert.equal(planSetCount("3 х 10"), 3);
+});

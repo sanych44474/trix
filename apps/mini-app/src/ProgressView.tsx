@@ -87,7 +87,7 @@ const MEASURE_LABEL_KEY: Record<string, Key> = {
 };
 
 export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: Lang }) {
-  const latest = dashboard.weight.points.at(-1);
+  const latest = [...dashboard.weight.points].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
   const [weightPeriod, setWeightPeriod] = useState<7 | 30 | 90>(30);
   const [measure, setMeasure] = useState(""); const [steps, setSteps] = useState(""); const [busy, setBusy] = useState<string | null>(null); const [notice, setNotice] = useState("");
   const [checkin, setCheckin] = useState({ energy: 3, sleep: 3, stress: 3 });
@@ -200,7 +200,10 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   const sortedWeights = [...dashboard.weight.points].sort((a, b) => a.date.localeCompare(b.date));
   const weekAgo = new Date(Date.parse(`${dashboard.today}T00:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10);
   const before = [...sortedWeights].reverse().find((p) => p.date <= weekAgo);
-  const weightDelta = latest && before ? Math.round((latest.kg - before.kg) * 10) / 10 : null;
+  // Only a real 7-day change: the latest weigh-in inside this week, compared with one from the
+  // week before (not a month-old one labelled as 7 days).
+  const twoWeeksAgo = new Date(Date.parse(`${dashboard.today}T00:00:00Z`) - 14 * 86_400_000).toISOString().slice(0, 10);
+  const weightDelta = latest && before && before !== latest && latest.date > weekAgo && before.date > twoWeeksAgo ? Math.round((latest.kg - before.kg) * 10) / 10 : null;
   const periodFrom = new Date(Date.parse(`${dashboard.today}T00:00:00Z`) - (weightPeriod - 1) * 86_400_000).toISOString().slice(0, 10);
   const periodPoints = dashboard.weight.points.filter((p) => p.date >= periodFrom);
 

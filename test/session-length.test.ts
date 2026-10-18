@@ -20,3 +20,8 @@ test("estimateSessionMinutes: missing rest falls back to 90 s", () => {
   // 300 + 3×40 + 2×90 = 600 s -> 10 min
   assert.equal(estimateSessionMinutes([{ sets: "3 × 10" }]), 10);
 });
+
+test("estimateSessionMinutes: a cardio entry counts its own duration", () => {
+  // 5 min warm-up + 22.5 min -> 27.5 min -> rounds to 30 (not 45 from "20 sets")
+  assert.equal(estimateSessionMinutes([{ sets: "20-25 min" }]), 30);
+});

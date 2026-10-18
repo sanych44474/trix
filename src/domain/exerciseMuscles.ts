@@ -25,20 +25,35 @@ const RULES: Rule[] = [
   // ---- cardio (whole-name first, so "Barbell Rowing" stays a row) ----
   [/^\s*(rowing|веслування|гребля)\s*$|rowing machine|row(ing)? erg|\brower\b|ергометр|гребн/iu, ["upper-back", "quadriceps"], ["biceps", "hamstring", "gluteal"]],
   [/\b(run|running|jog|jogging|treadmill|sprints?)\b|біг|бег|пробіжк|доріжк|спринт/iu, ["quadriceps", "calves", "hamstring"], ["gluteal"]],
-  [/\b(bike|cycling|spin)\b|велос|велотрен/iu, ["quadriceps"], ["calves", "gluteal", "hamstring"]],
+  [/^(?!.*(скруч|лежач|crunch)).*(\b(bike|cycling|spin)\b|велос|велотрен)/iu, ["quadriceps"], ["calves", "gluteal", "hamstring"]],
   [/\b(swim|swimming)\b|плаван/iu, ["upper-back", "deltoids"], ["chest", "triceps"]],
   [/^\s*(walk|walking|hike|hiking)\s*$|ходьба(?! фермера)|прогулянк(?!а фермера)|похід/iu, ["calves", "quadriceps"], ["gluteal"]],
   [/jump ?rope|скакалк/iu, ["calves"], ["quadriceps", "deltoids"]],
   [/elliptical|еліпт|еліпс|stair|степер/iu, ["quadriceps", "gluteal"], ["calves", "hamstring"]],
 
+  // ---- whole-body / core moves whose words would hit the rules below ----
+  // Olympic lifts: the pull from the floor (clean, snatch) is legs and hips; the overhead drive
+  // (jerk, push press, thruster) is shoulders and quads. A medicine-ball "поштовх від грудей" is a
+  // chest pass, a "Clean Shrug" a shrug.
+  [/^(?!.*(shrug|шраг|медбол|мішк|від грудей)).*(\bjerk\b|thruster|поштовх|швунг|трастер)/iu, ["deltoids", "quadriceps"], ["gluteal", "triceps", "trapezius"]],
+  [/^(?!.*(shrug|шраг|медбол)).*(\bclean\b|snatch|взяття|(?<!\p{L})ривок(?!\p{L}))/iu, ["quadriceps", "gluteal", "hamstring"], ["trapezius", "deltoids", "lower-back"]],
+  [/get[- ]?up|турецьк\p{L}* підйом/iu, ["deltoids", "abs"], ["gluteal", "quadriceps", "obliques"]],
+  [/^(?!.*(тяг|жим|press|row)).*(шиї|шию|\bneck\b)/iu, ["neck"], []],
+  [/burpee|берпі|бёрпи|берпи/iu, ["quadriceps", "chest"], ["deltoids", "triceps", "abs"]],
+  [/mountain climber|скелелаз|альпініст/iu, ["abs"], ["quadriceps", "deltoids", "obliques"]],
+  [/dead ?bug|мертв\p{L}* жук/iu, ["abs"], ["obliques"]],
+  [/wall sit|стільчик|стульчик/iu, ["quadriceps"], ["gluteal"]],
+  [/glute[- ]ham raise|\bghr\b/iu, ["hamstring"], ["gluteal", "calves"]],
+  [/pallof|палоф/iu, ["obliques"], ["abs"]],
+
   // ---- legs / hips ----
-  [/kettlebell swing|dumbbell swing|\bswing\b|махи гир|махи гантел(ею|лю|ями)(?!.*(сторон|бок))/iu, ["gluteal", "hamstring"], ["lower-back", "deltoids"]],
+  [/kettlebell swing|dumbbell swing|\bswing\b|махи гир|махи гантел(ею|лю|ями)(?!.*(сторон|бок|нахил))/iu, ["gluteal", "hamstring"], ["lower-back", "deltoids"]],
   // Glute isolation before anything that shares a word: "Glute Kickback" isn't a triceps kickback,
   // "Махи ногою назад" aren't lateral raises.
   [/glute kickback|donkey kick|fire hydrant|гідрант|гидрант|махи ног|відведення ноги|отведение ноги/iu, ["gluteal"], ["hamstring"]],
-  [/hip thrust|glute bridge|сідничн\p{L}* міст|ягідн\p{L}* міст|ягодичн\p{L}* мост|тазов\p{L}* (міст|підйом)/iu, ["gluteal"], ["hamstring", "adductors"]],
-  [/romanian|\brdl\b|stiff[- ]?leg|good ?morning|румунськ|румынск|на прямих ногах|на прямых ногах/iu, ["hamstring", "gluteal"], ["lower-back", "adductors", "forearm"]],
-  [/deadlift|станов/iu, ["gluteal", "hamstring", "lower-back"], ["quadriceps", "trapezius", "upper-back", "forearm"]],
+  [/hip thrust|glute bridge|сідничн\p{L}* міст|ягідн\p{L}* міст|ягодичн\p{L}* мост|тазов\p{L}* (міст|підйом)|(підйом|подъем)\p{L}* таз/iu, ["gluteal"], ["hamstring", "adductors"]],
+  [/romanian|\brdl\b|stiff[- ]?leg|good ?morning|single[- ]leg (deadlift|rdl)|румунськ|румынск|на прямих ногах|на прямых ногах|доброго ранку|доброе утро|тяг\p{L}*\s.*на одн\p{L}* нозі/iu, ["hamstring", "gluteal"], ["lower-back", "adductors", "forearm"]],
+  [/deadlift|(?<!\p{L})станов|тяга сумо|сумо[- ]тяга|ривков\p{L}* тяга|тяга ривков/iu, ["gluteal", "hamstring", "lower-back"], ["quadriceps", "trapezius", "upper-back", "forearm"]],
   [/hip circles?|обертання стегн|вращени\p{L}* таз|вращени\p{L}* бедр/iu, ["gluteal"], ["adductors", "obliques"]],
   [/knee circles?|обертання колін|вращени\p{L}* колен/iu, ["quadriceps"], ["calves"]],
   [/leg press|жим ногами|жим ног|жим платформ|гак-?машин/iu, ["quadriceps", "gluteal"], ["adductors", "hamstring"]],
@@ -47,58 +62,59 @@ const RULES: Rule[] = [
   [/leg extension|розгинання ніг|разгибание ног|розгинання ног/iu, ["quadriceps"], []],
   [/leg curl|hamstring curl|nordic|згинання ніг|сгибание ног|згинання ног|біцепс стегна|бицепс бедра/iu, ["hamstring"], ["calves"]],
   [/calf|литк|икр|носк|носок/iu, ["calves"], []],
-  [/adduct|привод|зведення ніг|сведение ног/iu, ["adductors"], []],
+  [/adduct|привод|(?<!\p{L})зведення ніг|сведение ног/iu, ["adductors"], []],
   [/abduct|відвод|відведення ніг|розведення ніг|разведение ног|отведение ног/iu, ["gluteal"], []],
 
   // ---- back / lower back ----
   [/hyperext|back extension|гіперекст|гиперэкст|розгинання спини|разгибание спины/iu, ["lower-back"], ["gluteal", "hamstring"]],
-  [/pull-?up|chin-?up|pull-?down|lat |підтяг|подтяг|верхнього блок|верхнего блок|вертикальн\p{L}* тяг/iu, ["upper-back"], ["biceps", "forearm", "deltoids"]],
-  [/pullover|пуловер/iu, ["upper-back", "chest"], ["triceps"]],
-  [/face ?pull|rear delt|reverse fly|bent[- ]?over .*(fly|raise)|(розвед|махи)\p{L}* .*нахил|нахил\p{L}* .*(розвед|махи)|до обличчя|к лицу|зворотн\p{L}* розвед|обратн\p{L}* развед|задн\p{L}* дельт|(розведення|зведення|разведение|сведение) рук назад/iu, ["deltoids", "upper-back"], ["trapezius"]],
-  [/upright row|до підборіддя|к подбородку/iu, ["deltoids", "trapezius"], ["biceps"]],
+  [/^(?!.*(згинан|розгинан|(підтяг|подтяг)\p{L}* колін|knee (raise|tuck|to))).*(pull-?up|chin-?up|pull-?down|\blats?\b|підтяг|подтяг|верхнього блок|верхнего блок|вертикальн\p{L}* тяг)/iu, ["upper-back"], ["biceps", "forearm", "deltoids"]],
+  [/pull-?over|пуловер/iu, ["upper-back", "chest"], ["triceps"]],
+  [/^(?!.*(негативн|на лаві)).*(face ?pull|rear delt|reverse fly|bent[- ]?over .*(fly|raise)|(розвед|махи)\p{L}* .*нахил|нахил\p{L}* .*(розвед|махи)|до обличчя|к лицу|зворотн\p{L}* розвед|обратн\p{L}* развед|задн\p{L}* дельт|(розведення|зведення|разведение|сведение) рук назад)/iu, ["deltoids", "upper-back"], ["trapezius"]],
+  [/^(?!.*француз).*(upright row|до підборіддя|к подбородку)/iu, ["deltoids", "trapezius"], ["biceps"]],
   [/shrug|шраг/iu, ["trapezius"], ["forearm"]],
   [/\brows?\b|rowing|тяга|t-bar/iu, ["upper-back"], ["biceps", "deltoids", "trapezius", "lower-back", "forearm"]],
 
   // ---- chest ----
   // Triceps isolation before the chest presses: "Французький жим лежачи" is not a bench press.
-  [/triceps|трицепс|pushdown|push-?down|skull|french|французьк|французск|kickback|розгинання рук|разгибание рук|розгинання на блоці|разгибание на блоке|розгинання з-за голов|розгинання гантел|кікбек/iu, ["triceps"], []],
+  [/triceps|трицепс|pushdown|push-?down|skull|french|французьк|французск|kickback|розгинання\p{L}*\s.*з-за голов|розгинання рук|разгибание рук|розгинання на блоці|разгибание на блоке|розгинання з-за голов|розгинання гантел|кікбек/iu, ["triceps"], []],
   // Bodyweight stand-ins (domain/equipmentFit.ts) whose words would otherwise hit the press rules below.
-  [/superman|супермен|човник/iu, ["lower-back"], ["gluteal", "hamstring"]],
+  [/superman|супермен/iu, ["lower-back"], ["gluteal", "hamstring"]],
   [/pike push|пайк/iu, ["deltoids"], ["triceps", "chest"]],
   [/side bend|нахил\p{L}* в бік|наклон\p{L}* в сторону/iu, ["obliques"], ["abs"]],
   [/bench dip|від лави|от скамьи|зворотн\p{L}* віджиман|обратн\p{L}* отжиман/iu, ["triceps"], ["chest", "deltoids"]],
-  [/dip|бруси|брусья|брусьях|брусах/iu, ["chest", "triceps"], ["deltoids"]],
+  [/^(?!.*(колін|ніг|knee|leg)).*(dip|бруси|брусья|брусьях|брусах)/iu, ["chest", "triceps"], ["deltoids"]],
   [/(close[- ]?grip|вузьким хват|узким хват).*(bench|press|жим)|(bench|press|жим).*(close[- ]?grip|вузьким хват|узким хват)|вузьк\p{L}* жим|жим\p{L}* вузьк/iu, ["triceps", "chest"], ["deltoids"]],
-  [/\bfly|flyes|флай|cross-?over|кросовер|кроссовер|pec deck|butterfly|батерфляй|зведення рук|сведение рук|розведення гантелей лежачи|розведення рук лежачи|розведен\p{L}*\s.*лежачи|разведение гантелей лежа/iu, ["chest"], ["deltoids"]],
-  [/decline|нахилом вниз|головою вниз/iu, ["chest"], ["triceps", "deltoids"]],
-  [/incline|під кутом|похил|наклонн/iu, ["chest", "deltoids"], ["triceps"]],
-  [/bench|chest press|floor press|жим лежачи|жим лежа|жим від грудей|жим .*на лаві|жим\p{L}*\s.*(з|на|від|с) (підлог|пол)|лежачи|лежа(?!\p{L})/iu, ["chest"], ["triceps", "deltoids"]],
+  [/^(?!.*(над голов|overhead)).*(\bfly|flyes|флай|cross-?over|кросовер|кроссовер|pec deck|butterfly|батерфляй|метелик|(?<!\p{L})зведення рук|(?<!\p{L})сведение рук|розведення гантелей лежачи|розведення рук лежачи|розведен\p{L}*\s.*лежачи|разведение гантелей лежа)/iu, ["chest"], ["deltoids"]],
+  [/^(?!.*(curl|згинан|crunch|скруч|sit-?up|raise|підйом|колін|knee|pull-in)).*(decline|нахилом вниз|головою вниз)/iu, ["chest"], ["triceps", "deltoids"]],
+  [/^(?!.*(curl|згинан|crunch|скруч|sit-?up|raise|підйом|колін|knee|pull-in)).*(incline|під кутом|похил|наклонн)/iu, ["chest", "deltoids"], ["triceps"]],
+  [/^(?!.*(curl|згинан|crunch|скруч|sit-?up|raise|підйом|колін|knee|pull-in)).*(bench|chest press|floor press|жим\p{L}*\s(.*\s)?лежа|жим від грудей|жим .*на лаві|жим\p{L}*\s.*(з|на|від|с) (підлог|підлоз|пол))/iu, ["chest"], ["triceps", "deltoids"]],
   [/push-?up|віджим|отжим/iu, ["chest", "triceps"], ["deltoids", "abs"]],
 
   // ---- shoulders ----
   [/overhead|military|shoulder press|arnold|арнольд|армійськ|армейск|жим\s.*(стоячи|сидячи|стоя|сидя|над голов)|жим над голов/iu, ["deltoids"], ["triceps", "trapezius"]],
-  [/lateral raise|side raise|махи|[ву] сторон|відведення рук/iu, ["deltoids"], ["trapezius"]],
+  [/lateral raise|side raise|махи|[ву] сторон|[ву] бок(и|а)(?!\p{L})|відведення рук/iu, ["deltoids"], ["trapezius"]],
   [/front .*raise|raise.*front|перед собою/iu, ["deltoids"], ["chest"]],
 
   // ---- arms ----
   [/hammer|молот/iu, ["biceps", "forearm"], []],
-  [/curl|згинання рук|сгибание рук|згинання (з|зі|із) (штанг|гантел|ez)|біцепс|бицепс|скотт|scott|preacher/iu, ["biceps"], ["forearm"]],
-  [/wrist|зап'яст|запястья|farmer|фермер/iu, ["forearm"], ["trapezius"]],
+  [/wrist|reverse curl|зап'яст|запястья|farmer|фермер/iu, ["forearm"], ["trapezius"]],
+  [/curl|згинання рук|сгибание рук|згинання (з|зі|із) (штанг|гантел|ez)|згинання (штанг|гантел)|концентрован|біцепс|бицепс|скотт|scott|preacher/iu, ["biceps"], ["forearm"]],
 
   // ---- core ----
   [/side plank|бічна планк|боковая планк|twist|скручування з млинцем|російськ\p{L}* скруч|русск\p{L}* скруч|woodchop|oblique|кос[іы]/iu, ["obliques"], ["abs"]],
-  [/plank|планк/iu, ["abs"], ["obliques", "deltoids"]],
-  [/crunch|sit-?up|leg raise|ab wheel|скручув|скручив|прес|пресс|підйом ніг|подъем ног|ролик/iu, ["abs"], ["obliques"]],
+  [/plank|планк|hollow|човник/iu, ["abs"], ["obliques", "deltoids"]],
+  [/crunch|sit-?up|leg raise|knee raise|knee tuck|pull-in|toes to bar|ab wheel|скручув|скручив|прес|пресс|(підйом|подъем)\p{L}* (ніг|ног)|(підйом|подъем|підтягуван)\p{L}* колін|ролик/iu, ["abs"], ["obliques"]],
 ];
 
 // Last resort: the coarse region a name mentions ("вправа на груди", "leg day finisher").
+// English words need word boundaries: "arm" is inside "warm-up" and "One-Arm Row".
 const REGION_FALLBACK: Array<[RegExp, Slug[]]> = [
-  [/груд|chest/iu, ["chest"]],
-  [/спин|back|широч/iu, ["upper-back"]],
-  [/ног|leg|стегн|бедр/iu, ["quadriceps", "hamstring", "gluteal"]],
-  [/плеч|дельт|shoulder/iu, ["deltoids"]],
-  [/рук|arm/iu, ["biceps", "triceps"]],
-  [/core|кор(?!\p{L})/iu, ["abs", "obliques"]],
+  [/груд|\bchest\b/iu, ["chest"]],
+  [/спин|\bback\b|широч/iu, ["upper-back"]],
+  [/ног|\blegs?\b|стегн|бедр/iu, ["quadriceps", "hamstring", "gluteal"]],
+  [/плеч|дельт|\bshoulders?\b/iu, ["deltoids"]],
+  [/(?<!\p{L})рук[иу]?(?!\p{L})|\barms?\b/iu, ["biceps", "triceps"]],
+  [/\bcore\b|(?<!\p{L})кор(?!\p{L})/iu, ["abs", "obliques"]],
 ];
 
 export function musclesForExercise(name: string): ExerciseMuscles | null {
@@ -106,10 +122,13 @@ export function musclesForExercise(name: string): ExerciseMuscles | null {
   for (const [re, primary, secondary] of RULES) {
     if (re.test(n)) return { primary, secondary: secondary.filter((s) => !primary.includes(s)) };
   }
+  // A learned (catalog/AI) classification beats a guess from a region word in the name.
+  const learned = LEARNED.get(normalizeExerciseName(name));
+  if (learned) return learned;
   for (const [re, primary] of REGION_FALLBACK) {
     if (re.test(n)) return { primary, secondary: [] };
   }
-  return LEARNED.get(normalizeExerciseName(name)) ?? null;
+  return null;
 }
 
 // ---- Learned muscles: exercises the rules above don't recognise ----
