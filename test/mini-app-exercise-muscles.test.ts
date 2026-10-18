@@ -74,3 +74,45 @@ test("every exercise in the plan bank maps to some muscles", () => {
   const missing = names.filter((name) => !musclesForExercise(name));
   assert.deepEqual(missing, []);
 });
+
+// Cases from an audit sweep over the 750-exercise library: each one used to land on the wrong
+// muscle because a general pattern caught it first (or a word hid inside a longer word).
+test("rule order and word boundaries: names that used to map to the wrong muscle", () => {
+  const cases: Array<[string, string]> = [
+    ["Скручування лежачи", "abs"], // bare "лежачи" sent it to chest
+    ["Підйоми ніг лежачи", "abs"],
+    ["Жим штанги лежачи", "chest"],
+    ["Жим гантелі на підлозі", "chest"],
+    ["Flat Bench Press", "chest"], // "lat " matched inside "flat "
+    ["Lat pulldown", "upper-back"],
+    ["Згинання рук на похилій лаві", "biceps"], // "похил" (incline) caught it before the curl rule
+    ["Incline Dumbbell Curl", "biceps"],
+    ["Wrist Curl", "forearm"],
+    ["Reverse Curl", "forearm"],
+    ["Розведення ніг у тренажері", "gluteal"], // "розведення" contains "зведення"
+    ["Розведення рук в сторони", "deltoids"],
+    ["Махи гантелями в нахилі", "deltoids"],
+    ["Велосипед (скручування)", "abs"],
+    ["Утримання «човник»", "abs"],
+    ["Тяга сумо", "gluteal"],
+    ["Присідання з вузькою постановкою ніг", "quadriceps"], // "станов" inside "постановкою"
+    ["Підтягування колін лежачи", "abs"],
+    ["Розгинання рук на верхньому блоці", "triceps"],
+    ["Взяття штанги на груди", "quadriceps"],
+    ["Швунг гирі однією рукою", "deltoids"], // "рукою" isn't an arm exercise
+    ["Straight-arm cable pull-over", "upper-back"],
+    ["Single-arm kneeling lat pull-down", "upper-back"],
+    ["Концентровані згинання", "biceps"],
+    ["Метелик", "chest"],
+    ["Підйом таза", "gluteal"],
+    ["Hanging Knee Raise", "abs"],
+    ["Burpee", "quadriceps"],
+    ["Dead Bug", "abs"],
+    ["Pallof Press", "obliques"],
+  ];
+  for (const [name, slug] of cases) assert.ok(primary(name)?.includes(slug as never), `${name} → ${primary(name)?.join("+")}, expected ${slug}`);
+});
+
+test("region fallback needs whole words: a warm-up line is not an arm exercise", () => {
+  assert.equal(musclesForExercise("5 min warm-up"), null);
+});

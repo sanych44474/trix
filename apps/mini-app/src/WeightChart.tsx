@@ -18,7 +18,7 @@ export function WeightChart({ lang, points, goal, slopePerWeek }: { lang: Lang; 
   const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${kgFmt(Math.abs(n))}`;
   return <div className="wchart">
     <div className="wchart-summary">
-      <span>{t(lang, "wc_change", { delta: signed(model.deltaKg), days: model.spanDays })}</span>
+      <span>{Math.abs(model.deltaKg) < 0.05 ? t(lang, "wc_change_flat", { days: model.spanDays }) : t(lang, "wc_change", { delta: signed(model.deltaKg), days: model.spanDays })}</span>
       {typeof slopePerWeek === "number" && <span>{t(lang, "wc_per_week", { n: signed(Math.round(slopePerWeek * 10) / 10) })}</span>}
       {goal ? <span>{t(lang, "goal_kg", { n: kgFmt(goal) })}</span> : null}
     </div>
@@ -30,10 +30,10 @@ export function WeightChart({ lang, points, goal, slopePerWeek }: { lang: Lang; 
         <polyline className="wchart-raw" points={model.pts.map((q) => `${q.x},${100 - q.y}`).join(" ")} vectorEffect="non-scaling-stroke" />
         <polyline className="wchart-trend" points={model.trend.map((q) => `${q.x},${100 - q.y}`).join(" ")} vectorEffect="non-scaling-stroke" />
       </svg>
-      {model.pts.map((q, i) => <button type="button" key={q.date} className={`wchart-dot${i === idx ? " on" : ""}`} style={{ left: `${q.x}%`, bottom: `${q.y}%` }} aria-label={`${dayFmt(lang, q.date)}: ${kgFmt(q.kg)} kg`} onClick={() => setSel(i)} />)}
+      {model.pts.map((q, i) => <button type="button" key={q.date} className={`wchart-dot${i === idx ? " on" : ""}`} style={{ left: `${q.x}%`, bottom: `${q.y}%` }} aria-label={`${dayFmt(lang, q.date)}: ${kgFmt(q.kg)} ${t(lang, "unit_kg")}`} onClick={() => setSel(i)} />)}
     </div>
     <div className="wchart-x"><span>{dayFmt(lang, model.pts[0]!.date)}</span><span>{dayFmt(lang, model.pts[model.pts.length - 1]!.date)}</span></div>
-    <div className="wchart-pick"><strong>{kgFmt(p.kg)} kg</strong><span>{dayFmt(lang, p.date)}</span><span className="wchart-avg">{t(lang, "wc_avg", { n: kgFmt(model.trend[idx]!.kg) })}</span><small>{t(lang, "wc_tap_hint")}</small></div>
+    <div className="wchart-pick"><strong>{kgFmt(p.kg)} {t(lang, "unit_kg")}</strong><span>{dayFmt(lang, p.date)}</span><span className="wchart-avg">{t(lang, "wc_avg", { n: kgFmt(model.trend[idx]!.kg) })}</span></div>
     <div className="wchart-legend"><span><i className="trend" />{t(lang, "wc_legend_trend")}</span><span><i className="raw" />{t(lang, "wc_legend_raw")}</span>{model.goalY !== undefined && <span><i className="goal" />{t(lang, "wc_legend_goal")}</span>}</div>
   </div>;
 }

@@ -1,9 +1,11 @@
 // The Plan screen (lazy chunk): the weekly plan editor, mesocycle card, kit fit and change log.
 import { RebuildPlanCard } from "./RebuildPlan";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { api, ApiError, typedBody } from "./api";
 import type { MesoPhase, Plan } from "./types";
 import { t, type Key, type Lang } from "./i18n";
+import { Icon } from "./icons";
 import { planBalance } from "./logic/muscleLoad";
 import { Card, Empty, ErrorState, wmodeLabel, PlanAction, PlanEditBody, DayGroup, DAY_GROUPS, WEEKDAY_KEYS, EQUIPMENT_CHOICES, Loading } from "./App";
 
@@ -52,7 +54,15 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   const [saved, setSaved] = useState<string | null>(null);
   const [showChanges, setShowChanges] = useState(false);
   const [dayBusy, setDayBusy] = useState<string | null>(null);
-  const [newDayWeekday, setNewDayWeekday] = useState(1);
+  const [openDay, setOpenDay] = useState<number | null>(null);
+  const [sheet, setSheet] = useState<{ kind: "exercise"; weekday: number; index: number } | { kind: "addday"; weekday: number } | null>(null);
+  // Escape closes the editing sheet (keyboard and desktop Telegram).
+  useEffect(() => {
+    if (!sheet) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setSheet(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sheet]);
   const [newDayGroup, setNewDayGroup] = useState<DayGroup>("chest");
 
   const load = () => {
@@ -108,9 +118,6 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   };
   // Only weekdays the plan does not already use -- adding a duplicate is a 409 server-side, so
   // don't offer it.
-  const usedWeekdays = new Set((plan?.days ?? []).map((d) => d.weekday));
-  const missingWeekdays = [1, 2, 3, 4, 5, 6, 7].filter((w) => !usedWeekdays.has(w));
-  const addDay = () => mutateDay("add", { action: "dayadd", weekday: newDayWeekday, group: newDayGroup });
   const removeDay = (weekday: number) => mutateDay(`del:${weekday}`, { action: "daydel", weekday });
 
   const addExercise = async (weekday: number) => {
@@ -158,30 +165,110 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   if (!plan) return <Loading />;
   if (!plan.days.length) return <Empty title={t(lang, "no_plan_title")} detail={t(lang, "no_plan_detail")} />;
 
+  const sheetDay = sheet && sheet.kind === "exercise" ? plan.days.find((d) => d.weekday === sheet.weekday) : undefined;
+  const sheetExercise = sheet && sheet.kind === "exercise" ? sheetDay?.exercises.find((e) => e.index === sheet.index) : undefined;
+  const closeSheet = () => setSheet(null);
+
+  const exerciseSheet = () => {
+    if (!sheetDay || !sheetExercise) return null;
+    const day = sheetDay; const exercise = sheetExercise;
+    const base = `${day.weekday}:${exercise.index}`;
+    const weightKey = `${base}:weight`;
+    const setsKey = `${base}:sets`;
+    const swapKey = `${base}:swap`;
+    const videoKey = `${base}:video`;
+    const isSaving = (action: PlanAction) => saving === `${day.weekday}:${exercise.index}:${action}`;
+    const canLink = exercise.index < day.exercises.length - 1;
+    return <>
+      <h2 className="sheet-title">{exercise.name}</h2>
+      <p className="muted">{t(lang, WEEKDAY_KEYS[day.weekday - 1])} · {exercise.sets} · {exercise.startWeight}{exercise.wmode && ` · ${wmodeLabel(lang, exercise.wmode)}`}</p>
+      <div className="form-grid">
+        <label className="form-field"><span>{t(lang, "weight_label")}</span><input value={drafts[weightKey] ?? exercise.startWeight} onChange={(event) => setDrafts((current) => ({ ...current, [weightKey]: event.target.value }))} /></label>
+        <label className="form-field"><span>{t(lang, "sets_label")}</span><input value={drafts[setsKey] ?? exercise.sets} onChange={(event) => setDrafts((current) => ({ ...current, [setsKey]: event.target.value }))} /></label>
+      </div>
+      <button className="button button-primary button-block" disabled={saving !== null || (drafts[weightKey] === undefined && drafts[setsKey] === undefined)} onClick={async () => {
+        if (drafts[weightKey] !== undefined && drafts[weightKey] !== exercise.startWeight) await edit(day.weekday, exercise.index, "weight", drafts[weightKey], exercise.name);
+        if (drafts[setsKey] !== undefined && drafts[setsKey] !== exercise.sets) await edit(day.weekday, exercise.index, "sets", drafts[setsKey], exercise.name);
+      }}>{isSaving("weight") || isSaving("sets") ? t(lang, "saving_ellipsis") : t(lang, "save_btn")}</button>
+      <div className="sheet-section">
+        <span className="sheet-label">{t(lang, "plan_swap_btn")}</span>
+        <div className="input-row">
+          <input value={swapDrafts[swapKey] ?? ""} maxLength={80} placeholder={t(lang, "plan_swap_ph")} onChange={(event) => setSwapDrafts((current) => ({ ...current, [swapKey]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") void searchCatalog(swapKey, swapDrafts[swapKey] ?? ""); }} />
+          <button className="button button-secondary" disabled={catalogBusy === swapKey || (swapDrafts[swapKey] ?? "").trim().length < 2} onClick={() => void searchCatalog(swapKey, swapDrafts[swapKey] ?? "")}>{catalogBusy === swapKey ? "…" : t(lang, "plan_catalog_search")}</button>
+        </div>
+        {catalogResults[swapKey] && <div className="choice-list">{catalogResults[swapKey].length ? catalogResults[swapKey].map((choice) => <button className="choice-button" key={choice.id} onClick={async () => { if (await edit(day.weekday, exercise.index, "swap", choice.name, exercise.name, { catalogId: choice.id })) { setCatalogResults((current) => ({ ...current, [swapKey]: [] })); setSwapDrafts((current) => ({ ...current, [swapKey]: "" })); closeSheet(); } }}><strong>{choice.name}</strong><small>{choice.muscle}</small></button>) : <span className="muted">{t(lang, "plan_catalog_empty")}</span>}</div>}
+      </div>
+      <div className="sheet-section">
+        <span className="sheet-label">{t(lang, "plan_video_label")}</span>
+        <div className="input-row">
+          <input value={videoDrafts[videoKey] ?? ""} maxLength={300} placeholder={t(lang, "plan_video_ph")} onChange={(event) => setVideoDrafts((current) => ({ ...current, [videoKey]: event.target.value }))} />
+          <button className="button button-secondary" disabled={saving !== null || !(videoDrafts[videoKey] ?? "").trim()} onClick={async () => { if (await edit(day.weekday, exercise.index, "video", videoDrafts[videoKey]?.trim(), exercise.name)) setVideoDrafts((current) => ({ ...current, [videoKey]: "" })); }}>{isSaving("video") ? "…" : t(lang, "plan_video_save")}</button>
+        </div>
+      </div>
+      <div className="action-sheet">
+        <button className="chip-button" disabled={saving !== null || exercise.index === 0} onClick={() => void edit(day.weekday, exercise.index, "move", undefined, exercise.name, { dir: "up" })}>{t(lang, "plan_move_up")}</button>
+        <button className="chip-button" disabled={saving !== null || exercise.index === day.exercises.length - 1} onClick={() => void edit(day.weekday, exercise.index, "move", undefined, exercise.name, { dir: "down" })}>{t(lang, "plan_move_down")}</button>
+        {canLink && <button className="chip-button" disabled={saving !== null} onClick={() => void edit(day.weekday, exercise.index, "link", undefined, exercise.name)}>{exercise.ssGroup ? t(lang, "plan_unlink_btn") : t(lang, "plan_link_btn")}</button>}
+        <button className="chip-button danger" disabled={saving !== null} onClick={async () => { if (day.exercises.length <= 1) { setActionError(new Error(t(lang, "plan_last_exercise"))); return; } if (window.confirm(t(lang, "plan_delete_confirm")) && await edit(day.weekday, exercise.index, "del", undefined, exercise.name)) closeSheet(); }}>{t(lang, "plan_delete_btn")}</button>
+      </div>
+    </>;
+  };
+
+  const addDaySheet = () => sheet && sheet.kind === "addday" ? <>
+    <h2 className="sheet-title">{t(lang, "plan_day_add_title")}</h2>
+    <p className="muted">{t(lang, WEEKDAY_KEYS[sheet.weekday - 1])}</p>
+    <label className="form-field"><span>{t(lang, "plan_day_group_label")}</span>
+      <select value={newDayGroup} onChange={(event) => setNewDayGroup(event.target.value as DayGroup)}>
+        {DAY_GROUPS.map((g) => <option key={g} value={g}>{t(lang, `plan_day_g_${g}` as Key)}</option>)}
+      </select></label>
+    <button className="button button-primary button-block" disabled={dayBusy !== null} onClick={async () => { await mutateDay("add", { action: "dayadd", weekday: sheet.weekday, group: newDayGroup }); closeSheet(); setOpenDay(sheet.weekday); }}>{dayBusy === "add" ? t(lang, "saving_ellipsis") : t(lang, "plan_day_add_btn")}</button>
+    <p className="muted">{t(lang, "plan_day_add_hint")}</p>
+  </> : null;
+
   return <div className="view-stack">
-    <div className="eyebrow">{t(lang, "plan_eyebrow")}</div>
-    <div className="page-title"><h1>{t(lang, "plan_owner_title", { name: plan.owner.name })}</h1><span>{t(lang, "days_count", { n: plan.days.length })}</span></div>
-    {onBack && <button className="text-button" onClick={onBack}>← {t(lang, "nav_role")}</button>}
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "meso_eyebrow")}</span><h2>{plan.mesocycle ? t(lang, `meso_phase_${plan.mesocycle.phase}` as Key) : t(lang, "meso_start_btn")}</h2></div>{plan.mesocycle && <span className="tag">{t(lang, "meso_week", { n: plan.mesocycle.weekInBlock, total: plan.mesocycle.phase === "deload" ? 1 : plan.mesocycle.blockLength })}</span>}</div>
-      {plan.mesocycle ? <>
-        <p className="muted">{t(lang, "meso_target_line", mesoGuidance(plan.mesocycle.phase))}</p>
-        <div className="button-row"><button className="button button-ghost" disabled={mesoBusy} onClick={() => void toggleMeso(false)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_stop_btn")}</button></div>
-      </> : <>
-        <p className="muted">{t(lang, "meso_intro")}</p>
-        <div className="button-row"><button className="button button-primary" disabled={mesoBusy} onClick={() => void toggleMeso(true)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_start_btn")}</button></div>
-      </>}
-    </Card>
-    {plan.changes.length > 0 && <Card tone="muted">
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_changes_eyebrow")}</span><h2>{t(lang, "plan_changes_title")}</h2></div><button className="text-button" onClick={() => setShowChanges((current) => !current)}>{showChanges ? t(lang, "close") : t(lang, "details_arrow")}</button></div>
-      {showChanges && <div className="record-list">{plan.changes.map((change, index) => <div className="record-row" key={`${change.at}-${index}`}>
-        <div><strong>{change.summary}</strong><small>{t(lang, `plan_change_src_${change.source}` as Key)} · {change.at.slice(0, 10)}</small></div>
-      </div>)}</div>}
-    </Card>}
-    {canRebuild && clientId === null && <RebuildPlanCard lang={lang} onDone={load} />}
-    {plan.kit && plan.kit.mismatches > 0 && <KitFitCard lang={lang} kit={plan.kit} busy={dayBusy === "fitkit"} onFit={(equipment) => void mutateDay("fitkit", { action: "fitkit", ...(equipment ? { equipment } : {}) })} />}
+    <div className="screen-head"><h1>{clientId ? t(lang, "plan_owner_title", { name: plan.owner.name }) : t(lang, "plan_schedule_title")}</h1><span className="num">{t(lang, "days_count", { n: plan.days.length })}</span></div>
+    {onBack && <button className="button button-quiet" onClick={onBack}><Icon name="chevron" size={20} className="flip" />{t(lang, "nav_clients")}</button>}
+    {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
+    {saved && <div className="save-note">{t(lang, "plan_updated")}</div>}
+
+    <ol className="list schedule">
+      {[1, 2, 3, 4, 5, 6, 7].map((weekday) => {
+        const day = plan.days.find((d) => d.weekday === weekday);
+        if (!day) return <li key={weekday}>
+          <button type="button" className="list-item rest-day" onClick={() => setSheet({ kind: "addday", weekday })} disabled={plan.days.length >= 7}>
+            <span className="wd">{t(lang, WEEKDAY_KEYS[weekday - 1])}</span>
+            <span className="grow">{t(lang, "plan_rest_day")}</span>
+            <Icon name="plus" size={20} className="row-chevron" />
+          </button>
+        </li>;
+        const open = openDay === weekday;
+        return <li key={weekday} className={open ? "open" : undefined}>
+          <button type="button" className="list-item" aria-expanded={open} onClick={() => setOpenDay(open ? null : weekday)}>
+            <span className="wd on">{t(lang, WEEKDAY_KEYS[weekday - 1])}</span>
+            <span className="grow"><strong>{day.muscleGroup || day.name}</strong><small>{t(lang, "plan_day_meta", { n: day.exercises.length })}</small></span>
+            <Icon name="chevron" size={20} className={open ? "row-chevron open" : "row-chevron"} />
+          </button>
+          {open && <div className="day-body">
+            <ol className="day-exercises">
+              {day.exercises.map((exercise) => <li key={`${exercise.index}-${exercise.name}`}>
+                <button type="button" className="ex-line" onClick={() => setSheet({ kind: "exercise", weekday, index: exercise.index })}>
+                  <span className="grow"><strong>{exercise.name}{exercise.ssGroup ? <span className="tag">{t(lang, "plan_superset_label", { group: exercise.ssGroup })}</span> : null}</strong><small className="num">{exercise.sets}{exercise.startWeight && exercise.startWeight !== "—" ? ` · ${exercise.startWeight}` : ""}</small></span>
+                  <Icon name="dots" size={20} className="row-chevron" />
+                </button>
+              </li>)}
+            </ol>
+            <div className="input-row">
+              <input value={newExercises[weekday] ?? ""} maxLength={80} placeholder={t(lang, "plan_add_ph")} onChange={(event) => setNewExercises((current) => ({ ...current, [weekday]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") void addExercise(weekday); }} />
+              <button className="button button-primary" disabled={saving !== null || !(newExercises[weekday] ?? "").trim()} onClick={() => void addExercise(weekday)}>{saving === `${weekday}:-1:add` ? "…" : t(lang, "plan_add_btn")}</button>
+            </div>
+            {plan.days.length > 1 && <button className="button button-quiet danger" disabled={dayBusy !== null} onClick={() => void removeDay(weekday)}>{dayBusy === `del:${weekday}` ? "…" : t(lang, "plan_day_remove_btn")}</button>}
+          </div>}
+        </li>;
+      })}
+    </ol>
+
     {balance.length > 0 && <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_balance_eyebrow")}</span><h2>{t(lang, "plan_balance_title")}</h2></div></div>
+      <h2 className="card-title">{t(lang, "plan_balance_title")}</h2>
       <div className="balance-list">{balance.map((issue) => <div className="balance-row" key={`${issue.kind}-${issue.slug}`}>
         <div>
           <strong>{muscleName(issue.slug)}</strong>
@@ -189,80 +276,38 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
             ? t(lang, "plan_balance_imbalance", { weak: fmtSets(issue.sets), strong: fmtSets(issue.other.sets), other: muscleName(issue.other.slug) })
             : t(lang, "plan_balance_missing")}</small>
         </div>
-        {issue.suggestion && <button className="button button-ghost" disabled={saving !== null} onClick={() => void edit(issue.suggestion!.weekday, -1, "add", issue.suggestion![lang])}>
+        {issue.suggestion && <button className="button button-secondary" disabled={saving !== null} onClick={() => void edit(issue.suggestion!.weekday, -1, "add", issue.suggestion![lang])}>
           {saving === `${issue.suggestion.weekday}:-1:add` ? "…" : t(lang, "plan_balance_add", { exercise: issue.suggestion[lang], day: t(lang, WEEKDAY_KEYS[issue.suggestion.weekday - 1]) })}
         </button>}
       </div>)}</div>
-      <p className="muted">{t(lang, "plan_balance_hint")}</p>
     </Card>}
-    <Card tone="muted">
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "plan_days_eyebrow")}</span><h2>{t(lang, "plan_day_add_title")}</h2></div></div>
-      {missingWeekdays.length === 0 ? <p className="muted">{t(lang, "plan_day_week_full")}</p> : <>
-        <div className="form-grid">
-          <label className="form-field"><span>{t(lang, "plan_day_weekday_label")}</span>
-            <select value={newDayWeekday} onChange={(event) => setNewDayWeekday(Number(event.target.value))}>
-              {missingWeekdays.map((w) => <option key={w} value={w}>{t(lang, WEEKDAY_KEYS[w - 1])}</option>)}
-            </select></label>
-          <label className="form-field"><span>{t(lang, "plan_day_group_label")}</span>
-            <select value={newDayGroup} onChange={(event) => setNewDayGroup(event.target.value as DayGroup)}>
-              {DAY_GROUPS.map((g) => <option key={g} value={g}>{t(lang, `plan_day_g_${g}` as Key)}</option>)}
-            </select></label>
-        </div>
-        <div className="button-row"><button className="button button-primary" disabled={dayBusy !== null} onClick={() => void addDay()}>{dayBusy === "add" ? t(lang, "saving_ellipsis") : t(lang, "plan_day_add_btn")}</button></div>
-        <p className="muted">{t(lang, "plan_day_add_hint")}</p>
+    {plan.kit && plan.kit.mismatches > 0 && <KitFitCard lang={lang} kit={plan.kit} busy={dayBusy === "fitkit"} onFit={(equipment) => void mutateDay("fitkit", { action: "fitkit", ...(equipment ? { equipment } : {}) })} />}
+    <Card>
+      <div className="row-between"><h2 className="card-title">{plan.mesocycle ? t(lang, `meso_phase_${plan.mesocycle.phase}` as Key) : t(lang, "meso_start_btn")}</h2>{plan.mesocycle && <span className="pill pill-good">{t(lang, "meso_week", { n: plan.mesocycle.weekInBlock, total: plan.mesocycle.phase === "deload" ? 1 : plan.mesocycle.blockLength })}</span>}</div>
+      {plan.mesocycle ? <>
+        <p className="muted">{t(lang, "meso_target_line", mesoGuidance(plan.mesocycle.phase))}</p>
+        <div className="button-row"><button className="button button-secondary" disabled={mesoBusy} onClick={() => void toggleMeso(false)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_stop_btn")}</button></div>
+      </> : <>
+        <p className="muted">{t(lang, "meso_intro")}</p>
+        <div className="button-row"><button className="button button-secondary" disabled={mesoBusy} onClick={() => void toggleMeso(true)}>{mesoBusy ? t(lang, "saving_ellipsis") : t(lang, "meso_start_btn")}</button></div>
       </>}
     </Card>
-    <p className="muted">{t(lang, "plan_editor_hint")}</p>
-    {onOpenLibrary && clientId === null && <button className="button button-ghost" onClick={onOpenLibrary}>📚 {t(lang, "library_open_btn")}</button>}
-    {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
-    {saved && <div className="save-note">{t(lang, "plan_updated")}</div>}
-    {plan.days.map((day) => <Card key={day.weekday}>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "day_label", { n: day.weekday })}</span><h2>{day.name}</h2></div><span className="tag">{day.muscleGroup}</span>{plan.days.length > 1 && <button className="text-button danger-button" disabled={dayBusy !== null} onClick={() => void removeDay(day.weekday)}>{dayBusy === `del:${day.weekday}` ? "…" : t(lang, "plan_day_remove_btn")}</button>}</div>
-      <div className="plan-list">
-        {day.exercises.map((exercise) => {
-          const base = `${day.weekday}:${exercise.index}`;
-          const weightKey = `${base}:weight`;
-          const setsKey = `${base}:sets`;
-          const swapKey = `${base}:swap`;
-          const videoKey = `${base}:video`;
-          const isSaving = (action: PlanAction) => saving === `${day.weekday}:${exercise.index}:${action}`;
-          const canLink = exercise.index < day.exercises.length - 1;
-          return <div className="plan-row plan-row-edit" key={`${day.weekday}-${exercise.index}-${exercise.name}`}>
-            <span className="exercise-index">{String(exercise.index + 1).padStart(2, "0")}</span>
-            <div>
-              <div className="plan-exercise-title"><strong>{exercise.name}</strong>{exercise.ssGroup && <span className="tag">{t(lang, "plan_superset_label", { group: exercise.ssGroup })}</span>}</div>
-              <small>{exercise.sets} · {exercise.startWeight}{exercise.wmode && ` · ${wmodeLabel(lang, exercise.wmode)}`}</small>
-              {(exercise.technique || exercise.videoUrl) && <div className="plan-reference"><span>{exercise.technique ? `${t(lang, "plan_technique_label")}: ${exercise.technique}` : ""}</span>{exercise.videoUrl && <a href={exercise.videoUrl} target="_blank" rel="noreferrer">{exercise.videoTitle || t(lang, "plan_video_label")}</a>}</div>}
-              <div className="plan-edit-fields">
-                <input aria-label={t(lang, "weight_field_aria", { name: exercise.name })} value={drafts[weightKey] ?? exercise.startWeight} onChange={(event) => setDrafts((current) => ({ ...current, [weightKey]: event.target.value }))} />
-                <button className="button button-ghost" disabled={saving !== null} onClick={() => void edit(day.weekday, exercise.index, "weight", drafts[weightKey] ?? exercise.startWeight, exercise.name)}>{isSaving("weight") ? "…" : saved === weightKey ? t(lang, "saved_label") : t(lang, "weight_label")}</button>
-                <input aria-label={t(lang, "sets_field_aria", { name: exercise.name })} value={drafts[setsKey] ?? exercise.sets} onChange={(event) => setDrafts((current) => ({ ...current, [setsKey]: event.target.value }))} />
-                <button className="button button-ghost" disabled={saving !== null} onClick={() => void edit(day.weekday, exercise.index, "sets", drafts[setsKey] ?? exercise.sets, exercise.name)}>{isSaving("sets") ? "…" : t(lang, "sets_label")}</button>
-              </div>
-              <div className="plan-inline-editor">
-                <input value={swapDrafts[swapKey] ?? ""} maxLength={80} placeholder={t(lang, "plan_swap_ph")} onChange={(event) => setSwapDrafts((current) => ({ ...current, [swapKey]: event.target.value }))} />
-                <button className="button button-ghost" disabled={catalogBusy === swapKey || (swapDrafts[swapKey] ?? "").trim().length < 2} onClick={() => void searchCatalog(swapKey, swapDrafts[swapKey] ?? "")}>{catalogBusy === swapKey ? "…" : t(lang, "plan_catalog_search")}</button>
-                <button className="button button-ghost" disabled={saving !== null || !(swapDrafts[swapKey] ?? "").trim()} onClick={async () => { if (await edit(day.weekday, exercise.index, "swap", swapDrafts[swapKey]?.trim(), exercise.name)) setSwapDrafts((current) => ({ ...current, [swapKey]: "" })); }}>{isSaving("swap") ? "…" : t(lang, "plan_swap_btn")}</button>
-              </div>
-              {catalogResults[swapKey] && <div className="choice-list">{catalogResults[swapKey].length ? catalogResults[swapKey].map((choice) => <button className="choice-button" key={choice.id} onClick={async () => { if (await edit(day.weekday, exercise.index, "swap", choice.name, exercise.name, { catalogId: choice.id })) { setCatalogResults((current) => ({ ...current, [swapKey]: [] })); setSwapDrafts((current) => ({ ...current, [swapKey]: "" })); } }}><strong>{choice.name}</strong><small>{choice.muscle}</small></button>) : <span className="muted">{t(lang, "plan_catalog_empty")}</span>}</div>}
-              <div className="plan-inline-editor">
-                <input value={videoDrafts[videoKey] ?? ""} maxLength={300} placeholder={t(lang, "plan_video_ph")} onChange={(event) => setVideoDrafts((current) => ({ ...current, [videoKey]: event.target.value }))} />
-                <button className="button button-ghost" disabled={saving !== null || !(videoDrafts[videoKey] ?? "").trim()} onClick={async () => { if (await edit(day.weekday, exercise.index, "video", videoDrafts[videoKey]?.trim(), exercise.name)) setVideoDrafts((current) => ({ ...current, [videoKey]: "" })); }}>{isSaving("video") ? "…" : t(lang, "plan_video_save")}</button>
-              </div>
-              <div className="plan-exercise-actions">
-                <button className="text-button" disabled={saving !== null || exercise.index === 0} aria-label={t(lang, "plan_move_up")} onClick={() => void edit(day.weekday, exercise.index, "move", undefined, exercise.name, { dir: "up" })}>↑ {t(lang, "plan_move_up")}</button>
-                <button className="text-button" disabled={saving !== null || exercise.index === day.exercises.length - 1} aria-label={t(lang, "plan_move_down")} onClick={() => void edit(day.weekday, exercise.index, "move", undefined, exercise.name, { dir: "down" })}>↓ {t(lang, "plan_move_down")}</button>
-                {canLink && <button className="text-button" disabled={saving !== null} onClick={() => void edit(day.weekday, exercise.index, "link", undefined, exercise.name)}>{exercise.ssGroup ? t(lang, "plan_unlink_btn") : t(lang, "plan_link_btn")}</button>}
-                <button className="text-button danger-button" disabled={saving !== null} onClick={() => { if (day.exercises.length <= 1) { setActionError(new Error(t(lang, "plan_last_exercise"))); return; } if (window.confirm(t(lang, "plan_delete_confirm"))) void edit(day.weekday, exercise.index, "del", undefined, exercise.name); }}>{t(lang, "plan_delete_btn")}</button>
-              </div>
-            </div>
-          </div>;
-        })}
+    {canRebuild && clientId === null && <RebuildPlanCard lang={lang} onDone={load} />}
+    {plan.changes.length > 0 && <div className="list">
+      <button type="button" className="list-item" aria-expanded={showChanges} onClick={() => setShowChanges((current) => !current)}><span className="grow">{t(lang, "plan_changes_title")}</span><Icon name="chevron" size={20} className={showChanges ? "row-chevron open" : "row-chevron"} /></button>
+      {showChanges && <div className="record-list changes">{plan.changes.map((change, index) => <div className="record-row" key={`${change.at}-${index}`}>
+        <div><strong>{change.summary}</strong><small>{t(lang, `plan_change_src_${change.source}` as Key)} · {change.at.slice(0, 10)}</small></div>
+      </div>)}</div>}
+    </div>}
+    {onOpenLibrary && clientId === null && <button className="button button-secondary button-block" onClick={onOpenLibrary}>{t(lang, "library_open_btn")}</button>}
+
+    {/* Portalled to <body>: the view stack is its own stacking context, so a fixed sheet inside
+        it would sit under the bottom nav. */}
+    {sheet && createPortal(<div className="sheet-backdrop" onClick={closeSheet}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label={sheet.kind === "exercise" ? sheetExercise?.name : t(lang, "plan_day_add_title")} onClick={(event) => event.stopPropagation()}>
+        <div className="sheet-bar"><span className="sheet-handle" aria-hidden="true" /><button type="button" className="icon-button" onClick={closeSheet} aria-label={t(lang, "close")}><Icon name="close" /></button></div>
+        {sheet.kind === "exercise" ? exerciseSheet() : addDaySheet()}
       </div>
-      <div className="plan-add-row">
-        <input value={newExercises[day.weekday] ?? ""} maxLength={80} placeholder={t(lang, "plan_add_ph")} onChange={(event) => setNewExercises((current) => ({ ...current, [day.weekday]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") void addExercise(day.weekday); }} />
-        <button className="button button-primary" disabled={saving !== null || !(newExercises[day.weekday] ?? "").trim()} onClick={() => void addExercise(day.weekday)}>{saving === `${day.weekday}:-1:add` ? "…" : t(lang, "plan_add_btn")}</button>
-      </div>
-    </Card>)}
+    </div>, document.body)}
   </div>;
 }

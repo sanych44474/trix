@@ -5,7 +5,7 @@ import type { JSX } from "react";
 
 export type IconName =
   | "today" | "train" | "plan" | "fuel" | "progress" | "more" | "role" | "settings" | "library" | "inbox" | "coach"
-  | "bell" | "gear" | "refresh" | "check" | "plus" | "minus" | "info" | "dots" | "timer" | "chevron" | "chat" | "close";
+  | "heart" | "drop" | "search" | "mic" | "camera" | "barcode" | "bell" | "gear" | "refresh" | "check" | "plus" | "minus" | "info" | "dots" | "timer" | "chevron" | "chat" | "close";
 
 const PATHS: Record<IconName, JSX.Element> = {
   today: <><path d="M4 10.5 12 4l8 6.5" /><path d="M6 9v10h12V9" /><path d="M10 19v-5h4v5" /></>,
@@ -23,6 +23,12 @@ const PATHS: Record<IconName, JSX.Element> = {
   coach: <><path d="M5 5h14v10H10l-4 4v-4H5Z" /><path d="M9 9.5h6M9 12h4" /></>,
   chat: <><path d="M5 5h14v10H10l-4 4v-4H5Z" /><path d="M9 9.5h6M9 12h4" /></>,
   refresh: <><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" /><path d="M19.5 4.5v4h-4" /></>,
+  heart: <path d="M12 19s-7-4.3-7-9.5A3.8 3.8 0 0 1 12 7a3.8 3.8 0 0 1 7 2.5C19 14.7 12 19 12 19Z" />,
+  drop: <path d="M12 4s5.5 6 5.5 10a5.5 5.5 0 0 1-11 0C6.5 10 12 4 12 4Z" />,
+  search: <><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></>,
+  mic: <><rect x="9" y="3.5" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5" /></>,
+  camera: <><path d="M4 8.5h3.5L9 6h6l1.5 2.5H20V18H4Z" /><circle cx="12" cy="13" r="3.2" /></>,
+  barcode: <path d="M4 7V5h3M17 5h3v2M20 17v2h-3M7 19H4v-2M8 9v6M11 9v6M14 9v6M17 9v6" />,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   plus: <path d="M12 5v14M5 12h14" />,
   minus: <path d="M5 12h14" />,

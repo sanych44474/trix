@@ -67,6 +67,10 @@ export function syncFrameColors(): void {
   try { if (atLeast("6.9")) tg.setHeaderColor?.(bg); } catch { /* unsupported client */ }
   try { if (atLeast("6.1")) tg.setBackgroundColor?.(bg); } catch { /* unsupported client */ }
   try { if (atLeast("7.10")) tg.setBottomBarColor?.(bg); } catch { /* unsupported client */ }
+  // A visible native button was painted with the old theme's accent.
+  if (mainButtonVisible) {
+    try { tg.MainButton?.setParams({ ...brandButtonColors() }); } catch { /* unsupported client */ }
+  }
 }
 
 /** Swipe-down closes the Mini App on 7.7+; mid-workout a scroll that starts at the top shouldn't. */
@@ -82,7 +86,9 @@ function brandButtonColors(): { color: string; text_color: string } | null {
   if (!/^#[0-9a-f]{6}$/i.test(accent)) return null;
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(accent.slice(i, i + 2), 16) / 255).map((c) => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return { color: accent, text_color: lum > 0.18 ? "#1c0d08" : "#ffffff" };
+  const onAccent = getComputedStyle(document.documentElement).getPropertyValue("--on-accent").trim();
+  if (/^#[0-9a-f]{6}$/i.test(onAccent)) return { color: accent, text_color: onAccent };
+  return { color: accent, text_color: lum > 0.18 ? "#18241f" : "#ffffff" };
 }
 
 export interface MainButtonState {
@@ -93,15 +99,19 @@ export interface MainButtonState {
 
 /** Shows Telegram's native bottom button with this state and click handler; returns a cleanup
  *  that hides it and detaches the handler. Call again with new state to update it. */
+let mainButtonVisible = false;
+
 export function showMainButton(state: MainButtonState, onClick: () => void): () => void {
   const button = webApp()?.MainButton;
   if (!button) return () => {};
+  mainButtonVisible = true;
   try {
     button.setParams({ text: state.text, is_active: state.active, is_visible: true, ...brandButtonColors() });
     if (state.progress) button.showProgress(false); else button.hideProgress();
     button.onClick(onClick);
   } catch { /* unsupported client */ }
   return () => {
+    mainButtonVisible = false;
     try { button.offClick(onClick); button.hideProgress(); button.setParams({ is_visible: false }); } catch { /* unsupported client */ }
   };
 }

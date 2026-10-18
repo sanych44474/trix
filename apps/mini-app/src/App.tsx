@@ -8,7 +8,7 @@ import { BadgeCelebration } from "./Week";
 import { TodayView } from "./Today";
 import { Icon, type IconName } from "./icons";
 import { track } from "./logic/track";
-import { navigationFor, viewFromSearch, type View } from "./logic/navigation";
+import { moreLinksFor, navigationFor, tabFor, viewFromSearch, type View } from "./logic/navigation";
 import { DASHBOARD_CACHE_KEY, useDashboard } from "./useDashboard";
 import { useTelegramChrome } from "./useTelegramChrome";
 const WorkspaceView = lazy(() => import("./Workspace").then((m) => ({ default: m.WorkspaceView })));
@@ -25,19 +25,19 @@ const TrainView = lazy(() => loadTrainView().then((m) => ({ default: m.TrainView
 const CoachView = lazy(() => import("./workspace/AiCoachView").then((m) => ({ default: m.AiCoachView })));
 const LibraryView = lazy(() => import("./Library").then((m) => ({ default: m.LibraryView })));
 
-/** "Friday, 16 October" in the person's language, for the top bar. The weekday is formatted on
- *  its own: inside a full date ICU inflects it ("пʼятницю"), alone it is the plain name. */
-function longDate(lang: Lang, iso: string): string {
+/** "Sun, 18 October" for the top bar's small line (the stylesheet sets it in capitals). */
+function shortDate(lang: Lang, iso: string): string {
   try {
     const locale = lang === "uk" ? "uk-UA" : "en-GB";
     const date = new Date(`${iso}T12:00:00Z`);
-    const weekday = new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(date);
-    const dayMonth = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", timeZone: "UTC" }).format(date);
-    return `${weekday.charAt(0).toLocaleUpperCase()}${weekday.slice(1)}, ${dayMonth}`;
+    const weekday = new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" }).format(date).replace(".", "");
+    return `${weekday}, ${new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", timeZone: "UTC" }).format(date)}`;
   } catch { return iso; }
 }
 
-function navLabel(lang: Lang, view: View): string {
+function navLabel(lang: Lang, view: View, role?: string): string {
+  if (view === "role" && role === "trainer") return t(lang, "nav_clients");
+  if (view === "library") return t(lang, "nav_library");
   return t(lang, view === "today" ? "nav_today" : view === "train" ? "nav_train" : view === "plan" ? "nav_plan" : view === "fuel" ? "nav_fuel" : view === "progress" ? "nav_progress" : view === "role" ? "nav_role" : view === "more" ? "nav_more" : "nav_settings");
 }
 
@@ -112,6 +112,10 @@ export function App() {
   const [coachPrefill, setCoachPrefill] = useState<string | undefined>(linkAsk);
   const openCoach = (prefill?: string) => { track(prefill ? "app_coach_open_summary" : "app_coach_open_today"); setCoachPrefill(prefill); setView("coach"); };
   const pullStart = useRef<number | null>(null);
+  // Focus mode: a workout in progress takes the whole screen (no top bar, no tab bar). Today's
+  // "Start" opens the logger straight into it.
+  const [focus, setFocus] = useState(false);
+  const [focusOnOpen, setFocusOnOpen] = useState(false);
   useEffect(() => { const id = setTimeout(() => { void loadTrainView().catch(() => {}); }, 1200); return () => clearTimeout(id); }, []);
   useTelegramChrome(view, setView);
   const navigation = useMemo(() => navigationFor(dashboard?.viewer.role), [dashboard?.viewer.role]);
@@ -124,5 +128,28 @@ export function App() {
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => { if (window.scrollY === 0) pullStart.current = event.touches[0]?.clientY ?? null; };
   const onTouchEnd = (event: React.TouchEvent<HTMLElement>) => { const start = pullStart.current; pullStart.current = null; const end = event.changedTouches[0]?.clientY ?? 0; if (start !== null && end - start > 72 && !loading) loadDashboard(); };
   const openPlan = (clientId?: number) => { setPlanClientId(clientId ?? null); setView("plan"); };
-  return <main className="app-shell" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><header className="topbar"><div className="topbar-title"><strong>{longDate(lang, dashboard.today)}</strong>{dashboard.name && <span>{dashboard.name}</span>}</div><InboxBell lang={lang} open={view === "inbox"} onOpen={() => setView("inbox")} /><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}><Icon name="gear" /></button></header><div className="content"><OfflineSync lang={lang} />{view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onReload={loadDashboard} onAskCoach={() => openCoach()} />}{view === "train" && <Suspense fallback={<Loading />}><TrainView lang={lang} onAskCoach={() => openCoach(t(lang, "coach_prefill_session"))} /></Suspense>}{view === "coach" && <Suspense fallback={<Loading />}><CoachView lang={lang} routed={dashboard.viewer.role === "client"} prefill={coachPrefill} onBack={() => { setCoachPrefill(undefined); setView("today"); }} /></Suspense>}{view === "plan" && <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={planClientId} canRebuild={dashboard.viewer.role !== "client"} onOpenLibrary={() => setView("library")} onBack={planClientId !== null ? () => { setPlanClientId(null); setView("role"); } : undefined} /></Suspense>}{view === "fuel" && <Suspense fallback={<Loading />}><FuelView lang={lang} /></Suspense>}{view === "progress" && <Suspense fallback={<Loading />}><ProgressView dashboard={dashboard} lang={lang} /></Suspense>}{view === "more" && <Suspense fallback={<Loading />}><ExtrasView lang={lang} role={dashboard.viewer.role} onOpenLibrary={() => setView("library")} /></Suspense>}{view === "library" && <Suspense fallback={<Loading />}><LibraryView lang={lang} onBack={() => setView("more")} /></Suspense>}{view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}{view === "inbox" && <InboxView lang={lang} onBack={() => setView("today")} onGo={(target) => setView(target)} />}{view === "settings" && <Suspense fallback={<Loading />}><ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} /></Suspense>}</div>{dashboard.badges && <BadgeCelebration lang={lang} badges={dashboard.badges} />}<nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => <button key={item} type="button" className={view === item ? "nav-item active" : "nav-item"} aria-current={view === item ? "page" : undefined} onClick={() => { if (item !== "plan") setPlanClientId(null); track(`app_nav_${item}`); setView(item); }}><span className="nav-icon"><Icon name={item as IconName} /></span><span className="nav-label">{navLabel(lang, item)}</span></button>)}</nav></main>;
+  const role = dashboard.viewer.role;
+  // The plan without a client is the Training tab's "Plan" segment; a client's plan (trainer) is
+  // its own screen with a back button.
+  const trainScreen = view === "train" || (view === "plan" && planClientId === null);
+  const planSlot = <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={null} canRebuild={role !== "client"} onOpenLibrary={() => setView("library")} /></Suspense>;
+  const startWorkout = () => { setFocusOnOpen(true); setView("train"); };
+  return <main className={focus && trainScreen ? "app-shell focus-mode" : "app-shell"} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    {!(focus && trainScreen) && <header className="topbar"><div className="topbar-title"><span>{shortDate(lang, dashboard.today)}</span>{dashboard.name && <strong>{dashboard.name}</strong>}</div><InboxBell lang={lang} open={view === "inbox"} onOpen={() => setView("inbox")} /><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}><Icon name="gear" /></button></header>}
+    <div className="content"><OfflineSync lang={lang} />
+      {view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onStart={startWorkout} onReload={loadDashboard} onAskCoach={() => openCoach()} />}
+      {trainScreen && <Suspense fallback={<Loading />}><TrainView lang={lang} sex={dashboard?.sex} initialSegment={view === "plan" ? "plan" : "today"} startInFocus={focusOnOpen} planSlot={planSlot} onFocusChange={(on) => { setFocus(on); if (!on) setFocusOnOpen(false); }} onExit={() => { setFocus(false); setFocusOnOpen(false); setView("today"); }} onAskCoach={() => openCoach(t(lang, "coach_prefill_session"))} /></Suspense>}
+      {view === "coach" && <Suspense fallback={<Loading />}><CoachView lang={lang} routed={role === "client"} prefill={coachPrefill} onBack={() => { setCoachPrefill(undefined); setView("today"); }} /></Suspense>}
+      {view === "plan" && planClientId !== null && <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={planClientId} canRebuild={role !== "client"} onOpenLibrary={() => setView("library")} onBack={() => { setPlanClientId(null); setView("role"); }} /></Suspense>}
+      {view === "fuel" && <Suspense fallback={<Loading />}><FuelView lang={lang} /></Suspense>}
+      {view === "progress" && <Suspense fallback={<Loading />}><ProgressView dashboard={dashboard} lang={lang} /></Suspense>}
+      {view === "more" && <Suspense fallback={<Loading />}><ExtrasView lang={lang} role={role} links={moreLinksFor(role).map((target) => ({ view: target, label: navLabel(lang, target, target === "role" ? "solo" : role) }))} onOpen={setView} /></Suspense>}
+      {view === "library" && <Suspense fallback={<Loading />}><LibraryView lang={lang} onBack={() => setView("more")} /></Suspense>}
+      {view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}
+      {view === "inbox" && <InboxView lang={lang} onBack={() => setView("today")} onGo={(target) => setView(target)} />}
+      {view === "settings" && <Suspense fallback={<Loading />}><ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} /></Suspense>}
+    </div>
+    {dashboard.badges && <BadgeCelebration lang={lang} badges={dashboard.badges} />}
+    {!(focus && trainScreen) && <nav className="bottom-nav" aria-label={t(lang, "nav_aria")}>{navigation.map((item) => { const on = tabFor(view) === item; return <button key={item} type="button" className={on ? "nav-item active" : "nav-item"} aria-current={on ? "page" : undefined} onClick={() => { setPlanClientId(null); setFocusOnOpen(false); track(`app_nav_${item}`); setView(item); }}><span className="nav-icon"><Icon name={item as IconName} /></span><span className="nav-label">{navLabel(lang, item, role)}</span></button>; })}</nav>}
+  </main>;
 }

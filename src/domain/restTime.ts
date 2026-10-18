@@ -11,13 +11,19 @@ export function parseRestSec(rest: string | undefined | null): number | undefine
   if (!s) return undefined;
   const clock = /^(\d{1,2}):(\d{2})/.exec(s); // "1:30"
   if (clock) return bound(Number(clock[1]) * 60 + Number(clock[2]));
-  const num = /(\d+(?:\.\d+)?)/.exec(s);
-  if (!num) return undefined;
-  const n = Number(num[1]);
-  const minutes = /(min|хв|мин|m\b|')/.test(s);
-  const seconds = /(sec|\bs\b|\ds\b|с\b|сек|")/.test(s);
-  const sec = minutes ? n * 60 : seconds ? n : n <= 10 ? n * 60 : n;
-  return bound(sec);
+  // The unit is the one right after the first number (or range): "90 s (1.5 min)" is 90 s.
+  // \b is ASCII-only, so Cyrillic units end at a non-letter instead.
+  const first = /(\d+(?:\.\d+)?)(?:\s*[-–]\s*\d+(?:\.\d+)?)?\s*(min|хв|мин|m(?!\p{L})|'|sec|сек|s(?!\p{L})|с(?!\p{L})|")?/u.exec(s);
+  if (!first) return undefined;
+  const n = Number(first[1]);
+  const unit = first[2] ?? "";
+  if (/^(min|хв|мин|m|')$/.test(unit)) {
+    // "1 хв 30 с" / "1 min 30 s": add the seconds that follow.
+    const extra = /^\s*(\d+)\s*(sec|сек|s|с|")(?!\p{L})/u.exec(s.slice(first.index + first[0].length));
+    return bound(n * 60 + (extra ? Number(extra[1]) : 0));
+  }
+  if (unit) return bound(n);
+  return bound(n <= 10 ? n * 60 : n);
 }
 
 function bound(sec: number): number | undefined {

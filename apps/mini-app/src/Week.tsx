@@ -34,7 +34,7 @@ export function WeekSummaryCard({ lang, dashboard }: { lang: Lang; dashboard: Da
       <div><strong>{s.weightDelta !== undefined ? kg(s.weightDelta) : "—"}</strong><small>{t(lang, "ws_weight")}</small></div>
       <div><strong>{s.foodDays}/7</strong><small>{t(lang, "ws_food")}</small></div>
     </div>
-    {s.records.length > 0 && <p className="ws-records">🏆 {t(lang, "ws_records", { list: s.records.slice(0, 3).join(", ") })}</p>}
+    {s.records.length > 0 && <p className="ws-records">{t(lang, "ws_records", { list: s.records.slice(0, 3).join(", ") })}</p>}
     <p className="ws-focus"><strong>{t(lang, "ws_focus_label")}</strong> {t(lang, `ws_focus_${s.focus}` as Key, { n: s.planned })}</p>
   </section>;
 }

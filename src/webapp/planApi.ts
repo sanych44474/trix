@@ -13,7 +13,7 @@ import { defaultMesocycle, type Mesocycle } from "../domain/mesocycle";
 import { getClientForTrainer } from "../adapters/d1/v2Trainer";
 import { updateUser } from "../adapters/d1/v2Users";
 import { DAY_GROUPS } from "../domain/dayGroups";
-import { listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
+import { getExerciseTranslations, listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
 import {
   getCatalogExercise,
   getExerciseTranslation,
@@ -306,13 +306,18 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
         perMuscle: 2,
         total: 5,
       }).catch(() => []);
+      // The catalog is English; the day is written in the owner's language where a translation
+      // exists (canonicalName stays English for lookups).
+      const translated = owner.lang === "en"
+        ? new Map()
+        : await getExerciseTranslations(env.DB, candidates.map((c) => c.id), owner.lang).catch(() => new Map());
       const exercises: PlanExercise[] = candidates.map((c) => ({
-        name: c.name,
+        name: translated.get(c.id)?.name || c.name,
         canonicalName: c.name,
         exerciseId: c.id,
         sets: "3 × 8–12",
         startWeight: "—",
-        technique: c.instructions ?? "",
+        technique: translated.get(c.id)?.instructions || c.instructions || "",
         muscles: c.muscle,
       }));
       split = [...plan.split, { weekday: targetWeekday, muscleGroup: dayGroupLabel(group.id, owner.lang), exercises }];

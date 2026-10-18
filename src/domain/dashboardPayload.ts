@@ -96,7 +96,7 @@ export interface DashboardPayload {
   // Accountability buddy — name + their completed workouts this week (mutual motivation card).
   buddy?: { name: string; workouts: number };
   // Today's plan exercises for the quick-log form (empty on rest days / no plan).
-  logForm?: { exercises: string[] };
+  logForm?: { exercises: string[]; minutes?: number }; // minutes: estimated length of today's plan day
   // Trainer-only portfolio view: one row per client with 7-day compliance + at-risk flag.
   trainer?: {
     clients: { id: number; name: string; workoutPct: number; nutritionPct: number; atRisk: boolean; flagged: boolean; missedDates?: [string, string]; onboarded?: boolean; plan?: "active" | "draft" | "none" }[];
@@ -275,7 +275,9 @@ export function assemblePayload(
           done: w.completed,
           ex: w.exercises
             .filter((e) => !e.skipped)
-            .slice(0, 10)
+            // 10 cut real sessions short (weekly sets and the body map undercounted); 25 only
+            // bounds the payload against a runaway log.
+            .slice(0, 25)
             .map((e) => ({ n: e.name, s: e.setsDone.length })),
         })),
       ...(learnedMuscles.length ? { learnedMuscles } : {}),

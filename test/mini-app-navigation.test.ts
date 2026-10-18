@@ -3,7 +3,7 @@
 // each role sees.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { navigationFor, viewFromSearch, VIEWS } from "../apps/mini-app/src/logic/navigation";
+import { moreLinksFor, navigationFor, tabFor, viewFromSearch, VIEWS } from "../apps/mini-app/src/logic/navigation";
 
 test("viewFromSearch: no parameter opens Today", () => {
   assert.equal(viewFromSearch(""), "today");
@@ -37,11 +37,22 @@ test("viewFromSearch: other parameters (deep links into a client card or a coach
   assert.equal(viewFromSearch("?view=coach&ask=how%20much%20protein"), "coach");
 });
 
-test("navigationFor: the three working roles get the full tab bar, anything else only Today and role", () => {
-  const full = ["today", "train", "plan", "fuel", "progress", "more", "role"];
-  for (const role of ["trainer", "solo", "client"]) assert.deepEqual(navigationFor(role), full, role);
+test("navigationFor: five tabs; a trainer's client list takes the progress slot; anything else only Today and role", () => {
+  for (const role of ["solo", "client"]) assert.deepEqual(navigationFor(role), ["today", "train", "fuel", "progress", "more"], role);
+  assert.deepEqual(navigationFor("trainer"), ["today", "train", "role", "fuel", "more"]);
+  for (const role of ["trainer", "solo", "client"]) assert.ok(navigationFor(role).length <= 5, role);
   assert.deepEqual(navigationFor(undefined), ["today", "role"]);
   assert.deepEqual(navigationFor("owner"), ["today", "role"]);
+});
+
+test("moreLinksFor / tabFor: nothing the bar dropped becomes unreachable", () => {
+  for (const role of ["trainer", "solo", "client"]) {
+    const reachable = new Set([...navigationFor(role), ...moreLinksFor(role), "plan"]);
+    for (const view of ["today", "train", "plan", "fuel", "progress", "more", "role", "library"]) assert.ok(reachable.has(view as never), `${role}: ${view}`);
+  }
+  assert.equal(tabFor("plan"), "train");
+  assert.equal(tabFor("library"), "more");
+  assert.equal(tabFor("fuel"), "fuel");
 });
 
 test("navigationFor: every tab is a screen a link can also open", () => {

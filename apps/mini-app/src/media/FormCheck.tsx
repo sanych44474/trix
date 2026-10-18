@@ -43,7 +43,7 @@ export function FormCheck({ lang, exercise }: { lang: Lang; exercise?: string })
     <p className="muted">{t(lang, "form_check_intro", { sec: MAX_VIDEO_SEC })}</p>
     <input className="meal-photo-caption" value={caption} maxLength={120} placeholder={t(lang, "form_check_caption_ph")} onChange={(e) => setCaption(e.target.value)} />
     <input ref={input} type="file" accept="video/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void send(f); }} />
-    <button type="button" className="button button-primary" disabled={busy} onClick={() => input.current?.click()}>{busy ? t(lang, "form_check_watching_app") : `🎥 ${t(lang, "form_check_btn")}`}</button>
+    <button type="button" className="button button-primary" disabled={busy} onClick={() => input.current?.click()}>{busy ? t(lang, "form_check_watching_app") : t(lang, "form_check_btn")}</button>
     {answer && <div className="info-box form-check-answer">{answer}<small className="muted">{t(lang, "form_check_disclaimer")}</small></div>}
     {note && <div className="save-note">{note}</div>}
   </div>;

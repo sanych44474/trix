@@ -8,12 +8,14 @@ import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
 import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, ProfilePhoto, WeekCardResponse } from "./types";
 import { t, type Lang } from "./i18n";
+import type { View } from "./logic/navigation";
+import { Icon, type IconName } from "./icons";
 import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
 import { ReleaseItems } from "./WhatsNew";
 import { BecomeTrainerCard } from "./BecomeTrainer";
-import { formatNumber, Card, Metric, Empty, ErrorState, photoUrl, apiUpload, composeCompare, drawWeekCard } from "./App";
+import { formatNumber, Metric, Empty, ErrorState, photoUrl, apiUpload, composeCompare, drawWeekCard } from "./App";
 
-export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Dashboard["viewer"]["role"]; onOpenLibrary: () => void }) {
+export function ExtrasView({ lang, role, links = [], onOpen }: { lang: Lang; role: Dashboard["viewer"]["role"]; links?: Array<{ view: View; label: string }>; onOpen?: (view: View) => void }) {
   // week card
   const [week, setWeek] = useState<WeekCardResponse | null>(null);
   const [weekError, setWeekError] = useState<unknown>(null);
@@ -101,6 +103,9 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
 
   // Choose a trainer: the directory of approved trainers taking clients (FindTrainer), full screen.
   const [findTrainer, setFindTrainer] = useState(false);
+  // One section open at a time: the page is a menu of tools, not a feed of cards.
+  const [fold, setFold] = useState<string | null>(null);
+  const toggleFold = (key: string) => setFold((current) => current === key ? null : key);
 
   // squads
   // /api/v2/whatsnew was registered in v2Api.ts but nothing ever called it -- the release note
@@ -113,28 +118,22 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
   if (findTrainer) return <FindTrainer lang={lang} onBack={() => setFindTrainer(false)} onAccepted={() => window.location.reload()} />;
 
   return <div className="view-stack">
-    <div className="eyebrow">{t(lang, "extras_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "extras_title")}</h1></div>
+    {links.length > 0 && onOpen && <div className="list">
+      {links.map((link) => <button type="button" key={link.view} className="list-item" onClick={() => onOpen(link.view)}><Icon name={link.view as IconName} /><span className="grow">{link.label}</span><Icon name="chevron" size={20} className="row-chevron" /></button>)}
+    </div>}
 
-    <Card tone="accent">
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "exlib_eyebrow")}</span><h2>{t(lang, "library_card_title")}</h2></div><span className="action-arrow">📚</span></div>
-      <p>{t(lang, "library_card_body")}</p>
-      <div className="button-row"><button className="button button-light" onClick={onOpenLibrary}>{t(lang, "library_open_btn")}</button></div>
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "rp_eyebrow")}</span><h2>{t(lang, "rp_title")}</h2></div><span className="action-arrow">📋</span></div>
+    <div className="fold-group">
+    <Fold title={t(lang, "rp_eyebrow")} open={fold === "rp_title"} onToggle={() => toggleFold("rp_title")}>
       <p className="muted">{t(lang, "rp_detail")}</p>
       <ReadyPrograms lang={lang} />
-    </Card>
+    </Fold>
 
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "form_check_eyebrow")}</span><h2>{t(lang, "form_check_title")}</h2></div><span className="action-arrow">🎥</span></div>
+    <Fold title={t(lang, "form_check_title")} open={fold === "form_check_title"} onToggle={() => toggleFold("form_check_title")}>
       <FormCheck lang={lang} />
-    </Card>
+    </Fold>
 
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "weekcard_eyebrow")}</span><h2>{t(lang, "weekcard_title")}</h2></div></div>
+    <Fold title={t(lang, "weekcard_title")} open={fold === "weekcard_title"} onToggle={() => toggleFold("weekcard_title")}>
       {weekError !== null ? <ErrorState lang={lang} error={weekError} retry={loadWeek} /> : !week ? <div className="skeleton" /> : !week.stats ? <Empty title={t(lang, "weekcard_empty_title")} detail={t(lang, "weekcard_empty_detail")} /> : <>
         <p className="muted">{week.stats.since.slice(5)} → {week.stats.until.slice(5)}</p>
         <div className="metric-grid compact">
@@ -155,18 +154,16 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
         {weekCanvasUrl && <img src={weekCanvasUrl} alt="" style={{ marginTop: 10, width: "100%", borderRadius: 12 }} />}
         {weekSent && <div className="save-note">{t(lang, "weekcard_sent_note")}</div>}
       </>}
-    </Card>
+    </Fold>
 
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "invite_eyebrow")}</span><h2>{t(lang, "invite_title")}</h2></div>{referral && referral.referredCount > 0 && <span className="tag">{t(lang, "invite_count", { n: referral.referredCount })}</span>}</div>
+    <Fold title={t(lang, "invite_title")} open={fold === "invite_title"} onToggle={() => toggleFold("invite_title")} meta={referral && referral.referredCount > 0 && <span className="tag">{t(lang, "invite_count", { n: referral.referredCount })}</span>}>
       {!referral ? <div className="skeleton" /> : !referral.referralLink ? null : <>
         <p className="muted">{t(lang, "invite_detail")}</p>
         <div className="input-row"><input readOnly value={referral.referralLink} onFocus={(event) => event.target.select()} /><button className="button button-primary" onClick={copyInviteLink}>{inviteCopied ? t(lang, "invite_copied_note") : t(lang, "invite_copy_btn")}</button></div>
       </>}
-    </Card>
+    </Fold>
 
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "photocompare_eyebrow")}</span><h2>{t(lang, "photocompare_title")}</h2></div></div>
+    <Fold title={t(lang, "photocompare_title")} open={fold === "photocompare_title"} onToggle={() => toggleFold("photocompare_title")}>
       {photosError !== null ? <ErrorState lang={lang} error={photosError} retry={loadPhotos} /> : !photos ? <div className="skeleton" /> : photos.length < 2 ? <Empty title={t(lang, "photocompare_empty_title")} detail={t(lang, "photocompare_need_two")} /> : <>
         <div className="input-row">
           <label className="form-field"><span>{t(lang, "photocompare_from_label")}</span><select value={fromId ?? ""} onChange={(event) => setFromId(Number(event.target.value) || null)}><option value="">—</option>{photos.map((p) => <option key={p.id} value={p.id}>{p.takenAt}</option>)}</select></label>
@@ -178,10 +175,9 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
         {compareSent && <div className="save-note">{t(lang, "photocompare_sent_note")}</div>}
         {compareError !== null && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
       </>}
-    </Card>
+    </Fold>
 
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "plates_eyebrow")}</span><h2>{t(lang, "plates_title")}</h2></div></div>
+    <Fold title={t(lang, "plates_title")} open={fold === "plates_title"} onToggle={() => toggleFold("plates_title")}>
       <div className="input-row">
         <input type="number" inputMode="decimal" value={platesKg} placeholder={t(lang, "plates_kg_ph")} onChange={(event) => setPlatesKg(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void calcPlates(); }} />
         <button className="button button-ghost" onClick={() => void calcPlates()} disabled={platesBusy}>{platesBusy ? "…" : t(lang, "plates_calc_btn")}</button>
@@ -190,33 +186,42 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
         {plates.plan ? <p className="muted"><strong>{plates.plan.loaded} kg</strong> · {t(lang, "plates_per_side")}: {plates.plan.perSide.length ? plates.plan.perSide.join(" + ") : "—"}{plates.plan.leftover ? ` · ${t(lang, "plates_leftover", { n: plates.plan.leftover })}` : ""}</p> : null}
         {plates.ramp.length > 0 && <><p className="muted" style={{ marginTop: 8 }}>{t(lang, "plates_warmup_title")}</p><ul className="factor-list">{plates.ramp.map((w, i) => <li key={i}>{w.weight} kg × {w.reps}{w.pct ? ` (${w.pct}%)` : ""}</li>)}</ul></>}
       </div>}
-    </Card>
+    </Fold>
 
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "library_eyebrow")}</span><h2>{t(lang, "library_title")}</h2></div></div>
+    <Fold title={t(lang, "library_title")} open={fold === "library_title"} onToggle={() => toggleFold("library_title")}>
       {libraryError !== null ? <ErrorState lang={lang} error={libraryError} retry={loadLibrary} /> : !library ? <div className="skeleton" /> : library.programs.length === 0 ? <Empty title={t(lang, "library_empty_title")} detail={t(lang, "library_empty_detail")} /> : <div className="plan-list">{library.programs.map((p) => <div className="plan-row" key={p.code}><div><strong>{p.name}</strong><small>{t(lang, "library_taken_count", { n: p.takenCount })}</small></div>{library.role !== "client" && <button className="button button-ghost" disabled={takingCode !== null} onClick={() => void takeProgram(p)}>{takingCode === p.code ? "…" : t(lang, "library_take_btn")}</button>}</div>)}</div>}
       {takenName && <div className="save-note">{t(lang, "library_taken_note", { name: takenName })}</div>}
-    </Card>
+    </Fold>
 
-    {role === "solo" && <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "trainer_find_eyebrow")}</span><h2>{t(lang, "trainer_find_title")}</h2></div></div>
+    {role === "solo" && <Fold title={t(lang, "trainer_find_eyebrow")} open={fold === "trainer_find_title"} onToggle={() => toggleFold("trainer_find_title")}>
       <p className="muted">{t(lang, "trainer_find_app_detail")}</p>
       <div className="button-row"><button className="button button-primary" onClick={() => setFindTrainer(true)}>{t(lang, "ob_role_trainer_btn")}</button></div>
-    </Card>}
+    </Fold>}
 
-    {whatsnew && <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "whatsnew_eyebrow")}</span><h2>{t(lang, "whatsnew_title")}</h2></div><span className="tag">{t(lang, "whatsnew_version", { v: whatsnew.version })}</span></div>
+    {whatsnew && <Fold title={t(lang, "whatsnew_eyebrow")} open={fold === "whatsnew_title"} onToggle={() => toggleFold("whatsnew_title")}>
       {whatsnew.text ? <ReleaseItems text={whatsnew.text} /> : <pre className="owner-report">{whatsnew.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")}</pre>}
-    </Card>}
+    </Fold>}
+
+    <Fold title={t(lang, "import_app_title")} open={fold === "import_app_title"} onToggle={() => toggleFold("import_app_title")}>
+      <ImportCsv lang={lang} />
+    </Fold>
+    </div>
 
     {role === "solo" || role === "trainer" ? <BecomeTrainerCard lang={lang} role={role} /> : null}
 
     <SquadsCard lang={lang} />
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "import_app_eyebrow")}</span><h2>{t(lang, "import_app_title")}</h2></div></div>
-      <ImportCsv lang={lang} />
-    </Card>
+
     <AppShortcutsCard lang={lang} />
     <SupportCard lang={lang} />
   </div>;
+}
+
+/** A tool on the More page: one row (title, optional badge), its content unfolded below it. */
+function Fold({ title, meta, open, onToggle, children }: { title: string; meta?: React.ReactNode; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return <section className={open ? "card fold open" : "card fold"}>
+    <button type="button" className="fold-head" aria-expanded={open} onClick={onToggle}>
+      <span className="grow">{title}</span>{meta}<Icon name="chevron" size={20} className={open ? "row-chevron open" : "row-chevron"} />
+    </button>
+    {open && <div className="fold-body">{children}</div>}
+  </section>;
 }
