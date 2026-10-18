@@ -92,7 +92,7 @@ export function SessionSummary({ lang, summary, title, subtitle, date, onAskCoac
         <div className="feel-row" role="group" aria-label={t(lang, "feel_question")}>
           {(["easy", "ok", "hard"] as const).map((value) => (
             <button type="button" key={value} className="chip-button" disabled={feelState === "busy" || feelState === "done"} aria-pressed={feel === value} onClick={() => void sendFeel(value)}>
-              <span aria-hidden="true">{value === "easy" ? "😌" : value === "ok" ? "💪" : "🥵"}</span>{t(lang, `feel_${value}`)}
+              {t(lang, `feel_${value}`)}
             </button>
           ))}
         </div>

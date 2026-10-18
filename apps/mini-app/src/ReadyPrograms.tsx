@@ -14,6 +14,9 @@ type Audience = "men" | "women" | "any";
 const PLACES: Place[] = ["gym", "dumbbells", "bodyweight"];
 const LEVELS: Level[] = ["beginner", "intermediate", "advanced"];
 
+
+// The first few matches; the rest behind "show all" (a filter can still match a dozen plans).
+const PREVIEW = 4;
 export function ReadyPrograms({ lang, onApplied }: { lang: Lang; onApplied?: () => void }) {
   const [data, setData] = useState<{ role: string; programs: ReadyProgram[] } | null>(null);
   const [failed, setFailed] = useState(false);
@@ -21,6 +24,7 @@ export function ReadyPrograms({ lang, onApplied }: { lang: Lang; onApplied?: () 
   const [level, setLevel] = useState<Level | "any">("any");
   const [audience, setAudience] = useState<Audience>("any");
   const [open, setOpen] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -48,7 +52,7 @@ export function ReadyPrograms({ lang, onApplied }: { lang: Lang; onApplied?: () 
   const client = data.role === "client";
 
   return <div className="ready-programs">
-    <div className="button-row tabs">{PLACES.map((p) => <button key={p} type="button" className={`rest-chip${place === p ? " selected" : ""}`} onClick={() => { setPlace(p); setOpen(null); }}>{t(lang, `rp_place_${p}`)}</button>)}</div>
+    <div className="button-row tabs">{PLACES.map((p) => <button key={p} type="button" className={`rest-chip${place === p ? " selected" : ""}`} onClick={() => { setPlace(p); setOpen(null); setShowAll(false); }}>{t(lang, `rp_place_${p}`)}</button>)}</div>
     <div className="button-row">
       {(["any", "women", "men"] as Audience[]).map((a) => <button key={a} type="button" className={`rest-chip${audience === a ? " selected" : ""}`} onClick={() => setAudience(a)}>{t(lang, `rp_aud_${a}`)}</button>)}
     </div>
@@ -57,7 +61,7 @@ export function ReadyPrograms({ lang, onApplied }: { lang: Lang; onApplied?: () 
     </div>
     {client && <p className="muted">{t(lang, "rp_trainer_managed")}</p>}
     <div className="plan-list">
-      {shown.map((p) => <div className="rp-item" key={p.id}>
+      {(showAll ? shown : shown.slice(0, PREVIEW)).map((p) => <div className="rp-item" key={p.id}>
         <button type="button" className="rp-head" onClick={() => setOpen(open === p.id ? null : p.id)} aria-expanded={open === p.id}>
           <span><strong>{p.name}</strong><small>{t(lang, "rp_meta", { days: p.daysPerWeek, min: p.minutes })} · {t(lang, `rp_aud_${p.audience === "all" ? "any" : p.audience}`)}</small></span>
           <span className="tag">{t(lang, `rp_level_${p.level}`)}</span>
@@ -77,6 +81,7 @@ export function ReadyPrograms({ lang, onApplied }: { lang: Lang; onApplied?: () 
         </div>}
       </div>)}
     </div>
+    {!showAll && shown.length > PREVIEW && <button type="button" className="button button-quiet" onClick={() => setShowAll(true)}>{t(lang, "rp_show_all", { n: shown.length })}</button>}
     {note && <div className="save-note">{note}</div>}
   </div>;
 }

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiForm, typedBody } from "../api";
 import { t, type Lang } from "../i18n";
+import { Icon } from "../icons";
 import { type MealItem, reweigh, sumMeal } from "../logic/media";
 import { track } from "../logic/track";
 import { drawPreview, shrinkImage } from "./files";
@@ -53,7 +54,7 @@ export function MealPhoto({ lang, onLogged }: { lang: Lang; onLogged: () => void
   const total = items ? sumMeal(items) : null;
   return <div className="meal-photo">
     <input ref={input} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void estimate(f); }} />
-    {!preview && <button type="button" className="button button-primary meal-photo-cta" onClick={() => input.current?.click()}>📷 {t(lang, "meal_photo_btn")}</button>}
+    {!preview && <button type="button" className="button button-primary meal-photo-cta" onClick={() => input.current?.click()}><Icon name="camera" size={20} />{t(lang, "meal_photo_btn")}</button>}
     {preview && <div className="meal-photo-body">
       <canvas ref={canvas} className="meal-photo-preview" />
       {busy === "estimate" && <p className="muted">{t(lang, "meal_photo_reading")}</p>}
@@ -63,7 +64,7 @@ export function MealPhoto({ lang, onLogged }: { lang: Lang; onLogged: () => void
           <span>{item.kcal}</span>
           {item.grams ? <label className="meal-photo-grams"><input type="number" min="1" max="3000" defaultValue={item.grams} aria-label={t(lang, "grams_unit")}
             onBlur={(e) => { const g = Number(e.target.value); setItems((cur) => cur ? cur.map((x, j) => (j === i ? reweigh(x, g) : x)) : cur); }} /> {t(lang, "grams_unit")}</label> : <span />}
-          <button type="button" className="text-button danger-button" aria-label={t(lang, "delete_btn")} onClick={() => setItems((cur) => cur ? cur.filter((_, j) => j !== i) : cur)}>✕</button>
+          <button type="button" className="text-button danger-button" aria-label={t(lang, "delete_btn")} onClick={() => setItems((cur) => cur ? cur.filter((_, j) => j !== i) : cur)}><Icon name="close" size={18} /></button>
         </div>)}</div>
         {total && <p className="meal-photo-total"><strong>{t(lang, "kcal_value", { n: total.kcal })}</strong> · {t(lang, "macro_line", { p: total.protein, f: total.fats, c: total.carbs })}</p>}
       </>}

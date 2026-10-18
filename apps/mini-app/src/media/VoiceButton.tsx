@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiForm } from "../api";
 import { t, type Lang } from "../i18n";
+import { Icon } from "../icons";
 import { MAX_VOICE_SEC, pickAudioType } from "../logic/media";
 import { track } from "../logic/track";
 
@@ -59,7 +60,7 @@ export function VoiceButton({ lang, onText, disabled }: { lang: Lang; onText: (t
     <button type="button" className={`voice-button${state === "recording" ? " recording" : ""}`} disabled={disabled || state === "sending"}
       aria-label={t(lang, state === "recording" ? "voice_stop" : "voice_record")}
       onClick={() => (state === "recording" ? stop() : void start())}>
-      {state === "sending" ? "…" : state === "recording" ? `■ ${seconds}s` : "🎙"}
+      {state === "sending" ? "…" : state === "recording" ? `■ ${seconds}s` : <Icon name="mic" size={20} />}
     </button>
     {error && <small className="voice-error">{error}</small>}
   </span>;

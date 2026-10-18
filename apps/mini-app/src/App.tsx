@@ -143,7 +143,7 @@ export function App() {
       {view === "plan" && planClientId !== null && <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={planClientId} canRebuild={role !== "client"} onOpenLibrary={() => setView("library")} onBack={() => { setPlanClientId(null); setView("role"); }} /></Suspense>}
       {view === "fuel" && <Suspense fallback={<Loading />}><FuelView lang={lang} /></Suspense>}
       {view === "progress" && <Suspense fallback={<Loading />}><ProgressView dashboard={dashboard} lang={lang} /></Suspense>}
-      {view === "more" && <Suspense fallback={<Loading />}><ExtrasView lang={lang} role={role} links={moreLinksFor(role).map((target) => ({ view: target, label: navLabel(lang, target, target === "role" ? "solo" : role) }))} onOpen={setView} onOpenLibrary={() => setView("library")} /></Suspense>}
+      {view === "more" && <Suspense fallback={<Loading />}><ExtrasView lang={lang} role={role} links={moreLinksFor(role).map((target) => ({ view: target, label: navLabel(lang, target, target === "role" ? "solo" : role) }))} onOpen={setView} /></Suspense>}
       {view === "library" && <Suspense fallback={<Loading />}><LibraryView lang={lang} onBack={() => setView("more")} /></Suspense>}
       {view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}
       {view === "inbox" && <InboxView lang={lang} onBack={() => setView("today")} onGo={(target) => setView(target)} />}
