@@ -34,7 +34,7 @@ Cloudflare's on-platform Workers AI, which needs no API key at all.
 | Motivation & community (21) | XP, levels, streaks with freezes, 26 badges, weekly quests, a monthly seasonal challenge, a weekly muscle-balance score, records with e1RM charts, leaderboards, challenges, buddy duels, group-chat squads, share to Telegram stories |
 | Trainer tools (22) | Invite link, request inbox and waitlist, client cards, per-client plan editor, templates, broadcasts, traffic-light digest, at-risk alerts, schedule and payments |
 | Reminders (13) | Timezone-aware and fitted to when you train, evening checklist, weekly digests, a dedicated first-14-days arc |
-| Onboarding (12), Mini App (21), Owner (10), Safeguards (5) | Button interview, instant plan; app with an exercise library (750 with pictures), a per-muscle body map, recovery map and 12-week muscle trends, calendar, heatmap, home-screen shortcut, export and voluntary Stars support; owner console with retention by signup week; idempotent saves, GDPR delete |
+| Onboarding (12), Mini App (21), Owner (10), Safeguards (5) | Button interview, instant plan; app with an exercise library (750 with pictures), a per-muscle body map (also inside the workout), recovery map and 12-week muscle trends, calendar, light/dark/high-contrast/red themes, home-screen shortcut, export and voluntary Stars support; owner console with retention by signup week; idempotent saves, GDPR delete |
 
 **Why it matters:** it is a coach, not a log. It writes the program, decides when to add weight,
 and messages you first, inside the app you already use. Trainers get the tooling that usually
@@ -99,7 +99,7 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 | `src/scheduler.ts` | Cron: reminders, check-ins, weekly digests, trainer digests, owner report |
 | `src/webapp/` | Mini App: `client/` static shell fragments + per-screen JSON APIs |
 | `apps/mini-app/` | React + Vite v2 Mini App shell and dark sports design system |
-| `apps/mini-app/src/train/` | Workout logger screen pieces: exercise card, rest bar, save dock, summary, history, `useSession` (rest timer + session clock) |
+| `apps/mini-app/src/train/` | Workout logger screen pieces: focus-mode exercise, its muscle figure, rest bar, save dock, summary, history, `useSession` (rest timer + session clock) |
 | `apps/mini-app/src/logic/` | **Pure**, unit-tested client logic: logger state and draft reconciliation, saved-log hydration, rest timing |
 | `src/application/` | Deep application interfaces shared by adapters |
 | `src/adapters/d1/` | D1 application adapters and legacy-to-v2 projections |
