@@ -47,6 +47,7 @@ import {
 } from "../../domain/dashboardPayload";
 import { createDashboardApplication, type DashboardReader } from "../../application/dashboard";
 import type { UserDoc, WorkoutLogDoc } from "../../types";
+import { estimateSessionMinutes } from "../../domain/sessionLength";
 
 // Free-tier subrequest cap: the section must stay O(1) in queries, not O(clients).
 const TRAINER_SECTION_MAX_CLIENTS = 30;
@@ -254,7 +255,7 @@ export async function buildDashboardPayload(db: D1Database, user: UserDoc): Prom
     }
   }
   const todayDay = plan ? getPlanDay(plan, isoWeekdayOf(today)) : undefined;
-  payload.logForm = { exercises: (todayDay?.exercises ?? []).map((e) => e.name) };
+  payload.logForm = { exercises: (todayDay?.exercises ?? []).map((e) => e.name), minutes: estimateSessionMinutes(todayDay?.exercises ?? []) };
   return payload;
 }
 

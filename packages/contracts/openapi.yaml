@@ -3752,6 +3752,9 @@ components:
             exercises:
               type: array
               items: {type: string}
+            minutes:
+              type: integer
+              description: Estimated length of today's plan day in minutes (0 when there is none).
           required: [exercises]
         trainer:
           type: object

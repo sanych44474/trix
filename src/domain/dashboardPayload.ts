@@ -96,7 +96,7 @@ export interface DashboardPayload {
   // Accountability buddy — name + their completed workouts this week (mutual motivation card).
   buddy?: { name: string; workouts: number };
   // Today's plan exercises for the quick-log form (empty on rest days / no plan).
-  logForm?: { exercises: string[] };
+  logForm?: { exercises: string[]; minutes?: number }; // minutes: estimated length of today's plan day
   // Trainer-only portfolio view: one row per client with 7-day compliance + at-risk flag.
   trainer?: {
     clients: { id: number; name: string; workoutPct: number; nutritionPct: number; atRisk: boolean; flagged: boolean; missedDates?: [string, string]; onboarded?: boolean; plan?: "active" | "draft" | "none" }[];

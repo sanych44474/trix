@@ -1371,7 +1371,7 @@ export const en = {
   nav_library: "Exercise library",
   today_kicker: "Today",
   today_in_progress: "In progress",
-  today_about_min: "about {n} min",
+  today_about_min: "{n} min",
   ex_count_one: "{n} exercise",
   ex_count_few: "{n} exercises",
   ex_count_many: "{n} exercises",

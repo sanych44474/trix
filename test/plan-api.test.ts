@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
-import { upsertExercise } from "../src/adapters/d1/v2Catalog";
+import { upsertExercise, upsertExerciseTranslation } from "../src/adapters/d1/v2Catalog";
 import { handlePlanApi } from "../src/webapp/planApi";
 import type { Env, PlanDoc } from "../src/types";
 
@@ -257,6 +257,24 @@ test("plan days: add a whole day from a muscle group, and delete one", async () 
   // Deleting the only remaining day would leave a plan with no training days at all.
   const lastOne = await call(db, 1, "POST", "/api/plan", { action: "daydel", weekday: 1 }, { "if-match": `"${current.version}"` });
   assert.equal(lastOne.status, 400);
+});
+
+test("plan days: a day added for a Ukrainian owner uses the Ukrainian exercise names", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "uk", "Олена");
+  await setActivePlan(db, plan(1));
+  await upsertExercise(db, {
+    id: "bench", name: "Bench Press", muscle: "chest", equipments: ["barbell"],
+    instructions: "Set the shoulder blades.", safetyInfo: "Use a spotter.",
+  });
+  await upsertExerciseTranslation(db, "bench", "uk", { name: "Жим штанги лежачи", instructions: "Зведи лопатки.", safetyInfo: "Зі страхувальником." });
+
+  const current = await (await call(db, 1, "GET", "/api/plan")).json() as { version: string };
+  const added = await call(db, 1, "POST", "/api/plan", { action: "dayadd", weekday: 3, group: "chest" }, { "if-match": `"${current.version}"` });
+  assert.equal(added.status, 200);
+  const body = await added.json() as { days: Array<{ weekday: number; exercises: Array<{ name: string; technique?: string }> }> };
+  const day = body.days.find((d) => d.weekday === 3);
+  assert.equal(day?.exercises[0]?.name, "Жим штанги лежачи");
 });
 
 test("plan mesocycle: GET reflects null until started, POST toggles it, and it needs no weekday/index", async () => {

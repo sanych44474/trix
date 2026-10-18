@@ -165,7 +165,6 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   if (!plan) return <Loading />;
   if (!plan.days.length) return <Empty title={t(lang, "no_plan_title")} detail={t(lang, "no_plan_detail")} />;
 
-  type Sheet = { kind: "exercise"; weekday: number; index: number } | { kind: "addday"; weekday: number } | null;
   const sheetDay = sheet && sheet.kind === "exercise" ? plan.days.find((d) => d.weekday === sheet.weekday) : undefined;
   const sheetExercise = sheet && sheet.kind === "exercise" ? sheetDay?.exercises.find((e) => e.index === sheet.index) : undefined;
   const closeSheet = () => setSheet(null);

@@ -103,7 +103,7 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
   }, [native, primary, action]);
 
   const n = plan.exercises.length;
-  const minutes = Math.max(15, Math.round((n * 7) / 5) * 5);
+  const minutes = dashboard.logForm?.minutes ?? 0;
   const chips = plan.exercises.slice(0, 3);
   const recovery = dashboard.recovery;
   const stats = dashboard.todayStats;
@@ -118,7 +118,7 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
         {plan.state === "rest" ? t(lang, "today_rest_body")
           : plan.state === "done" ? t(lang, "today_done_meta", { sets: plan.sets })
           : plan.state === "continue" ? t(lang, "today_continue_meta", { done: plan.started, total: n })
-          : `${exercisesLabel(lang, n)} · ${t(lang, "today_about_min", { n: minutes })}`}
+          : minutes > 0 ? `${exercisesLabel(lang, n)} · ${t(lang, "today_about_min", { n: minutes })}` : exercisesLabel(lang, n)}
       </p>
       {plan.state !== "rest" && n > 0 && <ul className="wod-chips">
         {chips.map((name, i) => <li key={`${i}-${name}`}>{name}</li>)}
