@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CONTRAST_KEY, applyTheme, readContrast, resolveTheme, restoreContrast, setContrast } from "../apps/mini-app/src/logic/theme";
+import { ACCENT_KEY, CONTRAST_KEY, applyTheme, readAccent, readContrast, resolveAccent, resolveTheme, restoreContrast, setAccent, setContrast } from "../apps/mini-app/src/logic/theme";
 
 function setup(scheme?: "light" | "dark") {
   const local = new Map<string, string>();
@@ -59,4 +59,33 @@ test("a preference the WebView forgot comes back from DeviceStorage and is appli
   restoreContrast();
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(dataset.theme, "contrast");
+});
+
+
+test("the red accent applies to light and dark, not to high contrast", () => {
+  assert.equal(resolveAccent("red", "light"), "red");
+  assert.equal(resolveAccent("red", "dark"), "red");
+  assert.equal(resolveAccent("red", null), "red");
+  assert.equal(resolveAccent("red", "contrast"), null);
+  assert.equal(resolveAccent("green", "dark"), null);
+});
+
+test("choosing red repaints, survives high contrast toggling and is mirrored to DeviceStorage", () => {
+  const { local, device, dataset } = setup("light");
+  applyTheme();
+  assert.equal(dataset.accent, undefined);
+  setAccent("red");
+  assert.equal(readAccent(), "red");
+  assert.equal(dataset.accent, "red");
+  assert.equal(local.get(ACCENT_KEY), "red");
+  assert.equal(device.get(ACCENT_KEY), "red");
+  setContrast(true);
+  assert.equal(dataset.theme, "contrast");
+  assert.equal(dataset.accent, undefined, "high contrast keeps its own colours");
+  setContrast(false);
+  assert.equal(dataset.accent, "red", "and red comes back after");
+  setAccent("green");
+  assert.equal(dataset.accent, undefined);
+  assert.equal(local.has(ACCENT_KEY), false);
+  assert.equal(device.has(ACCENT_KEY), false);
 });
