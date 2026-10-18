@@ -3,7 +3,7 @@
 // the week's balance and quests -- one tap away instead of stacked as equally loud cards.
 // The state rules are pure in logic/todayPlan.ts.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, typedBody } from "./api";
+import { api, jsonBody, typedBody } from "./api";
 import { t, type Key, type Lang } from "./i18n";
 import type { Dashboard, RecoveryFactor, RecoveryLabel } from "./types";
 import type { View } from "./logic/navigation";
@@ -165,17 +165,43 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
         </div>
         {recovery.factors.length ? <ul className="plain-list">{recovery.factors.slice(0, 3).map((factor) => <li key={factor.code}>{recoveryFactor(lang, factor)}</li>)}</ul> : <p className="muted">{t(lang, "no_recovery_blockers")}</p>}
       </Card>
-      {stats && <Card>
-        <div className="row-between"><h2 className="card-title">{t(lang, "today_water_steps")}</h2><button type="button" className="button button-quiet button-small" onClick={() => onOpen("progress")}>{t(lang, "nav_progress")}</button></div>
-        <div className="meter-list">
-          <Meter label={t(lang, "metric_water")} value={stats.waterMl} goal={stats.waterGoal} text={`${fmt(stats.waterMl)} / ${fmt(stats.waterGoal)} ${t(lang, "unit_ml")}`} />
-          <Meter label={t(lang, "metric_steps")} value={stats.steps} goal={stats.stepsGoal} text={`${fmt(stats.steps)} / ${fmt(stats.stepsGoal)}`} />
-        </div>
-      </Card>}
+      {stats && <WaterSteps lang={lang} stats={stats} fmt={fmt} onSaved={onReload} />}
       {dashboard.week && <WeekCard lang={lang} week={dashboard.week} />}
       <WeekSummaryCard lang={lang} dashboard={dashboard} />
     </div>}
   </div>;
+}
+
+/** Water and steps against their goals, logged right here (+250 / +500 ml, today's steps). */
+function WaterSteps({ lang, stats, fmt, onSaved }: { lang: Lang; stats: NonNullable<Dashboard["todayStats"]>; fmt: (n: number) => string; onSaved: () => void }) {
+  const [steps, setSteps] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const post = async (key: string, body: unknown) => {
+    setBusy(key); setFailed(false);
+    try {
+      await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) });
+      if (key === "steps") setSteps("");
+      onSaved();
+    } catch { setFailed(true); } finally { setBusy(null); }
+  };
+  const ml = t(lang, "unit_ml");
+  return <Card>
+    <h2 className="card-title">{t(lang, "today_water_steps")}</h2>
+    <div className="meter-list">
+      <Meter label={t(lang, "metric_water")} value={stats.waterMl} goal={stats.waterGoal} text={`${fmt(stats.waterMl)} / ${fmt(stats.waterGoal)} ${ml}`} />
+      <div className="button-row">
+        <button type="button" className="button button-secondary" disabled={busy !== null} onClick={() => void post("w250", { kind: "water", ml: 250 })}>+250 {ml}</button>
+        <button type="button" className="button button-secondary" disabled={busy !== null} onClick={() => void post("w500", { kind: "water", ml: 500 })}>+500 {ml}</button>
+      </div>
+      <Meter label={t(lang, "metric_steps")} value={stats.steps} goal={stats.stepsGoal} text={`${fmt(stats.steps)} / ${fmt(stats.stepsGoal)}`} />
+      <div className="input-row">
+        <input value={steps} inputMode="numeric" placeholder={t(lang, "steps_ph")} aria-label={t(lang, "metric_steps")} onChange={(event) => setSteps(event.target.value.replace(/\D/g, ""))} />
+        <button type="button" className="button button-secondary" disabled={!steps || busy !== null} onClick={() => void post("steps", { kind: "steps", steps: Number(steps) })}>{busy === "steps" ? "…" : t(lang, "save_steps_btn")}</button>
+      </div>
+    </div>
+    {failed && <p className="muted">{t(lang, "generic_error")}</p>}
+  </Card>;
 }
 
 function Meter({ label, value, goal, text }: { label: string; value: number; goal: number; text: string }) {

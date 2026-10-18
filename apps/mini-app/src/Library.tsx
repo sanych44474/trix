@@ -5,6 +5,7 @@
 // day under that name with the English one as canonical, so the logger's pictures match exactly. Data and matcher load lazily with this view.
 import { useEffect, useMemo, useState } from "react";
 import { api, typedBody } from "./api";
+import { Icon } from "./icons";
 import { t, type Key, type Lang } from "./i18n";
 import type { Plan } from "./types";
 import { FREE_EXERCISE_LIB } from "./data/freeExerciseLib";
@@ -29,7 +30,7 @@ export function LibraryView({ lang, onBack }: { lang: Lang; onBack: () => void }
   const muscleLabel = (s: string) => t(lang, `muscle_${s.replace("-", "_")}` as Key);
 
   return <div className="view-stack">
-    <button className="text-button" onClick={onBack}>← {t(lang, "nav_more")}</button>
+    <button type="button" className="button button-quiet" onClick={onBack}><Icon name="chevron" size={20} className="flip" />{t(lang, "nav_more")}</button>
     <div className="eyebrow">{t(lang, "exlib_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "exlib_title")}</h1><span>{list.length}</span></div>
     <div className="library-filters">

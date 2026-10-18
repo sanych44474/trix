@@ -3,12 +3,13 @@ import { StravaCard } from "./StravaCard";
 import { WeightChart } from "./WeightChart";
 import { PhotoPair } from "./PhotoPair";
 import { targetsForDay } from "./logic/dayTargets";
-import { useMemo, useRef, useState, lazy, Suspense } from "react";
+import { useRef, useState, lazy, Suspense } from "react";
 import { api, ApiError, apiForm, jsonBody } from "./api";
 import type { Dashboard, MuscleGroup, VolumeZone, WorkoutToday } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 import { track } from "./logic/track";
 import { todayPlan } from "./logic/todayPlan";
+import { Icon } from "./icons";
 
 // The body-map figure is ~35 kB of SVG paths; loaded only when the Progress screen is opened.
 const BodyMap = lazy(() => import("./BodyMap").then((m) => ({ default: m.BodyMap })));
@@ -27,11 +28,6 @@ const zoneLabel = (lang: Lang, zone: VolumeZone) => t(lang, `zone_${zone}` as Ke
 
 function Card({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "accent" | "muted" }) {
   return <section className={`card card-${tone}`}>{children}</section>;
-}
-
-function Metric({ label, value, detail, onClick }: { label: string; value: string; detail?: string; onClick?: () => void }) {
-  const body = <><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</>;
-  return onClick ? <button type="button" className="metric metric-action" onClick={onClick}>{body}</button> : <div className="metric">{body}</div>;
 }
 
 function Empty({ title, detail }: { title: string; detail: string }) {
@@ -89,9 +85,10 @@ const MEASURE_LABEL_KEY: Record<string, Key> = {
 export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: Lang }) {
   const latest = [...dashboard.weight.points].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
   const [weightPeriod, setWeightPeriod] = useState<7 | 30 | 90>(30);
-  const [measure, setMeasure] = useState(""); const [steps, setSteps] = useState(""); const [busy, setBusy] = useState<string | null>(null); const [notice, setNotice] = useState("");
+  const [section, setSection] = useState<"train" | "body" | "food">("train");
+  const [measure, setMeasure] = useState(""); const [busy, setBusy] = useState<string | null>(null); const [notice, setNotice] = useState("");
   const [checkin, setCheckin] = useState({ energy: 3, sleep: 3, stress: 3 });
-  const post = async (key: string, body: unknown) => { setBusy(key); setNotice(""); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); setNotice(t(lang, "progress_saved_note")); if (key === "measure") setMeasure(""); if (key === "steps") setSteps(""); } catch (err) { setNotice(err instanceof ApiError ? t(lang, "generic_error") : t(lang, "generic_error")); } finally { setBusy(null); } };
+  const post = async (key: string, body: unknown) => { setBusy(key); setNotice(""); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); setNotice(t(lang, "progress_saved_note")); if (key === "measure") setMeasure(""); } catch (err) { setNotice(err instanceof ApiError ? t(lang, "generic_error") : t(lang, "generic_error")); } finally { setBusy(null); } };
   const markerClass = (status: string) => status === "done" ? "activity-cell done" : status === "missed" ? "activity-cell missed" : "activity-cell recovery";
 
   // ---- Calendar with per-day detail (tap a recent day to expand it) ----
@@ -115,26 +112,6 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   const selectedMacro = selectedDay ? macroForDate(selectedDay) : undefined;
   const selectedWeight = selectedDay ? weightForDate(selectedDay) : undefined;
   const selectedMeasurements = selectedDay ? measurementsForDate(selectedDay) : [];
-
-  // ---- 12-week heatmap (GitHub-contribution-graph style) -- reuses the same 84-day calendar
-  // window the dashboard already returns (dashboard.ts's CALENDAR_DAYS = 84 = 12 weeks); no new
-  // fetch. Volume per day is the completed-set count from calendar.logs (already loaded). ----
-  const setsByDate = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const log of dashboard.calendar.logs) {
-      if (!log.done) continue;
-      m.set(log.date, log.ex.reduce((sum, e) => sum + e.s, 0));
-    }
-    return m;
-  }, [dashboard.calendar.logs]);
-  const maxSets = Math.max(1, ...dashboard.calendar.days.map((d) => setsByDate.get(d.date) ?? 0));
-  const heatmapClass = (day: Dashboard["calendar"]["days"][number]) => {
-    if (day.s === "missed") return "heatmap-cell missed";
-    if (day.s !== "done") return "heatmap-cell";
-    const sets = setsByDate.get(day.date) ?? 0;
-    const level = sets <= 0 ? 0 : Math.min(4, Math.ceil((sets / maxSets) * 4));
-    return level > 0 ? `heatmap-cell l${level}` : "heatmap-cell l1";
-  };
 
   // ---- Measurement + e1RM strength trend charts (already computed server-side --
   // dashboard.ts's assemblePayload -- just not surfaced in the client until now) ----
@@ -163,17 +140,6 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   // ---- Progress photo upload -- reuses the /api/v2/photo POST route (mirrors the existing
   // weekcard/photocompare "push bytes to Telegram, store the resulting file_id" pattern). ----
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // A tap on the weight / body-fat tile jumps to the measurements field with the words filled in
-  // ("вага " / "талія , шия "), so the tile itself is the way to log it.
-  const measureRef = useRef<HTMLInputElement>(null);
-  const startMeasure = (prefill: string) => {
-    track("app_tile_measure");
-    if (!measure.trim()) setMeasure(prefill);
-    const el = measureRef.current;
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    setTimeout(() => { el.focus(); const at = el.value.indexOf(" ") + 1 || el.value.length; el.setSelectionRange(at, at); }, 350);
-  };
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoNotice, setPhotoNotice] = useState("");
   const [photoReload, setPhotoReload] = useState(0);
@@ -207,6 +173,10 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   const periodFrom = new Date(Date.parse(`${dashboard.today}T00:00:00Z`) - (weightPeriod - 1) * 86_400_000).toISOString().slice(0, 10);
   const periodPoints = dashboard.weight.points.filter((p) => p.date >= periodFrom);
 
+  const kg = t(lang, "unit_kg");
+  const dayLabel = (iso: string) => new Intl.DateTimeFormat(lang === "uk" ? "uk-UA" : "en-GB", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${iso}T12:00:00`));
+  const hasLogs = (dashboard.calendar.logs ?? []).some((log) => log.done);
+
   return <div className="view-stack">
     <div className="page-title"><h1>{t(lang, "progress_title")}</h1></div>
     <section className="summary-stats progress-week" aria-label={t(lang, "week_title")}>
@@ -214,105 +184,99 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
       <div><strong className="num">{latest ? `${formatNumber(latest.kg)}` : "—"}</strong><small>{weightDelta === null ? t(lang, "pw_weight") : t(lang, "pw_weight_delta", { d: `${weightDelta > 0 ? "+" : weightDelta < 0 ? "−" : "±"}${formatNumber(Math.abs(weightDelta))}` })}</small></div>
       <div><strong className="num">{weekSets}</strong><small>{t(lang, "pw_sets")}</small></div>
     </section>
-    <Card><div className="row-between"><h2 className="card-title">{t(lang, "muscle_map_title")}</h2></div>{dashboard.volume.length ? <><Suspense fallback={<div className="skeleton" />}><BodyMap lang={lang} logs={dashboard.calendar.logs ?? []} today={dashboard.today} sex={dashboard.sex} exercises={recentExerciseNames(dashboard.calendar.logs ?? [])} /></Suspense><div className="volume-list">{dashboard.volume.map((item) => <div className="volume-row" key={item.group}><div><strong>{muscleGroupLabel(lang, item.group)}</strong><small>{t(lang, "volume_row_detail", { n: lang === "uk" ? String(item.sets).replace(".", ",") : item.sets, zone: zoneLabel(lang, item.zone) })}</small></div><div className="bar"><span style={{ width: `${Math.min(100, (item.sets / Math.max(item.mav, 1)) * 100)}%` }} /></div></div>)}</div></> : <Empty title={t(lang, "no_volume_title")} detail={t(lang, "no_volume_detail")} />}</Card>
-    <Card><div className="row-between"><h2 className="card-title">{t(lang, "weight_trend_eyebrow_plain")}</h2><span className="muted">{dashboard.weight.projection?.reached ? t(lang, "goal_reached") : dashboard.weight.projection?.onTrack ? t(lang, "on_track") : ""}</span></div>
-      <div className="segmented three period" role="tablist">{([7, 30, 90] as const).map((d) => <button key={d} type="button" role="tab" aria-selected={weightPeriod === d} onClick={() => setWeightPeriod(d)}>{t(lang, d === 7 ? "period_week" : d === 30 ? "period_month" : "period_3m")}</button>)}</div>
-      {periodPoints.length > 1 ? <WeightChart lang={lang} points={periodPoints} goal={dashboard.weight.goal} slopePerWeek={dashboard.weight.projection?.slopePerWeek} /> : <Empty title={t(lang, "build_baseline_title")} detail={t(lang, "build_baseline_detail")} />}
-    </Card>
-    <div className="metric-grid">
-      <Metric label={t(lang, "metric_current_weight")} value={latest ? `${formatNumber(latest.kg)} kg` : "—"} detail={dashboard.weight.goal ? t(lang, "goal_kg", { n: formatNumber(dashboard.weight.goal) }) : t(lang, "add_weighin")} onClick={() => startMeasure(t(lang, "measure_prefill_weight"))} />
-      <Metric label={t(lang, "metric_recovery")} value={`${dashboard.recovery.score}`} detail={dashboard.recovery.label} />
-      <Metric label={t(lang, "metric_body_fat")} value={dashboard.bodyFat ? `${formatNumber(dashboard.bodyFat.pct)}%` : "—"} detail={dashboard.bodyFat ? t(lang, "body_fat_detail") : t(lang, "body_fat_hint")} onClick={() => startMeasure(t(lang, "measure_prefill_girths"))} />
-      <Metric label={t(lang, "metric_conditioning")} value={t(lang, "min_value", { n: dashboard.conditioning.minutes })} detail={t(lang, "zone_load", { zone: zoneLabel(lang, dashboard.conditioning.zone) })} />
+    <div className="segmented three" role="tablist" aria-label={t(lang, "progress_title")}>
+      {(["train", "body", "food"] as const).map((key) => <button key={key} type="button" role="tab" aria-selected={section === key} onClick={() => { setSection(key); track(`app_progress_${key}`); }}>{t(lang, key === "train" ? "progress_tab_train" : key === "body" ? "progress_tab_body" : "progress_tab_food")}</button>)}
     </div>
 
+    {section === "train" && <>
+      <Card><h2 className="card-title">{t(lang, "muscle_map_title")}</h2>{dashboard.volume.length ? <><Suspense fallback={<div className="skeleton" />}><BodyMap lang={lang} logs={dashboard.calendar.logs ?? []} today={dashboard.today} sex={dashboard.sex} exercises={recentExerciseNames(dashboard.calendar.logs ?? [])} /></Suspense><div className="volume-list">{dashboard.volume.map((item) => <div className="volume-row" key={item.group}><div><strong>{muscleGroupLabel(lang, item.group)}</strong><small>{t(lang, "volume_row_detail", { n: lang === "uk" ? String(item.sets).replace(".", ",") : item.sets, zone: zoneLabel(lang, item.zone) })}</small></div><div className="bar"><span style={{ width: `${Math.min(100, (item.sets / Math.max(item.mav, 1)) * 100)}%` }} /></div></div>)}</div></> : <Empty title={t(lang, "no_volume_title")} detail={t(lang, "no_volume_detail")} />}</Card>
 
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "activity_calendar_eyebrow")}</span><h2>{t(lang, "activity_calendar_title")}</h2></div><span className="tag">{dashboard.calendar.days.filter((day) => day.s === "done").length}</span></div>
-      <div className="activity-grid">{dashboard.calendar.days.slice(-35).map((day) => <button type="button" className={`${markerClass(day.s)}${selectedDay === day.date ? " selected" : ""}`} key={day.date} title={`${day.date}: ${day.s}`} onClick={() => void openDay(day.date)}><span>{day.date.slice(-2)}</span></button>)}</div>
-      <div className="activity-legend"><span><i className="legend-dot done" />{t(lang, "done_label")}</span><span><i className="legend-dot missed" />{t(lang, "missed_label")}</span><span><i className="legend-dot recovery" />{t(lang, "recovery_label")}</span></div>
-      {selectedDay && <div className="day-detail">
-        <div className="section-head"><strong>{selectedDay}</strong>{selectedStatus && <span className={`tag${selectedStatus === "missed" ? " status-attention" : ""}`}>{t(lang, selectedStatus === "done" ? "done_label" : selectedStatus === "missed" ? "missed_label" : "recovery_label")}</span>}</div>
-        <div className="day-detail-row">
-          <strong>{t(lang, "day_detail_workout_title")}</strong>
-          {selectedDay < fetchFloor ? <p className="muted">{t(lang, "day_detail_unavailable")}</p>
-            : dayDetailBusy ? <p className="muted">{t(lang, "saving_ellipsis")}</p>
-            : dayDetailError !== null ? <p className="muted">{t(lang, "generic_error")}</p>
-            : dayDetail?.saved?.length ? <ul className="factor-list">{dayDetail.saved.map((s) => <li key={s.name}>{s.name} · {s.sets.length}×</li>)}</ul>
-            : <p className="muted">{t(lang, "day_detail_no_log")}</p>}
-        </div>
-        <div className="day-detail-row">
-          <strong>{t(lang, "day_detail_macros_title")}</strong>
-          {selectedMacro ? <p className="muted">{t(lang, "macro_line", { p: formatNumber(selectedMacro.p), f: formatNumber(selectedMacro.f), c: formatNumber(selectedMacro.c) })} · {Math.round(selectedMacro.kcal)} kcal</p> : <p className="muted">{t(lang, "day_detail_no_macros")}</p>}
-        </div>
-        {(selectedWeight || selectedMeasurements.length > 0) && <div className="day-detail-row">
-          <strong>{t(lang, "day_detail_measure_title")}</strong>
-          <p className="muted">{[selectedWeight ? `${formatNumber(selectedWeight.kg)} kg` : null, ...selectedMeasurements.map((m) => `${t(lang, MEASURE_LABEL_KEY[m.key] ?? "day_detail_measure_title")} ${formatNumber(m.v)} cm`)].filter(Boolean).join(" · ")}</p>
-        </div>}
-      </div>}
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "heatmap_eyebrow")}</span><h2>{t(lang, "heatmap_title")}</h2></div></div>
-      <div className="heatmap">{dashboard.calendar.days.map((day) => <div className={heatmapClass(day)} key={day.date} title={`${day.date}${setsByDate.has(day.date) ? ` · ${setsByDate.get(day.date)} sets` : ` · ${day.s}`}`} />)}</div>
-      <div className="heatmap-legend"><span>{t(lang, "heatmap_legend_less")}</span><div className="heatmap-cell" /><div className="heatmap-cell l1" /><div className="heatmap-cell l2" /><div className="heatmap-cell l3" /><div className="heatmap-cell l4" /><span>{t(lang, "heatmap_legend_more")}</span></div>
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "strength_trend_eyebrow")}</span><h2>{t(lang, "strength_trend_title")}</h2></div></div>
-      {!exercises.length ? <Empty title={t(lang, "strength_trend_title")} detail={t(lang, "strength_trend_empty")} /> : <>
-        <div className="button-row"><label className="form-field" style={{ flex: 1 }}><span>{t(lang, "strength_pick_exercise_label")}</span><select value={activeExercise?.name ?? ""} onChange={(event) => setSelectedExercise(event.target.value)}>{exercises.map((e) => <option key={e.name} value={e.name}>{e.name} ({e.group})</option>)}</select></label></div>
-        {activeExercise && <LineChart points={activeExercise.points.map((p) => ({ date: p.date, v: p.e1rm }))} color="var(--accent)" />}
-      </>}
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "measurements_eyebrow")}</span><h2>{t(lang, "measurements_title")}</h2></div></div>
-      {!measurements.length ? <Empty title={t(lang, "measurements_title")} detail={t(lang, "measurements_empty")} /> : <>
-        <div className="button-row"><label className="form-field" style={{ flex: 1 }}><span>{t(lang, "measurements_pick_key_label")}</span><select value={activeMeasurement?.key ?? ""} onChange={(event) => setSelectedMeasureKey(event.target.value)}>{measurements.map((m) => <option key={m.key} value={m.key}>{t(lang, MEASURE_LABEL_KEY[m.key] ?? "measurements_pick_key_label")}</option>)}</select></label></div>
-        {activeMeasurement && <LineChart points={activeMeasurement.points} color="var(--good)" />}
-      </>}
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "quick_tracking_eyebrow")}</span><h2>{t(lang, "log_today_title")}</h2></div></div>
-      <div className="qt-sub"><strong>{t(lang, "qt_body_label")}</strong><small>{t(lang, "qt_body_hint")}</small></div>
-      <div className="input-row"><input ref={measureRef} value={measure} placeholder={t(lang, "measure_ph")} onChange={(event) => setMeasure(event.target.value)} /><button className="button button-primary" disabled={!measure.trim() || busy === "measure"} onClick={() => void post("measure", { kind: "measure", text: measure.trim() })}>{busy === "measure" ? "…" : t(lang, "save_measure_btn")}</button></div>
-      <div className="qt-sub"><strong>{t(lang, "qt_water_steps_label")}</strong></div>
-      <div className="button-row"><button className="button button-ghost" disabled={busy !== null} onClick={() => void post("water", { kind: "water", ml: 250 })}>+250 ml</button><button className="button button-ghost" disabled={busy !== null} onClick={() => void post("water", { kind: "water", ml: 500 })}>+500 ml</button><input className="compact-input" value={steps} inputMode="numeric" placeholder={t(lang, "steps_ph")} onChange={(event) => setSteps(event.target.value)} /><button className="button button-ghost" disabled={!steps || busy === "steps"} onClick={() => void post("steps", { kind: "steps", steps: Number(steps) })}>{t(lang, "save_steps_btn")}</button></div>
-      <div className="qt-sub"><strong>{t(lang, "qt_checkin_label")}</strong><small>{t(lang, "qt_checkin_hint")}</small></div>
-      <div className="checkin-grid">{(["energy", "sleep", "stress"] as const).map((key) => <label className="form-field" key={key}><span>{t(lang, `${key}_label` as Parameters<typeof t>[1])}</span><select value={checkin[key]} onChange={(event) => setCheckin({ ...checkin, [key]: Number(event.target.value) })}>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}/5</option>)}</select></label>)}</div>
-      <button className="button button-ghost button-wide" disabled={busy === "checkin"} onClick={() => void post("checkin", { kind: "checkin", ...checkin })}>{busy === "checkin" ? t(lang, "saving_ellipsis") : t(lang, "save_checkin_btn")}</button>
-      {notice && <div className="save-note">{notice}</div>}
-    </Card>
-
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "macro_breakdown_eyebrow")}</span><h2>{t(lang, "macro_breakdown_title")}</h2></div></div>
-      {!macroDonut || !todayMacro ? <Empty title={t(lang, "macro_breakdown_title")} detail={t(lang, "macro_breakdown_empty")} /> : <div className="macro-donut-row">
-          <div className="ring" style={{ background: macroDonut.background }}><div><strong>{Math.round(todayMacro.kcal)}</strong><small>kcal</small></div></div>
-          <div className="macro-donut-legend">
-            <span><i style={{ background: "var(--good)" }} />{t(lang, "metric_protein")} · {formatNumber(todayMacro.p)} g</span>
-            <span><i style={{ background: "var(--warn)" }} />{t(lang, "metric_fats")} · {formatNumber(todayMacro.f)} g</span>
-            <span><i style={{ background: "var(--accent)" }} />{t(lang, "metric_carbs")} · {formatNumber(todayMacro.c)} g</span>
-            {macroTargets && <span>{t(lang, "kcal_of_target", { n: Math.round(todayMacro.kcal), target: Math.round(macroTargets.calories) })}{todayTargets.rest ? ` · ${t(lang, "fuel_rest_day_badge")}` : ""}</span>}
+      <Card>
+        <div className="row-between"><h2 className="card-title">{t(lang, "activity_calendar_title")}</h2><span className="muted num">{t(lang, "calendar_done_count", { n: dashboard.calendar.days.filter((day) => day.s === "done").length })}</span></div>
+        <div className="activity-grid">{dashboard.calendar.days.slice(-35).map((day) => <button type="button" className={`${markerClass(day.s)}${selectedDay === day.date ? " selected" : ""}${day.date === today ? " today" : ""}`} key={day.date} aria-label={`${dayLabel(day.date)}: ${t(lang, day.s === "done" ? "done_label" : day.s === "missed" ? "missed_label" : "recovery_label")}`} onClick={() => void openDay(day.date)}><span>{Number(day.date.slice(-2))}</span></button>)}</div>
+        <div className="activity-legend"><span><i className="legend-dot done" />{t(lang, "done_label")}</span><span><i className="legend-dot missed" />{t(lang, "missed_label")}</span></div>
+        {selectedDay && <div className="day-detail">
+          <div className="section-head"><strong>{dayLabel(selectedDay)}</strong>{selectedStatus && <span className={`pill ${selectedStatus === "done" ? "pill-good" : selectedStatus === "missed" ? "pill-bad" : ""}`}>{t(lang, selectedStatus === "done" ? "done_label" : selectedStatus === "missed" ? "missed_label" : "recovery_label")}</span>}</div>
+          <div className="day-detail-row">
+            <strong>{t(lang, "day_detail_workout_title")}</strong>
+            {selectedDay < fetchFloor ? <p className="muted">{t(lang, "day_detail_unavailable")}</p>
+              : dayDetailBusy ? <p className="muted">{t(lang, "saving_ellipsis")}</p>
+              : dayDetailError !== null ? <p className="muted">{t(lang, "generic_error")}</p>
+              : dayDetail?.saved?.length ? <ul className="factor-list">{dayDetail.saved.map((s) => <li key={s.name}>{s.name} · {s.sets.length}×</li>)}</ul>
+              : <p className="muted">{t(lang, "day_detail_no_log")}</p>}
           </div>
+          <div className="day-detail-row">
+            <strong>{t(lang, "day_detail_macros_title")}</strong>
+            {selectedMacro ? <p className="muted">{t(lang, "macro_line", { p: formatNumber(selectedMacro.p), f: formatNumber(selectedMacro.f), c: formatNumber(selectedMacro.c) })} · {Math.round(selectedMacro.kcal)} {t(lang, "kcal_unit")}</p> : <p className="muted">{t(lang, "day_detail_no_macros")}</p>}
+          </div>
+          {(selectedWeight || selectedMeasurements.length > 0) && <div className="day-detail-row">
+            <strong>{t(lang, "day_detail_measure_title")}</strong>
+            <p className="muted">{[selectedWeight ? `${formatNumber(selectedWeight.kg)} ${kg}` : null, ...selectedMeasurements.map((m) => `${t(lang, MEASURE_LABEL_KEY[m.key] ?? "day_detail_measure_title")} ${formatNumber(m.v)} ${t(lang, "unit_cm")}`)].filter(Boolean).join(" · ")}</p>
+          </div>}
         </div>}
-    </Card>
+      </Card>
 
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "macro_trend_eyebrow")}</span><h2>{t(lang, "macro_trend_title")}</h2></div></div>{dashboard.macros.days.length ? <div className="macro-history">{dashboard.macros.days.slice(-7).map((day) => <div className="macro-history-row" key={day.date}><span>{day.date.slice(5)}</span><div className="bar"><span style={{ width: `${(() => { const tg = dayTargets(day.training).targets; return tg ? Math.min(100, day.kcal / Math.max(1, tg.calories) * 100) : 0; })()}%` }} /></div><strong>{Math.round(day.kcal)} kcal</strong></div>)}</div> : <p className="muted">{t(lang, "macro_empty")}</p>}</Card>
+      <Card>
+        <h2 className="card-title">{t(lang, "strength_trend_title")}</h2>
+        {!exercises.length ? <p className="muted">{t(lang, "strength_trend_empty")}</p> : <>
+          <label className="form-field"><span>{t(lang, "strength_pick_exercise_label")}</span><select value={activeExercise?.name ?? ""} onChange={(event) => setSelectedExercise(event.target.value)}>{exercises.map((e) => <option key={e.name} value={e.name}>{e.name}</option>)}</select></label>
+          {activeExercise && <LineChart points={activeExercise.points.map((p) => ({ date: p.date, v: p.e1rm }))} color="var(--accent)" />}
+          {activeExercise && activeExercise.points.length > 0 && <p className="muted num">{t(lang, "strength_latest", { n: formatNumber(activeExercise.points.at(-1)!.e1rm), unit: kg })}</p>}
+        </>}
+      </Card>
 
-    <Card>
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "progress_photo_upload_eyebrow")}</span><h2>{t(lang, "progress_photo_upload_title")}</h2></div></div>
-      <PhotoPair lang={lang} weights={dashboard.weight.points} reloadKey={photoReload} />
-      <p className="muted">{t(lang, "progress_photo_upload_hint")}</p>
-      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadPhoto(file); }} />
-      <button type="button" className="button button-primary" disabled={photoBusy} onClick={() => fileInputRef.current?.click()}>📷 {t(lang, "progress_photo_upload_btn")}</button>
-      {photoBusy && <p className="muted">{t(lang, "saving_ellipsis")}</p>}
-      {photoNotice && <div className="save-note">{photoNotice}</div>}
-    </Card>
+      {hasLogs && <Card><h2 className="card-title">{t(lang, "trend_title")}</h2><Suspense fallback={<div className="skeleton" />}><MuscleTrend lang={lang} logs={dashboard.calendar.logs ?? []} today={dashboard.today} /></Suspense></Card>}
+      <StravaCard lang={lang} />
+    </>}
 
-    <StravaCard lang={lang} />
+    {section === "body" && <>
+      <Card><div className="row-between"><h2 className="card-title">{t(lang, "weight_trend_eyebrow_plain")}</h2><span className="muted">{dashboard.weight.projection?.reached ? t(lang, "goal_reached") : dashboard.weight.projection?.onTrack ? t(lang, "on_track") : ""}</span></div>
+        <div className="segmented three period" role="tablist">{([7, 30, 90] as const).map((d) => <button key={d} type="button" role="tab" aria-selected={weightPeriod === d} onClick={() => setWeightPeriod(d)}>{t(lang, d === 7 ? "period_week" : d === 30 ? "period_month" : "period_3m")}</button>)}</div>
+        {periodPoints.length > 1 ? <WeightChart lang={lang} points={periodPoints} goal={dashboard.weight.goal} slopePerWeek={dashboard.weight.projection?.slopePerWeek} /> : <p className="muted">{t(lang, "build_baseline_detail")}</p>}
+        {dashboard.bodyFat && <p className="muted num">{t(lang, "metric_body_fat")}: {formatNumber(dashboard.bodyFat.pct)}%</p>}
+      </Card>
 
-    {(dashboard.calendar.logs ?? []).some((log) => log.done) && <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "trend_eyebrow")}</span><h2>{t(lang, "trend_title")}</h2></div></div><Suspense fallback={<div className="skeleton" />}><MuscleTrend lang={lang} logs={dashboard.calendar.logs ?? []} today={dashboard.today} /></Suspense></Card>}
+      {measurements.length > 0 && <Card>
+        <h2 className="card-title">{t(lang, "measurements_title")}</h2>
+        <label className="form-field"><span>{t(lang, "measurements_pick_key_label")}</span><select value={activeMeasurement?.key ?? ""} onChange={(event) => setSelectedMeasureKey(event.target.value)}>{measurements.map((m) => <option key={m.key} value={m.key}>{t(lang, MEASURE_LABEL_KEY[m.key] ?? "measurements_pick_key_label")}</option>)}</select></label>
+        {activeMeasurement && <LineChart points={activeMeasurement.points} color="var(--good)" />}
+      </Card>}
+
+      <Card>
+        <h2 className="card-title">{t(lang, "log_today_title")}</h2>
+        <label className="form-field"><span>{t(lang, "qt_body_label")}</span>
+          <div className="input-row"><input value={measure} placeholder={t(lang, "measure_ph")} onChange={(event) => setMeasure(event.target.value)} /><button className="button button-primary" disabled={!measure.trim() || busy === "measure"} onClick={() => void post("measure", { kind: "measure", text: measure.trim() })}>{busy === "measure" ? "…" : t(lang, "save_measure_btn")}</button></div>
+        </label>
+        <div className="qt-sub"><strong>{t(lang, "qt_checkin_label")}</strong><small>{t(lang, "qt_checkin_hint")}</small></div>
+        <div className="checkin-grid">{(["energy", "sleep", "stress"] as const).map((key) => <label className="form-field" key={key}><span>{t(lang, `${key}_label` as Parameters<typeof t>[1])}</span><select value={checkin[key]} onChange={(event) => setCheckin({ ...checkin, [key]: Number(event.target.value) })}>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}/5</option>)}</select></label>)}</div>
+        <button className="button button-secondary button-block" disabled={busy === "checkin"} onClick={() => void post("checkin", { kind: "checkin", ...checkin })}>{busy === "checkin" ? t(lang, "saving_ellipsis") : t(lang, "save_checkin_btn")}</button>
+        {notice && <div className="save-note">{notice}</div>}
+      </Card>
+
+      <Card>
+        <h2 className="card-title">{t(lang, "progress_photo_upload_title")}</h2>
+        <PhotoPair lang={lang} weights={dashboard.weight.points} reloadKey={photoReload} />
+        <p className="muted">{t(lang, "progress_photo_upload_hint")}</p>
+        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadPhoto(file); }} />
+        <button type="button" className="button button-secondary button-block" disabled={photoBusy} onClick={() => fileInputRef.current?.click()}><Icon name="camera" size={20} />{photoBusy ? t(lang, "saving_ellipsis") : t(lang, "progress_photo_upload_btn")}</button>
+        {photoNotice && <div className="save-note">{photoNotice}</div>}
+      </Card>
+    </>}
+
+    {section === "food" && <>
+      <Card>
+        <h2 className="card-title">{t(lang, "macro_breakdown_title")}</h2>
+        {!macroDonut || !todayMacro ? <p className="muted">{t(lang, "macro_breakdown_empty")}</p> : <div className="macro-donut-row">
+            <div className="ring" style={{ background: macroDonut.background }}><div><strong>{Math.round(todayMacro.kcal)}</strong><small>{t(lang, "kcal_unit")}</small></div></div>
+            <div className="macro-donut-legend">
+              <span><i style={{ background: "var(--good)" }} />{t(lang, "metric_protein")} · {formatNumber(todayMacro.p)} {t(lang, "unit_g")}</span>
+              <span><i style={{ background: "var(--warn)" }} />{t(lang, "metric_fats")} · {formatNumber(todayMacro.f)} {t(lang, "unit_g")}</span>
+              <span><i style={{ background: "var(--accent)" }} />{t(lang, "metric_carbs")} · {formatNumber(todayMacro.c)} {t(lang, "unit_g")}</span>
+              {macroTargets && <span>{t(lang, "kcal_of_target", { n: Math.round(todayMacro.kcal), target: Math.round(macroTargets.calories) })}{todayTargets.rest ? ` · ${t(lang, "fuel_rest_day_badge")}` : ""}</span>}
+            </div>
+          </div>}
+      </Card>
+      <Card><h2 className="card-title">{t(lang, "macro_trend_title")}</h2>{dashboard.macros.days.length ? <div className="macro-history">{dashboard.macros.days.slice(-7).map((day) => <div className="macro-history-row" key={day.date}><span>{dayLabel(day.date)}</span><div className="bar"><span style={{ width: `${(() => { const tg = dayTargets(day.training).targets; return tg ? Math.min(100, day.kcal / Math.max(1, tg.calories) * 100) : 0; })()}%` }} /></div><strong className="num">{Math.round(day.kcal)} {t(lang, "kcal_unit")}</strong></div>)}</div> : <p className="muted">{t(lang, "macro_empty")}</p>}</Card>
+    </>}
   </div>;
 }
