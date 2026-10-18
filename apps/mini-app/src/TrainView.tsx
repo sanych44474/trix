@@ -18,7 +18,8 @@ import { registerLearnedMuscles } from "./logic/exerciseMuscles";
 
 type CustomExercise = { name: string; videoUrl?: string; videoTitle?: string; muscles?: { primary: string[]; secondary: string[] } };
 import { useSession } from "./train/useSession";
-import { ExerciseCard } from "./train/ExerciseCard";
+import { FocusExercise, type RowDraft } from "./train/FocusExercise";
+import { Icon } from "./icons";
 import { HistoryPanel } from "./train/HistoryPanel";
 import { RestBar } from "./train/RestBar";
 import { SaveDock, type DockAction, type SyncState } from "./train/SaveDock";
@@ -53,9 +54,28 @@ function scrollToTop(): void {
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); }
 }
 
-export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () => void }) {
+export type TrainSegment = "today" | "plan" | "history";
+
+export function TrainView({ lang, initialSegment = "today", startInFocus = false, planSlot, onFocusChange, onExit, onAskCoach }: {
+  lang: Lang;
+  initialSegment?: TrainSegment;
+  /** Opened from Today's "Start": go straight into focus mode. */
+  startInFocus?: boolean;
+  planSlot?: React.ReactNode;
+  onFocusChange?: (on: boolean) => void;
+  onExit?: () => void;
+  onAskCoach?: () => void;
+}) {
   const session = useSession();
-  const [subview, setSubview] = useState<"today" | "history">("today");
+  const [subview, setSubview] = useState<TrainSegment>(initialSegment);
+  // Focus mode: one exercise on screen, no tab bar; the row being edited per exercise survives
+  // moving between exercises (keyed by position and name).
+  const [focus, setFocusState] = useState(false);
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [rowDrafts, setRowDrafts] = useState<Record<string, RowDraft | null>>({});
+  const setFocus = (on: boolean) => { setFocusState(on); setMenuOpen(false); onFocusChange?.(on); if (on) scrollToTop(); };
+  useEffect(() => () => onFocusChange?.(false), []);
   const [server, setServer] = useState<WorkoutToday | null>(null);
   const [workout, setWorkout] = useState<LoggerWorkout | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,8 +101,7 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
   const [historyBusy, setHistoryBusy] = useState<string | null>(null);
   const [missedDate, setMissedDate] = useState("");
   const [restEditFor, setRestEditFor] = useState<number | null>(null);
-  // Which cards are open: the person's own toggles; otherwise only the exercise they are on.
-  const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
+
   // A rest picked on an exercise whose plan sets its own rest: applies to that exercise for this
   // session (by name, so it survives a swap of another slot). Picking used to change only the
   // global default, which the plan's value then overrode -- the chip looked dead.
@@ -135,6 +154,16 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
     document.addEventListener("visibilitychange", onHide);
     return () => { document.removeEventListener("visibilitychange", onHide); pushDraft(true); };
   }, []);
+
+  // Opened with Today's "Start": straight into focus on the exercise in progress, once loaded.
+  const autoFocused = useRef(false);
+  useEffect(() => {
+    if (!startInFocus || autoFocused.current || loading || !workout?.exercises?.length || subview !== "today") return;
+    autoFocused.current = true;
+    const first = workout.exercises.find((exercise) => (exercise.setsDone ?? []).filter(isSetFilled).length < Math.max(1, exercise.sets || 1)) ?? workout.exercises[0];
+    setFocusIndex(first.index);
+    setFocus(true);
+  }, [startInFocus, loading, workout, subview]);
 
   const load = () => {
     setLoading(true); setError(null);
@@ -358,6 +387,8 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
           elapsedSec: elapsed,
           densityPct: final && elapsed >= DENSITY_MIN_SESSION_SEC ? density(final.startedAt, final.quality.restTotalSec, final.endedAt ?? doneAt) : null,
           bestStreak: final?.quality.bestStreak ?? 0,
+          volumeKg: workout.exercises.reduce((total, exercise) => exercise.metric !== "reps" ? total : total + (exercise.setsDone ?? []).filter(isSetFilled).reduce((v, set) => v + (set.weight || 0) * (set.reps || 0), 0), 0),
+          plannedSets: workout.exercises.reduce((total, exercise) => total + Math.max(exercise.sets || 1, (exercise.setsDone ?? []).length), 0),
         });
         // The summary renders at the top; the button that got pressed is at the bottom.
         scrollToTop();
@@ -386,11 +417,13 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
   if (loading) return <Loading />;
   if (error) return <ErrorState lang={lang} error={error} retry={load} />;
   const tabs = (
-    <div className="segmented" role="tablist">
-      <button type="button" role="tab" aria-selected={subview === "today"} onClick={() => setSubview("today")}>{t(lang, "train_tab_today")}</button>
-      <button type="button" role="tab" aria-selected={subview === "history"} onClick={() => setSubview("history")}>{t(lang, "train_tab_history")}</button>
+    <div className="segmented three" role="tablist">
+      {(["today", "plan", "history"] as const).map((seg) => (
+        <button key={seg} type="button" role="tab" aria-selected={subview === seg} onClick={() => setSubview(seg)}>{t(lang, seg === "today" ? "train_tab_today" : seg === "plan" ? "train_tab_plan" : "train_tab_history")}</button>
+      ))}
     </div>
   );
+  if (subview === "plan") return <div className="view-stack">{tabs}{planSlot}</div>;
   if (subview === "history") {
     return (
       <HistoryPanel
@@ -402,74 +435,134 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
     );
   }
   if (!workout?.exercises?.length) return <div className="view-stack">{tabs}<Empty title={t(lang, "rest_day_title")} detail={t(lang, "rest_day_detail")} /></div>;
-  const filled = workout.exercises.filter(isExerciseFilled).length;
-  // The exercise being worked on: the first with sets still to do (all done: none open).
-  const currentIndex = workout.exercises.find((exercise) => (exercise.setsDone ?? []).filter(isSetFilled).length < Math.max(1, exercise.sets || 1))?.index ?? -1;
+  const exercises = workout.exercises;
+  const filled = exercises.filter(isExerciseFilled).length;
+  const doneSets = (exercise: LoggerExercise) => (exercise.setsDone ?? []).filter(isSetFilled).length;
+  const complete = (exercise: LoggerExercise) => doneSets(exercise) >= Math.max(1, exercise.sets || 1);
+  // The exercise being worked on: the first with sets still to do (all done: the last one).
+  const currentIndex = exercises.find((exercise) => !complete(exercise))?.index ?? exercises[exercises.length - 1].index;
   const savedTitle = summaryDate ? t(lang, "session_saved_for_date", { date: summaryDate }) : t(lang, "session_saved");
+  const restBar = session.rest.endAt != null ? <RestBar lang={lang} rest={session.rest} onAdjust={session.adjustRest} onSkip={session.stopRest} /> : null;
+  const dock = (
+    <SaveDock
+      lang={lang} action={dockAction} saving={saving} disabled={filled === 0} savedAt={savedAt} drafted={drafted}
+      sync={sync} queued={queued} clock={logDate ? undefined : session.clock} filledSets={filledSets}
+      onPress={() => void save()} restBar={restBar}
+    />
+  );
+  const title = workout.title || workout.muscleGroup || t(lang, "training_session_title");
+  const notes = <>
+    {planNotice && <div className="offline-banner done" role="status" onClick={() => setPlanNotice(null)}>{planNotice}</div>}
+    {actionError !== null && (
+      <Card tone="muted">
+        <div className="error-state">
+          <strong>{t(lang, "generic_error")}</strong>
+          <button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button>
+        </div>
+      </Card>
+    )}
+    {restoredFrom === "server-draft" && drafted && <div className="draft-note">{t(lang, "restored_other_device_note")}</div>}
+    {logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}
+    {copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}
+  </>;
+
+  // After a finished session: the summary takes the screen until "Done".
+  if (summary && focus) {
+    return (
+      <div className="view-stack summary-screen">
+        <SessionSummary lang={lang} summary={summary} title={summaryDate ? savedTitle : t(lang, "today_done_title")} subtitle={title} date={summaryDate ?? workout.date} onAskCoach={onAskCoach} onDone={() => { setSummary(null); setFocus(false); onExit?.(); }} />
+      </div>
+    );
+  }
+
+  const enterFocus = (index: number) => { setFocusIndex(index); setFocus(true); track("app_focus_open"); };
+  if (focus) {
+    const at = Math.max(0, exercises.findIndex((exercise) => exercise.index === (focusIndex ?? currentIndex)));
+    const exercise = exercises[at];
+    const next = exercises[at + 1];
+    const key = `${exercise.index}-${exercise.name}`;
+    const restSec = clampRest(restOverride[exercise.name] ?? exercise.restSec ?? session.restPrefs[restMetricKey(exercise.metric)]);
+    const go = (to: number) => { setFocusIndex(exercises[to].index); setMenuOpen(false); scrollToTop(); };
+    return (
+      <div className="focus-screen">
+        <div className="focus-bar">
+          <button type="button" className="icon-button" onClick={() => setFocus(false)} aria-label={t(lang, "focus_close_aria")}><Icon name="close" /></button>
+          <span className="focus-title num">{t(lang, "focus_counter", { n: at + 1, total: exercises.length })}</span>
+          <button type="button" className="icon-button" onClick={() => setMenuOpen((open) => !open)} aria-label={t(lang, "exercise_more_aria")} aria-expanded={menuOpen}><Icon name="dots" /></button>
+        </div>
+        <div className="focus-segs" role="tablist" aria-label={title}>
+          {exercises.map((item, i) => (
+            <button key={`${item.index}-${item.name}`} type="button" role="tab" aria-selected={i === at} aria-label={`${i + 1}. ${item.name}`} className={complete(item) ? "seg done" : i === at ? "seg now" : doneSets(item) ? "seg part" : "seg"} onClick={() => go(i)}><i /></button>
+          ))}
+        </div>
+        {notes}
+        <FocusExercise
+          key={key}
+          lang={lang}
+          exercise={exercise}
+          restSec={restSec}
+          restPrefs={session.restPrefs}
+          menuOpen={menuOpen}
+          restPrefsOpen={restEditFor === exercise.index}
+          swapOpen={swapFor === exercise.index}
+          swapChoices={swapChoices}
+          info={infoFor === exercise.index ? info : null}
+          busy={actionBusy}
+          draft={rowDrafts[key] ?? null}
+          onDraft={(draft) => setRowDrafts((cur) => ({ ...cur, [key]: draft }))}
+          onStartRest={session.startRest}
+          onToggleRestPrefs={() => setRestEditFor((current) => current === exercise.index ? null : exercise.index)}
+          onPatchRestPrefs={session.patchRestPrefs}
+          onPickRest={(sec) => {
+            if (exercise.restSec != null) setRestOverride((cur) => ({ ...cur, [exercise.name]: sec }));
+            else session.patchRestPrefs({ [restMetricKey(exercise.metric)]: sec });
+          }}
+          onFillPlanned={() => fillPlanned(exercise.index)}
+          onFillLast={() => fillLast(exercise.index)}
+          onOpenSwap={() => void openSwap(exercise)}
+          onApplySwap={(choice) => void applySwap(choice)}
+          onSearchSwap={(text) => void searchSwap(exercise, text)}
+          onOpenInfo={() => void openInfo(exercise)}
+          onWriteSet={(setIndex, set) => writeSet(exercise.index, setIndex, set)}
+          onAddSet={() => addSet(exercise.index)}
+          onRemoveSet={(setIndex) => removeSet(exercise.index, setIndex)}
+          onMove={(direction) => moveExercise(exercise.index, direction)}
+          onRemove={() => { removeExercise(exercise.index); setMenuOpen(false); }}
+          onCloseMenu={() => setMenuOpen(false)}
+        />
+        <div className="focus-nav">
+          {at > 0 ? <button type="button" className="button button-quiet" onClick={() => go(at - 1)}><Icon name="chevron" size={20} className="flip" />{t(lang, "focus_prev")}</button> : <span />}
+          {next ? <button type="button" className="button button-quiet focus-next" onClick={() => go(at + 1)}><span>{t(lang, "focus_next")}: <strong>{next.name}</strong></span><Icon name="chevron" size={20} /></button> : null}
+        </div>
+        <div className={session.rest.endAt != null ? "dock-spacer tall" : "dock-spacer"} />
+        {dock}
+      </div>
+    );
+  }
 
   return (
     <div className="view-stack">
       <div className="screen-head">
-        <h1>{workout.title || workout.muscleGroup || t(lang, "training_session_title")}</h1>
-        <span className="num">{t(lang, "train_progress_line", { done: filled, total: workout.exercises.length })}</span>
+        <h1>{title}</h1>
+        <span className="num">{t(lang, "train_progress_line", { done: filled, total: exercises.length })}</span>
       </div>
-      <div className="meter-track" aria-hidden="true"><span style={{ width: `${workout.exercises.length ? filled / workout.exercises.length * 100 : 0}%` }} /></div>
       {tabs}
-      {planNotice && <div className="offline-banner done" role="status" onClick={() => setPlanNotice(null)}>{planNotice}</div>}
-      {actionError !== null && (
-        <Card tone="muted">
-          <div className="error-state">
-            <strong>{t(lang, "generic_error")}</strong>
-            <button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button>
-          </div>
-        </Card>
-      )}
+      {notes}
       {(logDate || copiedFrom) && <div className="button-row"><button className="text-button" onClick={() => void backToToday()}>{t(lang, "back_to_today")}</button></div>}
-      {summary ? <SessionSummary lang={lang} summary={summary} title={savedTitle} date={summaryDate ?? workout.date} onAskCoach={onAskCoach} /> : saved && dayLogged ? <div className="save-note">{savedTitle}</div> : null}
-      {restoredFrom === "server-draft" && drafted && <div className="draft-note">{t(lang, "restored_other_device_note")}</div>}
-      {logDate && !saved && <div className="draft-note">{t(lang, "logging_for_date_note", { date: logDate })}</div>}
-      {copiedFrom && !logDate && !saved && <div className="draft-note">{t(lang, "repeated_note", { date: copiedFrom })}</div>}
-      {logDate && workout.exercises.length > 1 && filled === 0 && <button type="button" className="button button-quiet button-block" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button>}
-      <div className="exercise-list">
-        {workout.exercises.map((exercise) => {
-          const cardKey = `${exercise.index}-${exercise.name}`;
-          const restSec = clampRest(restOverride[exercise.name] ?? exercise.restSec ?? session.restPrefs[restMetricKey(exercise.metric)]);
-          return (
-            <ExerciseCard
-              key={cardKey}
-              lang={lang}
-              exercise={exercise}
-              expanded={openCards[cardKey] ?? exercise.index === currentIndex}
-              onToggle={() => setOpenCards((cur) => ({ ...cur, [cardKey]: !(cur[cardKey] ?? exercise.index === currentIndex) }))}
-              restSec={restSec}
-              restPrefs={session.restPrefs}
-              restPrefsOpen={restEditFor === exercise.index}
-              swapOpen={swapFor === exercise.index}
-              swapChoices={swapChoices}
-              info={infoFor === exercise.index ? info : null}
-              busy={actionBusy}
-              onStartRest={session.startRest}
-              onToggleRestPrefs={() => setRestEditFor((current) => current === exercise.index ? null : exercise.index)}
-              onPatchRestPrefs={session.patchRestPrefs}
-              onPickRest={(sec) => {
-                if (exercise.restSec != null) setRestOverride((cur) => ({ ...cur, [exercise.name]: sec }));
-                else session.patchRestPrefs({ [restMetricKey(exercise.metric)]: sec });
-              }}
-              onFillPlanned={() => fillPlanned(exercise.index)}
-              onFillLast={() => fillLast(exercise.index)}
-              onOpenSwap={() => void openSwap(exercise)}
-              onApplySwap={(choice) => void applySwap(choice)}
-              onSearchSwap={(text) => void searchSwap(exercise, text)}
-              onOpenInfo={() => void openInfo(exercise)}
-              onWriteSet={(setIndex, set) => writeSet(exercise.index, setIndex, set)}
-              onAddSet={() => addSet(exercise.index)}
-              onRemoveSet={(setIndex) => removeSet(exercise.index, setIndex)}
-              onMove={(direction) => moveExercise(exercise.index, direction)}
-              onRemove={() => removeExercise(exercise.index)}
-            />
-          );
-        })}
-      </div>
+      {summary ? <SessionSummary lang={lang} summary={summary} title={savedTitle} subtitle={title} date={summaryDate ?? workout.date} onAskCoach={onAskCoach} /> : saved && dayLogged ? <div className="save-note">{savedTitle}</div> : null}
+      {!saved && <button type="button" className="button button-primary button-block" onClick={() => enterFocus(currentIndex)}>{filled ? t(lang, "today_continue_btn") : t(lang, "start_session")}</button>}
+      {logDate && exercises.length > 1 && filled === 0 && <button type="button" className="button button-quiet button-block" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button>}
+      <ol className="list exercise-overview">
+        {exercises.map((exercise) => (
+          <li key={`${exercise.index}-${exercise.name}`}>
+            <button type="button" className="list-item" onClick={() => enterFocus(exercise.index)}>
+              <span className={complete(exercise) ? "ex-mark done" : "ex-mark"} aria-hidden="true">{complete(exercise) ? <Icon name="check" size={18} /> : exercise.index + 1}</span>
+              <span className="grow"><strong>{exercise.name}</strong><small className="num">{doneSets(exercise) ? `${doneSets(exercise)}/${Math.max(exercise.sets || 1, (exercise.setsDone ?? []).length)}` : exercise.planSets ?? `${exercise.sets} ×`}</small></span>
+              <Icon name="chevron" size={20} className="row-chevron" />
+            </button>
+          </li>
+        ))}
+      </ol>
       {showCustom ? (
         <Card tone="muted">
           <div className="input-row">
@@ -478,24 +571,8 @@ export function TrainView({ lang, onAskCoach }: { lang: Lang; onAskCoach?: () =>
             <button className="button button-ghost" onClick={() => setShowCustom(false)}>{t(lang, "cancel_btn")}</button>
           </div>
         </Card>
-      ) : <button className="button button-ghost button-wide" onClick={() => setShowCustom(true)}>{t(lang, "train_add_exercise_btn")}</button>}
-      <div className={session.rest.endAt != null ? "dock-spacer tall" : "dock-spacer"} />
-      <SaveDock
-        lang={lang}
-        action={dockAction}
-        saving={saving}
-        disabled={filled === 0}
-        savedAt={savedAt}
-        drafted={drafted}
-        sync={sync}
-        queued={queued}
-        clock={logDate ? undefined : session.clock}
-        filledSets={filledSets}
-        onPress={() => void save()}
-        restBar={session.rest.endAt != null ? (
-          <RestBar lang={lang} rest={session.rest} onAdjust={session.adjustRest} onSkip={session.stopRest} />
-        ) : null}
-      />
+      ) : <button className="button button-quiet button-block" onClick={() => setShowCustom(true)}><Icon name="plus" size={20} />{t(lang, "train_add_exercise_btn").replace(/^\+\s*/, "")}</button>}
+      {filled > 0 && <><div className={session.rest.endAt != null ? "dock-spacer tall" : "dock-spacer"} />{dock}</>}
     </div>
   );
 }

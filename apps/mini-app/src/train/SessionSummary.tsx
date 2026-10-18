@@ -5,7 +5,7 @@ import { t, type Key, type Lang } from "../i18n";
 import { fmtDuration } from "../logic/rest";
 import { canShareStory } from "../telegram";
 import { shareStoryCard } from "../storyCard";
-import { Card } from "./ui";
+import { Icon } from "../icons";
 import { track } from "../logic/track";
 
 // What saveWorkout() returns (SaveResult, src/webapp/workout.ts) plus the locally measured
@@ -20,14 +20,16 @@ export interface SaveSummary {
   elapsedSec: number; // 0 = no trustworthy clock, not shown
   densityPct: number | null;
   bestStreak: number;
+  volumeKg?: number; // load x reps over the logged sets
+  plannedSets?: number;
 }
 
-type Stat = { id: string; value: string; label: Key; help: Key };
+const fmtNum = (lang: Lang, n: number, digits = 1) => new Intl.NumberFormat(lang === "uk" ? "uk-UA" : "en-GB", { maximumFractionDigits: digits }).format(n);
 
-/** The post-save card. Each number is tappable and explains itself: "18% роботи" with no
- *  explanation read as a bug report rather than a statistic. */
-export function SessionSummary({ lang, summary, title, date, onAskCoach }: { lang: Lang; summary: SaveSummary; title: string; date: string; onAskCoach?: () => void }) {
-  const [helpFor, setHelpFor] = useState<string | null>(null);
+/** After a save: what was done (time, sets, volume), a new record when there is one, "how did it
+ *  go?", and one way out. As a screen (onDone given) it replaces focus mode; otherwise it heads
+ *  the workout overview. */
+export function SessionSummary({ lang, summary, title, subtitle, date, onAskCoach, onDone }: { lang: Lang; summary: SaveSummary; title: string; subtitle?: string; date: string; onAskCoach?: () => void; onDone?: () => void }) {
   const [sharing, setSharing] = useState<"idle" | "busy" | "failed">("idle");
   // "How did it go?" -- one tap, read by next Monday's progression (domain/sessionFeel.ts).
   const [feel, setFeel] = useState<"easy" | "ok" | "hard" | null>(null);
@@ -60,52 +62,47 @@ export function SessionSummary({ lang, summary, title, date, onAskCoach }: { lan
       setSharing("idle");
     } catch { setSharing("failed"); }
   };
-  const stats: Stat[] = [
-    { id: "sets", value: String(summary.sets), label: "summary_sets", help: "summary_sets_help" },
-    ...(summary.elapsedSec > 0 ? [{ id: "elapsed", value: fmtDuration(summary.elapsedSec), label: "summary_elapsed" as Key, help: "summary_elapsed_help" as Key }] : []),
-    ...(summary.densityPct !== null ? [{ id: "density", value: `${summary.densityPct}%`, label: "summary_density" as Key, help: "summary_density_help" as Key }] : []),
-    ...(summary.bestStreak > 0 ? [{ id: "streak", value: `🎯 ${summary.bestStreak}`, label: "summary_rest_streak" as Key, help: "summary_rest_streak_help" as Key }] : []),
+  const stats: Array<{ id: string; value: string; label: Key }> = [
+    ...(summary.elapsedSec > 0 ? [{ id: "time", value: fmtDuration(summary.elapsedSec), label: "summary_duration" as Key }] : []),
+    { id: "sets", value: summary.plannedSets ? `${summary.sets}/${summary.plannedSets}` : String(summary.sets), label: "summary_sets_of" },
+    ...(summary.volumeKg && summary.volumeKg > 0 ? [{ id: "volume", value: summary.volumeKg >= 1000 ? `${fmtNum(lang, summary.volumeKg / 1000)} ${t(lang, "unit_t")}` : `${fmtNum(lang, summary.volumeKg, 0)} ${t(lang, "ph_kg")}`, label: "summary_volume" as Key }] : []),
   ];
-  const open = stats.find((stat) => stat.id === helpFor);
+  const [firstPr, ...otherPrs] = summary.prExercises;
+  const celebrate = summary.prExercises.length > 0 || summary.leveledUp || summary.newBadges.length > 0;
   return (
-    <Card tone="accent">
-      {(summary.prExercises.length > 0 || summary.leveledUp || summary.newBadges.length > 0) && <Confetti />}
-      <div className="section-head">
-        <div><span className="eyebrow">{t(lang, "session_summary_eyebrow")}</span><h2>{title}</h2></div>
-        <span className="tag">{t(lang, "level_n", { n: summary.level })}</span>
+    <section className={onDone ? "summary is-screen" : "summary"}>
+      {celebrate && <Confetti />}
+      <div className="summary-head">
+        <span className="summary-badge" aria-hidden="true"><Icon name="check" size={34} /></span>
+        <h1>{title}</h1>
+        {subtitle && <p className="muted">{subtitle}</p>}
       </div>
-      <div className="session-stats">
-        {stats.map((stat) => (
-          <button type="button" key={stat.id} className={helpFor === stat.id ? "selected" : ""} aria-expanded={helpFor === stat.id} onClick={() => setHelpFor((current) => current === stat.id ? null : stat.id)}>
-            <strong><CountUp value={stat.value} /></strong>
-            <small>{t(lang, stat.label)}</small>
-          </button>
-        ))}
+      <div className="summary-stats">
+        {stats.map((stat) => <div key={stat.id}><strong className="num"><CountUp value={stat.value} /></strong><small>{t(lang, stat.label)}</small></div>)}
       </div>
-      <p className="stat-help">{open ? t(lang, open.help) : t(lang, "summary_help_hint")}</p>
+      {firstPr && <div className="pr-card">
+        <span className="kicker">{t(lang, "summary_pr_kicker")}</span>
+        <strong>{firstPr}</strong>
+        {otherPrs.length > 0 && <small>{t(lang, "summary_pr_more", { n: otherPrs.length })}: {otherPrs.join(", ")}</small>}
+      </div>}
       {summary.leveledUp && <p className="summary-hit">{t(lang, "summary_level_up", { n: summary.level })}</p>}
-      {summary.prExercises.length > 0 && <p className="summary-hit">{t(lang, "summary_prs", { names: summary.prExercises.join(", ") })}</p>}
       {summary.newBadges.length > 0 && <p className="summary-hit">{t(lang, "summary_badges", { names: summary.newBadges.join(", ") })}</p>}
       <div className="feel-block">
         <strong>{t(lang, "feel_question")}</strong>
         <div className="feel-row" role="group" aria-label={t(lang, "feel_question")}>
           {(["easy", "ok", "hard"] as const).map((value) => (
-            <button type="button" key={value} className={feel === value ? "feel-chip selected" : "feel-chip"} disabled={feelState === "busy" || feelState === "done"} aria-pressed={feel === value} onClick={() => void sendFeel(value)}>
+            <button type="button" key={value} className="chip-button" disabled={feelState === "busy" || feelState === "done"} aria-pressed={feel === value} onClick={() => void sendFeel(value)}>
               <span aria-hidden="true">{value === "easy" ? "😌" : value === "ok" ? "💪" : "🥵"}</span>{t(lang, `feel_${value}`)}
             </button>
           ))}
         </div>
-        {feelState === "done" && <small className="feel-note">{t(lang, `feel_done_${feel ?? "ok"}`)}</small>}
         {feelState === "failed" && <small className="feel-note">{t(lang, "generic_error")}</small>}
       </div>
-      <p className="muted">{t(lang, "summary_total_workouts", { n: summary.totalWorkouts })}</p>
-      {onAskCoach && <button type="button" className="button button-ghost button-wide" onClick={onAskCoach}>{t(lang, "summary_ask_coach_btn")}</button>}
-      {canShareStory() && (
-        <div className="button-row">
-          <button type="button" className="button button-light" disabled={sharing === "busy"} onClick={() => void shareStory()}>{sharing === "busy" ? "…" : t(lang, "share_story_btn")}</button>
-          {sharing === "failed" && <small>{t(lang, "share_story_failed")}</small>}
-        </div>
-      )}
-    </Card>
+      <div className="summary-actions">
+        {canShareStory() && <button type="button" className="button button-secondary" disabled={sharing === "busy"} onClick={() => void shareStory()}>{sharing === "busy" ? "…" : t(lang, "share_story_btn")}</button>}
+        {onAskCoach && <button type="button" className="button button-secondary" onClick={onAskCoach}>{t(lang, "summary_ask_coach_btn")}</button>}
+        {onDone && <button type="button" className="button button-primary button-block" onClick={onDone}>{t(lang, "summary_done_btn")}</button>}
+      </div>
+    </section>
   );
 }

@@ -8,12 +8,14 @@ import { useEffect, useState } from "react";
 import { api, typedBody } from "./api";
 import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, ProfilePhoto, WeekCardResponse } from "./types";
 import { t, type Lang } from "./i18n";
+import type { View } from "./logic/navigation";
+import { Icon, type IconName } from "./icons";
 import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
 import { ReleaseItems } from "./WhatsNew";
 import { BecomeTrainerCard } from "./BecomeTrainer";
 import { formatNumber, Card, Metric, Empty, ErrorState, photoUrl, apiUpload, composeCompare, drawWeekCard } from "./App";
 
-export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Dashboard["viewer"]["role"]; onOpenLibrary: () => void }) {
+export function ExtrasView({ lang, role, links = [], onOpen, onOpenLibrary }: { lang: Lang; role: Dashboard["viewer"]["role"]; links?: Array<{ view: View; label: string }>; onOpen?: (view: View) => void; onOpenLibrary: () => void }) {
   // week card
   const [week, setWeek] = useState<WeekCardResponse | null>(null);
   const [weekError, setWeekError] = useState<unknown>(null);
@@ -115,6 +117,9 @@ export function ExtrasView({ lang, role, onOpenLibrary }: { lang: Lang; role: Da
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "extras_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "extras_title")}</h1></div>
+    {links.length > 0 && onOpen && <div className="list">
+      {links.map((link) => <button type="button" key={link.view} className="list-item" onClick={() => onOpen(link.view)}><Icon name={link.view as IconName} /><span className="grow">{link.label}</span><Icon name="chevron" size={20} className="row-chevron" /></button>)}
+    </div>}
 
     <Card tone="accent">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "exlib_eyebrow")}</span><h2>{t(lang, "library_card_title")}</h2></div><span className="action-arrow">📚</span></div>

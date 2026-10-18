@@ -5,6 +5,7 @@ import { t, type Lang } from "./i18n";
 import type { RequestBody } from "./types";
 import { MealPhoto } from "./media/MealPhoto";
 import { VoiceButton } from "./media/VoiceButton";
+import { Icon, type IconName } from "./icons";
 
 type NutritionBody = RequestBody<"editNutrition">;
 type NutritionAction = NutritionBody["action"];
@@ -15,9 +16,6 @@ function Card({ children, tone = "default" }: { children: React.ReactNode; tone?
   return <section className={`card card-${tone}`}>{children}</section>;
 }
 
-function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return <div className="metric"><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</div>;
-}
 
 function Empty({ title, detail }: { title: string; detail: string }) {
   return <div className="empty"><span className="empty-mark">—</span><strong>{title}</strong><small>{detail}</small></div>;
@@ -36,6 +34,7 @@ function formatNumber(value: number): string {
 
 
 type MealPlanDays = NonNullable<Nutrition["mealPlan"]>["days"];
+type QuickPanel = "search" | "photo" | "text" | "barcode";
 
 export function FuelView({ lang }: { lang: Lang }) {
   const [nutrition, setNutrition] = useState<Nutrition | null>(null);
@@ -52,6 +51,8 @@ export function FuelView({ lang }: { lang: Lang }) {
   const [advice, setAdvice] = useState(""); const [adviceBusy, setAdviceBusy] = useState(false); const [grocery, setGrocery] = useState<GroceryLine[] | null>(null); const [groceryDays, setGroceryDays] = useState(3);
   const [regenBusy, setRegenBusy] = useState(false); const [regenNote, setRegenNote] = useState(false);
   const [grocerySendBusy, setGrocerySendBusy] = useState(false); const [grocerySent, setGrocerySent] = useState(false);
+  const [tab, setTab] = useState<"day" | "plan" | "grocery">("day");
+  const [quick, setQuick] = useState<QuickPanel | null>(null);
   const load = () => { setError(null); api<Nutrition>("/api/v2/nutrition").then(setNutrition).catch(setError); };
   useEffect(load, []);
   const log = async () => { if (!text.trim()) return; setSaving(true); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"quickLog">({ kind: "food", text: text.trim() }) }); setText(""); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
@@ -99,19 +100,66 @@ export function FuelView({ lang }: { lang: Lang }) {
     } catch (err) { setActionError(err); } finally { setGrocerySendBusy(false); }
   };
   if (error) return <ErrorState lang={lang} error={error} retry={load} />; if (!nutrition) return <Loading />;
+  const targets = nutrition.targets;
+  const hasPlan = Boolean(nutrition.mealPlan?.days?.length);
+  const macro = (label: string, value: number, goal: number | undefined, tone: string) => (
+    <div className="macro-row num" key={label}>
+      <span>{label}</span>
+      <span className="macro-track"><i className={tone} style={{ width: `${goal ? Math.min(100, (value / goal) * 100) : 0}%` }} /></span>
+      <span className="macro-val"><b>{formatNumber(value)}</b>{goal ? ` / ${formatNumber(goal)}` : ""} {t(lang, "unit_g")}</span>
+    </div>
+  );
+  const QUICK: Array<{ id: QuickPanel; icon: IconName; label: string }> = [
+    { id: "search", icon: "search", label: t(lang, "search_btn") },
+    { id: "photo", icon: "camera", label: t(lang, "fuel_photo_tile") },
+    { id: "text", icon: "mic", label: t(lang, "fuel_voice_tile") },
+    { id: "barcode", icon: "barcode", label: t(lang, "barcode_ph") },
+  ];
   return <div className="view-stack">
-    <div className="eyebrow">{t(lang, "fuel_eyebrow", { date: nutrition.date })}</div>
-    <div className="page-title"><h1>{t(lang, "eat_intent_title")}</h1><span>{t(lang, "kcal_value", { n: formatNumber(nutrition.totals.kcal) })}</span></div>
+    {hasPlan && <div className="segmented three" role="tablist">
+      {(["day", "plan", "grocery"] as const).map((id) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t(lang, id === "day" ? "fuel_tab_day" : id === "plan" ? "fuel_tab_plan" : "fuel_tab_grocery")}</button>)}
+    </div>}
     {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
-    <Card tone="accent">
-      {nutrition.isRestDay && <div className="tag" style={{ marginBottom: 10 }}>{t(lang, "fuel_rest_day_badge")}</div>}
-      <div className="macro-grid"><Metric label={t(lang, "metric_calories")} value={`${formatNumber(nutrition.totals.kcal)}`} detail={nutrition.targets ? t(lang, "of_n", { n: formatNumber(nutrition.targets.calories) }) : undefined} /><Metric label={t(lang, "metric_protein")} value={`${formatNumber(nutrition.totals.protein)} g`} detail={nutrition.targets ? t(lang, "of_n_g", { n: formatNumber(nutrition.targets.protein) }) : undefined} /><Metric label={t(lang, "metric_fats")} value={`${formatNumber(nutrition.totals.fats)} g`} detail={nutrition.targets ? t(lang, "of_n_g", { n: formatNumber(nutrition.targets.fats) }) : undefined} /><Metric label={t(lang, "metric_carbs")} value={`${formatNumber(nutrition.totals.carbs)} g`} detail={nutrition.targets ? t(lang, "of_n_g", { n: formatNumber(nutrition.targets.carbs) }) : undefined} /></div>
-    </Card>
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "ai_quick_log_eyebrow")}</span><h2>{t(lang, "describe_meal_title")}</h2></div></div><MealPhoto lang={lang} onLogged={load} /><div className="input-row"><input value={text} placeholder={t(lang, "meal_input_ph")} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void log(); }} /><VoiceButton lang={lang} disabled={saving} onText={(spoken) => setText((cur) => (cur.trim() ? `${cur.trim()}, ${spoken}` : spoken))} /><button className="button button-primary" onClick={() => void log()} disabled={saving}>{saving ? "…" : t(lang, "log_btn")}</button></div><div className="button-row nutrition-advice"><button className="button button-ghost" disabled={adviceBusy} onClick={() => void askNutrition("recipe")}>{t(lang, "recipe_btn")}</button><button className="button button-ghost" disabled={adviceBusy} onClick={() => void askNutrition("recover")}>{t(lang, "recover_btn")}</button></div>{advice && <div className="info-box">{advice}</div>}</Card>
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "food_search_eyebrow")}</span><h2>{t(lang, "measured_portions_title")}</h2></div></div><div className="input-row"><input value={search} placeholder={t(lang, "search_input_ph")} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchFood("dbsearch"); }} /><button className="button button-ghost" onClick={() => void searchFood("dbsearch")} disabled={searching}>{searching ? "…" : t(lang, "search_btn")}</button></div><div className="input-row"><input value={barcode} inputMode="numeric" placeholder={t(lang, "barcode_ph")} onChange={(event) => setBarcode(event.target.value)} /><button className="button button-ghost" onClick={() => void searchFood("barcode")} disabled={searching}>{t(lang, "scan_code_btn")}</button></div>{results.length > 0 && <div className="food-results">{results.map((item) => <button className="food-result" key={`${item.name}-${item.brand ?? ""}`} onClick={() => { setSelected(item); if (item.portionG) setGrams(String(item.portionG)); }}><span><strong>{item.name}</strong><small>{item.brand || t(lang, "per_100g")}</small></span><span>{item.per100.kcal} kcal</span></button>)}</div>}{selected && <div className="portion-editor"><strong>{selected.name}</strong><div className="input-row"><input type="number" min="1" max="3000" value={grams} onChange={(event) => setGrams(event.target.value)} /><span className="muted">{t(lang, "grams_unit")}</span><button className="button button-primary" onClick={() => void addFood(selected)} disabled={saving}>{t(lang, "add_portion_btn")}</button></div></div>}</Card>
-    {nutrition.recent?.length ? <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "recent_eyebrow")}</span><h2>{t(lang, "repeat_meal_title")}</h2></div></div><div className="food-results">{nutrition.recent.slice(0, 6).map((item) => <button className="food-result" key={item.ri} onClick={() => void readd(item.ri)} disabled={saving}><span><strong>{item.desc}</strong><small>{t(lang, "protein_short", { n: formatNumber(item.protein) })}</small></span><span>{formatNumber(item.kcal)} kcal</span></button>)}</div></Card> : null}
-    {nutrition.meals.length ? <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "today_eyebrow")}</span><h2>{t(lang, "logged_meals_title")}</h2></div></div><div className="meal-list">{nutrition.meals.map((meal) => <div className="meal-row meal-row-edit" key={meal.index}><div><strong>{meal.desc}</strong><small>{meal.grams ? t(lang, "grams_prefix", { n: meal.grams }) : ""}{t(lang, "macro_line", { p: formatNumber(meal.protein), f: formatNumber(meal.fats), c: formatNumber(meal.carbs) })}</small></div><span>{formatNumber(meal.kcal)}</span><button className="text-button" onClick={() => openMealEdit(meal)}>{t(lang, "edit_btn")}</button>{editing === meal.index && <div className="meal-editor"><div className="form-grid"><input type="number" value={correction.kcal} aria-label={t(lang, "metric_calories")} onChange={(event) => setCorrection({ ...correction, kcal: event.target.value })} /><input type="number" value={correction.protein} aria-label={t(lang, "metric_protein")} onChange={(event) => setCorrection({ ...correction, protein: event.target.value })} /><input type="number" value={correction.fats} aria-label={t(lang, "metric_fats")} onChange={(event) => setCorrection({ ...correction, fats: event.target.value })} /><input type="number" value={correction.carbs} aria-label={t(lang, "metric_carbs")} onChange={(event) => setCorrection({ ...correction, carbs: event.target.value })} /></div><div className="button-row"><button className="button button-primary" disabled={saving} onClick={saveCorrection}>{t(lang, "save_btn")}</button><button className="button button-ghost" disabled={saving} onClick={() => void mutateMeal("grams", meal.index, { grams: Number(correction.grams) })}>{t(lang, "save_grams_btn")}</button><button className="text-button" disabled={saving} onClick={() => void mutateMeal("scale", meal.index, { factor: 0.5 })}>½×</button><button className="text-button" disabled={saving} onClick={() => void mutateMeal("scale", meal.index, { factor: 1.5 })}>1.5×</button><button className="text-button danger-button" disabled={saving} onClick={() => void mutateMeal("del", meal.index)}>{t(lang, "delete_btn")}</button></div><input type="number" placeholder={t(lang, "grams_unit")} value={correction.grams} onChange={(event) => setCorrection({ ...correction, grams: event.target.value })} /></div>}</div>)}</div></Card> : <Empty title={t(lang, "nothing_logged_title")} detail={t(lang, "nothing_logged_detail")} />}
-    {nutrition.mealPlan?.days?.length ? <>
+    {tab === "day" && <>
+      <section className="kcal-card">
+        <div className="row-between">
+          <span className="kcal-big num">{formatNumber(nutrition.totals.kcal)}{targets && <span> / {formatNumber(targets.calories)} {t(lang, "kcal_unit")}</span>}</span>
+          {nutrition.isRestDay && <span className="pill pill-good">{t(lang, "fuel_rest_day_badge")}</span>}
+        </div>
+        <div className="kcal-track" role="progressbar" aria-label={t(lang, "metric_calories")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={targets ? Math.min(100, Math.round((nutrition.totals.kcal / targets.calories) * 100)) : 0}><i style={{ width: `${targets ? Math.min(100, (nutrition.totals.kcal / targets.calories) * 100) : 0}%` }} /></div>
+        {macro(t(lang, "metric_protein"), nutrition.totals.protein, targets?.protein, "p")}
+        {macro(t(lang, "metric_fats"), nutrition.totals.fats, targets?.fats, "f")}
+        {macro(t(lang, "metric_carbs"), nutrition.totals.carbs, targets?.carbs, "c")}
+      </section>
+      <div className="quick-grid">
+        {QUICK.map((q) => <button key={q.id} type="button" className={q.id === "search" ? "quick-tile main" : "quick-tile"} aria-pressed={quick === q.id} onClick={() => setQuick(quick === q.id ? null : q.id)}><i><Icon name={q.icon} /></i>{q.label}</button>)}
+      </div>
+      {quick === "search" && <Card>
+        <div className="input-row"><input value={search} placeholder={t(lang, "search_input_ph")} autoFocus onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchFood("dbsearch"); }} /><button className="button button-primary" onClick={() => void searchFood("dbsearch")} disabled={searching}>{searching ? "…" : t(lang, "search_btn")}</button></div>
+        {results.length === 0 && nutrition.recent?.length ? <div className="food-results">{nutrition.recent.slice(0, 6).map((item) => <button className="food-result" key={item.ri} onClick={() => void readd(item.ri)} disabled={saving}><span><strong>{item.desc}</strong><small>{t(lang, "fuel_recent_hint")}</small></span><span>{formatNumber(item.kcal)}</span></button>)}</div> : null}
+        {results.length > 0 && <div className="food-results">{results.map((item) => <button className="food-result" key={`${item.name}-${item.brand ?? ""}`} onClick={() => { setSelected(item); if (item.portionG) setGrams(String(item.portionG)); }}><span><strong>{item.name}</strong><small>{item.brand || t(lang, "per_100g")}</small></span><span>{item.per100.kcal}</span></button>)}</div>}
+        {selected && <div className="portion-editor"><strong>{selected.name}</strong><div className="input-row"><input type="number" min="1" max="3000" value={grams} onChange={(event) => setGrams(event.target.value)} /><span className="muted">{t(lang, "grams_unit")}</span><button className="button button-primary" onClick={() => void addFood(selected)} disabled={saving}>{t(lang, "add_portion_btn")}</button></div></div>}
+      </Card>}
+      {quick === "photo" && <Card><MealPhoto lang={lang} onLogged={load} /></Card>}
+      {quick === "text" && <Card>
+        <div className="input-row"><input value={text} placeholder={t(lang, "meal_input_ph")} autoFocus onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void log(); }} /><VoiceButton lang={lang} disabled={saving} onText={(spoken) => setText((cur) => (cur.trim() ? `${cur.trim()}, ${spoken}` : spoken))} /><button className="button button-primary" onClick={() => void log()} disabled={saving}>{saving ? "…" : t(lang, "log_btn")}</button></div>
+      </Card>}
+      {quick === "barcode" && <Card>
+        <div className="input-row"><input value={barcode} inputMode="numeric" autoFocus placeholder={t(lang, "barcode_ph")} onChange={(event) => setBarcode(event.target.value)} /><button className="button button-primary" onClick={() => void searchFood("barcode")} disabled={searching}>{t(lang, "scan_code_btn")}</button></div>
+        {results.length > 0 && <div className="food-results">{results.map((item) => <button className="food-result" key={`${item.name}-${item.brand ?? ""}`} onClick={() => { setSelected(item); if (item.portionG) setGrams(String(item.portionG)); }}><span><strong>{item.name}</strong><small>{item.brand || t(lang, "per_100g")}</small></span><span>{item.per100.kcal}</span></button>)}</div>}
+        {selected && <div className="portion-editor"><strong>{selected.name}</strong><div className="input-row"><input type="number" min="1" max="3000" value={grams} onChange={(event) => setGrams(event.target.value)} /><span className="muted">{t(lang, "grams_unit")}</span><button className="button button-primary" onClick={() => void addFood(selected)} disabled={saving}>{t(lang, "add_portion_btn")}</button></div></div>}
+      </Card>}
+      {nutrition.meals.length ? <div className="list meals">{nutrition.meals.map((meal) => <div key={meal.index}>
+        <button type="button" className="list-item" aria-expanded={editing === meal.index} onClick={() => (editing === meal.index ? setEditing(null) : openMealEdit(meal))}>
+          <span className="grow"><strong>{meal.desc}</strong><small className="num">{meal.grams ? t(lang, "grams_prefix", { n: meal.grams }) : ""}{t(lang, "macro_line", { p: formatNumber(meal.protein), f: formatNumber(meal.fats), c: formatNumber(meal.carbs) })}</small></span>
+          <span className="row-value num">{formatNumber(meal.kcal)}</span>
+        </button>
+        {editing === meal.index && <div className="meal-editor"><div className="form-grid"><input type="number" value={correction.kcal} aria-label={t(lang, "metric_calories")} onChange={(event) => setCorrection({ ...correction, kcal: event.target.value })} /><input type="number" value={correction.protein} aria-label={t(lang, "metric_protein")} onChange={(event) => setCorrection({ ...correction, protein: event.target.value })} /><input type="number" value={correction.fats} aria-label={t(lang, "metric_fats")} onChange={(event) => setCorrection({ ...correction, fats: event.target.value })} /><input type="number" value={correction.carbs} aria-label={t(lang, "metric_carbs")} onChange={(event) => setCorrection({ ...correction, carbs: event.target.value })} /></div><input type="number" placeholder={t(lang, "grams_unit")} value={correction.grams} onChange={(event) => setCorrection({ ...correction, grams: event.target.value })} /><div className="button-row"><button className="button button-primary" disabled={saving} onClick={saveCorrection}>{t(lang, "save_btn")}</button><button className="button button-secondary" disabled={saving} onClick={() => void mutateMeal("grams", meal.index, { grams: Number(correction.grams) })}>{t(lang, "save_grams_btn")}</button><button className="button button-quiet" disabled={saving} onClick={() => void mutateMeal("scale", meal.index, { factor: 0.5 })}>½×</button><button className="button button-quiet" disabled={saving} onClick={() => void mutateMeal("scale", meal.index, { factor: 1.5 })}>1.5×</button><button className="button button-quiet danger" disabled={saving} onClick={() => void mutateMeal("del", meal.index)}>{t(lang, "delete_btn")}</button></div></div>}
+      </div>)}</div> : <Empty title={t(lang, "nothing_logged_title")} detail={t(lang, "nothing_logged_detail")} />}
+      <div className="button-row"><button className="button button-quiet" disabled={adviceBusy} onClick={() => void askNutrition("recipe")}>{t(lang, "recipe_btn")}</button><button className="button button-quiet" disabled={adviceBusy} onClick={() => void askNutrition("recover")}>{t(lang, "recover_btn")}</button></div>
+      {advice && <div className="info-box">{advice}</div>}
+    </>}
+    {tab === "plan" && hasPlan && nutrition.mealPlan && <>
       <Card>
         <div className="section-head"><div><span className="eyebrow">{t(lang, "meal_plan_eyebrow")}</span><h2>{t(lang, "use_plan_compass_title")}</h2></div><span className="tag">{nutrition.mealPlan.days.length}</span></div>
         <p className="muted">{t(lang, "meal_plan_detail", { n: nutrition.mealPlan.days.length })}</p>
@@ -140,6 +188,8 @@ export function FuelView({ lang }: { lang: Lang }) {
         </div>
         {regenNote && <div className="save-note">{t(lang, "mealplan_regenerated_note")}</div>}
       </Card>
+    </>}
+    {tab === "grocery" && hasPlan && <>
       <Card>
         <div className="section-head"><div><span className="eyebrow">{t(lang, "grocery_eyebrow")}</span><h2>{t(lang, "grocery_title")}</h2></div><div className="button-row">{[3, 5, 7].map((days) => <button key={days} className={groceryDays === days ? "button button-primary" : "button button-ghost"} onClick={() => void loadGrocery(days)}>{days}d</button>)}</div></div>
         {grocery ? <div className="grocery-list">{grocery.length ? grocery.map((line) => <div className="record-row" key={`${line.category}-${line.food}`}><strong>{line.food}</strong><span>{line.grams} g</span></div>) : <p className="muted">{t(lang, "grocery_empty")}</p>}</div> : <p className="muted">{t(lang, "grocery_hint")}</p>}
@@ -148,6 +198,6 @@ export function FuelView({ lang }: { lang: Lang }) {
         </div> : null}
         {grocerySent && <div className="save-note">{t(lang, "grocery_sent_note")}</div>}
       </Card>
-    </> : null}
+    </>}
   </div>;
 }

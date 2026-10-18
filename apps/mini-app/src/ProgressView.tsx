@@ -8,6 +8,7 @@ import { api, ApiError, apiForm, jsonBody } from "./api";
 import type { Dashboard, MuscleGroup, VolumeZone, WorkoutToday } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 import { track } from "./logic/track";
+import { todayPlan } from "./logic/todayPlan";
 
 // The body-map figure is ~35 kB of SVG paths; loaded only when the Progress screen is opened.
 const BodyMap = lazy(() => import("./BodyMap").then((m) => ({ default: m.BodyMap })));
@@ -87,6 +88,7 @@ const MEASURE_LABEL_KEY: Record<string, Key> = {
 
 export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: Lang }) {
   const latest = dashboard.weight.points.at(-1);
+  const [weightPeriod, setWeightPeriod] = useState<7 | 30 | 90>(30);
   const [measure, setMeasure] = useState(""); const [steps, setSteps] = useState(""); const [busy, setBusy] = useState<string | null>(null); const [notice, setNotice] = useState("");
   const [checkin, setCheckin] = useState({ energy: 3, sleep: 3, stress: 3 });
   const post = async (key: string, body: unknown) => { setBusy(key); setNotice(""); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); setNotice(t(lang, "progress_saved_note")); if (key === "measure") setMeasure(""); if (key === "steps") setSteps(""); } catch (err) { setNotice(err instanceof ApiError ? t(lang, "generic_error") : t(lang, "generic_error")); } finally { setBusy(null); } };
@@ -191,9 +193,28 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
     }
   };
 
+  // The week first: workouts against the plan, the weight change over the last 7 days, sets logged.
+  const week = todayPlan({ today: dashboard.today, planExercises: [], plannedWeekdays: dashboard.calendar.split.map((d) => d.weekday), days: dashboard.calendar.days, logs: dashboard.calendar.logs, draft: null });
+  const monday = week.week[0].date;
+  const weekSets = dashboard.calendar.logs.filter((log) => log.done && log.date >= monday).reduce((n, log) => n + log.ex.reduce((m, e) => m + e.s, 0), 0);
+  const sortedWeights = [...dashboard.weight.points].sort((a, b) => a.date.localeCompare(b.date));
+  const weekAgo = new Date(Date.parse(`${dashboard.today}T00:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10);
+  const before = [...sortedWeights].reverse().find((p) => p.date <= weekAgo);
+  const weightDelta = latest && before ? Math.round((latest.kg - before.kg) * 10) / 10 : null;
+  const periodFrom = new Date(Date.parse(`${dashboard.today}T00:00:00Z`) - (weightPeriod - 1) * 86_400_000).toISOString().slice(0, 10);
+  const periodPoints = dashboard.weight.points.filter((p) => p.date >= periodFrom);
+
   return <div className="view-stack">
-    <div className="eyebrow">{t(lang, "progress_eyebrow")}</div>
-    <div className="page-title"><h1>{t(lang, "progress_title")}</h1><span>{dashboard.today}</span></div>
+    <div className="page-title"><h1>{t(lang, "progress_title")}</h1></div>
+    <section className="summary-stats progress-week" aria-label={t(lang, "week_title")}>
+      <div><strong className="num">{week.weekDone}/{week.weekPlanned}</strong><small>{t(lang, "pw_workouts")}</small></div>
+      <div><strong className="num">{latest ? `${formatNumber(latest.kg)}` : "—"}</strong><small>{weightDelta === null ? t(lang, "pw_weight") : t(lang, "pw_weight_delta", { d: `${weightDelta > 0 ? "+" : weightDelta < 0 ? "−" : "±"}${formatNumber(Math.abs(weightDelta))}` })}</small></div>
+      <div><strong className="num">{weekSets}</strong><small>{t(lang, "pw_sets")}</small></div>
+    </section>
+    <Card><div className="row-between"><h2 className="card-title">{t(lang, "weight_trend_eyebrow_plain")}</h2><span className="muted">{dashboard.weight.projection?.reached ? t(lang, "goal_reached") : dashboard.weight.projection?.onTrack ? t(lang, "on_track") : ""}</span></div>
+      <div className="segmented three period" role="tablist">{([7, 30, 90] as const).map((d) => <button key={d} type="button" role="tab" aria-selected={weightPeriod === d} onClick={() => setWeightPeriod(d)}>{t(lang, d === 7 ? "period_week" : d === 30 ? "period_month" : "period_3m")}</button>)}</div>
+      {periodPoints.length > 1 ? <WeightChart lang={lang} points={periodPoints} goal={dashboard.weight.goal} slopePerWeek={dashboard.weight.projection?.slopePerWeek} /> : <Empty title={t(lang, "build_baseline_title")} detail={t(lang, "build_baseline_detail")} />}
+    </Card>
     <div className="metric-grid">
       <Metric label={t(lang, "metric_current_weight")} value={latest ? `${formatNumber(latest.kg)} kg` : "—"} detail={dashboard.weight.goal ? t(lang, "goal_kg", { n: formatNumber(dashboard.weight.goal) }) : t(lang, "add_weighin")} onClick={() => startMeasure(t(lang, "measure_prefill_weight"))} />
       <Metric label={t(lang, "metric_recovery")} value={`${dashboard.recovery.score}`} detail={dashboard.recovery.label} />
@@ -201,7 +222,6 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
       <Metric label={t(lang, "metric_conditioning")} value={t(lang, "min_value", { n: dashboard.conditioning.minutes })} detail={t(lang, "zone_load", { zone: zoneLabel(lang, dashboard.conditioning.zone) })} />
     </div>
 
-    <Card><div className="section-head"><div><span className="eyebrow">{t(lang, "weight_trend_eyebrow")}</span><h2>{dashboard.weight.projection?.reached ? t(lang, "goal_reached") : dashboard.weight.projection?.onTrack ? t(lang, "on_track") : t(lang, "keep_observing")}</h2></div></div>{dashboard.weight.points.length > 1 ? <WeightChart lang={lang} points={dashboard.weight.points} goal={dashboard.weight.goal} slopePerWeek={dashboard.weight.projection?.slopePerWeek} /> : <Empty title={t(lang, "build_baseline_title")} detail={t(lang, "build_baseline_detail")} />}</Card>
 
     <Card>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "activity_calendar_eyebrow")}</span><h2>{t(lang, "activity_calendar_title")}</h2></div><span className="tag">{dashboard.calendar.days.filter((day) => day.s === "done").length}</span></div>

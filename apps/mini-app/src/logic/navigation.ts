@@ -20,9 +20,22 @@ export function viewFromSearch(search: string): View {
   return VIEWS.includes(value) ? value : "today";
 }
 
-/** The bottom tabs. A role the app does not know yet (no dashboard) gets only Today and the role tab. */
+/** The bottom tabs: five at most. The plan opens from the Training tab; settings, the library and
+ *  the rest from More. A trainer's fifth slot is the client list (which leads with the clients who
+ *  need attention) in place of their own progress, which moves to More. A role the app does not
+ *  know yet (no dashboard) gets only Today and the role tab. */
 export function navigationFor(role: string | undefined): View[] {
-  return role === "trainer" || role === "solo" || role === "client"
-    ? ["today", "train", "plan", "fuel", "progress", "more", "role"]
-    : ["today", "role"];
+  if (role === "trainer") return ["today", "train", "role", "fuel", "more"];
+  if (role === "solo" || role === "client") return ["today", "train", "fuel", "progress", "more"];
+  return ["today", "role"];
+}
+
+/** The screens More links to, for whatever the tab bar no longer carries. */
+export function moreLinksFor(role: string | undefined): View[] {
+  return role === "trainer" ? ["progress", "library"] : ["role", "library"];
+}
+
+/** The tab a screen belongs to, so the bar highlights it (the plan sits under Training). */
+export function tabFor(view: View): View {
+  return view === "plan" ? "train" : view === "library" ? "more" : view;
 }
