@@ -1406,4 +1406,8 @@ export const uk: Record<keyof typeof en, string> = {
   period_month: "Місяць",
   period_3m: "3 місяці",
   live_report_title: "Звіт",
+  muscle_map_title: "Навантаження на м'язи за тиждень",
+  plan_schedule_title: "План на тиждень",
+  plan_rest_day: "Відпочинок",
+  plan_day_meta: "Вправ: {n}",
 };

@@ -1407,4 +1407,8 @@ export const en = {
   period_month: "Month",
   period_3m: "3 months",
   live_report_title: "Report",
+  muscle_map_title: "Muscle load this week",
+  plan_schedule_title: "Weekly plan",
+  plan_rest_day: "Rest day",
+  plan_day_meta: "{n} exercises",
 } as const;
