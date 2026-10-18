@@ -5,7 +5,8 @@
 // back doesn't lose them. Less frequent actions open from the top bar's "more" button.
 import { TechniqueFrames } from "./TechniqueFrames";
 import { FormCheck } from "../media/FormCheck";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
+import { musclesForExercise } from "../logic/exerciseMuscles";
 import { t, type Lang } from "../i18n";
 import type { RestPrefs } from "../logic/rest";
 import { isSetFilled, plannedSetsFor, type LoggerExercise, type LoggerSet } from "../logic/logger";
@@ -17,8 +18,14 @@ const RPE_CHOICES = [6, 7, 8, 9, 10];
 /** The row being edited: its numbers, and the text as typed ("62," on the way to "62,5"). */
 export type RowDraft = { row: number; set: LoggerSet; text?: Partial<Record<"weight" | "reps" | "seconds" | "meters", string>> };
 
+const ExerciseMuscles = lazy(() => import("./ExerciseMuscles").then((m) => ({ default: m.ExerciseMuscles })));
+
 export interface FocusExerciseProps {
   lang: Lang;
+  sex?: "male" | "female";
+  /** The muscle figure is unfolded (kept by the parent, so it stays open across exercises). */
+  musclesOpen: boolean;
+  onToggleMuscles: () => void;
   exercise: LoggerExercise;
   restSec: number;
   restPrefs: RestPrefs;
@@ -100,6 +107,7 @@ export function FocusExercise(props: FocusExerciseProps) {
   const mainHead = main === "reps" ? t(lang, "field_reps") : main === "seconds" ? t(lang, "field_seconds") : t(lang, "field_meters");
   const target = exercise.planSets ? `${exercise.planSets}${exercise.planWeight && exercise.planWeight !== "—" ? ` · ${exercise.planWeight}` : ""}` : t(lang, "exercise_sets_line", { n: exercise.sets, detail: reps ? t(lang, "controlled_reps") : t(lang, "measured_effort") });
   const hint = cue(exercise.technique);
+  const muscles = musclesForExercise(exercise.name) ?? (exercise.planName ? musclesForExercise(exercise.planName) : null);
 
   return (
     <section className="focus-ex" aria-labelledby="focus-ex-title">
@@ -107,6 +115,9 @@ export function FocusExercise(props: FocusExerciseProps) {
       <p className="focus-target num">{target}</p>
       {exercise.target && <p className="focus-progress num">{t(lang, "target_last", { set: setLabel(exercise.target.lastW, exercise.target.lastR) })} → <strong>{t(lang, "target_today", { set: setLabel(exercise.target.w, exercise.target.r) })}</strong></p>}
       {exercise.planName && <p className="focus-progress">{t(lang, "swapped_from_note", { name: exercise.planName })}</p>}
+      {muscles && muscles.primary.length > 0 && <Suspense fallback={<div className="focus-muscles" />}>
+        <ExerciseMuscles lang={lang} muscles={muscles} sex={props.sex} open={props.musclesOpen} onToggle={props.onToggleMuscles} />
+      </Suspense>}
       {(hint || props.info) && <button type="button" className="focus-cue" onClick={props.onOpenInfo} aria-expanded={Boolean(props.info)}>
         <Icon name="info" size={20} /><span>{hint || t(lang, "train_info_btn")}</span>
       </button>}

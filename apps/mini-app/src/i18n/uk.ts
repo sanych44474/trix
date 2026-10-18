@@ -1370,6 +1370,7 @@ export const uk: Record<keyof typeof en, string> = {
   nav_library: "Бібліотека вправ",
   today_kicker: "Сьогодні",
   today_in_progress: "У процесі",
+  focus_muscles_label: "М’язи",
   today_about_min: "{n} хв",
   ex_count_one: "{n} вправа",
   ex_count_few: "{n} вправи",

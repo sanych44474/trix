@@ -56,8 +56,9 @@ function scrollToTop(): void {
 
 export type TrainSegment = "today" | "plan" | "history";
 
-export function TrainView({ lang, initialSegment = "today", startInFocus = false, planSlot, onFocusChange, onExit, onAskCoach }: {
+export function TrainView({ lang, sex, initialSegment = "today", startInFocus = false, planSlot, onFocusChange, onExit, onAskCoach }: {
   lang: Lang;
+  sex?: "male" | "female";
   initialSegment?: TrainSegment;
   /** Opened from Today's "Start": go straight into focus mode. */
   startInFocus?: boolean;
@@ -73,6 +74,7 @@ export function TrainView({ lang, initialSegment = "today", startInFocus = false
   const [focus, setFocusState] = useState(false);
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [musclesOpen, setMusclesOpen] = useState(false);
   const [rowDrafts, setRowDrafts] = useState<Record<string, RowDraft | null>>({});
   const setFocus = (on: boolean) => { setFocusState(on); setMenuOpen(false); onFocusChange?.(on); if (on) scrollToTop(); };
   useEffect(() => () => onFocusChange?.(false), []);
@@ -499,6 +501,9 @@ export function TrainView({ lang, initialSegment = "today", startInFocus = false
         <FocusExercise
           key={key}
           lang={lang}
+          sex={sex}
+          musclesOpen={musclesOpen}
+          onToggleMuscles={() => setMusclesOpen((v) => !v)}
           exercise={exercise}
           restSec={restSec}
           restPrefs={session.restPrefs}
