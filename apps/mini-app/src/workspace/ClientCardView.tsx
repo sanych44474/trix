@@ -7,6 +7,11 @@ import type { ClientCardPayload } from "../types";
 import { t, type Key, type Lang } from "../i18n";
 import { noteFieldKey } from "../logic/workspace";
 import { Panel, WorkspaceError, Metric, photoQuery } from "./shared";
+import { Icon } from "../icons";
+import { confirmDialog } from "../telegram";
+
+const dayLabel = (lang: Lang, iso: string) =>
+  new Intl.DateTimeFormat(lang === "uk" ? "uk-UA" : "en-GB", { day: "numeric", month: "short" }).format(new Date(`${iso}T12:00:00`));
 
 export const noteFieldLabel = (lang: Lang, field: string): string => { const k = noteFieldKey(field); return k ? t(lang, k) : field; };
 
@@ -106,10 +111,25 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, "client_card_eyebrow")}</div>
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
-    <div className="page-title"><h1>{data.client.name}</h1><div className="button-row"><button className="button button-ghost" onClick={() => onOpenPlan?.(clientId)}>{t(lang, "edit_client_plan_btn")}</button><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div></div>
+    <div className="page-title client-title"><h1>{data.client.name}</h1><div className="button-row"><button className="button button-ghost" onClick={() => onOpenPlan?.(clientId)}>{t(lang, "edit_client_plan_btn")}</button><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div></div>
+
+    {/* A plan draft waiting for the trainer comes first, with one unmistakable action. */}
+    {data.draft && <section className="card draft-card" aria-labelledby="draft-title">
+      <span className="draft-kicker">{t(lang, "cc_draft_eyebrow")}</span>
+      <h2 id="draft-title">{t(lang, "cc_draft_title")}</h2>
+      <p className="draft-meta num">{t(lang, "cc_draft_meta", { days: data.draft.days, n: data.draft.exercises, date: dayLabel(lang, data.draft.createdAt) })}</p>
+      {data.draft.autoActivatesAt && <p className="muted">{t(lang, data.draft.postponed ? "cc_draft_postponed_line" : "cc_draft_auto_line", { date: dayLabel(lang, data.draft.autoActivatesAt) })}</p>}
+      <button type="button" className="button button-primary button-block draft-assign" disabled={busy === "draft"} onClick={() => void decideDraft("assign")}><Icon name="check" size={22} />{busy === "draft" ? t(lang, "saving_ellipsis") : t(lang, "cc_draft_assign")}</button>
+      <div className="draft-more">
+        {onOpenPlan && <button type="button" className="button button-quiet" onClick={() => onOpenPlan(clientId)}>{t(lang, "cc_draft_view")}</button>}
+        {data.draft.autoActivatesAt && !data.draft.postponed && <button type="button" className="button button-quiet" disabled={busy === "draft"} onClick={() => void decideDraft("postpone")}>{t(lang, "cc_draft_postpone")}</button>}
+        <button type="button" className="button button-quiet danger" disabled={busy === "draft"} onClick={async () => { if (await confirmDialog(t(lang, "cc_draft_discard_confirm"))) void decideDraft("discard"); }}>{t(lang, "cc_draft_discard")}</button>
+      </div>
+    </section>}
+    {savedKey === "draft" && <div className="save-note">{t(lang, "cc_draft_done")}</div>}
 
     <Panel tone="accent">
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "readiness_eyebrow")}</span><h2>{recovery.label}</h2></div><span className={data.client.flagged ? "status-badge status-attention" : "status-badge"}>{data.client.flagged ? t(lang, "flagged_label") : t(lang, "on_track_label")}</span></div>
+      <div className="section-head"><div><span className="eyebrow">{t(lang, "readiness_eyebrow")}</span><h2>{t(lang, `recovery_label_${recovery.label}` as Key)}</h2></div><span className={data.client.flagged ? "status-badge status-attention" : "status-badge"}>{data.client.flagged ? t(lang, "flagged_label") : t(lang, "on_track_label")}</span></div>
       <div className="metric-grid compact">
         <Metric label={t(lang, "metric_recovery")} value={`${recovery.score}`} />
         {gami && <Metric label={t(lang, "metric_streak")} value={t(lang, "streak_weeks", { n: gami.streak ?? 0 })} detail={t(lang, "level_n", { n: gami.level })} />}
@@ -118,17 +138,6 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
       <div className="button-row"><button className="button button-ghost" disabled={busy === "flag"} onClick={() => void toggleFlag()}>{busy === "flag" ? "…" : data.client.flagged ? t(lang, "unflag_client_btn") : t(lang, "flag_client_btn")}</button></div>
     </Panel>
 
-    {data.draft && <Panel tone="accent">
-      <div className="section-head"><div><span className="eyebrow">{t(lang, "cc_draft_eyebrow")}</span><h2>{t(lang, "cc_draft_title")}</h2></div></div>
-      <p>{t(lang, "cc_draft_body", { days: data.draft.days, n: data.draft.exercises, date: data.draft.createdAt })}</p>
-      {data.draft.autoActivatesAt && <p className="muted">{t(lang, data.draft.postponed ? "cc_draft_postponed_line" : "cc_draft_auto_line", { date: data.draft.autoActivatesAt })}</p>}
-      <div className="button-row">
-        <button className="button button-light" disabled={busy === "draft"} onClick={() => void decideDraft("assign")}>{busy === "draft" ? t(lang, "saving_ellipsis") : t(lang, "cc_draft_assign")}</button>
-        {data.draft.autoActivatesAt && !data.draft.postponed && <button className="button button-ghost" disabled={busy === "draft"} onClick={() => void decideDraft("postpone")}>{t(lang, "cc_draft_postpone")}</button>}
-        <button className="button button-ghost" disabled={busy === "draft"} onClick={() => void decideDraft("discard")}>{t(lang, "cc_draft_discard")}</button>
-      </div>
-    </Panel>}
-    {savedKey === "draft" && <div className="save-note">{t(lang, "cc_draft_done")}</div>}
 
     {!data.client.onboarded && <Panel tone="muted">
       <div className="section-head"><div><span className="eyebrow">{t(lang, "interview_nudge_eyebrow")}</span><h2>{t(lang, "interview_nudge_title")}</h2></div></div>

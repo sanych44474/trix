@@ -1010,3 +1010,13 @@ button { cursor: pointer; }
 .segmented.accent-pick { background: var(--surface-2); }
 :root[data-accent="red"] .rest-bar { background: #2A1A1A; color: #F6F1EE; box-shadow: 0 12px 30px rgba(36, 16, 16, .35); }
 :root[data-accent="red"] .rest-adjust { background: #3D2828; color: #F6F1EE; }
+
+/* Trainer: a plan draft waiting on the client card — first on the page, one big action. */
+.draft-card { display: grid; gap: 8px; border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.draft-card h2 { margin: 0; font-size: 20px; line-height: 1.25; }
+.draft-kicker { color: var(--accent-ink); font-size: 13px; font-weight: 700; }
+.draft-meta { margin: 0; color: var(--text); font-weight: 600; }
+.draft-assign { min-height: 56px; margin-top: 6px; font-size: 17px; gap: 8px; }
+.draft-more { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
+.page-title.client-title { display: grid; gap: 8px; align-items: start; }
+.page-title.client-title h1 { overflow-wrap: anywhere; }

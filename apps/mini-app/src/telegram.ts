@@ -122,3 +122,14 @@ export function openExternal(url: string): void {
   try { if (tg?.initData && tg.openLink) { tg.openLink(url); return; } } catch { /* fall through */ }
   window.open(url, "_blank", "noopener");
 }
+
+/** Telegram's native confirm where the client has it (Bot API 6.2+), the browser's otherwise. */
+export function confirmDialog(message: string): Promise<boolean> {
+  const tg = window.Telegram?.WebApp;
+  if (tg?.showConfirm) {
+    return new Promise((resolve) => {
+      try { tg.showConfirm!(message, (ok) => resolve(ok)); } catch { resolve(window.confirm(message)); }
+    });
+  }
+  return Promise.resolve(window.confirm(message));
+}
