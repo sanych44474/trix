@@ -17,6 +17,7 @@ const planExerciseSchema = z.object({
   sets: z.string(),
   startWeight: z.string(),
   technique: z.string(),
+  note: z.string().optional(),
   isKeyLift: z.boolean().optional(),
   metric: exerciseMetricSchema.optional(),
   muscles: z.string().optional(),

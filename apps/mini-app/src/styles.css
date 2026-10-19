@@ -1020,3 +1020,14 @@ button { cursor: pointer; }
 .draft-more { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
 .page-title.client-title { display: grid; gap: 8px; align-items: start; }
 .page-title.client-title h1 { overflow-wrap: anywhere; }
+
+/* Plan editor: the exercise's comment under its line, and the comment/technique fields. */
+.ex-line .ex-note { display: flex; align-items: flex-start; gap: 4px; margin-top: 4px; color: var(--accent-ink); font-size: 13px; font-weight: 500; }
+.ex-line .ex-note .icon { flex: none; margin-top: 2px; }
+.sheet-section textarea { width: 100%; min-height: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 15px; line-height: 1.4; resize: vertical; }
+.sheet-section textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sheet .library-filters, .sheet .library-list { margin: 0; }
+.sheet .library-detail .button-block { margin-top: 4px; }
+/* Focus mode: the plan author's (trainer's) comment for the exercise. */
+.focus-note { display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.focus-note .icon { flex: none; color: var(--accent-ink); }

@@ -627,13 +627,14 @@ paths:
                 index: {type: integer, minimum: -1, maximum: 12}
                 action:
                   type: string
-                  enum: [weight, sets, wmode, video, link, del, move, swap, add, meso, dayadd, daydel, dayswap, fitkit]
+                  enum: [weight, sets, wmode, video, link, del, move, swap, add, note, technique, meso, dayadd, daydel, dayswap, fitkit]
                 value:
                   type: string
-                  maxLength: 300
+                  maxLength: 1000
                   description: >-
                     The edit's payload for every action, including the new exercise name for
-                    swap/add. This is what the Mini App sends; prefer it in new clients.
+                    swap/add, the comment for note (empty clears it; up to 300 characters kept)
+                    and the text for technique. This is what the Mini App sends; prefer it in new clients.
                 name:
                   type: string
                   minLength: 2
@@ -3438,6 +3439,7 @@ components:
         startWeight: {type: string}
         metric: {type: string}
         technique: {type: string}
+        note: {type: string, description: "The plan author's (trainer's) comment for this exercise."}
         videoUrl: {type: string}
         videoTitle: {type: string}
         ssGroup: {type: string}
@@ -3812,6 +3814,7 @@ components:
               planSets: {type: string}
               planWeight: {type: string}
               technique: {type: string}
+              note: {type: string, description: "The plan author's (trainer's) comment for this exercise."}
               canonicalName:
                 type: string
                 description: The exercise's English catalog name (matches technique pictures); absent for custom exercises.

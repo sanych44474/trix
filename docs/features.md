@@ -270,7 +270,10 @@ function**, so the total below is a count rather than a slogan.
 8. **Intake answers** plus a "remind to finish" ping.
 9. **⚡ 6-question mini-interview for the client** → an instant plan draft.
 10. **Consent-gated body and health data** (the client toggles what is shared).
-11. **Full plan editor for each client**, including supersets and day add/remove.
+11. **Full plan editor for each client**, including supersets and day add/remove; exercises are
+    added or swapped from the 750-exercise library (pictures, steps, filters) right in the
+    editor, and each one can carry a **comment for the client** and **custom technique** — the
+    client sees the comment in the workout's focus mode.
 12. **Reusable program templates**: save and assign, with weights auto-adapted.
 13. **Program sharing**: link, public library, or direct assignment to selected clients.
 14. **Message a client** 1:1.

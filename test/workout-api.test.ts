@@ -200,3 +200,9 @@ test("validateSaveBody: keeps swap origin and session timing, drops bad timing",
   if ("error" in restOver) return;
   assert.deepEqual(restOver.timing, { durationSec: 600 }, "rest longer than the session is dropped");
 });
+
+test("assembleWorkoutToday: the plan author's comment reaches the logger", () => {
+  const p = assembleWorkoutToday(planWith([{ ...BENCH, note: "Pause on the chest" }]), TODAY, 5, null);
+  assert.equal(p.exercises[0]!.note, "Pause on the chest");
+  assert.equal(assembleWorkoutToday(planWith([BENCH]), TODAY, 5, null).exercises[0]!.note, undefined);
+});

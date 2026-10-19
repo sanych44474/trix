@@ -40,6 +40,7 @@ interface PlanExerciseView {
   startWeight: string;
   metric: string;
   technique?: string;
+  note?: string;
   videoUrl?: string;
   videoTitle?: string;
   ssGroup?: string;
@@ -100,6 +101,7 @@ function toView(days: PlanDay[], videos: Map<string, ExerciseVideo>, lang: Lang)
           ...(ex.supersetGroup ? { ssGroup: ex.supersetGroup } : {}),
           wmode: resolveWeightMode(ex.name, ex.weightMode),
           ...(technique ? { technique } : {}),
+          ...(ex.note ? { note: ex.note } : {}),
           ...(v?.url ? { videoUrl: v.url } : {}),
           ...(v?.title ? { videoTitle: v.title } : {}),
         };
@@ -122,6 +124,8 @@ function changeSummary(action: string, before: string, after: PlanExercise | und
   if (action === "sets") return `sets: ${before} -> ${after?.sets ?? "?"}`;
   if (action === "wmode") return `weight mode: ${before} -> ${after?.weightMode ?? "total"}`;
   if (action === "video") return `video: ${before}`;
+  if (action === "note") return after?.note ? `comment: ${before}` : `comment removed: ${before}`;
+  if (action === "technique") return `technique: ${before}`;
   if (action === "link") return `superset: ${before}`;
   if (action === "del") return `removed: ${before}`;
   if (action === "move") return `reordered: ${before}`;
@@ -131,6 +135,8 @@ function changeSummary(action: string, before: string, after: PlanExercise | und
 }
 
 const FREE_EXERCISE_ID_SET = new Set(FREE_EXERCISE_IDS);
+const NOTE_MAX = 300;
+const TECHNIQUE_MAX = 1000;
 
 export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
@@ -364,7 +370,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
   const beforeName = ex?.name ?? "";
   // Optimistic target check for ops that reference an existing exercise (avoid editing the wrong
   // one if the plan shifted between load and tap).
-  if (["weight", "sets", "del", "move", "swap", "video", "wmode", "link"].includes(action)) {
+  if (["weight", "sets", "del", "move", "swap", "video", "wmode", "link", "note", "technique"].includes(action)) {
     if (!ex) return Response.json({ error: "bad request" }, { status: 400 });
     if (typeof body.expectName === "string" && body.expectName !== ex.name) {
       return Response.json({ error: "stale" }, { status: 409 });
@@ -392,6 +398,17 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
       const videoId = parseYouTubeId(String(body.value ?? "").trim());
       if (!videoId) return Response.json({ error: "bad request" }, { status: 400 });
       await setUserVideo(env.DB, owner._id, exerciseVideoKey(ex!), ex!.name, { videoId, url: `https://youtu.be/${videoId}` });
+    } else if (action === "note") {
+      // The plan author's comment for this exercise ("keep the elbows in", "stop at RPE 8"); a
+      // trainer writes it for a client, who sees it in the logger. Empty clears it.
+      const note = String(body.value ?? "").replace(/\s+/g, " ").trim().slice(0, NOTE_MAX);
+      if (note) ex!.note = note;
+      else delete ex!.note;
+    } else if (action === "technique") {
+      // The technique text shown in the logger's info panel; replaces the catalog/AI text.
+      const technique = String(body.value ?? "").trim().slice(0, TECHNIQUE_MAX);
+      if (!technique) return Response.json({ error: "bad request" }, { status: 400 });
+      ex!.technique = technique;
     } else if (action === "link") {
       // Superset toggle with the NEXT exercise, on the existing supersetGroup letters (the
       // same field AI-generated plans use, so the bot's superset/circuit render just works).

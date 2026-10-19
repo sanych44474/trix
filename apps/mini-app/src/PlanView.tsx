@@ -1,11 +1,15 @@
 // The Plan screen (lazy chunk): the weekly plan editor, mesocycle card, kit fit and change log.
 import { RebuildPlanCard } from "./RebuildPlan";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, ApiError, typedBody } from "./api";
 import type { MesoPhase, Plan } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 import { Icon } from "./icons";
+import type { LibraryEntry } from "./logic/library";
+
+// The 750-exercise library (data + pictures) loads only when the picker opens.
+const LibraryBrowser = lazy(() => import("./Library").then((m) => ({ default: m.LibraryBrowser })));
 import { planBalance } from "./logic/muscleLoad";
 import { Card, Empty, ErrorState, wmodeLabel, PlanAction, PlanEditBody, DayGroup, DAY_GROUPS, WEEKDAY_KEYS, EQUIPMENT_CHOICES, Loading } from "./App";
 
@@ -55,7 +59,8 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   const [showChanges, setShowChanges] = useState(false);
   const [dayBusy, setDayBusy] = useState<string | null>(null);
   const [openDay, setOpenDay] = useState<number | null>(null);
-  const [sheet, setSheet] = useState<{ kind: "exercise"; weekday: number; index: number } | { kind: "addday"; weekday: number } | null>(null);
+  // "pick" is the exercise library over the schedule: add to a day, or (with `swap`) replace one.
+  const [sheet, setSheet] = useState<{ kind: "exercise"; weekday: number; index: number } | { kind: "addday"; weekday: number } | { kind: "pick"; weekday: number; swap?: { index: number; name: string } } | null>(null);
   // Escape closes the editing sheet (keyboard and desktop Telegram).
   useEffect(() => {
     if (!sheet) return;
@@ -125,6 +130,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
     if (!name) return;
     if (await edit(weekday, -1, "add", name)) {
       setNewExercises((current) => ({ ...current, [weekday]: "" }));
+      setSheet(null); setOpenDay(weekday);
     }
   };
 
@@ -177,6 +183,8 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
     const setsKey = `${base}:sets`;
     const swapKey = `${base}:swap`;
     const videoKey = `${base}:video`;
+    const noteKey = `${base}:note`;
+    const techniqueKey = `${base}:technique`;
     const isSaving = (action: PlanAction) => saving === `${day.weekday}:${exercise.index}:${action}`;
     const canLink = exercise.index < day.exercises.length - 1;
     return <>
@@ -191,7 +199,18 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
         if (drafts[setsKey] !== undefined && drafts[setsKey] !== exercise.sets) await edit(day.weekday, exercise.index, "sets", drafts[setsKey], exercise.name);
       }}>{isSaving("weight") || isSaving("sets") ? t(lang, "saving_ellipsis") : t(lang, "save_btn")}</button>
       <div className="sheet-section">
+        <span className="sheet-label">{t(lang, clientId ? "plan_note_label_client" : "plan_note_label")}</span>
+        <textarea rows={2} maxLength={300} value={drafts[noteKey] ?? exercise.note ?? ""} placeholder={t(lang, clientId ? "plan_note_ph_client" : "plan_note_ph")} onChange={(event) => setDrafts((current) => ({ ...current, [noteKey]: event.target.value }))} />
+        {drafts[noteKey] !== undefined && drafts[noteKey] !== (exercise.note ?? "") && <button className="button button-secondary" disabled={saving !== null} onClick={async () => { if (await edit(day.weekday, exercise.index, "note", drafts[noteKey], exercise.name)) setDrafts((current) => { const next = { ...current }; delete next[noteKey]; return next; }); }}>{isSaving("note") ? t(lang, "saving_ellipsis") : t(lang, "plan_note_save")}</button>}
+      </div>
+      <div className="sheet-section">
+        <span className="sheet-label">{t(lang, "plan_technique_label")}</span>
+        <textarea rows={4} maxLength={1000} value={drafts[techniqueKey] ?? exercise.technique ?? ""} placeholder={t(lang, "plan_technique_ph")} onChange={(event) => setDrafts((current) => ({ ...current, [techniqueKey]: event.target.value }))} />
+        {drafts[techniqueKey] !== undefined && drafts[techniqueKey].trim() !== "" && drafts[techniqueKey] !== (exercise.technique ?? "") && <button className="button button-secondary" disabled={saving !== null} onClick={async () => { if (await edit(day.weekday, exercise.index, "technique", drafts[techniqueKey], exercise.name)) setDrafts((current) => { const next = { ...current }; delete next[techniqueKey]; return next; }); }}>{isSaving("technique") ? t(lang, "saving_ellipsis") : t(lang, "plan_technique_save")}</button>}
+      </div>
+      <div className="sheet-section">
         <span className="sheet-label">{t(lang, "plan_swap_btn")}</span>
+        <button type="button" className="button button-secondary button-block" onClick={() => setSheet({ kind: "pick", weekday: day.weekday, swap: { index: exercise.index, name: exercise.name } })}><Icon name="search" size={20} />{t(lang, "plan_pick_library")}</button>
         <div className="input-row">
           <input value={swapDrafts[swapKey] ?? ""} maxLength={80} placeholder={t(lang, "plan_swap_ph")} onChange={(event) => setSwapDrafts((current) => ({ ...current, [swapKey]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") void searchCatalog(swapKey, swapDrafts[swapKey] ?? ""); }} />
           <button className="button button-secondary" disabled={catalogBusy === swapKey || (swapDrafts[swapKey] ?? "").trim().length < 2} onClick={() => void searchCatalog(swapKey, swapDrafts[swapKey] ?? "")}>{catalogBusy === swapKey ? "…" : t(lang, "plan_catalog_search")}</button>
@@ -211,6 +230,33 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
         {canLink && <button className="chip-button" disabled={saving !== null} onClick={() => void edit(day.weekday, exercise.index, "link", undefined, exercise.name)}>{exercise.ssGroup ? t(lang, "plan_unlink_btn") : t(lang, "plan_link_btn")}</button>}
         <button className="chip-button danger" disabled={saving !== null} onClick={async () => { if (day.exercises.length <= 1) { setActionError(new Error(t(lang, "plan_last_exercise"))); return; } if (window.confirm(t(lang, "plan_delete_confirm")) && await edit(day.weekday, exercise.index, "del", undefined, exercise.name)) closeSheet(); }}>{t(lang, "plan_delete_btn")}</button>
       </div>
+    </>;
+  };
+
+  // Library picker: the opened exercise gets "Add to <day>" (or "Swap for this"), which sends the
+  // library id so the plan keeps its English canonical name and translated steps.
+  const pickSheet = () => {
+    if (!sheet || sheet.kind !== "pick") return null;
+    const { weekday, swap } = sheet;
+    const dayLabel = t(lang, WEEKDAY_KEYS[weekday - 1]);
+    const pick = async (ex: LibraryEntry, name: string) => {
+      const ok = swap
+        ? await edit(weekday, swap.index, "swap", name, swap.name, { freeExerciseId: ex.id })
+        : await edit(weekday, -1, "add", name, undefined, { freeExerciseId: ex.id });
+      if (ok) { closeSheet(); setOpenDay(weekday); }
+    };
+    return <>
+      <h2 className="sheet-title">{swap ? t(lang, "plan_pick_swap_title", { name: swap.name }) : t(lang, "plan_pick_title", { day: dayLabel })}</h2>
+      {!swap && <div className="sheet-section">
+        <span className="sheet-label">{t(lang, "plan_pick_own")}</span>
+        <div className="input-row">
+          <input value={newExercises[weekday] ?? ""} maxLength={80} placeholder={t(lang, "plan_add_ph")} onChange={(event) => setNewExercises((current) => ({ ...current, [weekday]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") void addExercise(weekday); }} />
+          <button className="button button-secondary" disabled={saving !== null || !(newExercises[weekday] ?? "").trim()} onClick={() => void addExercise(weekday)}>{saving === `${weekday}:-1:add` ? "…" : t(lang, "plan_add_btn")}</button>
+        </div>
+      </div>}
+      <Suspense fallback={<div className="skeleton" />}>
+        <LibraryBrowser lang={lang} action={(ex, name) => <button type="button" className="button button-primary button-block" disabled={saving !== null} onClick={() => void pick(ex, name)}>{saving !== null ? t(lang, "saving_ellipsis") : swap ? t(lang, "plan_pick_swap_btn") : t(lang, "plan_pick_add_btn", { day: dayLabel })}</button>} />
+      </Suspense>
     </>;
   };
 
@@ -252,15 +298,12 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
             <ol className="day-exercises">
               {day.exercises.map((exercise) => <li key={`${exercise.index}-${exercise.name}`}>
                 <button type="button" className="ex-line" onClick={() => setSheet({ kind: "exercise", weekday, index: exercise.index })}>
-                  <span className="grow"><strong>{exercise.name}{exercise.ssGroup ? <span className="tag">{t(lang, "plan_superset_label", { group: exercise.ssGroup })}</span> : null}</strong><small className="num">{exercise.sets}{exercise.startWeight && exercise.startWeight !== "—" ? ` · ${exercise.startWeight}` : ""}</small></span>
+                  <span className="grow"><strong>{exercise.name}{exercise.ssGroup ? <span className="tag">{t(lang, "plan_superset_label", { group: exercise.ssGroup })}</span> : null}</strong><small className="num">{exercise.sets}{exercise.startWeight && exercise.startWeight !== "—" ? ` · ${exercise.startWeight}` : ""}</small>{exercise.note && <small className="ex-note"><Icon name="chat" size={14} />{exercise.note}</small>}</span>
                   <Icon name="dots" size={20} className="row-chevron" />
                 </button>
               </li>)}
             </ol>
-            <div className="input-row">
-              <input value={newExercises[weekday] ?? ""} maxLength={80} placeholder={t(lang, "plan_add_ph")} onChange={(event) => setNewExercises((current) => ({ ...current, [weekday]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") void addExercise(weekday); }} />
-              <button className="button button-primary" disabled={saving !== null || !(newExercises[weekday] ?? "").trim()} onClick={() => void addExercise(weekday)}>{saving === `${weekday}:-1:add` ? "…" : t(lang, "plan_add_btn")}</button>
-            </div>
+            <button type="button" className="button button-secondary button-block" onClick={() => setSheet({ kind: "pick", weekday })}><Icon name="plus" size={20} />{t(lang, "plan_add_exercise_btn")}</button>
             {plan.days.length > 1 && <button className="button button-quiet danger" disabled={dayBusy !== null} onClick={() => void removeDay(weekday)}>{dayBusy === `del:${weekday}` ? "…" : t(lang, "plan_day_remove_btn")}</button>}
           </div>}
         </li>;
@@ -304,9 +347,9 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
     {/* Portalled to <body>: the view stack is its own stacking context, so a fixed sheet inside
         it would sit under the bottom nav. */}
     {sheet && createPortal(<div className="sheet-backdrop" onClick={closeSheet}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={sheet.kind === "exercise" ? sheetExercise?.name : t(lang, "plan_day_add_title")} onClick={(event) => event.stopPropagation()}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label={sheet.kind === "exercise" ? sheetExercise?.name : sheet.kind === "pick" ? t(lang, "plan_pick_title", { day: t(lang, WEEKDAY_KEYS[sheet.weekday - 1]) }) : t(lang, "plan_day_add_title")} onClick={(event) => event.stopPropagation()}>
         <div className="sheet-bar"><span className="sheet-handle" aria-hidden="true" /><button type="button" className="icon-button" onClick={closeSheet} aria-label={t(lang, "close")}><Icon name="close" /></button></div>
-        {sheet.kind === "exercise" ? exerciseSheet() : addDaySheet()}
+        {sheet.kind === "exercise" ? exerciseSheet() : sheet.kind === "pick" ? pickSheet() : addDaySheet()}
       </div>
     </div>, document.body)}
   </div>;

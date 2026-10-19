@@ -445,6 +445,7 @@ export interface PlanExercise {
   sets: string; // "4 × 8–10"
   startWeight: string; // "50 kg" / "Bodyweight"
   technique: string;
+  note?: string; // the plan author's comment for this exercise (a trainer's cue to the client), shown in the logger
   isKeyLift?: boolean; // tracked for strength progression
   metric?: ExerciseMetric; // how it's measured/progressed (default "reps"); set for planks/cardio
   muscles?: string; // primary muscles (AI-provided)
