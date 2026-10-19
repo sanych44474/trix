@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { api, jsonBody } from "./api";
 import { t, type Key, type Lang } from "./i18n";
+import { Icon, type IconName } from "./icons";
 
 type Category = "bug" | "idea" | "complaint" | "praise" | "rating" | "other";
 type Status = "new" | "done" | "wontfix";
@@ -11,7 +12,7 @@ type Row = { id: number; userId: number; username?: string; name?: string; text:
 type Payload = { rows: Row[]; counts: Record<Status, number> };
 
 const CATS: Category[] = ["bug", "idea", "complaint", "praise", "rating", "other"];
-const CAT_ICON: Record<Category, string> = { bug: "🐞", idea: "💡", complaint: "😕", praise: "💚", rating: "⭐", other: "💬" };
+const CAT_ICON: Record<Category, IconName> = { bug: "bug", idea: "bulb", complaint: "frown", praise: "heart", rating: "star", other: "chat" };
 
 export function OwnerFeedback({ lang }: { lang: Lang }) {
   const [filter, setFilter] = useState<Status | "all">("new");
@@ -40,14 +41,14 @@ export function OwnerFeedback({ lang }: { lang: Lang }) {
     </div>
     <div className="chip-row">
       <button type="button" className={cat === "all" ? "rest-chip selected" : "rest-chip"} onClick={() => setCat("all")}>{t(lang, "fbt_cat_all")}</button>
-      {CATS.map((c) => <button type="button" key={c} className={cat === c ? "rest-chip selected" : "rest-chip"} onClick={() => setCat(c)}>{CAT_ICON[c]} {t(lang, `fbt_cat_${c}` as Key)}</button>)}
+      {CATS.map((c) => <button type="button" key={c} className={cat === c ? "rest-chip selected" : "rest-chip"} onClick={() => setCat(c)}><Icon name={CAT_ICON[c]} size={16} /> {t(lang, `fbt_cat_${c}` as Key)}</button>)}
     </div>
     {filter === "new" && <label className="check-row"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> {t(lang, "fbt_notify")}</label>}
     {error && <div className="save-note error-note">{t(lang, "generic_error")}</div>}
     {!data ? <div className="skeleton" /> : rows.length === 0 ? <p className="muted">{t(lang, "fbt_empty")}</p> : rows.map((r) => <div className="fb-row" key={r.id}>
       <div className="fb-head">
         <select value={r.category} disabled={busy === r.id} onChange={(e) => void update(r, { category: e.target.value as Category })} aria-label={t(lang, "fbt_category")}>
-          {CATS.map((c) => <option key={c} value={c}>{CAT_ICON[c]} {t(lang, `fbt_cat_${c}` as Key)}</option>)}
+          {CATS.map((c) => <option key={c} value={c}>{t(lang, `fbt_cat_${c}` as Key)}</option>)}
         </select>
         <small>{r.name || (r.username ? `@${r.username}` : `id ${r.userId}`)} · {r.date}</small>
       </div>

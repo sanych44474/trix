@@ -4,6 +4,7 @@
 // quest sweep, anything earned in the chat).
 import { useEffect, useState } from "react";
 import { t, type Key, type Lang } from "./i18n";
+import { Icon } from "./icons";
 import type { Dashboard } from "./types";
 import { SEEN_BADGES_KEY, unseenBadges } from "./logic/badgesSeen";
 import { lastWeekSummary } from "./logic/weekSummary";
@@ -86,7 +87,7 @@ export function BadgeCelebration({ lang, badges }: { lang: Lang; badges: Array<{
   if (!show.length) return null;
   return <div className="badge-pop" role="dialog" aria-modal="true" aria-label={t(lang, show.length > 1 ? "badge_new_many" : "badge_new_one")} onClick={() => setShow([])}>
     <div className="badge-pop-card" onClick={(e) => e.stopPropagation()}>
-      <div className="badge-pop-medal" aria-hidden="true">🏅</div>
+      <div className="badge-pop-medal" aria-hidden="true"><Icon name="medal" size={64} /></div>
       <h2>{t(lang, show.length > 1 ? "badge_new_many" : "badge_new_one")}</h2>
       <ul>{show.map((b) => <li key={b.code}>{b.label}</li>)}</ul>
       <button className="button button-primary" onClick={() => setShow([])}>{t(lang, "badge_new_ok")}</button>

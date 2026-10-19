@@ -5,7 +5,8 @@ import type { JSX } from "react";
 
 export type IconName =
   | "today" | "train" | "plan" | "fuel" | "progress" | "more" | "role" | "settings" | "library" | "inbox" | "coach"
-  | "heart" | "drop" | "search" | "mic" | "camera" | "barcode" | "bell" | "gear" | "refresh" | "check" | "plus" | "minus" | "info" | "dots" | "timer" | "chevron" | "chat" | "close";
+  | "heart" | "drop" | "search" | "mic" | "camera" | "barcode" | "bell" | "gear" | "refresh" | "check" | "plus" | "minus" | "info" | "dots" | "timer" | "chevron" | "chat" | "close"
+  | "medal" | "trophy" | "pencil" | "bug" | "bulb" | "star" | "sparkle" | "steps" | "frown";
 
 const PATHS: Record<IconName, JSX.Element> = {
   today: <><path d="M4 10.5 12 4l8 6.5" /><path d="M6 9v10h12V9" /><path d="M10 19v-5h4v5" /></>,
@@ -37,6 +38,15 @@ const PATHS: Record<IconName, JSX.Element> = {
   timer: <><circle cx="12" cy="13" r="7.5" /><path d="M12 9v4.2l2.6 1.6M9.5 2.8h5" /></>,
   chevron: <path d="m9 6 6 6-6 6" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
+  medal: <><circle cx="12" cy="15" r="5" /><path d="M9 10.5 6.5 3.5h4L12 7M15 10.5l2.5-7h-4L12 7" /><path d="m12 13 .9 1.6 1.7.3-1.3 1.2.3 1.8-1.6-.9-1.6.9.3-1.8-1.3-1.2 1.7-.3Z" /></>,
+  trophy: <><path d="M8 4h8v5a4 4 0 0 1-8 0Z" /><path d="M8 6H4.5c0 3 1.5 4.5 3.7 4.8M16 6h3.5c0 3-1.5 4.5-3.7 4.8" /><path d="M12 13v3.5M8.5 20h7M9.5 20l.5-3.5h4l.5 3.5" /></>,
+  pencil: <><path d="M15.5 4.5 19.5 8.5 9 19H5v-4Z" /><path d="m13 7 4 4" /></>,
+  bug: <><rect x="7.5" y="8" width="9" height="11" rx="4.5" /><path d="M9.5 8a2.5 2.5 0 0 1 5 0M12 11v8M4 13h3.5M16.5 13H20M5 8.5l2.8 1.8M19 8.5l-2.8 1.8M5 18.5l2.8-1.8M19 18.5l-2.8-1.8" /></>,
+  bulb: <><path d="M9 17.5h6M10 20.5h4" /><path d="M8.5 14.5a6 6 0 1 1 7 0c-.6.5-1 1.2-1 2v1h-5v-1c0-.8-.4-1.5-1-2Z" /></>,
+  star: <path d="m12 4 2.4 5 5.4.7-4 3.7 1 5.4L12 16.2 7.2 18.8l1-5.4-4-3.7 5.4-.7Z" />,
+  sparkle: <><path d="M12 4c.6 3.8 2.2 5.4 6 6-3.8.6-5.4 2.2-6 6-.6-3.8-2.2-5.4-6-6 3.8-.6 5.4-2.2 6-6Z" /><path d="M18.5 15.5c.2 1.4.8 2 2.2 2.2-1.4.2-2 .8-2.2 2.2-.2-1.4-.8-2-2.2-2.2 1.4-.2 2-.8 2.2-2.2Z" /></>,
+  steps: <><path d="M7 15.5c-1.6-.3-2.6-2.3-2.3-5 .3-2.6 1.6-4.3 3.1-4.1 1.5.2 2.2 2.3 1.8 4.9-.3 2.5-1 4.4-2.6 4.2Z" /><path d="M6.5 18.5c.1 1.2 1 1.8 2 1.6 1-.2 1.3-1.1 1-2.2M16.5 11.5c1.6-.3 2.6-2.3 2.3-5-.3-2.6-1.6-4.3-3.1-4.1-1.5.2-2.2 2.3-1.8 4.9.3 2.5 1 4.4 2.6 4.2Z" /><path d="M17 14.5c-.1 1.2-1 1.8-2 1.6-1-.2-1.3-1.1-1-2.2" /></>,
+  frown: <><circle cx="12" cy="12" r="8.5" /><path d="M9 9.5v.1M15 9.5v.1M8.5 16c1.8-1.8 5.2-1.8 7 0" /></>,
 };
 
 export function Icon({ name, size = 24, className }: { name: IconName; size?: number; className?: string }) {

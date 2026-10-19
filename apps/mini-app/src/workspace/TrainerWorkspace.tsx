@@ -5,6 +5,7 @@ import { TrainerInviteCard } from "../TrainerInvite";
 import { FirstClientChecklist } from "../FirstClient";
 import type { Dashboard, FinancePayload, RequestBody, SchedulePayload, TrainerProfile } from "../types";
 import { t, type Key, type Lang } from "../i18n";
+import { Icon } from "../icons";
 import { showWhen, statusKey, toInstant } from "../logic/workspace";
 import { TrainerQuestions, TrainerRequests, TrainerTemplates, ClientSummary, TrainerProfilePayload, Panel, WorkspaceError, Metric , type WorkspaceProps } from "./shared";
 import { ClientCardView } from "./ClientCardView";
@@ -296,7 +297,7 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan, initialClientId 
       <div className="client-list">{clients.slice(0, 8).map((client) => <div className="client-row" key={client.id}>
         <div><strong>{client.name}</strong><small>{t(lang, "client_pcts", { w: client.workoutPct, n: client.nutritionPct })}</small></div>
         <div className="button-row">
-          {unread[client.id] ? <span className="status-badge status-attention" title={t(lang, "chat_unread_hint")}>💬 {unread[client.id]}</span> : null}
+          {unread[client.id] ? <span className="status-badge status-attention" title={t(lang, "chat_unread_hint")}><Icon name="chat" size={14} /> {unread[client.id]}</span> : null}
           <span className={client.atRisk || client.flagged ? "status-badge status-attention" : "status-badge"}>{client.flagged ? t(lang, "flagged_label") : client.atRisk ? t(lang, "at_risk_label") : t(lang, "on_track_label")}</span>
           <button className="button button-ghost" onClick={() => { setActiveClientId(client.id); setSubview("client"); }}>{t(lang, "open_client_btn")}</button>
         </div>
