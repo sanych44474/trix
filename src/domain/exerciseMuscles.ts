@@ -44,7 +44,51 @@ const RULES: Rule[] = [
   [/dead ?bug|мертв\p{L}* жук/iu, ["abs"], ["obliques"]],
   [/wall sit|стільчик|стульчик/iu, ["quadriceps"], ["gluteal"]],
   [/glute[- ]ham raise|\bghr\b/iu, ["hamstring"], ["gluteal", "calves"]],
-  [/pallof|палоф/iu, ["obliques"], ["abs"]],
+  [/pallof|пал+оф/iu, ["obliques"], ["abs"]],
+  // Strongman and sled work: named after the implement, not the movement.
+  [/atlas|\bkeg\b|sandbag|tire flip|камен\p{L}* атласа|бочк|мішка з піском|перекидання шини/iu, ["gluteal", "hamstring", "lower-back"], ["quadriceps", "upper-back", "biceps"]],
+  [/\blog lift|жим колоди|circus bell|цирков\p{L}* дзвін/iu, ["deltoids", "triceps"], ["quadriceps", "gluteal"]],
+  [/\byoke\b|коромисл|rickshaw|рикш|підйом вантажу по сходах/iu, ["trapezius", "quadriceps"], ["forearm", "abs", "gluteal"]],
+  // Sled pushes and drags only: a sled row, flye or extension is that movement (rules below).
+  [/sled (push|drag)|штовхання саней|протягування саней|ведмеж\p{L}* хода з санями|bear crawl sled/iu, ["quadriceps", "gluteal"], ["calves", "hamstring"]],
+  [/battling ropes|бойові канати/iu, ["deltoids"], ["abs", "forearm"]],
+  [/sledgehammer|кувалд/iu, ["obliques"], ["deltoids", "abs"]],
+  // Jumps, hops, bounds and agility drills.
+  [/^(?!.*(медбол|medicine|віджим|push-?up)).*(\bjumps?\b|\bhops?\b|\bbounds?\b|\bleap\b|\bskip(ping)?\b|carioca|\bskating\b|box shuffle|стрибк|стрибок|скіпінг|перескок|каріока|ковзанярськ|техніка старту|розгін з упором|start technique|acceleration)/iu, ["quadriceps", "gluteal"], ["calves", "hamstring"]],
+  // A chest pass is a chest exercise (the region fallback catches it); other throws are trunk work.
+  [/^(?!.*(від грудей|chest pass)).*(medicine ball|медбол|heavy bag|важкого мішка)/iu, ["abs", "deltoids"], ["chest", "obliques"]],
+  // Core moves without a crunch/plank word in the name.
+  [/ab roll|rollout|fallout|викочуван|розкочуван|ab roller/iu, ["abs"], ["upper-back", "deltoids"]],
+  [/windmill|млин|wood ?chop|дроворуб|cable lift|діагональн\p{L}* підйом|wipers|двірник|landmine 180|повороти з|around the worlds?|навколо світу|car drivers|кермо|spell caster|чарівник|heel touch|торкання п'ят|side jackknife|бічна складка|side bridge|бічні нахили|бічний нахил|figure 8|вісімка|pirate ships|піратськ/iu, ["obliques"], ["abs", "deltoids"]],
+  [/jackknife|складка|велосипед лежачи|flutter kick|ножиці лежачи|cocoon|butt-ups?|body-up|hanging pike|elbow to knee|bottoms up|(bent-)?knee hip raise|підйом\p{L}* тулуба|otis|«жабка»|за яндою/iu, ["abs"], ["obliques"]],
+  [/bear crawl|ведмеж\p{L}* хода|spider crawl|повзання/iu, ["abs", "deltoids"], ["quadriceps", "chest"]],
+  // Rotator cuff and rear shoulder.
+  [/external rotation|internal rotation|ротаці|band pull apart|розведення з гумою|розтягування гуми/iu, ["deltoids"], ["upper-back", "trapezius"]],
+  // Bodyweight pulling.
+  [/^(?!.*(crunch|скручув|press|жим)).*(muscle up|вихід силою|rope climb|лазіння по канату|london bridges|лондонськ|\bchins?\b|sternum chin)/iu, ["upper-back", "biceps"], ["forearm", "abs"]],
+  // Single-leg squats and hip work.
+  [/pistol|пістолет/iu, ["quadriceps", "gluteal"], ["hamstring", "calves"]],
+  [/monster walk|хода монстра/iu, ["gluteal"], ["adductors"]],
+  [/hip (lift|bridge|extension)|butt lift|smith machine hip raise|hip raise with|physioball hip/iu, ["gluteal"], ["hamstring"]],
+  [/сіднично-підколінн|hamstring slides|prone manual hamstring/iu, ["hamstring"], ["gluteal"]],
+  [/hip flexion/iu, ["quadriceps"], ["abs"]],
+  [/pull through|протяжк\p{L}*\s.*між ніг|протяжка з блока між ніг|протяжка з гумою між ніг/iu, ["gluteal", "hamstring"], ["lower-back"]],
+  // Named presses and raises that carry no "bench/overhead/lateral" word.
+  [/^(?!.*(француз|трицепс|скручув|розгинан|вузьк|над голов|задні|ноги|ногою)).*(board press|pin press|chain press|жим з ланцюгами|жим з упорів|svend|свенда|гільйотин|\bneck press|drop push|return push|негативним нахилом|cross ?over|кросовер|зведення з нижніх|розведення з блоків|розведення з власною вагою|cable iron cross)/iu, ["chest"], ["triceps", "deltoids"]],
+  [/tate press|тейта|\bjm[- ]?(press|жим)|body tricep|tricep extension|розгинання двох гантелей|розгинання з нижнього|chain handle extension/iu, ["triceps"], []],
+  [/^(?!.*(підлоз|floor)).*(push press|bradford|бредфорд|cuban|кубинськ|anti-gravity press|bent press|see-?saw|гойдалк|kettlebell (seated |seesaw )?press|alternating kettlebell press|жим гир|(standing |seated )(alternating )?(palms-in )?dumbbell press|behind (the )?neck|до шиї|landmine linear|лінійний жим|кутової штанги|пара-жим|rack delivery|санями над головою)/iu, ["deltoids"], ["triceps", "trapezius"]],
+  [/^(?!.*(перед собою|front|кросовер)).*(scaption|площині лопатки|deltoid raise|iron cross|залізний хрест|crucifix|розп'яття|dumbbell raise|підйом гантелей|straight raises|side lateral|відведення гантелі)/iu, ["deltoids"], ["trapezius"]],
+  [/зоттман|zottman|(?<!\p{L})згинання\s+(ez|з\s+блок|з\s+диск|з\s+верхн|«павук»)/iu, ["biceps"], ["forearm"]],
+  [/rack pulls?|power partials/iu, ["gluteal", "hamstring", "lower-back"], ["trapezius", "upper-back", "forearm"]],
+  [/sumo high pull|протяжка гирі в стійці сумо/iu, ["trapezius", "deltoids"], ["gluteal", "hamstring"]],
+  [/bicycling|орбітрек|step ?mill|степ-тренажер|сходовий тренажер/iu, ["quadriceps", "gluteal"], ["calves", "hamstring"]],
+  [/rope jumping/iu, ["calves"], ["quadriceps", "deltoids"]],
+  [/conans? wheel|колесо конана|moving claw|(backward|forward) drag/iu, ["quadriceps", "gluteal"], ["upper-back", "forearm"]],
+  [/judo flip|«дзюдо»/iu, ["obliques"], ["abs", "upper-back"]],
+  [/balance board|балансувальн|баланс на фітболі|downward facing balance/iu, ["abs"], ["calves"]],
+  [/підсід/iu, ["quadriceps", "gluteal"], ["deltoids", "trapezius"]],
+  // Forearm and grip.
+  [/pronation|supination|пронац|супінац|pinch|щипком|hand squeeze|пальц|намотування|wrist roller/iu, ["forearm"], []],
 
   // ---- legs / hips ----
   [/kettlebell swing|dumbbell swing|\bswing\b|махи гир|махи гантел(ею|лю|ями)(?!.*(сторон|бок|нахил))/iu, ["gluteal", "hamstring"], ["lower-back", "deltoids"]],
@@ -67,7 +111,7 @@ const RULES: Rule[] = [
 
   // ---- back / lower back ----
   [/hyperext|back extension|гіперекст|гиперэкст|розгинання спини|разгибание спины/iu, ["lower-back"], ["gluteal", "hamstring"]],
-  [/^(?!.*(згинан|розгинан|(підтяг|подтяг)\p{L}* колін|knee (raise|tuck|to))).*(pull-?up|chin-?up|pull-?down|\blats?\b|підтяг|подтяг|верхнього блок|верхнего блок|вертикальн\p{L}* тяг)/iu, ["upper-back"], ["biceps", "forearm", "deltoids"]],
+  [/^(?!.*(згинан|розгинан|(підтяг|подтяг)\p{L}* колін|knee (raise|tuck|to))).*(pull[- ]?ups?|chin-?up|pull-?down|\blats?\b|підтяг|подтяг|верхнього блок|верхнего блок|вертикальн\p{L}* тяг)/iu, ["upper-back"], ["biceps", "forearm", "deltoids"]],
   [/pull-?over|пуловер/iu, ["upper-back", "chest"], ["triceps"]],
   [/^(?!.*(негативн|на лаві)).*(face ?pull|rear delt|reverse fly|bent[- ]?over .*(fly|raise)|(розвед|махи)\p{L}* .*нахил|нахил\p{L}* .*(розвед|махи)|до обличчя|к лицу|зворотн\p{L}* розвед|обратн\p{L}* развед|задн\p{L}* дельт|(розведення|зведення|разведение|сведение) рук назад)/iu, ["deltoids", "upper-back"], ["trapezius"]],
   [/^(?!.*француз).*(upright row|до підборіддя|к подбородку)/iu, ["deltoids", "trapezius"], ["biceps"]],

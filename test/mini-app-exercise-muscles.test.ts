@@ -116,3 +116,29 @@ test("rule order and word boundaries: names that used to map to the wrong muscle
 test("region fallback needs whole words: a warm-up line is not an arm exercise", () => {
   assert.equal(musclesForExercise("5 min warm-up"), null);
 });
+
+test("library names the rules used to leave unmapped: strongman, jumps, core variants, named presses", () => {
+  const cases: [string, string][] = [
+    ["Atlas Stones", "gluteal"],
+    ["Box Jump", "quadriceps"],
+    ["Kettlebell Windmill", "obliques"],
+    ["Жим Паллофа", "obliques"],
+    ["Svend Press", "chest"],
+    ["Tate Press", "triceps"],
+    ["Push Press", "deltoids"],
+    ["Zottman Curl", "biceps"],
+    ["Rack Pulls", "gluteal"],
+    ["Weighted Pull Ups", "upper-back"],
+    ["Medicine Ball Chest Pass", "chest"],
+    ["Sled Row", "upper-back"],
+    ["Pistol Squat", "quadriceps"],
+    ["Велосипед лежачи", "abs"],
+    ["Залізний хрест у кросовері", "chest"],
+  ];
+  for (const [name, slug] of cases) assert.ok(primary(name)?.includes(slug as never), `${name} → ${primary(name)?.join("+")}, expected ${slug}`);
+  // Near misses: the new named rules must not grab these.
+  assert.ok(primary("Французький жим EZ-грифа на лаві з негативним нахилом")?.includes("triceps"));
+  assert.ok(primary("Скручування на лаві з негативним нахилом")?.includes("abs"));
+  assert.ok(primary("Розгинання з блока з-за голови на колінах")?.includes("triceps"));
+  assert.ok(primary("Жим гирі на підлозі однією рукою")?.includes("chest"));
+});

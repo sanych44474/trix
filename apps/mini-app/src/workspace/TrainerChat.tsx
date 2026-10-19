@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, typedBody } from "../api";
 import { t, type Lang } from "../i18n";
+import { Icon } from "../icons";
 import type { ChatThread } from "../types";
 import { track } from "../logic/track";
 import { VoiceButton } from "../media/VoiceButton";
@@ -73,6 +74,6 @@ export function TrainerChat({ lang, peerId, canDraft, prefill }: { lang: Lang; p
       <VoiceButton lang={lang} disabled={busy !== null} onText={(spoken) => setText((cur) => (cur.trim() ? `${cur.trim()} ${spoken}` : spoken).slice(0, 2000))} />
       <button className="button button-primary" type="submit" disabled={!text.trim() || busy !== null}>{busy === "send" ? "…" : t(lang, "chat_send_btn")}</button>
     </form>
-    {canDraft && thread.messages.some((m) => !m.fromMe) && <button type="button" className="text-button" disabled={busy !== null} onClick={() => void draft()}>{busy === "draft" ? "…" : `✨ ${t(lang, "chat_ai_draft_btn")}`}</button>}
+    {canDraft && thread.messages.some((m) => !m.fromMe) && <button type="button" className="text-button" disabled={busy !== null} onClick={() => void draft()}>{busy === "draft" ? "…" : <><Icon name="sparkle" size={16} /> {t(lang, "chat_ai_draft_btn")}</>}</button>}
   </div>;
 }

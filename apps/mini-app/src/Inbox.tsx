@@ -2,7 +2,7 @@
 // trainer, a trainer's message, a new badge, the weekly progression (server: adapters/d1/v2Inbox.ts).
 // A bell in the top bar shows the unread count; opening the feed marks everything read.
 import { useEffect, useState } from "react";
-import { Icon } from "./icons";
+import { Icon, type IconName } from "./icons";
 import { api } from "./api";
 import { t, type Lang } from "./i18n";
 
@@ -10,7 +10,7 @@ export type InboxKind = "plan_assigned" | "plan_changed" | "message" | "badge" |
 export interface InboxItem { id: number; kind: InboxKind; params: Record<string, unknown>; createdAt: string; read: boolean }
 type Target = "plan" | "progress" | "role" | "today" | "more";
 
-const ICON: Record<InboxKind, string> = { plan_assigned: "📋", plan_changed: "✏️", message: "💬", badge: "🏅", progression: "📈", feedback_done: "✅", squad_pr: "🏆", squad_week: "👥" };
+const ICON: Record<InboxKind, IconName> = { plan_assigned: "plan", plan_changed: "pencil", message: "chat", badge: "medal", progression: "progress", feedback_done: "check", squad_pr: "trophy", squad_week: "role" };
 const TARGET: Record<InboxKind, Target> = { plan_assigned: "plan", plan_changed: "plan", message: "role", badge: "progress", progression: "plan", feedback_done: "today", squad_pr: "more", squad_week: "more" };
 
 function when(lang: Lang, iso: string): string {
@@ -68,7 +68,7 @@ export function InboxView({ lang, onBack, onGo }: { lang: Lang; onBack: () => vo
         <div className="inbox-list">
           {items.map((item, i) => (
             <button key={item.id} className={item.read ? "inbox-item" : "inbox-item unread"} style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }} onClick={() => onGo(TARGET[item.kind])}>
-              <span className="inbox-icon" aria-hidden="true">{ICON[item.kind]}</span>
+              <span className="inbox-icon" aria-hidden="true"><Icon name={ICON[item.kind]} size={20} /></span>
               <span className="inbox-text">{inboxText(lang, item)}</span>
               <small className="inbox-when">{when(lang, item.createdAt)}</small>
             </button>

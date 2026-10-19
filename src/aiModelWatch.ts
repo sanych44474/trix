@@ -12,6 +12,7 @@ import { geminiFallbackModels } from "./ai/gemini";
 import { GROQ_DEFAULT_MODEL } from "./ai/groq";
 import { OPENROUTER_DEFAULT_TRANSLATE_MODEL, OPENROUTER_DEFAULT_VISION_MODEL, openrouterTextModels } from "./ai/openrouter";
 import { ollamaModels } from "./ai/ollama";
+import { splitKeys } from "./ai/errors";
 
 export type Provider = "gemini" | "groq" | "openrouter" | "ollama";
 const WEEK_MS = 7 * 86_400_000;
@@ -41,43 +42,62 @@ async function ids(url: string, headers: Record<string, string>, pick: (body: un
 }
 const dataIds = (b: unknown) => ((b as { data?: Array<{ id?: string }> }).data ?? []).map((m) => m.id ?? "").filter(Boolean);
 
-export async function fetchCatalog(env: Env, provider: Provider): Promise<string[]> {
+function catalogRequest(provider: Provider, key: string): Promise<string[]> {
   switch (provider) {
     case "gemini":
-      return ids("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000", { "X-goog-api-key": env.GEMINI_API_KEY },
+      return ids("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000", { "X-goog-api-key": key },
         (b) => ((b as { models?: Array<{ name?: string }> }).models ?? []).map((m) => m.name ?? "").filter(Boolean));
     case "groq":
-      return ids("https://api.groq.com/openai/v1/models", { Authorization: `Bearer ${env.GROQ_API_KEY}` }, dataIds);
+      return ids("https://api.groq.com/openai/v1/models", { Authorization: `Bearer ${key}` }, dataIds);
     case "openrouter":
       return ids("https://openrouter.ai/api/v1/models", {}, dataIds);
     case "ollama":
-      return ids("https://ollama.com/v1/models", { Authorization: `Bearer ${env.OLLAMA_API_KEY}` }, dataIds);
+      return ids("https://ollama.com/v1/models", { Authorization: `Bearer ${key}` }, dataIds);
   }
 }
 
+const KEY_VAR: Record<Provider, keyof Env> = { gemini: "GEMINI_API_KEY", groq: "GROQ_API_KEY", openrouter: "OPENROUTER_API_KEY", ollama: "OLLAMA_API_KEY" };
+
+/** The provider's model list. A key var may hold several comma-separated keys (rotation, see
+ * splitKeys); sending the raw list as one key is rejected, so each key is tried in turn. */
+export async function fetchCatalog(env: Env, provider: Provider): Promise<string[]> {
+  const keys = provider === "openrouter" ? [""] : splitKeys(env[KEY_VAR[provider]] as string | undefined);
+  let last: unknown = new Error("no key");
+  for (const key of keys) {
+    try {
+      return await catalogRequest(provider, key);
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}
+
 /** Run the check now; returns the missing ids per provider (an unreachable catalog is skipped). */
-export async function checkModels(env: Env): Promise<{ missing: Partial<Record<Provider, string[]>>; unreachable: Provider[] }> {
+export async function checkModels(env: Env): Promise<{ missing: Partial<Record<Provider, string[]>>; unreachable: Provider[]; reasons: Partial<Record<Provider, string>> }> {
   const missing: Partial<Record<Provider, string[]>> = {};
   const unreachable: Provider[] = [];
+  const reasons: Partial<Record<Provider, string>> = {};
   for (const [provider, models] of Object.entries(configuredModels(env)) as Array<[Provider, string[]]>) {
     try {
       const gone = missingModels(models, await fetchCatalog(env, provider));
       if (gone.length) missing[provider] = gone;
-    } catch {
+    } catch (e) {
       unreachable.push(provider);
+      reasons[provider] = e instanceof Error ? e.message.slice(0, 60) : "error";
     }
   }
-  return { missing, unreachable };
+  return { missing, unreachable, reasons };
 }
 
-export function modelAlertText(r: { missing: Partial<Record<Provider, string[]>>; unreachable: Provider[] }): string | null {
+export function modelAlertText(r: { missing: Partial<Record<Provider, string[]>>; unreachable: Provider[]; reasons?: Partial<Record<Provider, string>> }): string | null {
   const rows = Object.entries(r.missing).map(([p, ids]) => `• <b>${p}</b>: ${ids!.map((id) => `<code>${id}</code>`).join(", ")}`);
   // An unreachable catalog is reported on its own: a provider whose list cannot be read is a provider
   // whose retired ids go unnoticed, which is exactly what this check exists to prevent.
   if (!rows.length && !r.unreachable.length) return null;
   return [
     ...(rows.length ? ["🤖 <b>AI models gone</b> — configured ids no longer listed by the provider:", ...rows] : []),
-    ...(r.unreachable.length ? [`${rows.length ? "(" : "⚠️ <b>AI model check incomplete</b> — "}catalog unreachable: ${r.unreachable.join(", ")}${rows.length ? ")" : ""}`] : []),
+    ...(r.unreachable.length ? [`${rows.length ? "(" : "⚠️ <b>AI model check incomplete</b> — "}catalog unreachable: ${r.unreachable.map((p) => (r.reasons?.[p] ? `${p} (${r.reasons[p]})` : p)).join(", ")}${rows.length ? ")" : ""}`] : []),
     "Update wrangler.toml [vars]; <code>npm run check:ai-models -- --catalog</code> lists what's available.",
   ].join("\n");
 }

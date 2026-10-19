@@ -3,6 +3,7 @@
 // unfinished onboarding, block/unblock, delete (two taps). Data: GET /api/v2/owner/users.
 import { useMemo, useState } from "react";
 import { t, type Key, type Lang } from "./i18n";
+import { Icon } from "./icons";
 import type { OwnerUsers } from "./types";
 import { bySeenDesc, seenLabel } from "./logic/seen";
 
@@ -44,10 +45,10 @@ export function OwnerRoster({ lang, rows, busy, nudged, onAction }: {
             <tr key={r.id} className={isOpen ? "open" : ""} onClick={() => { setOpen(isOpen ? null : r.id); setConfirmDelete(null); }}>
               <td><strong>{r.name}</strong><small>{t(lang, `roster_st_${r.status}` as Key)}{r.onb ? ` ${r.onb}` : ""}{r.trainer ? ` · ${r.trainer}` : ""}</small></td>
               <td>{seen(r)}</td>
-              <td className="num" title={`🏋️ ${r.w} · ✅ ${r.c} · 🍽 ${r.n} · 👟 ${r.s}`}>{r.total}</td>
+              <td className="num">{r.total}</td>
             </tr>,
             isOpen && <tr key={`${r.id}-a`} className="roster-actions"><td colSpan={3}>
-              <small className="muted">{r.nick ? `${r.nick} · ` : ""}🏋️ {r.w} · ✅ {r.c} · 🍽 {r.n} · 👟 {r.s}</small>
+              <small className="muted">{r.nick ? `${r.nick} · ` : ""}<span className="roster-stats"><Icon name="train" size={14} /> {r.w} <Icon name="check" size={14} /> {r.c} <Icon name="fuel" size={14} /> {r.n} <Icon name="steps" size={14} /> {r.s}</span></small>
               <div className="button-row">
                 {r.status === "onboarding" && <button className="button button-primary" disabled={busy === `nudge:${r.id}` || nudged.has(r.id)} onClick={() => onAction(r.id, "nudge")}>{nudged.has(r.id) ? t(lang, "roster_nudged") : busy === `nudge:${r.id}` ? "…" : t(lang, "roster_nudge_btn")}</button>}
                 <button className="button button-ghost" disabled={busy === `${blocked ? "unblock" : "block"}:${r.id}`} onClick={() => onAction(r.id, blocked ? "unblock" : "block")}>{t(lang, blocked ? "owner_unblock_btn" : "owner_block_btn")}</button>
