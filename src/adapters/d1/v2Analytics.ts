@@ -169,6 +169,11 @@ const BUMP_EVENT_SQL = `INSERT INTO v2_analytics_events (accountId, event, date,
  * activity log per day, unlike lastSeenAt which only remembers the latest visit. */
 export const SESSION_EVENT = "session";
 
+/** Onboarding funnel steps, counted by both surfaces (bot wizard and Mini App form). Per-day counters
+ * like any event: distinct accounts with the event = people who reached the step. */
+export const FUNNEL_STARTED = "funnel_onboarding_started";
+export const FUNNEL_FINISHED = "funnel_onboarding_finished";
+
 /** `lastSeenAt = whenIso`, plus the day's session mark when this interaction opens a session, in one
  * round trip. */
 export async function markSeen(db: DB, userId: number, whenIso: string, sessionDay: string | null): Promise<void> {

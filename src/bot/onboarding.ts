@@ -8,7 +8,7 @@ import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import { parseHeightWeight } from "../domain/workoutText";
 import { listIncompleteOnboarding, updateUser } from "../adapters/d1/v2Users";
-import { bumpEvent } from "../adapters/d1/v2Analytics";
+import { FUNNEL_FINISHED, FUNNEL_STARTED, bumpEvent } from "../adapters/d1/v2Analytics";
 import { localParts } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
 import { reply, type MyContext } from "../adapters/telegram/context";
@@ -65,8 +65,19 @@ export async function pingIncompleteOnboarding(env: Env, db: D1Database): Promis
   return { pinged, total: users.length };
 }
 
+// Funnel steps are plain per-day counters in v2_analytics_events (distinct accounts = users reached).
+const funnel = (ctx: MyContext, event: string) =>
+  bumpEvent(ctx.db, ctx.user._id, event, localParts(ctx.user.profile.timezone).date).catch(() => {});
+
 // Save a value to the profile, advance the wizard, render the next step (or finish).
 async function obApplyAndAdvance(ctx: MyContext, step: ObStep, raw: string | number) {
+  // The first answer is the funnel's "started". Typed and tapped answers both land here; the first
+  // step is a button, so counting only typed text (as before) almost never fired. Going back to
+  // step 0 and answering again counts again -- the funnel reads distinct accounts, so that's harmless.
+  if ((ctx.user.session.step ?? 0) === 0) {
+    logInfo("onboarding_started", { role: ctx.user.role });
+    ctx.waitUntil(funnel(ctx, FUNNEL_STARTED));
+  }
   const profile = { ...ctx.user.profile };
   if (step.field === "daysPerWeek") profile.daysPerWeek = Number(raw);
   else if (step.field === "age") profile.age = Number(raw);
@@ -156,13 +167,6 @@ export async function onboardingStep(ctx: MyContext, userText?: string) {
     return;
   }
   const text = userText.trim();
-  // First step actually answered (not just resumed/re-rendered above). A mistyped retry on this
-  // same step fires it again -- accepted for a funnel counter: a slightly inflated "started" is
-  // far less harmful than silently under-counting it.
-  if (i === 0) {
-    logInfo("onboarding_started", { role: ctx.user.role });
-    ctx.waitUntil(funnel(ctx, "funnel_onboarding_started"));
-  }
   if (step.input === "number") {
     const n = parseInt(text.replace(/[^\d]/g, ""), 10);
     if (!Number.isFinite(n) || n <= 0 || n > 120) {
@@ -194,13 +198,9 @@ export async function onboardingStep(ctx: MyContext, userText?: string) {
   await renderObStep(ctx, i);
 }
 
-// Funnel steps are plain per-day counters in v2_analytics_events (distinct accounts = users reached).
-const funnel = (ctx: MyContext, event: string) =>
-  bumpEvent(ctx.db, ctx.user._id, event, localParts(ctx.user.profile.timezone).date).catch(() => {});
-
 async function finishOnboarding(ctx: MyContext) {
   const profile = ctx.user.profile;
-  ctx.waitUntil(funnel(ctx, "funnel_onboarding_finished"));
+  ctx.waitUntil(funnel(ctx, FUNNEL_FINISHED));
   // Park in plan_pending (not idle) before the slow AI call so a Worker timeout
   // leaves the user recoverable by the scheduler instead of stuck in idle/non-onboarded.
   ctx.user.session = { ...ctx.user.session, mode: "plan_pending", step: undefined };
