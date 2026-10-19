@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildSaveEntries, chooseStart, isDraftSaved, parseDraft, sessionElapsedSec, swapExercise,
+  buildSaveEntries, chooseStart, prefillFromLast, isDraftSaved, parseDraft, sessionElapsedSec, swapExercise,
   type LoggerDraft, type LoggerExercise,
 } from "../apps/mini-app/src/logic/logger";
 import { EMPTY_QUALITY } from "../apps/mini-app/src/logic/rest";
@@ -177,4 +177,14 @@ test("chooseStart: logged sets, a swap or an added exercise keep the draft", () 
   assert.equal(chooseStart(today(), draft(swapped)).source, "local");
   const added = [...plan(), { index: 3, name: "Face Pull", metric: "reps" as const, sets: 3, reps: 15, restSec: 60 }];
   assert.equal(chooseStart(today(), draft(added)).source, "local");
+});
+
+test("prefillFromLast: last session's numbers become suggestions, nothing is marked done", () => {
+  const ex: LoggerExercise = { ...done(plan()[0]!), sets: 3, last: [{ w: 15, r: 60 }, { w: 15, r: 40 }, { w: 15, r: 30 }, { w: 17.5, r: 13 }, { w: 17.5, r: 13 }] as never };
+  const next = prefillFromLast(ex);
+  assert.deepEqual(next.setsDone, ex.setsDone, "the set already logged stays exactly as it was");
+  assert.equal(next.prefill?.length, 5);
+  assert.deepEqual(next.prefill?.[3], { weight: 17.5, reps: 13 });
+  assert.equal(next.sets, 5, "the rows grow to the last session's count");
+  assert.deepEqual(buildSaveEntries([{ ...plan()[1]!, ...prefillFromLast({ ...plan()[1]!, last: [{ w: 10, r: 10 }] as never }) }]), [], "a prefilled but unchecked exercise saves nothing");
 });

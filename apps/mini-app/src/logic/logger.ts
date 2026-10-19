@@ -9,7 +9,9 @@ import { metricFromName } from "../../../../src/domain/metricNames";
 
 /** One exercise in the logger. `planName` is set when the user swapped it in for a plan
  *  exercise; it is saved with the log so re-opening the day puts it back in the right slot. */
-export type LoggerExercise = WorkoutToday["exercises"][number] & { planName?: string };
+/** `prefill`: numbers put into the rows by "Repeat last" -- suggestions shown in the rows, not done
+ *  sets; a set is only logged by its check (or Enter), like any other suggestion. */
+export type LoggerExercise = WorkoutToday["exercises"][number] & { planName?: string; prefill?: LoggerSet[] };
 export type LoggerSet = NonNullable<LoggerExercise["setsDone"]>[number];
 export type LoggerWorkout = Omit<WorkoutToday, "exercises"> & { exercises: LoggerExercise[] };
 
@@ -82,6 +84,14 @@ export function plannedSetsFor(exercise: LoggerExercise): LoggerSet[] {
   return Array.from({ length: exercise.sets || 1 }, () => exercise.metric === "reps" ? { weight: exercise.weightKg ?? 0, reps: exercise.reps ?? 0 } : exercise.metric === "time" ? { weight: 0, reps: 0, seconds: exercise.reps ?? 0 } : { weight: 0, reps: 0, meters: exercise.reps ?? 0 });
 }
 
+/** The last session's sets as suggestions for this one: nothing is marked done, sets already done
+ *  stay as they are, and the rows grow to the last session's count. */
+export function prefillFromLast(exercise: LoggerExercise): LoggerExercise {
+  if (!exercise.last?.length) return exercise;
+  const prefill = exercise.last.map((set) => ({ weight: set.w, reps: set.r, ...(set.sec ? { seconds: set.sec } : {}), ...(set.m ? { meters: set.m } : {}) }));
+  return { ...exercise, prefill, sets: Math.max(exercise.sets || 1, prefill.length) };
+}
+
 export function copyToLoggerExercises(items: WorkoutCopyExercise[]): LoggerExercise[] {
   return items.map((item, index) => ({
     index, name: item.name, metric: item.metric, sets: item.sets.length || 1,
@@ -100,7 +110,7 @@ export function swapExercise(exercises: LoggerExercise[], index: number, name: s
     // (the info panel looks the new one up by name instead).
     // So do its comment, progression target, last session and weight (82.5 kg from a bench press must not
     // pre-fill push-ups), and what it is measured in (a plank is time, not reps).
-    const { planName: _drop, technique: _t, note: _n, videoUrl: _v, videoTitle: _vt, canonicalName: _c, target: _tg, last: _l, planWeight: _pw, weightKg: _w, ...rest } = exercise;
+    const { planName: _drop, technique: _t, note: _n, videoUrl: _v, videoTitle: _vt, canonicalName: _c, target: _tg, last: _l, planWeight: _pw, weightKg: _w, prefill: _pf, ...rest } = exercise;
     return { ...rest, name, metric: metricFromName(name), setsDone: [], ...(planName !== name ? { planName } : {}), ...(extra.videoUrl ? { videoUrl: extra.videoUrl, videoTitle: extra.videoTitle } : {}) };
   });
 }
