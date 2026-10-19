@@ -1033,3 +1033,5 @@ button { cursor: pointer; }
 .focus-note .icon { flex: none; color: var(--accent-ink); }
 .rest-chip .icon, .status-badge .icon, .text-button .icon, .roster-stats .icon { vertical-align: -3px; }
 .roster-stats .icon:not(:first-child) { margin-left: 6px; }
+.check-row-master { font-weight: 700; }
+.check-row.muted { opacity: .5; }

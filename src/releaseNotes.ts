@@ -35,6 +35,10 @@ export const RELEASE_NOTES: ReleaseNote[] = [
 
 ✅ *More accurate* — muscles are matched correctly for hundreds more exercises, cardio no longer counts as dozens of sets, and a swapped exercise doesn't inherit the old weight.
 
+📉 *Honest plateau alerts* — only when nothing moved for weeks (weight, reps, sets or volume), with your numbers and one concrete next step.
+
+🔕 *One switch for notifications* — Settings → What nudges you → All Telegram notifications.
+
 Tap *📱 Open trix* below.`,
     uk: `🎉 *Що нового в trix*
 
@@ -55,6 +59,10 @@ Tap *📱 Open trix* below.`,
 🔴 *Червона тема* — Налаштування → Екран → Колір. Працює у світлій і темній.
 
 ✅ *Точніше* — м'язи правильно визначаються ще для сотень вправ, кардіо більше не рахується як десятки підходів, а замінена вправа не успадковує стару вагу.
+
+📉 *Чесні сповіщення про плато* — лише коли за кілька тижнів не зросло нічого (вага, повторення, підходи чи обʼєм), з твоїми цифрами й конкретним наступним кроком.
+
+🔕 *Один перемикач сповіщень* — Налаштування → Які нагадування отримувати → Усі сповіщення в Telegram.
 
 Тисни *📱 Відкрити trix* нижче.`,
   },

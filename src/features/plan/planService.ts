@@ -2,6 +2,7 @@
 // activating the plan once onboarding is done (questionnaire, ready program, recovery sweep), and
 // the "rebuild my plan" the Mini App starts. Shared by the bot, the Mini App API and the cron, so
 // it lives here rather than in bot/ (docs/adr/0010-layering.md). Moved from bot/plan.ts unchanged.
+import { pingOther } from "../../notify";
 import { sendBestEffort } from "../../adapters/telegram/rawApi";
 import { appLink, appMarkup } from "../../notify/appKeyboard";
 import type { Env, Lang, PlanDoc, UserDoc } from "../../types";
@@ -156,7 +157,7 @@ export async function finalizeOnboardingPlan(
             { text: t(trainer.lang, "cc_assign"), callback_data: `cl:${user._id}:assign` },
           ]],
         };
-        await sendBestEffort(env, trainer.chatId, t(trainer.lang, "trainer_client_draft_ready", { name: who }), reply_markup);
+        await pingOther(env, trainer.chatId, t(trainer.lang, "trainer_client_draft_ready", { name: who }), reply_markup);
       }
     } else {
       await setActivePlan(db, plan);

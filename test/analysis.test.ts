@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { weeklyVolume, projectWeight, stalledLifts, VOLUME_LANDMARKS } from "../src/domain/analysis";
-import type { StrengthRecordDoc, WorkoutLogDoc } from "../src/types";
+import { weeklyVolume, projectWeight, VOLUME_LANDMARKS } from "../src/domain/analysis";
+import type { WorkoutLogDoc } from "../src/types";
 
 const wlog = (date: string, completed: boolean, exercises: { name: string; sets: number; skipped?: boolean }[]): WorkoutLogDoc => ({
   userId: 1,
@@ -82,61 +82,6 @@ test("projectWeight: reached when already at goal", () => {
 test("projectWeight: null with insufficient data", () => {
   assert.equal(projectWeight([{ date: "2026-06-01", weight: 80 }], 75), null);
   assert.equal(projectWeight([], 75), null);
-});
-
-const srec = (exercise: string, history: { date: string; weight: number; reps: number }[], metric: "reps" | "time" = "reps"): StrengthRecordDoc => ({
-  userId: 1,
-  exercise,
-  bestWeight: Math.max(0, ...history.map((h) => h.weight)),
-  bestReps: history[0]?.reps ?? 0,
-  bestSeconds: 0,
-  bestMeters: 0,
-  metric,
-  history,
-  updatedAt: new Date(0),
-});
-
-test("stalledLifts: flags a lift with no recent e1RM improvement", () => {
-  const stalled = srec("Bench Press", [
-    { date: "2026-06-04", weight: 100, reps: 5 }, // prior window (24d ago)
-    { date: "2026-06-10", weight: 100, reps: 5 }, // prior window (18d ago)
-    { date: "2026-06-22", weight: 100, reps: 5 }, // recent (6d ago) — no gain
-    { date: "2026-06-26", weight: 100, reps: 5 }, // recent (2d ago) — no gain
-  ]);
-  assert.deepEqual(stalledLifts([stalled], "2026-06-28"), ["Bench Press"]);
-});
-
-test("stalledLifts: adding weight with a rep reset is progress, not a plateau", () => {
-  // Classic double progression: 100×10 (e1RM ~133) → 105×6/7 (heavier top set, lower e1RM).
-  // The estimated 1RM dips after the rep reset, but the working weight went UP — must NOT flag.
-  const bumped = srec("Bench Press", [
-    { date: "2026-06-02", weight: 100, reps: 10 }, // prior (26d)
-    { date: "2026-06-05", weight: 100, reps: 10 }, // prior (23d)
-    { date: "2026-06-20", weight: 105, reps: 6 }, // recent (8d) — heavier
-    { date: "2026-06-26", weight: 105, reps: 7 }, // recent (2d) — heavier
-  ]);
-  assert.deepEqual(stalledLifts([bumped], "2026-06-28"), []);
-});
-
-test("stalledLifts: a lift that's still progressing is not flagged", () => {
-  const progressing = srec("Squat", [
-    { date: "2026-06-04", weight: 100, reps: 5 },
-    { date: "2026-06-10", weight: 100, reps: 5 },
-    { date: "2026-06-22", weight: 110, reps: 5 }, // recent PR
-    { date: "2026-06-26", weight: 112, reps: 5 },
-  ]);
-  assert.deepEqual(stalledLifts([progressing], "2026-06-28"), []);
-});
-
-test("stalledLifts: ignores lifts with too few recent sessions and non-rep metrics", () => {
-  const sparse = srec("Deadlift", [{ date: "2026-06-26", weight: 150, reps: 3 }]);
-  assert.deepEqual(stalledLifts([sparse], "2026-06-28"), []);
-  const timed = srec("Plank", [
-    { date: "2026-06-10", weight: 0, reps: 0 },
-    { date: "2026-06-22", weight: 0, reps: 0 },
-    { date: "2026-06-26", weight: 0, reps: 0 },
-  ], "time");
-  assert.deepEqual(stalledLifts([timed], "2026-06-28"), []);
 });
 
 test("weeklyVolume agrees with the body map (Denis's week: chest flyes on a bench were read as shoulders)", async () => {

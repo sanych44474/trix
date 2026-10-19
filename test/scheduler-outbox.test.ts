@@ -8,7 +8,7 @@ import { GrammyError } from "grammy";
 import { newDb } from "./harness";
 import { deliverDueNotifications, enqueueAndDeliver, type OutboxSender } from "../src/schedulerOutbox";
 import { dueNotifications, markRetry } from "../src/adapters/d1/v2Notifications";
-import { getOrCreateUser, getUser } from "../src/adapters/d1/v2Users";
+import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import type { Env } from "../src/types";
 
 function grammyErr(errorCode: number, retryAfterSeconds?: number): GrammyError {
@@ -118,4 +118,31 @@ test("deliverDueNotifications: a persistently-failing send becomes permanent_fai
 
   const stillDue = await dueNotifications(db, new Date(Date.now() + 3_600_000).toISOString());
   assert.equal(stillDue.length, 0); // gave up, not stuck retrying forever
+});
+
+test("a reminder being delivered is not sent again by a retry sweep running at the same time", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const sent: string[] = [];
+  let sweep: Promise<unknown> | undefined;
+  const sender: OutboxSender = { api: { sendMessage: (async (_c: number, text: string) => {
+    // The per-minute sweep (or the user's Durable Object) runs while Telegram is still answering.
+    sweep ??= deliverDueNotifications(fakeEnv(db), sender);
+    await sweep;
+    sent.push(text);
+    return {} as never;
+  }) as never } };
+  assert.equal(await enqueueAndDeliver(fakeEnv(db), sender, { userId: 1, chatId: 1, kind: "reminder", idempotencyKey: "plateau", text: "📉" }), "sent");
+  assert.deepEqual(sent, ["📉"], "delivered once");
+});
+
+test("all notifications off: nothing is queued or sent, and the event counts as handled", async () => {
+  const db = newDb();
+  const user = await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await updateUser(db, 1, { profile: { ...user.profile, remindersOff: ["all"] } });
+  const sent: string[] = [];
+  const result = await enqueueAndDeliver(fakeEnv(db), fakeSender((_c, text) => sent.push(text)), { userId: 1, chatId: 1, kind: "reminder", idempotencyKey: "k", text: "hi" });
+  assert.equal(result, "muted");
+  assert.deepEqual(sent, []);
+  assert.deepEqual(await dueNotifications(db, new Date(Date.now() + 3_600_000).toISOString()), [], "no row left to retry");
 });

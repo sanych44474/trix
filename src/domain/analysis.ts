@@ -3,8 +3,7 @@
 // The repo layer feeds raw rows in.
 import { regionSets } from "./muscleRegions";
 import type { MuscleGroup } from "./muscleRegions";
-import { e1rm } from "./records";
-import type { StrengthRecordDoc, WorkoutLogDoc } from "../types";
+import type { WorkoutLogDoc } from "../types";
 
 // Weekly working-set landmarks (rough, combined per region): MEV = minimum effective volume,
 // MAV = maximum adaptive volume. Below MEV ≈ undertrained; above MAV ≈ likely junk volume.
@@ -96,38 +95,4 @@ export function projectWeight(weights: { date: string; weight: number }[], goal:
 
 // --- strength plateau detector ---
 
-const DAY = 86_400_000;
 
-/**
- * A weighted lift is "stalled" when, over the last 28 days, it has ≥3 logged sessions and its best
- * e1RM in the most recent 14 days did not beat the best e1RM of the prior 14 days. Bodyweight/timed
- * lifts and lifts with too little recent data are ignored. Returns the stalled exercise names.
- */
-export function stalledLifts(records: StrengthRecordDoc[], today: string): string[] {
-  const t = Date.parse(today);
-  if (Number.isNaN(t)) return [];
-  const out: string[] = [];
-  for (const r of records) {
-    if (r.metric !== "reps") continue;
-    // Look over a full ~6-week window and compare the last 3 weeks to the 3 weeks before. A
-    // 2-week read was too twitchy: double progression adds weight and RESETS reps, which briefly
-    // lowers the estimated 1RM even though the athlete just got stronger — that produced false
-    // "you've plateaued" alerts. We now require a real history and judge progress on BOTH axes.
-    const pts = r.history
-      .filter((h) => h.weight > 0 && h.reps > 0)
-      .map((h) => ({ age: (t - Date.parse(h.date)) / DAY, e: e1rm(h.weight, h.reps), w: h.weight }))
-      .filter((p) => p.age >= 0 && p.age <= 42);
-    if (pts.length < 4) continue; // not enough training in the window to judge
-    const recent = pts.filter((p) => p.age <= 21);
-    const prior = pts.filter((p) => p.age > 21 && p.age <= 42);
-    if (recent.length < 2 || prior.length < 1) continue;
-    const maxE = (a: typeof pts) => Math.max(...a.map((p) => p.e));
-    const maxW = (a: typeof pts) => Math.max(...a.map((p) => p.w));
-    // Progress on EITHER axis clears the stall: a higher estimated 1RM OR a heavier top set
-    // (adding load with a rep reset is progress, not a plateau). Stalled only when neither moved.
-    const e1Improved = maxE(recent) > maxE(prior) + 0.5;
-    const weightImproved = maxW(recent) > maxW(prior);
-    if (!e1Improved && !weightImproved) out.push(r.exercise);
-  }
-  return out;
-}

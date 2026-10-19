@@ -43,11 +43,11 @@ test("parseReleaseNote: one card per paragraph, greeting and bot-only closing li
 });
 
 
-test("the 2026-10-18 note parses into nine cards in both languages", () => {
+test("the 2026-10-18 note parses into eleven cards in both languages", () => {
   const note = RELEASE_NOTES.find((n) => n.version === "2026-10-18")!;
   for (const text of [note.uk, note.en]) {
     const items = parseReleaseNote(text);
-    assert.equal(items.length, 9);
+    assert.equal(items.length, 11);
     assert.ok(items.every((i) => i.icon && i.title && i.body));
   }
   assert.equal(parseReleaseNote(note.uk)[0]!.title, "Щоденник тренувань");

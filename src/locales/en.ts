@@ -1115,7 +1115,14 @@ export const en = {
   goal_off_track: "🎯 Goal {goal} kg · now {current} kg · {trend} → trend isn't moving toward your goal yet.",
   // --- plateau detector ---
   plateau_line: "⚠️ Plateau watch: no recent e1RM gain on {lifts}. Try a deload, a rep/tempo change, or a variation.",
-  plateau_nudge: "📉 Heads-up: {lifts} hasn't progressed in a few weeks. Time for a deload, a small technique tweak, or a variation — ask the coach for a plan. 💪",
+  plateau_report_title: "📉 <b>Your last 6 weeks of progress</b>",
+  plateau_report_flat: "<b>{name}</b>: {weeks} wk at {w} kg — best {w} × {r} ({sets} sets), {sessions} sessions with no gain in weight, reps or volume.",
+  plateau_report_regress: "<b>{name}</b>: going down — now {w} × {r}, {weeks} wk ago it was {pw} × {pr}.",
+  plateau_advice_add_weight: "→ You're at the top of the rep range. Add load: <b>{w} kg</b>, start at {r} reps, then +1 rep each session.",
+  plateau_advice_add_reps: "→ Stay at <b>{w} kg</b> and add 1 rep per set until you hit {sets} × {target}. Then go heavier.",
+  plateau_advice_deload: "→ Looks like fatigue. One lighter week: <b>{w} kg</b> (−10%), full range, and check sleep and recovery. Then back to your working weight.",
+  msg_muted: "✅ Saved in the chat. {name} has notifications off, so they will see it next time they open the app.",
+  rem_all: "All Telegram notifications",
   rem_plateau: "Plateau alerts",
   // --- AI macros remaining ---
   macros_suggest_btn: "🤖 What to eat",

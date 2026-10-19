@@ -7,7 +7,7 @@
 //    cron) — sweeps rows a previous attempt backed off, whose nextAttemptAt has now passed.
 import type { Bot } from "grammy";
 import { GrammyError } from "grammy";
-import { dueNotifications, enqueueNotification, markPermanentFailure, markRetry, markSent, type OutboxRow } from "./adapters/d1/v2Notifications";
+import { claimNotification, dueNotifications, enqueueNotification, notificationsMuted, markPermanentFailure, markRetry, markSent, type OutboxRow } from "./adapters/d1/v2Notifications";
 import { updateUser } from "./adapters/d1/v2Users";
 import { classifySendError } from "./domain/notificationDelivery";
 import type { Env } from "./types";
@@ -16,7 +16,9 @@ export interface OutboxSender {
   api: { sendMessage: Bot["api"]["sendMessage"] };
 }
 
-export type DeliveryResult = "sent" | "blocked" | "retrying" | "failed" | "duplicate";
+// "muted": the recipient turned all notifications off, so nothing was queued or sent. Durable in
+// the dedup sense -- the event is handled, it must not be retried every tick.
+export type DeliveryResult = "sent" | "blocked" | "retrying" | "failed" | "duplicate" | "muted";
 
 async function attemptDelivery(db: D1Database, bot: OutboxSender, row: OutboxRow): Promise<DeliveryResult> {
   try {
@@ -44,18 +46,28 @@ async function attemptDelivery(db: D1Database, bot: OutboxSender, row: OutboxRow
   }
 }
 
+// A row being delivered right now must not look due to the retry sweep: the sweep runs every
+// minute (and a user's Durable Object alarm runs beside it), so a row enqueued as due-now was
+// picked up by a sweep while the first attempt was still talking to Telegram -- the same reminder
+// arrived twice. New rows start leased for this long; a failed attempt sets its own retry time,
+// and a crashed one becomes due again once the lease runs out.
+const LEASE_MS = 2 * 60_000;
+const leaseUntil = () => new Date(Date.now() + LEASE_MS).toISOString();
+
 export async function enqueueAndDeliver(
   env: Env,
   bot: OutboxSender,
   args: { userId: number; chatId: number; kind: string; idempotencyKey: string; text: string; extra?: unknown },
 ): Promise<DeliveryResult> {
   const db = env.DB;
+  if (await notificationsMuted(db, args.userId).catch(() => false)) return "muted";
   const id = await enqueueNotification(db, {
     userId: args.userId,
     chatId: args.chatId,
     kind: args.kind,
     idempotencyKey: args.idempotencyKey,
     payload: { text: args.text, extra: args.extra },
+    notBefore: leaseUntil(),
   });
   if (id === null) return "duplicate"; // already enqueued (and already attempted or in flight)
   return attemptDelivery(db, bot, { id, userId: args.userId, chatId: args.chatId, kind: args.kind, attempts: 0, payload: { text: args.text, extra: args.extra } });
@@ -66,9 +78,16 @@ export async function enqueueAndDeliver(
  * this Worker's trigger config) even though computeBackoffMs can schedule further out. */
 export async function deliverDueNotifications(env: Env, bot: OutboxSender, limit = 50): Promise<{ sent: number; retrying: number; failed: number }> {
   const db = env.DB;
-  const rows = await dueNotifications(db, new Date().toISOString(), limit);
+  const now = new Date().toISOString();
+  const rows = await dueNotifications(db, now, limit);
   let sent = 0, retrying = 0, failed = 0;
   for (const row of rows) {
+    if (!(await claimNotification(db, row.id, now, leaseUntil()))) continue; // another sweep has it
+    // Muted since it was queued: a retry must not slip through either.
+    if (await notificationsMuted(db, row.userId).catch(() => false)) {
+      await markPermanentFailure(db, row.id, "failed", "muted");
+      continue;
+    }
     const outcome = await attemptDelivery(db, bot, row);
     if (outcome === "sent") sent++;
     else if (outcome === "retrying") retrying++;

@@ -4,6 +4,7 @@
 //   /api/trainer/question/:id/answer (POST)   — answer a client question
 // Same initData auth as the dashboard, plus a trainer-role gate; per-client ops also run the
 // ownership check (getClientForTrainer — missing and not-yours both 404).
+import { pingOther } from "../notify";
 import { appMarkup } from "../notify/appKeyboard";
 import {
   recordAudit,
@@ -26,7 +27,6 @@ import { readJsonBody } from "./validate";
 import type { BankPlan, Env, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 
-import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|photo-request|interview-nudge|draft)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
 const MAX_TEXT = 2000;
@@ -78,7 +78,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       await saveDraftPlan(env.DB, draft);
       await assignDraftPlan(env.DB, client._id);
       await recordAudit(env.DB, user._id, "template_assign", client._id, tpl.name).catch(() => {});
-      await tgSend(env, client.chatId, t(client.lang, "client_plan_assigned"), appMarkup(env, t(client.lang, "nb_open_today"), "today"));
+      await pingOther(env, client.chatId, t(client.lang, "client_plan_assigned"), appMarkup(env, t(client.lang, "nb_open_today"), "today"));
       return Response.json({ ok: true });
     }
     if (b.action === "create") {
@@ -121,7 +121,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       const who = escapeHtml(user.profile.name ?? "trainer");
       let sent = 0;
       for (const c of clients) {
-        await tgSend(env, c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)), appMarkup(env, t(c.lang, "nb_reply"), "coach"));
+        await pingOther(env, c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)), appMarkup(env, t(c.lang, "nb_reply"), "coach"));
         sent++;
       }
       await recordAudit(env.DB, user._id, "broadcast", undefined, `${sent}/${clients.length}`).catch(() => {});
@@ -148,7 +148,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       const client = await getUser(env.DB, q.clientId).catch(() => null);
       if (client) {
         await insertMessage(env.DB, user._id, q.clientId, text).catch(() => {});
-        await tgSend(env, client.chatId, t(client.lang, "answer_from_trainer", { text: escapeHtml(text) }), appMarkup(env, t(client.lang, "nb_reply"), "coach"));
+        await pingOther(env, client.chatId, t(client.lang, "answer_from_trainer", { text: escapeHtml(text) }), appMarkup(env, t(client.lang, "nb_reply"), "coach"));
       }
       await setQuestionStatus(env.DB, qid, "answered");
       logInfo("trainer_question_answered", {});
@@ -218,7 +218,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       }
       if (!(await assignDraftPlan(env.DB, clientId))) return Response.json({ error: "not found" }, { status: 404 });
       await recordAudit(env.DB, user._id, "assign_plan", clientId).catch(() => {});
-      await tgSend(env, client.chatId, t(client.lang, "client_plan_assigned"), appMarkup(env, t(client.lang, "nb_open_today"), "today"));
+      await pingOther(env, client.chatId, t(client.lang, "client_plan_assigned"), appMarkup(env, t(client.lang, "nb_open_today"), "today"));
       return Response.json({ ok: true });
     }
     if (action === "note") {
@@ -244,7 +244,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       // The photo is added in the app (Progress → photos); the upload goes on to the trainer.
       const appKb = appMarkup(env, t(client.lang, "nb_add_photo"), "progress");
       const kb = appKb ?? { inline_keyboard: [[{ text: t(client.lang, "photo_req_skip_btn"), callback_data: "photo:skip" }]] };
-      await tgSend(env, client.chatId, t(client.lang, appKb ? "photo_req_from_app" : "photo_req_from", { name: trName }), kb);
+      await pingOther(env, client.chatId, t(client.lang, appKb ? "photo_req_from_app" : "photo_req_from", { name: trName }), kb);
       return Response.json({ ok: true });
     }
     // action === "interview-nudge" — mirrors the bot's cl:*:intvping action: resume the AI

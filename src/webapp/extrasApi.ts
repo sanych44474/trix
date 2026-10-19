@@ -3,6 +3,7 @@
 // library (+ take), what's-new, the plates calculator, and become-a-trainer / trainer-profile
 // editing. Reuses the same repos and domain code as the bot; pushes (confirmations, interview
 // kick-off) go out via the Bot API.
+import { pingOther } from "../notify";
 import { listInbox, markInboxRead } from "../adapters/d1/v2Inbox";
 import { computeWeekCardStats, formatWeekCardText } from "../features/gamification/weekCard";
 import { obKeyboard, obSteps } from "../features/onboarding/questions";
@@ -200,7 +201,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     if (v.value.action === "decline") {
       await setRequestStatus(env.DB, r.id, "declined");
       const client = await getUser(env.DB, r.clientId).catch(() => null);
-      if (client) await tgSend(env, client.chatId, t(client.lang, "client_declined"));
+      if (client) await pingOther(env, client.chatId, t(client.lang, "client_declined"));
       return Response.json({ ok: true });
     }
     // Accept — mirrors the bot's onRequestAccept: link, then walk a new client into the interview.
@@ -215,17 +216,17 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       if (client.onboarded) {
         await updateUser(env.DB, client._id, { session: { mode: "idle" } });
         // In the app the transferred client sets what the trainer sees under Settings.
-        await tgSend(env, client.chatId, `${t(client.lang, "client_transferred", { name: trainerName })}\n\n${t(client.lang, "share_prompt_new")}`, appHome ? webAppMarkup(t(client.lang, "launch_open_btn"), appHome) : undefined);
+        await pingOther(env, client.chatId, `${t(client.lang, "client_transferred", { name: trainerName })}\n\n${t(client.lang, "share_prompt_new")}`, appHome ? webAppMarkup(t(client.lang, "launch_open_btn"), appHome) : undefined);
         if (appHome) return Response.json({ ok: true });
       } else if (appOnboarding) {
         // The questionnaire (which also asks what the trainer may see) is in the app.
         await updateUser(env.DB, client._id, { session: { mode: "onboarding", step: 0 } });
-        await tgSend(env, client.chatId, `${t(client.lang, "client_accepted", { name: trainerName })}\n\n${t(client.lang, "ob_app_prompt")}`, onboardingAppMarkup(client.lang, appOnboarding));
+        await pingOther(env, client.chatId, `${t(client.lang, "client_accepted", { name: trainerName })}\n\n${t(client.lang, "ob_app_prompt")}`, onboardingAppMarkup(client.lang, appOnboarding));
         return Response.json({ ok: true });
       } else {
         await updateUser(env.DB, client._id, { session: { mode: "onboarding", step: 0 } });
         const steps = obSteps(client.lang);
-        await tgSend(
+        await pingOther(
           env, client.chatId,
           `${t(client.lang, "client_accepted", { name: trainerName })}\n\n(1/${steps.length}) ${t(client.lang, steps[0].q)}`,
           obKeyboard(client.lang, steps[0], []),
@@ -236,7 +237,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
         [{ text: t(client.lang, "share_health_btn"), callback_data: "share:tog:health" }],
         [{ text: t(client.lang, "share_skip_btn"), callback_data: "share:skip" }],
       ] };
-      await tgSend(env, client.chatId, t(client.lang, "share_prompt_new"), shareKb);
+      await pingOther(env, client.chatId, t(client.lang, "share_prompt_new"), shareKb);
     }
     return Response.json({ ok: true });
   }
@@ -280,7 +281,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     // The chat is retired: the trainer accepts or declines in the app (Workspace → requests).
     const requestsUrl = appViewUrlFromEnv(env, "role");
     const kb = requestsUrl ? webAppMarkup(t(trainer.lang, "req_open_app_btn"), requestsUrl) : undefined;
-    await tgSend(env, trainer.chatId, t(trainer.lang, "trainer_new_request", { name: who }) + (note ? `\n💬 ${escapeHtml(note)}` : ""), kb);
+    await pingOther(env, trainer.chatId, t(trainer.lang, "trainer_new_request", { name: who }) + (note ? `\n💬 ${escapeHtml(note)}` : ""), kb);
     return Response.json({ ok: true });
   }
 

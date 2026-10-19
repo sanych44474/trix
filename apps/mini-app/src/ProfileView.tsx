@@ -116,7 +116,11 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
     {settings && <>
       <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "language_eyebrow")}</span><h2>{t(lang, "language_title")}</h2></div></div><div className="button-row"><button className={lang === "uk" ? "button button-primary" : "button button-ghost"} disabled={busy === "lang"} onClick={() => void setLanguage("uk")}>{t(lang, "lang_uk_label")}</button><button className={lang === "en" ? "button button-primary" : "button button-ghost"} disabled={busy === "lang"} onClick={() => void setLanguage("en")}>{t(lang, "lang_en_label")}</button></div>{actionError === "lang" && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>
 
-      <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "reminders_eyebrow")}</span><h2>{t(lang, "reminders_title")}</h2></div></div>{settings.reminders.map((reminder) => <label className="check-row" key={reminder.key}><input type="checkbox" checked={reminder.on} disabled={busy === `rem:${reminder.key}`} onChange={() => toggleReminder(reminder.key)} /><span>{reminder.label}</span></label>)}{actionError?.startsWith("rem:") && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>
+      <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "reminders_eyebrow")}</span><h2>{t(lang, "reminders_title")}</h2></div></div>{settings.reminders.map((reminder) => {
+        // The "all" row is the master switch: while it is off, the per-type rows don't apply.
+        const muted = reminder.key !== "all" && settings.reminders.some((r) => r.key === "all" && !r.on);
+        return <label className={reminder.key === "all" ? "check-row check-row-master" : muted ? "check-row muted" : "check-row"} key={reminder.key}><input type="checkbox" checked={reminder.on} disabled={muted || busy === `rem:${reminder.key}`} onChange={() => toggleReminder(reminder.key)} /><span>{reminder.label}</span></label>;
+      })}{actionError?.startsWith("rem:") && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>
 
       <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "vacation_eyebrow")}</span><h2>{t(lang, "vacation_title")}</h2></div></div>
         {settings.vacationUntil ? <>

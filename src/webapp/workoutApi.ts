@@ -8,7 +8,7 @@ import { getActivePlan } from "../adapters/d1/v2Plans";
 import { runIdempotent, WORKOUT_SAVE_WINDOW_HOURS } from "../adapters/d1/v2Idempotency";
 import { miniAppUser } from "./auth";
 import { num, object, readJsonBody, str, validateBody } from "./validate";
-import { stalledLifts } from "../domain/analysis";
+import { plateauReport } from "../domain/plateau";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
 import {
@@ -47,7 +47,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       const [logs, records] = await Promise.all([workoutLogsSince(env.DB, user._id, cutoff), listStrength(env.DB, user._id, 40)]);
       const done = logs.filter((l) => l.completed);
       if (done.length < 2) return Response.json({ text: "", need: true });
-      const stalled = stalledLifts(records, today);
+      const stalled = plateauReport(logs, today).map((f) => f.exercise);
       const summary = {
         workouts_14d: done.filter((l) => l.date >= d14).length,
         workouts_45d: done.length,

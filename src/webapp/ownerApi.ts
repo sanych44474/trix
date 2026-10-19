@@ -1,7 +1,8 @@
 // Owner console in the Mini App: the /ownerreport sections rendered in-app (they're already
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
-import { sendBestEffort, telegramUpload } from "../adapters/telegram/rawApi";
+import { pingOther } from "../notify";
+import { telegramUpload } from "../adapters/telegram/rawApi";
 import { broadcastRelease, pendingReleaseRecipients } from "../features/owner/releaseBroadcast";
 import { broadcastQueue, queueAnnouncement, queueReleaseBroadcast } from "../features/owner/broadcastQueue";
 import { latestRelease } from "../releaseNotes";
@@ -87,7 +88,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     let failed = 0;
     for (const u of batch) {
       const markup = appMarkup(env, t(u.lang, "launch_open_btn"), "today");
-      if (await sendBestEffort(env, u.chatId, `📢 ${escapeHtml(text)}`, markup)) sent++; else failed++;
+      if (await pingOther(env, u.chatId, `📢 ${escapeHtml(text)}`, markup)) sent++; else failed++;
     }
     const last = batch.at(-1)?._id ?? after;
     const remaining = all.filter((u) => u._id > last).length;
@@ -140,7 +141,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
       const author = await getUser(env.DB, before.userId).catch(() => null);
       if (author && !author.blocked && !author.botBlocked) {
         const preview = before.text.replace(/^\[AI coach\]\s*/, "").split("\n")[0]!.slice(0, 140);
-        notified = await sendBestEffort(env, author.chatId, t(author.lang, "feedback_done_user", { text: escapeHtml(preview) }));
+        notified = await pingOther(env, author.chatId, t(author.lang, "feedback_done_user", { text: escapeHtml(preview) }));
         await recordInbox(env.DB, author._id, "feedback_done", { preview }).catch(() => {});
       }
     }
@@ -162,7 +163,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     });
     let sent = 0;
     for (const u of targets) {
-      if (await sendBestEffort(env, u.chatId, t(u.lang, "inact_fb_ask"))) {
+      if (await pingOther(env, u.chatId, t(u.lang, "inact_fb_ask"))) {
         sent++;
         await updateUser(env.DB, u._id, {
           session: switchMode(u.session, "inact_feedback"),

@@ -11,17 +11,17 @@ import { HTML } from "./shared";
 import { escapeHtml, t } from "../locales/i18n";
 import { activeChallengeCodes } from "../adapters/d1/v2Gamification";
 import { getDailyCheckin, getWater, listInjuriesDue, markInjuryAsked } from "../adapters/d1/v2Tracking";
-import { listStrength, workoutLogsSince } from "../adapters/d1/v2Workouts";
+import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { updateUser } from "../adapters/d1/v2Users";
 import { resolveWaterGoal, seasonalChallenge } from "../domain/challenges";
 import { trainingWeek } from "../domain/mesocycle";
 import { adherenceDeloadDue, weeksSincePlan } from "../domain/deload";
 import { getPlanDay } from "../domain/progression";
 import { isoWeekKey, streakRisk } from "../domain/records";
-import { stalledLifts } from "../domain/analysis";
+import { plateauReport, type PlateauFinding } from "../domain/plateau";
 import { daysBetween } from "../domain/reminderTiming";
 import { isWeighInHour, weighInDue } from "../domain/weighIn";
-import type { Weekday } from "../types";
+import type { Lang, Weekday } from "../types";
 import { renderDay, challengeTitleText } from "../render";
 import { surveyKb, surveyRemaining } from "../features/survey/eveningSurvey";
 import { appKeyboardEnabled } from "../notify/appKeyboard";
@@ -185,15 +185,32 @@ export async function seasonalChallengeNudge(p: UserPass): Promise<boolean> {
   return true;
 }
 
-/** Plateau heads-up — Monday, at most every 2 weeks, naming the stuck lifts. */
+/** The plateau message: what was seen for each stuck lift (numbers) and the next step to try. */
+export function plateauMessage(lang: Lang, findings: PlateauFinding[]): string {
+  const lines = [t(lang, "plateau_report_title")];
+  for (const f of findings.slice(0, 3)) {
+    const name = escapeHtml(f.exercise);
+    lines.push("", f.kind === "regress"
+      ? t(lang, "plateau_report_regress", { name, w: f.weight, r: f.reps, weeks: f.weeks, pw: f.priorWeight, pr: f.priorReps })
+      : t(lang, "plateau_report_flat", { name, weeks: f.weeks, w: f.weight, r: f.reps, sets: f.sets, sessions: f.sessions }));
+    const a = f.advice;
+    lines.push(a.kind === "add_weight" ? t(lang, "plateau_advice_add_weight", { w: a.weight, r: a.reps })
+      : a.kind === "add_reps" ? t(lang, "plateau_advice_add_reps", { w: a.weight, sets: a.sets, target: a.target })
+      : t(lang, "plateau_advice_deload", { w: a.weight }));
+  }
+  return lines.join("\n");
+}
+
+/** Plateau analysis — Monday, at most every 2 weeks: per stuck lift, the numbers and a next step.
+ * Judged on the full logs (plateau.ts), so a lift gaining reps, sets or volume is not "stuck". */
 export async function plateauNudge(p: UserPass): Promise<boolean> {
-  const { user, db, lang, date, weekday, hour, reminderHour, remOff, sent } = p;
+  const { user, db, lang, date, weekday, hour, reminderHour, activePlan, remOff, sent } = p;
   if (remOff("plateau") || weekday !== 1 || hour < reminderHour || daysBetween(sent["plateau"], date) < 14) return false;
-  const stalled = stalledLifts(await listStrength(db, user._id), date);
-  if (!stalled.length) return false;
-  const lifts = stalled.slice(0, 2).join(", ");
+  const findings = plateauReport(await workoutLogsSince(db, user._id, isoDaysAgo(42)).catch(() => []), date, activePlan);
+  if (!findings.length) return false;
+  const lifts = findings.slice(0, 3).map((f) => f.exercise).join(", ");
   const kb = p.appKb([[{ text: t(lang, "menu_coach"), view: "coach", params: { ask: t(lang, "ask_plateau", { lifts }) }, fallback: "menu:coach" }]]);
-  await p.sendAndMark("plateau", t(lang, "plateau_nudge", { lifts: stalled.slice(0, 2).map(escapeHtml).join(", ") }), withKb(kb));
+  await p.sendAndMark("plateau", plateauMessage(lang, findings), withKb(kb));
   return true;
 }
 

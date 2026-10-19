@@ -2,13 +2,13 @@
 // owner console roster (webapp/ownerApi.ts). Mirrors the bot's cl:*:intvping action: resume the AI
 // interview at its last question if one is in progress, else put the person back into the button
 // wizard at the first unanswered step. Returns false (no message) when they're already onboarded.
+import { pingOther } from "../notify";
 import { updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
 import { obKeyboard, obProgress, obSteps } from "../features/onboarding/questions";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingApp";
 import type { Env, UserDoc } from "../types";
 
-import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 type PromptKey = "cc_intv_remind_text" | "owner_intv_remind_text";
 
 export async function nudgeOnboarding(env: Env, target: UserDoc, promptKey: PromptKey): Promise<{ sent: boolean; alreadyOnboarded?: boolean }> {
@@ -17,12 +17,12 @@ export async function nudgeOnboarding(env: Env, target: UserDoc, promptKey: Prom
   const appUrl = onboardingUrlFromEnv(env);
   if (appUrl) {
     await updateUser(env.DB, target._id, { session: { mode: "onboarding", step: 0 } });
-    return { sent: await tgSend(env, target.chatId, `${prefix}\n\n${t(target.lang, "ob_app_prompt")}`, onboardingAppMarkup(target.lang, appUrl)) };
+    return { sent: await pingOther(env, target.chatId, `${prefix}\n\n${t(target.lang, "ob_app_prompt")}`, onboardingAppMarkup(target.lang, appUrl)) };
   }
   const transcript = target.session.transcript;
   if (target.session.mode === "onboarding" && transcript?.length) {
     const lastQ = [...transcript].reverse().find((entry) => entry.role === "assistant");
-    return { sent: await tgSend(env, target.chatId, `${prefix}\n\n${escapeHtml(lastQ?.text ?? "")}`.trim()) };
+    return { sent: await pingOther(env, target.chatId, `${prefix}\n\n${escapeHtml(lastQ?.text ?? "")}`.trim()) };
   }
   const step = target.session.mode === "onboarding" && typeof target.session.step === "number" ? target.session.step : obProgress(target.profile).next;
   await updateUser(env.DB, target._id, { session: { mode: "onboarding", step } });
@@ -30,5 +30,5 @@ export async function nudgeOnboarding(env: Env, target: UserDoc, promptKey: Prom
   const idx = Math.max(0, Math.min(step, steps.length - 1));
   const stepDef = steps[idx]!;
   const text = `${prefix}\n\n(${idx + 1}/${steps.length}) ${t(target.lang, stepDef.q)}`;
-  return { sent: await tgSend(env, target.chatId, text, obKeyboard(target.lang, stepDef, target.profile.trainingWeekdays ?? [], idx > 0)) };
+  return { sent: await pingOther(env, target.chatId, text, obKeyboard(target.lang, stepDef, target.profile.trainingWeekdays ?? [], idx > 0)) };
 }
