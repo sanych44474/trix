@@ -20,9 +20,10 @@ export async function cmdMeasure(ctx: MyContext) {
 }
 
 // Reminder types the user can switch on/off (the daily/weekly nudges).
-export const REMINDER_TYPES = ["workout", "nutrition", "steps", "water", "checkin", "wellbeing", "tomorrow", "measure", "digest", "plateau", "session", "weighin"] as const;
+export const REMINDER_TYPES = ["all", "workout", "nutrition", "steps", "water", "checkin", "wellbeing", "tomorrow", "measure", "digest", "plateau", "session", "weighin"] as const;
 
 export const REMINDER_LABEL: Record<string, TKey> = {
+  all: "rem_all",
   workout: "rem_workout", nutrition: "rem_nutrition", steps: "rem_steps", water: "rem_water", checkin: "rem_checkin",
   wellbeing: "rem_wellbeing", tomorrow: "rem_tomorrow", measure: "rem_measure", digest: "rem_digest", plateau: "rem_plateau",
   session: "rem_session", weighin: "rem_weighin",

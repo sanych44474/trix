@@ -128,6 +128,7 @@ export async function messageDeliveryFeedback(ctx: MyContext, result: DeliveryRe
   }
   if (result === "retrying") return t(lang, "msg_queued", { name: recipientName });
   if (result === "failed") return t(lang, "msg_failed");
+  if (result === "muted") return t(lang, "msg_muted", { name: recipientName });
   return t(lang, "msg_sent"); // "sent" or "duplicate" (already delivered under this key)
 }
 

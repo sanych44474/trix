@@ -23,9 +23,13 @@ type TKey = Parameters<typeof t>[1];
 
 // Same toggleable reminder keys the bot's settings screen exposes (REM map in bot.ts), plus the
 // bi-weekly quality ask.
+// "all" comes first: the master switch -- off means no background message of any kind (the outbox
+// enforces it, schedulerOutbox.ts), whatever the per-type rows say.
 const REM_KEYS: [string, string][] = [
+  ["all", "rem_all"],
   ["workout", "rem_workout"], ["nutrition", "rem_nutrition"], ["steps", "rem_steps"], ["water", "rem_water"],
   ["checkin", "rem_checkin"], ["wellbeing", "rem_wellbeing"], ["tomorrow", "rem_tomorrow"], ["measure", "rem_measure"], ["weighin", "rem_weighin"],
+  ["plateau", "rem_plateau"], ["digest", "rem_digest"],
 ];
 
 // Push the markdown export as a document (multipart) — the app can't download files (CSP), so

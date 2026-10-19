@@ -1,6 +1,7 @@
 import { Bot, } from "grammy";
 import { sendBestEffort } from "./adapters/telegram/rawApi";
 import { deliverDueNotifications } from "./schedulerOutbox";
+import { ALL_NOTIFICATIONS } from "./adapters/d1/v2Notifications";
 import { isDurable, notify } from "./notify";
 import { type DeliveryResult } from "./schedulerOutbox";
 import { closeQuestWeek } from "./questClose";
@@ -360,6 +361,8 @@ async function runScheduleInner(env: Env): Promise<void> {
         extra: HTML,
       });
       if (delivered === "failed" || delivered === "blocked") continue;
+      // All notifications off: no opener was shown, so don't park them in the interview.
+      if (delivered === "muted") { await markComebackDone(db, u._id, nowIso); continue; }
       await updateUser(db, u._id, { session: { mode: "comeback", comeback: { step: 0, answers: {} } } });
       await markComebackDone(db, u._id, nowIso);
     } catch (err) {
@@ -549,8 +552,11 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // ahead of those that can fire in any hour), never in quiet hours (the person's own, or
   // 22:00–07:00 by default), and at most DAILY_NUDGE_CAP a day. Opt-in water nudges are outside
   // the cap. Anything not sent now fires on a later pass once allowed.
+  // All notifications off: no reminder is built at all (the outbox would drop it anyway, but some
+  // of them cost an AI call or a query first).
+  const muted = user.profile.remindersOff?.includes(ALL_NOTIFICATIONS) ?? false;
   const sentToday = nudgesSentToday(sent["nudges"], date);
-  if (!isQuietHour(hour, reminderHour, user.profile.quietFrom, user.profile.quietTo)) {
+  if (!muted && !isQuietHour(hour, reminderHour, user.profile.quietFrom, user.profile.quietTo)) {
     for (const nudge of NUDGES) {
       if (nudge.counted && sentToday >= DAILY_NUDGE_CAP) continue;
       if (!(await nudge.run(p))) continue;
@@ -596,7 +602,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // activity. One AI call per user/week (gated on activity). NOTE: fires across timezones; if
   // same-tz cohorts grow large, add a per-invocation cap (like the plan-pending recovery above)
   // to stay under Cloudflare's subrequest limit.
-  if (weekday === 1 && hour >= 11 && user.role !== "client" && !already("weekly_narrative") && pass.narrativeBudget > 0) {
+  if (!muted && weekday === 1 && hour >= 11 && user.role !== "client" && !already("weekly_narrative") && pass.narrativeBudget > 0) {
     await weeklyNarrative(p);
   }
 

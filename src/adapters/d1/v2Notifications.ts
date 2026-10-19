@@ -18,6 +18,9 @@
 // than inventing a new per-attempt-row writer that legacy never had.
 import { nowIso, type DB } from "./shared";
 
+/** The remindersOff key that silences every background message, not one reminder type. */
+export const ALL_NOTIFICATIONS = "all";
+
 export interface OutboxPayload {
   text: string;
   extra?: unknown; // grammY SendMessage `other` param (parse_mode, reply_markup, ...) — opaque here
@@ -39,7 +42,7 @@ export interface OutboxRow {
  * the caller uses this to decide whether to attempt an immediate delivery. */
 export async function enqueueNotification(
   db: DB,
-  args: { userId: number; chatId: number; kind: string; idempotencyKey: string; payload: OutboxPayload },
+  args: { userId: number; chatId: number; kind: string; idempotencyKey: string; payload: OutboxPayload; notBefore?: string },
 ): Promise<number | null> {
   const now = nowIso();
   const r = await db
@@ -49,7 +52,7 @@ export async function enqueueNotification(
        ON CONFLICT(accountId, idempotencyKey) DO NOTHING
        RETURNING id`,
     )
-    .bind(args.userId, args.chatId, args.kind, args.idempotencyKey, JSON.stringify(args.payload), now, now)
+    .bind(args.userId, args.chatId, args.kind, args.idempotencyKey, JSON.stringify(args.payload), args.notBefore ?? now, now)
     .first<{ id: number }>();
   return r?.id ?? null;
 }
@@ -77,6 +80,27 @@ export async function dueNotifications(db: DB, nowIsoStr: string, limit = 50): P
       return []; // corrupted payload — drop it from this batch; markPermanentFailure below cleans it up
     }
   });
+}
+
+/** The recipient switched every notification off (profile.remindersOff holds "all"). */
+export async function notificationsMuted(db: DB, userId: number): Promise<boolean> {
+  const r = await db.prepare("SELECT json_extract(profile, '$.remindersOff') AS off FROM v2_profiles WHERE accountId = ?").bind(userId).first<{ off: string | null }>();
+  if (!r?.off) return false;
+  try {
+    return (JSON.parse(r.off) as unknown[]).includes(ALL_NOTIFICATIONS);
+  } catch {
+    return false;
+  }
+}
+
+/** Take a due row for one delivery attempt: pushes nextAttemptAt to `leaseUntil` only if the row
+ * is still pending and due, so two sweeps running at once can't both send it. */
+export async function claimNotification(db: DB, id: number, nowIsoStr: string, leaseUntil: string): Promise<boolean> {
+  const r = await db
+    .prepare("UPDATE v2_notifications SET nextAttemptAt = ? WHERE id = ? AND status = 'pending' AND nextAttemptAt <= ?")
+    .bind(leaseUntil, id, nowIsoStr)
+    .run();
+  return (r.meta?.changes ?? 0) > 0;
 }
 
 export async function markSent(db: DB, id: number): Promise<void> {

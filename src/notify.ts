@@ -40,10 +40,10 @@ export interface Message {
   extra?: unknown;
 }
 
-/** Delivered, or safely queued for retry, or already handled -- the message is not lost. Only
+/** Delivered, or safely queued for retry, or already handled (or muted by the recipient). Only
  * "failed" and "blocked" mean it is gone, and only then should a dedup mark be left unwritten. */
 export function isDurable(result: DeliveryResult): boolean {
-  return result === "sent" || result === "retrying" || result === "duplicate";
+  return result === "sent" || result === "retrying" || result === "duplicate" || result === "muted";
 }
 
 export function notify(env: Env, sender: OutboxSender, to: Recipient, msg: Message): Promise<DeliveryResult> {

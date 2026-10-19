@@ -25,7 +25,8 @@ import { menuBtn } from "../adapters/telegram/keyboards";
 import { botDeepLink } from "../notify/links";
 import { deferAi } from "../features/aiDefer";
 import { computeXp, levelFromXp } from "../domain/gamification";
-import { weeklyVolume, projectWeight, stalledLifts, type MuscleVolume } from "../domain/analysis";
+import { weeklyVolume, projectWeight, type MuscleVolume } from "../domain/analysis";
+import { plateauReport } from "../domain/plateau";
 import { conditioningWeek } from "../domain/conditioning";
 import { platePlan, warmupRamp } from "../domain/calc";
 import { progressBar } from "../domain/challenges";
@@ -100,7 +101,8 @@ export async function cmdProgress(ctx: MyContext) {
   const goalLine = weightGoalLine(ctx, weights);
   if (goalLine) msg += `\n\n${goalLine}`;
   // Plateau heads-up: lifts with no recent e1RM gain.
-  const stalled = stalledLifts(records, date);
+  const logs42 = await workoutLogsSince(ctx.db, ctx.user._id, localCutoff(ctx.user.profile.timezone, 42)).catch(() => []);
+  const stalled = plateauReport(logs42, date, plan).map((f) => f.exercise);
   if (stalled.length) msg += `\n\n${t(lang, "plateau_line", { lifts: stalled.slice(0, 3).map(escapeHtml).join(", ") })}`;
   // Visual charts (weight trend, e1RM, measurements) live in the Mini App dashboard now —
   // no more external QuickChart PNG round-trips on every /progress.
