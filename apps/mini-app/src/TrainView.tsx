@@ -10,7 +10,7 @@ import { hydrateSaved } from "./logic/hydrate";
 import {
   buildSaveEntries, chooseStart, copyToLoggerExercises, countFilledSets, DENSITY_MIN_SESSION_SEC, DRAFT_KEY,
   emptyLoggerSet, isExerciseFilled, isoDate, isoWeekday, parseDraft, plannedSetsFor, removeLoggerSet, sessionElapsedSec, swapExercise,
-  isSetFilled, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
+  isSetFilled, prefillFromLast, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
   targetUse,
 } from "./logic/logger";
 import { cachedToday, cacheToday, enqueueSave, isNetworkError, OFFLINE_SAVES_KEY } from "./logic/offlineSaves";
@@ -40,6 +40,15 @@ function writeLocalDraft(draft: LoggerDraft | null): void {
   try { if (draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); else localStorage.removeItem(DRAFT_KEY); } catch { /* storage is optional */ }
 }
 
+
+const REST_BY_EXERCISE_KEY = "trix:v2:rest-by-exercise";
+function readRestOverrides(): Record<string, number> {
+  try {
+    const value = JSON.parse(localStorage.getItem(REST_BY_EXERCISE_KEY) ?? "{}") as unknown;
+    if (!value || typeof value !== "object") return {};
+    return Object.fromEntries(Object.entries(value).filter(([, sec]) => typeof sec === "number" && sec > 0));
+  } catch { return {}; }
+}
 
 function scrollToTop(): void {
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); }
@@ -95,10 +104,18 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
   const [missedDate, setMissedDate] = useState("");
   const [restEditFor, setRestEditFor] = useState<number | null>(null);
 
-  // A rest picked on an exercise whose plan sets its own rest: applies to that exercise for this
-  // session (by name, so it survives a swap of another slot). Picking used to change only the
-  // global default, which the plan's value then overrode -- the chip looked dead.
-  const [restOverride, setRestOverride] = useState<Record<string, number>>({});
+  // A rest picked on an exercise whose plan sets its own rest -- or set by −15/+15 while resting
+  // after it: applies to that exercise (by name, so it survives a swap of another slot) and is
+  // kept on this phone, so "always 90 s on pull-ups" is set once, not every session. Picking used
+  // to change only the global default, which the plan's value then overrode -- the chip looked dead.
+  const [restOverride, setRestOverrideState] = useState<Record<string, number>>(readRestOverrides);
+  const setRestOverride = (change: (cur: Record<string, number>) => Record<string, number>) => setRestOverrideState((cur) => {
+    const next = change(cur);
+    try { localStorage.setItem(REST_BY_EXERCISE_KEY, JSON.stringify(next)); } catch { /* storage is optional */ }
+    return next;
+  });
+  // Which exercise the running rest belongs to, so −15/+15 can be remembered for it.
+  const restOwner = useRef<string | null>(null);
   const [swapFor, setSwapFor] = useState<number | null>(null);
   const [swapChoices, setSwapChoices] = useState<Array<{ id: string; name: string }>>([]);
   const [planNotice, setPlanNotice] = useState<string | null>(null);
@@ -199,9 +216,14 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
       return { ...exercise, setsDone: sets };
     });
   };
-  const fillPlanned = (index: number) => mapExercise(index, (exercise) => ({ ...exercise, setsDone: plannedSetsFor(exercise) }));
+  // Back-filling a past day, "as planned" / "repeat last" log the sets outright. In a live session
+  // they only put numbers into the rows: each set is still logged by its own check, the sets
+  // already done stay, and the rest timer is left alone.
+  const fillPlanned = (index: number) => mapExercise(index, (exercise) => logDate ? { ...exercise, setsDone: plannedSetsFor(exercise) } : { ...exercise, prefill: undefined });
   const fillPlannedAll = () => mutate((exercises) => exercises.map((exercise) => ({ ...exercise, setsDone: plannedSetsFor(exercise) })));
-  const fillLast = (index: number) => mapExercise(index, (exercise) => !exercise.last?.length ? exercise : { ...exercise, setsDone: exercise.last.map((set) => ({ weight: set.w, reps: set.r, seconds: set.sec || undefined, meters: set.m || undefined })) });
+  const fillLast = (index: number) => mapExercise(index, (exercise) => !exercise.last?.length ? exercise
+    : logDate ? { ...exercise, setsDone: exercise.last.map((set) => ({ weight: set.w, reps: set.r, seconds: set.sec || undefined, meters: set.m || undefined })) }
+    : prefillFromLast(exercise));
   const addSet = (index: number) => mapExercise(index, (exercise) => ({ ...exercise, setsDone: [...(exercise.setsDone ?? []), emptyLoggerSet(exercise.metric)] }));
   const removeSet = (index: number, setIndex: number) => mapExercise(index, (exercise) => removeLoggerSet(exercise, setIndex));
   const moveExercise = (index: number, direction: -1 | 1) => mutate((exercises) => {
@@ -435,7 +457,12 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
   // The exercise being worked on: the first with sets still to do (all done: the last one).
   const currentIndex = exercises.find((exercise) => !complete(exercise))?.index ?? exercises[exercises.length - 1].index;
   const savedTitle = summaryDate ? t(lang, "session_saved_for_date", { date: summaryDate }) : t(lang, "session_saved");
-  const restBar = session.rest.endAt != null ? <RestBar lang={lang} rest={session.rest} onAdjust={session.adjustRest} onSkip={session.stopRest} /> : null;
+  const adjustRest = (delta: number) => {
+    session.adjustRest(delta);
+    const name = restOwner.current;
+    if (name) setRestOverride((cur) => ({ ...cur, [name]: clampRest((cur[name] ?? session.rest.target) + delta) }));
+  };
+  const restBar = session.rest.endAt != null ? <RestBar lang={lang} rest={session.rest} onAdjust={adjustRest} onSkip={session.stopRest} /> : null;
   const dock = (
     <SaveDock
       lang={lang} action={dockAction} saving={saving} disabled={filled === 0} savedAt={savedAt} drafted={drafted}
@@ -506,12 +533,11 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
           busy={actionBusy}
           draft={rowDrafts[key] ?? null}
           onDraft={(draft) => setRowDrafts((cur) => ({ ...cur, [key]: draft }))}
-          onStartRest={session.startRest}
+          onStartRest={(sec, label) => { restOwner.current = exercise.name; session.startRest(sec, label); }}
           onToggleRestPrefs={() => setRestEditFor((current) => current === exercise.index ? null : exercise.index)}
           onPatchRestPrefs={session.patchRestPrefs}
           onPickRest={(sec) => {
-            if (exercise.restSec != null) setRestOverride((cur) => ({ ...cur, [exercise.name]: sec }));
-            else session.patchRestPrefs({ [restMetricKey(exercise.metric)]: sec });
+            setRestOverride((cur) => ({ ...cur, [exercise.name]: sec }));
           }}
           onFillPlanned={() => fillPlanned(exercise.index)}
           onFillLast={() => fillLast(exercise.index)}
