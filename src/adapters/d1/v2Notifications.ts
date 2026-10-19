@@ -82,15 +82,28 @@ export async function dueNotifications(db: DB, nowIsoStr: string, limit = 50): P
   });
 }
 
-/** The recipient switched every notification off (profile.remindersOff holds "all"). */
-export async function notificationsMuted(db: DB, userId: number): Promise<boolean> {
-  const r = await db.prepare("SELECT json_extract(profile, '$.remindersOff') AS off FROM v2_profiles WHERE accountId = ?").bind(userId).first<{ off: string | null }>();
-  if (!r?.off) return false;
+function hasAllOff(off: string | null | undefined): boolean {
+  if (!off) return false;
   try {
-    return (JSON.parse(r.off) as unknown[]).includes(ALL_NOTIFICATIONS);
+    return (JSON.parse(off) as unknown[]).includes(ALL_NOTIFICATIONS);
   } catch {
     return false;
   }
+}
+
+/** The recipient switched every notification off (profile.remindersOff holds "all"). */
+export async function notificationsMuted(db: DB, userId: number): Promise<boolean> {
+  const r = await db.prepare("SELECT json_extract(profile, '$.remindersOff') AS off FROM v2_profiles WHERE accountId = ?").bind(userId).first<{ off: string | null }>();
+  return hasAllOff(r?.off);
+}
+
+/** Same, for the sends that only know a chat id (a private chat id is the person's account chat). */
+export async function chatMuted(db: DB, chatId: number): Promise<boolean> {
+  const r = await db
+    .prepare("SELECT json_extract(p.profile, '$.remindersOff') AS off FROM v2_accounts a JOIN v2_profiles p ON p.accountId = a.id WHERE a.chatId = ? LIMIT 1")
+    .bind(chatId)
+    .first<{ off: string | null }>();
+  return hasAllOff(r?.off);
 }
 
 /** Take a due row for one delivery attempt: pushes nextAttemptAt to `leaseUntil` only if the row

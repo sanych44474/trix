@@ -1,6 +1,7 @@
 // Dispatch layer — the bot's routing "sitemap": command map, callback tables (exact + prefix),
 // text-mode handlers, and createBot(). Extracted from bot.ts (god-file split); behavior unchanged.
 // Handlers are imported from the modules that declare them; bot.ts is only a re-export barrel.
+import { skipMutedRecipients } from "../notify";
 import { handleFormVideo } from "./formCheck";
 import { cmdPaySupport, cmdSupport, onPreCheckout, onSuccessfulPayment } from "./support";
 import { Bot, InlineKeyboard } from "grammy";
@@ -157,6 +158,7 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
     ctx.env = env;
     ctx.db = env.DB;
     ctx.waitUntil = exCtx ? (p) => exCtx.waitUntil(p.catch((e) => console.error("waitUntil task error", e))) : (p) => void p.catch(() => {});
+    ctx.api.config.use(skipMutedRecipients(env.DB, chatId));
     ctx.user = await getOrCreateUser(ctx.db, from.id, chatId, defaultLang(from.language_code), from.first_name);
     // Backfill name for users created before name capture existed.
     if (!ctx.user.profile.name && from.first_name) {

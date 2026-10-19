@@ -83,6 +83,11 @@ export async function deliverDueNotifications(env: Env, bot: OutboxSender, limit
   let sent = 0, retrying = 0, failed = 0;
   for (const row of rows) {
     if (!(await claimNotification(db, row.id, now, leaseUntil()))) continue; // another sweep has it
+    // Muted since it was queued: a retry must not slip through either.
+    if (await notificationsMuted(db, row.userId).catch(() => false)) {
+      await markPermanentFailure(db, row.id, "failed", "muted");
+      continue;
+    }
     const outcome = await attemptDelivery(db, bot, row);
     if (outcome === "sent") sent++;
     else if (outcome === "retrying") retrying++;

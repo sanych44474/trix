@@ -1,8 +1,7 @@
 import { Bot, } from "grammy";
-import { sendBestEffort } from "./adapters/telegram/rawApi";
 import { deliverDueNotifications } from "./schedulerOutbox";
 import { ALL_NOTIFICATIONS } from "./adapters/d1/v2Notifications";
-import { isDurable, notify } from "./notify";
+import { isDurable, notify, pingOther } from "./notify";
 import { type DeliveryResult } from "./schedulerOutbox";
 import { closeQuestWeek } from "./questClose";
 import { isoDateMinus } from "./features/gamification/boards";
@@ -171,7 +170,7 @@ async function runScheduleInner(env: Env): Promise<void> {
         const appUrl = onboardingUrlFromEnv(env);
         const lastBotMsg = [...transcript].reverse().find((m) => m.role === "assistant");
         const nudgeText = appUrl ? t(u.lang, "ob_app_reminder") : lastBotMsg?.text ?? t(u.lang, "ob_resume_nudge");
-        await sendBestEffort(env, u.chatId, nudgeText, appUrl ? onboardingAppMarkup(u.lang, appUrl) : undefined);
+        await pingOther(env, u.chatId, nudgeText, appUrl ? onboardingAppMarkup(u.lang, appUrl) : undefined);
         // Mark today's nudge so we don't send it again today (in the reminders column, so a
         // user-facing session write can't wipe it).
         await updateUser(db, u._id, { reminders: { ...u.reminders, lastNudge: today } });

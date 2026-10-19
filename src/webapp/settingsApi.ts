@@ -2,6 +2,7 @@
 // /api/profile yet — reminder toggles, vacation mode, language, cycle tracking, leaderboard
 // opt-in + alias, feedback, data export (pushed as a document to the chat), leave-trainer and
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
+import { pingOther } from "../notify";
 import { appMarkup } from "../notify/appKeyboard";
 import { buildExportJson, buildExportMd } from "../features/export/exportData";
 import { resolveWaitlistNudge } from "../features/trainer/trainer";
@@ -158,13 +159,13 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
         const trainer = await getUser(env.DB, formerTrainerId).catch(() => null);
         if (trainer) {
           const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
-          await tgSend(env, trainer.chatId, t(trainer.lang, "client_left_trainer", { name: who }));
+          await pingOther(env, trainer.chatId, t(trainer.lang, "client_left_trainer", { name: who }));
         }
         // A roster spot just freed up — same waitlist nudge the chat leave-trainer flow sends,
         // so leaving via the Mini App doesn't silently skip it.
         const nudge = await resolveWaitlistNudge(env.DB, formerTrainerId).catch(() => null);
         if (nudge) {
-          await tgSend(env, nudge.chatId, nudge.text, appMarkup(env, t(nudge.lang, "nb_open_requests"), "role") ?? { inline_keyboard: [[{ text: t(nudge.lang, "menu_requests"), callback_data: "menu:requests" }]] });
+          await pingOther(env, nudge.chatId, nudge.text, appMarkup(env, t(nudge.lang, "nb_open_requests"), "role") ?? { inline_keyboard: [[{ text: t(nudge.lang, "menu_requests"), callback_data: "menu:requests" }]] });
         }
       }
     } else if (action === "deleteAccount") {

@@ -34,7 +34,8 @@ export async function showReminderSettings(ctx: MyContext) {
   const off = new Set(ctx.user.profile.remindersOff ?? []);
   const kb = new InlineKeyboard();
   REMINDER_TYPES.forEach((key, i) => {
-    const on = !off.has(key);
+    // While "all" is off, every type reads as off: none of them is sent (the outbox drops it).
+    const on = !off.has(key) && (key === "all" || !off.has("all"));
     kb.text(`${on ? "🔔" : "🔕"} ${t(lang, REMINDER_LABEL[key])}`, `remtog:${key}`);
     if ((i + 1) % 2 === 0) kb.row();
   });

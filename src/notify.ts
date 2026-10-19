@@ -18,7 +18,10 @@
 //
 // Two adapters sit behind it, which is what makes the seam real: grammY's `bot.api` (webhook and
 // cron) and rawTelegramApi (Mini App requests, no Bot instance).
+import type { Transformer } from "grammy";
 import { enqueueAndDeliver, type DeliveryResult, type OutboxSender } from "./schedulerOutbox";
+import { chatMuted } from "./adapters/d1/v2Notifications";
+import { sendBestEffort } from "./adapters/telegram/rawApi";
 import type { Env } from "./types";
 
 export type { DeliveryResult, OutboxSender };
@@ -48,4 +51,31 @@ export function isDurable(result: DeliveryResult): boolean {
 
 export function notify(env: Env, sender: OutboxSender, to: Recipient, msg: Message): Promise<DeliveryResult> {
   return enqueueAndDeliver(env, sender, { userId: to.userId, chatId: to.chatId, kind: msg.kind, idempotencyKey: msg.key, text: msg.text, extra: msg.extra });
+}
+
+// "All notifications off" (profile.remindersOff holds "all") means nothing from the bot reaches
+// that person unless they asked for it just now. notify() enforces it in the outbox; the two
+// helpers below cover the sends that still go straight to Telegram: the Mini App's best-effort
+// pings to someone else, and bot handlers messaging a person other than the one who acted.
+
+/** A best-effort message to ANOTHER person (a trainer's client, a client's trainer, the owner's
+ * nudge): skipped, as "not sent", when they muted everything. */
+export async function pingOther(env: Pick<Env, "DB" | "TELEGRAM_BOT_TOKEN">, chatId: number, text: string, replyMarkup?: unknown): Promise<boolean> {
+  if (await chatMuted(env.DB, chatId).catch(() => false)) return false;
+  return sendBestEffort(env, chatId, text, replyMarkup);
+}
+
+const OUTGOING = new Set(["sendMessage", "sendPhoto", "sendDocument", "sendVideo", "sendAnimation", "sendVoice", "sendMediaGroup", "copyMessage", "forwardMessage"]);
+
+/** grammY transformer for one update: a message to a private chat other than the acting user's is
+ * dropped when that person muted everything. The handler gets a stand-in result, as if sent --
+ * the same as the outbox's "muted", the event is handled and must not be retried. */
+export function skipMutedRecipients(db: D1Database, selfChatId: number): Transformer {
+  return async (prev, method, payload, signal) => {
+    const chatId = (payload as { chat_id?: unknown }).chat_id;
+    if (OUTGOING.has(method) && typeof chatId === "number" && chatId > 0 && chatId !== selfChatId && (await chatMuted(db, chatId).catch(() => false))) {
+      return { ok: true, result: { message_id: 0, date: 0, chat: { id: chatId, type: "private" } } } as never;
+    }
+    return prev(method, payload, signal);
+  };
 }
