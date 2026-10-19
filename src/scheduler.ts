@@ -1,4 +1,5 @@
 import { Bot, } from "grammy";
+import { botClientOptions } from "./adapters/telegram/rawApi";
 import { deliverDueNotifications } from "./schedulerOutbox";
 import { ALL_NOTIFICATIONS } from "./adapters/d1/v2Notifications";
 import { isDurable, notify, pingOther } from "./notify";
@@ -100,7 +101,7 @@ export async function runSchedule(env: Env): Promise<void> {
 
 async function runScheduleInner(env: Env): Promise<void> {
   const db = env.DB;
-  const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+  const bot = new Bot(env.TELEGRAM_BOT_TOKEN, botClientOptions);
 
   // Retry sweep for reminder sends that backed off on an earlier tick (notification_outbox,
   // roadmap item 3) — cheap no-op when nothing is due. Runs every tick since this Worker's cron

@@ -7,6 +7,7 @@
 // runGlobalJobs (scheduler.ts) against a shadowed D1 and a logging Sender.
 import { loadLearnedMuscles } from "../exerciseMuscleLearning";
 import { Bot } from "grammy";
+import { botClientOptions } from "../adapters/telegram/rawApi";
 import { logSchedulerError, type Sender } from "../schedulerJobs/shared";
 import { runGlobalJobs } from "../schedulerJobs/global";
 import { isCutOver } from "./cutover";
@@ -68,7 +69,7 @@ export class GlobalSchedulerDO {
       // cron caller never wraps the outer call either -- this is defense in depth so a genuinely
       // unexpected exception here still reaches error_logs/owner-report instead of only a raw
       // uncaught exception in Workers Logs.
-      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
+      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
       await runGlobalJobs(this.env.DB, bot, this.env).catch((err) => logSchedulerError(this.env.DB, "global_jobs", err));
       return;
     }

@@ -5,6 +5,7 @@ import { skipMutedRecipients } from "../notify";
 import { handleFormVideo } from "./formCheck";
 import { cmdPaySupport, cmdSupport, onPreCheckout, onSuccessfulPayment } from "./support";
 import { Bot, InlineKeyboard } from "grammy";
+import { botClientOptions } from "../adapters/telegram/rawApi";
 import { logInfo } from "../log";
 import { aiTranscribe } from "../ai";
 import { menuBtn } from "../adapters/telegram/keyboards";
@@ -92,7 +93,7 @@ export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
 
 export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
   setAppUrl(env.WORKER_URL, env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app");
-  const bot = new Bot<MyContext>(env.TELEGRAM_BOT_TOKEN);
+  const bot = new Bot<MyContext>(env.TELEGRAM_BOT_TOKEN, botClientOptions);
 
   // docs/slos.md's telegram_send_failure. An API transformer is the one real choke point for
   // outbound Bot API traffic: every ctx.api.*/bot.api.* call in the bot AND the scheduler goes

@@ -15,6 +15,7 @@
 // later phase, not a flag flip — see the grilling transcript this design came out of.
 import { loadLearnedMuscles } from "../exerciseMuscleLearning";
 import { Bot } from "grammy";
+import { botClientOptions } from "../adapters/telegram/rawApi";
 import { logDryRun } from "./dryrunLog";
 import { getUser } from "../adapters/d1/v2Users";
 import { isCutOver } from "./cutover";
@@ -95,7 +96,7 @@ export class UserSchedulerDO {
       // so a real error after cutover still reaches error_logs/owner-report instead of only a
       // raw uncaught exception in Workers Logs -- an exception thrown straight out of alarm()
       // is invisible to the same owner-facing channel the cron path already reports through.
-      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
+      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
       const pass = await buildSinglePass(this.env.DB, userId);
       await processUser(this.env, bot, user, pass).catch((err) => logSchedulerError(this.env.DB, "schedule_user", err, userId));
       return;
