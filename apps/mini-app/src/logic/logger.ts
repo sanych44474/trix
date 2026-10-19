@@ -175,9 +175,19 @@ export interface StartState {
 export function chooseStart(server: WorkoutToday, local: LoggerDraft | null): StartState {
   const serverSavedAt = server.savedAt ? Date.parse(server.savedAt) : NaN;
   const remote = parseDraft(server.draft?.body);
+  // A draft with nothing logged is only the plan as it looked when the logger last opened (the
+  // logger mirrors itself on every open). Once the plan has an exercise that draft lacks -- a
+  // trainer edited the client's plan, a new plan was assigned -- the plan wins; otherwise the
+  // client kept seeing the old exercises until the next day.
+  const planNames = server.exercises.map((e) => e.name);
+  const outdated = (d: LoggerDraft) => {
+    if (d.exercises.some((e) => (e.setsDone ?? []).some(isSetFilled))) return false;
+    const names = new Set(d.exercises.map((e) => e.planName ?? e.name));
+    return planNames.some((name) => !names.has(name));
+  };
   const candidates: Array<{ draft: LoggerDraft; source: StartSource }> = [];
-  if (local && local.date === server.date) candidates.push({ draft: local, source: "local" });
-  if (remote && remote.date === server.date) candidates.push({ draft: remote, source: "server-draft" });
+  if (local && local.date === server.date && !outdated(local)) candidates.push({ draft: local, source: "local" });
+  if (remote && remote.date === server.date && !outdated(remote)) candidates.push({ draft: remote, source: "server-draft" });
   const newest = candidates.sort((a, b) => b.draft.editedAt - a.draft.editedAt)[0];
 
   const fromSaved = (): StartState => ({
