@@ -2,6 +2,56 @@
 
 What users were told in each release, newest first — the same text the bot broadcasts and shows in *What's new* (`/whatsnew`). The Worker bundle keeps only the latest two (`src/releaseNotes.ts`); this file is the full history.
 
+## 2026-10-18
+
+### English
+
+🎉 **What's new in trix**
+
+📓 **A training journal** — the app is rebuilt around today's workout: five tabs (Today, Training, Food, Progress, More), calm colours and less text on every screen.
+
+🏋️ **Today** — the day's workout with its real length from your plan, the week as done / planned / rest marks, and water and steps logged right there.
+
+🎯 **Focus mode** — one exercise on screen: a set in one tap, the rest timer at the bottom, the muscles the exercise works, and a summary with volume and records when you finish.
+
+🗓 **Plan as a week** — Monday to Sunday at a glance; edit an exercise or add a training day in a panel over the schedule.
+
+📈 **Progress in three sections** — Training (muscle map, calendar, 1RM), Body (weight for a week, month or 3 months, measurements, photos) and Food.
+
+🍽 **Faster food logging** — calories and macros as bars, and four quick ways to log: search with recent foods, photo, voice and barcode. Search now starts from a 400-food base.
+
+📋 **45 ready programs** — gym, dumbbells or no equipment, for every level. Pick one in More → Ready programs.
+
+🔴 **Red theme** — Settings → Screen → Colour. Works in light and dark.
+
+✅ **More accurate** — muscles are matched correctly for hundreds more exercises, cardio no longer counts as dozens of sets, and a swapped exercise doesn't inherit the old weight.
+
+Tap **📱 Open trix** below.
+
+### Українською
+
+🎉 **Що нового в trix**
+
+📓 **Щоденник тренувань** — застосунок перебудовано навколо тренування дня: п'ять вкладок (Сьогодні, Тренування, Харчування, Прогрес, Ще), спокійні кольори й менше тексту на кожному екрані.
+
+🏋️ **Сьогодні** — тренування дня з реальною тривалістю за твоїм планом, тиждень позначками «зроблено / заплановано / відпочинок», а воду й кроки записуєш просто тут.
+
+🎯 **Режим фокусу** — на екрані одна вправа: підхід одним дотиком, таймер відпочинку внизу, м'язи, які працюють, і підсумок з обсягом і рекордами наприкінці.
+
+🗓 **План як тиждень** — з понеділка по неділю одним поглядом; вправу чи новий день редагуєш у панелі поверх розкладу.
+
+📈 **Прогрес у трьох розділах** — Тренування (карта м'язів, календар, 1ПМ), Тіло (вага за тиждень, місяць чи 3 місяці, заміри, фото) і Харчування.
+
+🍽 **Швидше записувати їжу** — калорії та БЖВ смужками і чотири швидкі способи: пошук із нещодавніми, фото, голос і штрихкод. Пошук тепер починається з бази на 400 продуктів.
+
+📋 **45 готових програм** — зал, гантелі чи без інвентарю, для будь-якого рівня. Обирай у Ще → Готові програми.
+
+🔴 **Червона тема** — Налаштування → Екран → Колір. Працює у світлій і темній.
+
+✅ **Точніше** — м'язи правильно визначаються ще для сотень вправ, кардіо більше не рахується як десятки підходів, а замінена вправа не успадковує стару вагу.
+
+Тисни **📱 Відкрити trix** нижче.
+
 ## 2026-10-07
 
 ### English

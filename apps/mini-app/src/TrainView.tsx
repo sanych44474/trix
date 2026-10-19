@@ -27,6 +27,7 @@ import { SessionSummary, type SaveSummary } from "./train/SessionSummary";
 import { Card, Empty, ErrorState, Loading } from "./train/ui";
 import { track } from "./logic/track";
 import { mirrorToDevice } from "./logic/deviceStorage";
+import { confirmDialog } from "./telegram";
 
 // How long the logger waits after the last change before copying the draft to the server.
 const DRAFT_SYNC_DELAY_MS = 2500;
@@ -39,16 +40,6 @@ function writeLocalDraft(draft: LoggerDraft | null): void {
   try { if (draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); else localStorage.removeItem(DRAFT_KEY); } catch { /* storage is optional */ }
 }
 
-/** Telegram's native confirm where the client has it (Bot API 6.2+), the browser's otherwise. */
-function confirmDialog(message: string): Promise<boolean> {
-  const tg = window.Telegram?.WebApp;
-  if (tg?.showConfirm) {
-    return new Promise((resolve) => {
-      try { tg.showConfirm!(message, (ok) => resolve(ok)); } catch { resolve(window.confirm(message)); }
-    });
-  }
-  return Promise.resolve(window.confirm(message));
-}
 
 function scrollToTop(): void {
   try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); }

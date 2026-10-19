@@ -716,6 +716,35 @@ button { cursor: pointer; }
 :root[data-theme="contrast"] { --accent: #1D4733; --on-accent: #FFFFFF; --accent-ink: #1D4733; --accent-soft: rgba(29, 71, 51, .12); --pine: #1D4733; --lime: #9BCB2A; --coral: #C2502E; --coral-ink: #8A2E14; --on-good: #FFFFFF; --track: #DCDFE4; --icon-muted: #3D4654; }
 :root[data-theme="contrast"] .button-primary, :root[data-theme="contrast"] .rest-skip { color: #fff; }
 
+/* Red accent (Settings → Screen). The same roles as the green journal: --pine is the strong
+   brand colour (buttons in light, headings), --lime the fill under dark text (done marks, the
+   active tab, the rest "Next"), coral moves to amber so records don't read as errors. Grounds are
+   tinted warm to match. High contrast ignores it (theme.ts doesn't set data-accent there). */
+:root[data-accent="red"] {
+  color: #241818; background: #F6F1EE;
+  --bg: #F6F1EE; --surface: #FFFCFA; --surface-2: #EFE6E2; --line: #E8DCD7;
+  --text: #241818; --muted: #6A5D5B; --icon-muted: #7C6E6B;
+  --pine: #9E1B22; --lime: #FF8F85; --coral: #E3A33B; --coral-ink: #8A5A00;
+  --accent: #B3261E; --on-accent: #FFFFFF; --accent-ink: #A11F18; --accent-soft: rgba(255, 143, 133, .28);
+  --track: #EDE3DF;
+}
+@media (prefers-color-scheme: dark) { :root[data-accent="red"]:not([data-theme]) {
+  color: #F3E9E8; background: #171112;
+  --bg: #171112; --surface: #221819; --surface-2: #2C2021; --line: #3A2A2B;
+  --text: #F3E9E8; --muted: #B5A2A0; --icon-muted: #B5A2A0;
+  --pine: #D9534F; --lime: #FF7B72; --coral: #F2B65A; --coral-ink: #F2C27A;
+  --accent: #FF7B72; --on-accent: #2A0806; --accent-ink: #FF9A92; --accent-soft: rgba(255, 123, 114, .18);
+  --track: #2E2223;
+} }
+:root[data-accent="red"][data-theme="dark"] {
+  color: #F3E9E8; background: #171112;
+  --bg: #171112; --surface: #221819; --surface-2: #2C2021; --line: #3A2A2B;
+  --text: #F3E9E8; --muted: #B5A2A0; --icon-muted: #B5A2A0;
+  --pine: #D9534F; --lime: #FF7B72; --coral: #F2B65A; --coral-ink: #F2C27A;
+  --accent: #FF7B72; --on-accent: #2A0806; --accent-ink: #FF9A92; --accent-soft: rgba(255, 123, 114, .18);
+  --track: #2E2223;
+}
+
 /* ---- Journal layout (Today, Training focus mode, summary) ---- */
 .app-shell { padding-left: 16px; padding-right: 16px; }
 .app-shell.focus-mode { padding-bottom: calc(24px + var(--safe-bottom)); }
@@ -970,3 +999,24 @@ button { cursor: pointer; }
 .fold-group { display: grid; border-radius: 20px; background: var(--surface); overflow: hidden; }
 .fold-group > .card.fold { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .fold-group > .card.fold + .card.fold { border-top: 1px solid var(--line); }
+
+/* Settings → Screen: the accent colour picker. */
+.segmented.accent-pick { grid-template-columns: 1fr 1fr; }
+.segmented.accent-pick button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.segmented.accent-pick button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; }
+.swatch.green { background: linear-gradient(135deg, #285743 50%, #B8E34D 50%); }
+.swatch.red { background: linear-gradient(135deg, #B3261E 50%, #FF8F85 50%); }
+.segmented.accent-pick { background: var(--surface-2); }
+:root[data-accent="red"] .rest-bar { background: #2A1A1A; color: #F6F1EE; box-shadow: 0 12px 30px rgba(36, 16, 16, .35); }
+:root[data-accent="red"] .rest-adjust { background: #3D2828; color: #F6F1EE; }
+
+/* Trainer: a plan draft waiting on the client card — first on the page, one big action. */
+.draft-card { display: grid; gap: 8px; border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.draft-card h2 { margin: 0; font-size: 20px; line-height: 1.25; }
+.draft-kicker { color: var(--accent-ink); font-size: 13px; font-weight: 700; }
+.draft-meta { margin: 0; color: var(--text); font-weight: 600; }
+.draft-assign { min-height: 56px; margin-top: 6px; font-size: 17px; gap: 8px; }
+.draft-more { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
+.page-title.client-title { display: grid; gap: 8px; align-items: start; }
+.page-title.client-title h1 { overflow-wrap: anywhere; }

@@ -129,10 +129,13 @@ function**, so the total below is a count rather than a slogan.
 
 ## 3. Workout logging
 
-1. **Guided logger in the Mini App**: today's exercises as cards with plan hints.
+1. **Guided logger in the Mini App**: an overview of today's exercises, then **focus mode** — one
+   exercise on screen with a strip to jump between them, its target and progression, a technique
+   cue and the muscles it works (tap to unfold front/back figures).
 2. **"✓ As planned"** one-tap fill per exercise.
 3. **"Fill all as planned"** for the whole session.
-4. **Per-set entry**: weight × reps, or time / distance for timed and cardio work.
+4. **Per-set entry**: a set table — one tap on a set's check logs it as suggested, tapping the row
+   edits weight × reps (or time / distance for timed and cardio work).
 5. **Add and remove sets.**
 6. **Per-set RPE chips** (6–10).
 7. **In-session swap**: same-muscle alternatives filtered by the equipment you have.
@@ -143,10 +146,11 @@ function**, so the total below is a count rather than a slogan.
 11. **Reorder** exercises (⬆️⬇️).
 12. **Technique + video dropdown** per exercise.
 13. **"Repeat last"**: fill an exercise with what you actually did last time.
-14. **Session progress**: "3/6" header, progress bar, ✓ on filled cards.
+14. **Session progress**: "Exercise 3 of 6" header and a segment per exercise (done, part, now).
 15. **Rest timer** per exercise: the plan's rest wins, otherwise a remembered preference per
     metric; optional auto-start after a set and a sound.
-16. **Pinned rest bar** with progress ring, ±15 s and skip, counting up past zero so drift shows.
+16. **Pinned rest bar** with a large clock, ±15 s and "Next", a bar that empties as the rest runs
+    out, counting up past zero so drift shows.
 17. **Rest-done Telegram push** from the server, so it arrives with the screen locked.
 18. **Save dock**: pinned above the nav with live session time, save/draft status and one action:
     Finish workout (asks first), Save changes, or Save for a past date.
@@ -156,6 +160,8 @@ function**, so the total below is a count rather than a slogan.
 20. **Measured session length**: from the first set or rest to "Finish", stored with the log and
     shown in History.
 21. **History tab**: past sessions with duration; repeat one today or edit a saved day in place.
+    Finishing a session opens a **summary**: duration, sets against the plan, volume, new records
+    and how it felt.
 22. **Log a missed day** (blank or from a past session) within a 14-day window; past edits don't
     ping the trainer.
 23. **Chat logging in free text** ("80 8,7,6" / "80x8 75x10"), with tappable set correction.
@@ -205,7 +211,8 @@ function**, so the total below is a count rather than a slogan.
 7. **Personal daily goals**: water (default 35 ml/kg) and steps (default 8,000).
 8. **Daily wellbeing check-in**: energy, sleep, stress, with a trend chart.
 9. **Pre-workout readiness advice** from the check-in.
-10. **Activity rings** on the home screen: workouts this week, water today, steps today.
+10. **Water and steps on Today**: meters against the daily goals, +250 / +500 ml and steps logged
+    in place.
 11. **Progress photos**, self-serve or requested by the trainer.
 12. **Photo gallery** in the profile and on the trainer's client card (authorized proxy, the bot
     token is never exposed).
@@ -278,22 +285,27 @@ function**, so the total below is a count rather than a slogan.
 
 ## 8. Mini App platform
 
-1. **Bottom tab bar**: Today · Train · Plan · Fuel · Progress · More, plus a role workspace for
-   trainers and the owner.
+1. **Bottom tab bar**: Today · Training · Food · Progress · More. The plan lives inside Training
+   (Today / Plan / History); for trainers the fourth tab is the client list.
 2. **Instant open**: the last dashboard is cached and revalidated in the background.
 3. **Skeleton loading**, pull-to-refresh and haptics.
-4. **Dashboard**: level/XP/streak, activity rings, today's workout, quick log (water, exercise,
-   food, steps, measurements, check-in).
-5. **Interactive month calendar** (tap a day for its detail) and a 12-week heatmap.
+4. **Today**: the day's workout with its length estimated from the plan (sets × work + planned
+   rest + warm-up) and one Start button (Telegram's native bottom button inside Telegram), the
+   week as done / planned / rest marks, then recovery, the coach, and water + steps.
+5. **Progress in three sections** — Training (body map, calendar with day detail, 1RM, muscle
+   trend), Body (weight for a week / month / 3 months, measurements, check-in, photos) and Food.
 6. **Weekly volume vs MEV/MAV** and **e1RM by muscle group** (top-3 lifts per group).
-7. **"More" screen**: challenges, injuries, leaderboards, records, badges, week card, plate
-   calculator, program library, find a trainer, what's new.
+7. **"More" screen**: one list of tools that fold open in place — ready programs, form check,
+   week card, invite, photo compare, plate calculator, program library, find a trainer, what's
+   new, import.
 8. **Profile & settings**: profile fields, goals, reminder toggles, vacation mode, language,
    cycle tracking, compete opt-in and alias.
 9. **Data export** (Markdown, pushed as a document).
 10. **Leave trainer / delete account** from the app.
 11. **Deep links**: reminder buttons open the exact screen (`?view=…`, `startapp=`).
-12. **Light and dark themes**, following Telegram's.
+12. **Themes**: light and dark follow Telegram's; an opt-in high-contrast theme; and a red
+    accent (Settings → Screen → Colour) on top of light or dark. Telegram's header, background
+    and native button take the app's colours.
 13. **Body map**: anatomical front/back figures (male or female, from the profile). "This week"
     colours each of 15 muscles by its weekly sets vs its own MEV/MAV (main movers count a full
     set, assisting muscles half) and calls out lopsided pairs; tapping a muscle lists the
