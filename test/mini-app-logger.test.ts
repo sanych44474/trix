@@ -159,3 +159,22 @@ test("a swap drops the old exercise's target, weight and history, and re-derives
   assert.equal(pushups.metric, "reps");
   assert.equal(swapExercise([bench], 0, "Планка")[0].metric, "time");
 });
+
+test("chooseStart: a plan changed by the trainer replaces an untouched draft of the old plan", () => {
+  const oldPlan = ["Deep Squat", "Bench Press", "Pull-up"].map((name, index) => ({ index, name, metric: "reps" as const, sets: 3, reps: 10, restSec: 90 }));
+  const opened = draft(oldPlan, { editedAt: 0 }); // the logger mirrored itself on open, nothing logged
+  const start = chooseStart(today(), opened);
+  assert.equal(start.source, "plan");
+  assert.deepEqual(start.exercises.map((e) => e.name), plan().map((e) => e.name));
+  const fromServer = chooseStart(today({ draft: { body: JSON.stringify(opened) } as WorkoutToday["draft"] }), null);
+  assert.equal(fromServer.source, "plan", "the server copy of such a draft yields too");
+});
+
+test("chooseStart: logged sets, a swap or an added exercise keep the draft", () => {
+  const logged = [done(plan()[0]!), ...["Deep Squat"].map((name, index) => ({ index: index + 1, name, metric: "reps" as const, sets: 3, reps: 10, restSec: 90 }))];
+  assert.equal(chooseStart(today(), draft(logged)).source, "local", "work in progress is never dropped");
+  const swapped = plan().map((e, i) => (i === 1 ? { ...e, name: "Hammer Curl", planName: e.name } : e));
+  assert.equal(chooseStart(today(), draft(swapped)).source, "local");
+  const added = [...plan(), { index: 3, name: "Face Pull", metric: "reps" as const, sets: 3, reps: 15, restSec: 60 }];
+  assert.equal(chooseStart(today(), draft(added)).source, "local");
+});
