@@ -98,9 +98,9 @@ export function swapExercise(exercises: LoggerExercise[], index: number, name: s
     const planName = exercise.planName ?? exercise.name;
     // The plan's technique notes, video and catalog name describe the old exercise, not this one
     // (the info panel looks the new one up by name instead).
-    // So do its progression target, last session and weight (82.5 kg from a bench press must not
+    // So do its comment, progression target, last session and weight (82.5 kg from a bench press must not
     // pre-fill push-ups), and what it is measured in (a plank is time, not reps).
-    const { planName: _drop, technique: _t, videoUrl: _v, videoTitle: _vt, canonicalName: _c, target: _tg, last: _l, planWeight: _pw, weightKg: _w, ...rest } = exercise;
+    const { planName: _drop, technique: _t, note: _n, videoUrl: _v, videoTitle: _vt, canonicalName: _c, target: _tg, last: _l, planWeight: _pw, weightKg: _w, ...rest } = exercise;
     return { ...rest, name, metric: metricFromName(name), setsDone: [], ...(planName !== name ? { planName } : {}), ...(extra.videoUrl ? { videoUrl: extra.videoUrl, videoTitle: extra.videoTitle } : {}) };
   });
 }

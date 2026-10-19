@@ -331,3 +331,33 @@ test("plan API: kit mismatches are reported and fitkit swaps them (optionally ch
   const after = (await (await call(db, 7, "GET", "/api/plan")).json()) as { kit: { mismatches: number } };
   assert.equal(after.kit.mismatches, 0);
 });
+
+test("plan editor: a trainer adds a comment and technique to a client's exercise", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Coach");
+  await getOrCreateUser(db, 2, 2, "en", "Client");
+  const { updateUser } = await import("../src/adapters/d1/v2Users");
+  await updateUser(db, 1, { role: "trainer" });
+  await updateUser(db, 2, { role: "client", trainerId: 1 });
+  await setActivePlan(db, plan(2));
+  type View = { version: string; days: Array<{ exercises: Array<{ name: string; note?: string; technique?: string }> }> };
+  const get = async () => (await call(db, 1, "GET", "/api/plan?clientId=2")).json() as Promise<View>;
+  const post = async (action: string, value: string) => call(db, 1, "POST", "/api/plan", { clientId: 2, weekday: 1, index: 0, action, value, expectName: "Bench Press" }, { "if-match": `"${(await get()).version}"` });
+
+  assert.equal((await post("note", "  Elbows at 45°,   stop at RPE 8 ")).status, 200);
+  assert.equal((await post("technique", "Shoulder blades pinned; bar to the lower chest.")).status, 200);
+  let bench = (await get()).days[0]!.exercises[0]!;
+  assert.equal(bench.note, "Elbows at 45°, stop at RPE 8", "whitespace collapsed");
+  assert.equal(bench.technique, "Shoulder blades pinned; bar to the lower chest.");
+
+  assert.equal((await post("note", "x".repeat(400))).status, 200);
+  assert.equal((await get()).days[0]!.exercises[0]!.note!.length, 300, "comments are capped");
+  assert.equal((await post("note", "")).status, 200);
+  bench = (await get()).days[0]!.exercises[0]!;
+  assert.equal(bench.note, undefined, "an empty comment clears it");
+  assert.equal((await post("technique", "   ")).status, 400, "technique can't be blanked");
+
+  const changes = await db.prepare("SELECT summary FROM v2_plan_changes WHERE accountId = 2 ORDER BY id").all<{ summary: string }>();
+  assert.ok(changes.results.some((c) => c.summary.startsWith("comment: Bench Press")));
+  assert.ok(changes.results.some((c) => c.summary.startsWith("technique: Bench Press")));
+});

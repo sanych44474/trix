@@ -67,7 +67,7 @@ export function ErrorState({ lang, error, retry }: { lang: Lang; error: unknown;
 export const wmodeLabel = (lang: Lang, wmode: "total" | "perSide" | "perHand") =>
   t(lang, wmode === "perSide" ? "wmode_persidem" : wmode === "perHand" ? "wmode_perhandm" : "wmode_total");
 
-export type PlanAction = "weight" | "sets" | "del" | "move" | "swap" | "add" | "link" | "video";
+export type PlanAction = "weight" | "sets" | "del" | "move" | "swap" | "add" | "link" | "video" | "note" | "technique";
 // The plan-edit request body straight from the contract, so every field name the editor sends
 // is checked against what the handler declares it reads.
 export type PlanEditBody = RequestBody<"editPlan">;
