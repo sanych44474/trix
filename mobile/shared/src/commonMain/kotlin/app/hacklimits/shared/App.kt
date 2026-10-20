@@ -25,6 +25,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import app.hacklimits.shared.coach.CoachScreen
+import app.hacklimits.shared.chat.ChatScreen
+import app.hacklimits.shared.inbox.InboxScreen
+import app.hacklimits.shared.inbox.InboxTarget
 import app.hacklimits.shared.plan.ExerciseLibraryScreen
 import app.hacklimits.shared.plan.InjuriesScreen
 import app.hacklimits.shared.programs.ProgramsScreen
@@ -83,6 +86,9 @@ import org.koin.compose.viewmodel.koinViewModel
 @Serializable object ExerciseLibraryRoute
 @Serializable object ProgramsRoute
 @Serializable object InjuriesRoute
+@Serializable object InboxRoute
+/** peerId = 0: a client's own trainer; otherwise the client a trainer is talking to. */
+@Serializable data class ChatRoute(val peerId: Long = 0)
 
 /** A bottom-bar tab: its route, label and icon. Full-screen flows (workout, plan, questionnaire)
  * open above the tabs without the bar. */
@@ -201,7 +207,25 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                     }
                     composable<InjuriesRoute> { InjuriesScreen(koinViewModel(), onBack = { nav.popBackStack() }) }
                     composable<CoachRoute> { CoachScreen(onBack = { nav.popBackStack() }) }
-                    composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }) }
+                    composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }, onOpenCoach = { nav.navigate(CoachRoute) }) }
+                    composable<InboxRoute> {
+                        InboxScreen(
+                            onBack = { nav.popBackStack() },
+                            onOpen = { target ->
+                                when (target) {
+                                    InboxTarget.Plan -> nav.navigate(PlanRoute())
+                                    InboxTarget.Progress -> nav.navigate(ProgressRoute)
+                                    InboxTarget.Today -> nav.navigate(TodayRoute)
+                                    InboxTarget.More -> nav.navigate(MoreRoute)
+                                    InboxTarget.Role -> nav.navigate(CoachRoute)
+                                }
+                            },
+                        )
+                    }
+                    composable<ChatRoute> { entry ->
+                        val peerId = entry.toRoute<ChatRoute>().peerId
+                        ChatScreen(peerId = peerId.takeIf { it > 0 }, onBack = { nav.popBackStack() })
+                    }
                     composable<IntegrationsRoute> {
                         IntegrationsScreen(onBack = { nav.popBackStack() }, onRequestHealthPermission = onRequestHealthPermission)
                     }
