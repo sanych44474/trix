@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.core.content.edit
 import app.hacklimits.shared.data.SessionStore
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -29,19 +30,20 @@ class KeystoreSessionStore(context: Context) : SessionStore {
         val stored = prefs.getString(KEY_TOKEN, null) ?: return@withContext null
         runCatching { decrypt(stored) }.getOrElse {
             // Key gone (app data restored on another device, keystore reset): sign in again.
-            prefs.edit().remove(KEY_TOKEN).apply()
+            prefs.edit { remove(KEY_TOKEN) }
             state.value = false
             null
         }
     }
 
     override suspend fun save(token: String) = withContext(Dispatchers.IO) {
-        prefs.edit().putString(KEY_TOKEN, encrypt(token)).commit()
+        // commit, not apply: the token must be on disk before the app moves on as signed in.
+        prefs.edit(commit = true) { putString(KEY_TOKEN, encrypt(token)) }
         state.value = true
     }
 
     override suspend fun clear() = withContext(Dispatchers.IO) {
-        prefs.edit().remove(KEY_TOKEN).commit()
+        prefs.edit(commit = true) { remove(KEY_TOKEN) }
         state.value = false
     }
 

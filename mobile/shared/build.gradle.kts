@@ -9,7 +9,7 @@ plugins {
 kotlin {
     android {
         namespace = "app.hacklimits.shared"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 26
         androidResources { enable = true }
         withHostTest {}

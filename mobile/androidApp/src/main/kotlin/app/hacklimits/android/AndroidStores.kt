@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -22,8 +23,8 @@ import kotlinx.coroutines.withContext
 class PrefsKeyValueStore(context: Context) : KeyValueStore {
     private val prefs = context.getSharedPreferences("app_state", Context.MODE_PRIVATE)
     override suspend fun get(key: String): String? = withContext(Dispatchers.IO) { prefs.getString(key, null) }
-    override suspend fun put(key: String, value: String) = withContext(Dispatchers.IO) { prefs.edit().putString(key, value).apply() }
-    override suspend fun remove(key: String) = withContext(Dispatchers.IO) { prefs.edit().remove(key).apply() }
+    override suspend fun put(key: String, value: String) = withContext(Dispatchers.IO) { prefs.edit { putString(key, value) } }
+    override suspend fun remove(key: String) = withContext(Dispatchers.IO) { prefs.edit { remove(key) } }
 }
 
 /** The "rest is over" notification when the app is in the background. WorkManager instead of an
@@ -46,8 +47,8 @@ class WorkRestAlarm(private val context: Context) : RestAlarm {
 
 class RestOverWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
-        val granted = ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED ||
-            android.os.Build.VERSION.SDK_INT < 33
+        val granted = android.os.Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!granted) return Result.success()
         val notification = NotificationCompat.Builder(applicationContext, REMINDERS_CHANNEL)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
