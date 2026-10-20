@@ -2,8 +2,8 @@ package app.hacklimits.shared.today
 
 import app.hacklimits.shared.data.AppJson
 import app.hacklimits.shared.data.KeyValueStore
-import app.hacklimits.shared.workout.LoggerViewModel
-import app.hacklimits.shared.workout.WorkoutDraft
+import app.hacklimits.shared.workout.logic.DRAFT_KEY
+import app.hacklimits.shared.workout.logic.parseDraft
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlin.math.roundToLong
@@ -24,11 +24,10 @@ class TodayPrefs(private val store: KeyValueStore) {
     suspend fun setWeekSummarySeen(weekStart: String) = write(SUMMARY_KEY, weekStart)
 
     suspend fun session(): SessionProgress? {
-        val draft = read(LoggerViewModel.DRAFT_KEY)?.let { raw -> runCatching { AppJson.decodeFromString<WorkoutDraft>(raw) }.getOrNull() }
-            ?: return null
+        val draft = parseDraft(read(DRAFT_KEY)) ?: return null
         return SessionProgress(
             draft.date,
-            draft.exercises.map { SessionProgress.SessionExercise(it.name, it.sets.count { set -> set.done }) },
+            draft.exercises.map { SessionProgress.SessionExercise(it.name, it.setsDone.orEmpty().size) },
         )
     }
 

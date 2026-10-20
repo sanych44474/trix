@@ -108,7 +108,7 @@ data class WorkoutCopyExercise(
 }
 
 @Serializable data class ExerciseInfo(val technique: String = "", val videoUrl: String? = null, val videoTitle: String? = null)
-@Serializable data class ExerciseSteps(val steps: List<String> = emptyList(), val name: String? = null)
+@Serializable data class TechniqueSteps(val steps: List<String> = emptyList(), val name: String? = null)
 
 /** GET /api/v2/plates: a barbell plan for a total weight, and the warm-up ramp toward it. */
 @Serializable data class PlatesResponse(val plan: PlatePlan? = null, val ramp: List<WarmupSet> = emptyList()) {
@@ -199,7 +199,7 @@ class WorkoutApi(private val api: ApiClient) {
         parameter("name", name)
     })
 
-    suspend fun steps(id: String): ExerciseSteps = api.unwrap(api.http.get("api/v2/workout/steps") {
+    suspend fun steps(id: String): TechniqueSteps = api.unwrap(api.http.get("api/v2/workout/steps") {
         api.authorize(this)
         parameter("id", id)
     })

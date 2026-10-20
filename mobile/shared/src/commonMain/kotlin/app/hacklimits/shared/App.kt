@@ -221,7 +221,8 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                                     MoreTool.Owner -> nav.navigate(OwnerRoute)
                                     MoreTool.FormCheck -> nav.navigate(FormCheckRoute)
                                     MoreTool.ImportCsv -> nav.navigate(ImportCsvRoute)
-                                    MoreTool.Plates -> Unit
+                                    // The plate calculator sits in the workout overview, as in the Mini App.
+                                    MoreTool.Plates -> nav.navigate(LoggerRoute)
                                 }
                             },
                         )
@@ -290,7 +291,14 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                     }
                     composable<TrainerBusinessRoute> { TrainerBusinessScreen(onBack = { nav.popBackStack() }) }
                     composable<LoggerRoute> {
-                        LoggerScreen(koinViewModel(), onClose = { nav.popBackStack() })
+                        LoggerScreen(
+                            koinViewModel(),
+                            onClose = { nav.popBackStack() },
+                            onAskCoach = { nav.navigate(CoachRoute) },
+                            planContent = {
+                                PlanScreen(koinViewModel(), onClose = {}, onOpenLibrary = { nav.navigate(ExerciseLibraryRoute) })
+                            },
+                        )
                     }
                 }
             }
