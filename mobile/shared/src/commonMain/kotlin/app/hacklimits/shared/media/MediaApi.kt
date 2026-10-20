@@ -1,6 +1,7 @@
 package app.hacklimits.shared.media
 
 import app.hacklimits.shared.data.ApiClient
+import app.hacklimits.shared.data.aiTimeout
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.header
@@ -42,7 +43,10 @@ internal class MediaApi(private val api: ApiClient) {
                     append(HttpHeaders.ContentDisposition, "filename=\"meal.jpg\"")
                 })
             },
-        ) { api.authorize(this) }
+        ) {
+            api.authorize(this)
+            aiTimeout()
+        }
         return api.unwrap<MealEstimate>(response).items
     }
 
@@ -60,6 +64,7 @@ internal class MediaApi(private val api: ApiClient) {
     suspend fun logFoodText(text: String, key: String): Boolean =
         api.unwrap<FoodLogResult>(api.http.post("api/v2/log") {
             api.authorize(this)
+            aiTimeout()
             header("Idempotency-Key", key)
             contentType(ContentType.Application.Json)
             setBody(FoodLogBody("food", text.take(500)))

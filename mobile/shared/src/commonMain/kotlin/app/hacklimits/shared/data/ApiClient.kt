@@ -5,6 +5,7 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.header
@@ -88,3 +89,11 @@ class ApiClient(private val baseUrl: String, private val sessions: SessionStore,
 
 @kotlinx.serialization.Serializable
 data class Envelope<T>(val data: T)
+
+private const val AI_TIMEOUT_MS = 120_000L
+
+/** AI-backed calls: the server may try several providers (25 s each) before it answers. */
+fun HttpRequestBuilder.aiTimeout() = timeout {
+    requestTimeoutMillis = AI_TIMEOUT_MS
+    socketTimeoutMillis = AI_TIMEOUT_MS
+}

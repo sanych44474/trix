@@ -1,6 +1,7 @@
 package app.hacklimits.shared.coach
 
 import app.hacklimits.shared.data.ApiClient
+import app.hacklimits.shared.data.aiTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -39,6 +40,7 @@ class CoachApi(private val api: ApiClient) {
     suspend fun ask(question: String, history: List<CoachHistoryTurn>, key: String): CoachAnswer =
         api.unwrap(api.http.post("api/v2/coach/ask") {
             api.authorize(this)
+            aiTimeout()
             header("Idempotency-Key", key)
             contentType(ContentType.Application.Json)
             setBody(AskBody(question, history.takeLast(MAX_HISTORY)))
