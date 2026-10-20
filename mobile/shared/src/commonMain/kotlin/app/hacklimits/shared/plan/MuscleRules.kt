@@ -1,4 +1,4 @@
-// GENERATED from src/domain/exerciseMuscles.ts by scratchpad gen-data.mjs -- do not edit by hand.
+// Ported from src/domain/exerciseMuscles.ts (RULES and REGION_FALLBACK, in order). Keep in sync with it.
 // Keyword rules that map an exercise name to the muscles it works. Order matters: the first rule
 // that matches wins, so specific patterns come before general ones.
 package app.hacklimits.shared.plan
