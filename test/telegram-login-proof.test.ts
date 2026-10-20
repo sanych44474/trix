@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Env } from "../src/types";
 import { confirmTelegramLogin, handleProviderAuth } from "../src/webapp/providerAuth";
-import { newDb } from "./harness";
+import { makeCtx, newDb } from "./harness";
+import { getOrCreateUser, getUser } from "../src/adapters/d1/v2Users";
+import { answerTelegramLogin, promptTelegramLogin } from "../src/bot/telegramLogin";
+import { cmdStart } from "../src/bot/start";
 
 const origin = "https://trix.example";
 
@@ -51,4 +54,48 @@ test("Telegram sign-in completion is bound to the initiating browser secret and 
   const replay = await handleProviderAuth(request("/api/v2/auth/telegram/complete", challenge), new URL(`${origin}/api/v2/auth/telegram/complete`), env);
   assert.ok(replay);
   assert.equal(replay.status, 401);
+});
+
+async function startChallenge(env: Env) {
+  const res = await handleProviderAuth(request("/api/v2/auth/telegram/start"), new URL(`${origin}/api/v2/auth/telegram/start`), env);
+  return (await res!.json() as { data: { challengeId: string; completionToken: string; matchCode: string } }).data;
+}
+const complete = (env: Env, c: { challengeId: string; completionToken: string }) =>
+  handleProviderAuth(request("/api/v2/auth/telegram/complete", c), new URL(`${origin}/api/v2/auth/telegram/complete`), env);
+const authEnv = (db: ReturnType<typeof newDb>) => ({ DB: db, BOT_USERNAME: "trixbot", RL_AUTH: { limit: async () => ({ success: true }) } }) as unknown as Env;
+
+test("Telegram sign-in: opening the deep link only asks, it never signs the app in", async () => {
+  const db = newDb();
+  const env = authEnv(db);
+  await getOrCreateUser(db, 777, 777, "en", "Victim");
+  const challenge = await startChallenge(env);
+  assert.match(challenge.matchCode, /^\d{4}$/);
+
+  const { ctx, sent } = makeCtx(db, (await getUser(db, 777)) as never);
+  await cmdStart(ctx as never, `login_${challenge.challengeId}`);
+  assert.equal(sent.length, 1);
+  assert.ok(sent[0].text.includes(challenge.matchCode), "the bot shows the same code as the app");
+  assert.ok(sent[0].hasKb, "Confirm / This wasn't me buttons");
+  assert.equal((await complete(env, challenge))!.status, 409, "still not confirmed: the link alone is not consent");
+});
+
+test("Telegram sign-in: Confirm signs in once; This wasn't me makes the request unusable", async () => {
+  const db = newDb();
+  const env = authEnv(db);
+  await getOrCreateUser(db, 778, 778, "en", "Owner");
+  const user = (await getUser(db, 778)) as never;
+
+  const ok = await startChallenge(env);
+  await answerTelegramLogin(makeCtx(db, user).ctx as never, ok.challengeId, true);
+  assert.equal((await complete(env, ok))!.status, 200);
+
+  const denied = await startChallenge(env);
+  await answerTelegramLogin(makeCtx(db, user).ctx as never, denied.challengeId, false);
+  await answerTelegramLogin(makeCtx(db, user).ctx as never, denied.challengeId, true);
+  assert.equal((await complete(env, denied))!.status, 401, "a rejected request can't be confirmed or completed later");
+
+  const { ctx, sent } = makeCtx(db, user);
+  await promptTelegramLogin(ctx as never, denied.challengeId);
+  assert.match(sent[0].text, /expired|already used/, "the old link no longer offers buttons");
+  assert.equal(sent[0].hasKb, false);
 });

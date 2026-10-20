@@ -86,6 +86,7 @@ import { toggleShare } from "./shareConsent";
 import { cmdGrocery, showGroceryList, startMealPlanIntake, beginMealPlanIntake, mealAllergenButton, mealSkip, startMealGeneration, onMealWeekly, onMealRegenAi } from "./mealPlanCmds";
 import { cmdCheckin, handleCheckinCallback } from "./checkinCmds";
 import { routeUserText } from "./textRoutes";
+import { answerTelegramLogin } from "./telegramLogin";
 
 // ===================== Callback routing tables =====================
 // Every callback_query route is declared here instead of a 570-line if-chain. Dispatch order:
@@ -317,6 +318,8 @@ async function setMesocycle(ctx: MyContext, on: boolean) {
 }
 
 export const CB_PREFIX: [string, CbHandler][] = [
+  ["tglogin:ok:", (ctx, rest) => answerTelegramLogin(ctx, rest, true)],
+  ["tglogin:no:", (ctx, rest) => answerTelegramLogin(ctx, rest, false)],
   ["kitfit:", (ctx, rest) => applyKitFit(ctx, rest)],
   ["orep:", (ctx, rest) => sendOwnerSection(ctx, rest)],
   ["support:", (ctx, rest) => onSupportAmount(ctx, rest)],

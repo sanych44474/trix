@@ -241,12 +241,14 @@ async function telegramStartRoute(req: Request, url: URL, env: Env): Promise<Res
   // The ID is public because it appears in Telegram's deep link. A separate secret binds
   // completion to the browser tab that initiated sign-in and prevents login CSRF via shared links.
   const completionToken = randomHex(32);
+  // Shown in the app and in the bot's prompt; the person compares them before tapping Confirm.
+  const matchCode = String(crypto.getRandomValues(new Uint32Array(1))[0] % 10_000).padStart(4, "0");
   const nowIso = now.toISOString();
   const expiresAt = new Date(now.getTime() + CHALLENGE_TTL_MS).toISOString();
   await env.DB.prepare("DELETE FROM v2_auth_telegram_challenges WHERE expiresAt <= ?").bind(nowIso).run();
-  await env.DB.prepare("INSERT INTO v2_auth_telegram_challenges (id, completionHash, createdAt, expiresAt) VALUES (?, ?, ?, ?)")
-    .bind(id, await sha256Hex(completionToken), nowIso, expiresAt).run();
-  return json({ challengeId: id, completionToken, telegramUrl: `https://t.me/${username}?start=login_${id}`, expiresInSeconds: CHALLENGE_TTL_MS / 1000 });
+  await env.DB.prepare("INSERT INTO v2_auth_telegram_challenges (id, completionHash, matchCode, createdAt, expiresAt) VALUES (?, ?, ?, ?, ?)")
+    .bind(id, await sha256Hex(completionToken), matchCode, nowIso, expiresAt).run();
+  return json({ challengeId: id, completionToken, matchCode, telegramUrl: `https://t.me/${username}?start=login_${id}`, expiresInSeconds: CHALLENGE_TTL_MS / 1000 });
 }
 
 async function telegramStatusRoute(url: URL, env: Env): Promise<Response> {
@@ -284,7 +286,26 @@ async function telegramCompleteRoute(req: Request, url: URL, env: Env): Promise<
   return json({ authenticated: true, accountId: consumed.verifiedAccountId, method: "telegram", email: email?.email ?? null }, 200, { "set-cookie": sessionCookie(session) });
 }
 
-/** Called from /start's login_<id> deep link after grammY has authenticated and loaded the sender. */
+/** The match code of a sign-in that is still waiting for a decision, or null if it expired, was used
+ * or was already answered. Opening the deep link only shows this; it never signs anyone in. */
+export async function pendingTelegramLogin(db: DB, challengeId: string): Promise<{ matchCode: string } | null> {
+  if (!/^[0-9a-f]{32}$/.test(challengeId)) return null;
+  const row = await db.prepare("SELECT matchCode FROM v2_auth_telegram_challenges WHERE id = ? AND verifiedAccountId IS NULL AND consumedAt IS NULL AND expiresAt > ?")
+    .bind(challengeId, new Date().toISOString()).first<{ matchCode: string }>();
+  return row ? { matchCode: row.matchCode } : null;
+}
+
+/** "This wasn't me": the challenge can never be confirmed or completed afterwards. */
+export async function rejectTelegramLogin(db: DB, challengeId: string): Promise<boolean> {
+  if (!/^[0-9a-f]{32}$/.test(challengeId)) return false;
+  const now = new Date().toISOString();
+  const rejected = await db.prepare("UPDATE v2_auth_telegram_challenges SET consumedAt = ? WHERE id = ? AND verifiedAccountId IS NULL AND consumedAt IS NULL AND expiresAt > ? RETURNING id")
+    .bind(now, challengeId, now).first<{ id: string }>();
+  return !!rejected;
+}
+
+/** Called from the bot's Confirm button (never from the deep link itself), after grammY has
+ * authenticated and loaded the sender. */
 export async function confirmTelegramLogin(db: DB, challengeId: string, accountId: number): Promise<boolean> {
   if (!/^[0-9a-f]{32}$/.test(challengeId)) return false;
   const now = new Date().toISOString();

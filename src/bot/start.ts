@@ -15,7 +15,7 @@ import { langMenu } from "../adapters/telegram/keyboards";
 import { showNextBestAction } from "./nextBestAction";
 import { sendOnboardingPrompt } from "../notify/onboardingApp";
 import { sendLauncher } from "./launcher";
-import { confirmTelegramLogin } from "../webapp/providerAuth";
+import { promptTelegramLogin } from "./telegramLogin";
 import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 
 // Start (or restart) the deterministic button-based intake wizard (no per-turn AI).
@@ -46,13 +46,9 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
   const lang = u.lang;
   const hi = u.profile.name ? `${escapeHtml(u.profile.name)}! ` : "";
 
-  // A short-lived app login link proves control of this Telegram account without a password or SMS.
+  // App sign-in link: ask first (telegramLogin.ts). Opening the link never signs anyone in.
   if (payload?.startsWith("login_")) {
-    const confirmed = await confirmTelegramLogin(ctx.db, payload.slice(6), u._id).catch(() => false);
-    const message = confirmed
-      ? (lang === "en" ? "✅ Login confirmed. Return to the TRIX app." : "✅ Вхід підтверджено. Поверніться до застосунку TRIX.")
-      : (lang === "en" ? "This login link expired or was already used. Start again in the TRIX app." : "Це посилання для входу застаріло або вже використане. Створіть нове в застосунку TRIX.");
-    await reply(ctx, message).catch(() => {});
+    await promptTelegramLogin(ctx, payload.slice(6));
     return;
   }
 

@@ -2063,6 +2063,12 @@ export const en = {
   strava_connect_failed_body: "The link expired or access was declined. Open the app and try again from Progress → Strava.",
   strava_scope_missing: "trix needs permission to read your activities. Please try again and keep “View data about your activities” ticked.",
   support_paysupport: "Payments here are voluntary tips in Telegram Stars; nothing is sold or unlocked. If something went wrong with a payment, just reply in this chat and describe it — the owner will sort it out, including a refund.",
+  tglogin_prompt: "🔐 *Sign in to the Hack Limits app?*\n\nCode: *{code}*. It must match the code on the screen where you started signing in.\n\nOnly confirm if you started this yourself, just now. If someone sent you this link, tap “This wasn't me”.",
+  tglogin_confirm_btn: "✅ Confirm sign-in",
+  tglogin_deny_btn: "🚫 This wasn't me",
+  tglogin_confirmed: "✅ Sign-in confirmed. Go back to the Hack Limits app.",
+  tglogin_denied: "🚫 Sign-in cancelled. Nobody was signed in to your account.",
+  tglogin_expired: "This sign-in link expired or was already used. Start again in the Hack Limits app.",
 };
 
 export type Dict = typeof en;

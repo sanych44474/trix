@@ -1,6 +1,6 @@
 export type AuthProviderConfig = { googleClientId: string | null; telegramAvailable: boolean };
 export type GoogleNonceChallenge = { challengeId: string; nonce: string; clientId: string; expiresInSeconds: number };
-export type TelegramLoginChallenge = { challengeId: string; completionToken: string; telegramUrl: string; expiresInSeconds: number };
+export type TelegramLoginChallenge = { challengeId: string; completionToken: string; matchCode: string; telegramUrl: string; expiresInSeconds: number };
 
 declare global {
   interface Window {
