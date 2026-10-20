@@ -2,7 +2,7 @@ import { withinLimit } from "../limits";
 import { getUser } from "../adapters/d1/v2Users";
 import { safeEqual, toHex } from "../domain/secrets";
 import type { Env, Lang } from "../types";
-import { createSession, revokeSession, sessionCookie, sessionTokenFromRequest, clearedSessionCookie } from "./appSessions";
+import { createSession, revokeSession, sessionDelivery, sessionTokenFromRequest, clearedSessionCookie } from "./appSessions";
 import { miniAppIdentity } from "./auth";
 import { readAuthJson } from "./authHttp";
 
@@ -195,8 +195,8 @@ async function verifyRoute(req: Request, url: URL, env: Env): Promise<Response> 
   }
   const account = await getUser(env.DB, accountId);
   if (!account || account.blocked) return failure("account_unavailable", "This account is unavailable", 403);
-  const token = await createSession(env.DB, accountId);
-  return json({ authenticated: true, accountId, method: "email", email }, 200, { "set-cookie": sessionCookie(token) });
+  const delivery = sessionDelivery(req, await createSession(env.DB, accountId));
+  return json({ authenticated: true, accountId, method: "email", email, ...delivery.body }, 200, delivery.headers);
 }
 
 async function logoutRoute(req: Request, url: URL, env: Env): Promise<Response> {

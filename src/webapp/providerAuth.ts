@@ -3,7 +3,7 @@ import { getUser } from "../adapters/d1/v2Users";
 import type { DB } from "../adapters/d1/shared";
 import { safeEqual, toHex } from "../domain/secrets";
 import type { Env, Lang } from "../types";
-import { createSession, sessionCookie } from "./appSessions";
+import { createSession, sessionDelivery } from "./appSessions";
 import { miniAppIdentity } from "./auth";
 import { readAuthJson } from "./authHttp";
 
@@ -230,8 +230,8 @@ async function googleVerifyRoute(req: Request, url: URL, env: Env): Promise<Resp
 
   const account = await getUser(env.DB, accountId);
   if (!account || account.blocked) return failure("account_unavailable", "This account is unavailable", 403);
-  const session = await createSession(env.DB, accountId, "google");
-  return json({ authenticated: true, accountId, method: "google", email }, 200, { "set-cookie": sessionCookie(session) });
+  const delivery = sessionDelivery(req, await createSession(env.DB, accountId, "google"));
+  return json({ authenticated: true, accountId, method: "google", email, ...delivery.body }, 200, delivery.headers);
 }
 
 async function telegramStartRoute(req: Request, url: URL, env: Env): Promise<Response> {
@@ -284,10 +284,10 @@ async function telegramCompleteRoute(req: Request, url: URL, env: Env): Promise<
   const consumed = await env.DB.prepare("UPDATE v2_auth_telegram_challenges SET consumedAt = ? WHERE id = ? AND completionHash = ? AND consumedAt IS NULL AND expiresAt > ? AND verifiedAccountId = ? RETURNING verifiedAccountId")
     .bind(now, id, challenge.completionHash, now, challenge.verifiedAccountId).first<{ verifiedAccountId: number }>();
   if (!consumed) return failure("invalid_challenge", "This login request was already used. Start again.", 401);
-  const session = await createSession(env.DB, consumed.verifiedAccountId, "telegram");
+  const delivery = sessionDelivery(req, await createSession(env.DB, consumed.verifiedAccountId, "telegram"));
   const email = await env.DB.prepare("SELECT email FROM v2_auth_emails WHERE accountId = ? ORDER BY createdAt LIMIT 1")
     .bind(consumed.verifiedAccountId).first<{ email: string }>();
-  return json({ authenticated: true, accountId: consumed.verifiedAccountId, method: "telegram", email: email?.email ?? null }, 200, { "set-cookie": sessionCookie(session) });
+  return json({ authenticated: true, accountId: consumed.verifiedAccountId, method: "telegram", email: email?.email ?? null, ...delivery.body }, 200, delivery.headers);
 }
 
 /** The match code of a sign-in that is still waiting for a decision, or null if it expired, was used

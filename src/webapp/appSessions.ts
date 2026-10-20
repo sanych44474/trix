@@ -6,7 +6,10 @@ export const SESSION_SECONDS = 30 * 24 * 60 * 60;
 
 const encoder = new TextEncoder();
 
+/** The native app sends its session as a bearer token; browsers send the HttpOnly cookie. */
 export function sessionTokenFromRequest(req: Request): string | null {
+  const bearer = /^Bearer ([0-9a-f]{64})$/.exec(req.headers.get("authorization") ?? "");
+  if (bearer) return bearer[1];
   const cookie = req.headers.get("cookie");
   if (!cookie) return null;
   for (const part of cookie.split(";")) {
@@ -59,4 +62,18 @@ export function sessionCookie(token: string): string {
 
 export function clearedSessionCookie(): string {
   return `${SESSION_COOKIE}=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict`;
+}
+
+/** A request from the native app: it identifies itself and, unlike any browser POST, sends no Origin.
+ * Only such a request gets the session token in the response body; a web page never sees it. */
+export function isNativeClient(req: Request): boolean {
+  return req.headers.get("x-client") === "native" && !req.headers.get("origin");
+}
+
+/** How a new session reaches the client: an HttpOnly cookie for the web, the token in the body for
+ * the native app (which keeps it in encrypted storage and sends it as a bearer token). */
+export function sessionDelivery(req: Request, token: string): { body: { sessionToken?: string }; headers: HeadersInit } {
+  return isNativeClient(req)
+    ? { body: { sessionToken: token }, headers: {} }
+    : { body: {}, headers: { "set-cookie": sessionCookie(token) } };
 }
