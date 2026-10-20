@@ -49,4 +49,22 @@
     <string name="unit_reps">повт.</string>
     <string name="unit_seconds">с</string>
     <string name="unit_meters">м</string>
+    <string name="today_open_plan">Мій план</string>
+    <string name="plan_title">План</string>
+    <string name="plan_add_exercise">+ Додати вправу</string>
+    <string name="plan_sets">Підходи × повторення</string>
+    <string name="plan_weight">Стартова вага</string>
+    <string name="plan_note">Коментар</string>
+    <string name="plan_swap">Замінити</string>
+    <string name="plan_delete">Видалити</string>
+    <string name="plan_search">Пошук вправ</string>
+    <string name="plan_reloaded">План змінився на іншому пристрої. Показуємо свіжу версію — перевір і спробуй ще раз.</string>
+    <string name="save">Зберегти</string>
+    <string name="wd_mon">Пн</string>
+    <string name="wd_tue">Вт</string>
+    <string name="wd_wed">Ср</string>
+    <string name="wd_thu">Чт</string>
+    <string name="wd_fri">Пт</string>
+    <string name="wd_sat">Сб</string>
+    <string name="wd_sun">Нд</string>
 </resources>

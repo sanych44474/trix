@@ -17,6 +17,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,7 +37,7 @@ import app.hacklimits.shared.today.TodayViewModel
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onSignOut: () -> Unit) {
+fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onOpenPlan: () -> Unit, onSignOut: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -54,6 +55,9 @@ fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onSignOut: () ->
                 if (s.dashboard.viewer.onboarded && !s.dashboard.viewer.planPending) {
                     Button(onClick = onStartWorkout, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                         Text(stringResource(Res.string.today_start_workout))
+                    }
+                    OutlinedButton(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(Res.string.today_open_plan))
                     }
                 }
             }

@@ -49,4 +49,22 @@
     <string name="unit_reps">reps</string>
     <string name="unit_seconds">sec</string>
     <string name="unit_meters">m</string>
+    <string name="today_open_plan">My plan</string>
+    <string name="plan_title">Plan</string>
+    <string name="plan_add_exercise">+ Add exercise</string>
+    <string name="plan_sets">Sets × reps</string>
+    <string name="plan_weight">Starting weight</string>
+    <string name="plan_note">Note</string>
+    <string name="plan_swap">Swap</string>
+    <string name="plan_delete">Delete</string>
+    <string name="plan_search">Search exercises</string>
+    <string name="plan_reloaded">The plan changed on another device. Showing the latest version; check and try again.</string>
+    <string name="save">Save</string>
+    <string name="wd_mon">Mon</string>
+    <string name="wd_tue">Tue</string>
+    <string name="wd_wed">Wed</string>
+    <string name="wd_thu">Thu</string>
+    <string name="wd_fri">Fri</string>
+    <string name="wd_sat">Sat</string>
+    <string name="wd_sun">Sun</string>
 </resources>

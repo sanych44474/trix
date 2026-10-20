@@ -6,6 +6,8 @@ import app.hacklimits.shared.data.AuthApi
 import app.hacklimits.shared.data.DashboardApi
 import app.hacklimits.shared.data.PushApi
 import app.hacklimits.shared.data.WorkoutApi
+import app.hacklimits.shared.data.PlanApi
+import app.hacklimits.shared.plan.PlanViewModel
 import app.hacklimits.shared.workout.LoggerViewModel
 import app.hacklimits.shared.workout.PendingSaves
 import app.hacklimits.shared.today.TodayViewModel
@@ -20,8 +22,10 @@ fun sharedModule(baseUrl: String) = module {
     single { DashboardApi(get()) }
     single { PushApi(get()) }
     single { WorkoutApi(get()) }
+    single { PlanApi(get()) }
     single { PendingSaves(get(), get()) }
     viewModel { SignInViewModel(get(), get(), get()) }
     viewModel { TodayViewModel(get()) }
+    viewModel { PlanViewModel(get()) }
     viewModel { LoggerViewModel(get(), get(), get(), get()) }
 }

@@ -15,6 +15,7 @@ import app.hacklimits.shared.data.ApiClient
 import app.hacklimits.shared.data.AuthApi
 import app.hacklimits.shared.data.SessionStore
 import app.hacklimits.shared.ui.LoggerScreen
+import app.hacklimits.shared.ui.PlanScreen
 import app.hacklimits.shared.ui.SignInScreen
 import app.hacklimits.shared.ui.TodayScreen
 import app.hacklimits.shared.ui.theme.HackLimitsTheme
@@ -26,6 +27,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @Serializable object TodayRoute
 @Serializable object LoggerRoute
+@Serializable object PlanRoute
 
 /** Root: signed out -> sign-in; signed in -> the app. A 401 from the server signs out. */
 @Composable
@@ -55,8 +57,12 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}) {
                     TodayScreen(
                         koinViewModel(),
                         onStartWorkout = { nav.navigate(LoggerRoute) },
+                        onOpenPlan = { nav.navigate(PlanRoute) },
                         onSignOut = { scope.launch { runCatching { beforeSignOut() }; auth.logout() } },
                     )
+                }
+                composable<PlanRoute> {
+                    PlanScreen(koinViewModel(), onClose = { nav.popBackStack() })
                 }
                 composable<LoggerRoute> {
                     LoggerScreen(koinViewModel(), onClose = { nav.popBackStack() })
