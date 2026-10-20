@@ -36,6 +36,7 @@ type SecretKey =
   | "AUTH_SECRET"
   | "GOOGLE_CLIENT_ID"
   | "RESEND_API_KEY"
+  | "FCM_SERVICE_ACCOUNT"
   | "YOUTUBE_API_KEY"
   | "EXERCISES_API_KEY"
   | "USDA_FDC_API_KEY"
@@ -59,6 +60,7 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey | "AUTH_EMAIL_FROM">
   AUTH_SECRET?: string; // HMAC key for one-time email code hashes; generate at least 32 random bytes
   GOOGLE_CLIENT_ID?: string; // Google OAuth Web client ID used as the server audience for Android Credential Manager tokens
   RESEND_API_KEY?: string;
+  FCM_SERVICE_ACCOUNT?: string; // Firebase service-account JSON (the whole file) for native-app push via FCM HTTP v1
   AUTH_EMAIL_FROM?: string;
   YOUTUBE_API_KEY?: string; // YouTube Data API v3 — exercise technique shorts (cache-first)
   EXERCISES_API_KEY?: string; // API Ninjas — only scripts/seed-exercises.mjs uses it, not runtime

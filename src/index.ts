@@ -42,6 +42,7 @@ import { handleQuickLogApi } from "./webapp/quickLogApi";
 import { handleV2Api } from "./webapp/v2Api";
 import { handleEmailAuth } from "./webapp/emailAuth";
 import { handleProviderAuth } from "./webapp/providerAuth";
+import { handlePushApi } from "./webapp/pushApi";
 import { logError, logInfo, runWithRequestId, withHeader } from "./log";
 import { secretMatches } from "./domain/secrets";
 import { withinLimit } from "./limits";
@@ -228,6 +229,8 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
       if (providerAuthResponse) return providerAuthResponse;
       const authResponse = await handleEmailAuth(req, url, env);
       if (authResponse) return authResponse;
+      const pushResponse = await handlePushApi(req, url, env);
+      if (pushResponse) return pushResponse;
       return handleV2Api(req, url, env, ctx);
     }
 
