@@ -1,11 +1,9 @@
-// Improvement #10 from the 2026-09-09 production-readiness review: no backup/export step
-// existed anywhere in scripts/ or CI for the sole datastore behind this bot. Cloudflare D1 has
-// built-in Time Travel (point-in-time recovery) on every plan, but this repo has not verified
-// the exact retention window for the account's current plan against Cloudflare's own docs/
-// dashboard — check that yourself before relying on it as the only safety net. This script is
-// the second, independent layer: a plain SQL dump you actually hold a copy of.
+// Manual SQL export for the sole datastore behind this bot. Cloudflare D1 also provides Time
+// Travel point-in-time recovery (7 days on Workers Free, 30 days on Workers Paid); verify the
+// account plan and database backend before relying on that window. This export is an independent
+// copy, but the script does not encrypt it, copy it offsite, or schedule recurring backups.
 //
-// Thin wrapper around `wrangler d1 export` with a timestamped filename — kept as a script
+// Thin wrapper around the installed Wrangler CLI with a timestamped filename — kept as a script
 // (not just a documented command) so it's one command to remember and easy to wire into a
 // scheduled job (cron, GitHub Actions, Windows Task Scheduler) later without further changes.
 //
@@ -33,7 +31,10 @@ mkdirSync(outDir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const outFile = join(outDir, `trix-${remote ? "remote" : "local"}-${stamp}.sql`);
 
-const args = ["wrangler", "d1", "export", "trix", remote ? "--remote" : "--local", "--output", outFile];
-console.log(`Running: npx ${args.join(" ")}`);
-execFileSync("npx", args, { stdio: "inherit", cwd: root });
+// Launch Wrangler's JS entry point through the current Node executable. `npx` resolves to a
+// Windows .cmd/.ps1 shim, which `execFileSync("npx", ...)` cannot spawn on Windows.
+const wranglerCli = join(root, "node_modules", "wrangler", "bin", "wrangler.js");
+const args = [wranglerCli, "d1", "export", "trix", remote ? "--remote" : "--local", "--output", outFile];
+console.log(`Running: node ${args.join(" ")}`);
+execFileSync(process.execPath, args, { stdio: "inherit", cwd: root });
 console.log(`\nBackup written to ${outFile}`);

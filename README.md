@@ -13,9 +13,9 @@ Beyond the solo AI path it also supports **real human trainers and their clients
 opt-in **global leaderboard**. Two surfaces share one backend: the Telegram chat itself and a
 **Telegram Mini App**. Bilingual UA/EN.
 
-**It runs entirely on free tiers** — Cloudflare Workers + D1 for compute and storage, and an
-AI fallback chain that starts at Gemini and degrades gracefully all the way down to
-Cloudflare's on-platform Workers AI, which needs no API key at all.
+**It can run within free-tier quotas at low volume** — Cloudflare Workers + D1 for compute and
+storage, and an AI fallback chain that reaches Cloudflare Workers AI, which needs no API key.
+Actual operator costs depend on account plans, usage, and optional AI providers.
 
 **Landing page:** [sanych44474.github.io/trix](https://sanych44474.github.io/trix/)
 
@@ -38,32 +38,35 @@ Cloudflare's on-platform Workers AI, which needs no API key at all.
 
 **Why it matters:** it is a coach, not a log. It writes the program, decides when to add weight,
 and messages you first, inside the app you already use. Trainers get the tooling that usually
-takes a CRM, a spreadsheet and a messenger. Running it costs nothing, so using it costs nothing.
+takes a CRM, a spreadsheet and a messenger. Users pay nothing; hosting and provider usage may
+incur costs for the operator.
 
 | | |
 |---|---|
 | Roles | solo athlete · trainer's client · trainer · owner |
 | Surfaces | Telegram chat (45 commands) + Telegram Mini App |
 | Languages | Ukrainian, English (~1,700 strings each, parity enforced by the type checker) |
-| Backend | 70 typed API operations (OpenAPI 3.1), 83 D1 migrations, ~50k lines of TypeScript |
-| Tests | ~1,000 (node:test + Workers runtime), CI on every pull request |
-| Cost | $0 — no ads, no subscription |
+| Backend | OpenAPI 3.1 contract, versioned `/api/v2/*`, forward-only D1 migrations |
+| Quality | TypeScript checks, lint, build, dependency audit, `node:test` and Workers-runtime suites in CI |
+| User price | Free — no ads, no subscription |
 
 ## Architecture
 
 ```
 Telegram ──webhook──▶ Worker.fetch ──▶ grammY ──▶ handlers ──▶ AI chain + Cloudflare D1
-Mini App ──fetch─────▶ Worker.fetch ──▶ /api/* (initData HMAC auth) ──┘
+Mini App ──fetch─────▶ Worker.fetch ──▶ /api/v2/* (initData HMAC auth) ──┘
                       Worker.scheduled (cron, DB-locked) ──▶ reminders / nudges / reports
 ```
 
 `apps/mini-app` (React + Vite) at `/app-v2` and its versioned REST seam at `/api/v2/*` are the
-only Mini App surface now — `v2_*` D1 tables are the source of truth for all ten domains. The
-legacy vanilla-JS shell has been retired: `GET /app` is now a tiny static redirect to `/app-v2`
-(`scripts/build-webapp.mjs`), not a functional fallback UI. Its source
-(`src/webapp/client/*`) and the unversioned `/api/*` routes it used stay in the tree as the
-rollback path — restore `build-webapp.mjs`'s previous assembly logic from git history if `/app-v2`
-ever needs to be rolled back. See [ADR-0001](docs/adr/0001-v2-seams-and-staged-cutover.md).
+only Mini App surface now — `v2_*` D1 tables are the source of truth. `GET /app` is a small
+static redirect to `/app-v2`. The retired vanilla-JS source was removed from the working tree;
+its earlier version can be restored from Git history. The unversioned `/api/*` routes remain as
+temporary aliases for already-loaded clients, with removal scheduled after 2026-12-31 if telemetry
+shows no traffic. This is a UI rollback option, not a database rollback: migration 0089 dropped
+the old tables. See [ADR-0006](docs/adr/0006-retire-legacy-app-shell.md),
+[ADR-0009](docs/adr/0009-drop-legacy-tables.md), and the
+[D1 recovery runbook](docs/runbooks/d1-recovery.md).
 
 User and onboarding state live on the user row in D1 — no KV, no external session store.
 Free-text messages are routed by `user.session.mode`; inline keyboards carry their state in
@@ -91,20 +94,19 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 | Path | Responsibility |
 |---|---|
 | `apps/worker/index.ts` | Cloudflare deploy composition root; exports the Worker and Durable Objects |
-| `src/index.ts` | Worker runtime implementation: `/webhook`, `/health`, `/api/*`, `/admin/*`, cron `scheduled` |
-| `src/bot.ts` | grammY bot: commands, callbacks, routing, onboarding, plan generation, roles |
+| `src/index.ts` | Worker runtime implementation: `/webhook`, health checks, `/api/v2/*`, `/admin/*`, cron `scheduled` |
 | `src/bot/router.ts` | Command + callback route tables, bot construction |
-| `src/bot/trainer.ts` | Trainer flows: client cards, templates, program sharing |
+| `src/bot/` | grammY handlers for commands, callbacks, onboarding, plans, workouts, nutrition and community |
 | `src/bot/owner.ts` | Owner admin: user cards, moderation, video overrides |
+| `src/features/trainer/` | Trainer flows: client cards, templates, program sharing and messaging |
 | `src/scheduler.ts` | Cron: reminders, check-ins, weekly digests, trainer digests, owner report |
-| `src/webapp/` | Mini App: `client/` static shell fragments + per-screen JSON APIs |
+| `src/webapp/` | Mini App auth and versioned API handlers; static shell assets are built from `apps/mini-app/` |
 | `apps/mini-app/` | React + Vite v2 Mini App shell and dark sports design system |
 | `apps/mini-app/src/train/` | Workout logger screen pieces: focus-mode exercise, its muscle figure, rest bar, save dock, summary, history, `useSession` (rest timer + session clock) |
 | `apps/mini-app/src/logic/` | **Pure**, unit-tested client logic: logger state and draft reconciliation, saved-log hydration, rest timing |
 | `src/application/` | Deep application interfaces shared by adapters |
-| `src/adapters/d1/` | D1 application adapters and legacy-to-v2 projections |
+| `src/adapters/d1/` | D1 adapters for the current `v2_*` data model |
 | `packages/contracts/` | OpenAPI 3.1 contract for `/api/v2/*` |
-| `src/db/repos.ts` | D1 (SQLite) repository — every query a function over `D1Database` |
 | `src/domain/` | **Pure**, unit-tested logic: progression, records, analysis, standards, plan bank |
 | `src/ai/` | Orchestrator + provider clients (shared `http.ts`) + prompts + nutrition DB |
 | `src/render.ts` | HTML + chart rendering for the chat surface |

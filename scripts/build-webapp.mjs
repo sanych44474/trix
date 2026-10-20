@@ -1,12 +1,8 @@
-// GET /app used to serve the legacy vanilla-JS Mini App shell, assembled from
-// src/webapp/client/* (see git history for the assembly logic this replaced). The React Mini
-// App at /app-v2 is now the sole live surface (V2_APP_ENABLED=1 is the committed default; every
-// bot link/notification already points at /app-v2 -- see src/bot.ts's dashboardUrl() and
-// src/scheduler.ts's appView()). This script now emits a tiny static redirect instead of
-// building the legacy shell, so an old bookmark, cached deep link, or stale notification still
-// lands the user in the app instead of a dead page -- rather than deleting src/webapp/client/*
-// outright, which stays as the rollback path (restore this file's previous assembly logic from
-// git history if /app-v2 ever needs to be rolled back).
+// GET /app used to serve the legacy vanilla-JS Mini App shell from src/webapp/client/*. That
+// source was removed after /app-v2 became the only live surface. This script emits a small
+// redirect so old bookmarks and cached links still land in the React app. Restoring the legacy
+// app would require restoring its source from Git history and redeploying; it is not a live
+// rollback path.
 //
 // Query string is preserved (?view=... / ?startapp=...): App.tsx's viewFromLocation() reads the
 // same "view"/"startapp" params the legacy shell used, with the same alias table, so an old deep

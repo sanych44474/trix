@@ -8,7 +8,8 @@ name: CI
 # where the single job took 102s: unit tests 42s, Workers-runtime tests 41s, and everything else
 # (install 13s, both typechecks, build, audit) about 17s combined. Run back to back that is the
 # sum; run side by side it is roughly the longest leg. No test was removed, shortened or skipped
-# to get there -- the same 849 node:test cases and 77 workerd cases still run on every trigger.
+# to get there -- both full test commands run on every trigger. Case counts are omitted because
+# they change as tests are added; `npm test` and `npm run test:workers` are the source of truth.
 on:
   pull_request:
   workflow_call:

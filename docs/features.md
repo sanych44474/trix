@@ -15,9 +15,9 @@ function**, so the total below is a count rather than a slogan.
 - **Built for real trainers too.** A trainer gets client acquisition, a full plan editor per
   client, templates, broadcasts, compliance digests and at-risk alerts, the tooling that
   usually means a paid CRM plus a messenger plus a spreadsheet.
-- **Zero cost to run, zero cost to use.** Cloudflare Workers + D1 free tier and an AI chain that
-  falls back all the way to an on-platform model with no API key. No servers to pay for means
-  no subscription and no ads. The code is open (MIT): fork it and run your own coach.
+- **Free for users, inexpensive to self-host at low volume.** Cloudflare Workers + D1 and an AI
+  chain that can fall back to an on-platform model with no API key. Operator costs depend on plan,
+  usage, and optional AI providers. The code is open (MIT): fork it and run your own coach.
 - **Nothing to install.** Telegram is the app; the Mini App opens inside it.
 
 ## At a glance
@@ -29,9 +29,9 @@ function**, so the total below is a count rather than a slogan.
 | Surfaces | 2 — Telegram chat (45 commands) and the Telegram Mini App |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
 | AI | 5 providers in a fallback chain; every provider receives the same input |
-| Backend | 70 typed API operations (OpenAPI 3.1), 86 forward-only D1 migrations |
-| Quality | ~1,000 automated tests (node:test + Workers runtime), CI on every pull request |
-| Cost | $0 — Cloudflare free tier, free AI tiers, no ads, no subscription |
+| Backend | OpenAPI 3.1 contract, versioned `/api/v2/*`, forward-only D1 migrations |
+| Quality | `node:test` and Workers-runtime suites, typechecks, lint, build and dependency audit in CI |
+| User price | Free — no ads or subscription |
 
 | Area | Functions |
 |---|---|
@@ -373,7 +373,7 @@ function**, so the total below is a count rather than a slogan.
 
 ## 11. Engineering safeguards (invisible features)
 
-1. **~1,000 automated tests** (node:test and the real Workers runtime) and typecheck-enforced
+1. **Automated tests** (`node:test` and the real Workers runtime) and typecheck-enforced
    bilingual catalogs; CI gates every pull request.
 2. **Idempotent saves everywhere**: a retried request never double-logs or double-notifies.
 3. **Crash-safe reminders**: dedup that survives crashes and a scheduler mutex.
@@ -384,5 +384,6 @@ function**, so the total below is a count rather than a slogan.
 
 ---
 
-Infrastructure: Cloudflare Workers + D1 (SQLite) on the free tier; AI chain Gemini → Groq →
-OpenRouter `:free` → Workers AI → Ollama Cloud with automatic fallback.
+Infrastructure: Cloudflare Workers + D1 (SQLite), which can fit within free quotas at low volume;
+actual operator costs depend on account plan, traffic, and AI-provider usage. The AI chain is
+Gemini → Groq → OpenRouter `:free` → Workers AI → Ollama Cloud with automatic fallback.

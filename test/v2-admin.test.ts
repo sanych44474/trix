@@ -130,7 +130,7 @@ test("aiCallStmt/aiCallStatsSince/aiAttemptCountForUserSince/aiTokensByKindSince
   assert.equal(byKind[0].tokens, 80);
 });
 
-test("aiAndErrorStatsBetween combines v2_ai_usage/v2_ai_calls/v2_error_events in a bounded window", async () => {
+test("aiAndErrorStatsBetween combines provider attempts, fallback attempts and error events in a bounded window", async () => {
   const db = newDb();
   seedAccount(db, 1);
   const inWindow = "2026-09-05T00:00:00.000Z";
@@ -142,9 +142,9 @@ test("aiAndErrorStatsBetween combines v2_ai_usage/v2_ai_calls/v2_error_events in
   db.prepare("UPDATE v2_error_events SET createdAt = ?").bind(inWindow).run();
 
   const stats = await aiAndErrorStatsBetween(db, "2026-09-01T00:00:00.000Z", "2026-09-10T00:00:00.000Z");
-  assert.equal(stats.aiCalls, 1);
-  assert.equal(stats.aiFallbacks, 1);
-  assert.equal(stats.errors, 1);
+  assert.equal(stats.providerAttempts, 1);
+  assert.equal(stats.fallbackAttempts, 1);
+  assert.equal(stats.errorEvents, 1);
 });
 
 test("recordError/errorStatsSince/recentErrors round-trip via v2_error_events", async () => {

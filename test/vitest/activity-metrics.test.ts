@@ -23,8 +23,7 @@ describe("activity metrics", () => {
     expect(m.summary.wau).toBeGreaterThanOrEqual(2);
     expect(m.adoption.find((a) => a.feature === "workouts")?.users).toBeGreaterThanOrEqual(1);
     expect(m.topEvents.find((e) => e.event === "menu:progress")).toMatchObject({ n: 3, users: 1 });
-    // Anonymous: this feed reaches an external dashboard. The most active account is rank 1 with its
-    // counts, and neither an id nor the name "Ann" appears anywhere in the rows.
+    // Direct identifiers are omitted from this external-dashboard feed. The rows remain pseudonymous.
     expect(m.topUsers[0]).toEqual({ rank: 1, workouts: 2, nutritionDays: 0, activeDays: 2, lastActive: "2026-09-30" });
     expect(JSON.stringify(m.topUsers)).not.toMatch(/Ann|Bo"|"id"|"name"/);
   });

@@ -16,9 +16,9 @@ export interface ActivityRaw {
   adoption: Array<{ feature: string; users: number }>; // distinct users over the window
   topEvents: Array<{ event: string; n: number; users: number }>;
   cohorts: CohortMember[];
-  // Anonymous on purpose: this feed reaches an external dashboard, and docs/slos.md keeps names and ids
-  // in D1. A rank and counts answer "how concentrated is the activity"; who they are is the owner's
-  // question, answered in the owner-only views.
+  // Direct identifiers are omitted because this feed reaches an external dashboard. These rows are
+  // still pseudonymous: the rank, counts, and last-active date may identify an account in a small
+  // population. Keep names and ids in D1 and owner-only views.
   topUsers: Array<{ rank: number; workouts: number; nutritionDays: number; activeDays: number; lastActive: string }>;
 }
 

@@ -1,5 +1,5 @@
 // Daily metrics rollup (roadmap item 4 / docs/slos.md §4) — no live Grafana wiring exists yet,
-// so this only tests that the numbers landing in `daily_metrics` are actually correct: bounded
+// so this only tests that the numbers landing in `v2_daily_metrics` are actually correct: bounded
 // day windows (not "since X through now"), the retention rows that must NOT be written, and the derived
 // skipped-workout definition (planned weekday elapsed with no completed row).
 import { test } from "node:test";
@@ -11,6 +11,7 @@ import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { rollupDailyMetrics } from "../src/dailyMetricsRollup";
 import { bumpEvent, SESSION_EVENT } from "../src/adapters/d1/v2Analytics";
+import { recordError } from "../src/adapters/d1/v2AiTelemetry";
 import type { PlanDoc } from "../src/types";
 
 async function setTimestamps(db: ReturnType<typeof newDb>, id: number, fields: { createdAt?: string; updatedAt?: string; lastSeenAt?: string; onboardedAt?: string }) {
@@ -137,14 +138,27 @@ test("rollupDailyMetrics: skipped_workouts counts a planned weekday with no comp
   assert.equal(await metric(db, wednesday, "skipped_workouts"), 1); // only user 1
 });
 
-test("rollupDailyMetrics: ai_fallback_rate and error_rate are 0 (not NaN) on a day with zero AI calls", async () => {
+test("rollupDailyMetrics: empty AI attempt share is 0 and error_events remains a count", async () => {
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "en", "Quiet");
 
   await rollupDailyMetrics(db, "2026-06-10");
 
-  assert.equal(await metric(db, "2026-06-10", "ai_fallback_rate"), 0);
-  assert.equal(await metric(db, "2026-06-10", "error_rate"), 0);
+  assert.equal(await metric(db, "2026-06-10", "ai_fallback_attempt_share"), 0);
+  assert.equal(await metric(db, "2026-06-10", "error_events"), 0);
+});
+
+test("rollupDailyMetrics: errors are counted without an unrelated AI-attempt denominator", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Quiet");
+  await recordError(db, { userId: 1, kind: "chart", errorType: "http_500" });
+  await recordError(db, { userId: 1, kind: "webapp", errorType: "client_js" });
+  await db.prepare("UPDATE v2_error_events SET createdAt = ?").bind("2026-06-10T12:00:00.000Z").run();
+
+  await rollupDailyMetrics(db, "2026-06-10");
+
+  assert.equal(await metric(db, "2026-06-10", "ai_provider_attempts"), 0);
+  assert.equal(await metric(db, "2026-06-10", "error_events"), 2);
 });
 
 test("rollupDailyMetrics: re-running the same day upserts in place, not duplicate rows", async () => {

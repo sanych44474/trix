@@ -1274,7 +1274,7 @@
     {
       "id": 15,
       "type": "table",
-      "title": "Концентрація активності: топ-15 за 30 днів (анонімно)",
+      "title": "Концентрація активності: топ-15 за 30 днів (без ID)",
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
         "uid": "${ds}"
@@ -1327,11 +1327,6 @@
               "selector": "lastActive",
               "text": "Остання активність",
               "type": "string"
-            },
-            {
-              "selector": "id",
-              "text": "id",
-              "type": "number"
             }
           ]
         }
