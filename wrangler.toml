@@ -1,4 +1,4 @@
-name = "trix"
+name = "hack-limits"
 main = "apps/worker/index.ts"
 # [2026-09-10] Bumped from 2025-05-01 (16 months stale). Reviewed every flag that became
 # default in between: the only ones this Worker could touch are Node-compatible global
