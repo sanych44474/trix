@@ -25,24 +25,26 @@ import kotlinx.serialization.Serializable
     val method: String? = null,
     val email: String? = null,
     val sessionToken: String? = null,
+    val googleLinked: Boolean = false,
 )
 
 /** The sign-in endpoints (src/webapp/emailAuth.ts, providerAuth.ts). A successful sign-in returns
- * the session token in the body because every request says X-Client: native; it is stored at once. */
+ * the session token in the body because every request says X-Client: native; it is stored at once.
+ * Started while signed in, email and Google link to the current account instead of creating one. */
 class AuthApi(private val api: ApiClient, private val sessions: SessionStore) {
     suspend fun providers(): AuthProviders = api.unwrap(api.http.get("api/v2/auth/providers"))
 
     suspend fun session(): AuthSession = api.unwrap(api.http.get("api/v2/auth/session") { api.authorize(this) })
 
     suspend fun startEmail(email: String, lang: String): EmailChallenge =
-        api.unwrap(api.http.post("api/v2/auth/email/start") { json(mapOf("email" to email, "lang" to lang)) })
+        api.unwrap(api.http.post("api/v2/auth/email/start") { api.authorize(this); json(mapOf("email" to email, "lang" to lang)) })
 
     suspend fun verifyEmail(email: String, challengeId: String, code: String, lang: String): AuthSession =
         signedIn(api.unwrap(api.http.post("api/v2/auth/email/verify") {
             json(mapOf("email" to email, "challengeId" to challengeId, "code" to code, "lang" to lang))
         }))
 
-    suspend fun googleNonce(): GoogleChallenge = api.unwrap(api.http.post("api/v2/auth/google/nonce") { json(emptyMap()) })
+    suspend fun googleNonce(): GoogleChallenge = api.unwrap(api.http.post("api/v2/auth/google/nonce") { api.authorize(this); json(emptyMap()) })
 
     suspend fun verifyGoogle(challengeId: String, idToken: String, lang: String): AuthSession =
         signedIn(api.unwrap(api.http.post("api/v2/auth/google/verify") {

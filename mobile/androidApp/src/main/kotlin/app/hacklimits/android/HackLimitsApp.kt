@@ -8,6 +8,7 @@ import app.hacklimits.shared.data.KeyValueStore
 import app.hacklimits.shared.data.SessionStore
 import app.hacklimits.shared.di.sharedModule
 import app.hacklimits.shared.platform.AppPlatform
+import app.hacklimits.shared.platform.FileSaver
 import app.hacklimits.shared.platform.RestAlarm
 import java.lang.ref.WeakReference
 import java.util.Locale
@@ -30,6 +31,7 @@ class HackLimitsApp : Application() {
             override val language: String get() = if (Locale.getDefault().language == "uk") "uk" else "en"
             override val appVersion: String = BuildConfig.VERSION_NAME
             override val pushPlatform: String = "android"
+            override val privacyPolicyUrl: String? = BuildConfig.PRIVACY_POLICY_URL.ifBlank { null }
         }
         startKoin {
             androidContext(this@HackLimitsApp)
@@ -40,6 +42,8 @@ class HackLimitsApp : Application() {
                     single<SessionStore> { KeystoreSessionStore(get()) }
                     single<KeyValueStore> { PrefsKeyValueStore(get()) }
                     single<RestAlarm> { WorkRestAlarm(get()) }
+                    single { ActivityFileSaver(get()) }
+                    single<FileSaver> { get<ActivityFileSaver>() }
                     single<GoogleSignIn> { CredentialGoogleSignIn { current?.get() } }
                     single { PushRegistrar(get(), get(), get(), get()) }
                 },

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -38,14 +37,13 @@ import app.hacklimits.shared.today.TodayViewModel
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onOpenPlan: () -> Unit, onStartQuestionnaire: () -> Unit, onSignOut: () -> Unit) {
+fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onOpenPlan: () -> Unit, onStartQuestionnaire: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     // Refresh every time Today comes back into view (after a workout, the plan editor, the questionnaire).
     LaunchedEffect(Unit) { vm.refresh() }
-    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.today_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            TextButton(onClick = onSignOut) { Text(stringResource(Res.string.sign_out)) }
         }
         when (val s = state) {
             TodayViewModel.State.Loading -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

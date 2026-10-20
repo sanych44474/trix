@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -48,7 +47,7 @@ fun LoggerScreen(vm: LoggerViewModel, onClose: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val restTitle = stringResource(Res.string.rest_over_title)
     val restBody = stringResource(Res.string.rest_over_body)
-    Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+    Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onClose) { Text(stringResource(Res.string.back)) }
             Text(stringResource(Res.string.workout_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)

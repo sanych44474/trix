@@ -7,4 +7,6 @@ interface AppPlatform {
     val appVersion: String
     /** "android" or "ios", as the push API expects. */
     val pushPlatform: String
+    /** Shown in More and required by Google Play; null hides the link until it is configured. */
+    val privacyPolicyUrl: String?
 }

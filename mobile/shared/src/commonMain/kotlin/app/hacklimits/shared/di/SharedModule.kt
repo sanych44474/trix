@@ -7,6 +7,8 @@ import app.hacklimits.shared.data.DashboardApi
 import app.hacklimits.shared.data.PushApi
 import app.hacklimits.shared.data.WorkoutApi
 import app.hacklimits.shared.data.PlanApi
+import app.hacklimits.shared.data.SettingsApi
+import app.hacklimits.shared.settings.MoreViewModel
 import app.hacklimits.shared.data.OnboardingApi
 import app.hacklimits.shared.onboarding.OnboardingViewModel
 import app.hacklimits.shared.plan.PlanViewModel
@@ -17,7 +19,7 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /** Everything platform-neutral. The platform supplies a SessionStore, a GoogleSignIn and the
- * AppPlatform, a KeyValueStore and a RestAlarm through its own module (androidApp/.../AppModule.kt). */
+ * AppPlatform, a KeyValueStore, a RestAlarm and a FileSaver through its own module (androidApp/.../AppModule.kt). */
 fun sharedModule(baseUrl: String) = module {
     single { ApiClient(baseUrl, get()) }
     single { AuthApi(get(), get()) }
@@ -25,11 +27,13 @@ fun sharedModule(baseUrl: String) = module {
     single { PushApi(get()) }
     single { WorkoutApi(get()) }
     single { PlanApi(get()) }
+    single { SettingsApi(get()) }
     single { OnboardingApi(get()) }
     single { PendingSaves(get(), get()) }
     viewModel { SignInViewModel(get(), get(), get()) }
     viewModel { TodayViewModel(get()) }
     viewModel { PlanViewModel(get()) }
+    viewModel { MoreViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { OnboardingViewModel(get()) }
     viewModel { LoggerViewModel(get(), get(), get(), get()) }
 }

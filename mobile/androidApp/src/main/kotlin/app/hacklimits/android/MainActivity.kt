@@ -15,10 +15,14 @@ import org.koin.android.ext.android.inject
 class MainActivity : ComponentActivity() {
     private val pushRegistrar: PushRegistrar by inject()
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    private val fileSaver: ActivityFileSaver by inject()
+    // MIME type is a placeholder: the picker only needs a name, and the bytes decide the content.
+    private val createDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri -> fileSaver.onPicked(uri) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        fileSaver.launcher = createDocument
         setContent { App(onSignedIn = ::onSignedIn, beforeSignOut = pushRegistrar::unregister) }
     }
 

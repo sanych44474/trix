@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -41,7 +40,7 @@ import org.jetbrains.compose.resources.stringResource
 fun OnboardingScreen(vm: OnboardingViewModel, onDone: () -> Unit, onClose: () -> Unit) {
     val s by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(s.submitted) { if (s.submitted) onDone() }
-    Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row {
             TextButton(onClick = { if (s.step == 0) onClose() else vm.back() }) { Text(stringResource(Res.string.back)) }
         }

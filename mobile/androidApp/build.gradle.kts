@@ -14,6 +14,8 @@ if (file("google-services.json").exists()) {
 val apiBaseUrl = providers.gradleProperty("hacklimits.apiBaseUrl").orNull
     ?: throw GradleException("Set hacklimits.apiBaseUrl (the HTTPS origin of the Worker) - see mobile/README.md")
 require(apiBaseUrl.startsWith("https://")) { "hacklimits.apiBaseUrl must be an https:// origin" }
+// Google Play requires a privacy policy link inside the app; More shows it once this is set.
+val privacyPolicyUrl = providers.gradleProperty("hacklimits.privacyPolicyUrl").orNull ?: ""
 
 android {
     namespace = "app.hacklimits.android"
@@ -29,6 +31,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "PRIVACY_POLICY_URL", "\"$privacyPolicyUrl\"")
     }
 
     buildFeatures {
