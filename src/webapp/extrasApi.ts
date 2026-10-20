@@ -35,6 +35,7 @@ import { appViewUrlFromEnv, webAppMarkup } from "../notify/appLinks";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingApp";
 
 import { sendBestEffort as tgSend, telegramTry, telegramUpload } from "../adapters/telegram/rawApi";
+import { hasTelegramChat } from "../domain/delivery";
 const bad = () => Response.json({ error: "bad request" }, { status: 400 });
 const notFound = () => Response.json({ error: "not found" }, { status: 404 });
 
@@ -103,6 +104,8 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       const form = await req.formData().catch(() => null);
       const file = form?.get("photo");
       if (!(file instanceof Blob)) return Response.json({ error: "bad request" }, { status: 400 });
+      // The client rendered this PNG itself; with no chat to send it to, it saves or shares it.
+      if (!hasTelegramChat(user)) return Response.json({ error: "no_telegram_chat" }, { status: 409 });
       const tgForm = new FormData();
       tgForm.append("chat_id", String(user.chatId));
       tgForm.append("caption", t(lang, "wcard_image_caption", { name: target.profile.name ?? `id ${target._id}` }));
@@ -123,6 +126,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     if (!(file instanceof Blob)) return Response.json({ error: "bad request" }, { status: 400 });
     const from = String(form?.get("from") ?? "");
     const to = String(form?.get("to") ?? "");
+    if (!hasTelegramChat(user)) return Response.json({ error: "no_telegram_chat" }, { status: 409 });
     const tgForm = new FormData();
     tgForm.append("chat_id", String(user.chatId));
     tgForm.append("caption", t(lang, "photocompare_caption", { from, to }));
