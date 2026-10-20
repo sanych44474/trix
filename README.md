@@ -102,7 +102,7 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 | `src/scheduler.ts` | Cron: reminders, check-ins, weekly digests, trainer digests, owner report |
 | `src/webapp/` | Mini App auth and versioned API handlers; static shell assets are built from `apps/mini-app/` |
 | `apps/mini-app/` | React + Vite v2 Mini App shell and dark sports design system |
-| `android/` | Native Android app; supports Google Credential Manager, Telegram bot confirmation, and email-code sign-in |
+| `mobile/` | Hack Limits native app (Kotlin Multiplatform, Compose): Google, Telegram-confirm and email-code sign-in, FCM push |
 | `apps/mini-app/src/train/` | Workout logger screen pieces: focus-mode exercise, its muscle figure, rest bar, save dock, summary, history, `useSession` (rest timer + session clock) |
 | `apps/mini-app/src/logic/` | **Pure**, unit-tested client logic: logger state and draft reconciliation, saved-log hydration, rest timing |
 | `src/application/` | Deep application interfaces shared by adapters |
@@ -200,12 +200,12 @@ the environment. `database_id` in `wrangler.toml` is a placeholder you replace w
 Telegram Stars support needs no secret, but the webhook must receive `pre_checkout_query`
 updates: re-run `node scripts/setup-telegram.mjs` once after deploying this version.
 
-The standalone Android sign-in offers Google, a one-time Telegram bot link, and email codes. Telegram
-login uses the configured `BOT_USERNAME`; Google uses `GOOGLE_CLIENT_ID`. Apply
-`migrations/0098_email_auth.sql`, `migrations/0099_provider_auth.sql`, and
-`migrations/0100_telegram_login_proof.sql` in order before deploying
-these provider routes. See
-[`android/README.md`](android/README.md) for provider setup and the Android build steps.
+The native app (`mobile/`) signs in with Google, a Telegram bot confirmation (the bot shows the same
+4-digit code as the app and waits for a tap on Confirm), or an email code. Telegram login uses the
+configured `BOT_USERNAME`; Google uses `GOOGLE_CLIENT_ID`; email uses `RESEND_API_KEY`,
+`AUTH_EMAIL_FROM` and `AUTH_SECRET`; push uses the `FCM_SERVICE_ACCOUNT` secret. Apply migrations
+`0098`–`0102` in order before deploying these routes. See [`mobile/README.md`](mobile/README.md)
+for provider setup and the build steps.
 
 D1 and Workers AI need no secret — they are bound via `[[d1_databases]]` and `[ai]`.
 

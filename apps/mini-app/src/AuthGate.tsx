@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, jsonBody } from "./api";
-import { beginNativeGoogleSignIn, isTrixAndroid, openTelegramLogin, subscribeToNativeGoogleAuth, type AuthProviderConfig, type GoogleNonceChallenge, type TelegramLoginChallenge } from "./authProviders";
+import { openTelegramLogin, type AuthProviderConfig, type TelegramLoginChallenge } from "./authProviders";
 import type { Lang } from "./i18n";
 
 type AuthSession = { authenticated: true; accountId: number; method: "email" | "google" | "telegram" | "debug"; email: string | null; googleLinked?: boolean };
@@ -9,10 +9,10 @@ type TelegramLoginState = TelegramLoginChallenge;
 
 const copy = {
   uk: {
-    eyebrow: "TRIX · ТРЕНУВАННЯ З РОЗУМОМ", title: "Увійти до свого простору", detail: "Увійдіть через Google або підтвердьте вхід у Telegram. Електронна пошта залишається запасним способом.", google: "Продовжити з Google", telegram: "Увійти через Telegram", telegramOpen: "Відкрити Telegram і натиснути Start", telegramWait: "Чекаємо на підтвердження в Telegram…", telegramCode: "Підтверджуй лише якщо бот показує код", telegramExpired: "Посилання застаріло. Створіть нове.", emailDivider: "або через електронну пошту", email: "Електронна пошта", send: "Надіслати код", code: "Код із листа", verify: "Увійти", change: "Змінити адресу", sent: "Якщо адреса введена правильно, лист із кодом уже в дорозі.", expired: "Код діє 10 хвилин.", retry: "Не вдалося виконати запит. Перевірте з’єднання та спробуйте ще раз.", invalidEmail: "Введіть коректну адресу електронної пошти.", lang: "English",
+    eyebrow: "TRIX · ТРЕНУВАННЯ З РОЗУМОМ", title: "Увійти до свого простору", detail: "Підтвердьте вхід у Telegram або отримайте одноразовий код на електронну пошту.", telegram: "Увійти через Telegram", telegramOpen: "Відкрити Telegram і натиснути Start", telegramWait: "Чекаємо на підтвердження в Telegram…", telegramCode: "Підтверджуй лише якщо бот показує код", telegramExpired: "Посилання застаріло. Створіть нове.", emailDivider: "або через електронну пошту", email: "Електронна пошта", send: "Надіслати код", code: "Код із листа", verify: "Увійти", change: "Змінити адресу", sent: "Якщо адреса введена правильно, лист із кодом уже в дорозі.", expired: "Код діє 10 хвилин.", retry: "Не вдалося виконати запит. Перевірте з’єднання та спробуйте ще раз.", invalidEmail: "Введіть коректну адресу електронної пошти.", lang: "English",
   },
   en: {
-    eyebrow: "TRIX · TRAIN SMARTER", title: "Sign in to your space", detail: "Continue with Google or confirm in Telegram. Email remains available as a backup.", google: "Continue with Google", telegram: "Continue with Telegram", telegramOpen: "Open Telegram and tap Start", telegramWait: "Waiting for Telegram confirmation…", telegramCode: "Confirm only if the bot shows code", telegramExpired: "This link expired. Start again.", emailDivider: "or continue with email", email: "Email address", send: "Send code", code: "Code from email", verify: "Sign in", change: "Change email", sent: "If the address is valid, your sign-in code is on its way.", expired: "The code expires in 10 minutes.", retry: "The request failed. Check your connection and try again.", invalidEmail: "Enter a valid email address.", lang: "Українська",
+    eyebrow: "TRIX · TRAIN SMARTER", title: "Sign in to your space", detail: "Confirm in Telegram or get a one-time code by email.", telegram: "Continue with Telegram", telegramOpen: "Open Telegram and tap Start", telegramWait: "Waiting for Telegram confirmation…", telegramCode: "Confirm only if the bot shows code", telegramExpired: "This link expired. Start again.", emailDivider: "or continue with email", email: "Email address", send: "Send code", code: "Code from email", verify: "Sign in", change: "Change email", sent: "If the address is valid, your sign-in code is on its way.", expired: "The code expires in 10 minutes.", retry: "The request failed. Check your connection and try again.", invalidEmail: "Enter a valid email address.", lang: "Українська",
   },
 } as const;
 
@@ -26,24 +26,8 @@ export function AuthGate({ lang, onLangChange, onAuthenticated }: { lang: Lang; 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const googleChallengeId = useRef("");
 
   useEffect(() => { api<AuthProviderConfig>("/api/v2/auth/providers").then(setProviders).catch(() => setProviders({ googleClientId: null, telegramAvailable: false })); }, []);
-
-  useEffect(() => subscribeToNativeGoogleAuth((result) => {
-    const challengeId = googleChallengeId.current;
-    if (!challengeId) return;
-    if (!result.idToken) {
-      googleChallengeId.current = "";
-      setBusy(false);
-      if (result.error !== "cancelled") setError(text.retry);
-      return;
-    }
-    setBusy(true); setError("");
-    void api<AuthSession>("/api/v2/auth/google/verify", {
-      method: "POST", credentials: "same-origin", body: jsonBody({ challengeId, idToken: result.idToken, lang }),
-    }).then(onAuthenticated).catch(() => setError(text.retry)).finally(() => { googleChallengeId.current = ""; setBusy(false); });
-  }), [lang, onAuthenticated, text.retry]);
 
   useEffect(() => {
     if (!telegram) return;
@@ -91,15 +75,6 @@ export function AuthGate({ lang, onLangChange, onAuthenticated }: { lang: Lang; 
     } catch { setError(text.retry); } finally { setBusy(false); }
   };
 
-  const startGoogle = async () => {
-    setBusy(true); setError("");
-    try {
-      const response = await api<GoogleNonceChallenge>("/api/v2/auth/google/nonce", { method: "POST", credentials: "same-origin", body: jsonBody({ lang }) });
-      googleChallengeId.current = response.challengeId;
-      if (!beginNativeGoogleSignIn(response)) { googleChallengeId.current = ""; setError(text.retry); setBusy(false); }
-    } catch { setError(text.retry); setBusy(false); }
-  };
-
   const startTelegram = async () => {
     setBusy(true); setError(""); setNotice("");
     try {
@@ -115,10 +90,9 @@ export function AuthGate({ lang, onLangChange, onAuthenticated }: { lang: Lang; 
       <button className="auth-language" type="button" onClick={() => onLangChange(lang === "uk" ? "en" : "uk")}>{text.lang}</button>
       <h1>{text.title}</h1>
       <p className="auth-detail">{text.detail}</p>
-      {(isTrixAndroid() && providers?.googleClientId) && <button className="button button-ghost button-wide button-tall" disabled={busy} onClick={() => void startGoogle()}>{busy ? "…" : text.google}</button>}
       {providers?.telegramAvailable && <button className="button button-ghost button-wide button-tall" disabled={busy || !!telegram} onClick={() => void startTelegram()}>{busy && !telegram ? "…" : text.telegram}</button>}
       {telegram && <div className="auth-message auth-provider-message">{text.telegramWait}<p>{text.telegramCode} <strong>{telegram.matchCode}</strong></p><button className="button button-primary button-wide" type="button" onClick={() => openTelegramLogin(telegram.telegramUrl)}>{text.telegramOpen}</button></div>}
-      {(isTrixAndroid() && providers?.googleClientId) || providers?.telegramAvailable ? <div className="auth-divider"><span>{text.emailDivider}</span></div> : null}
+      {providers?.telegramAvailable ? <div className="auth-divider"><span>{text.emailDivider}</span></div> : null}
       {!challenge ? <form className="auth-form" onSubmit={startEmail}>
         <label className="form-field">{text.email}<input type="email" autoComplete="email" inputMode="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} /></label>
         <button className="button button-primary button-wide button-tall" disabled={busy}>{busy ? "…" : text.send}</button>

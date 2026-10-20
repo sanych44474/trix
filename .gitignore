@@ -7,7 +7,7 @@ dist/
 # Android Studio / Gradle output, local SDK paths and signing credentials.
 **/build/
 **/.gradle/
-android/local.properties
+mobile/local.properties
 *.jks
 *.keystore
 
