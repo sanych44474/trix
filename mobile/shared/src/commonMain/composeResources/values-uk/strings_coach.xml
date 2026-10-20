@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="coach_title">AI-коуч</string>
+    <string name="coach_input_hint">Запитайте коуча</string>
+    <string name="coach_send">Надіслати</string>
+    <string name="coach_retry">Повторити</string>
+    <string name="coach_empty">Запитайте про план, тренування чи харчування.</string>
+    <string name="coach_typing">Коуч друкує…</string>
+    <string name="coach_routed">Надіслано вашому тренеру. Його відповідь з\'явиться тут.</string>
+    <string name="coach_label_coach">Коуч</string>
+    <string name="coach_label_trainer">Тренер</string>
+    <string name="coach_load_error">Не вдалося завантажити чат.</string>
+    <string name="coach_err_network">Немає з\'єднання. Перевірте інтернет і спробуйте знову.</string>
+    <string name="coach_err_rate_limited">Забагато запитань. Зачекайте хвилину і спробуйте знову.</string>
+    <string name="coach_err_invalid">Запитання порожнє або довше за 500 символів.</string>
+    <string name="coach_err_not_found">Коуч зараз недоступний для цього акаунта.</string>
+    <string name="coach_err_generic">Щось пішло не так. Спробуйте знову.</string>
+</resources>
