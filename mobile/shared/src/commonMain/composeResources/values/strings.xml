@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Hack Limits</string>
+    <string name="signin_title">Train past your limits</string>
+    <string name="signin_subtitle">Sign in to your plan, workouts and progress. Same account as in Telegram.</string>
+    <string name="signin_google">Continue with Google</string>
+    <string name="signin_telegram">Continue with Telegram</string>
+    <string name="signin_or_email">or with email</string>
+    <string name="signin_email">Email</string>
+    <string name="signin_send_code">Send code</string>
+    <string name="signin_code">6-digit code from the email</string>
+    <string name="signin_verify">Sign in</string>
+    <string name="signin_change_email">Use another email</string>
+    <string name="signin_code_sent">We sent a code to %1$s. It is valid for 10 minutes.</string>
+    <string name="tg_open">Open Telegram</string>
+    <string name="tg_waiting">Waiting for you to confirm in Telegram…</string>
+    <string name="tg_code">Confirm only if the bot shows this code:</string>
+    <string name="tg_cancel">Cancel</string>
+    <string name="err_network">No connection to the server. Check the internet and try again.</string>
+    <string name="err_invalid_email">Enter a valid email address.</string>
+    <string name="err_invalid_code">That code is wrong or expired. Request a new one.</string>
+    <string name="err_rate_limited">Too many attempts. Wait a minute and try again.</string>
+    <string name="err_telegram_expired">The Telegram link expired. Start again.</string>
+    <string name="err_google_no_account">No Google account on this device. Add one in Settings or use email.</string>
+    <string name="err_unavailable">This sign-in method is not available right now.</string>
+    <string name="err_generic">Something went wrong. Try again.</string>
+    <string name="today_title">Today</string>
+    <string name="today_hello">Hi, %1$s</string>
+    <string name="today_week">This week</string>
+    <string name="today_plan_pending">Your plan is being built. It usually takes under a minute.</string>
+    <string name="today_not_onboarded">Finish the short questionnaire to get your plan.</string>
+    <string name="sign_out">Sign out</string>
+    <string name="retry">Retry</string>
+</resources>

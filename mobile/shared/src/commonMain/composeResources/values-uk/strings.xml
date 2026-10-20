@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Hack Limits</string>
+    <string name="signin_title">Тренуйся за межею можливого</string>
+    <string name="signin_subtitle">Увійди до свого плану, тренувань і прогресу. Той самий акаунт, що й у Telegram.</string>
+    <string name="signin_google">Продовжити з Google</string>
+    <string name="signin_telegram">Продовжити з Telegram</string>
+    <string name="signin_or_email">або через пошту</string>
+    <string name="signin_email">Електронна пошта</string>
+    <string name="signin_send_code">Надіслати код</string>
+    <string name="signin_code">6-значний код із листа</string>
+    <string name="signin_verify">Увійти</string>
+    <string name="signin_change_email">Інша адреса</string>
+    <string name="signin_code_sent">Ми надіслали код на %1$s. Він діє 10 хвилин.</string>
+    <string name="tg_open">Відкрити Telegram</string>
+    <string name="tg_waiting">Чекаємо на підтвердження в Telegram…</string>
+    <string name="tg_code">Підтверджуй, лише якщо бот показує цей код:</string>
+    <string name="tg_cancel">Скасувати</string>
+    <string name="err_network">Немає зв’язку із сервером. Перевір інтернет і спробуй ще раз.</string>
+    <string name="err_invalid_email">Введи коректну адресу пошти.</string>
+    <string name="err_invalid_code">Код неправильний або застарів. Запроси новий.</string>
+    <string name="err_rate_limited">Забагато спроб. Зачекай хвилину.</string>
+    <string name="err_telegram_expired">Посилання в Telegram застаріло. Почни знову.</string>
+    <string name="err_google_no_account">На пристрої немає Google-акаунта. Додай його в налаштуваннях або увійди через пошту.</string>
+    <string name="err_unavailable">Цей спосіб входу зараз недоступний.</string>
+    <string name="err_generic">Щось пішло не так. Спробуй ще раз.</string>
+    <string name="today_title">Сьогодні</string>
+    <string name="today_hello">Привіт, %1$s</string>
+    <string name="today_week">Цей тиждень</string>
+    <string name="today_plan_pending">План складається. Зазвичай це менше хвилини.</string>
+    <string name="today_not_onboarded">Пройди коротку анкету, щоб отримати план.</string>
+    <string name="sign_out">Вийти</string>
+    <string name="retry">Повторити</string>
+</resources>
