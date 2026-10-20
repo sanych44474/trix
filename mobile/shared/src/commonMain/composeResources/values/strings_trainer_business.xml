@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="trb_title">Trainer business</string>
+    <string name="trb_section_profile">Profile</string>
+    <string name="trb_section_sessions">Sessions</string>
+    <string name="trb_section_finance">Finance</string>
+    <string name="trb_section_templates">Templates</string>
+    <string name="trb_section_broadcast">Broadcast</string>
+
+    <string name="trb_status_pending">Pending owner approval</string>
+    <string name="trb_status_approved">Approved</string>
+    <string name="trb_status_rejected">Not approved</string>
+    <string name="trb_status_planned">Planned</string>
+    <string name="trb_status_done">Done</string>
+    <string name="trb_status_cancelled">Cancelled</string>
+    <string name="trb_status_no_show">No-show</string>
+
+    <string name="trb_profile_apply_intro">Apply to become a trainer. Only the name is required. The owner reviews every application.</string>
+    <string name="trb_profile_clients">Clients: %1$d</string>
+    <string name="trb_profile_name">Name</string>
+    <string name="trb_profile_bio">About you</string>
+    <string name="trb_profile_specialization">Specialization</string>
+    <string name="trb_profile_approach">Approach</string>
+    <string name="trb_profile_city">City</string>
+    <string name="trb_profile_contact">Contact</string>
+    <string name="trb_profile_experience">Years of experience</string>
+    <string name="trb_profile_price">Online price per session</string>
+    <string name="trb_profile_accepting">Accepting new clients</string>
+    <string name="trb_profile_apply">Apply</string>
+    <string name="trb_profile_save">Save profile</string>
+    <string name="trb_profile_saved">Profile saved.</string>
+    <string name="trb_profile_applied">Application sent. The owner will review it.</string>
+
+    <string name="trb_sessions_new">New session</string>
+    <string name="trb_sessions_pick_client">Client</string>
+    <string name="trb_sessions_no_clients">Add clients before you schedule sessions.</string>
+    <string name="trb_sessions_when">Start</string>
+    <string name="trb_sessions_when_hint">Format: 2026-10-20 18:00, in this device’s time zone</string>
+    <string name="trb_sessions_duration">Duration, minutes</string>
+    <string name="trb_sessions_price">Price (optional)</string>
+    <string name="trb_sessions_note">Note (optional)</string>
+    <string name="trb_sessions_add">Add session</string>
+    <string name="trb_sessions_empty">No sessions in this period.</string>
+    <string name="trb_sessions_mark_done">Mark done</string>
+    <string name="trb_sessions_mark_cancelled">Cancel</string>
+    <string name="trb_sessions_mark_no_show">No-show</string>
+    <string name="trb_sessions_delete">Delete</string>
+    <string name="trb_sessions_added">Session added.</string>
+    <string name="trb_sessions_updated">Session updated.</string>
+    <string name="trb_sessions_deleted">Session deleted.</string>
+
+    <string name="trb_finance_billed">Billed</string>
+    <string name="trb_finance_paid">Paid</string>
+    <string name="trb_finance_balance">Balance</string>
+    <string name="trb_finance_ledger_counts">Done: %1$d · planned: %2$d</string>
+    <string name="trb_finance_payments">Payments</string>
+    <string name="trb_finance_no_payments">No payments in this period.</string>
+    <string name="trb_finance_record">Record payment</string>
+    <string name="trb_finance_amount">Amount</string>
+    <string name="trb_finance_pay_note">Note (optional)</string>
+    <string name="trb_finance_record_button">Record</string>
+    <string name="trb_finance_delete">Delete</string>
+    <string name="trb_finance_recorded">Payment recorded.</string>
+    <string name="trb_finance_deleted">Payment deleted.</string>
+
+    <string name="trb_templates_pick_client">Client to copy from or assign to</string>
+    <string name="trb_templates_hint">Save copies this client’s active plan as a reusable template.</string>
+    <string name="trb_templates_name">Template name</string>
+    <string name="trb_templates_save">Save template</string>
+    <string name="trb_templates_assign">Assign to client</string>
+    <string name="trb_templates_delete">Delete</string>
+    <string name="trb_templates_empty">No templates yet.</string>
+    <string name="trb_templates_saved">Template saved.</string>
+    <string name="trb_templates_assigned">Template assigned to the client.</string>
+    <string name="trb_templates_deleted">Template deleted.</string>
+
+    <string name="trb_broadcast_text">Message</string>
+    <string name="trb_broadcast_limit">Up to 1500 characters.</string>
+    <string name="trb_broadcast_send">Send to all clients</string>
+    <string name="trb_broadcast_confirm_title">Send to all clients?</string>
+    <string name="trb_broadcast_confirm_text">Every one of your %1$d clients will get this message in Telegram.</string>
+    <string name="trb_broadcast_confirm">Send</string>
+    <string name="trb_broadcast_cancel">Cancel</string>
+    <string name="trb_broadcast_sent">Sent to %1$d clients.</string>
+
+    <string name="trb_err_not_found">That item no longer exists. Refresh and try again.</string>
+    <string name="trb_err_invalid">Check the values and try again.</string>
+</resources>

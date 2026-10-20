@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="trb_title">Тренерський кабінет</string>
+    <string name="trb_section_profile">Профіль</string>
+    <string name="trb_section_sessions">Заняття</string>
+    <string name="trb_section_finance">Фінанси</string>
+    <string name="trb_section_templates">Шаблони</string>
+    <string name="trb_section_broadcast">Розсилка</string>
+
+    <string name="trb_status_pending">Очікує підтвердження власника</string>
+    <string name="trb_status_approved">Підтверджено</string>
+    <string name="trb_status_rejected">Не підтверджено</string>
+    <string name="trb_status_planned">Заплановано</string>
+    <string name="trb_status_done">Проведено</string>
+    <string name="trb_status_cancelled">Скасовано</string>
+    <string name="trb_status_no_show">Не прийшов</string>
+
+    <string name="trb_profile_apply_intro">Подайте заявку, щоб стати тренером. Потрібне лише ім’я. Кожну заявку перевіряє власник.</string>
+    <string name="trb_profile_clients">Клієнтів: %1$d</string>
+    <string name="trb_profile_name">Ім’я</string>
+    <string name="trb_profile_bio">Про себе</string>
+    <string name="trb_profile_specialization">Спеціалізація</string>
+    <string name="trb_profile_approach">Підхід</string>
+    <string name="trb_profile_city">Місто</string>
+    <string name="trb_profile_contact">Контакт</string>
+    <string name="trb_profile_experience">Років досвіду</string>
+    <string name="trb_profile_price">Ціна онлайн-заняття</string>
+    <string name="trb_profile_accepting">Приймаю нових клієнтів</string>
+    <string name="trb_profile_apply">Подати заявку</string>
+    <string name="trb_profile_save">Зберегти профіль</string>
+    <string name="trb_profile_saved">Профіль збережено.</string>
+    <string name="trb_profile_applied">Заявку надіслано. Власник її розгляне.</string>
+
+    <string name="trb_sessions_new">Нове заняття</string>
+    <string name="trb_sessions_pick_client">Клієнт</string>
+    <string name="trb_sessions_no_clients">Спершу додайте клієнтів, щоб планувати заняття.</string>
+    <string name="trb_sessions_when">Початок</string>
+    <string name="trb_sessions_when_hint">Формат: 2026-10-20 18:00, за часом на цьому пристрої</string>
+    <string name="trb_sessions_duration">Тривалість, хвилин</string>
+    <string name="trb_sessions_price">Ціна (необов’язково)</string>
+    <string name="trb_sessions_note">Примітка (необов’язково)</string>
+    <string name="trb_sessions_add">Додати заняття</string>
+    <string name="trb_sessions_empty">За цей період занять немає.</string>
+    <string name="trb_sessions_mark_done">Проведено</string>
+    <string name="trb_sessions_mark_cancelled">Скасувати</string>
+    <string name="trb_sessions_mark_no_show">Не прийшов</string>
+    <string name="trb_sessions_delete">Видалити</string>
+    <string name="trb_sessions_added">Заняття додано.</string>
+    <string name="trb_sessions_updated">Заняття оновлено.</string>
+    <string name="trb_sessions_deleted">Заняття видалено.</string>
+
+    <string name="trb_finance_billed">Нараховано</string>
+    <string name="trb_finance_paid">Сплачено</string>
+    <string name="trb_finance_balance">Борг</string>
+    <string name="trb_finance_ledger_counts">Проведено: %1$d · заплановано: %2$d</string>
+    <string name="trb_finance_payments">Платежі</string>
+    <string name="trb_finance_no_payments">За цей період платежів немає.</string>
+    <string name="trb_finance_record">Записати платіж</string>
+    <string name="trb_finance_amount">Сума</string>
+    <string name="trb_finance_pay_note">Примітка (необов’язково)</string>
+    <string name="trb_finance_record_button">Записати</string>
+    <string name="trb_finance_delete">Видалити</string>
+    <string name="trb_finance_recorded">Платіж записано.</string>
+    <string name="trb_finance_deleted">Платіж видалено.</string>
+
+    <string name="trb_templates_pick_client">Клієнт, з якого копіювати, або якому призначити</string>
+    <string name="trb_templates_hint">Збереження копіює поточний активний план цього клієнта як багаторазовий шаблон.</string>
+    <string name="trb_templates_name">Назва шаблону</string>
+    <string name="trb_templates_save">Зберегти шаблон</string>
+    <string name="trb_templates_assign">Призначити клієнту</string>
+    <string name="trb_templates_delete">Видалити</string>
+    <string name="trb_templates_empty">Шаблонів ще немає.</string>
+    <string name="trb_templates_saved">Шаблон збережено.</string>
+    <string name="trb_templates_assigned">Шаблон призначено клієнту.</string>
+    <string name="trb_templates_deleted">Шаблон видалено.</string>
+
+    <string name="trb_broadcast_text">Повідомлення</string>
+    <string name="trb_broadcast_limit">До 1500 символів.</string>
+    <string name="trb_broadcast_send">Надіслати всім клієнтам</string>
+    <string name="trb_broadcast_confirm_title">Надіслати всім клієнтам?</string>
+    <string name="trb_broadcast_confirm_text">Кожен із ваших клієнтів (%1$d) отримає це повідомлення в Telegram.</string>
+    <string name="trb_broadcast_confirm">Надіслати</string>
+    <string name="trb_broadcast_cancel">Скасувати</string>
+    <string name="trb_broadcast_sent">Надіслано клієнтам: %1$d.</string>
+
+    <string name="trb_err_not_found">Цього запису більше немає. Оновіть і спробуйте знову.</string>
+    <string name="trb_err_invalid">Перевірте значення і спробуйте знову.</string>
+</resources>
