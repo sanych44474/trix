@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import type { Lang } from "./i18n";
 import { registerLearnedMuscles } from "./logic/exerciseMuscles";
+import { useResume } from "./useResume";
 import type { Dashboard } from "./types";
 
 /** The last dashboard, kept so the app opens instantly and works offline. Also read for the language. */
@@ -26,8 +27,8 @@ export function useDashboard(setLang: (lang: Lang) => void) {
   const [loading, setLoading] = useState(true);
   const [onboardingPending, setOnboardingPending] = useState(false);
 
-  const load = () => {
-    setLoading(true);
+  const fetchDashboard = (quiet: boolean) => {
+    if (!quiet) setLoading(true);
     setError(null);
     const request = prefetched ?? api<Dashboard>("/api/v2/dashboard");
     prefetched = null;
@@ -41,6 +42,8 @@ export function useDashboard(setLang: (lang: Lang) => void) {
       .catch(setError)
       .finally(() => setLoading(false));
   };
+
+  const load = () => fetchDashboard(false);
 
   // Show the cached dashboard at once, then refresh it.
   useEffect(() => {
@@ -60,6 +63,9 @@ export function useDashboard(setLang: (lang: Lang) => void) {
     }
     load();
   }, []);
+
+  // Back from the background: refresh without a spinner (what is on screen stays until the new data).
+  useResume(() => fetchDashboard(true));
 
   // While the plan is being built, re-check every few seconds and switch over by itself.
   const waitingForPlan = !!dashboard && !dashboard.viewer.onboarded && (onboardingPending || !!dashboard.viewer.planPending);
