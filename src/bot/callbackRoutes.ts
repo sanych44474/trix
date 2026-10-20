@@ -94,7 +94,7 @@ import { routeUserText } from "./textRoutes";
 // before "pday:del:", "wt:open:" before "wt:"). A module-load sanity check below throws on any
 // registration where an earlier prefix would shadow a later one, so a bad ordering fails in
 // tests instead of silently mis-routing taps in production.
-export type CbHandler = (ctx: MyContext, rest: string, data: string) => Promise<unknown> | unknown;
+type CbHandler = (ctx: MyContext, rest: string, data: string) => Promise<unknown> | unknown;
 
 export const pickLang: CbHandler = async (ctx, _rest, data) => {
   const lang: Lang = data === "lang:uk" ? "uk" : "en";
@@ -112,7 +112,7 @@ export const pickLang: CbHandler = async (ctx, _rest, data) => {
 };
 
 // Voice-note confirmations share the pendingVoice hand-off.
-export const voiceRoute: CbHandler = async (ctx, _rest, data) => {
+const voiceRoute: CbHandler = async (ctx, _rest, data) => {
   const heard = ctx.user.session.pendingVoice;
   ctx.user.session = { ...ctx.user.session, pendingVoice: undefined };
   await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
@@ -296,7 +296,7 @@ export const CB_EXACT: Record<string, CbHandler> = {
 };
 
 // Block periodization control: show current phase or offer to start/stop the cycle.
-export async function showMesocycle(ctx: MyContext) {
+async function showMesocycle(ctx: MyContext) {
   const lang = ctx.user.lang;
   const plan = await getActivePlan(ctx.db, ctx.user._id);
   if (!plan) { await reply(ctx, t(lang, "meso_noplan"), menuBtn(lang)); return; }
@@ -310,7 +310,7 @@ export async function showMesocycle(ctx: MyContext) {
   }
 }
 
-export async function setMesocycle(ctx: MyContext, on: boolean) {
+async function setMesocycle(ctx: MyContext, on: boolean) {
   const lang = ctx.user.lang;
   await updatePlanMesocycle(ctx.db, ctx.user._id, on ? defaultMesocycle() : null);
   await reply(ctx, t(lang, on ? "meso_started" : "meso_stopped"), menuBtn(lang));

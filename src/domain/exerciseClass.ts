@@ -9,7 +9,7 @@ export const API_MUSCLES = [
   "abdominals", "traps", "calves", "lower_back", "forearms", "abductors", "adductors", "neck",
 ] as const;
 
-export const LOWER_HINTS = ["leg", "squat", "ногами", "ноги", "ніг", "присід", "присед", "deadlift", "становая", "станова", "lunge", "випад", "выпад", "hip thrust", "glute", "сідни", "ягодич", "calf", "ікр", "икр", "step-up", "step up", "good morning"];
+const LOWER_HINTS =["leg", "squat", "ногами", "ноги", "ніг", "присід", "присед", "deadlift", "становая", "станова", "lunge", "випад", "выпад", "hip thrust", "glute", "сідни", "ягодич", "calf", "ікр", "икр", "step-up", "step up", "good morning"];
 
 /** Lower-body lift (bigger load step). The body map's region rules first, then name hints for
  *  what they file elsewhere (a deadlift counts as back there, but loads like a leg lift). */
@@ -21,7 +21,7 @@ export function isLowerBody(exercise: string): boolean {
 
 /** Classify an exercise (UA or EN name) into a major training region, for the relative-strength
  * balance chart. Ordered so the specific patterns win before the generic "row/тяга" → back. */
-export type WeightMode = "total" | "perSide" | "perHand";
+type WeightMode = "total" | "perSide" | "perHand";
 
 // Resolve how a logged weight should be read: explicit tag wins; otherwise inferred from the
 // name. "perSide" = one limb at a time (one-arm row, single-leg); "perHand" = one dumbbell in a

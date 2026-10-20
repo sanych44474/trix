@@ -9,6 +9,8 @@ import { computeTargets, restDayTargets } from "../domain/mealplan";
 import { updateActivePlanNutrition } from "../adapters/d1/v2Plans";
 import { listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
+import { FUNNEL_FINISHED, FUNNEL_STARTED, bumpEvent } from "../adapters/d1/v2Analytics";
+import { localParts } from "../domain/localTime";
 import { countReferrals } from "../adapters/d1/v2Gamification";
 import { botDeepLink } from "../notify/links";
 import { t } from "../locales/i18n";
@@ -146,6 +148,9 @@ function validTimeZone(tz: string): boolean {
   try { new Intl.DateTimeFormat("en", { timeZone: tz }); return true; } catch { return false; }
 }
 
+const funnelEvent = (env: Env, userId: number, event: string, timezone?: string) =>
+  bumpEvent(env.DB, userId, event, localParts(timezone).date).catch(() => {});
+
 export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
@@ -167,7 +172,11 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?
     if (!answers || answers.length > 4096 || !Number.isInteger(total) || total < 1 || total > 30 || !Number.isInteger(answered) || answered < 0 || answered > total) {
       return Response.json({ error: "bad request" }, { status: 400 });
     }
+    // The first saved answer is the form's funnel "started" (the bot wizard counts its own); later
+    // saves of the same draft are not.
+    const prior = answered > 0 ? await getOnboardingDraft(env.DB, user._id).catch(() => null) : null;
     await saveOnboardingDraft(env.DB, user._id, answers, answered, total);
+    if (answered > 0 && !(prior && prior.answered > 0)) await funnelEvent(env, user._id, FUNNEL_STARTED, user.profile.timezone);
     return Response.json({ ok: true });
   }
 
@@ -214,6 +223,7 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?
   if (merged.limitations === undefined) merged.limitations = "none";
   await updateUser(env.DB, user._id, { profile: merged, session: { mode: "plan_pending" } });
   await deleteOnboardingDraft(env.DB, user._id).catch(() => {});
+  await funnelEvent(env, user._id, FUNNEL_FINISHED, merged.timezone);
   // Build the plan now (AI first, bank fallback) instead of waiting for the recovery sweep, which
   // only picks users pending for 90s+ and builds the bank plan. A failure leaves plan_pending, so
   // the sweep still converges.

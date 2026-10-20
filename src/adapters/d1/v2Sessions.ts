@@ -11,7 +11,7 @@ import { nowIso, type DB } from "./shared";
 export type SessionStatus = "planned" | "done" | "cancelled" | "no_show";
 export const SESSION_STATUSES: SessionStatus[] = ["planned", "done", "cancelled", "no_show"];
 
-export interface TrainerSession {
+interface TrainerSession {
   id: number;
   clientId: number;
   startsAt: string;
@@ -41,7 +41,7 @@ const toSession = (r: SessionRow): TrainerSession => ({
   note: r.note ?? "",
 });
 
-export interface NewSession {
+interface NewSession {
   clientId: number;
   startsAt: string;
   durationMin: number;
@@ -132,7 +132,7 @@ export async function deletePayment(db: DB, trainerId: number, id: number): Prom
   return (res.meta.changes ?? 0) > 0;
 }
 
-export interface ClientLedger {
+interface ClientLedger {
   clientId: number;
   sessionsDone: number;
   sessionsPlanned: number;

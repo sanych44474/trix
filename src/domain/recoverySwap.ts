@@ -8,7 +8,7 @@ import type { PlanDoc, PlanDay, Weekday, WorkoutLogDoc } from "../types";
 import { musclesForExercise, type Slug } from "./exerciseMuscles";
 import { muscleRecovery, planSetCount, type LoggedDay, type Lookup, type MuscleRecovery, type PlanDayLike } from "./muscleLoad";
 
-export interface RecoverySwap {
+interface RecoverySwap {
   weekday: number; // today
   other: number; // the later plan day to trade with
   tired: Slug[]; // today's main muscles that are still recovering

@@ -22,7 +22,7 @@ export async function cmdMeasure(ctx: MyContext) {
 // Reminder types the user can switch on/off (the daily/weekly nudges).
 export const REMINDER_TYPES = ["all", "workout", "nutrition", "steps", "water", "checkin", "wellbeing", "tomorrow", "measure", "digest", "plateau", "session", "weighin"] as const;
 
-export const REMINDER_LABEL: Record<string, TKey> = {
+const REMINDER_LABEL: Record<string, TKey> = {
   all: "rem_all",
   workout: "rem_workout", nutrition: "rem_nutrition", steps: "rem_steps", water: "rem_water", checkin: "rem_checkin",
   wellbeing: "rem_wellbeing", tomorrow: "rem_tomorrow", measure: "rem_measure", digest: "rem_digest", plateau: "rem_plateau",
@@ -71,7 +71,7 @@ export async function onReminderToggle(ctx: MyContext, key: string) {
   await showReminderSettings(ctx);
 }
 
-export function daysMenu(lang: Lang, selected: Weekday[]): InlineKeyboard {
+function daysMenu(lang: Lang, selected: Weekday[]): InlineKeyboard {
   const kb = new InlineKeyboard();
   for (let w = 1 as Weekday; w <= 7; w++) {
     const on = selected.includes(w as Weekday);

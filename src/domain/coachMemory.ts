@@ -4,7 +4,7 @@
 // attached (domain/progression.ts's ExerciseChange.reason, scheduler.ts's held-week entries —
 // see plan_adjustments) and surfaces only the recent, deduplicated, capped subset. "Relevant"
 // means recent and non-repeated, not a dump of every adjustment ever made.
-export interface AdjustmentRow {
+interface AdjustmentRow {
   changes: string; // raw JSON, as stored by recordAdjustment
 }
 

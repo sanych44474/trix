@@ -15,7 +15,7 @@ import { menuBtn } from "../adapters/telegram/keyboards";
 // Self plan-edit day menu — the editing hub for one's OWN plan (mirrors the trainer's editDayKb,
 // but with self callbacks and no logging buttons). After every self edit we re-show THIS, so the
 // full edit menu is always one glance away — tap another action or ✅ Done to finish.
-export function selfEditDayKb(lang: Lang, weekday: number): InlineKeyboard {
+function selfEditDayKb(lang: Lang, weekday: number): InlineKeyboard {
   return new InlineKeyboard()
     .text(t(lang, "swap_btn"), `swap:${weekday}`)
     .text(t(lang, "workout_add_btn"), `workout:add:${weekday}`)

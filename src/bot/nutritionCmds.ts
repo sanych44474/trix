@@ -28,7 +28,7 @@ export async function cmdNutrition(ctx: MyContext) {
 
 // Today's logged food with per-item KБЖУ + delete buttons, day totals vs target, and the add hint.
 // Editing = delete the wrong item (🗑) and re-send it. The mode stays "nutrition" so any text/photo adds.
-export async function showFoodLog(ctx: MyContext) {
+async function showFoodLog(ctx: MyContext) {
   const lang = ctx.user.lang;
   const { date, weekday } = localParts(ctx.user.profile.timezone);
   const meals = await getDayMeals(ctx.db, ctx.user._id, date);
@@ -244,7 +244,7 @@ export async function handleStepsLog(ctx: MyContext, text: string) {
 // Daily water goal in ml: ~35 ml per kg of bodyweight, rounded to 100, floored at 1500; 2500 default.
 // Water goal moved to domain/challenges (waterGoalMl) — shared with the Mini App; this thin
 // wrapper keeps the many ctx-based call sites unchanged.
-export function waterGoalFor(ctx: MyContext): number {
+function waterGoalFor(ctx: MyContext): number {
   return resolveWaterGoal(ctx.user.profile);
 }
 
@@ -253,7 +253,7 @@ export async function cmdWater(ctx: MyContext) {
   await showWater(ctx);
 }
 
-export async function showWater(ctx: MyContext) {
+async function showWater(ctx: MyContext) {
   const lang = ctx.user.lang;
   const { date } = localParts(ctx.user.profile.timezone);
   const ml = (await getWater(ctx.db, ctx.user._id, date)) ?? 0;

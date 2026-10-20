@@ -7,7 +7,7 @@ import type { WorkoutLogDoc } from "../types";
 
 // Weekly working-set landmarks (rough, combined per region): MEV = minimum effective volume,
 // MAV = maximum adaptive volume. Below MEV ≈ undertrained; above MAV ≈ likely junk volume.
-export interface VolumeLandmark {
+interface VolumeLandmark {
   mev: number;
   mav: number;
 }
@@ -55,7 +55,7 @@ export function weeklyVolume(logs: WorkoutLogDoc[], sinceDate: string): MuscleVo
 
 // --- bodyweight → goal projection ---
 
-export interface WeightProjection {
+interface WeightProjection {
   current: number;
   goal: number;
   slopePerWeek: number; // kg/week (negative = losing)

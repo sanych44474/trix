@@ -89,7 +89,7 @@ const CONDIMENT_HINTS = [
   "olive oil", "vegetable oil", "sesame oil", "coconut oil", "oil", "butter", "salt",
   "pepper", "spice", "seasoning", "pesto",
 ];
-export function portionCapGrams(food: string): number {
+function portionCapGrams(food: string): number {
   const f = food.toLowerCase();
   return CONDIMENT_HINTS.some((h) => f.includes(h)) ? CONDIMENT_CAP_G : Infinity;
 }
@@ -173,7 +173,7 @@ export function per100gCorrectionFrom(kcal: number, protein: number, fats: numbe
   };
 }
 
-export interface ScalableMeal {
+interface ScalableMeal {
   kcal: number;
   protein: number;
   fats: number;

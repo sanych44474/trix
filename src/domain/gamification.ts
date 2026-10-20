@@ -5,7 +5,7 @@
 /** XP per completed weekly quest (domain/quests.ts). */
 export const QUEST_XP = 50;
 
-export interface XpCounts {
+interface XpCounts {
   workouts: number; // completed workout logs
   nutrition: number; // days with a food log
   checkins: number; // wellbeing check-ins
@@ -23,7 +23,7 @@ export function xpForLevel(level: number): number {
   return 250 * level * (level - 1);
 }
 
-export interface LevelInfo {
+interface LevelInfo {
   level: number;
   xp: number;
   intoLevel: number; // XP earned inside the current level
@@ -37,7 +37,7 @@ export function levelFromXp(xp: number): LevelInfo {
   return { level, xp, intoLevel: xp - base, needed: xpForLevel(level + 1) - base };
 }
 
-export interface LevelTransition {
+interface LevelTransition {
   level: number;
   changed: boolean; // lastLevel is stale and should be persisted
   leveledUp: boolean; // level actually went up (not just first sighting)

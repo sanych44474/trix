@@ -6,9 +6,9 @@
 // configured length. Menstruation days 1..5 (from last period start), late follicular 6..13,
 // ovulation 14..16, luteal 17..end. Real cycles vary — this is a scaffold, not a diagnosis.
 
-export type CyclePhase = "menstruation" | "follicular" | "ovulation" | "luteal";
+type CyclePhase = "menstruation" | "follicular" | "ovulation" | "luteal";
 
-export interface CyclePhaseInfo {
+interface CyclePhaseInfo {
   phase: CyclePhase;
   day: number; // 1-based day of cycle
   cycleLength: number; // effective length used (defaults to 28)

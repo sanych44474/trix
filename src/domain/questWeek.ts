@@ -12,7 +12,7 @@ const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T00:00:
 
 /** The rows a week's quests are judged from. Rows outside the week are ignored, except the week
  * before (workouts only), which the quest pick reads. */
-export interface QuestWeekData {
+interface QuestWeekData {
   workouts: WorkoutLogDoc[];
   nutrition: Array<{ date: string; meals: unknown[] }>;
   steps: Array<{ date: string; steps: number }>;
@@ -21,7 +21,7 @@ export interface QuestWeekData {
   split?: Array<{ weekday: number }>;
 }
 
-export interface QuestWeek {
+interface QuestWeek {
   /** The week's logged days (everything before the week's end), for callers that also need the balance. */
   logs: LoggedDay[];
   quests: QuestProgress[];

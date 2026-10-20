@@ -40,7 +40,7 @@ export function stripEquipmentWords(s: string): string {
     .trim();
 }
 
-export function defaultSetsForExercise(catalog: CatalogExercise): string {
+function defaultSetsForExercise(catalog: CatalogExercise): string {
   switch (catalog.difficulty) {
     case "expert":
       return "4 × 6-8";

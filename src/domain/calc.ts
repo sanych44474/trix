@@ -2,10 +2,10 @@
 // percentage-based warm-up ramp toward a working weight.
 
 // Standard kg plates, heaviest first. 1.25 is the smallest commonly available pair.
-export const KG_PLATES = [25, 20, 15, 10, 5, 2.5, 1.25] as const;
+const KG_PLATES =[25, 20, 15, 10, 5, 2.5, 1.25] as const;
 export const DEFAULT_BAR = 20;
 
-export interface PlatePlan {
+interface PlatePlan {
   perSide: number[]; // plates to load on ONE side, heaviest first
   loaded: number; // the weight actually achievable (bar + plates)
   leftover: number; // kg that couldn't be matched by available plates (0 = exact)
@@ -30,7 +30,7 @@ export function platePlan(target: number, bar = DEFAULT_BAR, plates: readonly nu
   return { perSide, loaded, leftover };
 }
 
-export interface WarmupSet {
+interface WarmupSet {
   weight: number; // loadable weight (rounded to nearest achievable)
   reps: number;
   pct: number; // % of working weight (0 = empty bar)

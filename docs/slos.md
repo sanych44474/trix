@@ -38,6 +38,7 @@ external to this repository and have not been verified here.
 | `ai_fallback_attempt_share` | Provider-attempt rows with `wasFallback = 1`, divided by all provider-attempt rows. It counts attempts, not logical requests that needed fallback. |
 | `error_events` | Count of every row in `v2_error_events`, including exhausted AI chains and non-AI application errors. It has no denominator and is not a Worker HTTP error rate. |
 | Estimated AI cost | Not currently calculated. Token telemetry is a single total and no versioned per-model price table exists. |
+| Onboarding funnel | Per account, from state rather than events (`src/domain/funnel.ts`, `src/adapters/d1/funnel.ts`): signup (`v2_accounts.createdAt`) → onboarding started (the `funnel_onboarding_started` event from the bot wizard or Mini App form, or a Mini App draft with an answer) → onboarding finished (`v2_onboarding.status = 'completed'`) → plan activated (a `v2_plans` row that is not `draft`) → first completed workout → second within 7 days of the first. Steps are monotonic: an account that reached a later step counts at every earlier one. Shown at the top of the owner Onboarding tab for the last 30 days' signups and all accounts, with the median days to the first workout. Owner-banned accounts are excluded; trainers are included. |
 
 `onboarded_total` and `active_plans` in the daily rollup are snapshots taken when yesterday is
 rolled up, not historical values reconstructed for that day. Daily history begins when the
@@ -55,7 +56,7 @@ timestamps. Analytics Engine receives only values admitted by the `src/log.ts` a
 | Event | Source |
 |---|---|
 | `app_open`, `dashboard_loaded`, `session_started` | Bot start, Mini App dashboard load, and shared presence adapter. |
-| `onboarding_started`, `onboarding_completed`, `first_plan_ready` | Onboarding and plan activation flows. `onboarding_started` currently has a bot call site; verify Mini App coverage before comparing cross-surface conversion. |
+| `onboarding_started`, `onboarding_completed`, `first_plan_ready` | Onboarding and plan activation flows. Funnel counters `funnel_onboarding_started` / `funnel_onboarding_finished` are bumped in `v2_analytics_events` by both the bot wizard and the Mini App form. |
 | `first_workout_completed`, `workout_completed` | Shared workout completion flow. |
 | `nutrition_logged`, `checkin_submitted`, `photo_uploaded` | Bot and Mini App logging paths. |
 | `trainer_client_connected`, `trainer_question_answered` | Trainer linking and messaging flows. |
@@ -64,7 +65,8 @@ timestamps. Analytics Engine receives only values admitted by the `src/log.ts` a
 | `cron_run`, `cron_failure`, `do_alarm_run`, `telegram_send_failure` | Scheduled runs, Durable Object alarms, and Telegram send errors. |
 
 The current activity dashboard shows DAU/WAU/MAU, adoption, workouts, check-ins, signups, top
-events, and workout retention. It does not yet show the full signup-to-first-workout funnel.
+events, and workout retention. The signup-to-second-workout funnel is in the owner Onboarding tab, not
+in Grafana.
 
 ## SLOs and alerting
 
@@ -88,11 +90,8 @@ events, and workout retention. It does not yet show the full signup-to-first-wor
    header, then confirm the checked-in activity dashboard loads without returning account IDs.
 3. Add and route scheduled alerts for availability, HTTP failures, auth checks, AI fallback, and
    Telegram delivery. Keep query definitions and thresholds in version control where possible.
-4. Add a funnel view for account creation → onboarding start/completion → first plan → first
-   completed workout. Ensure Mini App onboarding-start instrumentation is present before treating
-   the funnel as cross-surface.
-5. Add D1 request/billing metrics from Cloudflare account analytics. Add an AI cost estimate only
+4. Add D1 request/billing metrics from Cloudflare account analytics. Add an AI cost estimate only
    after input/output tokens and a dated, reviewable model-price table are available.
-6. Schedule a production recovery exercise under the [D1 recovery runbook](runbooks/d1-recovery.md).
+5. Schedule a production recovery exercise under the [D1 recovery runbook](runbooks/d1-recovery.md).
    The local synthetic SQL import sanity check passes; Time Travel restore is an in-place live
    database mutation and needs explicit approval.

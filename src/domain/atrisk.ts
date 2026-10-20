@@ -47,7 +47,7 @@ export function missedConsecutiveWorkouts(
   return null;
 }
 
-export interface NutritionLapse {
+interface NutritionLapse {
   lastLogged: string;
   gapDays: number;
 }

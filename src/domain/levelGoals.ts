@@ -9,7 +9,7 @@ export function nextLevel(level: ProgressionLevel): ProgressionLevel | null {
   return null;
 }
 
-export type ProgressionLevel = "beginner" | "intermediate" | "advanced";
+type ProgressionLevel = "beginner" | "intermediate" | "advanced";
 
 /** Ready to graduate to a harder plan when the trainee has clearly outgrown the current one:
  * training pace is "fast" AND progression fired in ≥ `minWeeks` of the recent weeks, and a
@@ -23,13 +23,13 @@ export function shouldLevelUp(
   return nextLevel(level) !== null && rate === "fast" && progressionWeeks >= minWeeks;
 }
 
-export const FATLOSS_GOAL_RE = /(fat|схуд|похуд|loss|cut|lean|обезжир)/i;
+const FATLOSS_GOAL_RE = /(fat|схуд|похуд|loss|cut|lean|обезжир)/i;
 
-export const GAIN_GOAL_RE = /(muscle|mass|gain|bulk|набір|набор|мас|муск|гіпертроф|hypertroph)/i;
+const GAIN_GOAL_RE = /(muscle|mass|gain|bulk|набір|набор|мас|муск|гіпертроф|hypertroph)/i;
 
 /** Shared: bodyweight moved `minDelta` kg in `dir` over ≥`minSpanDays`, then plateaued — the
  * last 3 weigh-ins (spanning ≥2 weeks) vary < 0.8 kg. */
-export function bodyweightSettled(weights: { date: string; weight: number }[], dir: "down" | "up", minDelta: number, minSpanDays: number): boolean {
+function bodyweightSettled(weights: { date: string; weight: number }[], dir: "down" | "up", minDelta: number, minSpanDays: number): boolean {
   const pts = weights.filter((w) => w.weight > 0).sort((a, b) => (a.date < b.date ? -1 : 1));
   if (pts.length < 4) return false;
   const span = (Date.parse(pts[pts.length - 1].date) - Date.parse(pts[0].date)) / 86_400_000;

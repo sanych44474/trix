@@ -177,7 +177,7 @@ export async function buddyDuelHistory(
 // existing call graph asks for, so this port preserves the exact live-computation architecture:
 // same raw-row functions, same signatures, now reading v2-native tables.
 
-export interface CompetitorRow {
+interface CompetitorRow {
   userId: number;
   lang: string;
   chatId: number;
@@ -283,7 +283,7 @@ export async function joinChallenge(db: DB, userId: number, code: string, startD
     .run();
 }
 
-export interface ChallengeRow {
+interface ChallengeRow {
   id: number;
   userId: number;
   code: string;
@@ -337,7 +337,7 @@ export async function countCompletedChallenges(db: DB, userId: number): Promise<
 // directly rather than looking up a separate autoincrement id.
 // ============================================================================
 
-export interface SquadRow {
+interface SquadRow {
   chatId: number;
   title: string | null;
   createdBy: number | null; // null once the creator deleted their account

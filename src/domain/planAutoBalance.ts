@@ -57,7 +57,7 @@ const DETAILS: Record<string, { canonicalName: string; sets: string; metric?: "t
   },
 };
 
-export interface AutoBalanceResult {
+interface AutoBalanceResult {
   split: PlanDay[];
   added: Array<{ weekday: number; name: string; issue: BalanceIssue["kind"]; slug: string }>;
 }

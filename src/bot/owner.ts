@@ -51,7 +51,7 @@ export async function cmdAdmin(ctx: MyContext, secret: string) {
 }
 
 // Owner report is split into section buttons for compactness — the command shows the hub.
-export function ownerReportHub(lang: Lang): InlineKeyboard {
+function ownerReportHub(lang: Lang): InlineKeyboard {
   return new InlineKeyboard()
     .text(t(lang, "or_sec_overview"), "orep:overview")
     .text(t(lang, "or_sec_ai"), "orep:ai")
@@ -239,7 +239,7 @@ export function ownerUserKb(lang: Lang, id: number, confirmDelete = false, block
 // Run one interview step for an ARBITRARY target user and deliver the question to THEIR chat.
 // `restart` clears the transcript (ask from the first question); otherwise it resumes and
 // re-sends the next/current question. Used to unstick users whose interview froze.
-export async function sendInterviewTo(ctx: MyContext, target: UserDoc, restart: boolean): Promise<boolean> {
+async function sendInterviewTo(ctx: MyContext, target: UserDoc, restart: boolean): Promise<boolean> {
   const lang = target.lang;
   const transcript = restart ? [] : (target.session.transcript ?? []);
   try {

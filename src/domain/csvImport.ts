@@ -13,7 +13,7 @@ export interface ImportedDay {
   notes?: string;
 }
 
-export type ImportFormat = "strong" | "hevy";
+type ImportFormat = "strong" | "hevy";
 
 const LB_TO_KG = 0.45359237;
 const MI_TO_M = 1609.34;

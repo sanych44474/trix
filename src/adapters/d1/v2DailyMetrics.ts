@@ -5,7 +5,7 @@
 // migration's CREATE TABLE).
 import { type DB } from "./shared";
 
-export interface DailyMetricRow {
+interface DailyMetricRow {
   date: string;
   metric: string;
   dims: string; // JSON, low-cardinality — kept as the raw string; callers that need to filter by

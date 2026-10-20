@@ -56,9 +56,14 @@ const ANALYTICS_KEYS = new Set([
 ]);
 const MAX_ANALYTICS_STRING = 64;
 
-/** A URL path with its ids removed: /api/v2/trainer/client/20/card -> /api/v2/trainer/client/:id/card. */
+/** A URL path with its ids removed: /api/v2/trainer/client/20/card -> /api/v2/trainer/client/:id/card.
+ * A file extension is kept but never the id in front of it: /story/<uuid>.png is a link that opens
+ * someone's picture, so it becomes /story/:id.png. */
 function routeShape(path: string): string {
-  return path.split("/").map((seg) => (/^\d+$/.test(seg) || /^[0-9a-f-]{16,}$/i.test(seg) ? ":id" : seg)).join("/");
+  return path.split("/").map((seg) => {
+    const m = /^(?:\d+|[0-9a-f-]{16,})(\.[a-z0-9]{1,5})?$/i.exec(seg);
+    return m ? `:id${m[1] ?? ""}` : seg;
+  }).join("/");
 }
 
 /** The slice of a log call's extras that is allowed into Analytics Engine. Pure; test/log-analytics.test.ts. */

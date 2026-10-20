@@ -38,7 +38,7 @@ const planExerciseSchema = z.object({
 // Weekday is 1=Mon..7=Sun (see types.ts), not 0-indexed.
 const weekdaySchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]);
 
-export const planDaySchema = z.object({
+const planDaySchema =z.object({
   weekday: weekdaySchema,
   muscleGroup: z.string(),
   exercises: z.array(planExerciseSchema),
@@ -67,7 +67,7 @@ const supplementSchema = z.object({
 // loose record here rather than duplicating its schema, so this file doesn't have to track it.
 const mesocycleSchema = z.record(z.string(), z.unknown()).optional();
 
-export const planDocSchema = z.object({
+const planDocSchema =z.object({
   userId: z.number(),
   active: z.boolean(),
   status: z.enum(["draft", "active"]),
@@ -124,7 +124,7 @@ const aiPlanDaySchema = z.object({
   exercises: z.array(aiPlanExerciseSchema),
 });
 
-export const aiPlanResponseSchema = z.object({
+const aiPlanResponseSchema =z.object({
   split: z.array(aiPlanDaySchema),
   nutrition: nutritionTargetsSchema,
   restDayNutrition: nutritionTargetsSchema.optional(),

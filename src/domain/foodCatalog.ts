@@ -9,7 +9,7 @@
 import { FOOD_CATALOG_DATA } from "./foodCatalogData";
 import type { Lang } from "../types";
 
-export interface CatalogFood {
+interface CatalogFood {
   id: number;
   category: string;
   uk: string;
