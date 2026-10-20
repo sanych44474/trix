@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,8 +38,10 @@ import app.hacklimits.shared.today.TodayViewModel
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onOpenPlan: () -> Unit, onSignOut: () -> Unit) {
+fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onOpenPlan: () -> Unit, onStartQuestionnaire: () -> Unit, onSignOut: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
+    // Refresh every time Today comes back into view (after a workout, the plan editor, the questionnaire).
+    LaunchedEffect(Unit) { vm.refresh() }
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.today_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -52,6 +55,11 @@ fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onOpenPlan: () -
             }
             is TodayViewModel.State.Ready -> {
                 TodayContent(s.dashboard)
+                if (!s.dashboard.viewer.onboarded && !s.dashboard.viewer.planPending) {
+                    Button(onClick = onStartQuestionnaire, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                        Text(stringResource(Res.string.today_start_questionnaire))
+                    }
+                }
                 if (s.dashboard.viewer.onboarded && !s.dashboard.viewer.planPending) {
                     Button(onClick = onStartWorkout, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                         Text(stringResource(Res.string.today_start_workout))
