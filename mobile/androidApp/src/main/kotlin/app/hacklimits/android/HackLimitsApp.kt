@@ -7,6 +7,8 @@ import app.hacklimits.shared.auth.GoogleSignIn
 import app.hacklimits.shared.data.ClientErrorApi
 import app.hacklimits.shared.data.KeyValueStore
 import app.hacklimits.shared.platform.ErrorReporter
+import app.hacklimits.shared.media.MediaFilePicker
+import app.hacklimits.android.media.ActivityFilePicker
 import app.hacklimits.shared.update.AppUpdater
 import app.hacklimits.shared.data.SessionStore
 import app.hacklimits.shared.di.sharedModule
@@ -62,6 +64,8 @@ class HackLimitsApp : Application() {
                     single { PushRegistrar(get(), get(), get(), get()) }
                     single { NativeErrorReporter(get()) { get<ClientErrorApi>() } }
                     single<ErrorReporter> { get<NativeErrorReporter>() }
+                    single { ActivityFilePicker(get()) }
+                    single<MediaFilePicker> { get<ActivityFilePicker>() }
                     single { PlayAppUpdater(get()) }
                     single<AppUpdater> { get<PlayAppUpdater>() }
                 },

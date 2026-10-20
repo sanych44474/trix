@@ -6,8 +6,7 @@ import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
-/** Usage counters and crash reports. Both need the ApiClient; they share one background scope. */
+/** Feature-usage counters (crashes go through the platform ErrorReporter). */
 val telemetryModule: Module = module {
     single { Telemetry(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
-    single { ClientErrorReporter(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
 }

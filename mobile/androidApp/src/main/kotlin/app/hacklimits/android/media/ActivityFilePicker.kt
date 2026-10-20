@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
  * then `filePicker.launch = { mime -> pickLauncher.launch(mime) }`; clear `launch` and call `onPicked(null)` in onDestroy.
  */
 class ActivityFilePicker(private val context: Context) : MediaFilePicker {
-    /** Launches the system picker for a MIME filter ("video/*" or "text/*"). */
+    /** Launches the system picker for a MIME filter: any video, or any text file. */
     var launch: ((String) -> Unit)? = null
     private var pending: CompletableDeferred<Uri?>? = null
 

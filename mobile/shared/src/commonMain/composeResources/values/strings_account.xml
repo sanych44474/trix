@@ -164,4 +164,5 @@
     <string name="ex_story_footer">Free AI coach in Telegram</string>
     <string name="ex_story_share">Share to story</string>
     <string name="ex_story_failed">Couldn’t prepare the story — try again.</string>
+    <string name="ac_tool_owner">Owner console</string>
 </resources>

@@ -13,6 +13,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import app.hacklimits.shared.App
+import app.hacklimits.android.media.ActivityFilePicker
 import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
@@ -22,6 +23,8 @@ class MainActivity : ComponentActivity() {
     private val photoPicker: ActivityPhotoPicker by inject()
     private val speechInput: ActivitySpeechInput by inject()
     private val updater: PlayAppUpdater by inject()
+    private val filePicker: ActivityFilePicker by inject()
+    private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> filePicker.onPicked(uri) }
     private val errors: NativeErrorReporter by inject()
     // Play's update screen reports back here; a cancelled immediate update is re-offered by the gate.
     private val updateFlow = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {}
@@ -41,6 +44,7 @@ class MainActivity : ComponentActivity() {
         speechInput.launch = { intent -> recognizeSpeech.launch(intent) }
         photoPicker.launch = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
         updater.launcher = updateFlow
+        filePicker.launch = { mime -> pickFile.launch(mime) }
         setContent {
             App(
                 onSignedIn = ::onSignedIn,
@@ -56,6 +60,8 @@ class MainActivity : ComponentActivity() {
         speechInput.launch = null
         photoPicker.launch = null
         if (updater.launcher === updateFlow) updater.launcher = null
+        filePicker.launch = null
+        filePicker.onPicked(null)
         super.onDestroy()
     }
 

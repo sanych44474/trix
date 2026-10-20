@@ -164,4 +164,5 @@
     <string name="ex_story_footer">Безкоштовний AI-коуч у Telegram</string>
     <string name="ex_story_share">Поділитися в сторіс</string>
     <string name="ex_story_failed">Не вдалося підготувати сторіс — спробуй ще раз.</string>
+    <string name="ac_tool_owner">Консоль власника</string>
 </resources>

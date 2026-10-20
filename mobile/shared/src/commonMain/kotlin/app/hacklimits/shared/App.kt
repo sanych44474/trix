@@ -39,6 +39,13 @@ import app.hacklimits.shared.trainer.clients.TrainerClientsScreen
 import app.hacklimits.shared.ui.MoreDestination
 import app.hacklimits.shared.ui.MoreTool
 import app.hacklimits.shared.account.FindTrainerScreen
+import app.hacklimits.shared.owner.OwnerApi
+import app.hacklimits.shared.owner.OwnerScreen
+import app.hacklimits.shared.media.FormCheckScreen
+import app.hacklimits.shared.media.ImportCsvScreen
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import app.hacklimits.shared.settings.DisplayPreferences
 import org.koin.core.parameter.parametersOf
 import app.hacklimits.shared.data.ApiClient
@@ -91,6 +98,9 @@ import org.koin.compose.viewmodel.koinViewModel
 @Serializable object InjuriesRoute
 @Serializable object InboxRoute
 @Serializable object FindTrainerRoute
+@Serializable object OwnerRoute
+@Serializable object FormCheckRoute
+@Serializable object ImportCsvRoute
 /** peerId = 0: a client's own trainer; otherwise the client a trainer is talking to. */
 @Serializable data class ChatRoute(val peerId: Long = 0)
 
@@ -179,6 +189,9 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                     composable<FoodRoute> { NutritionScreen(koinViewModel(), onOpenMealPhoto = { nav.navigate(MealPhotoRoute) }) }
                     composable<ProgressRoute> { ProgressScreen(koinViewModel()) }
                     composable<MoreRoute> {
+                        val ownerApi = koinInject<OwnerApi>()
+                        var isOwner by remember { mutableStateOf(false) }
+                        LaunchedEffect(ownerApi) { isOwner = ownerApi.isOwner() }
                         MoreScreen(
                             koinViewModel(),
                             privacyUrl = platform.privacyPolicyUrl,
@@ -195,6 +208,7 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                                     },
                                 )
                             },
+                            isOwner = isOwner,
                             onOpenTool = { tool ->
                                 when (tool) {
                                     MoreTool.Inbox -> nav.navigate(InboxRoute)
@@ -204,7 +218,10 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                                     MoreTool.Library -> nav.navigate(ExerciseLibraryRoute)
                                     MoreTool.Photos -> nav.navigate(ProgressRoute)
                                     MoreTool.WeekCard -> nav.navigate(TodayRoute)
-                                    MoreTool.Plates, MoreTool.FormCheck, MoreTool.ImportCsv -> Unit
+                                    MoreTool.Owner -> nav.navigate(OwnerRoute)
+                                    MoreTool.FormCheck -> nav.navigate(FormCheckRoute)
+                                    MoreTool.ImportCsv -> nav.navigate(ImportCsvRoute)
+                                    MoreTool.Plates -> Unit
                                 }
                             },
                         )
@@ -234,6 +251,9 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                     composable<InjuriesRoute> { InjuriesScreen(koinViewModel(), onBack = { nav.popBackStack() }) }
                     composable<CoachRoute> { CoachScreen(onBack = { nav.popBackStack() }) }
                     composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }, onOpenCoach = { nav.navigate(CoachRoute) }) }
+                    composable<OwnerRoute> { OwnerScreen(onBack = { nav.popBackStack() }) }
+                    composable<FormCheckRoute> { FormCheckScreen(onBack = { nav.popBackStack() }) }
+                    composable<ImportCsvRoute> { ImportCsvScreen(onBack = { nav.popBackStack() }) }
                     composable<FindTrainerRoute> {
                         FindTrainerScreen(koinViewModel(), onBack = { nav.popBackStack() }, onAccepted = { nav.popBackStack() })
                     }

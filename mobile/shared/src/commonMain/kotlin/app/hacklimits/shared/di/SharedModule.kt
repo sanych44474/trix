@@ -30,6 +30,8 @@ import app.hacklimits.shared.update.UpdateViewModel
 import app.hacklimits.shared.coach.coachModule
 import app.hacklimits.shared.plan.planModule
 import app.hacklimits.shared.settings.settingsModule
+import app.hacklimits.shared.telemetry.telemetryModule
+import app.hacklimits.shared.owner.ownerModule
 import app.hacklimits.shared.chat.chatModule
 import app.hacklimits.shared.inbox.inboxModule
 import app.hacklimits.shared.integrations.integrationsModule
@@ -41,7 +43,7 @@ import app.hacklimits.shared.trainer.clients.trainerClientsModule
 /** Everything platform-neutral. The platform supplies a SessionStore, a GoogleSignIn and the
  * AppPlatform, a KeyValueStore, a RestAlarm, a FileSaver, a PhotoPicker, a SpeechInput and a HealthSync through its own module (androidApp/.../AppModule.kt). */
 fun sharedModule(baseUrl: String) = module {
-    includes(settingsModule, planModule, chatModule, inboxModule, coachModule, socialModule, trainerClientsModule, trainerBusinessModule, mediaModule, integrationsModule)
+    includes(telemetryModule, ownerModule, settingsModule, planModule, chatModule, inboxModule, coachModule, socialModule, trainerClientsModule, trainerBusinessModule, mediaModule, integrationsModule)
     single { ApiClient(baseUrl, get(), reporter = getOrNull<ErrorReporter>() ?: ErrorReporter.None) }
     single { AppConfigApi(get()) }
     single { ClientErrorApi(get()) }

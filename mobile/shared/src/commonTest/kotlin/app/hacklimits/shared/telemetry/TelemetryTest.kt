@@ -74,15 +74,4 @@ class TelemetryTest {
         advanceUntilIdle()
         assertTrue(bodies.tryReceive().isFailure)
     }
-
-    @Test
-    fun errorReportsSkipNoiseRepeatsAndTheCap() {
-        val seen = mutableSetOf<String>()
-        assertNull(ClientErrorReporter.errorMessage(IllegalStateException("Failed to fetch"), seen))
-        assertNull(ClientErrorReporter.errorMessage(IllegalStateException(""), seen))
-        assertEquals("IllegalStateException: boom", ClientErrorReporter.errorMessage(IllegalStateException("boom"), seen))
-        assertNull(ClientErrorReporter.errorMessage(IllegalStateException("boom"), seen))
-        repeat(4) { assertTrue(ClientErrorReporter.errorMessage(IllegalStateException("e$it"), seen) != null) }
-        assertNull(ClientErrorReporter.errorMessage(IllegalStateException("one more"), seen))
-    }
 }

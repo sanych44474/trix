@@ -2,7 +2,6 @@ package app.hacklimits.shared.media
 
 import app.hacklimits.shared.data.ApiClient
 import app.hacklimits.shared.data.aiTimeout
-import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.header
