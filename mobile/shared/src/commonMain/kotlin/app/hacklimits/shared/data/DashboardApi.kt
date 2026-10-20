@@ -13,7 +13,11 @@ data class Dashboard(
     val today: String,
     val name: String? = null,
     val calendar: Calendar = Calendar(),
+    val weight: Weight = Weight(),
 ) {
+    @Serializable data class Weight(val points: List<Point> = emptyList(), val goal: Double? = null) {
+        @Serializable data class Point(val date: String, val kg: Double)
+    }
     @Serializable data class Viewer(val id: Long, val role: String, val onboarded: Boolean, val planPending: Boolean = false)
     @Serializable data class Calendar(val days: List<Day> = emptyList()) {
         @Serializable data class Day(val date: String, @SerialName("s") val status: String)

@@ -33,7 +33,7 @@ class ApiException(val status: Int, val code: String, message: String?) : Except
  * session tokens in the body instead of a cookie) and carries the bearer session when there is one.
  * A 401 on an authenticated call means the session is gone: [sessionExpired] tells the UI.
  */
-class ApiClient(baseUrl: String, private val sessions: SessionStore, engine: HttpClient? = null) {
+class ApiClient(private val baseUrl: String, private val sessions: SessionStore, engine: HttpClient? = null) {
     private val expired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val sessionExpired: SharedFlow<Unit> = expired
 
@@ -49,6 +49,12 @@ class ApiClient(baseUrl: String, private val sessions: SessionStore, engine: Htt
             header("X-Client", "native")
         }
     }
+
+    /** An absolute URL on the API origin, for things loaded outside Ktor (images). */
+    fun url(path: String): String = baseUrl.trimEnd('/') + "/" + path.trimStart('/')
+
+    /** The bearer header value for requests made outside Ktor (images); null when signed out. */
+    suspend fun bearer(): String? = sessions.token()?.let { "Bearer $it" }
 
     suspend fun authorize(builder: HttpRequestBuilder) {
         sessions.token()?.let { builder.bearerAuth(it) }

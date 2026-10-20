@@ -27,12 +27,16 @@ import app.hacklimits.shared.data.AuthApi
 import app.hacklimits.shared.data.SessionStore
 import app.hacklimits.shared.platform.AppPlatform
 import app.hacklimits.shared.resources.Res
+import app.hacklimits.shared.resources.tab_food
 import app.hacklimits.shared.resources.tab_more
+import app.hacklimits.shared.resources.tab_progress
 import app.hacklimits.shared.resources.tab_today
 import app.hacklimits.shared.ui.LoggerScreen
 import app.hacklimits.shared.ui.MoreScreen
+import app.hacklimits.shared.ui.NutritionScreen
 import app.hacklimits.shared.ui.OnboardingScreen
 import app.hacklimits.shared.ui.PlanScreen
+import app.hacklimits.shared.ui.ProgressScreen
 import app.hacklimits.shared.ui.SignInScreen
 import app.hacklimits.shared.ui.TodayScreen
 import app.hacklimits.shared.ui.theme.HackLimitsIcons
@@ -46,6 +50,8 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Serializable object TodayRoute
+@Serializable object FoodRoute
+@Serializable object ProgressRoute
 @Serializable object MoreRoute
 @Serializable object LoggerRoute
 @Serializable object PlanRoute
@@ -57,6 +63,8 @@ private data class Tab(val route: Any, val label: StringResource, val icon: Imag
 
 private val TABS = listOf(
     Tab(TodayRoute, Res.string.tab_today, HackLimitsIcons.Today),
+    Tab(FoodRoute, Res.string.tab_food, HackLimitsIcons.Food),
+    Tab(ProgressRoute, Res.string.tab_progress, HackLimitsIcons.Progress),
     Tab(MoreRoute, Res.string.tab_more, HackLimitsIcons.More),
 )
 
@@ -116,6 +124,8 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}) {
                             onStartQuestionnaire = { nav.navigate(OnboardingRoute) },
                         )
                     }
+                    composable<FoodRoute> { NutritionScreen(koinViewModel()) }
+                    composable<ProgressRoute> { ProgressScreen(koinViewModel()) }
                     composable<MoreRoute> {
                         MoreScreen(
                             koinViewModel(),

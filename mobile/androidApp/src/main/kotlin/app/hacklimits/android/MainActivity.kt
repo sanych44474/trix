@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import app.hacklimits.shared.App
@@ -16,6 +17,8 @@ class MainActivity : ComponentActivity() {
     private val pushRegistrar: PushRegistrar by inject()
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
     private val fileSaver: ActivityFileSaver by inject()
+    private val photoPicker: ActivityPhotoPicker by inject()
+    private val pickPhoto = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> photoPicker.onPicked(uri) }
     // MIME type is a placeholder: the picker only needs a name, and the bytes decide the content.
     private val createDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri -> fileSaver.onPicked(uri) }
 
@@ -23,6 +26,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         fileSaver.launcher = createDocument
+        photoPicker.launch = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
         setContent { App(onSignedIn = ::onSignedIn, beforeSignOut = pushRegistrar::unregister) }
     }
 

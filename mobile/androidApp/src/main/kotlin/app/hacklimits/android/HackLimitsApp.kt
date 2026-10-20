@@ -9,6 +9,7 @@ import app.hacklimits.shared.data.SessionStore
 import app.hacklimits.shared.di.sharedModule
 import app.hacklimits.shared.platform.AppPlatform
 import app.hacklimits.shared.platform.FileSaver
+import app.hacklimits.shared.platform.PhotoPicker
 import app.hacklimits.shared.platform.RestAlarm
 import java.lang.ref.WeakReference
 import java.util.Locale
@@ -44,6 +45,8 @@ class HackLimitsApp : Application() {
                     single<RestAlarm> { WorkRestAlarm(get()) }
                     single { ActivityFileSaver(get()) }
                     single<FileSaver> { get<ActivityFileSaver>() }
+                    single { ActivityPhotoPicker(get()) }
+                    single<PhotoPicker> { get<ActivityPhotoPicker>() }
                     single<GoogleSignIn> { CredentialGoogleSignIn { current?.get() } }
                     single { PushRegistrar(get(), get(), get(), get()) }
                 },
