@@ -21,9 +21,9 @@ export interface RateLimitBinding {
 }
 
 /** `admin`: guessing ADMIN_SECRET. `expensive`: Mini App actions that call AI or send documents. */
-export type LimitName = "admin" | "expensive";
+export type LimitName = "admin" | "expensive" | "auth";
 
-const BINDING: Record<LimitName, string> = { admin: "RL_ADMIN", expensive: "RL_EXPENSIVE" };
+const BINDING: Record<LimitName, string> = { admin: "RL_ADMIN", expensive: "RL_EXPENSIVE", auth: "RL_AUTH" };
 const warned = new Set<string>();
 
 function warnOnce(name: LimitName, reason: string, err?: unknown): void {

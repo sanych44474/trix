@@ -44,7 +44,7 @@ incur costs for the operator.
 | | |
 |---|---|
 | Roles | solo athlete · trainer's client · trainer · owner |
-| Surfaces | Telegram chat (45 commands) + Telegram Mini App |
+| Surfaces | Telegram chat (45 commands) + Telegram Mini App + Android app with Google, Telegram, and email login |
 | Languages | Ukrainian, English (~1,700 strings each, parity enforced by the type checker) |
 | Backend | OpenAPI 3.1 contract, versioned `/api/v2/*`, forward-only D1 migrations |
 | Quality | TypeScript checks, lint, build, dependency audit, `node:test` and Workers-runtime suites in CI |
@@ -102,6 +102,7 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 | `src/scheduler.ts` | Cron: reminders, check-ins, weekly digests, trainer digests, owner report |
 | `src/webapp/` | Mini App auth and versioned API handlers; static shell assets are built from `apps/mini-app/` |
 | `apps/mini-app/` | React + Vite v2 Mini App shell and dark sports design system |
+| `android/` | Native Android app; supports Google Credential Manager, Telegram bot confirmation, and email-code sign-in |
 | `apps/mini-app/src/train/` | Workout logger screen pieces: focus-mode exercise, its muscle figure, rest bar, save dock, summary, history, `useSession` (rest timer + session clock) |
 | `apps/mini-app/src/logic/` | **Pure**, unit-tested client logic: logger state and draft reconciliation, saved-log hydration, rest timing |
 | `src/application/` | Deep application interfaces shared by adapters |
@@ -194,9 +195,17 @@ the environment. `database_id` in `wrangler.toml` is a placeholder you replace w
 | `EXERCISES_API_KEY` | optional | Used only by `scripts/seed-exercises.mjs`, never at runtime |
 | `HEALTHCHECK_PING_URL` | optional | External cron monitoring. Create a free check at healthchecks.io with **Period 5 minutes, Grace 10 minutes** and paste its ping URL (`https://hc-ping.com/<uuid>`). The cron pings it every 5 minutes and pings `/fail` when a run throws, so you get an alert if the cron stops or keeps failing. Unset = off. |
 | `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` | optional | Strava cardio import. Create an API app at strava.com/settings/api and set its **Authorization Callback Domain** to your Worker's domain (the callback is `<WORKER_URL>/strava/callback`). Unset = the Strava card is hidden. |
+| `GOOGLE_CLIENT_ID` | optional | Google OAuth Web client ID used to validate Android Credential Manager ID tokens. Create a Web application OAuth client in Google Cloud Console and store the ID with `npx wrangler secret put GOOGLE_CLIENT_ID`. |
 
 Telegram Stars support needs no secret, but the webhook must receive `pre_checkout_query`
 updates: re-run `node scripts/setup-telegram.mjs` once after deploying this version.
+
+The standalone Android sign-in offers Google, a one-time Telegram bot link, and email codes. Telegram
+login uses the configured `BOT_USERNAME`; Google uses `GOOGLE_CLIENT_ID`. Apply
+`migrations/0098_email_auth.sql`, `migrations/0099_provider_auth.sql`, and
+`migrations/0100_telegram_login_proof.sql` in order before deploying
+these provider routes. See
+[`android/README.md`](android/README.md) for provider setup and the Android build steps.
 
 D1 and Workers AI need no secret — they are bound via `[[d1_databases]]` and `[ai]`.
 

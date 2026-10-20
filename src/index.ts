@@ -40,6 +40,8 @@ import { serveStoryImage } from "./webapp/storyMedia";
 import { handleStravaCallback } from "./webapp/stravaApi";
 import { handleQuickLogApi } from "./webapp/quickLogApi";
 import { handleV2Api } from "./webapp/v2Api";
+import { handleEmailAuth } from "./webapp/emailAuth";
+import { handleProviderAuth } from "./webapp/providerAuth";
 import { logError, logInfo, runWithRequestId, withHeader } from "./log";
 import { secretMatches } from "./domain/secrets";
 import { withinLimit } from "./limits";
@@ -222,6 +224,10 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
     // delegates to the legacy implementations; business behavior therefore stays identical
     // during the staged migration.
     if (url.pathname.startsWith("/api/v2/")) {
+      const providerAuthResponse = await handleProviderAuth(req, url, env);
+      if (providerAuthResponse) return providerAuthResponse;
+      const authResponse = await handleEmailAuth(req, url, env);
+      if (authResponse) return authResponse;
       return handleV2Api(req, url, env, ctx);
     }
 

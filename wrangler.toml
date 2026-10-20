@@ -105,6 +105,13 @@ namespace_id = "2002"
   limit = 20
   period = 60
 
+[[ratelimits]]
+name = "RL_AUTH"
+namespace_id = "2003"
+  [ratelimits.simple]
+  limit = 5
+  period = 60
+
 # Knowledge base for AI Search (src/knowledge/): the Worker writes markdown docs here and the AI
 # Search instance (AI_SEARCH_INSTANCE) indexes this bucket. Create the bucket before deploying.
 [[r2_buckets]]
@@ -142,7 +149,8 @@ max_concurrency = 1
 dead_letter_queue = "trix-broadcast-dlq"
 
 # Non-secret vars. Secrets (TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, GEMINI_API_KEY,
-# GROQ_API_KEY, OLLAMA_API_KEY, OPENROUTER_API_KEY, ADMIN_SECRET, YOUTUBE_API_KEY) are set
+# GROQ_API_KEY, OLLAMA_API_KEY, OPENROUTER_API_KEY, ADMIN_SECRET, AUTH_SECRET,
+# RESEND_API_KEY, YOUTUBE_API_KEY) are set
 # with `wrangler secret put`. YOUTUBE_API_KEY (YouTube Data API v3) powers exercise technique
 # shorts (cache-first; ~100 search.list calls/day on the free quota).
 # EXERCISES_API_KEY (API Ninjas) is only used by scripts/seed-exercises.mjs, not at runtime.
@@ -163,6 +171,7 @@ ALLOW_DEBUG_USER = "0"
 # Enabled for all users [2026-09-16] once the v2 cutover (all 10 domains) landed and was verified
 # live against production data. The legacy /app shell is retired (docs/adr/0006-retire-legacy-app-shell.md).
 V2_APP_ENABLED = "1"
+AUTH_EMAIL_FROM = ""
 # Your bot's @username (no @), numeric id and display name. BOT_ID + BOT_USERNAME let the Worker
 # skip a getMe round-trip per webhook; leave them empty and grammY fetches it once instead.
 BOT_USERNAME = ""

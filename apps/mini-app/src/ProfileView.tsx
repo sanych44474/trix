@@ -3,6 +3,7 @@ import { api, typedBody } from "./api";
 import { t, type Lang } from "./i18n";
 import { readAccent, readContrast, setAccent, setContrast, type Accent } from "./logic/theme";
 import type { ProfilePayload, RequestBody, SettingsPayload } from "./types";
+import { AuthMethodsCard } from "./AuthMethodsCard";
 
 type SettingsBody = RequestBody<"updateSettings">;
 
@@ -108,6 +109,8 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
 
     <div className="eyebrow">{t(lang, "account_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, "settings_title")}</h1></div>
+
+    <AuthMethodsCard lang={lang} />
 
     <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "display_eyebrow")}</span><h2>{t(lang, "display_title")}</h2></div></div><div className="form-field"><span>{t(lang, "accent_label")}</span><div className="segmented accent-pick" role="radiogroup" aria-label={t(lang, "accent_label")}>{(["green", "red"] as const).map((value) => <button key={value} type="button" role="radio" aria-checked={accent === value} disabled={contrast} onClick={() => { setAccent(value); setAccentState(value); }}><i className={`swatch ${value}`} aria-hidden="true" />{t(lang, value === "green" ? "accent_green" : "accent_red")}</button>)}</div></div>{contrast && <p className="muted">{t(lang, "accent_contrast_note")}</p>}<label className="check-row"><input type="checkbox" checked={contrast} onChange={(event) => { setContrast(event.target.checked); setContrastState(event.target.checked); }} /><span>{t(lang, "contrast_toggle_label")}</span></label><p className="muted">{t(lang, "contrast_hint")}</p></section>
 

@@ -4,6 +4,13 @@ dist/
 .DS_Store
 .wrangler/
 
+# Android Studio / Gradle output, local SDK paths and signing credentials.
+**/build/
+**/.gradle/
+android/local.properties
+*.jks
+*.keystore
+
 # Local secrets — NEVER commit. Only .dev.vars.example is tracked.
 .dev.vars
 .dev.vars.*

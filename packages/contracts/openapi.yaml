@@ -16,11 +16,220 @@ info: {title: trix v2 API, version: 2.0.0, description: Versioned REST contract 
 servers:
 - {url: /}
 paths:
+  /api/v2/auth/session:
+    get:
+      operationId: getAuthSession
+      security: []
+      responses:
+        '200':
+          description: Current Telegram, Google, email, or anonymous session
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/AuthSession'}
+                  required: [data]
+  /api/v2/auth/email/start:
+    post:
+      operationId: startEmailSignIn
+      security:
+      - telegramInitData: []
+      - appSession: []
+      - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/EmailCodeStartRequest'}
+      responses:
+        '200':
+          description: One-time code sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/EmailCodeChallenge'}
+                  required: [data]
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /api/v2/auth/email/verify:
+    post:
+      operationId: verifyEmailSignIn
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/EmailCodeVerifyRequest'}
+      responses:
+        '200':
+          description: Signed in and secure session cookie set
+          headers:
+            Set-Cookie: {schema: {type: string}}
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/AuthSession'}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /api/v2/auth/logout:
+    post:
+      operationId: logoutEmailSession
+      security: []
+      responses:
+        '200':
+          description: Email session revoked and cookie cleared
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Envelope'}
+  /api/v2/auth/providers:
+    get:
+      operationId: getAuthProviders
+      security: []
+      responses:
+        '200':
+          description: Public provider configuration for the sign-in screen
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/AuthProviders'}
+                  required: [data]
+  /api/v2/auth/google/nonce:
+    post:
+      operationId: startGoogleSignIn
+      security:
+      - telegramInitData: []
+      - appSession: []
+      - {}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GoogleNonceRequest'}
+      responses:
+        '200':
+          description: Short-lived nonce for a native Google ID token request
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/GoogleNonceChallenge'}
+                  required: [data]
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /api/v2/auth/google/verify:
+    post:
+      operationId: verifyGoogleSignIn
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GoogleVerifyRequest'}
+      responses:
+        '200':
+          description: Google ID token verified and secure app session set
+          headers:
+            Set-Cookie: {schema: {type: string}}
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/AuthSession'}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /api/v2/auth/telegram/start:
+    post:
+      operationId: startTelegramCodeSignIn
+      security: []
+      responses:
+        '200':
+          description: One-time Telegram bot deep link
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/TelegramLoginChallenge'}
+                  required: [data]
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /api/v2/auth/telegram/status:
+    get:
+      operationId: getTelegramCodeSignInStatus
+      security: []
+      parameters:
+      - in: query
+        name: challengeId
+        required: true
+        schema: {type: string, pattern: '^[0-9a-f]{32}$'}
+      responses:
+        '200':
+          description: Whether the Telegram bot confirmed the one-time login link
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/TelegramLoginStatus'}
+                  required: [data]
+  /api/v2/auth/telegram/complete:
+    post:
+      operationId: completeTelegramCodeSignIn
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TelegramCompleteRequest'}
+      responses:
+        '200':
+          description: One-time login completed and secure app session set
+          headers:
+            Set-Cookie: {schema: {type: string}}
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/AuthSession'}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/RateLimited'}
   /api/v2/dashboard:
     get:
       operationId: getDashboard
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Dashboard snapshot
@@ -39,6 +248,7 @@ paths:
       operationId: getTodayWorkout
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Guided workout payload
@@ -56,6 +266,7 @@ paths:
       operationId: saveWorkout
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -99,6 +310,7 @@ paths:
       operationId: getWorkoutHistory
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Recent workout history
@@ -118,6 +330,7 @@ paths:
       operationId: getPastWorkout
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: date
         in: query
@@ -143,6 +356,7 @@ paths:
       operationId: getWorkoutSwaps
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: index
         in: query
@@ -195,6 +409,7 @@ paths:
         pictures), in the caller's language; condensed/translated once and cached.
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: query
@@ -223,6 +438,7 @@ paths:
       operationId: getExerciseInfo
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: name
         in: query
@@ -251,6 +467,7 @@ paths:
       description: The Mini App's notification feed, newest first (last 40), with the unread count.
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Feed items
@@ -284,6 +501,7 @@ paths:
       description: Marks every feed item read.
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Done
@@ -305,6 +523,7 @@ paths:
       description: The latest release note. The Mini App shows it once, until the user dismisses it.
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Release note as Telegram HTML and as plain text
@@ -330,6 +549,7 @@ paths:
       description: Records that the user dismissed the current release note, so it is not shown again on any device.
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -367,6 +587,7 @@ paths:
         the session's (easy 6.5, ok 8, hard 9.5), which next Monday's progression reads.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -400,6 +621,7 @@ paths:
       operationId: addCustomExercise
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -447,6 +669,7 @@ paths:
         returned as WorkoutToday.draft and deleted when the session is saved.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -478,6 +701,7 @@ paths:
       operationId: deleteWorkoutDraft
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Draft discarded
@@ -499,6 +723,7 @@ paths:
       operationId: startRestTimer
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -533,6 +758,7 @@ paths:
         Telegram "rest is over" push for a rest the user skipped in the app.
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Rest timer cancelled (also returned when none was pending)
@@ -553,6 +779,7 @@ paths:
       operationId: quickLog
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -582,6 +809,7 @@ paths:
       operationId: getNutrition
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Nutrition day
@@ -598,6 +826,7 @@ paths:
       operationId: editNutrition
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -651,6 +880,7 @@ paths:
       operationId: getPlan
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: clientId
         in: query
@@ -673,6 +903,7 @@ paths:
       operationId: editPlan
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IfMatch'}
       requestBody:
@@ -759,6 +990,7 @@ paths:
       operationId: searchPlanExercises
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: q
         in: query
@@ -787,6 +1019,7 @@ paths:
       description: The questionnaire answers saved so far (null when none, or once onboarded).
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: The draft
@@ -809,6 +1042,7 @@ paths:
       description: Save the questionnaire answers so far (owner console progress, resume on another device). A no-op once onboarded.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -842,6 +1076,7 @@ paths:
       operationId: completeOnboarding
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -872,6 +1107,7 @@ paths:
       operationId: getProfile
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Profile
@@ -889,6 +1125,7 @@ paths:
       operationId: updateProfile
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -917,6 +1154,7 @@ paths:
       operationId: getSettings
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Settings
@@ -933,6 +1171,7 @@ paths:
       operationId: updateSettings
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -961,6 +1200,7 @@ paths:
       operationId: getBuddy
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Buddy progress
@@ -984,6 +1224,7 @@ paths:
       operationId: listChallenges
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Challenges
@@ -1000,6 +1241,7 @@ paths:
       operationId: joinChallenge
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -1028,6 +1270,7 @@ paths:
       operationId: listInjuries
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Injury history
@@ -1044,6 +1287,7 @@ paths:
       operationId: reportInjury
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -1071,6 +1315,7 @@ paths:
       operationId: getLeaderboards
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Leaderboards
@@ -1088,6 +1333,7 @@ paths:
       operationId: getPersonalRecords
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Records and badges
@@ -1105,6 +1351,7 @@ paths:
       operationId: getProgressPhoto
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: query
@@ -1127,6 +1374,7 @@ paths:
       operationId: getReplanStatus
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Whether a rebuild started from the app is still building
@@ -1149,6 +1397,7 @@ paths:
       description: Rebuild the athlete's own plan from their current profile and records, in the background. Not for trainer clients (403).
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       responses:
@@ -1176,6 +1425,7 @@ paths:
       description: Owner only. With the broadcast queue, queues the text for every onboarded user at once (`queued`); without it, sends to the next batch of 25 onboarded users after account id `after`.
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -1216,6 +1466,7 @@ paths:
       description: Owner only. Generates a promo/story image with Workers AI FLUX from the prompt and sends it to the owner's chat. 429 once today's Workers AI neuron budget is spent.
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -1255,6 +1506,7 @@ paths:
       description: The 45 ready programs (gym, dumbbells, no equipment; three load levels each) in the viewer's language.
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Catalog
@@ -1279,6 +1531,7 @@ paths:
       description: Make a ready program the viewer's active plan, adapted to their body, records and training days. Not for a trainer's client (403).
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -1318,6 +1571,7 @@ paths:
       description: The viewer's thread with their trainer (client) or one of their clients (trainer, `with` = client id). Marks the peer's messages read.
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: with
         in: query
@@ -1342,6 +1596,7 @@ paths:
       operationId: sendChatMessage
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -1379,6 +1634,7 @@ paths:
       description: Trainer only. An AI draft of the next reply to the client, in the trainer's style. Nothing is sent.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1411,6 +1667,7 @@ paths:
       operationId: getChatUnread
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Unread message counts per sender id
@@ -1435,6 +1692,7 @@ paths:
       description: Import workout history from a Strong or Hevy CSV export. Dates that already have a log are skipped.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1473,6 +1731,7 @@ paths:
       description: AI estimate of a meal photo. Nothing is logged; the app logs the confirmed items with editNutrition add_items.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1509,6 +1768,7 @@ paths:
       description: AI technique remarks on a short training video (at most 60 s, a few a day).
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1547,6 +1807,7 @@ paths:
       description: Speech to text for a voice clip recorded in the app.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1579,6 +1840,7 @@ paths:
       operationId: sendPhotoCompare
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1610,6 +1872,7 @@ paths:
       operationId: getWeekCard
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: clientId
         in: query
@@ -1631,6 +1894,7 @@ paths:
       operationId: sendWeekCard
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1663,6 +1927,7 @@ paths:
         valid for two days (src/webapp/storyMedia.ts).
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1695,6 +1960,7 @@ paths:
       description: A Telegram Stars invoice link for a voluntary tip, opened with WebApp.openInvoice.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1728,6 +1994,7 @@ paths:
       description: Strava cardio-import link status. available=false when the Worker has no Strava app configured.
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Link status
@@ -1751,6 +2018,7 @@ paths:
       operationId: disconnectStrava
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Revoked and forgotten
@@ -1773,6 +2041,7 @@ paths:
       description: Strava authorize URL (signed state, 15 min) to open in the external browser.
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Authorize URL
@@ -1794,6 +2063,7 @@ paths:
       operationId: syncStrava
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Imported activities
@@ -1817,6 +2087,7 @@ paths:
       operationId: getPlates
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: kg
         in: query
@@ -1839,6 +2110,7 @@ paths:
       operationId: getLibrary
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Public shared program library
@@ -1855,6 +2127,7 @@ paths:
       operationId: takeLibraryProgram
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -1886,6 +2159,7 @@ paths:
       operationId: getSquads
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: The caller's squad membership(s)
@@ -1909,6 +2183,7 @@ paths:
       description: 'create an app squad (title), join one by invite code, or leave one (id).'
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -1948,6 +2223,7 @@ paths:
       operationId: listTrainers
       security:
       - telegramInitData: []
+      - appSession: []
       description: Approved trainers taking clients (the "choose a trainer" list) and the caller's pending request.
       responses:
         '200':
@@ -1991,6 +2267,7 @@ paths:
       operationId: cancelTrainerRequest
       security:
       - telegramInitData: []
+      - appSession: []
       description: Withdraw the caller's pending request to a trainer.
       responses:
         '200':
@@ -2011,6 +2288,7 @@ paths:
       operationId: requestTrainer
       security:
       - telegramInitData: []
+      - appSession: []
       description: Send a join request to a trainer, chosen from the directory or known by id.
       requestBody:
         required: true
@@ -2043,6 +2321,7 @@ paths:
       operationId: listTrainerRequests
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Trainer requests
@@ -2065,6 +2344,7 @@ paths:
       operationId: resolveTrainerRequest
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -2093,6 +2373,7 @@ paths:
       operationId: getTrainerProfile
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: The caller's own v2_trainers row, or null if never applied
@@ -2116,6 +2397,7 @@ paths:
       operationId: updateTrainerProfile
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       description: When the caller has no v2_trainers row yet, the same body is treated as a NEW application (pending owner approval) instead of an edit.
@@ -2145,6 +2427,7 @@ paths:
       operationId: getTrainerInvite
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: The trainer's shareable invite link (t.me/<bot>?start=tr_<code>) and the personal invites still waiting to be opened. link is "" until the profile is approved (no invite code yet) or when the deployment has no BOT_USERNAME.
@@ -2163,6 +2446,7 @@ paths:
       operationId: createTrainerInvite
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       description: A single-use personal invite for a named person. Opening it pairs them with the trainer and pre-fills that name.
@@ -2192,6 +2476,7 @@ paths:
       operationId: getTrainerSessions
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: from
         in: query
@@ -2218,6 +2503,7 @@ paths:
       operationId: mutateTrainerSessions
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -2265,6 +2551,7 @@ paths:
       operationId: getTrainerFinance
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: from
         in: query
@@ -2291,6 +2578,7 @@ paths:
       operationId: mutateTrainerFinance
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -2333,6 +2621,7 @@ paths:
       operationId: listTrainerTemplates
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Template bank
@@ -2354,6 +2643,7 @@ paths:
       operationId: mutateTrainerTemplates
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -2393,6 +2683,7 @@ paths:
       operationId: getClientCard
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: path
@@ -2413,6 +2704,7 @@ paths:
       operationId: updateClientCard
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: path
@@ -2454,6 +2746,7 @@ paths:
       operationId: updateClientNote
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: path
@@ -2484,6 +2777,7 @@ paths:
       operationId: updateClientFlag
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: path
@@ -2514,6 +2808,7 @@ paths:
       operationId: requestClientPhoto
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: path
@@ -2536,6 +2831,7 @@ paths:
       description: Assign the client's draft plan (it becomes their active plan and they are notified) or discard it.
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: path
@@ -2568,6 +2864,7 @@ paths:
       operationId: nudgeClientInterview
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: path
@@ -2590,6 +2887,7 @@ paths:
       operationId: listTrainerQuestions
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Questions
@@ -2612,6 +2910,7 @@ paths:
       operationId: answerTrainerQuestion
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: path
@@ -2643,6 +2942,7 @@ paths:
       operationId: broadcastTrainerMessage
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
@@ -2670,6 +2970,7 @@ paths:
       operationId: askCoach
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       description: A solo/trainer caller gets a direct AI answer. A client with a human trainer instead has the question routed to that trainer (an AI-drafted reply for the trainer to send) -- {routed:true} instead of {answer}.
@@ -2721,6 +3022,7 @@ paths:
       description: Mini App feature-usage counters (app_* names, at most 10 per call) into the owner's events report.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -2756,6 +3058,7 @@ paths:
       description: The Mini App reports an uncaught JS error or a React render crash. Stored as a webapp client_js error, so the owner's error alert covers the Mini App too.
       security:
       - telegramInitData: []
+      - appSession: []
       requestBody:
         required: true
         content:
@@ -2789,6 +3092,7 @@ paths:
       operationId: sendCoachFeedback
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       description: The coach's "send to the team" button -- stores the feedback and forwards the AI summary plus the user's own message to the owner.
@@ -2823,6 +3127,7 @@ paths:
       operationId: getCoachThread
       security:
       - telegramInitData: []
+      - appSession: []
       description: A client's own view of the routed Q&A with their trainer -- their questions plus the trainer's replies.
       responses:
         '200':
@@ -2841,6 +3146,7 @@ paths:
       operationId: getOwnerReport
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: section
         in: query
@@ -2866,6 +3172,7 @@ paths:
       operationId: getOwnerUsers
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: Owner roster
@@ -2884,6 +3191,7 @@ paths:
       description: Feedback triage list (newest first) with per-status counts.
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {name: status, in: query, schema: {type: string, enum: [new, done, wontfix, all]}}
       responses:
@@ -2928,6 +3236,7 @@ paths:
       description: Set a feedback row's status and/or category; notify:true on the move to done tells the author it shipped.
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {name: id, in: path, required: true, schema: {type: integer}}
       - {$ref: '#/components/parameters/IdempotencyKey'}
@@ -2965,6 +3274,7 @@ paths:
       operationId: getOwnerRelease
       security:
       - telegramInitData: []
+      - appSession: []
       responses:
         '200':
           description: The latest release-note version and how many chats are still owed it
@@ -2989,6 +3299,7 @@ paths:
       description: Sends the latest release note to the chats not yet sent it. With the broadcast queue every one is queued at once (`queued`); without it, the next batch of 25 is sent (resumable).
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       responses:
@@ -3016,6 +3327,7 @@ paths:
       operationId: askInactiveUsers
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - {$ref: '#/components/parameters/IdempotencyKey'}
       responses:
@@ -3038,6 +3350,7 @@ paths:
       operationId: moderateUser
       security:
       - telegramInitData: []
+      - appSession: []
       parameters:
       - name: id
         in: path
@@ -3071,6 +3384,7 @@ paths:
 components:
   securitySchemes:
     telegramInitData: {type: apiKey, in: header, name: Authorization, description: 'Telegram Mini App initData sent as Authorization: tma <initData>.'}
+    appSession: {type: apiKey, in: cookie, name: __Host-trix_session, description: 'Secure, HttpOnly email session cookie.'}
   parameters:
     IdempotencyKey:
       name: Idempotency-Key
@@ -3108,7 +3422,88 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    RateLimited:
+      description: Too many authentication attempts
+      headers:
+        Retry-After: {schema: {type: string}}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   schemas:
+    AuthSession:
+      type: object
+      required: [authenticated]
+      properties:
+        authenticated: {type: boolean}
+        accountId: {type: integer}
+        method: {type: string, enum: [email, google, telegram, debug]}
+        email: {type: [string, 'null'], format: email}
+        googleLinked: {type: boolean}
+    AuthProviders:
+      type: object
+      required: [googleClientId, telegramAvailable]
+      properties:
+        googleClientId: {type: [string, 'null']}
+        telegramAvailable: {type: boolean}
+    GoogleNonceRequest:
+      type: object
+      properties:
+        lang: {type: string, enum: [uk, en]}
+    GoogleNonceChallenge:
+      type: object
+      required: [challengeId, nonce, clientId, expiresInSeconds]
+      properties:
+        challengeId: {type: string, pattern: '^[0-9a-f]{32}$'}
+        nonce: {type: string, pattern: '^[0-9a-f]{64}$'}
+        clientId: {type: string}
+        expiresInSeconds: {type: integer, const: 600}
+    GoogleVerifyRequest:
+      type: object
+      required: [challengeId, idToken]
+      properties:
+        challengeId: {type: string, pattern: '^[0-9a-f]{32}$'}
+        idToken: {type: string, minLength: 1, maxLength: 12000}
+        lang: {type: string, enum: [uk, en]}
+    TelegramLoginChallenge:
+      type: object
+      required: [challengeId, completionToken, telegramUrl, expiresInSeconds]
+      properties:
+        challengeId: {type: string, pattern: '^[0-9a-f]{32}$'}
+        completionToken: {type: string, pattern: '^[0-9a-f]{64}$'}
+        telegramUrl: {type: string, format: uri}
+        expiresInSeconds: {type: integer, const: 600}
+    TelegramLoginStatus:
+      type: object
+      required: [verified, expired]
+      properties:
+        verified: {type: boolean}
+        expired: {type: boolean}
+    TelegramCompleteRequest:
+      type: object
+      required: [challengeId, completionToken]
+      properties:
+        challengeId: {type: string, pattern: '^[0-9a-f]{32}$'}
+        completionToken: {type: string, pattern: '^[0-9a-f]{64}$'}
+    EmailCodeStartRequest:
+      type: object
+      required: [email]
+      properties:
+        email: {type: string, format: email, maxLength: 254}
+        lang: {type: string, enum: [uk, en]}
+    EmailCodeChallenge:
+      type: object
+      required: [challengeId, expiresInSeconds]
+      properties:
+        challengeId: {type: string, pattern: '^[0-9a-f]{32}$'}
+        expiresInSeconds: {type: integer, const: 600}
+    EmailCodeVerifyRequest:
+      type: object
+      required: [email, challengeId, code]
+      properties:
+        email: {type: string, format: email, maxLength: 254}
+        challengeId: {type: string, pattern: '^[0-9a-f]{32}$'}
+        code: {type: string, pattern: '^[0-9]{6}$'}
+        lang: {type: string, enum: [uk, en]}
     CoachAction:
       type: object
       required: [label, kind]
@@ -3138,9 +3533,7 @@ components:
           type: object
           required: [code, message]
           properties:
-            code:
-              type: string
-              enum: [validation_error, unauthorized, forbidden, not_found, conflict, rate_limited, dependency_unavailable]
+            code: {type: string}
             message: {type: string}
             requestId: {type: string}
             details: {type: object}
