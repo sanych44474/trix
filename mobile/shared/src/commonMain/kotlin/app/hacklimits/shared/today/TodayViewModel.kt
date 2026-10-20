@@ -23,6 +23,9 @@ class TodayViewModel(private val api: DashboardApi) : ViewModel() {
 
     private var job: Job? = null
 
+    /** Today's recovery-swap card: trades two plan days, then the caller reloads. */
+    suspend fun swapDays(weekday: Int, other: Int) = api.swapPlanDays(weekday, other)
+
     /** Loads the dashboard; while the plan is still being built it checks again every few seconds. */
     fun refresh() {
         job?.cancel()
