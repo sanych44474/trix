@@ -47,10 +47,13 @@ data class PlanEdit(
     val dir: String? = null,
     val catalogId: String? = null,
     val expectName: String? = null,
+    /** A trainer editing a client's plan. */
+    val clientId: Long? = null,
 )
 
 class PlanApi(private val api: ApiClient) {
-    suspend fun load(): Plan = api.unwrap(api.http.get("api/v2/plan") { api.authorize(this) })
+    suspend fun load(clientId: Long? = null): Plan =
+        api.unwrap(api.http.get("api/v2/plan") { api.authorize(this); clientId?.let { parameter("clientId", it) } })
 
     suspend fun edit(edit: PlanEdit, version: String): PlanEditResult =
         api.unwrap(api.http.post("api/v2/plan") {

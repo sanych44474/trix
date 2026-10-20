@@ -22,6 +22,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
+import app.hacklimits.shared.coach.CoachScreen
+import app.hacklimits.shared.integrations.IntegrationsScreen
+import app.hacklimits.shared.media.MealPhotoScreen
+import app.hacklimits.shared.social.SocialScreen
+import app.hacklimits.shared.trainer.business.TrainerBusinessScreen
+import app.hacklimits.shared.trainer.clients.TrainerClientsScreen
+import app.hacklimits.shared.ui.MoreDestination
+import org.koin.core.parameter.parametersOf
 import app.hacklimits.shared.data.ApiClient
 import app.hacklimits.shared.data.AuthApi
 import app.hacklimits.shared.data.SessionStore
@@ -54,8 +63,15 @@ import org.koin.compose.viewmodel.koinViewModel
 @Serializable object ProgressRoute
 @Serializable object MoreRoute
 @Serializable object LoggerRoute
-@Serializable object PlanRoute
+/** clientId = 0: your own plan; otherwise a trainer editing that client's plan. */
+@Serializable data class PlanRoute(val clientId: Long = 0)
 @Serializable object OnboardingRoute
+@Serializable object CoachRoute
+@Serializable object SocialRoute
+@Serializable object IntegrationsRoute
+@Serializable object MealPhotoRoute
+@Serializable object TrainerClientsRoute
+@Serializable object TrainerBusinessRoute
 
 /** A bottom-bar tab: its route, label and icon. Full-screen flows (workout, plan, questionnaire)
  * open above the tabs without the bar. */
@@ -70,7 +86,7 @@ private val TABS = listOf(
 
 /** Root: signed out -> sign-in; signed in -> the app. A 401 from the server signs out. */
 @Composable
-fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}) {
+fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onRequestHealthPermission: () -> Unit = {}) {
     HackLimitsTheme {
         Surface(Modifier.fillMaxSize()) {
             val sessions = koinInject<SessionStore>()
@@ -120,11 +136,11 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}) {
                         TodayScreen(
                             koinViewModel(),
                             onStartWorkout = { nav.navigate(LoggerRoute) },
-                            onOpenPlan = { nav.navigate(PlanRoute) },
+                            onOpenPlan = { nav.navigate(PlanRoute()) },
                             onStartQuestionnaire = { nav.navigate(OnboardingRoute) },
                         )
                     }
-                    composable<FoodRoute> { NutritionScreen(koinViewModel()) }
+                    composable<FoodRoute> { NutritionScreen(koinViewModel(), onOpenMealPhoto = { nav.navigate(MealPhotoRoute) }) }
                     composable<ProgressRoute> { ProgressScreen(koinViewModel()) }
                     composable<MoreRoute> {
                         MoreScreen(
@@ -132,14 +148,39 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}) {
                             privacyUrl = platform.privacyPolicyUrl,
                             onSignOut = { scope.launch { runCatching { beforeSignOut() }; auth.logout() } },
                             beforeSignOut = beforeSignOut,
+                            onOpen = { destination ->
+                                nav.navigate(
+                                    when (destination) {
+                                        MoreDestination.Coach -> CoachRoute
+                                        MoreDestination.Social -> SocialRoute
+                                        MoreDestination.Integrations -> IntegrationsRoute
+                                        MoreDestination.TrainerClients -> TrainerClientsRoute
+                                        MoreDestination.TrainerBusiness -> TrainerBusinessRoute
+                                    },
+                                )
+                            },
                         )
                     }
                     composable<OnboardingRoute> {
                         OnboardingScreen(koinViewModel(), onDone = { nav.popBackStack() }, onClose = { nav.popBackStack() })
                     }
-                    composable<PlanRoute> {
-                        PlanScreen(koinViewModel(), onClose = { nav.popBackStack() })
+                    composable<PlanRoute> { entry ->
+                        val clientId = entry.toRoute<PlanRoute>().clientId
+                        PlanScreen(
+                            koinViewModel(parameters = { if (clientId > 0) parametersOf(clientId) else parametersOf() }),
+                            onClose = { nav.popBackStack() },
+                        )
                     }
+                    composable<CoachRoute> { CoachScreen(onBack = { nav.popBackStack() }) }
+                    composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }) }
+                    composable<IntegrationsRoute> {
+                        IntegrationsScreen(onBack = { nav.popBackStack() }, onRequestHealthPermission = onRequestHealthPermission)
+                    }
+                    composable<MealPhotoRoute> { MealPhotoScreen(onBack = { nav.popBackStack() }, onLogged = { nav.popBackStack() }) }
+                    composable<TrainerClientsRoute> {
+                        TrainerClientsScreen(onBack = { nav.popBackStack() }, onOpenClientPlan = { id -> nav.navigate(PlanRoute(id)) })
+                    }
+                    composable<TrainerBusinessRoute> { TrainerBusinessScreen(onBack = { nav.popBackStack() }) }
                     composable<LoggerRoute> {
                         LoggerScreen(koinViewModel(), onClose = { nav.popBackStack() })
                     }

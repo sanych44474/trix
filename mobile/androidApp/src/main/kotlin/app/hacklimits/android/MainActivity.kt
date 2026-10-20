@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.speech.RecognizerIntent
+import app.hacklimits.android.health.HealthConnectSync
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,6 +20,12 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
     private val fileSaver: ActivityFileSaver by inject()
     private val photoPicker: ActivityPhotoPicker by inject()
+    private val speechInput: ActivitySpeechInput by inject()
+    private val recognizeSpeech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        speechInput.onResult(result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull())
+    }
+    // The Integrations screen re-checks the grant when it resumes, so the result needs no handling.
+    private val healthPermission = registerForActivityResult(HealthConnectSync.permissionContract()) {}
     private val pickPhoto = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> photoPicker.onPicked(uri) }
     // MIME type is a placeholder: the picker only needs a name, and the bytes decide the content.
     private val createDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri -> fileSaver.onPicked(uri) }
@@ -26,8 +34,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         fileSaver.launcher = createDocument
+        speechInput.launch = { intent -> recognizeSpeech.launch(intent) }
         photoPicker.launch = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-        setContent { App(onSignedIn = ::onSignedIn, beforeSignOut = pushRegistrar::unregister) }
+        setContent {
+            App(
+                onSignedIn = ::onSignedIn,
+                beforeSignOut = pushRegistrar::unregister,
+                onRequestHealthPermission = { healthPermission.launch(HealthConnectSync.PERMISSIONS) },
+            )
+        }
     }
 
     /** Ask for notifications only once someone is signed in and reminders mean something. */

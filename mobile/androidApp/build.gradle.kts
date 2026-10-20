@@ -91,4 +91,5 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.work)
+    implementation(libs.androidx.health.connect)
 }

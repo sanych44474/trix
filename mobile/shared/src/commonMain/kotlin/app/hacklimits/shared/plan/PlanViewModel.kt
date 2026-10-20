@@ -17,7 +17,8 @@ import kotlinx.coroutines.launch
 /** The training plan and its edits. Every edit is checked against the plan version; when the plan
  * changed elsewhere (a replan, the trainer) the server answers 409 and we reload instead of
  * overwriting someone else's change. */
-class PlanViewModel(private val api: PlanApi) : ViewModel() {
+/** [clientId] is set when a trainer opens a client's plan; null is the person's own plan. */
+class PlanViewModel(private val api: PlanApi, private val clientId: Long? = null) : ViewModel() {
     data class State(
         val plan: Plan? = null,
         val loading: Boolean = true,
@@ -37,7 +38,7 @@ class PlanViewModel(private val api: PlanApi) : ViewModel() {
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             _state.update {
-                try { it.copy(plan = api.load(), loading = false) }
+                try { it.copy(plan = api.load(clientId), loading = false) }
                 catch (e: ApiException) { it.copy(loading = false, error = e.code) }
                 catch (e: Exception) { it.copy(loading = false, error = "network") }
             }
@@ -70,7 +71,7 @@ class PlanViewModel(private val api: PlanApi) : ViewModel() {
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, reloadedAfterConflict = false) }
             try {
-                val result = api.edit(edit, plan.version)
+                val result = api.edit(edit.copy(clientId = clientId), plan.version)
                 _state.update { s ->
                     s.copy(busy = false, plan = plan.copy(
                         days = result.days ?: plan.days,
@@ -80,7 +81,7 @@ class PlanViewModel(private val api: PlanApi) : ViewModel() {
                 }
             } catch (e: ApiException) {
                 if (e.status == 409 || e.status == 412) {
-                    val fresh = runCatching { api.load() }.getOrNull()
+                    val fresh = runCatching { api.load(clientId) }.getOrNull()
                     _state.update { it.copy(busy = false, plan = fresh ?: it.plan, reloadedAfterConflict = true) }
                 } else {
                     _state.update { it.copy(busy = false, error = e.code) }

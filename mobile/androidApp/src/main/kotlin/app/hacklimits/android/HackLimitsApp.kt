@@ -11,6 +11,9 @@ import app.hacklimits.shared.platform.AppPlatform
 import app.hacklimits.shared.platform.FileSaver
 import app.hacklimits.shared.platform.PhotoPicker
 import app.hacklimits.shared.platform.RestAlarm
+import app.hacklimits.android.health.HealthConnectSync
+import app.hacklimits.shared.integrations.HealthSync
+import app.hacklimits.shared.media.SpeechInput
 import java.lang.ref.WeakReference
 import java.util.Locale
 import org.koin.android.ext.koin.androidContext
@@ -47,6 +50,9 @@ class HackLimitsApp : Application() {
                     single<FileSaver> { get<ActivityFileSaver>() }
                     single { ActivityPhotoPicker(get()) }
                     single<PhotoPicker> { get<ActivityPhotoPicker>() }
+                    single { ActivitySpeechInput(get()) }
+                    single<SpeechInput> { get<ActivitySpeechInput>() }
+                    single<HealthSync> { HealthConnectSync(get()) }
                     single<GoogleSignIn> { CredentialGoogleSignIn { current?.get() } }
                     single { PushRegistrar(get(), get(), get(), get()) }
                 },

@@ -23,10 +23,17 @@ import app.hacklimits.shared.workout.PendingSaves
 import app.hacklimits.shared.today.TodayViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import app.hacklimits.shared.coach.coachModule
+import app.hacklimits.shared.integrations.integrationsModule
+import app.hacklimits.shared.media.mediaModule
+import app.hacklimits.shared.social.socialModule
+import app.hacklimits.shared.trainer.business.trainerBusinessModule
+import app.hacklimits.shared.trainer.clients.trainerClientsModule
 
 /** Everything platform-neutral. The platform supplies a SessionStore, a GoogleSignIn and the
- * AppPlatform, a KeyValueStore, a RestAlarm, a FileSaver and a PhotoPicker through its own module (androidApp/.../AppModule.kt). */
+ * AppPlatform, a KeyValueStore, a RestAlarm, a FileSaver, a PhotoPicker, a SpeechInput and a HealthSync through its own module (androidApp/.../AppModule.kt). */
 fun sharedModule(baseUrl: String) = module {
+    includes(coachModule, socialModule, trainerClientsModule, trainerBusinessModule, mediaModule, integrationsModule)
     single { ApiClient(baseUrl, get()) }
     single { AuthApi(get(), get()) }
     single { DashboardApi(get()) }
@@ -41,7 +48,7 @@ fun sharedModule(baseUrl: String) = module {
     single { PendingSaves(get(), get()) }
     viewModel { SignInViewModel(get(), get(), get()) }
     viewModel { TodayViewModel(get()) }
-    viewModel { PlanViewModel(get()) }
+    viewModel { params -> PlanViewModel(get(), params.getOrNull<Long>()) }
     viewModel { NutritionViewModel(get()) }
     viewModel { QuickLogViewModel(get()) }
     viewModel { ProgressViewModel(get(), get(), get(), get()) }

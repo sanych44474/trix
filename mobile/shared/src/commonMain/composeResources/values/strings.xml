@@ -160,4 +160,11 @@
     <string name="quick_saved_water">Water logged.</string>
     <string name="quick_saved_steps">Steps saved.</string>
     <string name="quick_saved_checkin">Check-in saved.</string>
+    <string name="more_features">Features</string>
+    <string name="more_coach">AI coach</string>
+    <string name="more_social">Squads, challenges, leaderboard</string>
+    <string name="more_integrations">Health Connect and Strava</string>
+    <string name="more_trainer_clients">My clients</string>
+    <string name="more_trainer_business">Sessions, finance, templates</string>
+    <string name="food_meal_photo">Snap a meal</string>
 </resources>

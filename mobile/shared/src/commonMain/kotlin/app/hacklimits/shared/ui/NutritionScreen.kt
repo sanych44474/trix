@@ -35,7 +35,7 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 @Composable
-fun NutritionScreen(vm: NutritionViewModel) {
+fun NutritionScreen(vm: NutritionViewModel, onOpenMealPhoto: () -> Unit) {
     val s by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
     LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -55,6 +55,7 @@ fun NutritionScreen(vm: NutritionViewModel) {
             item {
                 Panel {
                     Text(stringResource(Res.string.food_add), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Button(onClick = onOpenMealPhoto, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.food_meal_photo)) }
                     OutlinedTextField(s.freeText, vm::onFreeText, label = { Text(stringResource(Res.string.food_free_text)) }, modifier = Modifier.fillMaxWidth())
                     Button(onClick = vm::addText, enabled = !s.busy && s.freeText.trim().length >= 2) { Text(stringResource(Res.string.food_log_text)) }
                     OutlinedTextField(s.query, vm::onQuery, label = { Text(stringResource(Res.string.food_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())

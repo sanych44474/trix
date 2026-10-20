@@ -160,4 +160,11 @@
     <string name="quick_saved_water">Воду записано.</string>
     <string name="quick_saved_steps">Кроки збережено.</string>
     <string name="quick_saved_checkin">Самопочуття збережено.</string>
+    <string name="more_features">Можливості</string>
+    <string name="more_coach">ШІ-коуч</string>
+    <string name="more_social">Сквади, челенджі, рейтинг</string>
+    <string name="more_integrations">Health Connect і Strava</string>
+    <string name="more_trainer_clients">Мої клієнти</string>
+    <string name="more_trainer_business">Заняття, фінанси, шаблони</string>
+    <string name="food_meal_photo">Сфотографувати страву</string>
 </resources>

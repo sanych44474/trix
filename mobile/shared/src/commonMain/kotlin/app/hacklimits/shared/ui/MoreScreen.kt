@@ -43,8 +43,17 @@ import app.hacklimits.shared.settings.MoreViewModel
 import app.hacklimits.shared.settings.MoreViewModel.Message
 import org.jetbrains.compose.resources.stringResource
 
+/** Where More can send the person; App maps these to routes. */
+enum class MoreDestination { Coach, Social, Integrations, TrainerClients, TrainerBusiness }
+
 @Composable
-fun MoreScreen(vm: MoreViewModel, privacyUrl: String?, onSignOut: () -> Unit, beforeSignOut: suspend () -> Unit) {
+fun MoreScreen(
+    vm: MoreViewModel,
+    privacyUrl: String?,
+    onSignOut: () -> Unit,
+    beforeSignOut: suspend () -> Unit,
+    onOpen: (MoreDestination) -> Unit,
+) {
     val s by vm.state.collectAsStateWithLifecycle()
     val uri = LocalUriHandler.current
     var confirmDelete by remember { mutableStateOf(0) }
@@ -61,6 +70,16 @@ fun MoreScreen(vm: MoreViewModel, privacyUrl: String?, onSignOut: () -> Unit, be
             }
             Text(stringResource(text), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 color = if (msg == Message.Error || msg == Message.NetworkError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+        }
+
+        Section(stringResource(Res.string.more_features)) {
+            Entry(stringResource(Res.string.more_coach)) { onOpen(MoreDestination.Coach) }
+            Entry(stringResource(Res.string.more_social)) { onOpen(MoreDestination.Social) }
+            Entry(stringResource(Res.string.more_integrations)) { onOpen(MoreDestination.Integrations) }
+            if (s.settings?.role == "trainer") {
+                Entry(stringResource(Res.string.more_trainer_clients)) { onOpen(MoreDestination.TrainerClients) }
+                Entry(stringResource(Res.string.more_trainer_business)) { onOpen(MoreDestination.TrainerBusiness) }
+            }
         }
 
         Section(stringResource(Res.string.more_account)) {
@@ -135,6 +154,11 @@ fun MoreScreen(vm: MoreViewModel, privacyUrl: String?, onSignOut: () -> Unit, be
             dismissButton = { TextButton(onClick = { confirmDelete = 0 }) { Text(stringResource(Res.string.tg_cancel)) } },
         )
     }
+}
+
+@Composable
+private fun Entry(label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) { Text(label, Modifier.fillMaxWidth()) }
 }
 
 @Composable
