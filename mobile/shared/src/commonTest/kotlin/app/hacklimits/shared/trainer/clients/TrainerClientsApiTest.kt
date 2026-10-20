@@ -61,20 +61,20 @@ class TrainerClientsApiTest {
 
     @Test
     fun flagPostCarriesAnIdempotencyKeyAndAJsonBody() = runTest {
-        val key = "9f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f"
+        val requestId = "9f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f"
         val api = TrainerClientsApi(
             ApiClient(
                 "https://api.example.test",
                 InMemorySessionStore(token),
                 HttpClient(MockEngine { request ->
                     assertEquals("/api/v2/trainer/client/7/flag", request.url.encodedPath)
-                    assertEquals(key, request.headers["Idempotency-Key"])
+                    assertEquals(requestId, request.headers["Idempotency-Key"])
                     assertEquals("""{"flagged":true}""", (request.body as TextContent).text)
                     respond("""{"data":{"flagged":true},"meta":{"version":2}}""", HttpStatusCode.OK, json)
                 }),
             ),
         )
-        api.setFlag(7, flagged = true, key = key)
+        api.setFlag(7, flagged = true, key = requestId)
     }
 
     @Test

@@ -1,7 +1,7 @@
 import { withinLimit } from "../limits";
 import { getUser } from "../adapters/d1/v2Users";
 import type { DB } from "../adapters/d1/shared";
-import { safeEqual, toHex } from "../domain/secrets";
+import { randomBelow, randomDigits, safeEqual, toHex } from "../domain/secrets";
 import type { Env, Lang } from "../types";
 import { createSession, sessionDelivery } from "./appSessions";
 import { miniAppIdentity } from "./auth";
@@ -110,8 +110,8 @@ async function verifyGoogleToken(token: string, clientId: string): Promise<Googl
 
 async function createGoogleAccount(db: DB, subject: string, email: string | null, now: string, accountLang: Lang): Promise<number> {
   for (let attempt = 0; attempt < 5; attempt++) {
-    const accountId = -(1_000_000_000 + Math.floor(Math.random() * 1_000_000_000));
-    const chatId = -(4_000_000_000_000_000 + Math.floor(Math.random() * 1_000_000_000_000));
+    const accountId = -(1_000_000_000 + randomBelow(1_000_000_000));
+    const chatId = -(4_000_000_000_000_000 + randomBelow(1_000_000_000) * 1_000 + randomBelow(1_000));
     const statements = [
       db.prepare("INSERT INTO v2_accounts (id, legacyUserId, chatId, role, status, botBlocked, createdAt, updatedAt) VALUES (?, ?, ?, 'solo', 'active', 1, ?, ?)").bind(accountId, accountId, chatId, now, now),
       db.prepare("INSERT INTO v2_profiles (accountId, lang, profile, updatedAt) VALUES (?, ?, '{}', ?)").bind(accountId, accountLang, now),
@@ -246,7 +246,7 @@ async function telegramStartRoute(req: Request, url: URL, env: Env): Promise<Res
   // completion to the browser tab that initiated sign-in and prevents login CSRF via shared links.
   const completionToken = randomHex(32);
   // Shown in the app and in the bot's prompt; the person compares them before tapping Confirm.
-  const matchCode = String(crypto.getRandomValues(new Uint32Array(1))[0] % 10_000).padStart(4, "0");
+  const matchCode = randomDigits(4);
   const nowIso = now.toISOString();
   const expiresAt = new Date(now.getTime() + CHALLENGE_TTL_MS).toISOString();
   await env.DB.prepare("DELETE FROM v2_auth_telegram_challenges WHERE expiresAt <= ?").bind(nowIso).run();

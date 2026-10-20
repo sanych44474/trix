@@ -1,6 +1,6 @@
 import { withinLimit } from "../limits";
 import { getUser } from "../adapters/d1/v2Users";
-import { safeEqual, toHex } from "../domain/secrets";
+import { randomBelow, randomDigits, safeEqual, toHex } from "../domain/secrets";
 import type { Env, Lang } from "../types";
 import { createSession, revokeSession, sessionDelivery, sessionTokenFromRequest, clearedSessionCookie } from "./appSessions";
 import { miniAppIdentity } from "./auth";
@@ -80,8 +80,8 @@ async function createEmailAccount(env: Env, email: string, lang: Lang, now: stri
   // Email-only accounts use negative identity values and an unreachable synthetic chat ID.
   // This keeps Telegram IDs untouched and botBlocked prevents scheduled Telegram delivery.
   for (let attempt = 0; attempt < 4; attempt++) {
-    const accountId = -(1_000_000_000 + Math.floor(Math.random() * 1_000_000_000));
-    const chatId = -(4_000_000_000_000_000 + Math.floor(Math.random() * 1_000_000_000_000));
+    const accountId = -(1_000_000_000 + randomBelow(1_000_000_000));
+    const chatId = -(4_000_000_000_000_000 + randomBelow(1_000_000_000) * 1_000 + randomBelow(1_000));
     try {
       await env.DB.batch([
         env.DB.prepare("INSERT INTO v2_accounts (id, legacyUserId, chatId, role, status, botBlocked, createdAt, updatedAt) VALUES (?, ?, ?, 'solo', 'active', 1, ?, ?)").bind(accountId, accountId, chatId, now, now),
@@ -125,7 +125,7 @@ async function startRoute(req: Request, url: URL, env: Env): Promise<Response> {
 
   const identity = await miniAppIdentity(req, url, env);
   const id = randomHex(16);
-  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
+  const code = randomDigits(6);
   const now = new Date();
   const nowIso = now.toISOString();
   const expiresAt = new Date(now.getTime() + OTP_TTL_MS).toISOString();

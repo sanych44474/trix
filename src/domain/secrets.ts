@@ -49,3 +49,19 @@ export async function verifyMac(secret: string, message: string, sig: string, by
   if (!sig) return false;
   return safeEqual(await macHex(secret, message, bytes), sig);
 }
+
+/** A uniform integer in [0, max) from the platform CSPRNG. Rejection sampling: a plain `% max`
+ * favours small values whenever 2^32 is not a multiple of max. */
+export function randomBelow(max: number): number {
+  const limit = Math.floor(0x1_0000_0000 / max) * max;
+  const buf = new Uint32Array(1);
+  for (;;) {
+    crypto.getRandomValues(buf);
+    if (buf[0] < limit) return buf[0] % max;
+  }
+}
+
+/** `digits` decimal digits, uniformly random (one-time codes, match codes). */
+export function randomDigits(digits: number): string {
+  return String(randomBelow(10 ** digits)).padStart(digits, "0");
+}
