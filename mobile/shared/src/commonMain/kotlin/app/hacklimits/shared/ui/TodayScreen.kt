@@ -62,6 +62,9 @@ import kotlinx.datetime.LocalDate
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import app.hacklimits.shared.plan.FineTuneApi
+import app.hacklimits.shared.account.WhatsNewApi
+import app.hacklimits.shared.account.WhatsNewCard
+import app.hacklimits.shared.account.WhatsNewNote
 import app.hacklimits.shared.plan.FineTuneCard
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -263,9 +266,10 @@ private fun FineTuneSlot(gaps: List<String>, onSaved: () -> Unit) {
     FineTuneCard(gaps = gaps, onSave = api::save, onSaved = onSaved)
 }
 
-// WIRING NEEDED: the "what's new" card belongs to its own slice. Replace this body with the card for
-// d.whatsnew (version and text) when it is merged.
+/** The server includes d.whatsnew only while that release is due for this person. */
 @Composable
 private fun WhatsNewSlot(whatsnew: Dashboard.WhatsNew?) {
     if (whatsnew == null) return
+    val api = koinInject<WhatsNewApi>()
+    WhatsNewCard(note = WhatsNewNote(whatsnew.version, text = whatsnew.text), onGotIt = api::markSeen)
 }

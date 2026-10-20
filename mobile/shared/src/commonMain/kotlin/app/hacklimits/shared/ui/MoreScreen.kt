@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.hacklimits.shared.account.releaseItems
 import app.hacklimits.shared.resources.Res
+import app.hacklimits.shared.resources.ib_title
+import app.hacklimits.shared.resources.pl_report_injury_title
 import app.hacklimits.shared.resources.*
 import app.hacklimits.shared.settings.AccountSection
 import app.hacklimits.shared.settings.CompeteSection
@@ -53,7 +55,7 @@ enum class MoreDestination { Coach, Social, Integrations, TrainerClients, Traine
 
 /** Tools other slices own (and Choose a trainer, which is this slice's FindTrainerScreen). Kept apart from
  * [MoreDestination] so the App's exhaustive `when` does not have to change to build; the lead routes them via [onOpenTool]. */
-enum class MoreTool { FindTrainer, Programs, Library, Plates, WeekCard, Photos, FormCheck, ImportCsv }
+enum class MoreTool { Inbox, Injuries, FindTrainer, Programs, Library, Plates, WeekCard, Photos, FormCheck, ImportCsv }
 
 @Composable
 fun MoreScreen(
@@ -99,6 +101,8 @@ fun MoreScreen(
             if (settings?.role == "solo") {
                 Entry(stringResource(Res.string.ex_find_btn)) { onOpenTool(MoreTool.FindTrainer) }
             }
+            Entry(stringResource(Res.string.ib_title)) { onOpenTool(MoreTool.Inbox) }
+            Entry(stringResource(Res.string.pl_report_injury_title)) { onOpenTool(MoreTool.Injuries) }
             Entry(stringResource(Res.string.ac_tool_programs)) { onOpenTool(MoreTool.Programs) }
             Entry(stringResource(Res.string.ac_tool_library)) { onOpenTool(MoreTool.Library) }
             Entry(stringResource(Res.string.ac_tool_plates)) { onOpenTool(MoreTool.Plates) }

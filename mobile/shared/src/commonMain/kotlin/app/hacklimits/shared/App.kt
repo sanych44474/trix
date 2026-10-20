@@ -37,6 +37,9 @@ import app.hacklimits.shared.social.SocialScreen
 import app.hacklimits.shared.trainer.business.TrainerBusinessScreen
 import app.hacklimits.shared.trainer.clients.TrainerClientsScreen
 import app.hacklimits.shared.ui.MoreDestination
+import app.hacklimits.shared.ui.MoreTool
+import app.hacklimits.shared.account.FindTrainerScreen
+import app.hacklimits.shared.settings.DisplayPreferences
 import org.koin.core.parameter.parametersOf
 import app.hacklimits.shared.data.ApiClient
 import app.hacklimits.shared.data.AuthApi
@@ -87,6 +90,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Serializable object ProgramsRoute
 @Serializable object InjuriesRoute
 @Serializable object InboxRoute
+@Serializable object FindTrainerRoute
 /** peerId = 0: a client's own trainer; otherwise the client a trainer is talking to. */
 @Serializable data class ChatRoute(val peerId: Long = 0)
 
@@ -104,7 +108,10 @@ private val TABS = listOf(
 /** Root: signed out -> sign-in; signed in -> the app. A 401 from the server signs out. */
 @Composable
 fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onRequestHealthPermission: () -> Unit = {}) {
-    HackLimitsTheme {
+    val display = koinInject<DisplayPreferences>()
+    val displayPrefs by display.prefs.collectAsStateWithLifecycle()
+    LaunchedEffect(display) { runCatching { display.load() } }
+    HackLimitsTheme(displayPrefs) {
         Surface(Modifier.fillMaxSize()) {
             val sessions = koinInject<SessionStore>()
             val api = koinInject<ApiClient>()
@@ -188,10 +195,29 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                                     },
                                 )
                             },
+                            onOpenTool = { tool ->
+                                when (tool) {
+                                    MoreTool.Inbox -> nav.navigate(InboxRoute)
+                                    MoreTool.Injuries -> nav.navigate(InjuriesRoute)
+                                    MoreTool.FindTrainer -> nav.navigate(FindTrainerRoute)
+                                    MoreTool.Programs -> nav.navigate(ProgramsRoute)
+                                    MoreTool.Library -> nav.navigate(ExerciseLibraryRoute)
+                                    MoreTool.Photos -> nav.navigate(ProgressRoute)
+                                    MoreTool.WeekCard -> nav.navigate(TodayRoute)
+                                    MoreTool.Plates, MoreTool.FormCheck, MoreTool.ImportCsv -> Unit
+                                }
+                            },
                         )
                     }
                     composable<OnboardingRoute> {
-                        OnboardingScreen(koinViewModel(), onDone = { nav.popBackStack() }, onClose = { nav.popBackStack() })
+                        OnboardingScreen(
+                            koinViewModel(),
+                            onDone = { nav.popBackStack() },
+                            onClose = { nav.popBackStack() },
+                            onFindTrainer = { nav.navigate(FindTrainerRoute) },
+                            // "Become a coach" lives in More's profile section.
+                            onBecomeCoach = { nav.navigate(MoreRoute) },
+                        )
                     }
                     composable<PlanRoute> { entry ->
                         val clientId = entry.toRoute<PlanRoute>().clientId
@@ -208,6 +234,9 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                     composable<InjuriesRoute> { InjuriesScreen(koinViewModel(), onBack = { nav.popBackStack() }) }
                     composable<CoachRoute> { CoachScreen(onBack = { nav.popBackStack() }) }
                     composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }, onOpenCoach = { nav.navigate(CoachRoute) }) }
+                    composable<FindTrainerRoute> {
+                        FindTrainerScreen(koinViewModel(), onBack = { nav.popBackStack() }, onAccepted = { nav.popBackStack() })
+                    }
                     composable<InboxRoute> {
                         InboxScreen(
                             onBack = { nav.popBackStack() },
@@ -231,7 +260,13 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                     }
                     composable<MealPhotoRoute> { MealPhotoScreen(onBack = { nav.popBackStack() }, onLogged = { nav.popBackStack() }) }
                     composable<TrainerClientsRoute> {
-                        TrainerClientsScreen(onBack = { nav.popBackStack() }, onOpenClientPlan = { id -> nav.navigate(PlanRoute(id)) })
+                        TrainerClientsScreen(
+                            onBack = { nav.popBackStack() },
+                            onOpenClientPlan = { id -> nav.navigate(PlanRoute(id)) },
+                            onOpenChat = { id -> nav.navigate(ChatRoute(id)) },
+                            onOpenCoach = { nav.navigate(CoachRoute) },
+                            onOpenBusiness = { nav.navigate(TrainerBusinessRoute) },
+                        )
                     }
                     composable<TrainerBusinessRoute> { TrainerBusinessScreen(onBack = { nav.popBackStack() }) }
                     composable<LoggerRoute> {
