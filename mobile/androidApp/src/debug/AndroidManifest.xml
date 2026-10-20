@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only additions for emulator tests against a local `wrangler dev` (never in release). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application
+        android:networkSecurityConfig="@xml/debug_network_security"
+        android:usesCleartextTraffic="false"
+        tools:replace="android:usesCleartextTraffic">
+        <!-- Exported only so adb (shell user) can reach it; it exists in debug builds only. -->
+        <receiver
+            android:name=".DevSessionReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver" />
+    </application>
+</manifest>

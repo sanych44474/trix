@@ -63,8 +63,12 @@ fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onOpenPlan: () -
                     }
                 }
                 if (s.dashboard.viewer.onboarded && !s.dashboard.viewer.planPending) {
-                    Button(onClick = onStartWorkout, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-                        Text(stringResource(Res.string.today_start_workout))
+                    if (s.dashboard.trainingToday) {
+                        Button(onClick = onStartWorkout, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                            Text(stringResource(Res.string.today_start_workout))
+                        }
+                    } else {
+                        Text(stringResource(Res.string.workout_rest_day), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     OutlinedButton(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(Res.string.today_open_plan))
@@ -85,7 +89,7 @@ private fun TodayContent(d: Dashboard) {
     }
     val week = d.calendar.days.takeLast(7)
     if (week.isNotEmpty()) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(Res.string.today_week), fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -21,6 +21,8 @@ class SignInViewModel(private val auth: AuthApi, private val google: GoogleSignI
 
     data class State(
         val providers: AuthProviders? = null,
+        /** The provider list could not be loaded (offline): the screen offers a retry. */
+        val providersFailed: Boolean = false,
         val busy: Boolean = false,
         val email: String = "",
         val emailChallengeId: String? = null,
@@ -33,10 +35,12 @@ class SignInViewModel(private val auth: AuthApi, private val google: GoogleSignI
     val state: StateFlow<State> = _state
     private var telegramPoll: Job? = null
 
-    init {
+    init { loadProviders() }
+
+    fun loadProviders() {
         viewModelScope.launch {
-            val providers = runCatching { auth.providers() }.getOrElse { AuthProviders() }
-            _state.update { it.copy(providers = providers) }
+            val providers = runCatching { auth.providers() }.getOrNull()
+            _state.update { it.copy(providers = providers ?: AuthProviders(), providersFailed = providers == null) }
         }
     }
 

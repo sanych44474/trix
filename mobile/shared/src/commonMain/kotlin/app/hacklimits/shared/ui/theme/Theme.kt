@@ -19,6 +19,9 @@ private val Danger = Color(0xFFFF8989)
 
 private val Dark = darkColorScheme(
     primary = Lime, onPrimary = Ink, primaryContainer = LimeDeep, onPrimaryContainer = TextHigh,
+    // Without these, selected chips and tonal buttons fall back to Material's default lavender.
+    secondary = Lime, onSecondary = Ink, secondaryContainer = LimeDeep, onSecondaryContainer = TextHigh,
+    tertiary = Lime, onTertiary = Ink, tertiaryContainer = LimeDeep, onTertiaryContainer = TextHigh,
     background = Ink, onBackground = TextHigh, surface = Ink, onSurface = TextHigh,
     surfaceContainer = Panel, surfaceContainerHigh = PanelHigh, surfaceVariant = PanelHigh,
     onSurfaceVariant = TextMuted, outline = Color(0xFF3A414D), error = Danger, onError = Ink,
@@ -26,6 +29,8 @@ private val Dark = darkColorScheme(
 
 private val Light = lightColorScheme(
     primary = LimeDeep, onPrimary = Color.White, primaryContainer = Color(0xFFDDF8B9), onPrimaryContainer = Color(0xFF1C2A06),
+    secondary = LimeDeep, onSecondary = Color.White, secondaryContainer = Color(0xFFDDF8B9), onSecondaryContainer = Color(0xFF1C2A06),
+    tertiary = LimeDeep, onTertiary = Color.White, tertiaryContainer = Color(0xFFDDF8B9), onTertiaryContainer = Color(0xFF1C2A06),
     background = Color(0xFFF7F8FA), onBackground = Ink, surface = Color(0xFFF7F8FA), onSurface = Ink,
     surfaceContainer = Color.White, surfaceContainerHigh = Color(0xFFEFF1F4), onSurfaceVariant = Color(0xFF545B66),
     error = Color(0xFFB3261E),

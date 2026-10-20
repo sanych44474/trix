@@ -19,9 +19,16 @@ data class Dashboard(
         @Serializable data class Point(val date: String, val kg: Double)
     }
     @Serializable data class Viewer(val id: Long, val role: String, val onboarded: Boolean, val planPending: Boolean = false)
-    @Serializable data class Calendar(val days: List<Day> = emptyList()) {
+    @Serializable data class Calendar(val days: List<Day> = emptyList(), val split: List<Split> = emptyList()) {
+        /** A planned training weekday (1 = Monday). */
+        @Serializable data class Split(val weekday: Int, val group: String = "", val n: Int = 0)
         @Serializable data class Day(val date: String, @SerialName("s") val status: String)
     }
+
+    /** Whether the plan has a workout today (today's ISO weekday is in the split). */
+    val trainingToday: Boolean
+        get() = runCatching { kotlinx.datetime.LocalDate.parse(today).dayOfWeek.ordinal + 1 }.getOrNull()
+            ?.let { wd -> calendar.split.any { it.weekday == wd } } ?: true
 }
 
 class DashboardApi(private val api: ApiClient) {

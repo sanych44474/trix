@@ -13,7 +13,9 @@ if (file("google-services.json").exists()) {
 // same key in ~/.gradle/gradle.properties. Required: an app that silently points nowhere is worse.
 val apiBaseUrl = providers.gradleProperty("hacklimits.apiBaseUrl").orNull
     ?: throw GradleException("Set hacklimits.apiBaseUrl (the HTTPS origin of the Worker) - see mobile/README.md")
-require(apiBaseUrl.startsWith("https://")) { "hacklimits.apiBaseUrl must be an https:// origin" }
+// HTTPS only, except the emulator's host address for a local `wrangler dev`, which only debug
+// builds can reach (src/debug/res/xml/debug_network_security.xml).
+require(apiBaseUrl.startsWith("https://") || apiBaseUrl.startsWith("http://10.0.2.2:")) { "hacklimits.apiBaseUrl must be an https:// origin" }
 // Google Play requires a privacy policy link inside the app; More shows it once this is set.
 val privacyPolicyUrl = providers.gradleProperty("hacklimits.privacyPolicyUrl").orNull ?: ""
 

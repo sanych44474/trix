@@ -54,6 +54,10 @@ fun SignInScreen(vm: SignInViewModel) {
         Text(stringResource(Res.string.signin_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
 
+        if (s.providersFailed) {
+            Text(stringResource(Res.string.err_network), color = MaterialTheme.colorScheme.error)
+            OutlinedButton(onClick = vm::loadProviders) { Text(stringResource(Res.string.retry)) }
+        }
         if (s.providers?.googleClientId != null) {
             Button(onClick = vm::signInWithGoogle, enabled = !s.busy, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Text(stringResource(Res.string.signin_google))

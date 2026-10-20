@@ -1122,7 +1122,7 @@ export const en = {
   plateau_advice_add_reps: "→ Stay at <b>{w} kg</b> and add 1 rep per set until you hit {sets} × {target}. Then go heavier.",
   plateau_advice_deload: "→ Looks like fatigue. One lighter week: <b>{w} kg</b> (−10%), full range, and check sleep and recovery. Then back to your working weight.",
   msg_muted: "✅ Saved in the chat. {name} has notifications off, so they will see it next time they open the app.",
-  rem_all: "All Telegram notifications",
+  rem_all: "All notifications",
   rem_plateau: "Plateau alerts",
   // --- AI macros remaining ---
   macros_suggest_btn: "🤖 What to eat",
