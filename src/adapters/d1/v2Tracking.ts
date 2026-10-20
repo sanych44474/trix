@@ -289,26 +289,31 @@ export async function dailyCheckinsSince(db: DB, userId: number, cutoff: string)
 
 // ---------------- progress photos (Mini App gallery; bytes proxied via /api/photo) ----------------
 
-interface ProgressPhotoRow { id: number; userId: number; fileId: string; takenAt: string }
+/** A photo lives either in R2 (objectKey) or, for older uploads, only in Telegram (fileId). */
+interface ProgressPhotoRow { id: number; userId: number; fileId: string | null; objectKey: string | null; takenAt: string }
 
-interface V2ProgressPhotoRow { id: number; accountId: number; legacyFileId: string; takenAt: string }
+interface V2ProgressPhotoRow { id: number; accountId: number; legacyFileId: string | null; objectKey: string | null; takenAt: string }
 function toProgressPhoto(r: V2ProgressPhotoRow): ProgressPhotoRow {
-  return { id: r.id, userId: r.accountId, fileId: r.legacyFileId, takenAt: r.takenAt };
+  return { id: r.id, userId: r.accountId, fileId: r.legacyFileId ?? null, objectKey: r.objectKey ?? null, takenAt: r.takenAt };
 }
 
 export async function addProgressPhoto(db: DB, userId: number, fileId: string): Promise<void> {
   await db.prepare("INSERT INTO v2_progress_photos (accountId, legacyFileId, takenAt) VALUES (?, ?, ?)").bind(userId, fileId, nowIso()).run();
 }
 
+export async function addStoredProgressPhoto(db: DB, userId: number, objectKey: string): Promise<void> {
+  await db.prepare("INSERT INTO v2_progress_photos (accountId, objectKey, takenAt) VALUES (?, ?, ?)").bind(userId, objectKey, nowIso()).run();
+}
+
 export async function listProgressPhotos(db: DB, userId: number, limit = 24): Promise<ProgressPhotoRow[]> {
   const r = await db
-    .prepare("SELECT id, accountId, legacyFileId, takenAt FROM v2_progress_photos WHERE accountId = ? ORDER BY takenAt DESC LIMIT ?")
+    .prepare("SELECT id, accountId, legacyFileId, objectKey, takenAt FROM v2_progress_photos WHERE accountId = ? ORDER BY takenAt DESC LIMIT ?")
     .bind(userId, limit)
     .all<V2ProgressPhotoRow>();
   return (r.results ?? []).map(toProgressPhoto);
 }
 
 export async function getProgressPhoto(db: DB, id: number): Promise<ProgressPhotoRow | null> {
-  const r = await db.prepare("SELECT id, accountId, legacyFileId, takenAt FROM v2_progress_photos WHERE id = ?").bind(id).first<V2ProgressPhotoRow>();
+  const r = await db.prepare("SELECT id, accountId, legacyFileId, objectKey, takenAt FROM v2_progress_photos WHERE id = ?").bind(id).first<V2ProgressPhotoRow>();
   return r ? toProgressPhoto(r) : null;
 }

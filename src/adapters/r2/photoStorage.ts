@@ -20,6 +20,30 @@ export function r2Key(photoId: number): string {
   return `${KEY_PREFIX}${photoId}.jpg`;
 }
 
+// Photos uploaded straight to R2 (the primary copy, not a cache) live under their own prefix so the
+// cache eviction below, which only lists KEY_PREFIX, can never delete one.
+const STORED_PREFIX = "photos/";
+
+/** Store an uploaded progress photo as its primary copy; resolves to its object key. Throws when
+ * the bucket is missing or the write fails, so the caller doesn't record a photo that isn't there. */
+export async function storePhoto(env: Env, accountId: number, bytes: ArrayBuffer, contentType: string): Promise<string> {
+  if (!env.R2_PHOTOS) throw new Error("R2_PHOTOS is not bound");
+  const key = `${STORED_PREFIX}${accountId}/${crypto.randomUUID()}`;
+  await env.R2_PHOTOS.put(key, bytes, { httpMetadata: { contentType } });
+  return key;
+}
+
+export async function getStoredPhoto(env: Env, key: string): Promise<{ body: ReadableStream; contentType: string } | null> {
+  if (!env.R2_PHOTOS || !key.startsWith(STORED_PREFIX)) return null;
+  const obj = await env.R2_PHOTOS.get(key).catch(() => null);
+  return obj ? { body: obj.body, contentType: obj.httpMetadata?.contentType || "image/jpeg" } : null;
+}
+
+export async function deleteStoredPhotos(env: Env, keys: string[]): Promise<void> {
+  if (!env.R2_PHOTOS) return;
+  for (let i = 0; i < keys.length; i += 1000) await env.R2_PHOTOS.delete(keys.slice(i, i + 1000));
+}
+
 /** Best-effort cache lookup. Never throws -- a misconfigured/unavailable bucket must fall back to
  * the Telegram proxy, not break photo viewing. */
 export async function getCachedPhoto(env: Env, photoId: number): Promise<{ body: ReadableStream; contentType: string } | null> {

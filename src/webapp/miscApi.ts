@@ -16,7 +16,7 @@ import {
   joinChallenge,
   markChallengeDone,
 } from "../adapters/d1/v2Gamification";
-import { addProgressPhoto, createInjury, getProgressPhoto, listActiveInjuries, stepLogsSince, waterLogsSince } from "../adapters/d1/v2Tracking";
+import { addProgressPhoto, addStoredProgressPhoto, createInjury, getProgressPhoto, listActiveInjuries, stepLogsSince, waterLogsSince } from "../adapters/d1/v2Tracking";
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { computeBoards } from "../features/gamification/boards";
@@ -28,9 +28,10 @@ import { challengeMilestones, rankOf } from "../domain/records";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { escapeHtml, t } from "../locales/i18n";
 import { appMarkup } from "../notify/appKeyboard";
+import { MAX_PHOTO_BYTES, hasTelegramChat, sniffImage } from "../domain/delivery";
 import { miniAppUser } from "./auth";
-import { cachePhoto, getCachedPhoto } from "../adapters/r2/photoStorage";
-import { logInfo } from "../log";
+import { cachePhoto, deleteStoredPhotos, getCachedPhoto, getStoredPhoto, storePhoto } from "../adapters/r2/photoStorage";
+import { logError, logInfo } from "../log";
 import { object, oneOf, readJsonBody, str, validateBody } from "./validate";
 import type { Env, UserDoc } from "../types";
 
@@ -178,26 +179,39 @@ export async function handleAppEventApi(req: Request, url: URL, env: Env): Promi
   return Response.json({ ok: true, counted: events.length });
 }
 
-// Progress-photo upload: the Mini App's Progress tab posts a file here (multipart, same
-// "webview can't hand the bot a file directly" apiUpload() pattern as /api/weekcard and
-// /api/photocompare). There is no direct byte-storage path for progress photos -- the bot has
-// only ever stored a Telegram file_id (v2_progress_photos.legacyFileId, written by
-// addProgressPhoto — see bot/router.ts's own self-serve-photo handling) and streamed bytes back
-// through the Telegram file API (handlePhotoApi's GET branch below). Mirroring that exactly:
-// push the upload to the VIEWER's own chat via sendPhoto (same call weekcard/photocompare already
-// make), take the file_id Telegram hands back for the largest size, and store it the normal way.
+// Progress-photo upload (the Progress tab and the native app post a file here). With the R2 bucket
+// bound, the upload is stored there as the primary copy: it works for accounts with no Telegram chat
+// (email / Google sign-in) and no longer depends on a Telegram file_id that can go stale. Without
+// the bucket, the old path remains for Telegram accounts: post the photo to the person's own chat
+// and keep the file_id Telegram hands back.
 async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise<Response> {
   const form = await req.formData().catch(() => null);
   const file = form?.get("photo");
   if (!(file instanceof Blob)) return Response.json({ error: "bad request" }, { status: 400 });
-  const tgForm = new FormData();
-  tgForm.append("chat_id", String(user.chatId));
-  tgForm.append("photo", file, "progress.jpg");
-  const sent = await telegramUpload<{ photo?: Array<{ file_id: string }> }>(env, "sendPhoto", tgForm);
-  const photos = sent?.photo;
-  const largest = photos?.[photos.length - 1];
-  if (!largest?.file_id) return Response.json({ error: "dependency_unavailable" }, { status: 502 });
-  await addProgressPhoto(env.DB, user._id, largest.file_id);
+  if (file.size > MAX_PHOTO_BYTES) return Response.json({ error: "too_large" }, { status: 413 });
+  const bytes = await file.arrayBuffer();
+  const type = sniffImage(new Uint8Array(bytes));
+  if (!type) return Response.json({ error: "unsupported_media_type" }, { status: 415 });
+
+  let telegramFileId: string | null = null;
+  if (env.R2_PHOTOS) {
+    let key: string;
+    try { key = await storePhoto(env, user._id, bytes, type); }
+    catch (err) { logError("photo_store", err); return Response.json({ error: "dependency_unavailable" }, { status: 502 }); }
+    try { await addStoredProgressPhoto(env.DB, user._id, key); }
+    catch (err) { await deleteStoredPhotos(env, [key]).catch(() => {}); throw err; }
+  } else if (hasTelegramChat(user)) {
+    const tgForm = new FormData();
+    tgForm.append("chat_id", String(user.chatId));
+    tgForm.append("photo", new Blob([bytes], { type }), "progress.jpg");
+    const sent = await telegramUpload<{ photo?: Array<{ file_id: string }> }>(env, "sendPhoto", tgForm);
+    const photos = sent?.photo;
+    telegramFileId = photos?.[photos.length - 1]?.file_id ?? null;
+    if (!telegramFileId) return Response.json({ error: "dependency_unavailable" }, { status: 502 });
+    await addProgressPhoto(env.DB, user._id, telegramFileId);
+  } else {
+    return Response.json({ error: "storage_unavailable" }, { status: 503 });
+  }
   logInfo("photo_uploaded", { source: "webapp" });
   // A trainer asked for a progress photo (photoReviewFor): the next upload goes to them too, with
   // a button to the client's card, the same as the chat flow did.
@@ -205,10 +219,21 @@ async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise
   if (trainerId) {
     await updateUser(env.DB, user._id, { session: { ...user.session, photoReviewFor: undefined } }).catch(() => {});
     const trainer = await getUser(env.DB, trainerId).catch(() => null);
-    if (trainer) {
+    if (trainer && hasTelegramChat(trainer)) {
       const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
       const markup = appMarkup(env, t(trainer.lang, "nb_open_client"), "role", { client: user._id });
-      await telegramTry(env, "sendPhoto", { chat_id: trainer.chatId, photo: largest.file_id, caption: t(trainer.lang, "photo_review_from", { name: who }), parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) });
+      const caption = t(trainer.lang, "photo_review_from", { name: who });
+      if (telegramFileId) {
+        await telegramTry(env, "sendPhoto", { chat_id: trainer.chatId, photo: telegramFileId, caption, parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) });
+      } else {
+        const toTrainer = new FormData();
+        toTrainer.append("chat_id", String(trainer.chatId));
+        toTrainer.append("photo", new Blob([bytes], { type }), "progress.jpg");
+        toTrainer.append("caption", caption);
+        toTrainer.append("parse_mode", "HTML");
+        if (markup) toTrainer.append("reply_markup", JSON.stringify(markup));
+        await telegramUpload(env, "sendPhoto", toTrainer);
+      }
       return Response.json({ ok: true, sentToTrainer: true });
     }
   }
@@ -232,6 +257,13 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: Exec
     const owner = await getUser(env.DB, photo.userId).catch(() => null);
     if (!(user.role === "trainer" && owner?.trainerId === user._id && owner && trainerCanSee(owner.profile, "body"))) return new Response("not found", { status: 404 });
   }
+  // Uploaded straight to R2: that object is the photo.
+  if (photo.objectKey) {
+    const stored = await getStoredPhoto(env, photo.objectKey);
+    if (!stored) return new Response("gone", { status: 410 });
+    return new Response(stored.body, { headers: { "content-type": stored.contentType, "cache-control": "private, max-age=86400" } });
+  }
+  if (!photo.fileId) return new Response("gone", { status: 410 });
   // Read-through cache: once R2_PHOTOS exists, most views never touch Telegram at all. Until
   // then getCachedPhoto is always a no-op and this falls straight through, same as before.
   const cached = await getCachedPhoto(env, id);
