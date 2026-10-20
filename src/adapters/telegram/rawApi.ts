@@ -17,6 +17,10 @@ type Params = Record<string, unknown>;
 // Exported (mutable) only so the timeout test can shorten them instead of waiting real seconds.
 export const telegramTimeouts = { json: 10_000, upload: 30_000 };
 
+/** grammY's own client (bot.api / ctx.api, which the outbox sends through) waits 500 s by default.
+ * Every Bot constructor passes this so its calls get the same upper bound as an upload here. */
+export const botClientOptions = { client: { timeoutSeconds: telegramTimeouts.upload / 1000 } };
+
 // The one place in the codebase that builds a Bot API URL (test/architecture.test.ts holds every
 // other module to that). FormData bodies (photo / document uploads) go as multipart.
 async function call(token: string, method: string, params: Params | FormData): Promise<unknown> {

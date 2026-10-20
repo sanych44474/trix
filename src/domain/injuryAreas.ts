@@ -3,7 +3,7 @@ import type { t } from "../locales/i18n";
 
 type TKey = Parameters<typeof t>[1];
 
-export const INJURY_AREA_LABEL: Record<string, TKey> = {
+const INJURY_AREA_LABEL: Record<string, TKey> = {
   shoulder: "inj_area_shoulder", elbow: "inj_area_elbow", wrist: "inj_area_wrist",
   lower_back: "inj_area_lower_back", knee: "inj_area_knee", hip: "inj_area_hip",
   ankle: "inj_area_ankle", neck: "inj_area_neck",

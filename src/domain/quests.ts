@@ -8,7 +8,7 @@ import { weeklyMuscleSets, type LoggedDay, type Lookup } from "./muscleLoad";
 import { musclesForExercise, type Slug } from "./exerciseMuscles";
 import { weeklyReport } from "./weeklyReport";
 
-export type QuestKind = "workouts" | "muscle_sets" | "balance" | "water_days" | "food_days" | "steps_days";
+type QuestKind = "workouts" | "muscle_sets" | "balance" | "water_days" | "food_days" | "steps_days";
 
 export interface Quest {
   code: string; // stable within a week: kind (+ muscle), e.g. "muscle_sets:hamstring"
@@ -60,7 +60,7 @@ export function pickQuests(weekStart: string, logs: LoggedDay[], plannedDays: nu
 }
 
 /** What the week's counters read (the caller fetches this week's water/food/steps days). */
-export interface QuestInputs {
+interface QuestInputs {
   logs: LoggedDay[]; // this week's (older rows are ignored)
   waterDays: number; // days the water goal was met
   foodDays: number; // days with a food log

@@ -112,7 +112,7 @@ export async function countPlanSourcesSince(db: DB, cutoff: string): Promise<{ k
 /** All of a user's logged activity since `cutoff`, fetched in ONE parallel round-trip. Report
  * (`cmdReport`) and export (`buildExportMd`) built the identical 6-7 read fan-out separately —
  * this collapses that duplication so a new logged metric is added in exactly one place. */
-export interface ActivitySnapshot {
+interface ActivitySnapshot {
   workouts: WorkoutLogDoc[];
   nutrition: NutritionLogDoc[];
   strength: StrengthRecordDoc[];
@@ -168,6 +168,11 @@ const BUMP_EVENT_SQL = `INSERT INTO v2_analytics_events (accountId, event, date,
  * new session opens). DAU/WAU/MAU are distinct accounts with this event in the window: an
  * activity log per day, unlike lastSeenAt which only remembers the latest visit. */
 export const SESSION_EVENT = "session";
+
+/** Onboarding funnel steps, counted by both surfaces (bot wizard and Mini App form). Per-day counters
+ * like any event: distinct accounts with the event = people who reached the step. */
+export const FUNNEL_STARTED = "funnel_onboarding_started";
+export const FUNNEL_FINISHED = "funnel_onboarding_finished";
 
 /** `lastSeenAt = whenIso`, plus the day's session mark when this interaction opens a session, in one
  * round trip. */

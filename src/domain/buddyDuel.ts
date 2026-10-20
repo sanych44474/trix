@@ -2,7 +2,7 @@
 // DB access (allBuddyPairs, recordBuddyDuel, buddyWinCount, buddyDuelHistory) lives in
 // db/repos/workouts.ts, next to friendIds — same "social graph" query family.
 
-export interface DuelResult {
+interface DuelResult {
   weekKey: string;
   aCount: number;
   bCount: number;

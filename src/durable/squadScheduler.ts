@@ -5,6 +5,7 @@
 // this phase; it only actually acts once the recap hour arrives and the week hasn't been
 // recapped yet, exactly the same gate scheduler.ts's own SQUAD_RECAP_HOUR_UTC uses.
 import { Bot } from "grammy";
+import { botClientOptions } from "../adapters/telegram/rawApi";
 import { logDryRun } from "./dryrunLog";
 import { deleteSquad, getSquad, markSquadRecapped } from "../adapters/d1/v2Gamification";
 import { isCutOver } from "./cutover";
@@ -84,7 +85,7 @@ export class SquadSchedulerDO {
       // exception here would only surface as a raw uncaught exception in Workers Logs, invisible
       // to error_logs/owner-report the way the same failure would be from the cron path.
       try {
-        const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN);
+        const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
         const ok = await postSquadDigest(this.env.DB, bot.api, chatId, win);
         await markSquadRecapped(this.env.DB, chatId, weekKey).catch(() => {});
         if (!ok) await deleteSquad(this.env.DB, chatId).catch(() => {});

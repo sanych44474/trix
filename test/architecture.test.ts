@@ -85,3 +85,10 @@ test("no re-export shims: import from the module that declares the symbol", () =
     .map(rel);
   assert.deepEqual(offenders, []);
 });
+
+test("every grammY Bot is built with the bounded client timeout (grammY's own default is 500 s)", () => {
+  const unbounded = sourceFiles()
+    .filter((f) => /new Bot(<[^>]*>)?\((?![^)]*botClientOptions)/.test(readFileSync(f, "utf8")))
+    .map(rel);
+  assert.deepEqual(unbounded, []);
+});

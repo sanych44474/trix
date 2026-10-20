@@ -9,7 +9,7 @@
 export const BOOKMARK_HEADER = "x-d1-bookmark";
 const BOOKMARK_RE = /^[A-Za-z0-9._:-]{1,200}$/;
 
-export interface ReadSession {
+interface ReadSession {
   db: D1Database; // D1Database-shaped view over the session
   bookmark(): string | null;
 }

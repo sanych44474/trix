@@ -4,7 +4,7 @@
 // doesn't have would either silently omit it (confusing) or fabricate a placeholder (worse). Every
 // input here is either self-reported (the daily check-in) or already derived from logged training
 // (conditioning load, RPE, muscle-group volume) -- see domain/{progression,conditioning,analysis}.ts.
-export interface RecoveryInputs {
+interface RecoveryInputs {
   checkin: { energy: number; sleep: number; stress: number } | null; // latest daily check-in, 1-5 each; null = none logged
   conditioningZone: "below" | "optimal" | "above"; // this week's cardio load vs the aerobic landmark
   avgRpe: number | null; // mean session RPE over the last few logged workouts, 0-10; null = no RPE data
@@ -22,7 +22,7 @@ export interface RecoveryFactor {
   count?: number; // only "volume_above" carries one: how many muscle groups are past MAV
 }
 
-export interface RecoveryScore {
+interface RecoveryScore {
   score: number; // 0-100, higher = more recovered
   label: RecoveryLabel;
   factors: RecoveryFactor[]; // what pulled the score down, heaviest first -- empty when score is 100

@@ -299,6 +299,66 @@ paths:
                       properties:
                         ok: {const: true}
                   required: [data]
+  /api/v2/whatsnew:
+    get:
+      operationId: getWhatsNew
+      description: The latest release note. The Mini App shows it once, until the user dismisses it.
+      security:
+      - telegramInitData: []
+      responses:
+        '200':
+          description: Release note as Telegram HTML and as plain text
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [version, html, text]
+                      properties:
+                        version: {type: string}
+                        html: {type: string}
+                        text: {type: string}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v2/whatsnew/seen:
+    post:
+      operationId: markWhatsNewSeen
+      description: Records that the user dismissed the current release note, so it is not shown again on any device.
+      security:
+      - telegramInitData: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: false
+        description: Ignored. The server marks the latest release as seen.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version: {type: string}
+      responses:
+        '200':
+          description: Marked as seen
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok, version]
+                      properties:
+                        ok: {const: true}
+                        version: {type: string}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/workout/feel:
     post:
       operationId: setWorkoutFeel
@@ -2690,6 +2750,40 @@ paths:
                         counted: {type: integer}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
+  /api/v2/client-error:
+    post:
+      operationId: reportClientError
+      description: The Mini App reports an uncaught JS error or a React render crash. Stored as a webapp client_js error, so the owner's error alert covers the Mini App too.
+      security:
+      - telegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: {type: string, minLength: 1, description: 'Trimmed and cut to 160 characters'}
+                source: {type: string, description: 'Script file name, only its last 40 characters are kept'}
+                line: {type: number}
+      responses:
+        '200':
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/coach/feedback:
     post:
       operationId: sendCoachFeedback

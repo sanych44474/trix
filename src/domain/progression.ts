@@ -9,7 +9,7 @@ export function getPlanDay(plan: PlanDoc, weekday: Weekday): PlanDay | undefined
 }
 
 /** A catalog candidate as offered to the plan generator: stable id + canonical English name. */
-export interface CatalogCandidate {
+interface CatalogCandidate {
   id: string;
   name: string;
 }
@@ -96,7 +96,7 @@ export function nextTargetSet(
   return { weight: bestWeight + loadJump(exercise, bestWeight, easy), reps: low, step: "load" };
 }
 
-export interface NextTargetGuidance {
+interface NextTargetGuidance {
   name: string;
   target: string;
   /** RPE ≥ 9.5 on the logged set — nextTarget already holds the load for this reason internally
@@ -201,7 +201,7 @@ export function loadJump(exercise: string, kg: number, easy: boolean): number {
 }
 
 /** The plan's rep range for a logged exercise (matched by name or canonical name), if any. */
-export function planRepRange(plan: PlanDoc, name: string): { low: number; high: number } | undefined {
+function planRepRange(plan: PlanDoc, name: string): { low: number; high: number } | undefined {
   for (const d of plan.split) {
     for (const e of d.exercises) {
       if (exerciseTokensEqual(e.name, name) || (e.canonicalName && exerciseTokensEqual(e.canonicalName, name))) {
@@ -284,7 +284,7 @@ function emitMetricRange(r: MetricRange, low: number, high: number): string {
   return `${head}${range}${glue}${r.unit}`;
 }
 
-export function exerciseTokensEqual(a: string, b: string): boolean {
+function exerciseTokensEqual(a: string, b: string): boolean {
   const na = a.trim().toLowerCase();
   const nb = b.trim().toLowerCase();
   if (!na || !nb) return false;
@@ -307,7 +307,7 @@ export interface ExerciseChange {
   reason?: string; // plain-language "why" -- shown verbatim by /planchanges (bot/plan.ts)
 }
 
-export interface ProgressionResult {
+interface ProgressionResult {
   changes: ExerciseChange[];
   plateau: string[]; // exercises grinding without reaching the top of the range — held, not pushed
   maxedBodyweight: string[]; // bodyweight lifts that hit the rep cap → need a harder variation/load

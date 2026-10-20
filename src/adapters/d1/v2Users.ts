@@ -22,7 +22,7 @@ import type {
 import { normalizeLang } from "../../locales/i18n";
 import { buildUpdate, nowIso, safeJsonParse, type DB } from "./shared";
 
-export interface V2UserRow {
+interface V2UserRow {
   id: number;
   chatId: number;
   username: string | null;
@@ -73,7 +73,7 @@ const SELECT_USER = `
   LEFT JOIN v2_onboarding o ON o.accountId = a.id
 `;
 
-export function toUser(r: V2UserRow): UserDoc {
+function toUser(r: V2UserRow): UserDoc {
   return {
     _id: r.id,
     chatId: r.chatId,

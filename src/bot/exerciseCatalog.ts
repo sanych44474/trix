@@ -213,7 +213,7 @@ export async function aiAuthorAndAdd(ctx: MyContext, pending: PendingExercise) {
 
 // Show other library matches for the user's query (the rejected suggestion excluded). Keeps the
 // pending request in the session and switches to "exercise_alt" mode so a typed reply re-searches.
-export async function showExerciseConfirmAlternatives(ctx: MyContext, pending: PendingExercise) {
+async function showExerciseConfirmAlternatives(ctx: MyContext, pending: PendingExercise) {
   const lang = ctx.user.lang;
   const session = switchMode(ctx.user.session, "exercise_alt", { pendingExercise: pending });
   await updateUser(ctx.db, ctx.user._id, { session });

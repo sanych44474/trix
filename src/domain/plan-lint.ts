@@ -9,7 +9,7 @@
 // left to the safety layer (item 7 of the roadmap).
 import type { InjurySwap, PlanDoc, UserProfile } from "../types";
 
-export type LintSeverity = "critical" | "warning";
+type LintSeverity = "critical" | "warning";
 
 export interface LintIssue {
   severity: LintSeverity;
@@ -34,7 +34,7 @@ export interface LintContext {
 // healPlanIfDegenerate), not a general plan_lint rule: trainer-authored plans, shared/bank
 // plans and single-exercise draft edits are legitimately allowed a lighter day, so lintPlan
 // below does not enforce this for every save.
-export const MIN_EXERCISES_PER_DAY = 5;
+const MIN_EXERCISES_PER_DAY = 5;
 
 /** Short or endurance-focused sessions legitimately need fewer exercise slots than a normal
  * strength session. Keep the generation gate aligned with the prompt instead of rejecting a
@@ -51,7 +51,7 @@ export function exerciseCountLimits(profile: Pick<UserProfile, "goal" | "session
 // this low, regardless of sex/bodyweight/deficit aggressiveness. Catches a unit mix-up or a
 // truncated/malformed AI response before it reaches a user, without asserting a specific
 // clinical minimum (which depends on context this function doesn't have).
-export const MIN_PLAUSIBLE_CALORIES = 800;
+const MIN_PLAUSIBLE_CALORIES = 800;
 
 function normalizedExerciseKey(name: string, canonicalName?: string): string {
   return (canonicalName || name).trim().toLowerCase();

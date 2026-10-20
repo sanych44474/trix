@@ -2,7 +2,7 @@
 // Split out of progression.ts: nothing here is about training. Pure.
 import type { Weekday } from "../types";
 
-export interface LocalParts {
+interface LocalParts {
   date: string; // YYYY-MM-DD
   weekday: Weekday; // 1=Mon … 7=Sun
   hour: number; // 0..23

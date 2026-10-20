@@ -6,9 +6,9 @@
 
 const DAY = 86_400_000;
 
-export type ActivationStep = "act_first" | "act_win" | "act_week" | "act_locked";
+type ActivationStep ="act_first" | "act_win" | "act_week" | "act_locked";
 
-export interface ActivationNudge {
+interface ActivationNudge {
   step: ActivationStep;
   onTrack: boolean;
   workouts: number;
@@ -18,7 +18,7 @@ export interface ActivationNudge {
 /** Completed sessions inside the window that separate "stuck" from "started". */
 export const ACTIVATION_TARGET = 3;
 /** Day of the arc's last beat; the arc itself is over after ACTIVATION_LAST_DAY. */
-export const ACTIVATION_FINAL_DAY = 14;
+const ACTIVATION_FINAL_DAY = 14;
 // A beat is still worth sending a little late (a blocked bot, a quiet-hours streak, a user who
 // only opens Telegram on weekends), but not weeks later — past this the arc is simply over and
 // the steady-state reminders own the relationship.

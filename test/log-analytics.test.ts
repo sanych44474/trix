@@ -30,6 +30,8 @@ test("analyticsExtra: a key nobody has reviewed is dropped by default", () => {
 test("analyticsExtra: paths lose their ids, long strings are cut, objects and arrays never pass", () => {
   assert.equal(analyticsExtra({ path: "/api/v2/trainer/client/20/card" }).path, "/api/v2/trainer/client/:id/card");
   assert.equal(analyticsExtra({ path: "/story/0f8fad5b-d9cb-469f-a165-70867728950e" }).path, "/story/:id");
+  assert.equal(analyticsExtra({ path: "/story/0f8fad5b-d9cb-469f-a165-70867728950e.png" }).path, "/story/:id.png", "the real story URL carries an extension");
+  assert.equal(analyticsExtra({ path: "/weekmap.png" }).path, "/weekmap.png", "a fixed file name is not an id");
   assert.equal((analyticsExtra({ kind: "x".repeat(500) }).kind as string).length, 64);
   assert.deepEqual(analyticsExtra({ kind: { id: 1 } as never, source: ["a"] as never }), {});
   assert.deepEqual(analyticsExtra(undefined), {});

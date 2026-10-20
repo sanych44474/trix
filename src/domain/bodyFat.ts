@@ -2,7 +2,7 @@
 // 1984), metric form. Typical error is around ±3-4 percentage points against DEXA -- good for a
 // trend line, not a lab number, and the UI says so. Pure and unit-tested (test/body-fat.test.ts).
 
-export interface BodyFatInput {
+interface BodyFatInput {
   sex: "male" | "female";
   heightCm: number;
   waistCm: number;

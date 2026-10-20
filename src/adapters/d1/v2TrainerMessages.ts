@@ -84,7 +84,7 @@ export async function unreadFromSince(db: DB, readerId: number, fromId: number, 
   return row?.n ?? 0;
 }
 
-export interface MessageEntry {
+interface MessageEntry {
   id: number;
   readAt: string | null;
   fromId: number;

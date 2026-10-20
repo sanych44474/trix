@@ -11,7 +11,7 @@ export interface StravaTokens {
   expiresAt: number; // epoch seconds, as Strava returns it
 }
 
-export interface StravaLink {
+interface StravaLink {
   accountId: number;
   athleteId: number;
   tokens: StravaTokens;

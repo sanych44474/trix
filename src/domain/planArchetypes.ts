@@ -14,7 +14,7 @@ export type Muscle =
   | "chest" | "lats" | "middle_back" | "traps" | "biceps" | "triceps" | "forearms" | "shoulders"
   | "quadriceps" | "hamstrings" | "glutes" | "calves" | "abdominals" | "lower_back" | "abductors";
 
-export type Pattern =
+type Pattern =
   | "squat" | "hinge" | "horizontal-push" | "vertical-push" | "horizontal-pull"
   | "vertical-pull" | "core" | "calf" | "isolation";
 
@@ -24,13 +24,13 @@ export interface Slot {
   pattern: Pattern;
 }
 
-export interface DayTemplate {
+interface DayTemplate {
   labelKey: DayLabel;
   sessionType: string; // strength|hypertrophy|hybrid|...
   slots: Slot[];
 }
 
-export type DayLabel =
+type DayLabel =
   | "full_body" | "upper" | "lower" | "push" | "pull" | "legs";
 
 // ---- Day templates (5–6 working slots each; warm-up/cool-down are separate) ----
@@ -132,7 +132,7 @@ export function splitFor(bucket: DaysBucket, sex: "male" | "female"): DayTemplat
 
 // ---- Set / rep / RPE schemes ----
 
-export interface SetScheme {
+interface SetScheme {
   sets: string;        // "4 × 8-12"
   rpe: string;
   rir: string;

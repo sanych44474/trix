@@ -2,7 +2,7 @@
 // A challenge is a consistency goal over a fixed window; progress is recomputed live from logs
 // (so it's always correct even if a log is edited/deleted), and only enrollment is persisted.
 
-export type ChallengeMetric = "workouts" | "nutrition_days" | "steps_sum" | "water_days";
+type ChallengeMetric = "workouts" | "nutrition_days" | "steps_sum" | "water_days";
 
 export interface ChallengeTemplate {
   code: string;
@@ -108,7 +108,7 @@ export function resolveWaterGoal(profile: { waterGoalMl?: number; weightKg?: num
   return profile.waterGoalMl && profile.waterGoalMl > 0 ? profile.waterGoalMl : waterGoalMl(profile.weightKg);
 }
 
-export const DEFAULT_STEPS_GOAL = 8000;
+const DEFAULT_STEPS_GOAL = 8000;
 
 export function resolveStepsGoal(profile: { stepsGoal?: number }): number {
   return profile.stepsGoal && profile.stepsGoal > 0 ? profile.stepsGoal : DEFAULT_STEPS_GOAL;
@@ -149,7 +149,7 @@ export function challengeCurrent(tpl: ChallengeTemplate, data: ChallengeData): n
   }
 }
 
-export interface ChallengeStatus {
+interface ChallengeStatus {
   current: number;
   target: number;
   pct: number; // 0..100, capped

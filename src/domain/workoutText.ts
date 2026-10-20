@@ -5,7 +5,7 @@ import type { BodyMeasurements } from "../types";
 
 /** Parse free-text workout log into (exercise, weight, reps) tuples.
  * Handles lines like: "Bench press 80x6, 80x5" / "Жим 80х6" / "Pull-ups bodyweight x10". */
-export interface ParsedSet {
+interface ParsedSet {
   exercise: string;
   weight: number; // 0 = bodyweight
   reps: number; // 0 for pure time/distance sets
@@ -15,7 +15,7 @@ export interface ParsedSet {
 }
 
 // Pull an RPE value (0..10) out of a line: "@8", "@8.5", "rpe 8", "rpe8", "рпе8".
-export function parseRpe(line: string): number | undefined {
+function parseRpe(line: string): number | undefined {
   const m = /(?:@|rpe\s*|рпе\s*)(\d{1,2}(?:[.,]\d)?)/i.exec(line);
   if (!m) return undefined;
   const v = parseFloat(m[1].replace(",", "."));
@@ -43,7 +43,7 @@ export function parseDistance(token: string): number | undefined {
 }
 
 // Earliest position of the first measurement (a digit or bodyweight word) — splits name from data.
-export function splitNameBody(line: string): { name: string; body: string } {
+function splitNameBody(line: string): { name: string; body: string } {
   const m = /\d|bw\b|bodyweight|власна|своя/iu.exec(line);
   const idx = m ? m.index : line.length;
   const name = line.slice(0, idx).replace(/[,:–—-]\s*$/u, "").trim() || "exercise";
@@ -52,7 +52,7 @@ export function splitNameBody(line: string): { name: string; body: string } {
 
 // Weight×reps sets on a line, ignoring matches whose "reps" is actually a time/distance unit
 // (so "3x45s" / "1x2000m" fall through to the time/distance parser instead).
-export function parseRepsSets(body: string): { weight: number; reps: number }[] {
+function parseRepsSets(body: string): { weight: number; reps: number }[] {
   const out: { weight: number; reps: number }[] = [];
   const re = /(\d+(?:[.,]\d+)?|bw|bodyweight|власна|своя)\s*[xх×*]\s*(\d+)/giu;
   let m: RegExpExecArray | null;
@@ -69,7 +69,7 @@ export function parseRepsSets(body: string): { weight: number; reps: number }[] 
 
 // Time/distance sets on a line. A leading "N ×" before a single value means N identical sets;
 // comma-separated values are distinct sets. "2000m 8:00" → one set carrying both axes.
-export function parseTimeDistanceSets(body: string): { seconds?: number; meters?: number }[] {
+function parseTimeDistanceSets(body: string): { seconds?: number; meters?: number }[] {
   let count = 1;
   let rest = body;
   const mult = /^\s*(\d+)\s*[xх×*]\s*(?=\d)/iu.exec(body);
@@ -121,7 +121,7 @@ export function parseSteps(text: string): number | undefined {
   return Number.isFinite(n) && n > 0 && n <= 200_000 ? n : undefined;
 }
 
-export const STOP_WORDS = new Set(["the", "a", "with", "in", "on", "of", "та", "на", "в", "з", "и", "с"]);
+const STOP_WORDS =new Set(["the", "a", "with", "in", "on", "of", "та", "на", "в", "з", "и", "с"]);
 
 export function tokens(s: string): Set<string> {
   return new Set(
@@ -133,7 +133,7 @@ export function tokens(s: string): Set<string> {
   );
 }
 
-export function titleCase(s: string): string {
+function titleCase(s: string): string {
   const t = s.trim();
   return t ? t[0].toUpperCase() + t.slice(1) : t;
 }
@@ -160,14 +160,14 @@ export function normalizeExercise(name: string, candidates: string[]): string {
 }
 
 // Plausible human body metrics — reject typos / nonsense at onboarding and profile edit.
-export const HEIGHT_CM = { min: 100, max: 250 };
+const HEIGHT_CM ={ min: 100, max: 250 };
 
-export const WEIGHT_KG = { min: 30, max: 300 };
+const WEIGHT_KG ={ min: 30, max: 300 };
 
-export const realisticHeightCm = (h: number): boolean =>
+const realisticHeightCm =(h: number): boolean =>
   Number.isFinite(h) && h >= HEIGHT_CM.min && h <= HEIGHT_CM.max;
 
-export const realisticWeightKg = (w: number): boolean =>
+const realisticWeightKg =(w: number): boolean =>
   Number.isFinite(w) && w >= WEIGHT_KG.min && w <= WEIGHT_KG.max;
 
 /** Parse "180 85" → { heightCm, weightKg }, enforcing realistic ranges. Auto-swaps when the
@@ -181,7 +181,7 @@ export function parseHeightWeight(text: string): { heightCm: number; weightKg: n
   return null;
 }
 
-export const FIELD_WORDS: Record<keyof BodyMeasurements | "weight", string[]> = {
+const FIELD_WORDS:Record<keyof BodyMeasurements | "weight", string[]> = {
   weight: ["weight", "вага", "вес", "w"],
   waist: ["waist", "талія", "талия"],
   chest: ["chest", "груди", "грудь"],

@@ -6,7 +6,7 @@ import { nowIso, type DB } from "./shared";
 
 export type PlanChangeSource = "ai_coach" | "manual" | "injury_swap" | "trainer";
 
-export interface PlanChangeLogEntry {
+interface PlanChangeLogEntry {
   source: PlanChangeSource;
   summary: string;
   createdAt: Date;

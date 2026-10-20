@@ -7,7 +7,7 @@ import type { GoalBucket, Lang } from "../types";
 // ({ meals: [{ name, items: [{ food_name, grams }] }] }) so the existing deliverMealPlan
 // pipeline (lookupPer100gCached → solvePortions → localize) runs over it unchanged.
 
-export interface TemplateMealDay {
+interface TemplateMealDay {
   meals: { name: string; items: { food_name: string; grams: number }[] }[];
 }
 
@@ -147,7 +147,7 @@ const DAIRY_FRUIT_OK = new Set(["banana", "apple", "pear", "strawberries", "rasp
 
 // Human dish names (display only — lookup still uses the curated key). Cereals read as porridge,
 // grains/legumes as cooked, so the menu looks like real food, not raw ingredients.
-export const DISH_NAME: Record<string, { en: string; uk: string }> = {
+const DISH_NAME:Record<string, { en: string; uk: string }> = {
   buckwheat: { en: "buckwheat porridge", uk: "гречана каша" },
   "rolled oats": { en: "oatmeal", uk: "вівсяна каша" },
   oats: { en: "oatmeal", uk: "вівсяна каша" },

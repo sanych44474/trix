@@ -1,6 +1,6 @@
 import type { WorkoutLogDoc } from "../types";
 
-export interface WeekStats {
+interface WeekStats {
   done: number;
   skipped: number;
   totalSets: number;

@@ -1,7 +1,7 @@
 // Bot Records — pure scoring helpers for the global leaderboards.
 // No DB access here; the repo layer feeds raw rows in, this computes boards.
 
-export interface StrengthRow {
+interface StrengthRow {
   userId: number;
   exercise: string;
   bestWeight: number;
@@ -54,7 +54,7 @@ export function weekStartStr(dateStr: string): string {
 }
 
 /** The ISO week key N weeks before the given date. */
-export function weekKeyOffset(todayStr: string, weeksBack: number): string {
+function weekKeyOffset(todayStr: string, weeksBack: number): string {
   const d = new Date(`${todayStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - weeksBack * 7);
   return isoWeekKey(d.toISOString().slice(0, 10));
@@ -343,7 +343,7 @@ export const BADGES = [
   "season_win",
   "season_3",
 ] as const;
-export type BadgeCode = (typeof BADGES)[number];
+type BadgeCode = (typeof BADGES)[number];
 
 /** Personal-record milestones — badges earned at a lifetime count of PRs set. */
 export function prMilestones(prCount: number): BadgeCode[] {
@@ -381,7 +381,7 @@ export function challengeMilestones(completedCount: number): BadgeCode[] {
   return out;
 }
 
-export interface BadgeProgress {
+interface BadgeProgress {
   current: number;
   needed: number;
 }

@@ -7,7 +7,7 @@
 import type { InjuryDoc } from "../types";
 import { conflictScore, type ConflictLevel, type ExerciseLike, type InjuryArea, type Severity } from "./injury";
 
-export interface InjuryConflictResult {
+interface InjuryConflictResult {
   blocked: boolean;
   area?: InjuryArea;
   level?: ConflictLevel;

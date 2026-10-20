@@ -6,10 +6,10 @@ import { resolveWeightMode } from "./exerciseClass";
 
 export type StrengthLevel = "beginner" | "novice" | "intermediate" | "advanced" | "elite";
 
-export const STRENGTH_LEVELS: StrengthLevel[] = ["beginner", "novice", "intermediate", "advanced", "elite"];
+const STRENGTH_LEVELS:StrengthLevel[] = ["beginner", "novice", "intermediate", "advanced", "elite"];
 
 // Canonical lift keys we hold standards for.
-export type LiftKey = "squat" | "bench" | "deadlift" | "ohp" | "row";
+type LiftKey = "squat" | "bench" | "deadlift" | "ohp" | "row";
 
 // Entry ratios (e1RM ÷ bodyweight) for each level, in STRENGTH_LEVELS order. A ratio at/above the
 // elite entry is still "elite"; below the beginner entry floors to "beginner".
@@ -69,7 +69,7 @@ export function liftKeyOf(name: string): LiftKey | null {
   return null;
 }
 
-export interface StandardResult {
+interface StandardResult {
   key: LiftKey;
   level: StrengthLevel;
   ratio: number; // e1RM ÷ bodyweight, rounded to 2 dp

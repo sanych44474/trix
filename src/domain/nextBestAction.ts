@@ -2,7 +2,7 @@
 // solo/client) lead with — replacing a generic "welcome back" + full menu with a single
 // prioritized action, per the "today -> do it -> log it -> get feedback -> see what's next"
 // cycle. Pure: the caller (bot/nextBestAction.ts) gathers the signals, this just orders them.
-export type NextBestAction =
+type NextBestAction =
   | { kind: "first_workout" } // never completed a workout -- get them into their very first one
   | { kind: "today_workout" } // today's plan has a pending (not yet logged) session
   | { kind: "recovery" } // missed 2 consecutive planned sessions -- re-engage before menu clutter

@@ -13,7 +13,7 @@ import { abToB64, downloadFile } from "../adapters/telegram/files";
 import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, MAX_VIDEO_SEC, aiCallsToday, formCheckGate, formCheckPrompt, formCheckSystem } from "../features/workout/formCheck";
 
 /** The form-check answer under its header and footer; the empty-answer text when the AI gave none. */
-export function formCheckReply(lang: Lang, answer: string): string | null {
+function formCheckReply(lang: Lang, answer: string): string | null {
   const text = cleanAi(answer).trim().slice(0, 1200);
   return text ? `${t(lang, "form_check_header")}\n\n${text}\n\n${t(lang, "form_check_footer")}` : null;
 }

@@ -66,7 +66,7 @@ export async function handleCheckinCallback(ctx: MyContext, data: string) {
   }
 }
 
-export async function persistCheckinState(
+async function persistCheckinState(
   ctx: MyContext,
   mode: "checkin_sleep" | "checkin_stress" | "idle",
   checkin: { energy?: number; sleep?: number } | undefined,

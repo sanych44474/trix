@@ -15,7 +15,7 @@ import { type Readiness } from "./deload";
  */
 export const CONDITIONING_LANDMARK = { targetMin: 150, highMin: 300, highSessions: 6 };
 
-export type ConditioningZone = "below" | "optimal" | "above";
+type ConditioningZone = "below" | "optimal" | "above";
 
 export interface ConditioningWeek {
   sessions: number; // distinct days containing conditioning work

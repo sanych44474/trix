@@ -4,9 +4,9 @@
 // 3+ days without one, only in the morning (when a weigh-in is comparable day to day), and at most
 // every 3 days. Pure; test/weigh-in.test.ts.
 
-export const WEIGH_IN_GAP_DAYS = 3;
+const WEIGH_IN_GAP_DAYS = 3;
 
-export interface WeighInInput {
+interface WeighInInput {
   today: string; // YYYY-MM-DD local
   hour: number; // local hour
   weightDates: string[]; // dates with a logged weight, any order

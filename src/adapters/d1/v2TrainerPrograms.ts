@@ -2,7 +2,7 @@
 import type { BankPlan } from "../../types";
 import { nowIso, safeJsonParse, type DB } from "./shared";
 
-export interface TrainerTemplateMeta {
+interface TrainerTemplateMeta {
   id: number;
   name: string;
   createdAt: string;

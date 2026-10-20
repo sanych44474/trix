@@ -99,7 +99,7 @@ export function scoreEntry(key: PlanBankKey, e: PlanBankEntry): number {
   );
 }
 
-export interface BankMatch {
+interface BankMatch {
   entry: PlanBankEntry;
   score: number;
 }

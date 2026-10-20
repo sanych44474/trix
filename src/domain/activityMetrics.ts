@@ -22,7 +22,7 @@ export interface ActivityRaw {
   topUsers: Array<{ rank: number; workouts: number; nutritionDays: number; activeDays: number; lastActive: string }>;
 }
 
-export interface ActivityDay {
+interface ActivityDay {
   date: string;
   dau: number;
   workouts: number;
