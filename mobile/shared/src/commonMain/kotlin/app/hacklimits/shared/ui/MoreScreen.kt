@@ -2,49 +2,58 @@ package app.hacklimits.shared.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.hacklimits.shared.account.releaseItems
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
+import app.hacklimits.shared.settings.AccountSection
+import app.hacklimits.shared.settings.CompeteSection
+import app.hacklimits.shared.settings.CycleSection
+import app.hacklimits.shared.settings.DangerSection
+import app.hacklimits.shared.settings.DisplaySection
+import app.hacklimits.shared.settings.ExportSection
+import app.hacklimits.shared.settings.FeedbackSection
+import app.hacklimits.shared.settings.InviteSection
+import app.hacklimits.shared.settings.LanguageSection
+import app.hacklimits.shared.settings.LeaveTrainerSection
 import app.hacklimits.shared.settings.MoreViewModel
 import app.hacklimits.shared.settings.MoreViewModel.Message
+import app.hacklimits.shared.settings.ProfileSection
+import app.hacklimits.shared.settings.ProfileViewModel
+import app.hacklimits.shared.settings.RemindersSection
+import app.hacklimits.shared.settings.SettingsCard
+import app.hacklimits.shared.settings.TrainerSection
+import app.hacklimits.shared.settings.VacationSection
+import app.hacklimits.shared.settings.WhatsNewSection
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /** Where More can send the person; App maps these to routes. */
 enum class MoreDestination { Coach, Social, Integrations, TrainerClients, TrainerBusiness }
+
+/** Tools other slices own (and Choose a trainer, which is this slice's FindTrainerScreen). Kept apart from
+ * [MoreDestination] so the App's exhaustive `when` does not have to change to build; the lead routes them via [onOpenTool]. */
+enum class MoreTool { FindTrainer, Programs, Library, Plates, WeekCard, Photos, FormCheck, ImportCsv }
 
 @Composable
 fun MoreScreen(
@@ -53,120 +62,137 @@ fun MoreScreen(
     onSignOut: () -> Unit,
     beforeSignOut: suspend () -> Unit,
     onOpen: (MoreDestination) -> Unit,
+    onOpenTool: (MoreTool) -> Unit = {},
+    profile: ProfileViewModel = koinViewModel(),
 ) {
     val s by vm.state.collectAsStateWithLifecycle()
+    val p by profile.state.collectAsStateWithLifecycle()
     val uri = LocalUriHandler.current
-    var confirmDelete by remember { mutableStateOf(0) }
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(Res.string.more_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         s.message?.let { msg ->
             val text = when (msg) {
-                Message.Saved -> Res.string.saved
+                Message.Saved -> Res.string.ac_saved
                 Message.Exported -> Res.string.more_exported
-                Message.EmailLinked -> Res.string.more_email_linked
-                Message.GoogleLinked -> Res.string.more_google_linked
-                Message.Error -> Res.string.err_generic
+                Message.ExportEmpty -> Res.string.ac_export_error
+                Message.EmailLinked -> Res.string.ac_auth_email_linked
+                Message.GoogleLinked -> Res.string.ac_auth_google_linked
+                Message.FeedbackSent -> Res.string.ac_feedback_sent
+                Message.TrainerLeft -> Res.string.ac_leave_done
+                Message.Error -> Res.string.ac_generic_error
                 Message.NetworkError -> Res.string.err_network
             }
+            val failed = msg == Message.Error || msg == Message.NetworkError || msg == Message.ExportEmpty
             Text(stringResource(text), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                color = if (msg == Message.Error || msg == Message.NetworkError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
         }
 
-        Section(stringResource(Res.string.more_features)) {
+        val settings = s.settings
+        SettingsCard(stringResource(Res.string.more_features)) {
             Entry(stringResource(Res.string.more_coach)) { onOpen(MoreDestination.Coach) }
             Entry(stringResource(Res.string.more_social)) { onOpen(MoreDestination.Social) }
             Entry(stringResource(Res.string.more_integrations)) { onOpen(MoreDestination.Integrations) }
-            if (s.settings?.role == "trainer") {
+            if (settings?.role == "trainer") {
                 Entry(stringResource(Res.string.more_trainer_clients)) { onOpen(MoreDestination.TrainerClients) }
                 Entry(stringResource(Res.string.more_trainer_business)) { onOpen(MoreDestination.TrainerBusiness) }
             }
+            if (settings?.role == "solo") {
+                Entry(stringResource(Res.string.ex_find_btn)) { onOpenTool(MoreTool.FindTrainer) }
+            }
+            Entry(stringResource(Res.string.ac_tool_programs)) { onOpenTool(MoreTool.Programs) }
+            Entry(stringResource(Res.string.ac_tool_library)) { onOpenTool(MoreTool.Library) }
+            Entry(stringResource(Res.string.ac_tool_plates)) { onOpenTool(MoreTool.Plates) }
+            Entry(stringResource(Res.string.ac_tool_weekcard)) { onOpenTool(MoreTool.WeekCard) }
+            Entry(stringResource(Res.string.ac_tool_photos)) { onOpenTool(MoreTool.Photos) }
+            Entry(stringResource(Res.string.ac_tool_formcheck)) { onOpenTool(MoreTool.FormCheck) }
+            Entry(stringResource(Res.string.ac_tool_import)) { onOpenTool(MoreTool.ImportCsv) }
         }
 
-        Section(stringResource(Res.string.more_account)) {
-            val session = s.session
-            session?.email?.let { Text(stringResource(Res.string.more_email_is, it)) }
-            if (session?.googleLinked == true) Text(stringResource(Res.string.more_google_linked))
-            else OutlinedButton(onClick = vm::linkGoogle, enabled = !s.busy) { Text(stringResource(Res.string.more_link_google)) }
-            if (session?.email == null) {
-                if (s.linkChallengeId == null) {
-                    OutlinedTextField(s.linkEmail, vm::onLinkEmail, label = { Text(stringResource(Res.string.signin_email)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-                    OutlinedButton(onClick = vm::sendLinkCode, enabled = !s.busy && s.linkEmail.contains('@')) { Text(stringResource(Res.string.more_link_email)) }
-                } else {
-                    OutlinedTextField(s.linkCode, vm::onLinkCode, label = { Text(stringResource(Res.string.signin_code)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
-                    Button(onClick = vm::verifyLinkCode, enabled = !s.busy && s.linkCode.length == 6) { Text(stringResource(Res.string.signin_verify)) }
-                }
-            }
-            TextButton(onClick = onSignOut) { Text(stringResource(Res.string.sign_out)) }
+        if (p.referralLink.isNotBlank()) InviteSection(p.referralLink, p.referredCount)
+
+        if (p.role == "solo" || p.trainer != null) {
+            TrainerSection(
+                role = p.role,
+                trainer = p.trainer,
+                form = p.trainerForm,
+                busy = p.trainerBusy,
+                sent = p.trainerSent,
+                error = p.trainerError,
+                onForm = profile::onTrainerForm,
+                onSubmit = profile::submitTrainer,
+            )
         }
 
-        s.settings?.let { settings ->
-            Section(stringResource(Res.string.more_reminders)) {
-                settings.reminders.forEach { r ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(r.label, Modifier.weight(1f))
-                        Switch(checked = r.on, onCheckedChange = { vm.toggleReminder(r.key) }, enabled = !s.busy)
-                    }
-                }
-            }
-            Section(stringResource(Res.string.more_language)) {
-                Text(stringResource(Res.string.more_language_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = settings.lang == "uk", onClick = { vm.setLanguage("uk") }, label = { Text("Українська") })
-                    FilterChip(selected = settings.lang == "en", onClick = { vm.setLanguage("en") }, label = { Text("English") })
-                }
-            }
-            Section(stringResource(Res.string.more_vacation)) {
-                if (settings.vacationUntil != null) {
-                    Text(stringResource(Res.string.more_vacation_until, settings.vacationUntil))
-                    OutlinedButton(onClick = { vm.vacation(null) }) { Text(stringResource(Res.string.more_vacation_end)) }
-                } else {
-                    Text(stringResource(Res.string.more_vacation_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(3, 7, 14).forEach { d -> OutlinedButton(onClick = { vm.vacation(d) }) { Text(stringResource(Res.string.more_days, d)) } }
-                    }
-                }
-            }
-        }
+        p.whatsNew?.let { note -> WhatsNewSection(note.version, releaseItems(note)) }
 
-        Section(stringResource(Res.string.more_data)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { vm.export(false) }, enabled = !s.busy) { Text(stringResource(Res.string.more_export_text)) }
-                OutlinedButton(onClick = { vm.export(true) }, enabled = !s.busy) { Text(stringResource(Res.string.more_export_json)) }
-            }
-            privacyUrl?.let { url -> TextButton(onClick = { uri.openUri(url) }) { Text(stringResource(Res.string.more_privacy)) } }
-            TextButton(onClick = { confirmDelete = 1 }) { Text(stringResource(Res.string.more_delete), color = MaterialTheme.colorScheme.error) }
-        }
-    }
+        ProfileSection(profile)
 
-    if (confirmDelete > 0) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = 0 },
-            title = { Text(stringResource(Res.string.more_delete_title)) },
-            text = { Text(stringResource(if (confirmDelete == 1) Res.string.more_delete_body else Res.string.more_delete_final)) },
-            confirmButton = {
-                Button(
-                    onClick = { if (confirmDelete == 1) confirmDelete = 2 else { confirmDelete = 0; vm.deleteAccount(beforeSignOut) } },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                ) { Text(stringResource(if (confirmDelete == 1) Res.string.ob_next else Res.string.more_delete_confirm)) }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelete = 0 }) { Text(stringResource(Res.string.tg_cancel)) } },
+        AccountSection(
+            session = s.session,
+            linkEmail = s.linkEmail,
+            linkChallengeId = s.linkChallengeId,
+            linkCode = s.linkCode,
+            busy = s.busy,
+            onLinkEmail = vm::onLinkEmail,
+            onSendCode = vm::sendLinkCode,
+            onLinkCode = vm::onLinkCode,
+            onVerifyCode = vm::verifyLinkCode,
+            onLinkGoogle = vm::linkGoogle,
+            onSignOut = onSignOut,
         )
+
+        DisplaySection(p.prefs, profile::setThemeMode, profile::setAccent, profile::setHighContrast)
+
+        if (settings == null) {
+            if (s.message == null) CircularProgressIndicator()
+            else OutlinedButton(onClick = vm::load) { Text(stringResource(Res.string.ac_retry)) }
+        } else {
+            LanguageSection(settings.lang, s.busy, vm::setLanguage)
+            RemindersSection(settings, s.busy, vm::toggleReminder)
+            VacationSection(
+                settings = settings,
+                dateText = s.vacationDate,
+                busy = s.busy,
+                onDays = { vm.vacation(it) },
+                onDate = vm::onVacationDate,
+                onStartDate = vm::vacationUntilDate,
+                onEnd = { vm.vacation(null) },
+            )
+            settings.cycle?.let { cycle ->
+                CycleSection(
+                    cycle = cycle,
+                    start = s.cycleStart,
+                    len = s.cycleLen,
+                    busy = s.busy,
+                    onToggle = vm::toggleCycle,
+                    onStart = vm::onCycleStart,
+                    onLen = vm::onCycleLen,
+                    onSave = vm::saveCycle,
+                )
+            }
+            CompeteSection(
+                compete = settings.compete,
+                alias = s.alias,
+                busy = s.busy,
+                onToggle = vm::toggleCompete,
+                onAlias = vm::onAlias,
+                onSave = vm::saveAlias,
+            )
+            if (settings.role == "client" && !s.trainerLeft) {
+                LeaveTrainerSection(busy = s.busy, onLeave = vm::leaveTrainer)
+            }
+        }
+
+        FeedbackSection(s.feedback, s.busy, vm::onFeedback, vm::sendFeedback)
+        ExportSection(s.busy, onMarkdown = { vm.export(false) }, onJson = { vm.export(true) })
+
+        privacyUrl?.let { url -> TextButton(onClick = { uri.openUri(url) }) { Text(stringResource(Res.string.more_privacy)) } }
+
+        DangerSection(busy = s.busy, onDelete = { vm.deleteAccount(beforeSignOut) })
     }
 }
 
 @Composable
 private fun Entry(label: String, onClick: () -> Unit) {
     TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) { Text(label, Modifier.fillMaxWidth()) }
-}
-
-@Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            content()
-        }
-    }
 }
