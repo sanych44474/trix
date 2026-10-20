@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="integ_title">Інтеграції</string>
+    <string name="integ_health_title">Health Connect</string>
+    <string name="integ_health_hint">Зчитує сьогоднішні кроки з Health Connect на цьому пристрої й додає їх до твого дня. Нічого не записується назад.</string>
+    <string name="integ_health_unavailable">Health Connect недоступний на цьому пристрої. Встанови або онови застосунок Health Connect і повертайся.</string>
+    <string name="integ_health_connect">Дозволити доступ до кроків</string>
+    <string name="integ_health_granted">Доступ до кроків увімкнено.</string>
+    <string name="integ_health_sync">Синхронізувати кроки зараз</string>
+    <string name="integ_health_synced">Додано %1$d кроків за сьогодні.</string>
+    <string name="integ_health_no_steps">У Health Connect за сьогодні немає кроків.</string>
+    <string name="integ_strava_title">Strava</string>
+    <string name="integ_strava_hint">Імпортує твої забіги, велопоїздки й прогулянки як кардіо.</string>
+    <string name="integ_strava_unavailable">Strava ще не налаштовано на цьому сервері.</string>
+    <string name="integ_strava_disconnected">Не підключено</string>
+    <string name="integ_strava_connect">Підключити Strava</string>
+    <string name="integ_strava_opened">Заверши підключення у браузері, а потім повернись сюди.</string>
+    <string name="integ_strava_connected">Підключено</string>
+    <string name="integ_strava_last_sync">Остання синхронізація: %1$s</string>
+    <string name="integ_strava_never_synced">Ще не синхронізовано</string>
+    <string name="integ_strava_last_error">Остання синхронізація не вдалася. Спробуй ще раз.</string>
+    <string name="integ_strava_sync">Синхронізувати зараз</string>
+    <string name="integ_strava_synced">Імпортовано активностей: %1$d.</string>
+    <string name="integ_strava_disconnect">Відключити</string>
+</resources>
