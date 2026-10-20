@@ -50,12 +50,14 @@ class NutritionApi(private val api: ApiClient) {
 
     /** Free text ("oatmeal 80 g and a banana"): the server estimates it the same way the bot does. */
     suspend fun logText(text: String, key: String) {
-        api.unwrap<JsonElement>(api.http.post("api/v2/log") {
+        val result = api.unwrap<JsonElement>(api.http.post("api/v2/log") {
             api.authorize(this)
             header("Idempotency-Key", key)
             contentType(ContentType.Application.Json)
             setBody(buildJsonObject { put("kind", "food"); put("text", text.take(500)) })
         })
+        // The server answers 200 with ok:false when it could not read the text; that is not a success.
+        if ((result as? JsonObject)?.get("ok")?.toString() == "false") throw ApiException(200, "unreadable", null)
     }
 
     private suspend fun act(body: JsonObject, key: String? = null) { api.unwrap<JsonElement>(post(body, key)) }

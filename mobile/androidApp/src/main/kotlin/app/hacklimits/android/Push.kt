@@ -7,6 +7,7 @@ import app.hacklimits.shared.data.PushApi
 import app.hacklimits.shared.data.SessionStore
 import app.hacklimits.shared.platform.AppPlatform
 import com.google.firebase.FirebaseApp
+import com.google.firebase.installations.FirebaseInstallations
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import kotlinx.coroutines.CoroutineScope
@@ -27,8 +28,12 @@ fun createNotificationChannels(context: Context) {
     )
 }
 
-/** Sends this install's FCM token to the server while signed in. Firebase is optional: without
- * google-services.json (see mobile/README.md) there is no FirebaseApp and push stays off. */
+/**
+ * Push registration by Firebase Installation ID (FCM 25.1+ deprecated tokens in its favour). While
+ * signed in, `register()` asks FCM to register this install; the ID arrives in
+ * [PushService.onRegistered] and goes to the server. Firebase is optional: without
+ * google-services.json there is no FirebaseApp and push stays off.
+ */
 class PushRegistrar(
     private val context: Context,
     private val push: PushApi,
@@ -41,30 +46,28 @@ class PushRegistrar(
 
     fun registerCurrentToken() {
         if (!available()) return
+        runCatching { FirebaseMessaging.getInstance().register() }
+    }
+
+    fun register(installationId: String) {
         scope.launch {
-            val token = runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull() ?: return@launch
-            register(token)
+            if (sessions.token() != null) push.register(installationId, platform.pushPlatform, platform.appVersion, kind = "fid")
         }
     }
 
-    fun register(token: String) {
-        scope.launch {
-            if (sessions.token() != null) push.register(token, platform.pushPlatform, platform.appVersion)
-        }
-    }
-
-    /** Before signing out: this device should stop receiving the account's reminders. */
+    /** Before signing out: this device stops receiving the account's reminders. */
     suspend fun unregister() {
         if (!available()) return
-        val token = runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull() ?: return
-        push.unregister(token)
+        val id = runCatching { FirebaseInstallations.getInstance().id.await() }.getOrNull() ?: return
+        push.unregister(id)
+        runCatching { FirebaseMessaging.getInstance().unregister().await() }
     }
 }
 
 class PushService : FirebaseMessagingService() {
     private val registrar: PushRegistrar by inject()
 
-    override fun onNewToken(token: String) = registrar.register(token)
+    override fun onRegistered(installationId: String) = registrar.register(installationId)
     // Notification messages are shown by the system while the app is in the background; in the
     // foreground FCM hands them here, and the next screen refresh shows the same information.
 }

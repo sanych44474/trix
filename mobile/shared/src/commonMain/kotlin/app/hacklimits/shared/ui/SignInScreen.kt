@@ -117,6 +117,7 @@ internal fun errorText(code: String): StringResource = when (code) {
     "rate_limited" -> Res.string.err_rate_limited
     "telegram_expired", "invalid_challenge" -> Res.string.err_telegram_expired
     "google_no_account" -> Res.string.err_google_no_account
+    "unreadable" -> Res.string.err_unreadable
     "auth_unavailable", "google_unavailable", "telegram_unavailable" -> Res.string.err_unavailable
     else -> Res.string.err_generic
 }

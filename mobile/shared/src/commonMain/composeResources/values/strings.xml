@@ -22,6 +22,7 @@
     <string name="err_telegram_expired">The Telegram link expired. Start again.</string>
     <string name="err_google_no_account">No Google account on this device. Add one in Settings or use email.</string>
     <string name="err_unavailable">This sign-in method is not available right now.</string>
+    <string name="err_unreadable">Couldn’t read that. Name the food and amount, e.g. “2 eggs and toast”.</string>
     <string name="err_generic">Something went wrong. Try again.</string>
     <string name="today_title">Today</string>
     <string name="today_hello">Hi, %1$s</string>

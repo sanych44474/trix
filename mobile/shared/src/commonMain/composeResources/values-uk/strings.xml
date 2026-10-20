@@ -22,6 +22,7 @@
     <string name="err_telegram_expired">Посилання в Telegram застаріло. Почни знову.</string>
     <string name="err_google_no_account">На пристрої немає Google-акаунта. Додай його в налаштуваннях або увійди через пошту.</string>
     <string name="err_unavailable">Цей спосіб входу зараз недоступний.</string>
+    <string name="err_unreadable">Не вдалося розібрати. Вкажи продукт і кількість, напр. «2 яйця і тост».</string>
     <string name="err_generic">Щось пішло не так. Спробуй ще раз.</string>
     <string name="today_title">Сьогодні</string>
     <string name="today_hello">Привіт, %1$s</string>
