@@ -105,9 +105,9 @@ for (const [lang, p] of Object.entries(PROFILE)) {
 }
 
 // Persistent chat menu button → the Mini App dashboard (text is global, not per-language).
-// Path follows V2_APP_ENABLED (matches src/bot.ts's setAppUrl) so this stays in sync with
-// whichever Mini App bundle the bot itself is currently pointing users at -- override with
-// MINI_APP_PATH if you need to force one explicitly (e.g. testing the legacy bundle).
+// Path follows V2_APP_ENABLED (the same setAppUrl setup used in src/bot/router.ts), so the
+// persistent Telegram button matches the bundle the bot points users at. Override with
+// MINI_APP_PATH only when explicitly testing a different bundle.
 const miniAppPath =
   process.env.MINI_APP_PATH || (process.env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app");
 await post("setChatMenuButton", {

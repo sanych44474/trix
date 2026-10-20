@@ -1,7 +1,7 @@
 // Handler test harness: a REAL in-memory SQLite (node:sqlite) wrapped in the D1 interface,
 // with the schema built from the actual migration files, plus a fake grammY context that
-// records outgoing messages. This lets us drive bot.ts handlers end-to-end against a true DB
-// — the untested layer where the session/routing bugs live — without mocking SQL semantics.
+// records outgoing messages. This lets us drive `src/bot/` handlers end-to-end against a true DB
+// — the integration layer where the session/routing bugs live — without mocking SQL semantics.
 //
 // Requires the --experimental-sqlite node flag (set in the "test" npm script).
 import { DatabaseSync } from "node:sqlite";

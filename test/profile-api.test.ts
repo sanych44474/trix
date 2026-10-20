@@ -136,7 +136,7 @@ test("handleProfileApi: GET includes a self-scoped referral link and a one-direc
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "en", "Coach");
   const invitee = await getOrCreateUser(db, 2, 2, "en", "Invitee");
-  // Real callers (src/bot.ts's cmdStart) spread the existing profile before adding
+  // Real callers (src/bot/start.ts's cmdStart) spread the existing profile before adding
   // referredBy -- updateUser's profile patch REPLACES the whole JSON column, not merges it.
   await updateUser(db, 2, { profile: { ...invitee.profile, referredBy: 1 } });
   const res = await handleProfileApi(

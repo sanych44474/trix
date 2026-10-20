@@ -16,8 +16,8 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
     ignore:
-      # The Workers test runner (@cloudflare/vitest-plugin, latest 1.3.0) peers on vitest ^4.1, so a
-      # vitest 5 bump fails `npm ci` with ERESOLVE. Remove once the plugin supports vitest 5.
+      # The installed Workers test runner requires Vitest 4; a Vitest 5 bump currently fails
+      # `npm ci` with ERESOLVE. Remove this guard once the plugin supports Vitest 5.
       - dependency-name: "vitest"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@vitest/*"
