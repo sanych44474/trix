@@ -19,7 +19,12 @@ paths:
   /api/v2/auth/session:
     get:
       operationId: getAuthSession
-      security: []
+      description: Who the caller is. An anonymous caller gets authenticated=false with HTTP 200.
+      security:
+      - {}
+      - telegramInitData: []
+      - appSession: []
+      - bearerSession: []
       responses:
         '200':
           description: Current Telegram, Google, email, or anonymous session
@@ -35,10 +40,14 @@ paths:
   /api/v2/auth/email/start:
     post:
       operationId: startEmailSignIn
+      description: >-
+        Emails a six-digit code valid for 10 minutes. When the caller is already signed in, the
+        code links the email to that account instead of creating a new one.
       security:
+      - {}
       - telegramInitData: []
       - appSession: []
-      - {}
+      - bearerSession: []
       requestBody:
         required: true
         content:
@@ -56,10 +65,34 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/EmailCodeChallenge'}
                   required: [data]
+        '400':
+          description: Not a valid email address (error.code invalid_email)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '403':
+          description: Request origin not allowed (error.code origin_forbidden)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        '502':
+          description: The code email could not be sent (error.code email_delivery_failed)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '503':
+          description: Email sign-in is not configured (error.code auth_unavailable)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   /api/v2/auth/email/verify:
     post:
       operationId: verifyEmailSignIn
+      description: >-
+        Checks the code and signs in, creating the account on first use. Web: the response sets the
+        HttpOnly session cookie. Native app (X-Client: native header, no Origin header): the response
+        carries sessionToken and sets no cookie.
       security: []
       requestBody:
         required: true
@@ -68,9 +101,9 @@ paths:
             schema: {$ref: '#/components/schemas/EmailCodeVerifyRequest'}
       responses:
         '200':
-          description: Signed in and secure session cookie set
+          description: Signed in
           headers:
-            Set-Cookie: {schema: {type: string}}
+            Set-Cookie: {schema: {type: string}, description: 'Web only; not sent to the native client'}
           content:
             application/json:
               schema:
@@ -80,19 +113,65 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/AuthSession'}
                   required: [data]
-        '401': {$ref: '#/components/responses/Unauthorized'}
-        '409': {$ref: '#/components/responses/Conflict'}
+        '400':
+          description: Malformed email, challenge id or code (error.code invalid_code)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '401':
+          description: Code wrong, expired, or used up after 5 attempts (error.code invalid_code)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '403':
+          description: Request origin not allowed (error.code origin_forbidden) or account blocked (error.code account_unavailable)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '409':
+          description: The email belongs to another account (error.code email_in_use)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        '503':
+          description: Email sign-in is not configured (error.code auth_unavailable)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   /api/v2/auth/logout:
     post:
       operationId: logoutEmailSession
-      security: []
+      description: >-
+        Revokes the session sent as bearer token or cookie (if any) and clears the cookie. Works
+        without a session too.
+      security:
+      - {}
+      - appSession: []
+      - bearerSession: []
       responses:
         '200':
-          description: Email session revoked and cookie cleared
+          description: Session revoked (when one was sent) and cookie cleared
+          headers:
+            Set-Cookie: {schema: {type: string}}
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/Envelope'}
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok]
+                      properties:
+                        ok: {const: true}
+                  required: [data]
+        '403':
+          description: Request origin not allowed (error.code origin_forbidden)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   /api/v2/auth/providers:
     get:
       operationId: getAuthProviders
@@ -112,15 +191,14 @@ paths:
   /api/v2/auth/google/nonce:
     post:
       operationId: startGoogleSignIn
+      description: >-
+        Starts a Google sign-in. Returns the nonce to put into the native Google ID token request;
+        valid for 10 minutes. The request body is ignored.
       security:
+      - {}
       - telegramInitData: []
       - appSession: []
-      - {}
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/GoogleNonceRequest'}
+      - bearerSession: []
       responses:
         '200':
           description: Short-lived nonce for a native Google ID token request
@@ -133,10 +211,24 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/GoogleNonceChallenge'}
                   required: [data]
+        '403':
+          description: Request origin not allowed (error.code origin_forbidden)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        '503':
+          description: Google sign-in is not configured (error.code google_unavailable)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   /api/v2/auth/google/verify:
     post:
       operationId: verifyGoogleSignIn
+      description: >-
+        Verifies the Google ID token (signature, audience, issuer, expiry and the nonce from
+        /api/v2/auth/google/nonce) and signs in. Session delivery is the same as for
+        /api/v2/auth/email/verify.
       security: []
       requestBody:
         required: true
@@ -145,9 +237,9 @@ paths:
             schema: {$ref: '#/components/schemas/GoogleVerifyRequest'}
       responses:
         '200':
-          description: Google ID token verified and secure app session set
+          description: Google ID token verified; session created
           headers:
-            Set-Cookie: {schema: {type: string}}
+            Set-Cookie: {schema: {type: string}, description: 'Web only; not sent to the native client'}
           content:
             application/json:
               schema:
@@ -157,16 +249,45 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/AuthSession'}
                   required: [data]
-        '401': {$ref: '#/components/responses/Unauthorized'}
-        '409': {$ref: '#/components/responses/Conflict'}
+        '400':
+          description: challengeId or idToken missing (error.code invalid_google_token)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '401':
+          description: >-
+            Challenge expired, unknown or already used (error.code invalid_google_challenge), or the
+            token or nonce did not verify (error.code invalid_google_token)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '403':
+          description: Request origin not allowed (error.code origin_forbidden) or account blocked (error.code account_unavailable)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '409':
+          description: The Google account or its email is linked to another TRIX account (error.code identity_in_use)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        '503':
+          description: Google sign-in is not configured (error.code google_unavailable)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   /api/v2/auth/telegram/start:
     post:
       operationId: startTelegramCodeSignIn
+      description: >-
+        Starts a Telegram sign-in. Returns the bot deep link and a four-digit matchCode. The person
+        opens the link, checks that the code matches, and taps Confirm in the bot. Then
+        /api/v2/auth/telegram/complete with the completionToken signs in. Needs no session.
       security: []
       responses:
         '200':
-          description: One-time Telegram bot deep link
+          description: One-time Telegram bot deep link and match code
           content:
             application/json:
               schema:
@@ -176,7 +297,17 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/TelegramLoginChallenge'}
                   required: [data]
+        '403':
+          description: Request origin not allowed (error.code origin_forbidden)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '429': {$ref: '#/components/responses/RateLimited'}
+        '503':
+          description: Telegram login is not configured (error.code telegram_unavailable)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   /api/v2/auth/telegram/status:
     get:
       operationId: getTelegramCodeSignInStatus
@@ -198,9 +329,18 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/TelegramLoginStatus'}
                   required: [data]
+        '400':
+          description: challengeId is not 32 lowercase hex characters (error.code invalid_challenge)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
   /api/v2/auth/telegram/complete:
     post:
       operationId: completeTelegramCodeSignIn
+      description: >-
+        Signs in once the bot has confirmed the login. Needs the completionToken from
+        /api/v2/auth/telegram/start, which binds the login to the browser or app that started it.
+        Session delivery is the same as for /api/v2/auth/email/verify.
       security: []
       requestBody:
         required: true
@@ -209,9 +349,9 @@ paths:
             schema: {$ref: '#/components/schemas/TelegramCompleteRequest'}
       responses:
         '200':
-          description: One-time login completed and secure app session set
+          description: Login confirmed; session created
           headers:
-            Set-Cookie: {schema: {type: string}}
+            Set-Cookie: {schema: {type: string}, description: 'Web only; not sent to the native client'}
           content:
             application/json:
               schema:
@@ -221,9 +361,89 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/AuthSession'}
                   required: [data]
-        '401': {$ref: '#/components/responses/Unauthorized'}
-        '409': {$ref: '#/components/responses/Conflict'}
+        '400':
+          description: challengeId or completionToken missing or malformed (error.code invalid_challenge)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '401':
+          description: Unknown, expired or already used challenge, or completionToken does not match (error.code invalid_challenge)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '403':
+          description: Request origin not allowed (error.code origin_forbidden) or account blocked (error.code account_unavailable)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+        '409':
+          description: The person has not confirmed in Telegram yet; retry after they do (error.code telegram_not_confirmed)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorEnvelope'}
         '429': {$ref: '#/components/responses/RateLimited'}
+  /api/v2/push/devices:
+    post:
+      operationId: registerPushDevice
+      description: >-
+        The native app registers its FCM token after sign-in, so pushes reach accounts with no
+        Telegram chat. Registering the same token again is harmless. Not a v2 envelope: success is
+        {ok: true} and errors are {error: "<text>"}.
+      security:
+      - telegramInitData: []
+      - appSession: []
+      - bearerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PushDeviceRequest'}
+      responses:
+        '200':
+          description: Registered
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PushOk'}
+        '400':
+          description: Token or platform missing or malformed, or the body is not application/json or over 16 KB
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlainError'}
+        '401':
+          description: Not signed in
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlainError'}
+    delete:
+      operationId: unregisterPushDevice
+      description: >-
+        Removes the token on sign-out. The JSON body is sent with the DELETE request. Not a v2
+        envelope (see POST).
+      security:
+      - telegramInitData: []
+      - appSession: []
+      - bearerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PushDeviceRemoveRequest'}
+      responses:
+        '200':
+          description: Removed (also when the token was not registered)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PushOk'}
+        '400':
+          description: Token missing or malformed, or the body is not application/json or over 16 KB
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlainError'}
+        '401':
+          description: Not signed in
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlainError'}
   /api/v2/dashboard:
     get:
       operationId: getDashboard
@@ -874,7 +1094,7 @@ paths:
                         done: {type: boolean, description: 'recipe | recover: nothing further to suggest'}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
-        '409': {$ref: '#/components/responses/Conflict'}
+        '409': {description: "action=grocery_send with no Telegram chat (error.code conflict, error.message no_telegram_chat). The client shares the list itself.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}}
   /api/v2/plan:
     get:
       operationId: getPlan
@@ -1181,7 +1401,14 @@ paths:
             schema: {$ref: '#/components/schemas/SettingsRequest'}
       responses:
         '200':
-          description: Settings updated
+          description: >-
+            Settings updated. action=export or export_json: data is {ok} when the file was sent to the
+            Telegram chat, or {ok: false, reason: "empty"} when there is nothing to export. With
+            delivery=download, or for an account with no Telegram chat, the handler builds the file,
+            but this route parses and re-wraps its reply: export_json arrives as the export object
+            under data, and export arrives as data.message holding only the first 200 characters of
+            the Markdown. The attachment headers are not passed through, so the file itself is not
+            returned on this route.
           content:
             application/json:
               schema:
@@ -1194,6 +1421,8 @@ paths:
                       properties:
                         ok: {type: boolean}
                         state: {$ref: '#/components/schemas/SettingsPayload'}
+                        reason: {type: string, enum: [empty]}
+                        message: {type: string, description: 'action=export with download delivery: first 200 characters only'}
                   required: [data]
   /api/v2/buddy:
     get:
@@ -1349,9 +1578,11 @@ paths:
   /api/v2/photo:
     get:
       operationId: getProgressPhoto
+      description: Progress photo bytes. Errors are plain text (not the v2 error envelope).
       security:
       - telegramInitData: []
       - appSession: []
+      - bearerSession: []
       parameters:
       - name: id
         in: query
@@ -1360,6 +1591,7 @@ paths:
       - name: tma
         in: query
         required: false
+        description: Telegram initData for <img> tags, which cannot send headers
         schema: {type: string}
       responses:
         '200':
@@ -1367,8 +1599,69 @@ paths:
           content:
             image/jpeg:
               schema: {type: string, format: binary}
-        '401': {$ref: '#/components/responses/Unauthorized'}
-        '404': {$ref: '#/components/responses/NotFound'}
+        '400': {description: 'id missing or not a positive integer (plain text "bad request")', content: {text/plain: {schema: {type: string}}}}
+        '401': {description: 'Not signed in (plain text "unauthorized")', content: {text/plain: {schema: {type: string}}}}
+        '404': {description: 'Not the owner, not their trainer, or no such photo (plain text "not found")', content: {text/plain: {schema: {type: string}}}}
+    post:
+      operationId: uploadProgressPhoto
+      description: >-
+        Uploads a progress photo for the caller: JPEG, PNG or WebP up to 10 MB, typed from the file
+        bytes (the client's claimed type is ignored). Not a v2 envelope: success is {ok: true}
+        and errors are {error: "<text>"}, not {error: {code, message}}.
+      security:
+      - telegramInitData: []
+      - appSession: []
+      - bearerSession: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo: {type: string, format: binary}
+      responses:
+        '200':
+          description: Stored. sentToTrainer is true when the trainer was sent a copy of the photo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: {const: true}
+                  sentToTrainer: {const: true}
+        '400':
+          description: No photo field in the form (error "bad request")
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlainError'}
+        '401':
+          description: Not signed in (plain text "unauthorized")
+          content:
+            text/plain:
+              schema: {type: string}
+        '413':
+          description: Larger than 10 MB (error "too_large")
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlainError'}
+        '415':
+          description: Not a JPEG, PNG or WebP image (error "unsupported_media_type")
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlainError'}
+        '502':
+          description: Photo storage or Telegram failed (error "dependency_unavailable")
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlainError'}
+        '503':
+          description: No photo storage and no Telegram chat for the caller (error "storage_unavailable")
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlainError'}
   /api/v2/plan/replan:
     get:
       operationId: getReplanStatus
@@ -1867,6 +2160,8 @@ paths:
                       properties:
                         ok: {type: boolean}
                   required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {description: 'The account has no Telegram chat to send the photo to (error.code conflict, error.message no_telegram_chat)', content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}}
   /api/v2/weekcard:
     get:
       operationId: getWeekCard
@@ -1919,6 +2214,8 @@ paths:
                       properties:
                         ok: {type: boolean}
                   required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {description: 'The account has no Telegram chat to send the card to (error.code conflict, error.message no_telegram_chat)', content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}}
   /api/v2/story:
     post:
       operationId: uploadStoryImage
@@ -3384,7 +3681,14 @@ paths:
 components:
   securitySchemes:
     telegramInitData: {type: apiKey, in: header, name: Authorization, description: 'Telegram Mini App initData sent as Authorization: tma <initData>.'}
-    appSession: {type: apiKey, in: cookie, name: __Host-trix_session, description: 'Secure, HttpOnly email session cookie.'}
+    appSession: {type: apiKey, in: cookie, name: __Host-trix_session, description: 'Browser (web) session: the HttpOnly cookie set by a successful sign-in. Not used by the native app.'}
+    bearerSession:
+      type: http
+      scheme: bearer
+      bearerFormat: 64 lowercase hex characters
+      description: >-
+        Native app session: the sessionToken returned by a sign-in (auth routes, native client only),
+        sent as Authorization: Bearer <sessionToken>. Used instead of the cookie.
   parameters:
     IdempotencyKey:
       name: Idempotency-Key
@@ -3438,17 +3742,19 @@ components:
         accountId: {type: integer}
         method: {type: string, enum: [email, google, telegram, debug]}
         email: {type: [string, 'null'], format: email}
-        googleLinked: {type: boolean}
+        googleLinked: {type: boolean, description: 'Only from GET /api/v2/auth/session'}
+        sessionToken:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: >-
+            Only for the native app (X-Client: native header and no Origin header). Send it as
+            Authorization: Bearer. Browsers get the HttpOnly cookie instead and never see this field.
     AuthProviders:
       type: object
       required: [googleClientId, telegramAvailable]
       properties:
         googleClientId: {type: [string, 'null']}
         telegramAvailable: {type: boolean}
-    GoogleNonceRequest:
-      type: object
-      properties:
-        lang: {type: string, enum: [uk, en]}
     GoogleNonceChallenge:
       type: object
       required: [challengeId, nonce, clientId, expiresInSeconds]
@@ -3466,10 +3772,11 @@ components:
         lang: {type: string, enum: [uk, en]}
     TelegramLoginChallenge:
       type: object
-      required: [challengeId, completionToken, telegramUrl, expiresInSeconds]
+      required: [challengeId, completionToken, matchCode, telegramUrl, expiresInSeconds]
       properties:
         challengeId: {type: string, pattern: '^[0-9a-f]{32}$'}
         completionToken: {type: string, pattern: '^[0-9a-f]{64}$'}
+        matchCode: {type: string, pattern: '^[0-9]{4}$', description: 'Four digits shown in the app and in the Telegram prompt; the person checks they match before confirming'}
         telegramUrl: {type: string, format: uri}
         expiresInSeconds: {type: integer, const: 600}
     TelegramLoginStatus:
@@ -3504,6 +3811,29 @@ components:
         challengeId: {type: string, pattern: '^[0-9a-f]{32}$'}
         code: {type: string, pattern: '^[0-9]{6}$'}
         lang: {type: string, enum: [uk, en]}
+    PushDeviceRequest:
+      type: object
+      required: [token, platform]
+      properties:
+        token: {type: string, pattern: '^[A-Za-z0-9_:\-]{20,4096}$', description: FCM registration token}
+        platform: {type: string, enum: [android, ios]}
+        appVersion: {type: string, maxLength: 32, description: 'Longer values are cut to 32 characters, not rejected'}
+    PushDeviceRemoveRequest:
+      type: object
+      required: [token]
+      properties:
+        token: {type: string, pattern: '^[A-Za-z0-9_:\-]{20,4096}$'}
+    PushOk:
+      type: object
+      required: [ok]
+      properties:
+        ok: {const: true}
+    PlainError:
+      description: Error body of the routes that are not wrapped in the v2 envelope
+      type: object
+      required: [error]
+      properties:
+        error: {type: string}
     CoachAction:
       type: object
       required: [label, kind]
@@ -3561,6 +3891,10 @@ components:
         alias: {type: string, maxLength: 30, description: 'action=compete: leaderboard display name'}
         text: {type: string, maxLength: 1500, description: 'action=feedback'}
         confirm: {type: boolean, description: 'action=deleteAccount: must be true'}
+        delivery:
+          type: string
+          enum: [download]
+          description: 'action=export | export_json: "download" asks for the file in the response (any other value sends it to the Telegram chat)'
     ProfileRequest:
       description: >-
         Every field is an optional patch -- src/webapp/profileApi.ts applies only what is
