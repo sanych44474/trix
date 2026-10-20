@@ -96,9 +96,13 @@ async function verifyGoogleToken(token: string, clientId: string): Promise<Googl
   } catch { return null; }
 
   const now = Math.floor(Date.now() / 1000);
+  // `aud` is what binds the token to this server: Google only issues a token with our Web client ID
+  // as audience to clients of the same Google Cloud project. `azp` is NOT checked against it: on
+  // Android, Credential Manager tokens carry the Android client ID there, so that check rejected
+  // every sign-in from the app.
   const audienceOk = claims.aud === clientId || (Array.isArray(claims.aud) && claims.aud.includes(clientId));
   if ((claims.iss !== "https://accounts.google.com" && claims.iss !== "accounts.google.com") || !audienceOk ||
-      (claims.azp !== undefined && claims.azp !== clientId) || typeof claims.sub !== "string" || !claims.sub ||
+      typeof claims.sub !== "string" || !claims.sub ||
       typeof claims.exp !== "number" || claims.exp <= now || typeof claims.iat !== "number" || claims.iat > now + 60 ||
       typeof claims.nonce !== "string") return null;
   return claims;
