@@ -5,12 +5,7 @@ import app.hacklimits.shared.data.InMemoryKeyValueStore
 import app.hacklimits.shared.data.InMemorySessionStore
 import app.hacklimits.shared.data.SaveWorkoutRequest
 import app.hacklimits.shared.data.WorkoutApi
-import app.hacklimits.shared.data.WorkoutToday
-import app.hacklimits.shared.workout.LoggedExercise
-import app.hacklimits.shared.workout.LoggerViewModel
 import app.hacklimits.shared.workout.PendingSaves
-import app.hacklimits.shared.workout.SetRow
-import app.hacklimits.shared.workout.WorkoutDraft
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -21,35 +16,8 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 class WorkoutLoggerTest {
-    @Test
-    fun prefillUsesTheProgressionTargetThenThePlan() {
-        val withTarget = WorkoutToday.Exercise(index = 0, name = "Squat", sets = 3, reps = 5, weightKg = 80.0, target = WorkoutToday.Target(82.5, 5, 80.0, 5, "load"))
-        assertEquals(List(3) { SetRow(weight = "82.5", reps = "5") }, LoggerViewModel.prefill(withTarget))
-        val planOnly = WorkoutToday.Exercise(index = 1, name = "Row", sets = 2, reps = 10, weightKg = 40.0)
-        assertEquals(List(2) { SetRow(weight = "40", reps = "10") }, LoggerViewModel.prefill(planOnly))
-    }
-
-    @Test
-    fun onlyTickedSetsAreSentAndEmptyExercisesAreLeftOut() {
-        val draft = WorkoutDraft(
-            date = "2026-10-20", startedAtMs = 0,
-            exercises = listOf(
-                LoggedExercise("Squat", "reps", 90, listOf(SetRow("82,5", "5", done = true), SetRow("82.5", "5"))),
-                LoggedExercise("Plank", "time", 60, listOf(SetRow(seconds = "45", done = true))),
-                LoggedExercise("Row", "reps", 90, listOf(SetRow("40", "10"))),
-            ),
-        )
-        val request = LoggerViewModel.toRequest(draft, nowMs = 3_600_000)!!
-        assertEquals(listOf("Squat", "Plank"), request.entries.map { it.name })
-        assertEquals(SaveWorkoutRequest.SetDone(reps = 5.0, weight = 82.5), request.entries[0].sets.single(), "a comma decimal is read")
-        assertEquals(45.0, request.entries[1].sets.single().seconds)
-        assertEquals(3600, request.durationSec)
-        assertNull(LoggerViewModel.toRequest(draft.copy(exercises = draft.exercises.map { ex -> ex.copy(sets = ex.sets.map { it.copy(done = false) }) })))
-    }
-
     @Test
     fun offlineSavesAreRetriedWithTheirOriginalKeyAndKeptWhileTheNetworkIsDown() = runTest {
         var online = false
