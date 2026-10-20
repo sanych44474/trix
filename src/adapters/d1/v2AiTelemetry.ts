@@ -24,13 +24,13 @@ export async function aiUsageSince(
 
 /** Bounded AI/error summary for one daily_metrics rollup day (roadmap item 4) — the *Since
  * variants above are open-ended (through now), which is wrong for backfilling a past day. */
-export async function aiAndErrorStatsBetween(db: DB, fromIso: string, toExclusiveIso: string): Promise<{ aiCalls: number; aiFallbacks: number; errors: number }> {
+export async function aiAndErrorStatsBetween(db: DB, fromIso: string, toExclusiveIso: string): Promise<{ providerAttempts: number; fallbackAttempts: number; errorEvents: number }> {
   const [usage, fallbacks, errors] = await Promise.all([
     db.prepare("SELECT COUNT(*) AS c FROM v2_ai_usage WHERE createdAt >= ? AND createdAt < ?").bind(fromIso, toExclusiveIso).first<{ c: number }>(),
     db.prepare("SELECT COALESCE(SUM(wasFallback), 0) AS c FROM v2_ai_calls WHERE createdAt >= ? AND createdAt < ?").bind(fromIso, toExclusiveIso).first<{ c: number }>(),
     db.prepare("SELECT COUNT(*) AS c FROM v2_error_events WHERE createdAt >= ? AND createdAt < ?").bind(fromIso, toExclusiveIso).first<{ c: number }>(),
   ]);
-  return { aiCalls: usage?.c ?? 0, aiFallbacks: fallbacks?.c ?? 0, errors: errors?.c ?? 0 };
+  return { providerAttempts: usage?.c ?? 0, fallbackAttempts: fallbacks?.c ?? 0, errorEvents: errors?.c ?? 0 };
 }
 
 // ---------- ai call logs (per-attempt telemetry) ----------

@@ -1,9 +1,9 @@
-// Populates daily_metrics for one past day (roadmap item 4 / docs/slos.md §4). Called once per
+// Populates v2_daily_metrics for one past day (roadmap item 4 / docs/slos.md). Called once per
 // day from scheduler.ts's runGlobalJobs, for "yesterday" — the last day guaranteed complete, so
 // the numbers never change once written (unlike "today", which is still accumulating).
 //
 // ai_est_cost_usd is deliberately NOT computed: docs/slos.md flags the per-provider/model price
-// table as an open Phase-2+ item, and ai_call_logs doesn't even split input/output tokens yet —
+// table as an open Phase-2+ item, and provider-attempt logs don't split input/output tokens yet —
 // there's no honest number to write. Add it once that data exists rather than guessing a price.
 //
 // Retention is deliberately NOT written here: retention_d1/d7/d30 had no reader, while the number
@@ -41,7 +41,7 @@ export async function rollupDailyMetrics(db: D1Database, date: string): Promise<
   const { start, endExclusive } = dayBoundsIso(date);
   const nextDay = isoDateMinus(date, -1);
 
-  const [dau, wau, mau, newUsers, onboardedTotal, activePlans, completedWorkouts, skipped, aiAndErrors] = await Promise.all([
+  const [dau, wau, mau, newUsers, onboardedTotal, activePlans, completedWorkouts, skipped, aiTelemetry] = await Promise.all([
     // Distinct accounts with a session mark in the window (v2Presence). The mark is a per-day log, so
     // a person who was here yesterday still counts for yesterday after coming back today.
     countSessionAccountsBetween(db, date, nextDay),
@@ -64,11 +64,13 @@ export async function rollupDailyMetrics(db: D1Database, date: string): Promise<
     { metric: "active_plans", value: activePlans },
     { metric: "completed_workouts", value: completedWorkouts },
     { metric: "skipped_workouts", value: skipped },
-    { metric: "ai_calls", value: aiAndErrors.aiCalls },
-    // Ratios stay 0 rather than NaN on a quiet day (no AI calls / no AI calls at all) — a 0%
-    // fallback/error rate on zero volume is the correct empty state, not a missing data point.
-    { metric: "ai_fallback_rate", value: aiAndErrors.aiCalls ? aiAndErrors.aiFallbacks / aiAndErrors.aiCalls : 0 },
-    { metric: "error_rate", value: aiAndErrors.aiCalls ? aiAndErrors.errors / aiAndErrors.aiCalls : 0 },
+    { metric: "ai_provider_attempts", value: aiTelemetry.providerAttempts },
+    // This is the share of provider attempts after the first attempt, not the share of logical
+    // requests that needed fallback. Zero attempts produce a zero share.
+    { metric: "ai_fallback_attempt_share", value: aiTelemetry.providerAttempts ? aiTelemetry.fallbackAttempts / aiTelemetry.providerAttempts : 0 },
+    // Error events include AI chain exhaustion and non-AI application errors; store a count rather
+    // than dividing them by provider attempts and presenting the result as an error rate.
+    { metric: "error_events", value: aiTelemetry.errorEvents },
   ];
 
   await upsertDailyMetrics(db, date, rows);
