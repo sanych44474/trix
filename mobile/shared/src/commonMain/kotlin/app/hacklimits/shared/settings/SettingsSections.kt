@@ -2,6 +2,7 @@ package app.hacklimits.shared.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -86,7 +87,7 @@ internal fun ProfileSection(profile: ProfileViewModel) {
                 ChoiceRow(stringResource(Res.string.ac_field_experience), s.options.level, form.level, profile::onLevel)
 
                 Text(stringResource(Res.string.ac_weekly_rhythm), style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     s.weekdays.forEach { day ->
                         FilterChip(
                             selected = day.value in form.trainingWeekdays,
@@ -117,7 +118,7 @@ internal fun ProfileSection(profile: ProfileViewModel) {
 private fun ChoiceRow(label: String, options: List<ProfileResponse.Option>, selected: String, onPick: (String) -> Unit) {
     if (options.isEmpty()) return
     Text(label, style = MaterialTheme.typography.labelLarge)
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEach { option ->
             FilterChip(selected = option.value == selected, onClick = { onPick(option.value) }, label = { Text(option.label) })
         }

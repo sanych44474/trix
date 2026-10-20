@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -91,7 +92,8 @@ internal fun WorkoutBlock(plan: TodayPlan, lang: String, group: String?, minutes
             Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(meta, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (plan.state != TodayState.Rest && n > 0) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Wraps: long exercise names in a Row squeezed the last pill into a one-letter column.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     plan.exercises.take(3).forEach { name ->
                         Pill(name, MaterialTheme.colorScheme.surfaceContainerHigh)
                     }
