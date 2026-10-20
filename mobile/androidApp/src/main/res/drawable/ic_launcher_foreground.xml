@@ -1,0 +1,9 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- HL monogram inside the 66dp adaptive-icon safe zone. -->
+    <path android:fillColor="#A8FF46" android:pathData="M32,34h7v16h12v-16h7v40h-7v-17h-12v17h-7z" />
+    <path android:fillColor="#A8FF46" android:pathData="M63,34h7v33h13v7h-20z" />
+</vector>

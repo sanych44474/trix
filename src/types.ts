@@ -33,6 +33,10 @@ type SecretKey =
   | "WORKERSAI_MODEL"
   | "WORKERSAI_TRANSCRIBE_MODEL"
   | "ADMIN_SECRET"
+  | "AUTH_SECRET"
+  | "GOOGLE_CLIENT_ID"
+  | "RESEND_API_KEY"
+  | "FCM_SERVICE_ACCOUNT"
   | "YOUTUBE_API_KEY"
   | "EXERCISES_API_KEY"
   | "USDA_FDC_API_KEY"
@@ -42,7 +46,7 @@ type SecretKey =
   | "STRAVA_CLIENT_SECRET"
   | "HEALTHCHECK_PING_URL";
 
-export interface Env extends Omit<Cloudflare.Env, SecretKey> {
+export interface Env extends Omit<Cloudflare.Env, SecretKey | "AUTH_EMAIL_FROM"> {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_WEBHOOK_SECRET: string;
   GEMINI_API_KEY: string;
@@ -53,6 +57,11 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey> {
   WORKERSAI_MODEL?: string; // wrangler.toml has no [vars] entry for it
   WORKERSAI_TRANSCRIBE_MODEL?: string; // Whisper model for voice (default @cf/openai/whisper-large-v3-turbo)
   ADMIN_SECRET?: string;
+  AUTH_SECRET?: string; // HMAC key for one-time email code hashes; generate at least 32 random bytes
+  GOOGLE_CLIENT_ID?: string; // Google OAuth Web client ID used as the server audience for Android Credential Manager tokens
+  RESEND_API_KEY?: string;
+  FCM_SERVICE_ACCOUNT?: string; // Firebase service-account JSON (the whole file) for native-app push via FCM HTTP v1
+  AUTH_EMAIL_FROM?: string;
   YOUTUBE_API_KEY?: string; // YouTube Data API v3 — exercise technique shorts (cache-first)
   EXERCISES_API_KEY?: string; // API Ninjas — only scripts/seed-exercises.mjs uses it, not runtime
   USDA_FDC_API_KEY?: string;

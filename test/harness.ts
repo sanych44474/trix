@@ -129,6 +129,7 @@ export function makeCtx(db: FakeD1, user: Record<string, unknown>, env: Record<s
     replyWithDocument: async () => {},
     answerCallbackQuery: async () => {},
     editMessageReplyMarkup: async () => {},
+    editMessageText: async (text: string) => { sent.push({ to: "self", text, hasKb: false, markup: undefined }); },
     chat: { id: chatId, type: "private" },
     from: { id: user._id as number, is_bot: false },
     api: {

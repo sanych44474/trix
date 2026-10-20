@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="social_title">Спільнота</string>
+    <string name="social_tab_squads">Сквади</string>
+    <string name="social_tab_challenges">Челенджі</string>
+    <string name="social_tab_leaderboard">Рейтинг</string>
+
+    <string name="social_squads_create_title">Створити сквад</string>
+    <string name="social_squad_name">Назва сквада</string>
+    <string name="social_create">Створити</string>
+    <string name="social_squads_join_title">Приєднатися за кодом або посиланням</string>
+    <string name="social_code_hint">Код або посилання-запрошення</string>
+    <string name="social_join">Приєднатися</string>
+    <string name="social_squads_empty">Сквадів поки немає. Створи свій або приєднайся до друга за посиланням.</string>
+    <string name="social_squad_summary">%1$d учасників · %2$d тренувань цього тижня · %3$d ще на нулі</string>
+    <string name="social_entry_workouts">%1$d за тиждень</string>
+    <string name="social_you">(ти)</string>
+    <string name="social_squad_invite">Запросити друзів</string>
+    <string name="social_leave">Вийти зі сквада</string>
+    <string name="social_leave_confirm">Вийти зі сквада?</string>
+    <string name="social_leave_yes">Так, вийти</string>
+    <string name="social_cancel">Скасувати</string>
+
+    <string name="social_challenges_won">Виконано челенджів: %1$d</string>
+    <string name="social_challenges_active">Активні</string>
+    <string name="social_challenges_none_active">Активних челенджів немає. Обери один нижче.</string>
+    <string name="social_challenge_done">Виконано</string>
+    <string name="social_challenge_progress">%1$d з %2$d · ще %3$d дн.</string>
+    <string name="social_challenges_available">Доступні</string>
+    <string name="social_challenge_goal">Ціль: %1$d</string>
+
+    <string name="social_board_optin_title">Глобальний рейтинг</string>
+    <string name="social_board_optin_body">Приєднайся, щоб зʼявитися в рейтингах. Вийти можна будь-коли.</string>
+    <string name="social_board_join">Приєднатися до рейтингу</string>
+    <string name="social_board_leave">Вийти з рейтингу</string>
+    <string name="social_board_consistency">Регулярність за тиждень</string>
+    <string name="social_board_improved">Найбільший прогрес за тиждень</string>
+    <string name="social_board_relative">Найсильніші, на кг ваги тіла</string>
+    <string name="social_board_total">Найбільше тренувань</string>
+    <string name="social_board_streak">Найдовший активний streak (тижнів)</string>
+    <string name="social_board_recent_prs">Найбільше рекордів за 30 днів</string>
+    <string name="social_board_your_rank">Твоє місце: %1$d з %2$d</string>
+    <string name="social_board_no_rank">Поки не в цьому рейтингу</string>
+    <string name="social_board_empty">Записів ще немає. Будь першим.</string>
+
+    <string name="social_notice_squad_created">Сквад створено. Запроси друзів посиланням.</string>
+    <string name="social_notice_squad_joined">Ти в скваді.</string>
+    <string name="social_notice_squad_already">Ти вже в цьому скваді.</string>
+    <string name="social_notice_squad_left">Ти вийшов зі сквада.</string>
+    <string name="social_notice_join_not_found">Це запрошення більше не діє. Попроси нове посилання.</string>
+    <string name="social_notice_join_full">Сквад заповнений (12 людей).</string>
+    <string name="social_notice_too_many_squads">Ти вже у 5 сквадах, це максимум. Спершу вийди з одного.</string>
+    <string name="social_notice_challenge_joined">Ти приєднався до челенджу.</string>
+    <string name="social_notice_compete_on">Ти в рейтингах.</string>
+    <string name="social_notice_compete_off">Ти вийшов з рейтингів. Повернутися можна будь-коли.</string>
+    <string name="social_err_not_found">Цього вже немає.</string>
+</resources>

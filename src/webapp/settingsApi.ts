@@ -17,6 +17,7 @@ import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env, Lang, UserDoc } from "../types";
+import { hasTelegramChat } from "../domain/delivery";
 import { apiFailure } from "./apiError";
 
 import { sendBestEffort as tgSend, telegramUpload } from "../adapters/telegram/rawApi";
@@ -56,6 +57,18 @@ function state(user: UserDoc, lang: Lang) {
       : null,
     compete: { on: !!user.competeOptIn, alias: user.alias ?? "" },
   };
+}
+
+// The data export is a right, not a convenience: an account with no Telegram chat (email / Google
+// sign-in) gets the file in the response, and so does a client that asks for it (the native app).
+// Inside Telegram the Mini App can't save a file, so the chat delivery stays the default there.
+function wantsDownload(user: UserDoc, body: Record<string, unknown>): boolean {
+  return body.delivery === "download" || !hasTelegramChat(user);
+}
+function download(filename: string, contentType: string, content: string): Response {
+  return new Response(content, {
+    headers: { "content-type": contentType, "content-disposition": `attachment; filename="${filename}"`, "cache-control": "no-store" },
+  });
 }
 
 export async function handleSettingsApi(req: Request, url: URL, env: Env): Promise<Response> {
@@ -142,11 +155,13 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
     } else if (action === "export") {
       const md = await buildExportMd(env.DB, user);
       if (!md) return Response.json({ ok: false, reason: "empty" });
+      if (wantsDownload(user, body)) return download("hack-limits-export.md", "text/markdown; charset=utf-8", md);
       const ok = await tgSendDocument(env, user.chatId, "trix-export.md", md, t(lang, "export_caption"));
       return Response.json({ ok });
     } else if (action === "export_json") {
       const json = await buildExportJson(env.DB, user);
       if (!json) return Response.json({ ok: false, reason: "empty" });
+      if (wantsDownload(user, body)) return download("hack-limits-export.json", "application/json; charset=utf-8", json);
       const ok = await tgSendDocument(env, user.chatId, "trix-export.json", json, t(lang, "export_json_caption"), "application/json");
       return Response.json({ ok });
     } else if (action === "leaveTrainer") {

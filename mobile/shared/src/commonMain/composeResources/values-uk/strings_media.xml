@@ -1,0 +1,24 @@
+<resources>
+    <string name="media_title">Записати прийом їжі</string>
+    <string name="media_photo_hint">ШІ оцінить страви за фото. Нічого не записується, доки ви не підтвердите.</string>
+    <string name="media_photo_choose">Обрати фото страви</string>
+    <string name="media_photo_choose_cd">Обрати фото страви для оцінки</string>
+    <string name="media_items_title">Оцінені страви</string>
+    <string name="media_items_empty">На фото нічого не розпізнано. Спробуйте інше фото або опишіть страву нижче.</string>
+    <string name="media_grams">Грами</string>
+    <string name="media_kcal_line">%1$d ккал · Б %2$d · Ж %3$d · В %4$d</string>
+    <string name="media_log_meal">Записати ці страви</string>
+    <string name="media_text_title">Або опишіть страву</string>
+    <string name="media_text_label">Що ви їли?</string>
+    <string name="media_text_log">Записати</string>
+    <string name="media_voice_button">Голос</string>
+    <string name="media_voice_cd">Надиктувати опис страви</string>
+    <string name="media_voice_listening">Слухаю…</string>
+    <string name="media_voice_nothing">Нічого не почуто. Спробуйте ще раз.</string>
+    <string name="media_text_unreadable">Не вдалося розпізнати страву. Додайте трохи деталей.</string>
+    <string name="media_err_rate_limited">Забагато запитів до ШІ. Спробуйте пізніше.</string>
+    <string name="media_err_ai_unavailable">Сервіс ШІ зараз недоступний. Спробуйте пізніше.</string>
+    <string name="media_err_bad_input">Фото або текст не вдалося використати. Спробуйте інший.</string>
+    <string name="media_err_grams">Грами мають бути від 1 до 3000.</string>
+    <string name="media_err_speech">Голосовий ввід не спрацював. Введіть опис текстом.</string>
+</resources>

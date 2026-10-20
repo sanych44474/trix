@@ -20,6 +20,7 @@ import type { Env, MealEntry, NutritionTargets, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 
 import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
+import { hasTelegramChat } from "../domain/delivery";
 // Same "the webview can't offer a file download, so push it to the viewer's own Telegram chat"
 // pattern extrasApi.ts/settingsApi.ts/trainerApi.ts already each define locally -- this endpoint
 // gets its own copy rather than a shared import, matching that convention.
@@ -90,6 +91,8 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     const menu = await getMealPlan(env.DB, user._id, 0).catch(() => null);
     const lines = menu?.days?.length ? groceryList(menu.days, repeat) : [];
     if (!lines.length) return Response.json({ error: "bad request" }, { status: 400 });
+    // No chat to send to: the client already has the list (GET above) and shares it itself.
+    if (!hasTelegramChat(user)) return Response.json({ error: "no_telegram_chat" }, { status: 409 });
     const ok = await tgSend(env, user.chatId, renderGroceryList(user.lang, lines, repeat));
     return Response.json({ ok });
   }

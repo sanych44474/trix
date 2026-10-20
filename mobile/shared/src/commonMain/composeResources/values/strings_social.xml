@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="social_title">Social</string>
+    <string name="social_tab_squads">Squads</string>
+    <string name="social_tab_challenges">Challenges</string>
+    <string name="social_tab_leaderboard">Leaderboard</string>
+
+    <string name="social_squads_create_title">Create a squad</string>
+    <string name="social_squad_name">Squad name</string>
+    <string name="social_create">Create</string>
+    <string name="social_squads_join_title">Join with a code or link</string>
+    <string name="social_code_hint">Invite code or link</string>
+    <string name="social_join">Join</string>
+    <string name="social_squads_empty">No squads yet. Create one, or join a friend’s with their link.</string>
+    <string name="social_squad_summary">%1$d members · %2$d workouts this week · %3$d still at zero</string>
+    <string name="social_entry_workouts">%1$d this week</string>
+    <string name="social_you">(you)</string>
+    <string name="social_squad_invite">Invite friends</string>
+    <string name="social_leave">Leave squad</string>
+    <string name="social_leave_confirm">Leave this squad?</string>
+    <string name="social_leave_yes">Yes, leave</string>
+    <string name="social_cancel">Cancel</string>
+
+    <string name="social_challenges_won">Challenges completed: %1$d</string>
+    <string name="social_challenges_active">Active</string>
+    <string name="social_challenges_none_active">No active challenges. Join one below.</string>
+    <string name="social_challenge_done">Completed</string>
+    <string name="social_challenge_progress">%1$d of %2$d · %3$d days left</string>
+    <string name="social_challenges_available">Available</string>
+    <string name="social_challenge_goal">Goal: %1$d</string>
+
+    <string name="social_board_optin_title">Global leaderboard</string>
+    <string name="social_board_optin_body">Join to appear in the rankings. You can leave any time.</string>
+    <string name="social_board_join">Join the leaderboard</string>
+    <string name="social_board_leave">Leave the leaderboard</string>
+    <string name="social_board_consistency">Consistency this week</string>
+    <string name="social_board_improved">Biggest progress this week</string>
+    <string name="social_board_relative">Strongest, per kg of bodyweight</string>
+    <string name="social_board_total">Most workouts logged</string>
+    <string name="social_board_streak">Longest active streak (weeks)</string>
+    <string name="social_board_recent_prs">Most personal records in 30 days</string>
+    <string name="social_board_your_rank">Your place: %1$d of %2$d</string>
+    <string name="social_board_no_rank">Not ranked on this board yet</string>
+    <string name="social_board_empty">No entries yet. Be the first.</string>
+
+    <string name="social_notice_squad_created">Squad created. Invite friends with the link.</string>
+    <string name="social_notice_squad_joined">You are in the squad.</string>
+    <string name="social_notice_squad_already">You are already in this squad.</string>
+    <string name="social_notice_squad_left">You left the squad.</string>
+    <string name="social_notice_join_not_found">This invite is no longer valid. Ask for a new link.</string>
+    <string name="social_notice_join_full">This squad is full (12 members).</string>
+    <string name="social_notice_too_many_squads">You are already in 5 squads, the maximum. Leave one first.</string>
+    <string name="social_notice_challenge_joined">You joined the challenge.</string>
+    <string name="social_notice_compete_on">You are on the leaderboard now.</string>
+    <string name="social_notice_compete_off">You left the leaderboard. You can rejoin any time.</string>
+    <string name="social_err_not_found">That item no longer exists.</string>
+</resources>

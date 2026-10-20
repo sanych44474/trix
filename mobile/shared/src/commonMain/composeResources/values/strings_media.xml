@@ -1,0 +1,24 @@
+<resources>
+    <string name="media_title">Log a meal</string>
+    <string name="media_photo_hint">The AI estimates the items from a photo. Nothing is logged until you confirm.</string>
+    <string name="media_photo_choose">Choose a meal photo</string>
+    <string name="media_photo_choose_cd">Choose a photo of a meal to estimate</string>
+    <string name="media_items_title">Estimated items</string>
+    <string name="media_items_empty">Nothing was recognised in this photo. Try another photo or describe the meal below.</string>
+    <string name="media_grams">Grams</string>
+    <string name="media_kcal_line">%1$d kcal · P %2$d · F %3$d · C %4$d</string>
+    <string name="media_log_meal">Log these items</string>
+    <string name="media_text_title">Or describe the meal</string>
+    <string name="media_text_label">What did you eat?</string>
+    <string name="media_text_log">Log it</string>
+    <string name="media_voice_button">Speak</string>
+    <string name="media_voice_cd">Dictate the meal description</string>
+    <string name="media_voice_listening">Listening…</string>
+    <string name="media_voice_nothing">Nothing was heard. Try again.</string>
+    <string name="media_text_unreadable">Could not read that meal. Add a bit more detail.</string>
+    <string name="media_err_rate_limited">Too many AI requests for now. Try again later.</string>
+    <string name="media_err_ai_unavailable">The AI service is unavailable right now. Try again later.</string>
+    <string name="media_err_bad_input">The photo or text could not be used. Try a different one.</string>
+    <string name="media_err_grams">Grams must be between 1 and 3000.</string>
+    <string name="media_err_speech">Voice input failed. Type the description instead.</string>
+</resources>

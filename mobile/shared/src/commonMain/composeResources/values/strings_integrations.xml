@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="integ_title">Integrations</string>
+    <string name="integ_health_title">Health Connect</string>
+    <string name="integ_health_hint">Reads today’s steps from Health Connect on this device and adds them to your day. Nothing is written back.</string>
+    <string name="integ_health_unavailable">Health Connect is not available on this device. Install or update the Health Connect app, then come back.</string>
+    <string name="integ_health_connect">Allow step access</string>
+    <string name="integ_health_granted">Step access is on.</string>
+    <string name="integ_health_sync">Sync steps now</string>
+    <string name="integ_health_synced">Added %1$d steps for today.</string>
+    <string name="integ_health_no_steps">No steps recorded today in Health Connect.</string>
+    <string name="integ_strava_title">Strava</string>
+    <string name="integ_strava_hint">Imports your runs, rides and walks as cardio.</string>
+    <string name="integ_strava_unavailable">Strava is not set up on this server yet.</string>
+    <string name="integ_strava_disconnected">Not connected</string>
+    <string name="integ_strava_connect">Connect Strava</string>
+    <string name="integ_strava_opened">Finish the connection in your browser, then come back here.</string>
+    <string name="integ_strava_connected">Connected</string>
+    <string name="integ_strava_last_sync">Last sync: %1$s</string>
+    <string name="integ_strava_never_synced">Not synced yet</string>
+    <string name="integ_strava_last_error">The last sync failed. Try again.</string>
+    <string name="integ_strava_sync">Sync now</string>
+    <string name="integ_strava_synced">Imported %1$d activities.</string>
+    <string name="integ_strava_disconnect">Disconnect</string>
+</resources>

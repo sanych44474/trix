@@ -44,6 +44,19 @@ USDA_FDC_API_KEY=""
 # Guards the /admin/* routes. Use a long random string; anyone holding it is the operator.
 ADMIN_SECRET=""
 
+# --- Standalone app email sign-in ---
+# Generate a unique 32+ character random secret; set in production with `wrangler secret put AUTH_SECRET`.
+AUTH_SECRET=""
+# Google OAuth Web client ID used as the server audience for Android Credential Manager tokens.
+GOOGLE_CLIENT_ID=""
+# Resend API key and a verified sender address for one-time sign-in codes.
+RESEND_API_KEY=""
+AUTH_EMAIL_FROM="TRIX <login@example.com>"
+# Firebase service-account JSON (whole file, one line) for native-app push. Production:
+#   npx wrangler secret put FCM_SERVICE_ACCOUNT < C:/path/to/service-account.json
+# Keep the key file outside the repository.
+FCM_SERVICE_ACCOUNT=""
+
 # --- Monitoring ---
 # Healthchecks.io ping URL (https://hc-ping.com/<uuid>) -- external cron monitoring. Leave empty locally.
 HEALTHCHECK_PING_URL=""

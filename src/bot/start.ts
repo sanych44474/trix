@@ -15,6 +15,7 @@ import { langMenu } from "../adapters/telegram/keyboards";
 import { showNextBestAction } from "./nextBestAction";
 import { sendOnboardingPrompt } from "../notify/onboardingApp";
 import { sendLauncher } from "./launcher";
+import { promptTelegramLogin } from "./telegramLogin";
 import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 
 // Start (or restart) the deterministic button-based intake wizard (no per-turn AI).
@@ -44,6 +45,12 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
   const u = ctx.user;
   const lang = u.lang;
   const hi = u.profile.name ? `${escapeHtml(u.profile.name)}! ` : "";
+
+  // App sign-in link: ask first (telegramLogin.ts). Opening the link never signs anyone in.
+  if (payload?.startsWith("login_")) {
+    await promptTelegramLogin(ctx, payload.slice(6));
+    return;
+  }
 
   // Deep link to a shared program → preview + "take it".
   if (payload?.startsWith("prog_")) {

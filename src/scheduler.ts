@@ -1,5 +1,7 @@
 import { Bot, } from "grammy";
 import { botClientOptions } from "./adapters/telegram/rawApi";
+import { hasTelegramChat } from "./domain/delivery";
+import { hasPushDevice } from "./adapters/d1/v2Push";
 import { deliverDueNotifications } from "./schedulerOutbox";
 import { ALL_NOTIFICATIONS } from "./adapters/d1/v2Notifications";
 import { isDurable, notify, pingOther } from "./notify";
@@ -404,9 +406,14 @@ export async function buildSinglePass(db: D1Database, userId: number): Promise<S
 export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: SharedPass) {
   const db = env.DB;
   const lang = user.lang;
-  // Owner-banned or bot-blocked users are skipped entirely — no point sending into a dead chat,
-  // and it stops the every-minute 403 retry loop.
-  if (user.blocked || user.botBlocked) return;
+  // Owner-banned users are skipped, and so is anyone we can't reach: no Telegram chat (blocked the
+  // bot, or an email / Google account) and no native-app push device. That stops the every-minute
+  // 403 retry loop without dropping the people who only use the app.
+  if (user.blocked) return;
+  const telegram = hasTelegramChat(user);
+  if (!telegram && !(await hasPushDevice(db, user._id).catch(() => false))) return;
+  // chatId 0 routes the outbox to push (schedulerOutbox.ts attemptPush).
+  const reachChatId = telegram ? user.chatId : 0;
   // On vacation → don't disturb (no reminders/nudges) until it ends.
   if (user.vacationUntil && user.vacationUntil > new Date()) return;
   // No timezone set → reminders would fire on the UTC clock (~3h late for UA users → at night).
@@ -427,7 +434,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
     // defense in depth against a double-enqueue, not the primary dedup (that's the cutover
     // mutual-exclusion flag, durable/cutover.ts, which decides whether this call happens at all).
     const idempotencyKey = `${date}:${text.slice(0, 200)}`;
-    const result = await notify(env, bot, { userId: user._id, chatId: user.chatId }, {
+    const result = await notify(env, bot, { userId: user._id, chatId: reachChatId }, {
       kind: "reminder",
       key: idempotencyKey,
       text,

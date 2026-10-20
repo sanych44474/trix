@@ -11,6 +11,9 @@ import { claimNotification, dueNotifications, enqueueNotification, notifications
 import { updateUser } from "./adapters/d1/v2Users";
 import { classifySendError } from "./domain/notificationDelivery";
 import type { Env } from "./types";
+import { deletePushTokens, listPushTokens } from "./adapters/d1/v2Push";
+import { sendPush } from "./adapters/fcm/fcm";
+import { pushParts } from "./domain/plainText";
 
 export interface OutboxSender {
   api: { sendMessage: Bot["api"]["sendMessage"] };
@@ -20,7 +23,37 @@ export interface OutboxSender {
 // the dedup sense -- the event is handled, it must not be retried every tick.
 export type DeliveryResult = "sent" | "blocked" | "retrying" | "failed" | "duplicate" | "muted";
 
-async function attemptDelivery(db: D1Database, bot: OutboxSender, row: OutboxRow): Promise<DeliveryResult> {
+// An account with no Telegram chat (chatId <= 0: email / Google sign-in, or the bot blocked) is
+// reached through the native app's push tokens instead. Same outcomes as a Telegram send: sent,
+// retried with backoff, or failed for good (no device left).
+async function attemptPush(env: Env, row: OutboxRow): Promise<DeliveryResult> {
+  const db = env.DB;
+  const tokens = await listPushTokens(db, row.userId);
+  if (!tokens.length) {
+    await markPermanentFailure(db, row.id, "failed", "no_channel");
+    return "failed";
+  }
+  const msg = { ...pushParts(row.payload.text, "Hack Limits"), data: { kind: row.kind } };
+  const results = await Promise.all(tokens.map((t) => sendPush(env, t, msg)));
+  await deletePushTokens(db, tokens.filter((_, i) => results[i] === "unregistered").map((t) => t.token)).catch(() => {});
+  if (results.includes("sent")) {
+    await markSent(db, row.id);
+    return "sent";
+  }
+  if (results.includes("retry")) {
+    const outcome = classifySendError({}, row.attempts);
+    if (outcome.kind === "retry") {
+      await markRetry(db, row.id, row.attempts + 1, outcome.nextAttemptAt, "push_retry");
+      return "retrying";
+    }
+  }
+  await markPermanentFailure(db, row.id, "failed", results.every((r) => r === "unregistered") ? "no_channel" : "push_failed");
+  return "failed";
+}
+
+async function attemptDelivery(env: Env, bot: OutboxSender, row: OutboxRow): Promise<DeliveryResult> {
+  const db = env.DB;
+  if (row.chatId <= 0) return attemptPush(env, row);
   try {
     await bot.api.sendMessage(row.chatId, row.payload.text, row.payload.extra as Parameters<Bot["api"]["sendMessage"]>[2]);
     await markSent(db, row.id);
@@ -70,7 +103,7 @@ export async function enqueueAndDeliver(
     notBefore: leaseUntil(),
   });
   if (id === null) return "duplicate"; // already enqueued (and already attempted or in flight)
-  return attemptDelivery(db, bot, { id, userId: args.userId, chatId: args.chatId, kind: args.kind, attempts: 0, payload: { text: args.text, extra: args.extra } });
+  return attemptDelivery(env, bot, { id, userId: args.userId, chatId: args.chatId, kind: args.kind, attempts: 0, payload: { text: args.text, extra: args.extra } });
 }
 
 /** The retry sweep — rows a previous attempt backed off, now due. Runs once per cron tick
@@ -88,7 +121,7 @@ export async function deliverDueNotifications(env: Env, bot: OutboxSender, limit
       await markPermanentFailure(db, row.id, "failed", "muted");
       continue;
     }
-    const outcome = await attemptDelivery(db, bot, row);
+    const outcome = await attemptDelivery(env, bot, row);
     if (outcome === "sent") sent++;
     else if (outcome === "retrying") retrying++;
     else if (outcome === "blocked" || outcome === "failed") failed++;

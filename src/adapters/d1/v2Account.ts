@@ -3,7 +3,7 @@
 // what the statements below clear. When a new table gets an accountId/userId/trainerId/clientId/
 // ownerId column, add it here (test/delete-user-data-coverage.test.ts enforces it).
 import type { Env } from "../../types";
-import { r2Key } from "../r2/photoStorage";
+import { deleteStoredPhotos, r2Key } from "../r2/photoStorage";
 import { logError } from "../../log";
 import { nowIso } from "./shared";
 import { deactivateActivePlan } from "./v2Plans";
@@ -22,7 +22,10 @@ export async function deleteUserData(env: Env, userId: number): Promise<void> {
   // Best-effort: an R2 outage must not block the rest of GDPR erasure, but it must not go unlogged
   // either, or an orphaned photo becomes invisible instead of merely rare.
   if (env.R2_PHOTOS) {
-    const photoRows = await db.prepare("SELECT id FROM v2_progress_photos WHERE accountId = ?").bind(userId).all<{ id: number }>();
+    const photoRows = await db.prepare("SELECT id, objectKey FROM v2_progress_photos WHERE accountId = ?").bind(userId).all<{ id: number; objectKey: string | null }>();
+    // Uploaded originals (objectKey) are the only copy; the cache entries are addressed by id.
+    const stored = (photoRows.results ?? []).flatMap((r) => (r.objectKey ? [r.objectKey] : []));
+    await deleteStoredPhotos(env, stored).catch((e) => logError("delete_user_data_r2", e, { userId, keys: stored.length }));
     const keys = (photoRows.results ?? []).map((r) => r2Key(r.id));
     for (let i = 0; i < keys.length; i += 1000) {
       // R2 batch delete caps at 1000 keys per call (photoStorage.ts's enforceStorageBudget uses

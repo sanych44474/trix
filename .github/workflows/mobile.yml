@@ -1,0 +1,67 @@
+name: Mobile
+
+# Android app build and tests (Kotlin Multiplatform, in mobile/). Runs on pull requests that touch
+# mobile/ or this file, and can be started by hand from the Actions tab. It runs the shared module's
+# unit tests on the JVM, the Android lint check and a debug APK build, then uploads the test results
+# and the lint report as downloadable artifacts (kept 7 days) so a failure can be read without
+# re-running the job.
+#
+# No secrets are used and no live service is contacted. The app's API base URL is a placeholder
+# (https://ci.invalid, which never resolves) because the build requires the property to be set; the
+# debug APK built here is never installed or shipped. google-services.json is not needed in CI, so
+# it is not provided.
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android build and tests
+    # Pinned rather than ubuntu-latest, matching ci.yml, so a runner image change is a deliberate edit.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Restores and saves the Gradle caches (wrapper, dependencies, build cache) between runs.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      # The wrapper script is committed without its executable bit, so set it on the runner.
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Test, lint and build debug APK
+        run: ./gradlew --no-daemon -Phacklimits.apiBaseUrl=https://ci.invalid :shared:testAndroidHostTest :androidApp:lintDebug :androidApp:assembleDebug
+
+      - name: Upload test results and lint report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-test-and-lint-reports
+          retention-days: 7
+          path: |
+            mobile/shared/build/test-results/**
+            mobile/androidApp/build/reports/lint-results-debug.html

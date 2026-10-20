@@ -172,6 +172,8 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
     handlerReq = new Request(req, { headers });
   }
 
+  // A file download (the data export) is the response itself, not JSON to wrap in { data }.
+  let attachment: Response | null = null;
   const run = async (): Promise<{ status: number; body: unknown }> => {
     let response: Response;
     try {
@@ -183,12 +185,17 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
     if (response.status >= 500 && !response.headers.has(ERROR_RECORDED_HEADER)) {
       await recordError(env.DB, { userId: actor?._id, kind: surfaceKind(url.pathname), errorType: "exception", message: `HTTP ${response.status}` }).catch(() => {});
     }
+    if (response.ok && /^attachment/i.test(response.headers.get("content-disposition") ?? "")) {
+      attachment = response;
+      return { status: response.status, body: null };
+    }
     return { status: response.status, body: await jsonBody(response) };
   };
   const result = holdsClaim
     ? await runIdempotent(env.DB, actor!._id, idempotencyKey, run, { windowHours: idempotencyWindowHours(req.method, url.pathname) })
     : await run();
 
+  if (attachment) return attachment;
   const body = result.body;
   if (result.status >= 400) {
     const legacyError = body && typeof body === "object"
