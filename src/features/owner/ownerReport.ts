@@ -14,6 +14,8 @@ import { planStatusByUser } from "../../adapters/d1/v2Plans";
 import { countClientsOf, listTrainerUsers, pendingRequestsAll, pendingTrainerApplications } from "../../adapters/d1/v2Trainer";
 import { getUser, listChurnedUsers, listOnboardingUsers, listPlanPendingUsers, nonOnboardedByMode } from "../../adapters/d1/v2Users";
 import { weekStartStr } from "../../domain/records";
+import { computeFunnel, type FunnelAccount, type FunnelStep } from "../../domain/funnel";
+import { funnelAccounts } from "../../adapters/d1/funnel";
 import { biggestDrop, cohortRetention, RETENTION_WEEKS } from "../../domain/cohorts";
 import { escapeHtml } from "../../locales/i18n";
 import { splitKeys } from "../../ai/errors";
@@ -235,9 +237,32 @@ export async function orTrainers(db: D1Database): Promise<string> {
 }
 
 // 🚧 Onboarding & churn: who is mid-interview / stuck / generating, and who went quiet.
+const FUNNEL_LABEL: Record<FunnelStep, string> = {
+  signup: "Signed up",
+  started: "Started onboarding",
+  onboarded: "Finished onboarding",
+  plan: "Plan activated",
+  workout1: "1st workout",
+  workout2_7d: "2nd within 7 days",
+};
+
+/** Signup -> second workout, for the last 30 days' signups and for every account. */
+export function funnelSection(accounts: FunnelAccount[], since30Date: string): string[] {
+  if (!accounts.length) return [];
+  const recent = computeFunnel(accounts.filter((a) => a.signupDate >= since30Date));
+  const all = computeFunnel(accounts);
+  const cell = (f: ReturnType<typeof computeFunnel>, i: number) =>
+    f.counts[0] ? `${f.counts[i]} (${Math.round((f.counts[i] / f.counts[0]) * 100)}%)` : "0";
+  const rows = (Object.keys(FUNNEL_LABEL) as FunnelStep[]).map((step, i) => [FUNNEL_LABEL[step], cell(recent, i), cell(all, i)]);
+  const days = (f: ReturnType<typeof computeFunnel>) => (f.medianDaysToFirstWorkout === null ? "-" : `${f.medianDaysToFirstWorkout} d`);
+  rows.push(["Median to 1st workout", days(recent), days(all)]);
+  return ["🎯 <b>Signup → first workout</b>", monoTable(["Step", "30 d", "All"], rows), ""];
+}
+
 export async function orOnboarding(db: D1Database, snapshot?: OwnerSnapshot): Promise<string> {
-  const { since7Iso, since14Iso } = ownerReportWindows();
-  const [onboarding, planPending, churned, byMode] = await Promise.all([
+  const { since7Iso, since14Iso, since30Iso } = ownerReportWindows();
+  const [funnel, onboarding, planPending, churned, byMode] = await Promise.all([
+    funnelAccounts(db).catch(() => [] as FunnelAccount[]),
     listOnboardingUsers(db).catch(() => []),
     // Far-future cutoff → every plan-generation-stage user, not just stale ones.
     listPlanPendingUsers(db, new Date(Date.now() + 86_400_000).toISOString()).catch(() => []),
@@ -292,7 +317,8 @@ export async function orOnboarding(db: D1Database, snapshot?: OwnerSnapshot): Pr
     lines.push("", `📉 <b>Churn risk (${churned.length})</b> — silent 7-14d`);
     lines.push(churned.map((c) => escapeHtml(c.name || `id ${c.id}`)).join(", "));
   }
-  return lines.length ? lines.join("\n") : "🚧 <b>Onboarding & churn</b>\nAll clear.";
+  const body = lines.length ? lines.join("\n") : "🚧 <b>Onboarding & churn</b>\nAll clear.";
+  return [...funnelSection(funnel, since30Iso.slice(0, 10)), body].join("\n");
 }
 
 // 🐞 Errors, progression activity, and the recent admin audit trail.
