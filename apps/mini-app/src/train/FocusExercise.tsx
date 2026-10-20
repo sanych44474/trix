@@ -5,7 +5,7 @@
 // back doesn't lose them. Less frequent actions open from the top bar's "more" button.
 import { TechniqueFrames } from "./TechniqueFrames";
 import { FormCheck } from "../media/FormCheck";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState, type KeyboardEvent } from "react";
 import { musclesForExercise } from "../logic/exerciseMuscles";
 import { t, type Lang } from "../i18n";
 import type { RestPrefs } from "../logic/rest";
@@ -59,8 +59,11 @@ type Main = "reps" | "seconds" | "meters";
 const mainField = (metric: LoggerExercise["metric"]): Main => metric === "time" ? "seconds" : metric === "distance" ? "meters" : "reps";
 const fmt = (lang: Lang, n: number) => { const s = String(Math.round(n * 100) / 100); return lang === "uk" ? s.replace(".", ",") : s; };
 
-/** What a set should be: today's progression target, else the plan's numbers. */
+/** What a set should be: the numbers "Repeat last" put in, else today's progression target, else
+ *  the plan's numbers. */
 export function suggestion(exercise: LoggerExercise, setIndex: number): LoggerSet {
+  const repeated = exercise.prefill?.[Math.min(setIndex, exercise.prefill.length - 1)];
+  if (repeated) return { ...repeated };
   const planned = plannedSetsFor(exercise);
   const base = planned[Math.min(setIndex, planned.length - 1)] ?? planned[0];
   if (exercise.metric === "reps" && exercise.target) return { ...base, weight: exercise.target.w, reps: exercise.target.r };
@@ -85,6 +88,7 @@ export function FocusExercise(props: FocusExerciseProps) {
   const firstOpen = Array.from({ length: rows }, (_, i) => i).find((i) => !done(i));
   const editing = draft && draft.row < rows ? draft : null;
   const [rpeOpen, setRpeOpen] = useState(false);
+  const mainInput = useRef<HTMLInputElement>(null);
 
   const seed = (i: number): LoggerSet => (done(i) ? { ...sets[i] } : { ...suggestion(exercise, i), ...(sets[i]?.weight ? { weight: sets[i].weight } : {}) });
   const commit = (i: number, value: LoggerSet) => {
@@ -103,6 +107,16 @@ export function FocusExercise(props: FocusExerciseProps) {
     if (!editing) return;
     props.onDraft({ row: editing.row, set: { ...editing.set, [field]: Number(raw.replace(",", ".")) || 0 }, text: { ...editing.text, [field]: raw } });
   };
+  // The keyboard's Enter: from the load field it moves to reps, from reps it logs the set -- the
+  // same as the check. The inputs are not in a form and say they are not credentials: a weight
+  // and a reps field that vanish on "done" read to Android's password manager as a login.
+  const onEnter = (field: "weight" | Main) => (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter" || !editing) return;
+    e.preventDefault();
+    if (field === "weight") mainInput.current?.focus();
+    else commit(editing.row, editing.set);
+  };
+  const noAutofill = { autoComplete: "off", autoCorrect: "off", spellCheck: false, "data-lpignore": "true", "data-1p-ignore": "true", "data-form-type": "other" } as const;
   const unitMain = main === "reps" ? "" : main === "seconds" ? t(lang, "ph_sec") : t(lang, "ph_m");
   const mainHead = main === "reps" ? t(lang, "field_reps") : main === "seconds" ? t(lang, "field_seconds") : t(lang, "field_meters");
   const target = exercise.planSets ? `${exercise.planSets}${exercise.planWeight && exercise.planWeight !== "—" ? ` · ${exercise.planWeight}` : ""}` : t(lang, "exercise_sets_line", { n: exercise.sets, detail: reps ? t(lang, "controlled_reps") : t(lang, "measured_effort") });
@@ -178,8 +192,8 @@ export function FocusExercise(props: FocusExerciseProps) {
             return (
               <div key={i} className="set-row-v2 editing" role="row">
                 <span className="set-n">{i + 1}</span>
-                {reps && <label className="set-field"><input type="text" inputMode="decimal" aria-label={t(lang, "field_load")} value={editing.text?.weight ?? fmt(lang, v.weight ?? 0)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => type("weight", e.target.value)} /><span>{t(lang, "ph_kg")}</span></label>}
-                <label className="set-field"><input type="text" inputMode={main === "meters" ? "decimal" : "numeric"} aria-label={mainHead} value={editing.text?.[main] ?? fmt(lang, v[main] ?? 0)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => type(main, e.target.value)} />{unitMain && <span>{unitMain}</span>}</label>
+                {reps && <label className="set-field"><input type="text" inputMode="decimal" name="set-load" enterKeyHint="next" {...noAutofill} onKeyDown={onEnter("weight")} aria-label={t(lang, "field_load")} value={editing.text?.weight ?? fmt(lang, v.weight ?? 0)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => type("weight", e.target.value)} /><span>{t(lang, "ph_kg")}</span></label>}
+                <label className="set-field"><input ref={mainInput} type="text" inputMode={main === "meters" ? "decimal" : "numeric"} name={`set-${main}`} enterKeyHint="done" {...noAutofill} onKeyDown={onEnter(main)} aria-label={mainHead} value={editing.text?.[main] ?? fmt(lang, v[main] ?? 0)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => type(main, e.target.value)} />{unitMain && <span>{unitMain}</span>}</label>
                 <button type="button" className="set-ok primary" disabled={!(v[main] ?? 0)} onClick={() => commit(i, v)} aria-label={t(lang, "set_done_btn")}><Icon name="check" /></button>
               </div>
             );
