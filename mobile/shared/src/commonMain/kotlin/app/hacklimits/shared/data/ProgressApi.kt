@@ -82,7 +82,7 @@ data class Records(val records: List<Record> = emptyList(), val badges: List<Bad
 @Serializable private data class ProfilePhotos(val photos: List<PhotoRef> = emptyList())
 
 /** One planned training day from GET /api/v2/plan (only what the body map's picker needs). */
-@Serializable data class PlanDay(
+@Serializable data class TrainingPlanDay(
     val weekday: Int,
     val name: String? = null,
     val muscleGroup: String? = null,
@@ -90,7 +90,7 @@ data class Records(val records: List<Record> = emptyList(), val badges: List<Bad
 ) {
     @Serializable data class PlanExercise(val name: String)
 }
-@Serializable private data class PlanPayload(val days: List<PlanDay> = emptyList())
+@Serializable private data class PlanPayload(val days: List<TrainingPlanDay> = emptyList())
 
 /** GET /api/v2/workout/today?date=: what was logged on a past day. */
 @Serializable data class DayWorkout(val saved: List<SavedExercise> = emptyList()) {
@@ -102,7 +102,7 @@ class ProgressApi(private val api: ApiClient) {
 
     suspend fun records(): Records = api.unwrap(api.http.get("api/v2/records") { api.authorize(this) })
 
-    suspend fun plan(): List<PlanDay> = api.unwrap<PlanPayload>(api.http.get("api/v2/plan") { api.authorize(this) }).days
+    suspend fun plan(): List<TrainingPlanDay> = api.unwrap<PlanPayload>(api.http.get("api/v2/plan") { api.authorize(this) }).days
 
     suspend fun dayWorkout(date: String): DayWorkout = api.unwrap(api.http.get("api/v2/workout/today") {
         api.authorize(this)

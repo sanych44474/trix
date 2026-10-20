@@ -1,7 +1,7 @@
 package app.hacklimits.shared.progress.body
 
 import androidx.compose.ui.graphics.Color
-import app.hacklimits.shared.data.PlanDay
+import app.hacklimits.shared.data.TrainingPlanDay
 import app.hacklimits.shared.progress.muscle.ExerciseMuscles
 
 // Body-map data: which muscles each selection colours, and the exercise picker's groups.
@@ -52,7 +52,7 @@ data class PickerGroup(
 )
 
 /** The body map's exercise dropdown: the plan's exercises grouped by training day, then recent extras. Each name appears once. */
-fun pickerGroups(days: List<PlanDay>, recent: List<String>): List<PickerGroup> {
+fun pickerGroups(days: List<TrainingPlanDay>, recent: List<String>): List<PickerGroup> {
     val seen = mutableSetOf<String>()
     fun take(name: String): Boolean {
         val key = name.trim().lowercase()

@@ -8,7 +8,7 @@ import app.hacklimits.shared.data.GroceryLine
 import app.hacklimits.shared.data.MealPlan
 import app.hacklimits.shared.data.NutritionApi
 import app.hacklimits.shared.data.NutritionDay
-import app.hacklimits.shared.data.PlanDay
+import app.hacklimits.shared.data.MealPlanDay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -281,7 +281,7 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
         planAct { api.planItemDelete(ref.dayIndex, ref.mealIndex, ref.itemIndex, key()) }
     }
 
-    private fun planAct(block: suspend () -> List<PlanDay>) {
+    private fun planAct(block: suspend () -> List<MealPlanDay>) {
         if (_state.value.busy) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, actionError = null) }
@@ -318,7 +318,7 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
         }
     }
 
-    private fun NutritionDay?.withPlan(days: List<PlanDay>): NutritionDay? = this?.copy(mealPlan = MealPlan(days))
+    private fun NutritionDay?.withPlan(days: List<MealPlanDay>): NutritionDay? = this?.copy(mealPlan = MealPlan(days))
 
     private fun key() = Uuid.random().toString()
 }

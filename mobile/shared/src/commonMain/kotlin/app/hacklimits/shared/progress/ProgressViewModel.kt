@@ -7,7 +7,7 @@ import app.hacklimits.shared.data.ApiException
 import app.hacklimits.shared.data.DashboardApi
 import app.hacklimits.shared.data.DayWorkout
 import app.hacklimits.shared.data.PhotoRef
-import app.hacklimits.shared.data.PlanDay
+import app.hacklimits.shared.data.TrainingPlanDay
 import app.hacklimits.shared.data.ProgressApi
 import app.hacklimits.shared.data.ProgressDashboard
 import app.hacklimits.shared.data.Records
@@ -49,7 +49,7 @@ class ProgressViewModel(
         val error: String? = null,
         val data: ProgressDashboard? = null,
         val records: Records = Records(),
-        val planDays: List<PlanDay> = emptyList(),
+        val planDays: List<TrainingPlanDay> = emptyList(),
         val photos: List<PhotoRef> = emptyList(),
         val bearer: String? = null,
         val section: ProgressSection = ProgressSection.TRAIN,

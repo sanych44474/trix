@@ -14,7 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import app.hacklimits.shared.data.PlanDay
+import app.hacklimits.shared.data.TrainingPlanDay
 import app.hacklimits.shared.progress.muscle.ExerciseMuscles
 import app.hacklimits.shared.progress.muscle.LoggedDay
 import app.hacklimits.shared.progress.muscle.MuscleRecovery
@@ -91,7 +91,7 @@ fun BodyMapCard(
     male: Boolean,
     logs: List<LoggedDay>,
     today: String,
-    planDays: List<PlanDay>,
+    planDays: List<TrainingPlanDay>,
     recentNames: List<String>,
     uk: Boolean,
     lookup: (String) -> ExerciseMuscles? = ::musclesForExercise,

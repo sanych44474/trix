@@ -41,8 +41,8 @@ data class NutritionDay(
 }
 
 /** The generated meal-plan template: days -> meals -> items (openapi `MealPlanDay`). */
-@Serializable data class MealPlan(val days: List<PlanDay> = emptyList())
-@Serializable data class PlanDay(val label: String, val meals: List<PlanMeal> = emptyList())
+@Serializable data class MealPlan(val days: List<MealPlanDay> = emptyList())
+@Serializable data class MealPlanDay(val label: String, val meals: List<PlanMeal> = emptyList())
 @Serializable data class PlanMeal(val name: String, val items: List<PlanItem> = emptyList())
 @Serializable data class PlanItem(val food: String, val grams: Double = 0.0)
 
@@ -53,7 +53,7 @@ data class NutritionDay(
 }
 
 @Serializable private data class FoodSearch(val items: List<FoodItem> = emptyList())
-@Serializable private data class PlanDays(val days: List<PlanDay> = emptyList())
+@Serializable private data class PlanDays(val days: List<MealPlanDay> = emptyList())
 @Serializable private data class Advice(val text: String = "")
 @Serializable private data class GroceryList(val lines: List<GroceryLine> = emptyList())
 
@@ -88,6 +88,7 @@ class NutritionApi(private val api: ApiClient) {
     suspend fun logText(text: String, key: String) {
         val result = api.unwrap<JsonElement>(api.http.post("api/v2/log") {
             api.authorize(this)
+            aiTimeout()
             header("Idempotency-Key", key)
             contentType(ContentType.Application.Json)
             setBody(buildJsonObject { put("kind", "food"); put("text", text.take(500)) })
@@ -105,23 +106,23 @@ class NutritionApi(private val api: ApiClient) {
     /** Sends the grocery list to the viewer's Telegram chat (409 no_telegram_chat when there is none). */
     suspend fun grocerySend(days: Int, key: String) = act(key, buildJsonObject { put("action", "grocery_send"); put("days", days) })
 
-    suspend fun regenerateMealPlan(key: String): List<PlanDay> =
+    suspend fun regenerateMealPlan(key: String): List<MealPlanDay> =
         api.unwrap<PlanDays>(post(key, buildJsonObject { put("action", "mealplan_regen") })).days
 
-    suspend fun planItemDelete(day: Int, meal: Int, item: Int, key: String): List<PlanDay> =
+    suspend fun planItemDelete(day: Int, meal: Int, item: Int, key: String): List<MealPlanDay> =
         planItem(key, buildJsonObject { put("action", "mealplan_item_del"); planRef(day, meal, item) })
 
-    suspend fun planItemScale(day: Int, meal: Int, item: Int, factor: Double, key: String): List<PlanDay> =
+    suspend fun planItemScale(day: Int, meal: Int, item: Int, factor: Double, key: String): List<MealPlanDay> =
         planItem(key, buildJsonObject { put("action", "mealplan_item_scale"); planRef(day, meal, item); put("factor", factor) })
 
-    suspend fun planItemGrams(day: Int, meal: Int, item: Int, grams: Double, key: String): List<PlanDay> =
+    suspend fun planItemGrams(day: Int, meal: Int, item: Int, grams: Double, key: String): List<MealPlanDay> =
         planItem(key, buildJsonObject { put("action", "mealplan_item_grams"); planRef(day, meal, item); put("grams", grams) })
 
     private fun kotlinx.serialization.json.JsonObjectBuilder.planRef(day: Int, meal: Int, item: Int) {
         put("dayIndex", day); put("mealIndex", meal); put("itemIndex", item)
     }
 
-    private suspend fun planItem(key: String, body: JsonObject): List<PlanDay> = api.unwrap<PlanDays>(post(key, body)).days
+    private suspend fun planItem(key: String, body: JsonObject): List<MealPlanDay> = api.unwrap<PlanDays>(post(key, body)).days
 
     private suspend fun act(key: String, body: JsonObject) { api.unwrap<JsonElement>(post(key, body)) }
 

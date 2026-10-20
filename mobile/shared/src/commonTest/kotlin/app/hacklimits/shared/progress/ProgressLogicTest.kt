@@ -1,7 +1,7 @@
 package app.hacklimits.shared.progress
 
 import app.hacklimits.shared.data.PhotoRef
-import app.hacklimits.shared.data.PlanDay
+import app.hacklimits.shared.data.TrainingPlanDay
 import app.hacklimits.shared.data.ProgressDashboard
 import app.hacklimits.shared.progress.body.dayMuscles
 import app.hacklimits.shared.progress.body.pickerGroups
@@ -97,8 +97,8 @@ class ProgressLogicTest {
     @Test
     fun pickerGroupsListEachNameOnceUnderItsDay() {
         val plan = listOf(
-            PlanDay(weekday = 3, muscleGroup = "Push", exercises = listOf(PlanDay.PlanExercise("Bench press"), PlanDay.PlanExercise("Squat"))),
-            PlanDay(weekday = 1, name = "Pull", exercises = listOf(PlanDay.PlanExercise("Row"))),
+            TrainingPlanDay(weekday = 3, muscleGroup = "Push", exercises = listOf(TrainingPlanDay.PlanExercise("Bench press"), TrainingPlanDay.PlanExercise("Squat"))),
+            TrainingPlanDay(weekday = 1, name = "Pull", exercises = listOf(TrainingPlanDay.PlanExercise("Row"))),
         )
         val groups = pickerGroups(plan, recent = listOf("squat", "Curl"))
         assertEquals(listOf(1, 3, null), groups.map { it.weekday })

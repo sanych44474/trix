@@ -25,6 +25,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import app.hacklimits.shared.coach.CoachScreen
+import app.hacklimits.shared.plan.ExerciseLibraryScreen
+import app.hacklimits.shared.plan.InjuriesScreen
+import app.hacklimits.shared.programs.ProgramsScreen
 import app.hacklimits.shared.integrations.IntegrationsScreen
 import app.hacklimits.shared.media.MealPhotoScreen
 import app.hacklimits.shared.social.SocialScreen
@@ -77,6 +80,9 @@ import org.koin.compose.viewmodel.koinViewModel
 @Serializable object MealPhotoRoute
 @Serializable object TrainerClientsRoute
 @Serializable object TrainerBusinessRoute
+@Serializable object ExerciseLibraryRoute
+@Serializable object ProgramsRoute
+@Serializable object InjuriesRoute
 
 /** A bottom-bar tab: its route, label and icon. Full-screen flows (workout, plan, questionnaire)
  * open above the tabs without the bar. */
@@ -153,6 +159,8 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                             onStartWorkout = { nav.navigate(LoggerRoute) },
                             onOpenPlan = { nav.navigate(PlanRoute()) },
                             onStartQuestionnaire = { nav.navigate(OnboardingRoute) },
+                            onOpenTraining = { nav.navigate(LoggerRoute) },
+                            onAskCoach = { nav.navigate(CoachRoute) },
                         )
                     }
                     composable<FoodRoute> { NutritionScreen(koinViewModel(), onOpenMealPhoto = { nav.navigate(MealPhotoRoute) }) }
@@ -184,8 +192,14 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                         PlanScreen(
                             koinViewModel(parameters = { if (clientId > 0) parametersOf(clientId) else parametersOf() }),
                             onClose = { nav.popBackStack() },
+                            onOpenLibrary = { nav.navigate(ExerciseLibraryRoute) },
                         )
                     }
+                    composable<ExerciseLibraryRoute> { ExerciseLibraryScreen(koinViewModel(), onBack = { nav.popBackStack() }) }
+                    composable<ProgramsRoute> {
+                        ProgramsScreen(koinViewModel(), onBack = { nav.popBackStack() }, onApplied = { nav.popBackStack() })
+                    }
+                    composable<InjuriesRoute> { InjuriesScreen(koinViewModel(), onBack = { nav.popBackStack() }) }
                     composable<CoachRoute> { CoachScreen(onBack = { nav.popBackStack() }) }
                     composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }) }
                     composable<IntegrationsRoute> {

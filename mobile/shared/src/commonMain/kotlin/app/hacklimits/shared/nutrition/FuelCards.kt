@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import app.hacklimits.shared.data.FoodItem
 import app.hacklimits.shared.data.GroceryLine
 import app.hacklimits.shared.data.NutritionDay
-import app.hacklimits.shared.data.PlanDay
+import app.hacklimits.shared.data.MealPlanDay
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
 import app.hacklimits.shared.today.formatDecimal
@@ -301,7 +301,7 @@ private fun NumberField(label: String, value: String, modifier: Modifier, onValu
 /** The generated meal plan: days -> meals -> items, each item editable in place. */
 @Composable
 internal fun PlanCard(
-    days: List<PlanDay>,
+    days: List<MealPlanDay>,
     editing: NutritionViewModel.PlanItemRef?,
     planGrams: String,
     busy: Boolean,

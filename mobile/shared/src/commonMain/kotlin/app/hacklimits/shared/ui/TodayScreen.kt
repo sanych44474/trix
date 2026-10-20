@@ -61,6 +61,8 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import app.hacklimits.shared.plan.FineTuneApi
+import app.hacklimits.shared.plan.FineTuneCard
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -253,12 +255,12 @@ private fun ListRow(label: String, expanded: Boolean?, onClick: () -> Unit, trai
     }
 }
 
-// WIRING NEEDED: the fine-tune card belongs to the plan slice (app.hacklimits.shared.plan.FineTuneCard).
-// Replace this body with FineTuneCard(lang, gaps, onSaved) once that slice is merged; it is shown only
-// while profile gaps exist (d.viewer.profileGaps is not empty).
+/** Shown only while the profile still has gaps (d.viewer.profileGaps). */
 @Composable
 private fun FineTuneSlot(gaps: List<String>, onSaved: () -> Unit) {
     if (gaps.isEmpty()) return
+    val api = koinInject<FineTuneApi>()
+    FineTuneCard(gaps = gaps, onSave = api::save, onSaved = onSaved)
 }
 
 // WIRING NEEDED: the "what's new" card belongs to its own slice. Replace this body with the card for
