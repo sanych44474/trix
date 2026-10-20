@@ -35,7 +35,7 @@ async function attemptPush(env: Env, row: OutboxRow): Promise<DeliveryResult> {
   }
   const msg = { ...pushParts(row.payload.text, "Hack Limits"), data: { kind: row.kind } };
   const results = await Promise.all(tokens.map((t) => sendPush(env, t, msg)));
-  await deletePushTokens(db, tokens.filter((_, i) => results[i] === "unregistered")).catch(() => {});
+  await deletePushTokens(db, tokens.filter((_, i) => results[i] === "unregistered").map((t) => t.token)).catch(() => {});
   if (results.includes("sent")) {
     await markSent(db, row.id);
     return "sent";

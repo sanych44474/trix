@@ -48,9 +48,11 @@ async function accessToken(sa: ServiceAccount): Promise<string | null> {
   return body.access_token;
 }
 
-/** One message to one device. "unregistered" = drop the token; "retry" = rate limit or Google-side
+/** "unregistered" = drop the address; "retry" = rate limit or Google-side
  * error; "failed" = not configured or rejected for good. Never throws. */
-export async function sendPush(env: Pick<Env, "FCM_SERVICE_ACCOUNT">, token: string, msg: PushMessage): Promise<PushResult> {
+/** One message to one device. A Firebase Installation ID goes in `fid` (FCM 25.1+, as the Firebase
+ * Admin SDK sends it), a legacy registration token in `token`. */
+export async function sendPush(env: Pick<Env, "FCM_SERVICE_ACCOUNT">, target: { token: string; kind?: "token" | "fid" }, msg: PushMessage): Promise<PushResult> {
   const sa = parseServiceAccount(env.FCM_SERVICE_ACCOUNT);
   if (!sa) return "failed";
   try {
@@ -61,7 +63,7 @@ export async function sendPush(env: Pick<Env, "FCM_SERVICE_ACCOUNT">, token: str
       headers: { authorization: `Bearer ${oauth}`, "content-type": "application/json" },
       body: JSON.stringify({
         message: {
-          token,
+          ...(target.kind === "fid" ? { fid: target.token } : { token: target.token }),
           notification: { title: msg.title, body: msg.body },
           ...(msg.data ? { data: msg.data } : {}),
           android: { priority: "high", notification: { channel_id: "reminders" } },

@@ -23,7 +23,7 @@ async function serviceAccount() {
 /** Stub Google: the OAuth exchange and FCM send. `fcm` decides each send's HTTP outcome by token. */
 function stubGoogle(fcm: (token: string) => Response) {
   const real = globalThis.fetch;
-  const sent: Array<{ token: string; title: string; body: string }> = [];
+  const sent: Array<{ token: string; field: string; title: string; body: string }> = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url === "https://oauth2.googleapis.com/token") {
@@ -34,9 +34,10 @@ function stubGoogle(fcm: (token: string) => Response) {
     }
     if (url === "https://fcm.googleapis.com/v1/projects/hl-test/messages:send") {
       assert.equal(new Headers(init?.headers).get("authorization"), "Bearer ya29.test");
-      const { message } = JSON.parse(String(init?.body)) as { message: { token: string; notification: { title: string; body: string } } };
-      sent.push({ token: message.token, ...message.notification });
-      return fcm(message.token);
+      const { message } = JSON.parse(String(init?.body)) as { message: { token?: string; fid?: string; notification: { title: string; body: string } } };
+      const address = message.fid ?? message.token ?? "";
+      sent.push({ token: address, field: message.fid ? "fid" : "token", ...message.notification });
+      return fcm(address);
     }
     return real(input, init);
   }) as typeof fetch;
@@ -57,9 +58,11 @@ test("sendPush: signs in with the service account, sends, and reports a dead tok
   const google = stubGoogle((tok) => (tok === TOKEN_A ? Response.json({ name: "projects/hl-test/messages/1" }) : unregistered()));
   t.after(google.restore);
   const env = { FCM_SERVICE_ACCOUNT: await serviceAccount() };
-  assert.equal(await sendPush(env, TOKEN_A, { title: "T", body: "B" }), "sent");
-  assert.equal(await sendPush(env, TOKEN_B, { title: "T", body: "B" }), "unregistered");
-  assert.equal(await sendPush({ FCM_SERVICE_ACCOUNT: undefined }, TOKEN_A, { title: "T", body: "B" }), "failed", "not configured");
+  assert.equal(await sendPush(env, { token: TOKEN_A }, { title: "T", body: "B" }), "sent");
+  assert.equal(await sendPush(env, { token: TOKEN_B }, { title: "T", body: "B" }), "unregistered");
+  assert.equal(await sendPush({ FCM_SERVICE_ACCOUNT: undefined }, { token: TOKEN_A }, { title: "T", body: "B" }), "failed", "not configured");
+  assert.equal(await sendPush(env, { token: TOKEN_A, kind: "fid" }, { title: "T", body: "B" }), "sent");
+  assert.equal(google.sent.at(-1)!.field, "fid", "an installation ID goes in message.fid, not message.token");
 });
 
 test("outbox: an account with no Telegram chat (chatId 0) gets the reminder by push; dead tokens are dropped", async (t) => {
@@ -74,8 +77,8 @@ test("outbox: an account with no Telegram chat (chatId 0) gets the reminder by p
 
   const result = await enqueueAndDeliver(env, bot, { userId: 51, chatId: 0, kind: "reminder", idempotencyKey: "d1:train", text: "🏋️ <b>Time to train</b>\nSquat 3x5" });
   assert.equal(result, "sent");
-  assert.deepEqual(google.sent.find((s) => s.token === TOKEN_A), { token: TOKEN_A, title: "🏋️ Time to train", body: "Squat 3x5" });
-  assert.deepEqual(await listPushTokens(db, 51), [TOKEN_A], "the uninstalled device's token is gone");
+  assert.deepEqual(google.sent.find((s) => s.token === TOKEN_A), { token: TOKEN_A, field: "token", title: "🏋️ Time to train", body: "Squat 3x5" });
+  assert.deepEqual((await listPushTokens(db, 51)).map((t) => t.token), [TOKEN_A], "the uninstalled device's token is gone");
 });
 
 test("outbox: no Telegram chat and no device -> failed for good, not retried forever", async () => {
@@ -99,9 +102,11 @@ test("push API: register, re-register moves the token, unregister only removes y
   assert.equal((await call(61, "POST", { token: "x", platform: "android" }))!.status, 400);
   assert.equal((await call(61, "POST", { token: TOKEN_A, platform: "windows" }))!.status, 400);
   await call(62, "POST", { token: TOKEN_A, platform: "android" });
-  assert.deepEqual([await listPushTokens(db, 61), await listPushTokens(db, 62)], [[], [TOKEN_A]], "same phone, new account");
+  assert.deepEqual([(await listPushTokens(db, 61)).length, (await listPushTokens(db, 62)).map((t) => t.token)], [0, [TOKEN_A]], "same phone, new account");
   await call(61, "DELETE", { token: TOKEN_A });
-  assert.deepEqual(await listPushTokens(db, 62), [TOKEN_A], "someone else's token is not removable");
+  assert.deepEqual((await listPushTokens(db, 62)).map((t) => t.token), [TOKEN_A], "someone else's token is not removable");
   await call(62, "DELETE", { token: TOKEN_A });
   assert.deepEqual(await listPushTokens(db, 62), []);
+  await call(62, "POST", { token: TOKEN_B, platform: "android", kind: "fid" });
+  assert.deepEqual((await listPushTokens(db, 62)).map((t) => [t.token, t.kind]), [[TOKEN_B, "fid"]], "the app says it registered an installation ID");
 });
