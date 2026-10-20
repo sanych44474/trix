@@ -1,5 +1,6 @@
 package app.hacklimits.shared
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
@@ -51,6 +52,10 @@ import app.hacklimits.shared.ui.TodayScreen
 import app.hacklimits.shared.ui.theme.HackLimitsIcons
 import app.hacklimits.shared.ui.theme.HackLimitsTheme
 import app.hacklimits.shared.workout.PendingSaves
+import app.hacklimits.shared.update.Gate
+import app.hacklimits.shared.update.UpdateReadyBar
+import app.hacklimits.shared.update.UpdateRequiredScreen
+import app.hacklimits.shared.update.UpdateViewModel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.jetbrains.compose.resources.StringResource
@@ -95,6 +100,13 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
             val pending = koinInject<PendingSaves>()
             val platform = koinInject<AppPlatform>()
             val scope = rememberCoroutineScope()
+            val updates: UpdateViewModel = koinViewModel()
+            val gate by updates.gate.collectAsStateWithLifecycle()
+            val updateReady by updates.readyToInstall.collectAsStateWithLifecycle()
+            if (gate == Gate.Required) {
+                UpdateRequiredScreen(onUpdate = updates::update)
+                return@Surface
+            }
             val signedIn by sessions.signedIn.collectAsStateWithLifecycle()
             LaunchedEffect(api) { api.sessionExpired.collect { sessions.clear() } }
             LaunchedEffect(signedIn) {
@@ -112,20 +124,23 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
             val onTab = TABS.any { tab -> entry?.destination?.hasRoute(tab.route::class) == true }
             Scaffold(
                 bottomBar = {
-                    if (onTab) NavigationBar {
-                        TABS.forEach { tab ->
-                            NavigationBarItem(
-                                selected = entry?.destination?.hasRoute(tab.route::class) == true,
-                                onClick = {
-                                    nav.navigate(tab.route) {
-                                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                icon = { Icon(tab.icon, contentDescription = null) },
-                                label = { Text(stringResource(tab.label)) },
-                            )
+                    Column {
+                        if (updateReady) UpdateReadyBar(onRestart = updates::install)
+                        if (onTab) NavigationBar {
+                            TABS.forEach { tab ->
+                                NavigationBarItem(
+                                    selected = entry?.destination?.hasRoute(tab.route::class) == true,
+                                    onClick = {
+                                        nav.navigate(tab.route) {
+                                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    icon = { Icon(tab.icon, contentDescription = null) },
+                                    label = { Text(stringResource(tab.label)) },
+                                )
+                            }
                         }
                     }
                 },

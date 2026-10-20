@@ -7,6 +7,7 @@ plugins {
 // push (see mobile/README.md). Without it the app builds and runs with push off.
 if (file("google-services.json").exists()) {
     apply(plugin = libs.plugins.google.services.get().pluginId)
+    apply(plugin = libs.plugins.firebase.crashlytics.get().pluginId)
 }
 
 // The Worker origin the app talks to, e.g. -Phacklimits.apiBaseUrl=https://api.example.com or the
@@ -41,6 +42,8 @@ android {
         versionName = "0.1.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "PRIVACY_POLICY_URL", "\"$privacyPolicyUrl\"")
+        // Crash reports only from real installs; debug builds keep crashes on the developer's screen.
+        manifestPlaceholders["crashlyticsEnabled"] = "true"
     }
 
     buildFeatures {
@@ -60,6 +63,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["crashlyticsEnabled"] = "false"
+        }
         release {
             if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
@@ -94,4 +100,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.work)
     implementation(libs.androidx.health.connect)
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.play.app.update)
+    debugImplementation(libs.leakcanary)
 }

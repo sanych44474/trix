@@ -2,6 +2,7 @@ package app.hacklimits.shared.di
 
 import app.hacklimits.shared.auth.SignInViewModel
 import app.hacklimits.shared.data.ApiClient
+import app.hacklimits.shared.data.ClientErrorApi
 import app.hacklimits.shared.data.AuthApi
 import app.hacklimits.shared.data.DashboardApi
 import app.hacklimits.shared.data.PushApi
@@ -23,6 +24,9 @@ import app.hacklimits.shared.workout.PendingSaves
 import app.hacklimits.shared.today.TodayViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import app.hacklimits.shared.platform.ErrorReporter
+import app.hacklimits.shared.update.AppConfigApi
+import app.hacklimits.shared.update.UpdateViewModel
 import app.hacklimits.shared.coach.coachModule
 import app.hacklimits.shared.integrations.integrationsModule
 import app.hacklimits.shared.media.mediaModule
@@ -34,7 +38,10 @@ import app.hacklimits.shared.trainer.clients.trainerClientsModule
  * AppPlatform, a KeyValueStore, a RestAlarm, a FileSaver, a PhotoPicker, a SpeechInput and a HealthSync through its own module (androidApp/.../AppModule.kt). */
 fun sharedModule(baseUrl: String) = module {
     includes(coachModule, socialModule, trainerClientsModule, trainerBusinessModule, mediaModule, integrationsModule)
-    single { ApiClient(baseUrl, get()) }
+    single { ApiClient(baseUrl, get(), reporter = getOrNull<ErrorReporter>() ?: ErrorReporter.None) }
+    single { AppConfigApi(get()) }
+    single { ClientErrorApi(get()) }
+    viewModel { UpdateViewModel(get(), get(), get()) }
     single { AuthApi(get(), get()) }
     single { DashboardApi(get()) }
     single { PushApi(get()) }
