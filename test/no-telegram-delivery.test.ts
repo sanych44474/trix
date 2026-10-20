@@ -6,6 +6,7 @@ import { newDb } from "./harness";
 import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import { handleSettingsApi } from "../src/webapp/settingsApi";
 import { handleExtrasApi } from "../src/webapp/extrasApi";
+import { handleV2Api } from "../src/webapp/v2Api";
 
 type Db = ReturnType<typeof newDb>;
 const env = (db: Db) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" }) as never;
@@ -52,4 +53,16 @@ test("photo comparison: no chat to send to -> 409 no_telegram_chat (the client s
   const res = await handleExtrasApi(new Request(`https://x${p}`, { method: "POST", body: form }), new URL(`https://x${p}`), env(db));
   assert.equal(res.status, 409);
   assert.deepEqual(await res.json(), { error: "no_telegram_chat" });
+});
+
+test("export through /api/v2/settings arrives as the file, not wrapped in { data }", async () => {
+  const db = newDb();
+  await seed(db, 44, false);
+  const p = "/api/v2/settings?debugUser=44";
+  const res = await handleV2Api(new Request(`https://x${p}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "export" }) }), new URL(`https://x${p}`), env(db));
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-disposition") ?? "", /attachment; filename="hack-limits-export.md"/);
+  const text = await res.text();
+  assert.ok(!text.startsWith("{"), "the markdown itself, not a JSON envelope");
+  assert.ok(text.length > 10);
 });
