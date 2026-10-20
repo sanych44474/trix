@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -35,7 +36,7 @@ import app.hacklimits.shared.today.TodayViewModel
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-fun TodayScreen(vm: TodayViewModel, onSignOut: () -> Unit) {
+fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onSignOut: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -48,7 +49,14 @@ fun TodayScreen(vm: TodayViewModel, onSignOut: () -> Unit) {
                 Text(stringResource(errorText(s.code)), color = MaterialTheme.colorScheme.error)
                 Button(onClick = vm::refresh) { Text(stringResource(Res.string.retry)) }
             }
-            is TodayViewModel.State.Ready -> TodayContent(s.dashboard)
+            is TodayViewModel.State.Ready -> {
+                TodayContent(s.dashboard)
+                if (s.dashboard.viewer.onboarded && !s.dashboard.viewer.planPending) {
+                    Button(onClick = onStartWorkout, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                        Text(stringResource(Res.string.today_start_workout))
+                    }
+                }
+            }
         }
     }
 }

@@ -30,4 +30,23 @@
     <string name="today_not_onboarded">Finish the short questionnaire to get your plan.</string>
     <string name="sign_out">Sign out</string>
     <string name="retry">Retry</string>
+    <string name="today_start_workout">Start workout</string>
+    <string name="workout_title">Workout</string>
+    <string name="back">Back</string>
+    <string name="done">Done</string>
+    <string name="workout_rest_day">Rest day today. Recovery is part of the plan.</string>
+    <string name="workout_finish">Finish workout</string>
+    <string name="workout_add_set">+ Add set</string>
+    <string name="workout_nothing_logged">Tick at least one set before finishing.</string>
+    <string name="workout_saved">Workout saved 💪</string>
+    <string name="workout_saved_offline">Saved on this phone. It will sync as soon as you are online.</string>
+    <string name="workout_prs">New personal records: %1$s</string>
+    <string name="rest_left">Rest %1$d:%2$s</string>
+    <string name="rest_skip">Skip</string>
+    <string name="rest_over_title">Rest is over</string>
+    <string name="rest_over_body">Time for the next set.</string>
+    <string name="unit_kg">kg</string>
+    <string name="unit_reps">reps</string>
+    <string name="unit_seconds">sec</string>
+    <string name="unit_meters">m</string>
 </resources>

@@ -30,4 +30,23 @@
     <string name="today_not_onboarded">Пройди коротку анкету, щоб отримати план.</string>
     <string name="sign_out">Вийти</string>
     <string name="retry">Повторити</string>
+    <string name="today_start_workout">Почати тренування</string>
+    <string name="workout_title">Тренування</string>
+    <string name="back">Назад</string>
+    <string name="done">Готово</string>
+    <string name="workout_rest_day">Сьогодні день відпочинку. Відновлення — теж частина плану.</string>
+    <string name="workout_finish">Завершити тренування</string>
+    <string name="workout_add_set">+ Додати підхід</string>
+    <string name="workout_nothing_logged">Відміть хоча б один підхід перед завершенням.</string>
+    <string name="workout_saved">Тренування збережено 💪</string>
+    <string name="workout_saved_offline">Збережено на телефоні. Синхронізуємо, щойно з’явиться інтернет.</string>
+    <string name="workout_prs">Нові особисті рекорди: %1$s</string>
+    <string name="rest_left">Відпочинок %1$d:%2$s</string>
+    <string name="rest_skip">Пропустити</string>
+    <string name="rest_over_title">Відпочинок закінчився</string>
+    <string name="rest_over_body">Час для наступного підходу.</string>
+    <string name="unit_kg">кг</string>
+    <string name="unit_reps">повт.</string>
+    <string name="unit_seconds">с</string>
+    <string name="unit_meters">м</string>
 </resources>

@@ -4,9 +4,11 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import app.hacklimits.shared.auth.GoogleSignIn
+import app.hacklimits.shared.data.KeyValueStore
 import app.hacklimits.shared.data.SessionStore
 import app.hacklimits.shared.di.sharedModule
 import app.hacklimits.shared.platform.AppPlatform
+import app.hacklimits.shared.platform.RestAlarm
 import java.lang.ref.WeakReference
 import java.util.Locale
 import org.koin.android.ext.koin.androidContext
@@ -36,6 +38,8 @@ class HackLimitsApp : Application() {
                 module {
                     single<AppPlatform> { platform }
                     single<SessionStore> { KeystoreSessionStore(get()) }
+                    single<KeyValueStore> { PrefsKeyValueStore(get()) }
+                    single<RestAlarm> { WorkRestAlarm(get()) }
                     single<GoogleSignIn> { CredentialGoogleSignIn { current?.get() } }
                     single { PushRegistrar(get(), get(), get(), get()) }
                 },
