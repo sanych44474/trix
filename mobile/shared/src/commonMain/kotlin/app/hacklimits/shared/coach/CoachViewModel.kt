@@ -11,21 +11,41 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /** Who a line belongs to. [Routed] is the notice that a client's question went to their trainer. */
-enum class CoachRole { User, Coach, Trainer, Routed }
+enum class CoachRole { User, Coach, Routed }
 
-data class CoachLine(val id: Long, val role: CoachRole, val text: String)
+/**
+ * One line of the session. A coach line carries its [actions] (buttons under the answer) and the
+ * indexes of those already applied.
+ */
+data class CoachLine(
+    val id: Long,
+    val role: CoachRole,
+    val text: String,
+    val actions: List<CoachAction> = emptyList(),
+    val done: Set<Int> = emptySet(),
+)
 
 data class CoachState(
     val loading: Boolean = true,
     val loadError: String? = null,
+    /** A client with a trainer: the screen shows the trainer chat instead of the AI coach. */
+    val routed: Boolean = false,
+    val trainerName: String = "",
+    /** The routed questions still waiting for the trainer. */
+    val openQuestions: List<CoachQuestion> = emptyList(),
     val lines: List<CoachLine> = emptyList(),
     val input: String = "",
     val sending: Boolean = false,
     /** The server's error code for the last failed send; null when there is none to retry. */
     val sendError: String? = null,
+    /** "lineId:index" of the action being applied right now. */
+    val applying: String? = null,
+    val actionError: String? = null,
 )
 
 private const val MAX_QUESTION = 500
+private const val MAX_LINES = 60
+private const val FEEDBACK = "feedback"
 
 @OptIn(ExperimentalUuidApi::class)
 class CoachViewModel(private val api: CoachApi) : ViewModel() {
@@ -42,7 +62,14 @@ class CoachViewModel(private val api: CoachApi) : ViewModel() {
             _state.update { it.copy(loading = true, loadError = null) }
             try {
                 val thread = api.thread()
-                _state.update { it.copy(loading = false, lines = threadLines(thread)) }
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        routed = thread.trainer != null,
+                        trainerName = thread.trainer?.name.orEmpty(),
+                        openQuestions = thread.questions.filter { q -> q.status != "answered" },
+                    )
+                }
             } catch (e: ApiException) {
                 _state.update { it.copy(loading = false, loadError = e.code) }
             } catch (e: Exception) {
@@ -67,6 +94,41 @@ class CoachViewModel(private val api: CoachApi) : ViewModel() {
         ask(text, key)
     }
 
+    /** Starts a new conversation on this screen. The server keeps nothing of the session. */
+    fun clear() = _state.update { it.copy(lines = emptyList(), sendError = null, actionError = null) }
+
+    /**
+     * Applies one button under an answer: a plan edit through the plan API, or the feedback to the
+     * team. The button stays disabled once it is done.
+     */
+    fun apply(lineId: Long, index: Int) {
+        val s = _state.value
+        if (s.applying != null) return
+        val line = s.lines.find { it.id == lineId } ?: return
+        if (index in line.done) return
+        val action = line.actions.getOrNull(index) ?: return
+        val edit = if (action.kind == FEEDBACK) null else action.toPlanEdit()
+        if (action.kind != FEEDBACK && edit == null) {
+            _state.update { it.copy(actionError = "unsupported") }
+            return
+        }
+        val key = Uuid.random().toString()
+        viewModelScope.launch {
+            _state.update { it.copy(applying = "$lineId:$index", actionError = null) }
+            try {
+                if (edit == null) api.feedback(action.value.orEmpty(), action.note, key)
+                else api.planEdit(edit.action, edit.weekday, edit.index, edit.value, key)
+                _state.update { markDone(it, lineId, index) }
+            } catch (e: ApiException) {
+                _state.update { it.copy(actionError = e.code) }
+            } catch (e: Exception) {
+                _state.update { it.copy(actionError = "network") }
+            } finally {
+                _state.update { it.copy(applying = null) }
+            }
+        }
+    }
+
     private fun ask(text: String, key: String) {
         // Earlier turns only: the question being asked is sent as `question`, not as history.
         val history = _state.value.lines
@@ -81,11 +143,11 @@ class CoachViewModel(private val api: CoachApi) : ViewModel() {
                     val withQuestion = s.lines.append(CoachRole.User, text)
                     val lines = when {
                         answer.routed -> withQuestion.append(CoachRole.Routed, "")
-                        else -> withQuestion.append(CoachRole.Coach, plainCoachText(answer.answer.orEmpty()))
+                        else -> withQuestion.append(CoachRole.Coach, plainCoachText(answer.answer.orEmpty()), answer.actions)
                     }
                     // Clear the box only if the user did not start typing a new question meanwhile.
                     val input = if (s.input.trim() == text) "" else s.input
-                    s.copy(sending = false, lines = lines, input = input)
+                    s.copy(sending = false, lines = lines.takeLast(MAX_LINES), input = input)
                 }
             } catch (e: ApiException) {
                 _state.update { it.copy(sending = false, sendError = e.code) }
@@ -96,19 +158,19 @@ class CoachViewModel(private val api: CoachApi) : ViewModel() {
     }
 }
 
-private fun List<CoachLine>.append(role: CoachRole, text: String): List<CoachLine> =
-    this + CoachLine(id = (maxOfOrNull { it.id } ?: 0L) + 1L, role = role, text = text)
+/** A plan edit as the plan API takes it. */
+internal data class PlanEdit(val action: String, val weekday: Int, val index: Int, val value: String?)
 
-/** The routed Q&A in time order. Question timestamps are ISO, message timestamps are SQL style. */
-internal fun threadLines(thread: CoachThread): List<CoachLine> {
-    val entries = thread.questions.map { it.createdAt to CoachLine(0L, CoachRole.User, plainCoachText(it.text)) } +
-        thread.messages.map { m ->
-            m.createdAt to CoachLine(0L, if (m.fromMe) CoachRole.User else CoachRole.Trainer, plainCoachText(m.text))
-        }
-    return entries
-        .sortedBy { sortKey(it.first) }
-        .mapIndexed { i, entry -> entry.second.copy(id = i + 1L) }
+/** The plan edit behind a coach action, or null when the app cannot apply it. Swap and add name an exercise; the rest use the value. */
+internal fun CoachAction.toPlanEdit(): PlanEdit? {
+    val planAction = planActionFor(kind) ?: return null
+    val day = weekday ?: return null
+    val payload = if (kind == "swap" || kind == "add") exercise else value
+    return PlanEdit(planAction, day, index ?: -1, payload)
 }
 
-private fun sortKey(createdAt: String): String =
-    createdAt.replace(' ', 'T').substringBefore('.').removeSuffix("Z")
+private fun markDone(s: CoachState, lineId: Long, index: Int): CoachState =
+    s.copy(lines = s.lines.map { if (it.id == lineId) it.copy(done = it.done + index) else it })
+
+private fun List<CoachLine>.append(role: CoachRole, text: String, actions: List<CoachAction> = emptyList()): List<CoachLine> =
+    this + CoachLine(id = (maxOfOrNull { it.id } ?: 0L) + 1L, role = role, text = text, actions = actions)
