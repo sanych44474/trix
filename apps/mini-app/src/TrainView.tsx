@@ -28,6 +28,7 @@ import { Card, Empty, ErrorState, Loading } from "./train/ui";
 import { track } from "./logic/track";
 import { mirrorToDevice } from "./logic/deviceStorage";
 import { confirmDialog } from "./telegram";
+import { useResume } from "./useResume";
 
 // How long the logger waits after the last change before copying the draft to the server.
 const DRAFT_SYNC_DELAY_MS = 2500;
@@ -175,8 +176,9 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
     setFocus(true);
   }, [startInFocus, loading, workout, subview]);
 
-  const load = () => {
-    setLoading(true); setError(null);
+  const fetchToday = (quiet: boolean) => {
+    if (!quiet) setLoading(true);
+    setError(null);
     api<WorkoutToday>("/api/v2/workout/today").catch((err: unknown) => {
       // No signal in the gym: open with the last plan for today this phone has seen.
       const cached = isNetworkError(err, navigator.onLine) ? cachedToday<WorkoutToday>(localStorage) : null;
@@ -196,7 +198,11 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
       loadedRef.current = true;
     }).catch(setError).finally(() => setLoading(false));
   };
+  const load = () => fetchToday(false);
   useEffect(load, []);
+  // Back from the background with nothing typed in this session: today's workout again, so a plan
+  // the trainer changed meanwhile shows up. Work in progress is never replaced.
+  useResume(() => { if (!drafted && !saved && !focus && subview === "today") fetchToday(true); });
 
   /** Every edit goes through here: it marks the work unsaved and hides a stale summary. */
   const mutate = (change: (exercises: LoggerExercise[]) => LoggerExercise[]) => {
