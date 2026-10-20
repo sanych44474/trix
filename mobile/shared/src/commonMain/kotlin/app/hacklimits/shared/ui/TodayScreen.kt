@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,13 +38,14 @@ import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
 import app.hacklimits.shared.today.TodayViewModel
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onOpenPlan: () -> Unit, onStartQuestionnaire: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     // Refresh every time Today comes back into view (after a workout, the plan editor, the questionnaire).
     LaunchedEffect(Unit) { vm.refresh() }
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.today_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         }
@@ -65,6 +69,7 @@ fun TodayScreen(vm: TodayViewModel, onStartWorkout: () -> Unit, onOpenPlan: () -
                     OutlinedButton(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(Res.string.today_open_plan))
                     }
+                    QuickLogCard(koinViewModel())
                 }
             }
         }

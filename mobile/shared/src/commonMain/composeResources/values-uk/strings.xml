@@ -148,4 +148,15 @@
     <string name="food_today">Сьогодні</string>
     <string name="food_empty">Сьогодні ще нічого не записано.</string>
     <string name="food_meal_line">%1$d ккал · Б %2$d · Ж %3$d · В %4$d</string>
+    <string name="quick_title">Швидкий запис</string>
+    <string name="quick_water">Вода сьогодні: %1$d мл</string>
+    <string name="quick_steps">Кроки сьогодні</string>
+    <string name="quick_checkin">Як самопочуття? (1 погано – 5 чудово)</string>
+    <string name="quick_energy">Енергія</string>
+    <string name="quick_sleep">Сон</string>
+    <string name="quick_stress">Стрес</string>
+    <string name="quick_checkin_save">Зберегти самопочуття</string>
+    <string name="quick_saved_water">Воду записано.</string>
+    <string name="quick_saved_steps">Кроки збережено.</string>
+    <string name="quick_saved_checkin">Самопочуття збережено.</string>
 </resources>

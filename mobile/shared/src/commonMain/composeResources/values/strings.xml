@@ -148,4 +148,15 @@
     <string name="food_today">Today</string>
     <string name="food_empty">Nothing logged yet today.</string>
     <string name="food_meal_line">%1$d kcal · P %2$d · F %3$d · C %4$d</string>
+    <string name="quick_title">Quick log</string>
+    <string name="quick_water">Water today: %1$d ml</string>
+    <string name="quick_steps">Steps today</string>
+    <string name="quick_checkin">How do you feel? (1 low – 5 high)</string>
+    <string name="quick_energy">Energy</string>
+    <string name="quick_sleep">Sleep</string>
+    <string name="quick_stress">Stress</string>
+    <string name="quick_checkin_save">Save check-in</string>
+    <string name="quick_saved_water">Water logged.</string>
+    <string name="quick_saved_steps">Steps saved.</string>
+    <string name="quick_saved_checkin">Check-in saved.</string>
 </resources>

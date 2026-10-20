@@ -10,6 +10,8 @@ import app.hacklimits.shared.data.PlanApi
 import app.hacklimits.shared.data.SettingsApi
 import app.hacklimits.shared.data.ProgressApi
 import app.hacklimits.shared.data.NutritionApi
+import app.hacklimits.shared.data.TrackingApi
+import app.hacklimits.shared.today.QuickLogViewModel
 import app.hacklimits.shared.nutrition.NutritionViewModel
 import app.hacklimits.shared.progress.ProgressViewModel
 import app.hacklimits.shared.settings.MoreViewModel
@@ -34,12 +36,14 @@ fun sharedModule(baseUrl: String) = module {
     single { SettingsApi(get()) }
     single { ProgressApi(get()) }
     single { NutritionApi(get()) }
+    single { TrackingApi(get()) }
     single { OnboardingApi(get()) }
     single { PendingSaves(get(), get()) }
     viewModel { SignInViewModel(get(), get(), get()) }
     viewModel { TodayViewModel(get()) }
     viewModel { PlanViewModel(get()) }
     viewModel { NutritionViewModel(get()) }
+    viewModel { QuickLogViewModel(get()) }
     viewModel { ProgressViewModel(get(), get(), get(), get()) }
     viewModel { MoreViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { OnboardingViewModel(get()) }
