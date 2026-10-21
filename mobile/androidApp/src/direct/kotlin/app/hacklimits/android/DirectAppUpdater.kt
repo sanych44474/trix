@@ -48,7 +48,12 @@ class DirectAppUpdater(private val context: Context) : AppUpdater {
     override suspend fun start(immediate: Boolean, gate: VersionGate): Boolean {
         val download = gate.download ?: return false
         pageUrl = download.url
-        if (download.versionCode <= BuildConfig.VERSION_CODE || !allowedUrl(download.url)) return false
+        if (download.versionCode <= BuildConfig.VERSION_CODE) {
+            // Already on it (the previous download was installed): drop the leftover file.
+            withContext(Dispatchers.IO) { apk.delete() }
+            return false
+        }
+        if (!allowedUrl(download.url)) return false
         val ok = lock.withLock { (downloaded == download && apk.exists()) || fetch(download) }
         if (!ok) return false
         downloaded = download
