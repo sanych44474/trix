@@ -4,14 +4,13 @@
 import { InlineKeyboard } from "grammy";
 import { localParts } from "../domain/localTime";
 import { parseWorkoutText } from "../domain/workoutText";
-import { CARDIO_TEMPLATES, cardioTemplateByKey, zoneBpm } from "../domain/cardioPlan";
+import { CARDIO_TEMPLATES, CARDIO_TYPES, cardioName, cardioTemplateByKey, zoneBpm } from "../domain/cardioPlan";
 import { updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { reply, type MyContext } from "../adapters/telegram/context";
 import { cmdCheckin } from "./checkinCmds";
 import { cmdNutrition, cmdSteps, cmdWater } from "./nutritionCmds";
 import { handleWorkoutLog } from "./workoutSave";
-import type { Lang } from "../types";
 import { showEveningSurvey } from "../features/survey/eveningSurvey";
 
 // A survey button tapped — arm the checklist for today, then launch that item's normal flow.
@@ -28,22 +27,6 @@ export async function onSurveyItem(ctx: MyContext, item: string) {
 }
 
 // ===================== Cardio quick log =====================
-
-const CARDIO_TYPES: { key: string; en: string; uk: string }[] = [
-  { key: "row", en: "Rowing", uk: "Веслування" },
-  { key: "bike", en: "Cycling", uk: "Велотренажер" },
-  { key: "run", en: "Running", uk: "Біг" },
-  { key: "walk", en: "Walking", uk: "Ходьба" },
-  { key: "swim", en: "Swimming", uk: "Плавання" },
-  { key: "ellipt", en: "Elliptical", uk: "Еліптичний" },
-  { key: "rope", en: "Jump rope", uk: "Скакалка" },
-  { key: "other", en: "Other", uk: "Інше" },
-];
-
-const cardioName = (lang: Lang, key: string): string => {
-  const c = CARDIO_TYPES.find((x) => x.key === key);
-  return c ? (lang === "uk" ? c.uk : c.en) : "";
-};
 
 export async function showCardioMenu(ctx: MyContext) {
   const lang = ctx.user.lang;

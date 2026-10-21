@@ -11,6 +11,7 @@ import { t, type Key, type Lang } from "./i18n";
 import { track } from "./logic/track";
 import { todayPlan } from "./logic/todayPlan";
 import { Icon } from "./icons";
+import { StandardsCard } from "./TrainingExtras";
 
 // The body-map figure is ~35 kB of SVG paths; loaded only when the Progress screen is opened.
 const BodyMap = lazy(() => import("./BodyMap").then((m) => ({ default: m.BodyMap })));
@@ -190,6 +191,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
     </div>
 
     {section === "train" && <>
+      <StandardsCard lang={lang} />
       <Card><h2 className="card-title">{t(lang, "muscle_map_title")}</h2>{dashboard.volume.length ? <><Suspense fallback={<div className="skeleton" />}><BodyMap lang={lang} logs={dashboard.calendar.logs ?? []} today={dashboard.today} sex={dashboard.sex} exercises={recentExerciseNames(dashboard.calendar.logs ?? [])} /></Suspense><div className="volume-list">{dashboard.volume.map((item) => <div className="volume-row" key={item.group}><div><strong>{muscleGroupLabel(lang, item.group)}</strong><small>{t(lang, "volume_row_detail", { n: lang === "uk" ? String(item.sets).replace(".", ",") : item.sets, zone: zoneLabel(lang, item.zone) })}</small></div><div className="bar"><span style={{ width: `${Math.min(100, (item.sets / Math.max(item.mav, 1)) * 100)}%` }} /></div></div>)}</div></> : <Empty title={t(lang, "no_volume_title")} detail={t(lang, "no_volume_detail")} />}</Card>
 
       <Card>

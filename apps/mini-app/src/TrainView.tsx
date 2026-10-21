@@ -29,6 +29,7 @@ import { track } from "./logic/track";
 import { mirrorToDevice } from "./logic/deviceStorage";
 import { confirmDialog } from "./telegram";
 import { useResume } from "./useResume";
+import { CardioPanel } from "./TrainingExtras";
 
 // How long the logger waits after the last change before copying the draft to the server.
 const DRAFT_SYNC_DELAY_MS = 2500;
@@ -70,6 +71,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
 }) {
   const session = useSession();
   const [subview, setSubview] = useState<TrainSegment>(initialSegment);
+  const [cardioOpen, setCardioOpen] = useState(false);
   // Focus mode: one exercise on screen, no tab bar; the row being edited per exercise survives
   // moving between exercises (keyed by position and name).
   const [focus, setFocusState] = useState(false);
@@ -438,12 +440,18 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
   if (loading) return <Loading />;
   if (error) return <ErrorState lang={lang} error={error} retry={load} />;
   const tabs = (
-    <div className="segmented three" role="tablist">
-      {(["today", "plan", "history"] as const).map((seg) => (
-        <button key={seg} type="button" role="tab" aria-selected={subview === seg} onClick={() => setSubview(seg)}>{t(lang, seg === "today" ? "train_tab_today" : seg === "plan" ? "train_tab_plan" : "train_tab_history")}</button>
-      ))}
-    </div>
+    <>
+      <div className="segmented three" role="tablist">
+        {(["today", "plan", "history"] as const).map((seg) => (
+          <button key={seg} type="button" role="tab" aria-selected={subview === seg} onClick={() => setSubview(seg)}>{t(lang, seg === "today" ? "train_tab_today" : seg === "plan" ? "train_tab_plan" : "train_tab_history")}</button>
+        ))}
+      </div>
+      <div className="button-row">
+        <button type="button" className="button button-ghost button-small" onClick={() => setCardioOpen(true)}>{t(lang, "tx_cardio_open")}</button>
+      </div>
+    </>
   );
+  if (cardioOpen) return <CardioPanel lang={lang} onBack={() => setCardioOpen(false)} />;
   if (subview === "plan") return <div className="view-stack">{tabs}{planSlot}</div>;
   if (subview === "history") {
     return (
