@@ -145,13 +145,16 @@ export function ComebackFlow({ lang, onDone }: { lang: Lang; onDone: () => void 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [adjusting, setAdjusting] = useState(false);
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     api<ComebackState>("/api/v2/comeback").then(setState).catch(() => setState(null));
   }, []);
 
-  if (hidden || !state?.pending) return null;
+  if (hidden) return null;
+  if (adjusting) return <AdaptiveCheckin lang={lang} onDone={() => { setHidden(true); onDone(); }} />;
+  if (!state?.pending) return null;
   const steps = state.steps;
 
   const submit = async (decision: "keep" | "adjust" | "recreate") => {
@@ -163,8 +166,12 @@ export function ComebackFlow({ lang, onDone }: { lang: Lang; onDone: () => void 
         idempotencyKey: crypto.randomUUID(),
         body: typedBody<"answerComeback">({ answers: answers as never, decision }),
       });
-      setResult(t(lang, decision === "keep" ? "tx_comeback_done_keep" : decision === "adjust" ? "tx_comeback_done_adjust" : "tx_comeback_done_recreate"));
       setState({ ...state, pending: false });
+      if (decision === "adjust") {
+        setAdjusting(true);
+        return;
+      }
+      setResult(t(lang, decision === "keep" ? "tx_comeback_done_keep" : "tx_comeback_done_recreate"));
     } catch {
       setError(t(lang, "tx_comeback_error"));
     } finally {
@@ -211,6 +218,67 @@ export function ComebackFlow({ lang, onDone }: { lang: Lang; onDone: () => void 
           ))}
         </div>
       )}
+      {error && <p className="muted" role="alert">{error}</p>}
+    </Card>
+  );
+}
+
+type AdaptiveResult = { ok: boolean; reply: string; adjustments: string[] };
+
+/**
+ * The bi-weekly adaptive check-in, opened by "adjust" in the comeback interview (bot: the chat answer
+ * after the check-in prompt). One free-text answer; the coach micro-adjusts weights and sets.
+ */
+export function AdaptiveCheckin({ lang, onDone }: { lang: Lang; onDone: () => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<AdaptiveResult | null>(null);
+
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api<AdaptiveResult>("/api/v2/checkin/adaptive", {
+        method: "POST",
+        idempotencyKey: crypto.randomUUID(),
+        body: typedBody<"answerAdaptiveCheckin">({ text: text.trim() }),
+      });
+      setResult(res);
+    } catch {
+      setError(t(lang, "tx_adaptive_error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (result) {
+    return (
+      <Card tone="accent">
+        <p>{result.reply}</p>
+        {result.adjustments.length > 0 ? (
+          <>
+            <p className="muted">{t(lang, "tx_adaptive_applied")}</p>
+            <ul>
+              {result.adjustments.map((a) => <li key={a}>{a}</li>)}
+            </ul>
+          </>
+        ) : (
+          <p className="muted">{t(lang, "tx_adaptive_none")}</p>
+        )}
+        <button type="button" className="button button-ghost button-small" onClick={onDone}>{t(lang, "tx_comeback_done")}</button>
+      </Card>
+    );
+  }
+
+  return (
+    <Card tone="accent">
+      <div className="eyebrow">{t(lang, "tx_adaptive_title")}</div>
+      <p className="muted">{t(lang, "tx_adaptive_prompt")}</p>
+      <label className="form-field">
+        <textarea value={text} maxLength={1000} rows={3} placeholder={t(lang, "tx_adaptive_placeholder")} onChange={(e) => setText(e.target.value)} />
+      </label>
+      <button type="button" className="button button-primary" disabled={busy || !text.trim()} onClick={() => void send()}>{t(lang, "tx_adaptive_send")}</button>
       {error && <p className="muted" role="alert">{error}</p>}
     </Card>
   );

@@ -166,9 +166,9 @@ fun ComebackScreen(onBack: () -> Unit, onDone: () -> Unit, vm: ComebackViewModel
                 Text(stringResource(errorText(s.loadError ?: "network")), color = MaterialTheme.colorScheme.error)
                 Button(onClick = vm::load) { Text(stringResource(Res.string.retry)) }
             }
+            result != null && result.decision == "adjust" -> AdaptiveCheckinCard(onDone)
             result != null -> {
                 val message = when (result.decision) {
-                    "adjust" -> Res.string.tx_comeback_done_adjust
                     "recreate" -> Res.string.tx_comeback_done_recreate
                     else -> Res.string.tx_comeback_done_keep
                 }
@@ -205,5 +205,41 @@ fun ComebackScreen(onBack: () -> Unit, onDone: () -> Unit, vm: ComebackViewModel
             }
             else -> CircularProgressIndicator()
         }
+    }
+}
+
+/** The adaptive check-in after "adjust": one free-text answer; the coach replies and shows what it changed. */
+@Composable
+fun AdaptiveCheckinCard(onDone: () -> Unit, vm: AdaptiveCheckinViewModel = koinViewModel()) {
+    val s by vm.state.collectAsStateWithLifecycle()
+    var text by rememberSaveable { mutableStateOf("") }
+
+    Text(stringResource(Res.string.tx_adaptive_title), style = MaterialTheme.typography.titleMedium)
+    val reply = s.reply
+    if (reply != null) {
+        Text(reply.reply)
+        if (reply.adjustments.isEmpty()) {
+            Text(stringResource(Res.string.tx_adaptive_none), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Text(stringResource(Res.string.tx_adaptive_applied), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            reply.adjustments.forEach { Text("• $it") }
+        }
+        Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.tx_comeback_done)) }
+        return
+    }
+    Text(stringResource(Res.string.tx_adaptive_prompt), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    OutlinedTextField(
+        value = text,
+        onValueChange = { text = it.take(1000) },
+        placeholder = { Text(stringResource(Res.string.tx_adaptive_placeholder)) },
+        minLines = 3,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Button(onClick = { vm.send(text.trim()) }, enabled = text.isNotBlank() && !s.busy, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(Res.string.tx_adaptive_send))
+    }
+    if (s.busy) CircularProgressIndicator()
+    s.actionError?.let {
+        Text(stringResource(Res.string.tx_adaptive_error), color = MaterialTheme.colorScheme.error)
     }
 }

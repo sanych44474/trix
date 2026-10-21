@@ -8,6 +8,8 @@ import { getWorkoutLog, upsertStrengthRecord } from "../src/adapters/d1/v2Workou
 import { handleTrainingExtrasApi } from "../src/webapp/trainingExtrasApi";
 import { handleQuickLogApi } from "../src/webapp/quickLogApi";
 import { localParts } from "../src/domain/localTime";
+import { getActivePlan, setActivePlan } from "../src/adapters/d1/v2Plans";
+import type { PlanDoc } from "../src/types";
 
 const env = (db: ReturnType<typeof newDb>) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "trixbot" }) as never;
 
@@ -117,4 +119,55 @@ test("comeback: adjust hands the next message to the adaptive check-in, as the b
   const r = req(db, 5, "/api/comeback", "POST", { answers, decision: "adjust" });
   assert.deepEqual(await (await handleTrainingExtrasApi(r.request, r.url, env(db))).json(), { ok: true, decision: "adjust", planPending: false });
   assert.equal((await getUser(db, 5))!.session.mode, "checkin_adaptive");
+});
+
+// Adaptive check-in: the bot's free-text answer, as an app route. The coach is stubbed at the
+// Gemini HTTP call, so aiJSON returns the canned adjustments.
+const aiEnv = (db: ReturnType<typeof newDb>) => ({ ...env(db), GEMINI_API_KEY: "test-key" }) as never;
+function geminiReply(payload: unknown) {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] })) as typeof fetch;
+  return () => { globalThis.fetch = real; };
+}
+function oneDayPlan(userId: number): PlanDoc {
+  return {
+    userId,
+    active: true,
+    status: "active",
+    split: [{ weekday: 1, muscleGroup: "Push", exercises: [{ name: "Bench Press", sets: "3 × 8", startWeight: "60 kg", technique: "press", muscles: "chest", isKeyLift: true }] }],
+    nutrition: { calories: 2000, protein: 150, fats: 60, carbs: 200 },
+    supplements: [],
+    methodology: "double progression",
+    generatedAt: new Date(),
+  } as unknown as PlanDoc;
+}
+
+test("adaptive check-in: state reports pending and whether a plan exists; no plan is refused", async () => {
+  const db = newDb();
+  await athlete(db, 6);
+  const state = req(db, 6, "/api/checkin/adaptive");
+  assert.deepEqual(await (await handleTrainingExtrasApi(state.request, state.url, env(db))).json(), { pending: false, hasPlan: false });
+
+  const post = req(db, 6, "/api/checkin/adaptive", "POST", { text: "feels heavy" });
+  assert.equal((await handleTrainingExtrasApi(post.request, post.url, aiEnv(db))).status, 409);
+});
+
+test("adaptive check-in: the coach's micro-adjustments land on the live plan and the mode is cleared", async () => {
+  const db = newDb();
+  await athlete(db, 7);
+  await setActivePlan(db, oneDayPlan(7));
+  await updateUser(db, 7, { session: { mode: "checkin_adaptive" } });
+  const unstub = geminiReply({ reply: "Lighter bench this week.", adjustments: [{ weekday: 1, index: 0, sets: "3 × 6", startWeight: "55 kg", reason: "fatigue" }] });
+  try {
+    const r = req(db, 7, "/api/checkin/adaptive", "POST", { text: "bench feels too heavy" });
+    const res = await handleTrainingExtrasApi(r.request, r.url, aiEnv(db));
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { ok: true, reply: "Lighter bench this week.", adjustments: ["Bench Press: 3 × 6 · 55 kg"] });
+  } finally {
+    unstub();
+  }
+  const ex = (await getActivePlan(db, 7))!.split[0].exercises[0];
+  assert.equal(ex.sets, "3 × 6");
+  assert.equal(ex.startWeight, "55 kg");
+  assert.equal((await getUser(db, 7))!.session.mode, "idle");
 });
