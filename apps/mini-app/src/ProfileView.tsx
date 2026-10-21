@@ -15,6 +15,7 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   const [form, setForm] = useState<ProfilePayload["profile"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hourBusy, setHourBusy] = useState(false);
 
   const [settings, setSettings] = useState<SettingsPayload | null>(null);
   const [contrast, setContrastState] = useState(readContrast);
@@ -94,7 +95,17 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   // A failed save must NOT blank the form via the shared `error`/`load`-failure state (the user's
   // typed edits would vanish) -- reuses the same per-field actionError/actionSaved convention the
   // settings actions below already use, keyed "profile", rendered as an inline note near the button.
-  const save = async () => { setSaving(true); setActionError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateProfile">({ ...form, goalWeight: form.goalWeight === null ? null : Number(form.goalWeight), waterGoalMl: form.waterGoalMl === null ? null : Number(form.waterGoalMl), stepsGoal: form.stepsGoal === null ? null : Number(form.stepsGoal) }) }); onBack(); } catch { setActionError("profile"); } finally { setSaving(false); } };
+  const profileBody = (value: ProfilePayload["profile"]) => typedBody<"updateProfile">({ ...value, goalWeight: value.goalWeight === null ? null : Number(value.goalWeight), waterGoalMl: value.waterGoalMl === null ? null : Number(value.waterGoalMl), stepsGoal: value.stepsGoal === null ? null : Number(value.stepsGoal) });
+  const save = async () => { setSaving(true); setActionError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: profileBody(form) }); onBack(); } catch { setActionError("profile"); } finally { setSaving(false); } };
+  // The daily reminder hour saves on its own (the rest of the profile form is untouched).
+  const saveReminderHour = async (hour: number) => {
+    setHourBusy(true); setActionSaved(null); setActionError(null);
+    try {
+      const next = { ...form, reminderHour: hour };
+      await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: profileBody(next) });
+      setForm(next); setActionSaved("hour");
+    } catch { setActionError("hour"); } finally { setHourBusy(false); }
+  };
   const photoQuery = () => { const tma = window.Telegram?.WebApp?.initData; if (tma) return `&tma=${encodeURIComponent(tma)}`; return window.location.search.replace(/^\?/, "&"); };
 
   return <div className="view-stack">
@@ -124,6 +135,12 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
         const muted = reminder.key !== "all" && settings.reminders.some((r) => r.key === "all" && !r.on);
         return <label className={reminder.key === "all" ? "check-row check-row-master" : muted ? "check-row muted" : "check-row"} key={reminder.key}><input type="checkbox" checked={reminder.on} disabled={muted || busy === `rem:${reminder.key}`} onChange={() => toggleReminder(reminder.key)} /><span>{reminder.label}</span></label>;
       })}{actionError?.startsWith("rem:") && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>
+
+      <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "reminders_eyebrow")}</span><h2>{t(lang, "reminder_hour_title")}</h2></div></div>
+        <label className="form-field"><span>{t(lang, "reminder_hour_label")}</span><select value={form.reminderHour ?? 18} disabled={hourBusy} onChange={(event) => void saveReminderHour(Number(event.target.value))}>{Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{`${String(hour).padStart(2, "0")}:00`}</option>)}</select></label>
+        {actionError === "hour" && <div className="save-note error-note">{t(lang, "save_error")}</div>}
+        {actionSaved === "hour" && <div className="save-note">{t(lang, "settings_saved")}</div>}
+      </section>
 
       <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "vacation_eyebrow")}</span><h2>{t(lang, "vacation_title")}</h2></div></div>
         {settings.vacationUntil ? <>

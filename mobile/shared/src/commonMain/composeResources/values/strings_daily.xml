@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dl_wellbeing_eyebrow">Wellbeing</string>
+    <string name="dl_wellbeing_title">Last 90 days</string>
+    <string name="dl_wellbeing_none">Two or more check-ins unlock your averages and trend.</string>
+    <string name="dl_wellbeing_count">%1$d check-ins</string>
+    <string name="dl_wellbeing_trend_note">Trend: the second half of the window against the first.</string>
+    <string name="dl_energy">Energy</string>
+    <string name="dl_sleep">Sleep</string>
+    <string name="dl_stress">Stress</string>
+    <string name="dl_reminder_eyebrow">Reminders</string>
+    <string name="dl_reminder_title">Daily reminder time</string>
+    <string name="dl_reminder_hint">Local time. Your daily nudges arrive at this hour.</string>
+    <string name="dl_saving">Saving…</string>
+    <string name="dl_error">Could not save. Try again.</string>
+    <string name="dl_diff_easier">Easier</string>
+    <string name="dl_diff_harder">Harder</string>
+    <string name="dl_diff_swapped">Swapped %1$d exercises.</string>
+    <string name="dl_diff_none">No easier or harder variants found for this day.</string>
+    <string name="dl_checklist_title">Still to log today</string>
+    <string name="dl_checklist_hint">%1$d left before the day is complete.</string>
+    <string name="dl_checklist_open">Open</string>
+</resources>

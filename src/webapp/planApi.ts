@@ -3,6 +3,7 @@
 // swap / add), mirroring the bot's day editor. All writes go through updateActivePlanSplit, so
 // the client and the bot editor stay in sync. Same initData auth as every other webapp API.
 import { rebuildPlan, replanRunning } from "../features/plan/planService";
+import { adjustDayDifficulty } from "../features/plan/difficulty";
 import { FREE_EXERCISE_IDS } from "../../apps/mini-app/src/data/freeExerciseIds";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { fitSplitToKit, kitFromEquipment, kitMismatches } from "../domain/equipmentFit";
@@ -353,6 +354,28 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
       days: toView(split, dayVideos, owner.lang),
       version: plan.generatedAt.toISOString(),
       changes: dayChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
+    });
+  }
+
+  // Whole-day difficulty step (one notch harder or easier): the same swap the bot's buttons run.
+  // Day-scoped with no exercise index, so it is handled before the per-exercise actions below.
+  if (body.action === "difficulty") {
+    const wd = Number(body.weekday);
+    if (!Number.isInteger(wd) || wd < 1 || wd > 7 || (body.dir !== "up" && body.dir !== "down")) {
+      return Response.json({ error: "bad request" }, { status: 400 });
+    }
+    const result = await adjustDayDifficulty(env, {
+      db: env.DB, ownerId: owner._id, actorId: user._id, lang: owner.lang, split: plan.split, weekday: wd, direction: body.dir,
+    });
+    if (!result) return Response.json({ error: "not found" }, { status: 404 });
+    const diffVideos = await resolveVideos(env, owner._id, result.split);
+    const diffChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
+    return Response.json({
+      ok: true,
+      swapped: result.swappedCount,
+      days: toView(result.split, diffVideos, owner.lang),
+      version: plan.generatedAt.toISOString(),
+      changes: diffChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
     });
   }
 
