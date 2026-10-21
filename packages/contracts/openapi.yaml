@@ -2941,6 +2941,175 @@ paths:
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/report:
+    get:
+      operationId: getTrainerReport
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: Weekly client report (the bot's /trreport table as rows), most-active first
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        clientCount: {type: integer}
+                        active7: {type: integer}
+                        activePct: {type: integer}
+                        rows:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id: {type: integer}
+                              name: {type: string, nullable: true}
+                              username: {type: string, nullable: true}
+                              onboarded: {type: boolean}
+                              interview:
+                                type: object
+                                properties:
+                                  filled: {type: integer}
+                                  total: {type: integer}
+                              plan:
+                                type: object
+                                properties:
+                                  active: {type: boolean}
+                                  draft: {type: boolean}
+                              events:
+                                type: object
+                                properties:
+                                  workouts: {type: integer}
+                                  checkins: {type: integer}
+                                  nutrition: {type: integer}
+                                  steps: {type: integer}
+                              lastSeen: {type: string, format: date-time, nullable: true}
+                              botBlocked: {type: boolean}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/v2/trainer/share/template:
+    post:
+      operationId: shareTrainerTemplate
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateId, mode]
+              properties:
+                templateId: {type: integer, minimum: 1}
+                mode: {type: string, enum: [library, link]}
+      responses:
+        '200':
+          description: Program published; link is set for mode=link only
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        code: {type: string}
+                        name: {type: string}
+                        link: {type: string}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+  /api/v2/trainer/share/plan:
+    post:
+      operationId: shareTrainerOwnPlan
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, maxLength: 48}
+      responses:
+        '200':
+          description: The trainer's active plan published to the public library
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        code: {type: string}
+                        name: {type: string}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+  /api/v2/trainer/share/assign:
+    post:
+      operationId: assignTrainerTemplate
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateId, clientIds]
+              properties:
+                templateId: {type: integer, minimum: 1}
+                clientIds:
+                  type: array
+                  minItems: 1
+                  items: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: Template adapted and activated for the selected clients
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        assigned: {type: integer}
+                        total: {type: integer}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/trainer/templates:
     get:
       operationId: listTrainerTemplates
@@ -3492,6 +3661,41 @@ paths:
                       properties:
                         html: {type: string}
                   required: [data]
+  /api/v2/owner/cleanup:
+    post:
+      operationId: ownerCleanup
+      description: Bulk inactive-user cleanup. Without confirm, returns the preview count; with confirm true, deletes every eligible candidate.
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirm: {type: boolean}
+      responses:
+        '200':
+          description: Preview (count) or result (deleted)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        count: {type: integer}
+                        days: {type: integer}
+                        deleted: {type: integer}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/owner/users:
     get:
       operationId: getOwnerUsers

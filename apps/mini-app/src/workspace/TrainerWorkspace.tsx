@@ -10,6 +10,7 @@ import { showWhen, statusKey, toInstant } from "../logic/workspace";
 import { TrainerQuestions, TrainerRequests, TrainerTemplates, ClientSummary, TrainerProfilePayload, Panel, WorkspaceError, Metric , type WorkspaceProps } from "./shared";
 import { ClientCardView } from "./ClientCardView";
 import { AiCoachView } from "./AiCoachView";
+import { ProgramSharingView, TrainerReportView } from "./TrainerTools";
 
 export function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () => void }) {
   const [data, setData] = useState<TrainerProfilePayload | null>(null);
@@ -224,7 +225,7 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan, initialClientId 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [actionError, setActionError] = useState(false);
-  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach" | "schedule" | "finance">(initialClientId ? "client" : "list");
+  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach" | "schedule" | "finance" | "share" | "report">(initialClientId ? "client" : "list");
   const [activeClientId, setActiveClientId] = useState<number | null>(initialClientId ?? null);
   const [assignTemplateId, setAssignTemplateId] = useState("");
   const [assignClientId, setAssignClientId] = useState("");
@@ -266,6 +267,8 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan, initialClientId 
   if (subview === "profile") return <TrainerProfilePanel lang={lang} onBack={() => setSubview("list")} />;
   if (subview === "schedule") return <ScheduleView lang={lang} onBack={() => setSubview("list")} />;
   if (subview === "finance") return <FinanceView lang={lang} onBack={() => setSubview("list")} />;
+  if (subview === "report") return <TrainerReportView lang={lang} onBack={() => setSubview("list")} />;
+  if (subview === "share") return <ProgramSharingView lang={lang} clients={dashboard.trainer?.clients ?? []} onBack={() => setSubview("list")} />;
   if (subview === "coach") return <AiCoachView lang={lang} routed={false} onBack={() => setSubview("list")} />;
   if (subview === "atrisk") return <AtRiskReportView dashboard={dashboard} lang={lang} onBack={() => setSubview("list")} onOpenClient={(id) => { setActiveClientId(id); setSubview("client"); }} />;
   if (subview === "client" && activeClientId !== null) {
@@ -287,6 +290,8 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan, initialClientId 
       <button className="button button-ghost" onClick={() => setSubview("coach")}>{t(lang, "ai_coach_nav_btn")}</button>
       <button className="button button-ghost" onClick={() => setSubview("schedule")}>{t(lang, "workspace_tab_schedule")}</button>
       <button className="button button-ghost" onClick={() => setSubview("finance")}>{t(lang, "workspace_tab_finance")}</button>
+      <button className="button button-ghost" onClick={() => setSubview("report")}>{t(lang, "workspace_tab_report")}</button>
+      <button className="button button-ghost" onClick={() => setSubview("share")}>{t(lang, "workspace_tab_share")}</button>
     </div>
 
     <FirstClientChecklist lang={lang} clients={clients} onOpenPlan={(id) => onOpenPlan?.(id)} onInvite={() => document.getElementById("trainer-invite")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
