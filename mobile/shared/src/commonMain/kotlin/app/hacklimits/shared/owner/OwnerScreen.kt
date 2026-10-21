@@ -1,5 +1,6 @@
 package app.hacklimits.shared.owner
 
+import app.hacklimits.shared.trainertools.OwnerCleanupCard
 import app.hacklimits.shared.resources.ow_fbt_replied
 import app.hacklimits.shared.resources.ow_fbt_reply_sent
 import app.hacklimits.shared.resources.ow_fbt_reply_ph
@@ -125,6 +126,7 @@ fun OwnerScreen(onBack: () -> Unit) {
                 }
                 when (s.section) {
                     SECTION_ROSTER -> item {
+                        OwnerCleanupCard()
                         RosterPanel(
                             users = users,
                             busy = s.rosterBusy,

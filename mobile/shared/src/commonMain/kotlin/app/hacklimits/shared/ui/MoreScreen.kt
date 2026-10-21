@@ -1,5 +1,10 @@
 package app.hacklimits.shared.ui
 
+import app.hacklimits.shared.resources.tx_cardio_title
+import app.hacklimits.shared.resources.tt_report_title
+import app.hacklimits.shared.resources.tt_share_title
+import app.hacklimits.shared.daily.ReminderHourSetting
+import androidx.compose.runtime.key
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,7 +61,7 @@ enum class MoreDestination { Coach, Social, Integrations, TrainerClients, Traine
 
 /** Tools other slices own (and Choose a trainer, which is this slice's FindTrainerScreen). Kept apart from
  * [MoreDestination] so the App's exhaustive `when` does not have to change to build; the lead routes them via [onOpenTool]. */
-enum class MoreTool { Owner, Inbox, Injuries, FindTrainer, Programs, Library, Plates, WeekCard, Photos, FormCheck, ImportCsv }
+enum class MoreTool { Owner, Cardio, TrainerReport, ProgramSharing, Inbox, Injuries, FindTrainer, Programs, Library, Plates, WeekCard, Photos, FormCheck, ImportCsv }
 
 @Composable
 fun MoreScreen(
@@ -106,6 +111,11 @@ fun MoreScreen(
             }
             if (isOwner) Entry(stringResource(Res.string.ac_tool_owner)) { onOpenTool(MoreTool.Owner) }
             Entry(stringResource(Res.string.ib_title)) { onOpenTool(MoreTool.Inbox) }
+            Entry(stringResource(Res.string.tx_cardio_title)) { onOpenTool(MoreTool.Cardio) }
+            if (settings?.role == "trainer") {
+                Entry(stringResource(Res.string.tt_report_title)) { onOpenTool(MoreTool.TrainerReport) }
+                Entry(stringResource(Res.string.tt_share_title)) { onOpenTool(MoreTool.ProgramSharing) }
+            }
             Entry(stringResource(Res.string.pl_report_injury_title)) { onOpenTool(MoreTool.Injuries) }
             Entry(stringResource(Res.string.ac_tool_programs)) { onOpenTool(MoreTool.Programs) }
             Entry(stringResource(Res.string.ac_tool_library)) { onOpenTool(MoreTool.Library) }
@@ -157,6 +167,7 @@ fun MoreScreen(
         } else {
             LanguageSection(settings.lang, s.busy, vm::setLanguage)
             RemindersSection(settings, s.busy, vm::toggleReminder)
+            p.reminderHour?.let { hour -> key(hour) { ReminderHourSetting(initialHour = hour) } }
             VacationSection(
                 settings = settings,
                 dateText = s.vacationDate,

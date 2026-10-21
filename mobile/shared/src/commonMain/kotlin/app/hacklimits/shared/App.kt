@@ -1,5 +1,10 @@
 package app.hacklimits.shared
 
+import app.hacklimits.shared.trainingextras.CardioScreen
+import app.hacklimits.shared.trainingextras.ComebackScreen
+import app.hacklimits.shared.trainingextras.StandardsCard
+import app.hacklimits.shared.trainertools.TrainerReportScreen
+import app.hacklimits.shared.trainertools.ProgramSharingScreen
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -99,6 +104,10 @@ import org.koin.compose.viewmodel.koinViewModel
 @Serializable object InboxRoute
 @Serializable object FindTrainerRoute
 @Serializable object OwnerRoute
+@Serializable object CardioRoute
+@Serializable object ComebackRoute
+@Serializable object TrainerReportRoute
+@Serializable object ProgramSharingRoute
 @Serializable object FormCheckRoute
 @Serializable object ImportCsvRoute
 /** peerId = 0: a client's own trainer; otherwise the client a trainer is talking to. */
@@ -184,10 +193,13 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                             onStartQuestionnaire = { nav.navigate(OnboardingRoute) },
                             onOpenTraining = { nav.navigate(LoggerRoute) },
                             onAskCoach = { nav.navigate(CoachRoute) },
+                            onOpenFood = { nav.navigate(FoodRoute) },
+                            onOpenProgress = { nav.navigate(ProgressRoute) },
+                            onOpenComeback = { nav.navigate(ComebackRoute) },
                         )
                     }
                     composable<FoodRoute> { NutritionScreen(koinViewModel(), onOpenMealPhoto = { nav.navigate(MealPhotoRoute) }) }
-                    composable<ProgressRoute> { ProgressScreen(koinViewModel()) }
+                    composable<ProgressRoute> { ProgressScreen(koinViewModel(), trainExtras = { StandardsCard() }) }
                     composable<MoreRoute> {
                         val ownerApi = koinInject<OwnerApi>()
                         var isOwner by remember { mutableStateOf(false) }
@@ -219,6 +231,9 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                                     MoreTool.Photos -> nav.navigate(ProgressRoute)
                                     MoreTool.WeekCard -> nav.navigate(TodayRoute)
                                     MoreTool.Owner -> nav.navigate(OwnerRoute)
+                                    MoreTool.Cardio -> nav.navigate(CardioRoute)
+                                    MoreTool.TrainerReport -> nav.navigate(TrainerReportRoute)
+                                    MoreTool.ProgramSharing -> nav.navigate(ProgramSharingRoute)
                                     MoreTool.FormCheck -> nav.navigate(FormCheckRoute)
                                     MoreTool.ImportCsv -> nav.navigate(ImportCsvRoute)
                                     // The plate calculator sits in the workout overview, as in the Mini App.
@@ -253,6 +268,10 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                     composable<CoachRoute> { CoachScreen(onBack = { nav.popBackStack() }) }
                     composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }, onOpenCoach = { nav.navigate(CoachRoute) }) }
                     composable<OwnerRoute> { OwnerScreen(onBack = { nav.popBackStack() }) }
+                    composable<CardioRoute> { CardioScreen(onBack = { nav.popBackStack() }) }
+                    composable<ComebackRoute> { ComebackScreen(onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) }
+                    composable<TrainerReportRoute> { TrainerReportScreen(onBack = { nav.popBackStack() }) }
+                    composable<ProgramSharingRoute> { ProgramSharingScreen(onBack = { nav.popBackStack() }) }
                     composable<FormCheckRoute> { FormCheckScreen(onBack = { nav.popBackStack() }) }
                     composable<ImportCsvRoute> { ImportCsvScreen(onBack = { nav.popBackStack() }) }
                     composable<FindTrainerRoute> {

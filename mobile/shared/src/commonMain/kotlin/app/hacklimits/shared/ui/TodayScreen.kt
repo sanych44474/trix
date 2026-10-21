@@ -1,5 +1,11 @@
 package app.hacklimits.shared.ui
 
+import app.hacklimits.shared.daily.ChecklistTarget
+import app.hacklimits.shared.daily.EveningChecklistCard
+import app.hacklimits.shared.daily.checklistTargetOf
+import app.hacklimits.shared.trainingextras.ComebackViewModel
+import app.hacklimits.shared.resources.tx_comeback_title
+import app.hacklimits.shared.resources.tx_comeback_next
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,6 +87,9 @@ fun TodayScreen(
     onStartQuestionnaire: () -> Unit,
     onOpenTraining: () -> Unit = {},
     onAskCoach: () -> Unit = {},
+    onOpenFood: () -> Unit = {},
+    onOpenProgress: () -> Unit = {},
+    onOpenComeback: () -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val store: KeyValueStore = koinInject()
@@ -112,7 +121,7 @@ fun TodayScreen(
                     }
                 }
                 if (d.viewer.onboarded && !d.viewer.planPending) {
-                    TodayBody(d, session, vm, quick, prefs, onStartWorkout, onOpenTraining, onAskCoach, onOpenPlan)
+                    TodayBody(d, session, vm, quick, prefs, onStartWorkout, onOpenTraining, onAskCoach, onOpenPlan, onOpenFood, onOpenProgress, onOpenComeback)
                 }
             }
         }
@@ -130,6 +139,9 @@ private fun TodayBody(
     onOpenTraining: () -> Unit,
     onAskCoach: () -> Unit,
     onOpenPlan: () -> Unit,
+    onOpenFood: () -> Unit,
+    onOpenProgress: () -> Unit,
+    onOpenComeback: () -> Unit,
 ) {
     val plan: TodayPlan = remember(d, session) {
         todayPlan(
@@ -187,6 +199,18 @@ private fun TodayBody(
         }
         WeekStrip(plan.week)
     }
+
+    ComebackPrompt(onOpenComeback)
+    EveningChecklistCard(
+        onOpen = { key ->
+            when (checklistTargetOf(key)) {
+                ChecklistTarget.Fuel -> onOpenFood()
+                ChecklistTarget.Progress -> onOpenProgress()
+                ChecklistTarget.Today -> Unit // water and steps are logged on this screen
+            }
+        },
+        refreshKey = d,
+    )
 
     FineTuneSlot(d.viewer.profileGaps, onSaved = vm::refresh)
     WhatsNewSlot(d.whatsnew)
@@ -272,4 +296,18 @@ private fun WhatsNewSlot(whatsnew: Dashboard.WhatsNew?) {
     if (whatsnew == null) return
     val api = koinInject<WhatsNewApi>()
     WhatsNewCard(note = WhatsNewNote(whatsnew.version, text = whatsnew.text), onGotIt = api::markSeen)
+}
+
+/** After a vacation the server holds a short "welcome back" interview; offer it until it's answered. */
+@Composable
+private fun ComebackPrompt(onOpen: () -> Unit) {
+    val vm: ComebackViewModel = koinViewModel()
+    val state by vm.state.collectAsStateWithLifecycle()
+    if (!state.pending) return
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(Res.string.tx_comeback_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Button(onClick = onOpen) { Text(stringResource(Res.string.tx_comeback_next)) }
+        }
+    }
 }

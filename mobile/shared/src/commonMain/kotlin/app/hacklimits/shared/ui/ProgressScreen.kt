@@ -1,5 +1,6 @@
 package app.hacklimits.shared.ui
 
+import app.hacklimits.shared.daily.WellbeingCard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -436,6 +437,7 @@ private fun EmptyNote(title: String, detail: String) {
 
 private fun LazyListScope.bodyTab(vm: ProgressViewModel, s: ProgressViewModel.State, d: ProgressDashboard) {
     val uk = d.uk()
+    item { WellbeingCard(refreshKey = d) }
     item {
         ProgressCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
