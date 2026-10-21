@@ -98,6 +98,9 @@ data class LoggerUi(
     val rest: RestUi = RestUi(),
     val restPrefs: RestPrefs = RestPrefs(),
     val restOverrides: Map<String, Int> = emptyMap(),
+    /** The rest last chosen by hand, per metric ("reps"/"time"/"distance"): the starting rest of an
+     *  exercise that has no rest of its own yet, so a chosen 1:30 carries over to the next exercise. */
+    val restChosen: Map<String, Int> = emptyMap(),
     val rowDrafts: Map<String, RowDraft> = emptyMap(),
     val tab: LoggerTab = LoggerTab.TODAY,
     val history: List<WorkoutHistoryItem>? = null,
