@@ -3751,10 +3751,11 @@ components:
             Authorization: Bearer. Browsers get the HttpOnly cookie instead and never see this field.
     AuthProviders:
       type: object
-      required: [googleClientId, telegramAvailable]
+      required: [googleClientId, telegramAvailable, emailAvailable]
       properties:
         googleClientId: {type: [string, 'null']}
         telegramAvailable: {type: boolean}
+        emailAvailable: {type: boolean, description: Email codes can be sent (Resend is configured)}
     GoogleNonceChallenge:
       type: object
       required: [challengeId, nonce, clientId, expiresInSeconds]

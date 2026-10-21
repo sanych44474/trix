@@ -73,7 +73,8 @@ export async function sendLauncher(ctx: MyContext, view?: AppView): Promise<bool
   return true;
 }
 
-const START_PAYLOADS = ["tr_", "trp_", "ref_", "buddy_", "sq_"];
+// login_: the native app's Telegram sign-in (telegramLogin.ts) must reach its confirm prompt.
+const START_PAYLOADS = ["tr_", "trp_", "ref_", "buddy_", "sq_", "login_"];
 
 /**
  * True when the update was answered with the Open-app button and must go no further.
@@ -86,6 +87,8 @@ export async function launcherGate(ctx: MyContext): Promise<boolean> {
   if (await isOwner(ctx).catch(() => false)) return false;
   const data = ctx.callbackQuery?.data;
   if (data !== undefined) {
+    // The app sign-in Confirm/Deny buttons are the one bot interaction the app still depends on.
+    if (data.startsWith("tglogin:")) return false;
     await ctx.answerCallbackQuery().catch(() => {});
     return sendLauncher(ctx, viewForCallback(data));
   }
