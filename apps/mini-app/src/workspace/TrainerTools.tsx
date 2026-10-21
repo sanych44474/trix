@@ -2,7 +2,7 @@
 // plan, assign a template to selected clients) and the weekly client report. The same data and
 // rules as the bot's share flow and /trreport.
 import { useEffect, useState } from "react";
-import { api, jsonBody, typedBody } from "../api";
+import { api, typedBody } from "../api";
 import { t, type Lang } from "../i18n";
 import { Panel, WorkspaceError, type ClientSummary, type TrainerTemplates } from "./shared";
 

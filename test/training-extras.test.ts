@@ -11,7 +11,7 @@ import { localParts } from "../src/domain/localTime";
 
 const env = (db: ReturnType<typeof newDb>) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "trixbot" }) as never;
 
-function req(db: ReturnType<typeof newDb>, id: number, path: string, method = "GET", body?: unknown) {
+function req(_db: ReturnType<typeof newDb>, id: number, path: string, method = "GET", body?: unknown) {
   const url = new URL(`https://x${path}${path.includes("?") ? "&" : "?"}debugUser=${id}`);
   const init: RequestInit = body !== undefined
     ? { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } }
