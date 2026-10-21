@@ -47,6 +47,8 @@ import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import app.hacklimits.shared.telemetry.Telemetry
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -58,6 +60,8 @@ import org.koin.compose.viewmodel.koinViewModel
 fun CoachScreen(onBack: () -> Unit) {
     val vm: CoachViewModel = koinViewModel()
     val s by vm.state.collectAsStateWithLifecycle()
+    val telemetry = koinInject<Telemetry>()
+    LaunchedEffect(Unit) { telemetry.track("app_coach_open_today") }
     val listState = rememberLazyListState()
     val itemCount = s.lines.size + if (s.sending) 1 else 0
     LaunchedEffect(itemCount) { if (itemCount > 0) listState.animateScrollToItem(itemCount - 1) }

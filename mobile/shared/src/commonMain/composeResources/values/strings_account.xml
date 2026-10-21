@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="ac_settings_title">Settings</string>
-    <string name="ac_profile_eyebrow">Profile · settings</string>
-    <string name="ac_profile_title">Profile</string>
     <string name="ac_profile_load_error">Could not load your profile.</string>
     <string name="ac_identity_eyebrow">Identity</string>
     <string name="ac_personal_title">Personal details</string>
@@ -12,7 +9,6 @@
     <string name="ac_field_water_goal">Water goal, ml</string>
     <string name="ac_auto">Auto</string>
     <string name="ac_field_steps_goal">Steps goal</string>
-    <string name="ac_training_eyebrow">Training</string>
     <string name="ac_weekly_rhythm">Weekly rhythm</string>
     <string name="ac_field_goal">Goal</string>
     <string name="ac_field_experience">Experience</string>
@@ -21,7 +17,6 @@
     <string name="ac_saving">Saving…</string>
     <string name="ac_saved">Saved</string>
     <string name="ac_profile_updated">Profile updated.</string>
-    <string name="ac_consent_eyebrow">Consent</string>
     <string name="ac_trainer_visibility">Trainer visibility</string>
     <string name="ac_share_body">Share body measurements</string>
     <string name="ac_share_health">Share health and injury context</string>
@@ -32,7 +27,6 @@
     <string name="ac_auth_email_linked">Email linked to this account.</string>
     <string name="ac_auth_google_linked">Google linked to this account.</string>
     <string name="ac_auth_expires">The code expires in 10 minutes.</string>
-    <string name="ac_auth_retry">The request failed. Try again.</string>
     <string name="ac_auth_signed_in_with_email">Signed in with email</string>
     <string name="ac_auth_sign_out">Sign out on this device</string>
     <string name="ac_auth_email">Email address</string>
@@ -53,7 +47,6 @@
     <string name="ac_contrast_toggle">High contrast</string>
     <string name="ac_contrast_hint">Darker colours and stronger borders for bright light or low vision. Saved on this device.</string>
 
-    <string name="ac_settings_load_error">Could not load settings.</string>
     <string name="ac_retry">Retry</string>
     <string name="ac_language_eyebrow">Language</string>
     <string name="ac_language_title">Interface language</string>
@@ -125,7 +118,6 @@
     <string name="ac_trainer_field_bio">Bio</string>
 
     <string name="ac_generic_error">Something went wrong. Try again.</string>
-    <string name="ac_close">Close</string>
 
     <string name="ex_invite_title">Invite a friend</string>
     <string name="ex_invite_detail">Share your link. When they finish onboarding, you both get a boost.</string>
@@ -141,8 +133,6 @@
     <string name="ac_tool_formcheck">Form check</string>
     <string name="ac_tool_import">Import from CSV</string>
 
-    <string name="ex_find_eyebrow">Find a trainer</string>
-    <string name="ex_find_detail">Pick a coach from the list: they build and adjust your plan and you chat with them here.</string>
     <string name="ex_find_btn">Choose a trainer</string>
     <string name="ex_find_title">Choose a trainer</string>
     <string name="ex_find_body">Pick a coach and send a request. Once they accept, you fill in a short questionnaire and they build your plan.</string>
@@ -160,9 +150,5 @@
     <string name="ex_whatsnew_got_it">Got it</string>
     <string name="ex_whatsnew_more">Details</string>
 
-    <string name="ex_story_week_title">My training week</string>
-    <string name="ex_story_footer">Free AI coach in Telegram</string>
-    <string name="ex_story_share">Share to story</string>
-    <string name="ex_story_failed">Couldn’t prepare the story — try again.</string>
     <string name="ac_tool_owner">Owner console</string>
 </resources>

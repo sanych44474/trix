@@ -3,6 +3,7 @@ package app.hacklimits.shared.coach
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hacklimits.shared.data.ApiException
+import app.hacklimits.shared.telemetry.Telemetry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -48,7 +49,7 @@ private const val MAX_LINES = 60
 private const val FEEDBACK = "feedback"
 
 @OptIn(ExperimentalUuidApi::class)
-class CoachViewModel(private val api: CoachApi) : ViewModel() {
+class CoachViewModel(private val api: CoachApi, private val telemetry: Telemetry) : ViewModel() {
     private val _state = MutableStateFlow(CoachState())
     val state: StateFlow<CoachState> = _state
 
@@ -86,6 +87,7 @@ class CoachViewModel(private val api: CoachApi) : ViewModel() {
         if (text.isEmpty() || current.sending) return
         val key = pending?.takeIf { it.first == text }?.second ?: Uuid.random().toString()
         pending = text to key
+        telemetry.track(if (current.lines.isEmpty()) "app_coach_ask" else "app_coach_followup")
         ask(text, key)
     }
 
@@ -119,6 +121,7 @@ class CoachViewModel(private val api: CoachApi) : ViewModel() {
                 if (edit == null) api.feedback(action.value.orEmpty(), action.note, key)
                 else api.planEdit(edit.action, edit.weekday, edit.index, edit.value, key)
                 _state.update { markDone(it, lineId, index) }
+                telemetry.track("app_coach_action_${action.kind}")
             } catch (e: ApiException) {
                 _state.update { it.copy(actionError = e.code) }
             } catch (e: Exception) {

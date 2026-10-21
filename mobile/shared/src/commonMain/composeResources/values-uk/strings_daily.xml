@@ -12,7 +12,7 @@
     <string name="dl_reminder_title">Час щоденного нагадування</string>
     <string name="dl_reminder_hint">Місцевий час. Щоденні нагадування приходять у цю годину.</string>
     <string name="dl_saving">Зберігаємо…</string>
-    <string name="dl_error">Не вдалося зберегти. Спробуйте ще раз.</string>
+    <string name="dl_error">Не вдалося зберегти. Спробуй ще раз.</string>
     <string name="dl_diff_easier">Легше</string>
     <string name="dl_diff_harder">Складніше</string>
     <string name="dl_diff_swapped">Замінено вправ: %1$d.</string>

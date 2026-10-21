@@ -15,7 +15,7 @@
     <string name="trb_status_cancelled">Скасовано</string>
     <string name="trb_status_no_show">Не прийшов</string>
 
-    <string name="trb_profile_apply_intro">Подайте заявку, щоб стати тренером. Потрібне лише ім’я. Кожну заявку перевіряє власник.</string>
+    <string name="trb_profile_apply_intro">Подай заявку, щоб стати тренером. Потрібне лише ім’я. Кожну заявку перевіряє власник.</string>
     <string name="trb_profile_clients">Клієнтів: %1$d</string>
     <string name="trb_profile_name">Ім’я</string>
     <string name="trb_profile_bio">Про себе</string>
@@ -32,8 +32,7 @@
     <string name="trb_profile_applied">Заявку надіслано. Власник її розгляне.</string>
 
     <string name="trb_sessions_new">Нове заняття</string>
-    <string name="trb_sessions_pick_client">Клієнт</string>
-    <string name="trb_sessions_no_clients">Спершу додайте клієнтів, щоб планувати заняття.</string>
+    <string name="trb_sessions_no_clients">Спершу додай клієнтів, щоб планувати заняття.</string>
     <string name="trb_sessions_when">Початок</string>
     <string name="trb_sessions_when_hint">Формат: 2026-10-20 18:00, за часом на цьому пристрої</string>
     <string name="trb_sessions_duration">Тривалість, хвилин</string>
@@ -78,11 +77,11 @@
     <string name="trb_broadcast_limit">До 1500 символів.</string>
     <string name="trb_broadcast_send">Надіслати всім клієнтам</string>
     <string name="trb_broadcast_confirm_title">Надіслати всім клієнтам?</string>
-    <string name="trb_broadcast_confirm_text">Кожен із ваших клієнтів (%1$d) отримає це повідомлення в Telegram.</string>
+    <string name="trb_broadcast_confirm_text">Кожен із твоїх клієнтів (%1$d) отримає це повідомлення в Telegram.</string>
     <string name="trb_broadcast_confirm">Надіслати</string>
     <string name="trb_broadcast_cancel">Скасувати</string>
     <string name="trb_broadcast_sent">Надіслано клієнтам: %1$d.</string>
 
-    <string name="trb_err_not_found">Цього запису більше немає. Оновіть і спробуйте знову.</string>
-    <string name="trb_err_invalid">Перевірте значення і спробуйте знову.</string>
+    <string name="trb_err_not_found">Цього запису більше немає. Онови і спробуй знову.</string>
+    <string name="trb_err_invalid">Перевір значення і спробуй знову.</string>
 </resources>

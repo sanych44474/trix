@@ -4,7 +4,6 @@
     <string name="media_photo_choose">Choose a meal photo</string>
     <string name="media_photo_choose_cd">Choose a photo of a meal to estimate</string>
     <string name="media_items_title">Estimated items</string>
-    <string name="media_items_empty">Nothing was recognised in this photo. Try another photo or describe the meal below.</string>
     <string name="media_grams">Grams</string>
     <string name="media_kcal_line">%1$d kcal · P %2$d · F %3$d · C %4$d</string>
     <string name="media_log_meal">Log these items</string>

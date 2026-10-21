@@ -47,7 +47,6 @@
     <string name="pl_plan_note_label">Note</string>
     <string name="pl_plan_note_label_client">Comment for the client</string>
     <string name="pl_plan_note_ph">A reminder to yourself: tempo, grip, what to watch</string>
-    <string name="pl_plan_note_ph_client">What the client should keep in mind here</string>
     <string name="pl_plan_change_src_manual">Edited here</string>
     <string name="pl_plan_change_src_trainer">Your coach</string>
     <string name="pl_plan_change_src_ai_coach">AI coach</string>
@@ -108,12 +107,9 @@
     <string name="pl_exlib_eyebrow">Exercise library</string>
     <string name="pl_exlib_title">Exercises with pictures</string>
     <string name="pl_library_search_ph">Search: squat, dumbbell, присідання…</string>
-    <string name="pl_library_muscle">Muscle</string>
     <string name="pl_library_all_muscles">All muscles</string>
     <string name="pl_library_empty">Nothing matches — try another word or clear a filter.</string>
     <string name="pl_library_more">Show more (%1$s)</string>
-    <string name="pl_library_credit">Pictures: free-exercise-db (Unlicense).</string>
-    <string name="pl_library_day">Plan day</string>
     <string name="pl_library_add">Add to plan</string>
     <string name="pl_library_added">Added ✓</string>
     <string name="pl_library_no_plan">Create a plan first to add exercises to it.</string>
@@ -166,14 +162,12 @@
     <string name="pl_close">Close</string>
     <string name="pl_unauthorized_error">Open this page from Telegram to continue.</string>
     <string name="pl_saving_ellipsis">Saving…</string>
-    <string name="pl_nav_clients">Clients</string>
     <string name="pl_nav_more">More</string>
     <string name="pl_no_plan_title">No active plan</string>
     <string name="pl_no_plan_detail">Finish onboarding to build your first plan.</string>
     <string name="pl_days_count">%1$s days</string>
     <string name="pl_weight_label">Weight</string>
     <string name="pl_sets_label">Sets</string>
-    <string name="pl_field_equipment">Equipment</string>
     <string name="pl_save_btn">Save</string>
     <string name="pl_unit_kg_ph">kg</string>
     <string name="pg_rp_eyebrow">Ready programs</string>
@@ -206,7 +200,6 @@
     <string name="ob_time">2 minutes</string>
     <string name="ob_welcome_title">Let\'s build your plan</string>
     <string name="ob_welcome_body">A few short questions, one at a time — about 2 minutes. Your plan, reminders and nutrition targets are built from your answers. Or pick a ready program — then just 4 questions about you.</string>
-    <string name="ob_lang_label">Language</string>
     <string name="ob_role_athlete_btn">💪 I train myself — with AI</string>
     <string name="ob_start_btn">Start</string>
     <string name="ob_role_trainer_btn">Choose a trainer</string>
@@ -258,7 +251,5 @@
     <string name="ob_validation_error_hint">Check the required fields and try again.</string>
     <string name="ob_onboarding_save_error">Could not save onboarding. Try again.</string>
     <string name="ob_building_plan_ellipsis">Building your plan…</string>
-    <string name="ob_lang_uk_label">Українська</string>
-    <string name="ob_lang_en_label">English</string>
     <string name="pl_exlib_lang">en</string>
 </resources>

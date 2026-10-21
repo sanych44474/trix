@@ -13,7 +13,7 @@ val planModule: Module = module {
     single { InjuriesApi(get()) }
     single { ProgramsApi(get()) }
     single { SharedProgramsApi(get()) }
-    viewModel { ProgramsViewModel(get(), get()) }
+    viewModel { ProgramsViewModel(get(), get(), get()) }
     viewModel { InjuriesViewModel(get()) }
     viewModel { ExerciseLibraryViewModel(get()) }
 }

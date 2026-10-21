@@ -3,6 +3,7 @@ package app.hacklimits.shared.programs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hacklimits.shared.data.ApiException
+import app.hacklimits.shared.telemetry.Telemetry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -18,7 +19,11 @@ sealed interface ProgramNote {
 }
 
 /** Ready programs (filter, open, apply) and the shared program library (take). */
-class ProgramsViewModel(private val programs: ProgramsApi, private val shared: SharedProgramsApi) : ViewModel() {
+class ProgramsViewModel(
+    private val programs: ProgramsApi,
+    private val shared: SharedProgramsApi,
+    private val telemetry: Telemetry,
+) : ViewModel() {
     data class State(
         val programs: List<ReadyProgram>? = null,
         val role: String = "",
@@ -92,6 +97,7 @@ class ProgramsViewModel(private val programs: ProgramsApi, private val shared: S
             _state.update { it.copy(busy = true, note = null) }
             try {
                 val r = programs.apply(program.id)
+                telemetry.track("app_program_applied")
                 _state.update { it.copy(note = ProgramNote.Applied(r.name.ifEmpty { program.name }), confirm = null) }
                 onApplied()
             } catch (e: ApiException) {

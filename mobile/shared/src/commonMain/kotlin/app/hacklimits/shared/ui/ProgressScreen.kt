@@ -66,6 +66,8 @@ import app.hacklimits.shared.progress.ui.muscleLabel
 import app.hacklimits.shared.progress.ui.shortDate
 import app.hacklimits.shared.progress.ui.zoneLabel
 import app.hacklimits.shared.progress.weekSummary
+import app.hacklimits.shared.telemetry.Telemetry
+import org.koin.compose.koinInject
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.pr_build_baseline_detail
 import app.hacklimits.shared.resources.pr_calendar_done_count
@@ -153,6 +155,7 @@ import kotlin.math.max
 @Composable
 fun ProgressScreen(vm: ProgressViewModel, trainExtras: @Composable () -> Unit = {}) {
     val s by vm.state.collectAsStateWithLifecycle()
+    val telemetry = koinInject<Telemetry>()
     LaunchedEffect(Unit) { vm.refresh() }
     val d = s.data
     LazyColumn(
@@ -178,7 +181,10 @@ fun ProgressScreen(vm: ProgressViewModel, trainExtras: @Composable () -> Unit = 
                         for (section in ProgressSection.entries) {
                             FilterChip(
                                 selected = s.section == section,
-                                onClick = { vm.selectSection(section) },
+                                onClick = {
+                                    vm.selectSection(section)
+                                    telemetry.track("app_progress_${section.name.lowercase()}")
+                                },
                                 label = {
                                     Text(
                                         stringResource(
