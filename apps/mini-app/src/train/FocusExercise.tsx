@@ -73,7 +73,9 @@ export function suggestion(exercise: LoggerExercise, setIndex: number): LoggerSe
 /** The first sentence of the technique note: a cue, not an article. */
 function cue(technique: string | undefined): string {
   if (!technique) return "";
-  const first = technique.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s/)[0] ?? "";
+  // First sentence. No lookbehind: iOS before 16.4 can't parse it, and a parse error blanks the whole app.
+  const flat = technique.replace(/\s+/g, " ").trim();
+  const first = flat.match(/^.*?[.!?](?=\s)/)?.[0] ?? flat;
   return first.length > 120 ? `${first.slice(0, 117)}…` : first;
 }
 
