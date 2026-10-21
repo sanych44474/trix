@@ -1052,3 +1052,4 @@ button { cursor: pointer; }
 .roster-stats .icon:not(:first-child) { margin-left: 6px; }
 .check-row-master { font-weight: 700; }
 .check-row.muted { opacity: .5; }
+.search-ai { display: grid; gap: 6px; margin-top: 12px; }

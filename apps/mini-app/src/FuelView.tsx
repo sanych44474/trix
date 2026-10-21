@@ -6,6 +6,7 @@ import type { RequestBody } from "./types";
 import { MealPhoto } from "./media/MealPhoto";
 import { VoiceButton } from "./media/VoiceButton";
 import { Icon, type IconName } from "./icons";
+import { looksLikeDish } from "./logic/foodQuery";
 
 type NutritionBody = RequestBody<"editNutrition">;
 type NutritionAction = NutritionBody["action"];
@@ -45,7 +46,7 @@ export function FuelView({ lang }: { lang: Lang }) {
   // under the user; it shows as a small dismissible inline note instead.
   const [actionError, setActionError] = useState<unknown>(null);
   const [text, setText] = useState(""); const [search, setSearch] = useState(""); const [barcode, setBarcode] = useState("");
-  const [results, setResults] = useState<FoodSearchItem[]>([]); const [grams, setGrams] = useState("100");
+  const [results, setResults] = useState<FoodSearchItem[]>([]); const [searched, setSearched] = useState<string | null>(null); const [grams, setGrams] = useState("100");
   const [saving, setSaving] = useState(false); const [searching, setSearching] = useState(false); const [selected, setSelected] = useState<FoodSearchItem | null>(null);
   const [editing, setEditing] = useState<number | null>(null); const [correction, setCorrection] = useState({ kcal: "", protein: "", fats: "", carbs: "", grams: "" });
   const [advice, setAdvice] = useState(""); const [adviceBusy, setAdviceBusy] = useState(false); const [grocery, setGrocery] = useState<GroceryLine[] | null>(null); const [groceryDays, setGroceryDays] = useState(3);
@@ -56,7 +57,9 @@ export function FuelView({ lang }: { lang: Lang }) {
   const load = () => { setError(null); api<Nutrition>("/api/v2/nutrition").then(setNutrition).catch(setError); };
   useEffect(load, []);
   const log = async () => { if (!text.trim()) return; setSaving(true); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"quickLog">({ kind: "food", text: text.trim() }) }); setText(""); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
-  const searchFood = async (action: "dbsearch" | "barcode") => { const q = action === "dbsearch" ? search.trim() : barcode.replace(/\D/g, ""); if (!q || q.length < 2) return; setSearching(true); try { const result = await api<{ items: FoodSearchItem[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">(action === "dbsearch" ? { action, q } : { action, code: q }) }); setResults(result.items ?? []); } catch (err) { setActionError(err); } finally { setSearching(false); } };
+  const searchFood = async (action: "dbsearch" | "barcode") => { const q = action === "dbsearch" ? search.trim() : barcode.replace(/\D/g, ""); if (!q || q.length < 2) return; setSearching(true); try { const result = await api<{ items: FoodSearchItem[] }>("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">(action === "dbsearch" ? { action, q } : { action, code: q }) }); setResults(result.items ?? []); if (action === "dbsearch") setSearched(q); } catch (err) { setActionError(err); } finally { setSearching(false); } };
+  // A dish or an empty search: the same AI free-text log as "Describe", fed the search words.
+  const logSearchAsMeal = async () => { const q = search.trim(); if (!q) return; setSaving(true); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"quickLog">({ kind: "food", text: q }) }); setSearch(""); setSearched(null); setResults([]); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
   const addFood = async (item: FoodSearchItem) => { const amount = Number(grams); if (!Number.isFinite(amount) || amount < 1 || amount > 3000) return; setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action: "dbadd", name: item.name, ...(item.brand ? { brand: item.brand } : {}), grams: amount, per100: item.per100 }) }); setSelected(null); setResults([]); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
   const readd = async (ri: number) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action: "readd", ri }) }); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
   const mutateMeal = async (action: NutritionAction, index: number, extra: Omit<Partial<NutritionBody>, "action" | "index"> = {}) => { setSaving(true); try { await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action, index, ...extra }) }); setEditing(null); load(); } catch (err) { setActionError(err); } finally { setSaving(false); } };
@@ -136,6 +139,11 @@ export function FuelView({ lang }: { lang: Lang }) {
       </div>
       {quick === "search" && <Card>
         <div className="input-row"><input value={search} placeholder={t(lang, "search_input_ph")} autoFocus onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchFood("dbsearch"); }} /><button className="button button-primary" onClick={() => void searchFood("dbsearch")} disabled={searching}>{searching ? "…" : t(lang, "search_btn")}</button></div>
+        {searched !== null && searched === search.trim() && (results.length === 0 || looksLikeDish(searched)) && <div className="search-ai">
+          {results.length === 0 && <p className="muted">{t(lang, "search_none")}</p>}
+          <button className="button button-ghost button-wide" onClick={() => void logSearchAsMeal()} disabled={saving}>{saving ? "…" : t(lang, "search_ai_btn")}</button>
+          <small className="muted">{t(lang, "search_ai_hint")}</small>
+        </div>}
         {results.length === 0 && nutrition.recent?.length ? <div className="food-results">{nutrition.recent.slice(0, 6).map((item) => <button className="food-result" key={item.ri} onClick={() => void readd(item.ri)} disabled={saving}><span><strong>{item.desc}</strong><small>{t(lang, "fuel_recent_hint")}</small></span><span>{formatNumber(item.kcal)}</span></button>)}</div> : null}
         {results.length > 0 && <div className="food-results">{results.map((item) => <button className="food-result" key={`${item.name}-${item.brand ?? ""}`} onClick={() => { setSelected(item); if (item.portionG) setGrams(String(item.portionG)); }}><span><strong>{item.name}</strong><small>{item.brand || t(lang, "per_100g")}</small></span><span>{item.per100.kcal}</span></button>)}</div>}
         {selected && <div className="portion-editor"><strong>{selected.name}</strong><div className="input-row"><input type="number" min="1" max="3000" value={grams} onChange={(event) => setGrams(event.target.value)} /><span className="muted">{t(lang, "grams_unit")}</span><button className="button button-primary" onClick={() => void addFood(selected)} disabled={saving}>{t(lang, "add_portion_btn")}</button></div></div>}
