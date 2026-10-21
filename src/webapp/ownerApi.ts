@@ -21,6 +21,7 @@ import { escapeHtml, t } from "../locales/i18n";
 import { ImageBudgetError, generateImage } from "../ai/image";
 import { miniAppUser } from "./auth";
 import { nudgeOnboarding } from "./onboardingNudge";
+import { INACTIVE_DAYS, listCleanupCandidates, purgeCleanupCandidates } from "../features/owner/inactiveCleanup";
 import type { Env } from "../types";
 
 const FB_ASK_COOLDOWN_DAYS = 14;
@@ -218,6 +219,20 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const blocked = action === "block";
     await updateUser(env.DB, targetId, blocked ? { blocked: true } : { blocked: false, botBlocked: false });
     return Response.json({ ok: true, blocked });
+  }
+
+  // Bulk inactive cleanup (the bot's "Clean up" -> "Delete all"): without confirm, the preview
+  // count; with confirm: true, purge every eligible candidate. Same selection and per-user purge
+  // as bot/cleanup.ts, audited per user.
+  if (req.method === "POST" && path === "/api/owner/cleanup") {
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const candidates = await listCleanupCandidates(env.DB, user._id);
+    if ((parsed.body as { confirm?: unknown }).confirm !== true) {
+      return Response.json({ count: candidates.length, days: INACTIVE_DAYS }, { headers: { "cache-control": "no-store" } });
+    }
+    const deleted = await purgeCleanupCandidates(env, env.DB, user._id, candidates);
+    return Response.json({ deleted });
   }
 
   return Response.json({ error: "not found" }, { status: 404 });

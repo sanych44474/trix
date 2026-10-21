@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tt_share_title">Program sharing</string>
+    <string name="tt_share_hint">Publish a saved template to the library, get a share link, or assign it to the clients you pick. Needs instructor access from the owner.</string>
+    <string name="tt_publish_heading">Template to library or link</string>
+    <string name="tt_templates_empty">No saved templates yet. Save one from a client\'s plan first.</string>
+    <string name="tt_publish_library">Publish to library</string>
+    <string name="tt_publish_link">Get share link</string>
+    <string name="tt_published">"%1$s" is published to the library.</string>
+    <string name="tt_link_ready">Share link ready:</string>
+    <string name="tt_my_plan_title">Publish my plan</string>
+    <string name="tt_my_plan_name">Program name, e.g. PPL 6-day</string>
+    <string name="tt_my_plan_btn">Publish my plan</string>
+    <string name="tt_assign_title">Assign to clients</string>
+    <string name="tt_no_clients">No clients yet.</string>
+    <string name="tt_assign_btn">Assign to %1$d clients</string>
+    <string name="tt_pick_template">Pick a template first.</string>
+    <string name="tt_assigned">Assigned to %1$d of %2$d clients.</string>
+
+    <string name="tt_report_title">Weekly client report</string>
+    <string name="tt_report_active">Active in 7 days: %1$d of %2$d clients (%3$d%%)</string>
+    <string name="tt_report_empty">No clients yet.</string>
+    <string name="tt_report_interview_ok">interview done</string>
+    <string name="tt_report_interview">interview %1$d/%2$d</string>
+    <string name="tt_report_events">W %1$d · C %2$d · N %3$d · S %4$d</string>
+    <string name="tt_plan_active">Plan</string>
+    <string name="tt_plan_none">No plan</string>
+    <string name="tt_bot_blocked">Blocked the bot</string>
+    <string name="tt_report_legend">W workouts · C check-ins · N nutrition · S steps · most active first</string>
+
+    <string name="tt_cleanup_title">Inactive for %1$d+ days</string>
+    <string name="tt_cleanup_none">No inactive users to clean up.</string>
+    <string name="tt_cleanup_btn">Delete all %1$d inactive users</string>
+    <string name="tt_cleanup_confirm">Yes, delete %1$d</string>
+    <string name="tt_cleanup_warning">Every shown user is deleted. This cannot be undone. Only the owner is excluded.</string>
+    <string name="tt_cleanup_done">Deleted %1$d inactive users.</string>
+
+    <string name="tt_retry">Retry</string>
+    <string name="tt_cancel">Cancel</string>
+</resources>

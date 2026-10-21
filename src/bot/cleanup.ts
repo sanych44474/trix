@@ -3,19 +3,16 @@
 // (god-file split; same barrel seam via bot.ts's `export * from "./bot/cleanup"`).
 import { GrammyError, InlineKeyboard } from "grammy";
 import type { UserDoc } from "../types";
-import { deleteUserData } from "../adapters/d1/v2Account";
 import { getOwnerChatId, recordAudit } from "../adapters/d1/v2Admin";
 import { insertFeedback } from "../adapters/d1/v2Feedback";
 import { feedbackReplyMarkup } from "../features/feedback/replyFeedback";
-import { listClients, unlinkClient } from "../adapters/d1/v2Trainer";
 import { clearInactiveAsk, getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
 import { isOwner } from "../features/owner/ownerAccess";
+import { INACTIVE_DAYS, cleanupEligible, listCleanupCandidates, purgeCleanupCandidates, purgeUser } from "../features/owner/inactiveCleanup";
 import { type MyContext, HTML, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "../adapters/telegram/keyboards";
-
-export const INACTIVE_DAYS = 7;
 
 export async function cmdCleanup(ctx: MyContext) {
   const lang = ctx.user.lang;
@@ -108,22 +105,8 @@ export async function forwardInactiveFeedbackToOwner(ctx: MyContext, decision: s
     .catch(() => {});
 }
 
-// Re-verify a candidate is still deletable at the moment of the owner's tap (defense in depth).
-// Only the owner is excluded; trainers, clients and on-vacation users are all deletable.
-export function cleanupEligible(u: UserDoc | null, ownerId: number): boolean {
-  if (!u) return false;
-  if (u._id === ownerId) return false; // owner is the only exception
-  if (u.inactiveReply === "leaving") return true; // explicitly asked to be removed
-  const cutoff = Date.now() - INACTIVE_DAYS * 86_400_000;
-  return (u.lastSeenAt ?? u.createdAt).getTime() < cutoff;
-}
-
-// Delete a user and, if they were a trainer, unlink their clients back to solo so none are orphaned.
 export async function deleteUserFully(ctx: MyContext, u: UserDoc) {
-  if (u.role === "trainer") {
-    for (const c of await listClients(ctx.db, u._id)) await unlinkClient(ctx.db, c._id).catch(() => {});
-  }
-  await deleteUserData(ctx.env, u._id);
+  await purgeUser(ctx.env, ctx.db, u);
 }
 
 export async function onCleanupDelete(ctx: MyContext, userId: number) {
@@ -140,9 +123,7 @@ export async function onCleanupDelete(ctx: MyContext, userId: number) {
 export async function onCleanupAll(ctx: MyContext, confirmed: boolean) {
   const lang = ctx.user.lang;
   if (!(await isOwner(ctx))) { await reply(ctx, t(lang, "admin_only")); return; }
-  const nowIso = new Date().toISOString();
-  const cutoff = new Date(Date.now() - INACTIVE_DAYS * 86_400_000).toISOString();
-  const candidates = (await listInactive(ctx.db, cutoff, nowIso)).filter((u) => u._id !== ctx.user._id);
+  const candidates = await listCleanupCandidates(ctx.db, ctx.user._id);
   if (!confirmed) {
     const kb = new InlineKeyboard()
       .text(t(lang, "cleanup_yes"), "clean:allyes")
@@ -150,12 +131,6 @@ export async function onCleanupAll(ctx: MyContext, confirmed: boolean) {
     await reply(ctx, t(lang, "cleanup_all_confirm", { n: candidates.length }), kb);
     return;
   }
-  let n = 0;
-  for (const u of candidates) {
-    if (!cleanupEligible(u, ctx.user._id)) continue;
-    await deleteUserFully(ctx, u);
-    await recordAudit(ctx.db, ctx.user._id, "delete_user", u._id, u.profile.name ?? undefined);
-    n++;
-  }
+  const n = await purgeCleanupCandidates(ctx.env, ctx.db, ctx.user._id, candidates);
   await reply(ctx, t(lang, "cleanup_deleted_all", { n }), menuBtn(lang));
 }
