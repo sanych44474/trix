@@ -40,7 +40,8 @@ class DirectAppUpdater(private val context: Context) : AppUpdater {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lock = Mutex()
-    private val apk = File(context.cacheDir, "updates/update.apk")
+    // Lazy: cacheDir touches the disk, and the updater is built on the main thread at start-up.
+    private val apk by lazy { File(context.cacheDir, "updates/update.apk") }
     private var downloaded: ApkDownload? = null
     private var pageUrl: String? = null
 
