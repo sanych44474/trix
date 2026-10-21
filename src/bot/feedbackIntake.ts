@@ -9,11 +9,12 @@ import { escapeHtml, t } from "../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { storeFeedback } from "../features/feedback/storeFeedback";
+import { feedbackReplyMarkup } from "../features/feedback/replyFeedback";
 
 export async function recordFeedback(ctx: MyContext, text: string, viaCoach?: { original?: string }) {
   await storeFeedback(
     ctx.db,
-    (chatId, html) => ctx.api.sendMessage(chatId, html, HTML),
+    (chatId, html, replyMarkup) => ctx.api.sendMessage(chatId, html, { ...HTML, ...(replyMarkup ? { reply_markup: replyMarkup as InlineKeyboard } : {}) }),
     { userId: ctx.user._id, username: ctx.from?.username, timezone: ctx.user.profile.timezone },
     text,
     viaCoach,
@@ -33,7 +34,7 @@ export async function onQualityRating(ctx: MyContext, n: number) {
   const lang = ctx.user.lang;
   const stars = Math.max(1, Math.min(5, n));
   const { date } = localParts(ctx.user.profile.timezone);
-  await insertFeedback(ctx.db, {
+  const feedbackId = await insertFeedback(ctx.db, {
     userId: ctx.user._id,
     username: ctx.from?.username,
     text: `⭐ ${stars}/5 (rating)`,
@@ -42,7 +43,7 @@ export async function onQualityRating(ctx: MyContext, n: number) {
   const ownerChatId = await getOwnerChatId(ctx.db);
   if (ownerChatId) {
     const who = ctx.from?.username ? `@${ctx.from.username}` : `id ${ctx.user._id}`;
-    await ctx.api.sendMessage(ownerChatId, `⭐ <b>Rating ${stars}/5</b> from ${escapeHtml(who)}`, HTML).catch(() => {});
+    await ctx.api.sendMessage(ownerChatId, `⭐ <b>Rating ${stars}/5</b> from ${escapeHtml(who)}`, { ...HTML, reply_markup: feedbackReplyMarkup(feedbackId) }).catch(() => {});
   }
   await ctx.answerCallbackQuery({ text: t(lang, "quality_rate_ack") }).catch(() => {});
   // A low rating is a clear "something's wrong" signal — ask directly instead of hoping they

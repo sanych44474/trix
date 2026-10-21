@@ -6,6 +6,7 @@ import type { UserDoc } from "../types";
 import { deleteUserData } from "../adapters/d1/v2Account";
 import { getOwnerChatId, recordAudit } from "../adapters/d1/v2Admin";
 import { insertFeedback } from "../adapters/d1/v2Feedback";
+import { feedbackReplyMarkup } from "../features/feedback/replyFeedback";
 import { listClients, unlinkClient } from "../adapters/d1/v2Trainer";
 import { clearInactiveAsk, getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";
@@ -86,24 +87,24 @@ export async function handleInactiveFeedback(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;
   const decision = ctx.user.session.awaitText ?? "";
   const fb = text.trim().slice(0, 600);
-  await insertFeedback(ctx.db, {
+  const feedbackId = await insertFeedback(ctx.db, {
     userId: ctx.user._id,
     username: ctx.user.username,
     text: fb,
     date: localParts(ctx.user.profile.timezone).date,
-  }).catch(() => {});
-  await forwardInactiveFeedbackToOwner(ctx, decision, fb);
+  }).catch(() => null);
+  await forwardInactiveFeedbackToOwner(ctx, decision, fb, feedbackId);
   await setMode(ctx, "idle");
   await reply(ctx, t(lang, "inact_fb_thanks"), menuBtn(lang));
 }
 
-export async function forwardInactiveFeedbackToOwner(ctx: MyContext, decision: string, fb: string) {
+export async function forwardInactiveFeedbackToOwner(ctx: MyContext, decision: string, fb: string, feedbackId: number | null = null) {
   const ownerChatId = await getOwnerChatId(ctx.db);
   if (!ownerChatId) return;
   const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`) + (ctx.user.username ? ` (@${ctx.user.username})` : "");
   const tag = decision === "leave" ? "🔴 leaving" : "🟢 staying";
   await ctx.api
-    .sendMessage(ownerChatId, `💬 <b>Inactive-user feedback</b> · ${tag}\n${who}: ${escapeHtml(fb)}`, HTML)
+    .sendMessage(ownerChatId, `💬 <b>Inactive-user feedback</b> · ${tag}\n${who}: ${escapeHtml(fb)}`, { ...HTML, reply_markup: feedbackReplyMarkup(feedbackId) })
     .catch(() => {});
 }
 

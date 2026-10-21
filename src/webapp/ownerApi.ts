@@ -2,7 +2,8 @@
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
 import { pingOther } from "../notify";
-import { telegramUpload } from "../adapters/telegram/rawApi";
+import { rawTelegramApi, telegramUpload } from "../adapters/telegram/rawApi";
+import { MAX_FEEDBACK_REPLY, replyToFeedback } from "../features/feedback/replyFeedback";
 import { broadcastRelease, pendingReleaseRecipients } from "../features/owner/releaseBroadcast";
 import { broadcastQueue, queueAnnouncement, queueReleaseBroadcast } from "../features/owner/broadcastQueue";
 import { latestRelease } from "../releaseNotes";
@@ -124,6 +125,17 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const q = url.searchParams.get("status") ?? "new";
     const status = q === "all" || (FEEDBACK_STATUSES as readonly string[]).includes(q) ? (q as FeedbackStatus | "all") : "new";
     return Response.json(await listFeedback(env.DB, status), { headers: { "cache-control": "no-store" } });
+  }
+  // The owner's reply to a feedback author: same delivery as the bot's Reply button.
+  const fbReply = /^\/api\/owner\/feedback\/(\d+)\/reply$/.exec(path);
+  if (req.method === "POST" && fbReply) {
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) return parsed.response;
+    const text = String((parsed.body as Record<string, unknown>).text ?? "").trim();
+    if (!text || text.length > MAX_FEEDBACK_REPLY) return Response.json({ error: "bad request" }, { status: 400 });
+    const result = await replyToFeedback(env, { api: rawTelegramApi(env) }, Number(fbReply[1]), text);
+    if (result === "not_found") return Response.json({ error: "not found" }, { status: 404 });
+    return Response.json({ ok: true, delivered: result !== "not_delivered", queued: result === "queued" });
   }
   const fbMatch = /^\/api\/owner\/feedback\/(\d+)$/.exec(path);
   if (req.method === "POST" && fbMatch) {

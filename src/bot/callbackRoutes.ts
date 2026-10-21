@@ -79,6 +79,7 @@ import { onFoodDelete, onFoodEditProduct, onFoodEditWeight, onReLog, onWaterActi
 import { onInjuryExtend, onInjuryRecovered, onInjuryScore, reportInjury, showInjurySeverity, showInjuryTrend } from "./injury";
 import { onMealItemDelete, onMealItemMenu, onMealItemReplace, onMealPortion } from "../features/nutrition/nutritionLog";
 import { onQualityFollowupSkip, onQualityRating } from "./feedbackIntake";
+import { onFeedbackReplyButton } from "./feedbackReply";
 import { onReminderToggle, onWeighInAction, onSetHour, onSetTz, onSmartHour, onToggleDay, openSetting } from "./settingsCmds";
 import { saveWarmup, showWarmupEditor, suggestWarmup } from "./warmup";
 import { showMyLogNutritionDay, showMyLogWorkoutDay, startMealMacroEdit, startMyLogNutritionEdit, startMyLogWorkoutEdit } from "./logSelfEdit";
@@ -406,6 +407,8 @@ export const CB_PREFIX: [string, CbHandler][] = [
   ["ord:down:", (ctx, _r, data) => { const parts = data.split(":"); return moveExercise(ctx, Number(parts[2]) as Weekday, Number(parts[3]), parts[1] as "up" | "down"); }],
   // Trainer mini-interview for a client (stateless: answers ride in the callback data).
   ["mi:", (ctx, rest) => onMiniInterview(ctx, rest)],
+  // The owner answers forwarded feedback (bot/feedbackReply.ts).
+  ["fbr:", (ctx, rest) => onFeedbackReplyButton(ctx, rest)],
   ["pday:wd:", (ctx, rest) => showDayGroupPicker(ctx, Number(rest) as Weekday)],
   ["pday:new:", (ctx, rest) => { const [wd, gid] = rest.split(":"); return createPlanDay(ctx, Number(wd) as Weekday, gid); }],
   // "delok" before "del" — prefix overlap.

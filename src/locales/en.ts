@@ -686,6 +686,11 @@ export const en = {
   feedback_prompt:
     "✍️ Write your feedback or suggestion in one message — it goes straight to the bot owner. 🙏",
   feedback_done_user: "✅ <b>Your feedback made it in!</b>\nYou wrote: “{text}”\nWe've done it — thanks for helping make the bot better. 🙏",
+  feedback_reply_user: "💬 <b>Reply to your feedback</b>\nYou wrote: “{text}”\n\n{reply}",
+  fb_reply_prompt: "↩️ Type your reply to this feedback. It goes to the author in Telegram or the app.",
+  fb_reply_sent: "✅ Reply sent.",
+  fb_reply_queued: "✅ Reply saved; it will be delivered when the author can receive it.",
+  fb_reply_gone: "This feedback is gone or the author can’t be reached.",
   feedback_saved: "Thank you! Your feedback has been sent. 🙏",
 
   admin_claimed:
