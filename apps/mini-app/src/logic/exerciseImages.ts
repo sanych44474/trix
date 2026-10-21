@@ -132,9 +132,9 @@ const RULES: Rule[] = [
   [/з-за голов|из-за голов|overhead (triceps|extension)|над головою.*трицепс/iu, "Standing_Dumbbell_Triceps_Extension"],
   [/kickback|відведення руки назад|розгинання рук\p{L}* в нахилі/iu, "Tricep_Dumbbell_Kickback"],
   [/triceps|трицепс|розгинання рук|разгибание рук/iu, "Triceps_Pushdown"],
-  [/(curl|(?<!роз)згинання рук|сгибание рук|біцепс|бицепс).*(cable|блоц|блок|кросовер)/iu, "Standing_Biceps_Cable_Curl"],
-  [/(curl|(?<!роз)згинання рук|сгибание рук|біцепс|бицепс).*(dumbbell|гантел)|(dumbbell|гантел).*(curl|біцепс|бицепс)/iu, "Dumbbell_Bicep_Curl"],
-  [/curl|(?<!роз)згинання рук|сгибание рук|біцепс|бицепс/iu, "Barbell_Curl"],
+  [/(curl|(?:^.{0,2}|[^р]..|.[^о].|..[^з])згинання рук|сгибание рук|біцепс|бицепс).*(cable|блоц|блок|кросовер)/iu, "Standing_Biceps_Cable_Curl"],
+  [/(curl|(?:^.{0,2}|[^р]..|.[^о].|..[^з])згинання рук|сгибание рук|біцепс|бицепс).*(dumbbell|гантел)|(dumbbell|гантел).*(curl|біцепс|бицепс)/iu, "Dumbbell_Bicep_Curl"],
+  [/curl|(?:^.{0,2}|[^р]..|.[^о].|..[^з])згинання рук|сгибание рук|біцепс|бицепс/iu, "Barbell_Curl"],
   [/wrist|зап'яст|запястья/iu, "Palms-Up_Barbell_Wrist_Curl_Over_A_Bench"],
 
   // ---- core ----
