@@ -175,7 +175,9 @@ V2_APP_ENABLED = "1"
 # LATEST it offers a background update. Raise MIN only after that build is live on Play.
 ANDROID_MIN_VERSION_CODE = "1"
 ANDROID_LATEST_VERSION_CODE = "1"
-AUTH_EMAIL_FROM = ""
+# Sender of the sign-in code (Resend). Resend's shared onboarding@resend.dev only reaches the account
+# owner, so the apps hide email sign-in until this is an address on a domain verified in Resend.
+AUTH_EMAIL_FROM = "Hack Limits <onboarding@resend.dev>"
 # Your bot's @username (no @), numeric id and display name. BOT_ID + BOT_USERNAME let the Worker
 # skip a getMe round-trip per webhook; leave them empty and grammY fetches it once instead.
 BOT_USERNAME = ""
