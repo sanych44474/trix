@@ -4,7 +4,7 @@
 import { bodyLogsByUser } from "../adapters/d1/v2Tracking";
 import { listStrength } from "../adapters/d1/v2Workouts";
 import { updateUser } from "../adapters/d1/v2Users";
-import { comebackSteps } from "../bot/vacation";
+import { comebackSteps } from "../features/vacation/comeback";
 import { CARDIO_TEMPLATES, CARDIO_TYPES, cardioName, zoneBpm } from "../domain/cardioPlan";
 import { e1rm } from "../domain/records";
 import { strengthStandard } from "../domain/standards";
