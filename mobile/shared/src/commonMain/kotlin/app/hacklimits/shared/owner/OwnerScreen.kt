@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -350,7 +351,17 @@ private fun TabGrid(selected: String, busy: Boolean, onSelect: (String) -> Unit)
                         selected = on,
                         onClick = { onSelect(tab.id) },
                         enabled = !busy || on,
-                        label = { Text("${tab.icon} ${stringResource(tab.label)}", maxLines = 1) },
+                        // A third of a phone's width is narrow: a one-line label that doesn't fit is clipped
+                        // to just its icon ("Утримання", "Онбординг"), so the text gets a second line.
+                        label = {
+                            Text(
+                                "${tab.icon} ${stringResource(tab.label)}",
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(vertical = 4.dp),
+                            )
+                        },
                         modifier = Modifier.weight(1f),
                     )
                 }

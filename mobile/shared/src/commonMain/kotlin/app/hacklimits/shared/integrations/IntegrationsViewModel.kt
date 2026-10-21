@@ -111,6 +111,24 @@ class IntegrationsViewModel(
 
     fun openHealthSettings() = healthSync.openSettings()
 
+    /** Stops reading Health Connect: the grant is revoked and the screen goes back to "allow". */
+    fun disconnectHealth() {
+        if (_state.value.healthBusy) return
+        viewModelScope.launch {
+            _state.update { it.copy(healthBusy = true, healthError = null) }
+            runCatching { healthSync.disconnect() }
+                .onSuccess { _state.update { it.copy(healthGranted = false, healthSteps = null, healthNoSteps = false, healthSources = null) } }
+                .onFailure { _state.update { it.copy(healthError = "network") } }
+            _state.update { it.copy(healthBusy = false) }
+        }
+    }
+
+    /** Before the permission dialog: a previous disconnect must not hide a fresh grant. */
+    fun reconnectHealth() = healthSync.reconnect()
+
+    /** The step counter's permission can only be turned off in the system settings; resume refreshes. */
+    fun openAppSettings() = healthSync.openAppSettings()
+
     private fun stravaAct(block: suspend () -> Unit) {
         if (_state.value.stravaBusy) return
         viewModelScope.launch {

@@ -5,6 +5,8 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import android.content.Intent
 import android.content.ActivityNotFoundException
 import android.content.Context
+import android.net.Uri
+import android.provider.Settings
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -26,7 +28,11 @@ class HealthConnectSync(private val context: Context, private val sensor: StepSe
     override suspend fun available(): Boolean =
         HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
 
-    override suspend fun hasPermission(): Boolean = STEPS in client.permissionController.getGrantedPermissions()
+    // Set by disconnect(); Health Connect keeps reporting a revoked grant until the app restarts.
+    private val prefs by lazy { context.getSharedPreferences("health", Context.MODE_PRIVATE) }
+
+    override suspend fun hasPermission(): Boolean =
+        !prefs.getBoolean(KEY_OFF, false) && STEPS in client.permissionController.getGrantedPermissions()
 
     override suspend fun todaySteps(): Long? {
         // aggregate() throws SecurityException without the grant, so check first.
@@ -57,6 +63,24 @@ class HealthConnectSync(private val context: Context, private val sensor: StepSe
         }
     }
 
+    override suspend fun disconnect() {
+        prefs.edit().putBoolean(KEY_OFF, true).apply()
+        client.permissionController.revokeAllPermissions()
+    }
+
+    override fun reconnect() {
+        prefs.edit().remove(KEY_OFF).apply()
+    }
+
+    override fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            context.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+        }
+    }
+
     override fun sensorAvailable(): Boolean = sensor.available()
 
     override fun sensorGranted(): Boolean = sensor.granted()
@@ -68,6 +92,8 @@ class HealthConnectSync(private val context: Context, private val sensor: StepSe
         ?: runCatching { context.packageManager.run { getApplicationLabel(getApplicationInfo(pkg, 0)).toString() } }.getOrDefault(pkg)
 
     companion object {
+        private const val KEY_OFF = "health_connect_off"
+
         private val KNOWN_WRITERS = mapOf(
             "com.sec.android.app.shealth" to "Samsung Health",
             "com.google.android.apps.fitness" to "Google Fit",

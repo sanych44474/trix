@@ -18,6 +18,18 @@ interface HealthSync {
     /** Opens the health store's own settings (where syncing apps are managed). */
     fun openSettings() {}
 
+    /** Stops reading the health store and gives up its permissions. Android applies a revoked Health
+     *  Connect grant only after an app restart, so the choice is also remembered and [hasPermission]
+     *  reports false at once. */
+    suspend fun disconnect() {}
+
+    /** Forgets a previous [disconnect]: called when the person asks for access again. */
+    fun reconnect() {}
+
+    /** Opens this app's system settings, where a runtime permission such as the step counter's can be
+     *  turned off (Android does not let an app revoke its own runtime permission). */
+    fun openAppSettings() {}
+
     /** The phone has a hardware step counter. */
     fun sensorAvailable(): Boolean = false
 

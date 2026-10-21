@@ -63,10 +63,15 @@ fun IntegrationsScreen(onBack: () -> Unit, onRequestHealthPermission: () -> Unit
             Text(stringResource(Res.string.integ_health_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
             when {
                 !s.healthAvailable -> Text(stringResource(Res.string.integ_health_unavailable), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                !s.healthGranted -> Button(onClick = onRequestHealthPermission, enabled = !s.healthBusy, modifier = Modifier.fillMaxWidth()) {
+                !s.healthGranted -> Button(onClick = { vm.reconnectHealth(); onRequestHealthPermission() }, enabled = !s.healthBusy, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(Res.string.integ_health_connect))
                 }
-                else -> Text(stringResource(Res.string.integ_health_granted))
+                else -> {
+                    Text(stringResource(Res.string.integ_health_granted))
+                    OutlinedButton(onClick = vm::disconnectHealth, enabled = !s.healthBusy, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(Res.string.integ_health_disconnect))
+                    }
+                }
             }
             if (s.healthGranted || s.sensorGranted) {
                 Button(onClick = vm::syncSteps, enabled = !s.healthBusy, modifier = Modifier.fillMaxWidth()) {
@@ -100,6 +105,10 @@ fun IntegrationsScreen(onBack: () -> Unit, onRequestHealthPermission: () -> Unit
                 Text(stringResource(Res.string.integ_sensor_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (s.sensorGranted) {
                     Text(stringResource(Res.string.integ_sensor_on))
+                    OutlinedButton(onClick = vm::openAppSettings, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(Res.string.integ_sensor_off))
+                    }
+                    Text(stringResource(Res.string.integ_sensor_off_hint), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 } else {
                     OutlinedButton(onClick = onRequestActivityPermission, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(Res.string.integ_sensor_allow))
