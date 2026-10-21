@@ -57,3 +57,20 @@ export const CARDIO_TEMPLATES: CardioTemplate[] = [
 export function cardioTemplateByKey(key: string): CardioTemplate | undefined {
   return CARDIO_TEMPLATES.find((c) => c.key === key);
 }
+
+// Quick-log cardio types (the free-text logger prefixes the chosen name). "other" has no name.
+export const CARDIO_TYPES: { key: string; en: string; uk: string }[] = [
+  { key: "row", en: "Rowing", uk: "Веслування" },
+  { key: "bike", en: "Cycling", uk: "Велотренажер" },
+  { key: "run", en: "Running", uk: "Біг" },
+  { key: "walk", en: "Walking", uk: "Ходьба" },
+  { key: "swim", en: "Swimming", uk: "Плавання" },
+  { key: "ellipt", en: "Elliptical", uk: "Еліптичний" },
+  { key: "rope", en: "Jump rope", uk: "Скакалка" },
+  { key: "other", en: "Other", uk: "Інше" },
+];
+
+export function cardioName(lang: "en" | "uk", key: string): string {
+  const c = CARDIO_TYPES.find((x) => x.key === key);
+  return c ? (lang === "uk" ? c.uk : c.en) : "";
+}

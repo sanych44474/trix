@@ -11,6 +11,7 @@ import { handleNutritionApi } from "./nutritionApi";
 import { handleProfileApi, handleOnboardingApi } from "./profileApi";
 import { handleSettingsApi } from "./settingsApi";
 import { handleQuickLogApi } from "./quickLogApi";
+import { handleTrainingExtrasApi } from "./trainingExtrasApi";
 import { handleExtrasApi } from "./extrasApi";
 import { handleSquadsApi } from "./squadApi";
 import { handleTrainerApi } from "./trainerApi";
@@ -42,6 +43,9 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/onboarding", legacy: "/api/onboarding", handler: handleOnboardingApi },
   { prefix: "/api/v2/settings", legacy: "/api/settings", handler: handleSettingsApi },
   { prefix: "/api/v2/log", legacy: "/api/log", handler: handleQuickLogApi },
+  { prefix: "/api/v2/cardio", legacy: "/api/cardio", handler: handleTrainingExtrasApi },
+  { prefix: "/api/v2/standards", legacy: "/api/standards", handler: handleTrainingExtrasApi },
+  { prefix: "/api/v2/comeback", legacy: "/api/comeback", handler: handleTrainingExtrasApi },
   { prefix: "/api/v2/trainer/profile", legacy: "/api/trainer/profile", handler: handleExtrasApi },
   { prefix: "/api/v2/trainer/invite", legacy: "/api/trainer/invite", handler: handleExtrasApi },
   { prefix: "/api/v2/trainer/sessions", legacy: "/api/trainer/sessions", handler: handleTrainerScheduleApi },

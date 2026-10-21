@@ -12,6 +12,7 @@ import { todayPlan } from "./logic/todayPlan";
 import { canUseMainButton, showMainButton } from "./telegram";
 import { FineTuneCard } from "./FineTuneCard";
 import { WhatsNewCard } from "./WhatsNew";
+import { ComebackFlow } from "./TrainingExtras";
 import { WeekCard, WeekSummaryCard } from "./Week";
 import { Icon } from "./icons";
 import { Card } from "./train/ui";
@@ -127,6 +128,7 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
       {!(native && primary) && <button type="button" className={primary ? "button button-primary button-block" : "button button-outline button-block"} onClick={go}>{action}</button>}
     </section>
 
+    <ComebackFlow lang={lang} onDone={onReload} />
     {dashboard.recoverySwap && plan.state === "start" && <RecoverySwapCard lang={lang} swap={dashboard.recoverySwap} onDone={onReload} />}
 
     <section className="week-block" aria-labelledby="today-week-title">
