@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tx_adaptive_title">Чек-ін раз на два тижні</string>
+    <string name="tx_adaptive_prompt">Як відчуття від тренувань останнім часом — що йде добре, а що заважко чи залегко? Відповідай одним-двома реченнями, і я підлаштую твій план (ваги і підходи).</string>
+    <string name="tx_adaptive_placeholder">Розкажи одним-двома реченнями</string>
+    <string name="tx_adaptive_send">Надіслати</string>
+    <string name="tx_adaptive_error">Не вдалося надіслати. Спробуй ще раз.</string>
+    <string name="tx_adaptive_applied">Зміни в плані:</string>
+    <string name="tx_adaptive_none">Цього разу план не змінюється.</string>
+</resources>

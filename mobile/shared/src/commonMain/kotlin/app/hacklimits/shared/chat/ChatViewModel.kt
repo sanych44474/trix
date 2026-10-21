@@ -3,6 +3,7 @@ package app.hacklimits.shared.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hacklimits.shared.data.ApiException
+import app.hacklimits.shared.telemetry.Telemetry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,7 @@ private const val MAX_MESSAGE = 2_000
  * lives (the Mini App polls only while visible; a native screen keeps its model until it leaves).
  */
 @OptIn(ExperimentalUuidApi::class)
-class ChatViewModel(private val api: ChatApi, private val peerId: Long?) : ViewModel() {
+class ChatViewModel(private val api: ChatApi, private val peerId: Long?, private val telemetry: Telemetry) : ViewModel() {
     data class State(
         val thread: ChatThread? = null,
         /** The thread could not be loaded and there is nothing to show. */
@@ -54,6 +55,7 @@ class ChatViewModel(private val api: ChatApi, private val peerId: Long?) : ViewM
             _state.update { it.copy(sending = true, error = null) }
             try {
                 api.send(text, peerId, key)
+                telemetry.track(if (peerId != null) "app_chat_trainer_sent" else "app_chat_client_sent")
                 // Clear the box only if the user has not started a new message meanwhile.
                 _state.update { s -> s.copy(input = if (s.input.trim() == text) "" else s.input) }
                 load()

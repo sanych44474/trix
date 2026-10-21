@@ -24,6 +24,7 @@ import app.hacklimits.shared.workout.logic.RestPrefs
 import app.hacklimits.shared.workout.logic.SessionClock
 import app.hacklimits.shared.workout.logic.SessionQuality
 import app.hacklimits.shared.workout.logic.buildSaveEntries
+import app.hacklimits.shared.telemetry.Telemetry
 import app.hacklimits.shared.workout.logic.chooseStart
 import app.hacklimits.shared.workout.logic.clampRest
 import app.hacklimits.shared.workout.logic.copyToLoggerExercises
@@ -79,6 +80,7 @@ class LoggerViewModel(
     private val store: KeyValueStore,
     private val pending: PendingSaves,
     private val restAlarm: RestAlarm,
+    private val telemetry: Telemetry,
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(LoggerUi())
@@ -288,7 +290,10 @@ class LoggerViewModel(
 
     // ---- focus mode and menus ----
 
-    fun openFocus(index: Int) = edit { it.copy(focus = true, focusIndex = index, menuOpen = false) }
+    fun openFocus(index: Int) {
+        telemetry.track("app_focus_open")
+        edit { it.copy(focus = true, focusIndex = index, menuOpen = false) }
+    }
 
     fun closeFocus() = edit { it.copy(focus = false, menuOpen = false) }
 
@@ -568,6 +573,7 @@ class LoggerViewModel(
     }
 
     fun sendFeel(value: String) {
+        telemetry.track("app_feel_$value")
         val s = _ui.value
         val date = s.summaryDate ?: s.date
         edit { it.copy(feel = value, feelState = FeelState.BUSY) }

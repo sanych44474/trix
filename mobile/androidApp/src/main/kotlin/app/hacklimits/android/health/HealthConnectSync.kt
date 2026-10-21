@@ -1,5 +1,9 @@
 package app.hacklimits.android.health
 
+import java.time.Duration
+import androidx.health.connect.client.request.ReadRecordsRequest
+import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
@@ -13,10 +17,10 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Health Connect steps. Kept as .kt.txt until androidx.health.connect:connect-client is added to the
- * build (see mobile/androidApp/HEALTH_CONNECT.md); rename to .kt then.
+ * Health Connect steps, plus the phone's own step counter ([StepSensor]) for when nothing syncs
+ * steps into Health Connect (Samsung Health, Google Fit... are the usual writers).
  */
-class HealthConnectSync(private val context: Context) : HealthSync {
+class HealthConnectSync(private val context: Context, private val sensor: StepSensor = StepSensor(context)) : HealthSync {
     private val client: HealthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
 
     override suspend fun available(): Boolean =
@@ -38,7 +42,40 @@ class HealthConnectSync(private val context: Context) : HealthSync {
         return client.aggregate(request)[StepsRecord.COUNT_TOTAL]
     }
 
+    override suspend fun stepSources(): List<String> {
+        if (!hasPermission()) return emptyList()
+        val since = Instant.now().minus(Duration.ofDays(7))
+        val records = client.readRecords(ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.after(since), pageSize = 200)).records
+        return records.map { it.metadata.dataOrigin.packageName }.distinct().map(::appName)
+    }
+
+    override fun openSettings() {
+        val intent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            context.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+        }
+    }
+
+    override fun sensorAvailable(): Boolean = sensor.available()
+
+    override fun sensorGranted(): Boolean = sensor.granted()
+
+    override suspend fun sensorSteps(): Long? = sensor.todaySteps()
+
+    /** A readable name for a writer; package visibility may hide the label, so the usual ones are known. */
+    private fun appName(pkg: String): String = KNOWN_WRITERS[pkg]
+        ?: runCatching { context.packageManager.run { getApplicationLabel(getApplicationInfo(pkg, 0)).toString() } }.getOrDefault(pkg)
+
     companion object {
+        private val KNOWN_WRITERS = mapOf(
+            "com.sec.android.app.shealth" to "Samsung Health",
+            "com.google.android.apps.fitness" to "Google Fit",
+            "com.fitbit.FitbitMobile" to "Fitbit",
+            "com.huawei.health" to "Huawei Health",
+            "com.xiaomi.wearable" to "Mi Fitness",
+        )
+
         val STEPS: String = HealthPermission.getReadPermission(StepsRecord::class)
 
         /** Pass to an ActivityResultLauncher created with [permissionContract]. */

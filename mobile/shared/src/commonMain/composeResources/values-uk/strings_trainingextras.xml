@@ -2,7 +2,6 @@
 <resources>
     <string name="tx_back">Назад</string>
     <string name="tx_cardio_title">Кардіо</string>
-    <string name="tx_cardio_open">Кардіо</string>
     <string name="tx_cardio_quick">Швидкий запис</string>
     <string name="tx_cardio_prompt">%1$s: введи час і/або дистанцію.</string>
     <string name="tx_cardio_placeholder">30 хв 8 км</string>
@@ -26,6 +25,5 @@
     <string name="tx_comeback_error">Не вдалося зберегти. Спробуй ще раз.</string>
     <string name="tx_comeback_done">Готово</string>
     <string name="tx_comeback_done_keep">Чудово, план лишається як є. Повертаймось до роботи!</string>
-    <string name="tx_comeback_done_adjust">Напиши в чаті з ботом, що змінити (ваги, вправи, дні), і план буде підлаштовано.</string>
     <string name="tx_comeback_done_recreate">Перестворюю твій план з поточного профілю. Він з’явиться в Плані, коли буде готовий.</string>
 </resources>

@@ -8,5 +8,5 @@ import org.koin.dsl.module
 val chatModule: Module = module {
     single { ChatApi(get()) }
     // Parameter: the peer id, or 0 for the client's own trainer.
-    viewModel { params -> ChatViewModel(get(), params.get<Long>().takeIf { it > 0L }) }
+    viewModel { params -> ChatViewModel(get(), params.get<Long>().takeIf { it > 0L }, get()) }
 }

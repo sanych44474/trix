@@ -169,7 +169,10 @@ async function attachGoogleIdentity(db: DB, subject: string, email: string | nul
 async function providersRoute(env: Env): Promise<Response> {
   const username = env.BOT_USERNAME?.replace(/^@/, "");
   // Same condition emailAuth.ts checks before it sends a code: the app hides email sign-in otherwise.
-  const emailAvailable = !!env.RESEND_API_KEY && !!env.AUTH_EMAIL_FROM && (env.AUTH_SECRET?.length ?? 0) >= 32;
+  // Resend's shared sender (onboarding@resend.dev) only delivers to the account owner, so email
+  // sign-in is offered only once AUTH_EMAIL_FROM is an address on a domain verified in Resend.
+  const sandboxSender = /@resend\.dev>?\s*$/i.test(env.AUTH_EMAIL_FROM ?? "");
+  const emailAvailable = !!env.RESEND_API_KEY && !!env.AUTH_EMAIL_FROM && !sandboxSender && (env.AUTH_SECRET?.length ?? 0) >= 32;
   return json({ googleClientId: env.GOOGLE_CLIENT_ID ?? null, telegramAvailable: !!username && /^[A-Za-z0-9_]{5,32}$/.test(username), emailAvailable });
 }
 

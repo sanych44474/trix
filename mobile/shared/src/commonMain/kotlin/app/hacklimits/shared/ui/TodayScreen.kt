@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.hacklimits.shared.data.Dashboard
 import app.hacklimits.shared.data.KeyValueStore
+import app.hacklimits.shared.telemetry.Telemetry
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
 import app.hacklimits.shared.today.BadgeCelebration
@@ -143,6 +144,7 @@ private fun TodayBody(
     onOpenProgress: () -> Unit,
     onOpenComeback: () -> Unit,
 ) {
+    val telemetry = koinInject<Telemetry>()
     val plan: TodayPlan = remember(d, session) {
         todayPlan(
             TodayInput(
@@ -251,6 +253,7 @@ private fun TodayBody(
             d.week?.let { week -> WeekCardView(d.lang, week) }
             if (showSummary) {
                 WeekSummaryCard(d.lang, summary) {
+                    telemetry.track("app_week_summary_closed")
                     summarySeen = summary.start
                     scope.launch { prefs.setWeekSummarySeen(summary.start) }
                 }

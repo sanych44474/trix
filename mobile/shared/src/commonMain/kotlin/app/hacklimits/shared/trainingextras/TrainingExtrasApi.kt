@@ -62,6 +62,10 @@ data class Comeback(val pending: Boolean = false, val steps: List<ComebackQuesti
 @Serializable
 data class ComebackResult(val ok: Boolean = false, val decision: String = "", val planPending: Boolean = false)
 
+/** POST /api/v2/checkin/adaptive: the coach's reply and the plan changes it made ("Exercise: sets · weight"). */
+@Serializable
+data class AdaptiveReply(val ok: Boolean = false, val reply: String = "", val adjustments: List<String> = emptyList())
+
 @Serializable
 private data class LogResult(val ok: Boolean = false, val reason: String? = null)
 
@@ -87,6 +91,12 @@ class TrainingExtrasApi(private val api: ApiClient) {
             put("decision", decision)
         }
         return api.unwrap(post("api/v2/comeback", body, key))
+    }
+
+    /** The bi-weekly check-in answer; the coach adjusts the live plan. Fails with "no_plan" when there is no plan. */
+    suspend fun adaptiveCheckin(text: String, key: String): AdaptiveReply {
+        val body = buildJsonObject { put("text", text) }
+        return api.unwrap(post("api/v2/checkin/adaptive", body, key))
     }
 
     private suspend fun post(path: String, body: JsonObject, key: String): HttpResponse = api.http.post(path) {

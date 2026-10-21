@@ -9,5 +9,5 @@ import org.koin.dsl.module
 val workoutModule: Module = module {
     single { WorkoutApi(get()) }
     single { PendingSaves(get(), get()) }
-    viewModel { LoggerViewModel(get(), get(), get(), get()) }
+    viewModel { LoggerViewModel(get(), get(), get(), get(), get()) }
 }

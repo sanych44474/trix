@@ -92,6 +92,8 @@ export function AuthGate({ lang, onLangChange, onAuthenticated }: { lang: Lang; 
       <p className="auth-detail">{text.detail}</p>
       {providers?.telegramAvailable && <button className="button button-ghost button-wide button-tall" disabled={busy || !!telegram} onClick={() => void startTelegram()}>{busy && !telegram ? "…" : text.telegram}</button>}
       {telegram && <div className="auth-message auth-provider-message">{text.telegramWait}<p>{text.telegramCode} <strong>{telegram.matchCode}</strong></p><button className="button button-primary button-wide" type="button" onClick={() => openTelegramLogin(telegram.telegramUrl)}>{text.telegramOpen}</button></div>}
+      {/* Email codes only once the server can send them to anyone (a verified Resend domain). */}
+      {providers?.emailAvailable && <>
       {providers?.telegramAvailable ? <div className="auth-divider"><span>{text.emailDivider}</span></div> : null}
       {!challenge ? <form className="auth-form" onSubmit={startEmail}>
         <label className="form-field">{text.email}<input type="email" autoComplete="email" inputMode="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} /></label>
@@ -102,6 +104,7 @@ export function AuthGate({ lang, onLangChange, onAuthenticated }: { lang: Lang; 
         <button className="button button-primary button-wide button-tall" disabled={busy || code.length !== 6}>{busy ? "…" : text.verify}</button>
         <button className="button button-quiet button-wide" type="button" onClick={() => { setChallenge(null); setCode(""); setError(""); setNotice(""); }}>{text.change}</button>
       </form>}
+      </>}
       {error && <p className="auth-error" role="alert">{error}</p>}
     </div>
   </main>;

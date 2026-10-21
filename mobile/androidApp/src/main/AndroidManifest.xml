@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Health Connect: today's steps only, read on the phone and logged as a number. -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <!-- The phone's own step counter, the fallback when nothing syncs steps into Health Connect. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- Voice notes for server transcription, only on phones without on-device speech recognition. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <queries>
         <package android:name="com.google.android.apps.healthdata" />

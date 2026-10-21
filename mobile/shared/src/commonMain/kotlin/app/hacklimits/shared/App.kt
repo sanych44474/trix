@@ -1,5 +1,6 @@
 package app.hacklimits.shared
 
+import app.hacklimits.shared.platform.OpenView
 import app.hacklimits.shared.trainingextras.CardioScreen
 import app.hacklimits.shared.trainingextras.ComebackScreen
 import app.hacklimits.shared.trainingextras.StandardsCard
@@ -57,6 +58,7 @@ import app.hacklimits.shared.data.ApiClient
 import app.hacklimits.shared.data.AuthApi
 import app.hacklimits.shared.data.SessionStore
 import app.hacklimits.shared.platform.AppPlatform
+import app.hacklimits.shared.telemetry.Telemetry
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.tab_food
 import app.hacklimits.shared.resources.tab_more
@@ -115,18 +117,24 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /** A bottom-bar tab: its route, label and icon. Full-screen flows (workout, plan, questionnaire)
  * open above the tabs without the bar. */
-private data class Tab(val route: Any, val label: StringResource, val icon: ImageVector)
+private data class Tab(val route: Any, val label: StringResource, val icon: ImageVector, val event: String)
 
 private val TABS = listOf(
-    Tab(TodayRoute, Res.string.tab_today, HackLimitsIcons.Today),
-    Tab(FoodRoute, Res.string.tab_food, HackLimitsIcons.Food),
-    Tab(ProgressRoute, Res.string.tab_progress, HackLimitsIcons.Progress),
-    Tab(MoreRoute, Res.string.tab_more, HackLimitsIcons.More),
+    Tab(TodayRoute, Res.string.tab_today, HackLimitsIcons.Today, "app_nav_today"),
+    // The Mini App names this tab "fuel"; the event keeps the same name on both apps.
+    Tab(FoodRoute, Res.string.tab_food, HackLimitsIcons.Food, "app_nav_fuel"),
+    Tab(ProgressRoute, Res.string.tab_progress, HackLimitsIcons.Progress, "app_nav_progress"),
+    Tab(MoreRoute, Res.string.tab_more, HackLimitsIcons.More, "app_nav_more"),
 )
 
 /** Root: signed out -> sign-in; signed in -> the app. A 401 from the server signs out. */
 @Composable
-fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onRequestHealthPermission: () -> Unit = {}) {
+fun App(
+    onSignedIn: () -> Unit = {},
+    beforeSignOut: suspend () -> Unit = {},
+    onRequestHealthPermission: () -> Unit = {},
+    onRequestActivityPermission: () -> Unit = {},
+) {
     val display = koinInject<DisplayPreferences>()
     val displayPrefs by display.prefs.collectAsStateWithLifecycle()
     LaunchedEffect(display) { runCatching { display.load() } }
@@ -137,6 +145,7 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
             val auth = koinInject<AuthApi>()
             val pending = koinInject<PendingSaves>()
             val platform = koinInject<AppPlatform>()
+            val telemetry = koinInject<Telemetry>()
             val scope = rememberCoroutineScope()
             val updates: UpdateViewModel = koinViewModel()
             val gate by updates.gate.collectAsStateWithLifecycle()
@@ -158,6 +167,12 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                 return@Surface
             }
             val nav = rememberNavController()
+            val openView by OpenView.requested.collectAsStateWithLifecycle()
+            LaunchedEffect(openView) {
+                val view = openView ?: return@LaunchedEffect
+                OpenView.consumed()
+                routeForView(view)?.let { route -> nav.navigate(route) { launchSingleTop = true } }
+            }
             val entry by nav.currentBackStackEntryAsState()
             val onTab = TABS.any { tab -> entry?.destination?.hasRoute(tab.route::class) == true }
             Scaffold(
@@ -169,6 +184,7 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                                 NavigationBarItem(
                                     selected = entry?.destination?.hasRoute(tab.route::class) == true,
                                     onClick = {
+                                        telemetry.track(tab.event)
                                         nav.navigate(tab.route) {
                                             popUpTo(nav.graph.findStartDestination().id) { saveState = true }
                                             launchSingleTop = true
@@ -296,7 +312,11 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                         ChatScreen(peerId = peerId.takeIf { it > 0 }, onBack = { nav.popBackStack() })
                     }
                     composable<IntegrationsRoute> {
-                        IntegrationsScreen(onBack = { nav.popBackStack() }, onRequestHealthPermission = onRequestHealthPermission)
+                        IntegrationsScreen(
+                            onBack = { nav.popBackStack() },
+                            onRequestHealthPermission = onRequestHealthPermission,
+                            onRequestActivityPermission = onRequestActivityPermission,
+                        )
                     }
                     composable<MealPhotoRoute> { MealPhotoScreen(onBack = { nav.popBackStack() }, onLogged = { nav.popBackStack() }) }
                     composable<TrainerClientsRoute> {
@@ -323,4 +343,19 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
             }
         }
     }
+}
+
+/** A notification's screen (the server's ?view= names) as a route; unknown names open nothing. */
+private fun routeForView(view: String): Any? = when (view) {
+    "today" -> TodayRoute
+    "train" -> LoggerRoute
+    "plan" -> PlanRoute()
+    "fuel" -> FoodRoute
+    "progress" -> ProgressRoute
+    "more", "settings", "role" -> MoreRoute
+    "library" -> ExerciseLibraryRoute
+    "inbox" -> InboxRoute
+    "coach" -> CoachRoute
+    "onboarding" -> OnboardingRoute
+    else -> null
 }

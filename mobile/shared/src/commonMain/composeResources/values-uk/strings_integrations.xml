@@ -22,4 +22,12 @@
     <string name="integ_strava_sync">Синхронізувати зараз</string>
     <string name="integ_strava_synced">Імпортовано активностей: %1$d.</string>
     <string name="integ_strava_disconnect">Відключити</string>
+    <string name="integ_health_synced_sensor">Додано %1$d кроків за сьогодні з лічильника телефона.</string>
+    <string name="integ_health_sources">Кроки в Health Connect записують: %1$s. Відкрий цей застосунок, щоб він синхронізувався.</string>
+    <string name="integ_health_no_sources">Жоден застосунок ще не записує кроки в Health Connect. Samsung: Samsung Health → Налаштування → Health Connect → дозволь «Кроки». Інші телефони: Google Fit → Налаштування → Синхронізація з Health Connect.</string>
+    <string name="integ_health_open">Відкрити Health Connect</string>
+    <string name="integ_sensor_title">Лічильник кроків телефона</string>
+    <string name="integ_sensor_hint">Рахує кроки датчиком самого телефона, коли в Health Connect їх немає. Рахунок починається після дозволу.</string>
+    <string name="integ_sensor_on">Лічильник кроків телефона увімкнено.</string>
+    <string name="integ_sensor_allow">Рахувати кроки цим телефоном</string>
 </resources>

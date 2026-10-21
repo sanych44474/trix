@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tx_adaptive_title">Two-week check-in</string>
+    <string name="tx_adaptive_prompt">How are you feeling about training lately — what’s going well, and what feels too hard or too easy? Reply in a sentence or two and I’ll fine-tune your plan (weights and sets) accordingly.</string>
+    <string name="tx_adaptive_placeholder">Tell me in a sentence or two</string>
+    <string name="tx_adaptive_send">Send</string>
+    <string name="tx_adaptive_error">Could not send that. Try again.</string>
+    <string name="tx_adaptive_applied">Changes made to your plan:</string>
+    <string name="tx_adaptive_none">No changes to the plan this time.</string>
+</resources>

@@ -1,5 +1,15 @@
 package app.hacklimits.android
 
+import org.json.JSONArray
+import com.google.firebase.messaging.RemoteMessage
+import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.NotificationCompat
+import android.os.Build
+import android.content.pm.PackageManager
+import android.content.Intent
+import android.app.PendingIntent
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -68,6 +78,50 @@ class PushService : FirebaseMessagingService() {
     private val registrar: PushRegistrar by inject()
 
     override fun onRegistered(installationId: String) = registrar.register(installationId)
-    // Notification messages are shown by the system while the app is in the background; in the
-    // foreground FCM hands them here, and the next screen refresh shows the same information.
+
+    // The server sends data-only messages (src/adapters/fcm/fcm.ts), so the app draws every
+    // notification itself: that is what lets it carry buttons and open the right screen.
+    override fun onMessageReceived(message: RemoteMessage) {
+        val data = message.data
+        val title = data["title"] ?: return
+        showNotification(this, title, data["body"].orEmpty(), data["kind"].orEmpty(), data["view"], parseActions(data["actions"]))
+    }
 }
+
+internal data class PushButton(val label: String, val view: String)
+
+internal fun parseActions(raw: String?): List<PushButton> = runCatching {
+    val array = JSONArray(raw ?: return emptyList())
+    (0 until minOf(array.length(), 2)).mapNotNull { i ->
+        val o = array.optJSONObject(i) ?: return@mapNotNull null
+        val label = o.optString("label").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val view = o.optString("view").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        PushButton(label, view)
+    }
+}.getOrDefault(emptyList())
+
+internal fun showNotification(context: Context, title: String, body: String, kind: String, view: String?, buttons: List<PushButton>) {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+        Build.VERSION.SDK_INT >= 33
+    ) return
+    // One notification per kind: a newer reminder of the same kind replaces the old one.
+    val id = kind.hashCode()
+    val builder = NotificationCompat.Builder(context, REMINDERS_CHANNEL)
+        .setSmallIcon(R.drawable.ic_launcher_monochrome)
+        .setContentTitle(title)
+        .setContentText(body)
+        .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+        .setAutoCancel(true)
+        .setContentIntent(openIntent(context, view, id * 4))
+    buttons.forEachIndexed { i, button -> builder.addAction(0, button.label, openIntent(context, button.view, id * 4 + i + 1)) }
+    NotificationManagerCompat.from(context).notify(id, builder.build())
+}
+
+private fun openIntent(context: Context, view: String?, requestCode: Int): PendingIntent {
+    val intent = Intent(context, MainActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        .apply { if (view != null) putExtra(EXTRA_VIEW, view) }
+    return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+}
+
+const val EXTRA_VIEW = "view"

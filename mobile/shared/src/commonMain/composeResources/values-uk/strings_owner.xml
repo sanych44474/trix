@@ -65,13 +65,12 @@
 
     <string name="ow_roster_eyebrow">Список</string>
     <string name="ow_recent_users_title">Останні користувачі</string>
-    <string name="ow_roster_col_seen">Був</string>
     <string name="ow_roster_f_all">Усі</string>
     <string name="ow_roster_f_onboarding">Онбординг</string>
     <string name="ow_roster_f_active">Активні</string>
-    <string name="ow_roster_f_idle">Нема 7+ днів</string>
+    <string name="ow_roster_f_idle">Немає 7+ днів</string>
     <string name="ow_roster_empty">Нікого немає.</string>
-    <string name="ow_roster_nudge_btn">Пнути онбординг</string>
+    <string name="ow_roster_nudge_btn">Підштовхнути онбординг</string>
     <string name="ow_roster_nudged">Надіслано ✓</string>
     <string name="ow_block_btn">Заблокувати</string>
     <string name="ow_unblock_btn">Розблокувати</string>

@@ -6,6 +6,7 @@ import { makeCtx, newDb } from "./harness";
 import { getOrCreateUser, getUser } from "../src/adapters/d1/v2Users";
 import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { insertFeedback, listFeedback } from "../src/adapters/d1/v2Feedback";
+import { listInbox } from "../src/adapters/d1/v2Inbox";
 import { feedbackReplyMarkup, replyToFeedback } from "../src/features/feedback/replyFeedback";
 import { handleFeedbackReply, onFeedbackReplyButton } from "../src/bot/feedbackReply";
 import { handleOwnerApi } from "../src/webapp/ownerApi";
@@ -35,9 +36,9 @@ test("a reply reaches the author, closes the feedback and lands in their inbox",
   const row = (await listFeedback(db, "all")).rows.find((r) => r.id === id)!;
   assert.equal(row.status, "done");
   assert.equal(row.reply, "Added an AI breakdown for dishes");
-  // The node harness has no db.batch reads (listInbox); the real-D1 read is covered by test/vitest/inbox.test.ts.
-  const feed = db.dump<{ accountId: number; kind: string }>("SELECT accountId, kind FROM v2_inbox");
-  assert.deepEqual(feed.map((r) => ({ ...r })), [{ accountId: AUTHOR, kind: "feedback_reply" }]);
+  const inbox = await listInbox(db, AUTHOR);
+  assert.equal(inbox.items[0].kind, "feedback_reply");
+  assert.equal(inbox.unread, 1);
   assert.equal(await replyToFeedback({ DB: db, TELEGRAM_BOT_TOKEN: "t" } as never, sender as never, 9999, "x"), "not_found");
 });
 

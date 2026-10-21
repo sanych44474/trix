@@ -1496,6 +1496,12 @@ export const en = {
   tx_comeback_error: "Could not save that. Try again.",
   tx_comeback_done: "Done",
   tx_comeback_done_keep: "Great, your plan stays as it is. Let's get back to it!",
-  tx_comeback_done_adjust: "Send the changes you want (weights, exercises, days) in the bot chat and the plan will be adjusted.",
+  tx_adaptive_title: "Two-week check-in",
+  tx_adaptive_prompt: "How are you feeling about training lately — what's going well, and what feels too hard or too easy? Reply in a sentence or two and I'll fine-tune your plan (weights and sets) accordingly.",
+  tx_adaptive_placeholder: "Tell me in a sentence or two",
+  tx_adaptive_send: "Send",
+  tx_adaptive_error: "Could not send that. Try again.",
+  tx_adaptive_applied: "Changes made to your plan:",
+  tx_adaptive_none: "No changes to the plan this time.",
   tx_comeback_done_recreate: "Rebuilding your plan from your current profile. It will show up in Plan when it is ready.",
 } as const;

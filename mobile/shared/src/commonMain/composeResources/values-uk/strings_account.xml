@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="ac_settings_title">Налаштування</string>
-    <string name="ac_profile_eyebrow">Профіль · налаштування</string>
-    <string name="ac_profile_title">Профіль</string>
     <string name="ac_profile_load_error">Не вдалося завантажити профіль.</string>
     <string name="ac_identity_eyebrow">Особисті дані</string>
     <string name="ac_personal_title">Особисті дані</string>
@@ -12,7 +9,6 @@
     <string name="ac_field_water_goal">Ціль по воді, мл</string>
     <string name="ac_auto">Авто</string>
     <string name="ac_field_steps_goal">Ціль по кроках</string>
-    <string name="ac_training_eyebrow">Тренування</string>
     <string name="ac_weekly_rhythm">Тижневий ритм</string>
     <string name="ac_field_goal">Ціль</string>
     <string name="ac_field_experience">Досвід</string>
@@ -21,7 +17,6 @@
     <string name="ac_saving">Збереження…</string>
     <string name="ac_saved">Збережено</string>
     <string name="ac_profile_updated">Профіль оновлено.</string>
-    <string name="ac_consent_eyebrow">Згода</string>
     <string name="ac_trainer_visibility">Видимість для тренера</string>
     <string name="ac_share_body">Ділитись вимірами тіла</string>
     <string name="ac_share_health">Ділитись інформацією про здоров’я і травми</string>
@@ -32,7 +27,6 @@
     <string name="ac_auth_email_linked">Пошту прив’язано до цього акаунта.</string>
     <string name="ac_auth_google_linked">Google прив’язано до цього акаунта.</string>
     <string name="ac_auth_expires">Код діє 10 хвилин.</string>
-    <string name="ac_auth_retry">Не вдалося виконати запит. Спробуй ще раз.</string>
     <string name="ac_auth_signed_in_with_email">Вхід через електронну пошту</string>
     <string name="ac_auth_sign_out">Вийти з акаунта на цьому пристрої</string>
     <string name="ac_auth_email">Електронна пошта</string>
@@ -53,7 +47,6 @@
     <string name="ac_contrast_toggle">Висока контрастність</string>
     <string name="ac_contrast_hint">Темніші кольори та чіткіші межі для яскравого світла або слабкого зору. Зберігається на цьому пристрої.</string>
 
-    <string name="ac_settings_load_error">Не вдалося завантажити налаштування.</string>
     <string name="ac_retry">Повторити</string>
     <string name="ac_language_eyebrow">Мова</string>
     <string name="ac_language_title">Мова інтерфейсу</string>
@@ -125,7 +118,6 @@
     <string name="ac_trainer_field_bio">Про себе</string>
 
     <string name="ac_generic_error">Щось пішло не так. Спробуй ще раз.</string>
-    <string name="ac_close">Закрити</string>
 
     <string name="ex_invite_title">Запросити друга</string>
     <string name="ex_invite_detail">Поділись посиланням. Коли друг завершить онбординг, бонус отримаєте обидва.</string>
@@ -141,8 +133,6 @@
     <string name="ac_tool_formcheck">Перевірка техніки</string>
     <string name="ac_tool_import">Імпорт з CSV</string>
 
-    <string name="ex_find_eyebrow">Знайти тренера</string>
-    <string name="ex_find_detail">Обери тренера зі списку: він складе й коригуватиме твій план, а спілкуватиметесь тут.</string>
     <string name="ex_find_btn">Обрати тренера</string>
     <string name="ex_find_title">Обери тренера</string>
     <string name="ex_find_body">Обери тренера й надішли заявку. Щойно він прийме, заповниш коротку анкету, і він складе тобі план.</string>
@@ -160,9 +150,5 @@
     <string name="ex_whatsnew_got_it">Зрозуміло</string>
     <string name="ex_whatsnew_more">Докладніше</string>
 
-    <string name="ex_story_week_title">Мій тиждень тренувань</string>
-    <string name="ex_story_footer">Безкоштовний AI-коуч у Telegram</string>
-    <string name="ex_story_share">Поділитися в сторіс</string>
-    <string name="ex_story_failed">Не вдалося підготувати сторіс — спробуй ще раз.</string>
     <string name="ac_tool_owner">Консоль власника</string>
 </resources>

@@ -6,6 +6,7 @@ import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { applyTrainer, approveTrainer, linkClient, updateTrainer } from "../src/adapters/d1/v2Trainer";
 import { saveTrainerTemplate, listPublicPrograms, getSharedProgram } from "../src/adapters/d1/v2TrainerPrograms";
 import { getActivePlan } from "../src/adapters/d1/v2Plans";
+import { upsertExercise, upsertExerciseTranslation } from "../src/adapters/d1/v2Catalog";
 import { handleTrainerApi } from "../src/webapp/trainerApi";
 import { handleOwnerApi } from "../src/webapp/ownerApi";
 import type { BankPlan } from "../src/types";
@@ -106,6 +107,45 @@ test("share assign: activates the template for the selected client only", async 
   // A client that isn't this trainer's is not selectable.
   const none = await trainerCall(db, 10, "POST", "/api/trainer/share/assign", { templateId: tplId, clientIds: [999] });
   assert.equal(none.status, 400);
+});
+
+const NAMED_PLAN = { ...PLAN, split: [{ weekday: 1, muscleGroup: "Push", exercises: [{ name: "Dumbbell Bench Press", exerciseId: "abc123def456", sets: "3 × 8", startWeight: "20 kg", technique: "press", muscles: "chest" }] }] } as unknown as BankPlan;
+
+test("share assign: a Ukrainian client gets the exercise names localized (cached translation, no AI)", async () => {
+  const db = newDb();
+  await trainerWithClient(db, true);
+  await updateUser(db, 20, { lang: "uk" });
+  await upsertExercise(db, { id: "abc123def456", name: "Dumbbell Bench Press", muscle: "chest", difficulty: "beginner", equipments: [], instructions: "Press up.", safetyInfo: "" } as never);
+  await upsertExerciseTranslation(db, "abc123def456", "uk", { name: "Жим гантелей лежачи", instructions: "Тисни вгору.", safetyInfo: "" } as never);
+  const tplId = await saveTrainerTemplate(db, 10, "PPL", NAMED_PLAN);
+  const unstub = stubFetch();
+  try {
+    const res = await trainerCall(db, 10, "POST", "/api/trainer/share/assign", { templateId: tplId, clientIds: [20] });
+    assert.deepEqual(await res.json(), { ok: true, assigned: 1, total: 1 });
+  } finally {
+    unstub();
+  }
+  const ex = (await getActivePlan(db, 20))!.split[0].exercises[0];
+  assert.equal(ex.name, "Жим гантелей лежачи");
+  assert.equal(ex.canonicalName, "Dumbbell Bench Press");
+});
+
+test("share assign: a failing localizer never fails the assignment; English names are kept", async () => {
+  const db = newDb();
+  await trainerWithClient(db, true);
+  await updateUser(db, 20, { lang: "uk" });
+  // No catalog id: the localizer has to ground the name through AI, which is down here.
+  const ungrounded = { ...NAMED_PLAN, split: [{ weekday: 1, muscleGroup: "Push", exercises: [{ name: "Dumbbell Bench Press", sets: "3 × 8", startWeight: "20 kg", technique: "press", muscles: "chest" }] }] } as unknown as BankPlan;
+  const tplId = await saveTrainerTemplate(db, 10, "PPL", ungrounded);
+  const real = globalThis.fetch;
+  globalThis.fetch = (async () => { throw new Error("AI down"); }) as typeof fetch;
+  try {
+    const res = await trainerCall(db, 10, "POST", "/api/trainer/share/assign", { templateId: tplId, clientIds: [20] });
+    assert.deepEqual(await res.json(), { ok: true, assigned: 1, total: 1 });
+  } finally {
+    globalThis.fetch = real;
+  }
+  assert.equal((await getActivePlan(db, 20))!.split[0].exercises[0].name, "Dumbbell Bench Press");
 });
 
 test("owner cleanup: opaque 404 for a non-owner; preview then confirm purges inactive users", async () => {

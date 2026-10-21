@@ -1,15 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="coach_title">AI coach</string>
     <string name="coach_input_hint">Ask your coach</string>
     <string name="coach_send">Send</string>
     <string name="coach_retry">Retry</string>
-    <string name="coach_empty">Ask about your plan, training or nutrition.</string>
     <string name="coach_typing">Coach is typing…</string>
     <string name="coach_routed">Sent to your trainer. Their reply will appear here.</string>
     <string name="coach_label_coach">Coach</string>
-    <string name="coach_label_trainer">Trainer</string>
-    <string name="coach_load_error">Couldn\'t load the chat.</string>
     <string name="coach_err_network">No connection. Check the internet and try again.</string>
     <string name="coach_err_rate_limited">Too many questions. Wait a minute and try again.</string>
     <string name="coach_err_invalid">That question is empty or longer than 500 characters.</string>
@@ -28,5 +24,4 @@
     <string name="co_trainer_fallback">Your trainer</string>
     <string name="co_questions_title">Questions waiting for a reply</string>
     <string name="co_awaiting_reply">Awaiting reply</string>
-    <string name="co_conversation_eyebrow">Conversation</string>
 </resources>

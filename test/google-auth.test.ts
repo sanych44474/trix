@@ -73,4 +73,6 @@ test("providers says whether email codes can be sent, so the app can hide email 
   assert.equal(await get({}), false);
   assert.equal(await get({ RESEND_API_KEY: "re_x", AUTH_EMAIL_FROM: "a@b.c", AUTH_SECRET: "s".repeat(32) }), true);
   assert.equal(await get({ RESEND_API_KEY: "re_x", AUTH_SECRET: "s".repeat(32) }), false);
+  // Resend's shared sender only reaches the account owner: not offered to everyone.
+  assert.equal(await get({ RESEND_API_KEY: "re_x", AUTH_EMAIL_FROM: "Hack Limits <onboarding@resend.dev>", AUTH_SECRET: "s".repeat(32) }), false);
 });

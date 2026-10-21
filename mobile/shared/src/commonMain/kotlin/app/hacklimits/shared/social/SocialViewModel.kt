@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hacklimits.shared.coach.CoachApi
 import app.hacklimits.shared.data.ApiException
+import app.hacklimits.shared.telemetry.Telemetry
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +16,7 @@ import kotlin.uuid.Uuid
 /** Squads, challenges and the leaderboard. Each section loads on its own, so one failing call
  * leaves the other two usable. Confirmations are a [Notice] the screen turns into text. */
 @OptIn(ExperimentalUuidApi::class)
-class SocialViewModel(private val api: SocialApi, private val coach: CoachApi) : ViewModel() {
+class SocialViewModel(private val api: SocialApi, private val coach: CoachApi, private val telemetry: Telemetry) : ViewModel() {
     enum class Notice {
         SQUAD_CREATED, SQUAD_JOINED, SQUAD_ALREADY, SQUAD_LEFT,
         JOIN_NOT_FOUND, JOIN_FULL, TOO_MANY_SQUADS,
@@ -71,6 +72,7 @@ class SocialViewModel(private val api: SocialApi, private val coach: CoachApi) :
     fun createSquad(title: String) = act {
         val r = api.createSquad(title.trim(), Uuid.random().toString())
         if (r.ok) {
+            telemetry.track("app_squad_create")
             reloadSquads()
             Notice.SQUAD_CREATED
         } else squadNotice(r.reason)
@@ -82,7 +84,10 @@ class SocialViewModel(private val api: SocialApi, private val coach: CoachApi) :
         if (code.isEmpty()) return
         act {
             val r = api.joinSquad(code, Uuid.random().toString())
-            if (r.ok) reloadSquads()
+            if (r.ok) {
+                telemetry.track("app_squad_join")
+                reloadSquads()
+            }
             squadNotice(r.reason)
         }
     }

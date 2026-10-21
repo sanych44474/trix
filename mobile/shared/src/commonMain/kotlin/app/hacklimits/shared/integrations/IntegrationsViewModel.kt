@@ -30,6 +30,12 @@ class IntegrationsViewModel(
         val healthSteps: Long? = null,
         val healthNoSteps: Boolean = false,
         val healthError: String? = null,
+        /** Apps writing steps to Health Connect, shown when it has none for today; null = not checked. */
+        val healthSources: List<String>? = null,
+        val sensorAvailable: Boolean = false,
+        val sensorGranted: Boolean = false,
+        /** The synced count came from the phone's step counter, not Health Connect. */
+        val stepsFromSensor: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
@@ -43,7 +49,14 @@ class IntegrationsViewModel(
         viewModelScope.launch {
             val available = runCatching { healthSync.available() }.getOrDefault(false)
             val granted = available && runCatching { healthSync.hasPermission() }.getOrDefault(false)
-            _state.update { it.copy(healthAvailable = available, healthGranted = granted) }
+            _state.update {
+                it.copy(
+                    healthAvailable = available,
+                    healthGranted = granted,
+                    sensorAvailable = healthSync.sensorAvailable(),
+                    sensorGranted = healthSync.sensorGranted(),
+                )
+            }
         }
         viewModelScope.launch {
             runCatching { stravaApi.status() }
@@ -68,20 +81,25 @@ class IntegrationsViewModel(
     }
 
     fun syncSteps() {
-        // Without the permission the screen offers the grant button instead, so there is nothing to read.
-        if (!_state.value.healthGranted || _state.value.healthBusy) return
+        // Without either source the screen offers the grant buttons instead, so there is nothing to read.
+        val s = _state.value
+        if ((!s.healthGranted && !s.sensorGranted) || s.healthBusy) return
         viewModelScope.launch {
-            _state.update { it.copy(healthBusy = true, healthError = null, healthSteps = null, healthNoSteps = false) }
+            _state.update { it.copy(healthBusy = true, healthError = null, healthSteps = null, healthNoSteps = false, healthSources = null, stepsFromSensor = false) }
             try {
-                val steps = healthSync.todaySteps()
+                val fromStore = if (s.healthGranted) healthSync.todaySteps()?.takeIf { it > 0 } else null
+                // Health Connect only has what another app wrote there; the phone's counter is the fallback.
+                val fromSensor = if (fromStore == null && s.sensorGranted) healthSync.sensorSteps() else null
+                val steps = fromStore ?: fromSensor
                 if (steps == null) {
-                    _state.update { it.copy(healthNoSteps = true) }
+                    val sources = if (s.healthGranted) runCatching { healthSync.stepSources() }.getOrDefault(emptyList()) else emptyList()
+                    _state.update { it.copy(healthNoSteps = true, healthSources = sources) }
                 } else {
                     // Same cap the quick-log card enforces, so both paths accept the same values.
                     val count = steps.coerceIn(0L, MAX_STEPS).toInt()
                     // A fresh key per tap: a retried request is deduplicated, a second tap counts again.
                     trackingApi.steps(count, Uuid.random().toString())
-                    _state.update { it.copy(healthSteps = count.toLong()) }
+                    _state.update { it.copy(healthSteps = count.toLong(), stepsFromSensor = fromStore == null) }
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(healthError = errorCodeOf(e)) }
@@ -90,6 +108,8 @@ class IntegrationsViewModel(
             }
         }
     }
+
+    fun openHealthSettings() = healthSync.openSettings()
 
     private fun stravaAct(block: suspend () -> Unit) {
         if (_state.value.stravaBusy) return

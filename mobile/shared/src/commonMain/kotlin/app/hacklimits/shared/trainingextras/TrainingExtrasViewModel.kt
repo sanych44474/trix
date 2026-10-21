@@ -143,3 +143,25 @@ class ComebackViewModel(private val api: TrainingExtrasApi) : ViewModel() {
         }
     }
 }
+
+/** The bi-weekly adaptive check-in ("adjust" in the comeback): one free-text answer, the coach's reply back. */
+@OptIn(ExperimentalUuidApi::class)
+class AdaptiveCheckinViewModel(private val api: TrainingExtrasApi) : ViewModel() {
+    data class State(
+        val busy: Boolean = false,
+        val actionError: String? = null,
+        val reply: AdaptiveReply? = null,
+    )
+
+    private val _state = MutableStateFlow(State())
+    val state: StateFlow<State> = _state
+
+    fun send(text: String) {
+        if (_state.value.busy || text.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, actionError = null) }
+            val (reply, error) = attempt { api.adaptiveCheckin(text, Uuid.random().toString()) }
+            _state.update { it.copy(busy = false, reply = reply, actionError = error) }
+        }
+    }
+}

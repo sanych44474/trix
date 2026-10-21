@@ -3237,6 +3237,70 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
         '400': {$ref: '#/components/responses/ValidationError'}
+  /api/v2/checkin/adaptive:
+    get:
+      operationId: getAdaptiveCheckin
+      description: Bi-weekly adaptive check-in state. pending=true while the bot would take the next message as the check-in answer (session mode checkin_adaptive).
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: Check-in state
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        pending: {type: boolean}
+                        hasPlan: {type: boolean}
+                      required: [pending, hasPlan]
+                  required: [data]
+    post:
+      operationId: answerAdaptiveCheckin
+      description: The athlete's free-text answer. The coach micro-adjusts weights and sets of the live plan (the bot's chat answer, reused). Mode is cleared to idle.
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200':
+          description: Adjustments applied
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {type: boolean}
+                        reply: {type: string}
+                        adjustments:
+                          type: array
+                          items: {type: string}
+                      required: [ok, reply, adjustments]
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409':
+          description: No active plan to adjust
   /api/v2/trainer/share/assign:
     post:
       operationId: assignTrainerTemplate

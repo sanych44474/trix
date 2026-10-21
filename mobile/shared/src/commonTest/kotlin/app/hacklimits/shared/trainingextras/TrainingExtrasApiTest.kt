@@ -86,4 +86,25 @@ class TrainingExtrasApiTest {
         assertTrue(standards.needsWeight)
         assertTrue(standards.lifts.isEmpty())
     }
+
+    @Test
+    fun theAdaptiveAnswerSendsTheTextAndReturnsTheCoachsAdjustments() = runTest {
+        var body = ""
+        val api = extras { request ->
+            body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+            respond("""{"data":{"ok":true,"reply":"Lighter bench.","adjustments":["Bench Press: 3 × 6 · 55 kg"]},"meta":{"version":2}}""", HttpStatusCode.OK, json)
+        }
+        val result = api.adaptiveCheckin("bench is too heavy", "k".repeat(36))
+        assertEquals("Lighter bench.", result.reply)
+        assertEquals(listOf("Bench Press: 3 × 6 · 55 kg"), result.adjustments)
+        assertTrue(body.contains("\"text\":\"bench is too heavy\""), body)
+    }
+
+    @Test
+    fun anAdaptiveAnswerWithoutAPlanReportsNoPlan() = runTest {
+        val api = extras {
+            respond("""{"error":{"code":"no_plan","message":"no_plan"}}""", HttpStatusCode.Conflict, json)
+        }
+        assertEquals("no_plan", assertFailsWith<ApiException> { api.adaptiveCheckin("hi", "k".repeat(36)) }.code)
+    }
 }

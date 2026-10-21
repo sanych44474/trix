@@ -47,6 +47,7 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/cardio", legacy: "/api/cardio", handler: handleTrainingExtrasApi },
   { prefix: "/api/v2/standards", legacy: "/api/standards", handler: handleTrainingExtrasApi },
   { prefix: "/api/v2/comeback", legacy: "/api/comeback", handler: handleTrainingExtrasApi },
+  { prefix: "/api/v2/checkin/adaptive", legacy: "/api/checkin/adaptive", handler: handleTrainingExtrasApi },
   { prefix: "/api/v2/trainer/profile", legacy: "/api/trainer/profile", handler: handleExtrasApi },
   { prefix: "/api/v2/trainer/invite", legacy: "/api/trainer/invite", handler: handleExtrasApi },
   { prefix: "/api/v2/trainer/sessions", legacy: "/api/trainer/sessions", handler: handleTrainerScheduleApi },
