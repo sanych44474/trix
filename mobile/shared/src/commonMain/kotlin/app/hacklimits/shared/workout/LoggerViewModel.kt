@@ -41,6 +41,7 @@ import app.hacklimits.shared.workout.logic.parseRestPrefs
 import app.hacklimits.shared.workout.logic.plannedSetsFor
 import app.hacklimits.shared.workout.logic.prefillFromLast
 import app.hacklimits.shared.workout.logic.removeLoggerSet
+import app.hacklimits.shared.workout.logic.restMetricKey
 import app.hacklimits.shared.workout.logic.restProgress
 import app.hacklimits.shared.workout.logic.scoreRest
 import app.hacklimits.shared.workout.logic.sessionElapsedSec
@@ -66,6 +67,7 @@ import kotlin.uuid.Uuid
 private const val TODAY_CACHE_KEY = "workout_today_cache"
 private const val REST_PREFS_KEY = "workout_rest_prefs"
 private const val REST_BY_EXERCISE_KEY = "workout_rest_by_exercise"
+private const val REST_CHOSEN_KEY = "workout_rest_chosen"
 private const val DRAFT_PUSH_DELAY_MS = 2_500L
 private const val MAX_PLATES_KG = 600.0
 
@@ -102,7 +104,10 @@ class LoggerViewModel(
             val overrides = runCatching {
                 AppJson.decodeFromString(MapSerializer(String.serializer(), Int.serializer()), store.get(REST_BY_EXERCISE_KEY) ?: "{}")
             }.getOrDefault(emptyMap()).filterValues { it > 0 }
-            _ui.value = _ui.value.copy(restPrefs = parseRestPrefs(store.get(REST_PREFS_KEY)), restOverrides = overrides)
+            val chosen = runCatching {
+                AppJson.decodeFromString(MapSerializer(String.serializer(), Int.serializer()), store.get(REST_CHOSEN_KEY) ?: "{}")
+            }.getOrDefault(emptyMap()).filterValues { it > 0 }
+            _ui.value = _ui.value.copy(restPrefs = parseRestPrefs(store.get(REST_PREFS_KEY)), restOverrides = overrides, restChosen = chosen)
         }
         load()
     }
@@ -322,7 +327,10 @@ class LoggerViewModel(
     }
 
     fun restSecFor(ex: LoggerExercise): Int = clampRest(
-        _ui.value.restOverrides[ex.name] ?: ex.restSec ?: _ui.value.restPrefs.forMetric(ex.metric),
+        _ui.value.restOverrides[ex.name]
+            ?: _ui.value.restChosen[restMetricKey(ex.metric)]
+            ?: ex.restSec
+            ?: _ui.value.restPrefs.forMetric(ex.metric),
     )
 
     /** A rest picked on an exercise: applies to that exercise by name, and is remembered on the device. */
@@ -330,6 +338,17 @@ class LoggerViewModel(
         val overrides = _ui.value.restOverrides + (exerciseName to clampRest(seconds))
         edit { it.copy(restOverrides = overrides) }
         persistOverrides(overrides)
+        rememberChosen(exerciseName, clampRest(seconds))
+    }
+
+    /** A hand-picked rest also becomes the start for exercises of the same kind without their own. */
+    private fun rememberChosen(exerciseName: String, seconds: Int) {
+        val metric = _ui.value.exercises.firstOrNull { it.name == exerciseName }?.metric
+        val chosen = _ui.value.restChosen + (restMetricKey(metric) to seconds)
+        edit { it.copy(restChosen = chosen) }
+        viewModelScope.launch {
+            store.put(REST_CHOSEN_KEY, AppJson.encodeToString(MapSerializer(String.serializer(), Int.serializer()), chosen))
+        }
     }
 
     fun patchRestPrefs(auto: Boolean? = null, sound: Boolean? = null) {
@@ -358,7 +377,7 @@ class LoggerViewModel(
         return { q -> scoreRest(q, actual, target) }
     }
 
-    /** Arms a rest: scores the previous one, shows the countdown and schedules the local alarm and the server push. */
+    /** Arms a rest: scores the previous one, shows the countdown and schedules the local alarm. */
     fun startRest(seconds: Int, label: String, exerciseName: String? = null) {
         val bounded = clampRest(seconds)
         val target = bounded
@@ -379,9 +398,10 @@ class LoggerViewModel(
         }
         restStartedAtMs = now
         restTarget = target
+        // The local notification is the app's "rest is over". No server timer: that one is the Mini
+        // App's and arrives as a Telegram bot message, which made the app send both.
         restAlarm.schedule(seconds, restAlarmTitle, restAlarmBody)
         startTicker(now + seconds * 1000L)
-        viewModelScope.launch { runCatching { api.startRestTimer(seconds) } }
     }
 
     private fun startTicker(endAtMs: Long) {
@@ -440,10 +460,12 @@ class LoggerViewModel(
                 restOverrides = overrides,
             )
         }
-        if (owner != null) persistOverrides(_ui.value.restOverrides)
+        if (owner != null) {
+            persistOverrides(_ui.value.restOverrides)
+            _ui.value.restOverrides[owner]?.let { rememberChosen(owner, it) }
+        }
         restAlarm.schedule(next, restAlarmTitle, restAlarmBody)
         startTicker(now + next * 1000L)
-        viewModelScope.launch { runCatching { api.startRestTimer(next) } }
     }
 
     private fun finalClock(clock: SessionClock?, now: Long): SessionClock? {

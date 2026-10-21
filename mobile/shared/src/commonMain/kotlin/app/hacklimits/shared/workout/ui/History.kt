@@ -3,8 +3,11 @@ package app.hacklimits.shared.workout.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,7 +55,12 @@ fun HistoryView(vm: LoggerViewModel, s: LoggerUi, todayDate: String) {
     val minMissed = isoDateMinus(todayDate, 14)
     val history = s.history
     val busy = s.historyBusy
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    // Scrolls: without it only the sessions that fit on one screen were reachable, and the last
+    // card was cut off at the bottom edge.
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Text(stringResource(Res.string.wk_history_eyebrow), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(Res.string.wk_history_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         when {
@@ -79,17 +87,25 @@ fun HistoryView(vm: LoggerViewModel, s: LoggerUi, todayDate: String) {
                             )
                         }
                         Text(item.title, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        // Two equal buttons on one line; the longer "log a missed day" gets a line of its
+                        // own (squeezed into the same row it broke letter by letter).
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Button(onClick = { vm.repeatDay(item.date) }, enabled = busy == null) {
-                                Text(if (busy == "repeat:${item.date}") stringResource(Res.string.wk_saving_ellipsis) else stringResource(Res.string.wk_repeat_btn))
+                            Button(onClick = { vm.repeatDay(item.date) }, enabled = busy == null, modifier = Modifier.weight(1f)) {
+                                Text(
+                                    if (busy == "repeat:${item.date}") stringResource(Res.string.wk_saving_ellipsis) else stringResource(Res.string.wk_repeat_btn),
+                                    maxLines = 1,
+                                )
                             }
-                            OutlinedButton(onClick = { vm.editSavedDay(item.date) }, enabled = busy == null) {
-                                Text(if (busy == "fill:${item.date}") stringResource(Res.string.wk_saving_ellipsis) else stringResource(Res.string.wk_train_edit_saved_btn))
+                            OutlinedButton(onClick = { vm.editSavedDay(item.date) }, enabled = busy == null, modifier = Modifier.weight(1f)) {
+                                Text(
+                                    if (busy == "fill:${item.date}") stringResource(Res.string.wk_saving_ellipsis) else stringResource(Res.string.wk_train_edit_saved_btn),
+                                    maxLines = 1,
+                                )
                             }
-                            if (item.date >= minMissed && item.date < todayDate) {
-                                OutlinedButton(onClick = { vm.setMissedDate(item.date) }, enabled = busy == null) {
-                                    Text(stringResource(Res.string.wk_log_missed_btn))
-                                }
+                        }
+                        if (item.date >= minMissed && item.date < todayDate) {
+                            TextButton(onClick = { vm.setMissedDate(item.date) }, enabled = busy == null, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(Res.string.wk_log_missed_btn))
                             }
                         }
                     }
