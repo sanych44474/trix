@@ -30,4 +30,7 @@
     <string name="integ_sensor_hint">Рахує кроки датчиком самого телефона, коли в Health Connect їх немає. Рахунок починається після дозволу.</string>
     <string name="integ_sensor_on">Лічильник кроків телефона увімкнено.</string>
     <string name="integ_sensor_allow">Рахувати кроки цим телефоном</string>
+    <string name="integ_health_disconnect">Відключити Health Connect</string>
+    <string name="integ_sensor_off">Вимкнути</string>
+    <string name="integ_sensor_off_hint">Відкриються налаштування застосунку: Дозволи → Фізична активність → Не дозволяти.</string>
 </resources>

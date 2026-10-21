@@ -30,4 +30,7 @@
     <string name="integ_sensor_hint">Counts steps with the phone’s own sensor when Health Connect has none. Counting starts once you allow it.</string>
     <string name="integ_sensor_on">The phone’s step counter is on.</string>
     <string name="integ_sensor_allow">Count steps with this phone</string>
+    <string name="integ_health_disconnect">Disconnect Health Connect</string>
+    <string name="integ_sensor_off">Turn off</string>
+    <string name="integ_sensor_off_hint">Opens the app settings: Permissions → Physical activity → Don’t allow.</string>
 </resources>
