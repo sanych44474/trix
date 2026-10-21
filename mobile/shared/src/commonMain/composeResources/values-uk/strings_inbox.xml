@@ -14,7 +14,7 @@
     <string name="ib_squad_pr">%1$s поставив рекорд у скваді: %2$s %3$s</string>
     <string name="ib_squad_week">Сквад «%1$s» цього тижня: %2$s. Разом тренувань: %3$d.</string>
     <string name="ib_squad_week_past">Сквад «%1$s» минулого тижня: %2$s. Разом тренувань: %3$d.</string>
-    <string name="ib_squads_default">Сквод</string>
+    <string name="ib_squads_default">Сквад</string>
 
     <string name="ch_title">Чат</string>
     <string name="ch_unavailable">Чат недоступний.</string>

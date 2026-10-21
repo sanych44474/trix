@@ -47,7 +47,6 @@
     <string name="pl_plan_note_label">Нотатка</string>
     <string name="pl_plan_note_label_client">Коментар для клієнта</string>
     <string name="pl_plan_note_ph">Нагадування собі: темп, хват, на що зважати</string>
-    <string name="pl_plan_note_ph_client">Що клієнту пам\'ятати в цій вправі</string>
     <string name="pl_plan_change_src_manual">Змінено тут</string>
     <string name="pl_plan_change_src_trainer">Твій тренер</string>
     <string name="pl_plan_change_src_ai_coach">AI-тренер</string>
@@ -78,7 +77,7 @@
     <string name="pl_rebuild_btn">Перебудувати план</string>
     <string name="pl_rebuild_confirm_btn">Так, замінити план</string>
     <string name="pl_rebuild_pending">Збираю новий план… Це до хвилини; можеш вийти з екрана, ми напишемо.</string>
-    <string name="pl_rebuild_failed">Минула перебудова не завершилась. Спробуй ще раз.</string>
+    <string name="pl_rebuild_failed">Минула перебудова не завершилася. Спробуй ще раз.</string>
     <string name="pl_ft_eyebrow">Доналаштування · залишилось %1$s</string>
     <string name="pl_ft_why">Один дотик — і план та норми калорій стануть точнішими.</string>
     <string name="pl_ft_later">Пізніше</string>
@@ -108,12 +107,9 @@
     <string name="pl_exlib_eyebrow">Бібліотека вправ</string>
     <string name="pl_exlib_title">Вправи з фото</string>
     <string name="pl_library_search_ph">Пошук: присідання, гантелі, жим…</string>
-    <string name="pl_library_muscle">М\'яз</string>
     <string name="pl_library_all_muscles">Усі м\'язи</string>
     <string name="pl_library_empty">Нічого не знайшлося — спробуй інше слово або зніми фільтр.</string>
     <string name="pl_library_more">Показати ще (%1$s)</string>
-    <string name="pl_library_credit">Фото: free-exercise-db (Unlicense).</string>
-    <string name="pl_library_day">День плану</string>
     <string name="pl_library_add">Додати в план</string>
     <string name="pl_library_added">Додано ✓</string>
     <string name="pl_library_no_plan">Спочатку склади план, щоб додавати в нього вправи.</string>
@@ -166,14 +162,12 @@
     <string name="pl_close">Закрити</string>
     <string name="pl_unauthorized_error">Відкрий цю сторінку з Telegram, щоб продовжити.</string>
     <string name="pl_saving_ellipsis">Збереження…</string>
-    <string name="pl_nav_clients">Клієнти</string>
     <string name="pl_nav_more">Ще</string>
     <string name="pl_no_plan_title">Активного плану немає</string>
     <string name="pl_no_plan_detail">Заверши реєстрацію, щоб отримати свій перший план.</string>
     <string name="pl_days_count">%1$s дн.</string>
     <string name="pl_weight_label">Вага</string>
     <string name="pl_sets_label">Підходи</string>
-    <string name="pl_field_equipment">Обладнання</string>
     <string name="pl_save_btn">Зберегти</string>
     <string name="pl_unit_kg_ph">кг</string>
     <string name="pg_rp_eyebrow">Готові програми</string>
@@ -206,7 +200,6 @@
     <string name="ob_time">2 хвилини</string>
     <string name="ob_welcome_title">Складемо твій план</string>
     <string name="ob_welcome_body">Кілька коротких питань, по одному — близько 2 хвилин. З відповідей будуються план, нагадування й норми харчування. Або обери готову програму — тоді лише 4 питання про тебе.</string>
-    <string name="ob_lang_label">Мова</string>
     <string name="ob_role_athlete_btn">💪 Тренуюсь сам — з AI</string>
     <string name="ob_start_btn">Почати</string>
     <string name="ob_role_trainer_btn">Обрати тренера</string>
@@ -258,7 +251,5 @@
     <string name="ob_validation_error_hint">Перевір обов\'язкові поля і спробуй ще раз.</string>
     <string name="ob_onboarding_save_error">Не вдалося зберегти дані. Спробуй ще раз.</string>
     <string name="ob_building_plan_ellipsis">Створюємо твій план…</string>
-    <string name="ob_lang_uk_label">Українська</string>
-    <string name="ob_lang_en_label">English</string>
     <string name="pl_exlib_lang">uk</string>
 </resources>

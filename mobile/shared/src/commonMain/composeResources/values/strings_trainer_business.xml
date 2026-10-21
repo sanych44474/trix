@@ -32,7 +32,6 @@
     <string name="trb_profile_applied">Application sent. The owner will review it.</string>
 
     <string name="trb_sessions_new">New session</string>
-    <string name="trb_sessions_pick_client">Client</string>
     <string name="trb_sessions_no_clients">Add clients before you schedule sessions.</string>
     <string name="trb_sessions_when">Start</string>
     <string name="trb_sessions_when_hint">Format: 2026-10-20 18:00, in this device’s time zone</string>

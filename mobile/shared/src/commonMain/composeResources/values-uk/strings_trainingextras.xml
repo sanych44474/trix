@@ -2,7 +2,6 @@
 <resources>
     <string name="tx_back">Назад</string>
     <string name="tx_cardio_title">Кардіо</string>
-    <string name="tx_cardio_open">Кардіо</string>
     <string name="tx_cardio_quick">Швидкий запис</string>
     <string name="tx_cardio_prompt">%1$s: введи час і/або дистанцію.</string>
     <string name="tx_cardio_placeholder">30 хв 8 км</string>

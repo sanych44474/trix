@@ -65,7 +65,6 @@
 
     <string name="ow_roster_eyebrow">Roster</string>
     <string name="ow_recent_users_title">Recent users</string>
-    <string name="ow_roster_col_seen">Last seen</string>
     <string name="ow_roster_f_all">All</string>
     <string name="ow_roster_f_onboarding">Onboarding</string>
     <string name="ow_roster_f_active">Active</string>

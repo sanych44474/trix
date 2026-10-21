@@ -44,6 +44,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.hacklimits.shared.data.CatalogExercise
 import app.hacklimits.shared.data.Plan
 import app.hacklimits.shared.data.PlanEdit
+import app.hacklimits.shared.telemetry.Telemetry
+import org.koin.compose.koinInject
 import app.hacklimits.shared.plan.BalanceCard
 import app.hacklimits.shared.plan.KitFitCard
 import app.hacklimits.shared.plan.LibraryBrowser
@@ -76,6 +78,7 @@ private sealed interface PlanSheet {
 @Composable
 fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Unit)? = null) {
     val s by vm.state.collectAsStateWithLifecycle()
+    val telemetry = koinInject<Telemetry>()
     val plan = s.plan
     var sheet by remember { mutableStateOf<PlanSheet?>(null) }
     var openDay by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -215,7 +218,7 @@ fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Uni
                         item { KitFitCard(kit, busy = s.busy == "fitkit", onFit = vm::fitKit) }
                     }
                     item { MesocycleCard(plan.mesocycle, busy = s.busy == "meso", onToggle = vm::setMesocycle) }
-                    if (ownPlan) item { RebuildPlanCard(s.replan, s.replanError, onStart = vm::startReplan) }
+                    if (ownPlan) item { RebuildPlanCard(s.replan, s.replanError, onStart = { telemetry.track("app_plan_rebuild"); vm.startReplan() }) }
                     if (plan.changes.isNotEmpty()) item {
                         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), modifier = Modifier.fillMaxWidth()) {
                             Column {

@@ -44,7 +44,7 @@
     <string name="tr_fc_joined_hint">Чекаємо, поки він відкриє посилання в Telegram.</string>
     <string name="tr_fc_intake">Клієнт заповнив анкету</string>
     <string name="tr_fc_intake_hint">Кілька питань у боті; нагадати можна з картки клієнта.</string>
-    <string name="tr_fc_assigned">Перевір чернетку і признач план</string>
+    <string name="tr_fc_assigned">Перевір чернетку і призначь план</string>
     <string name="tr_fc_assigned_hint">Бот склав чернетку за анкетою: перевір її і натисни «Призначити».</string>
     <string name="tr_fc_review_btn">Переглянути чернетку</string>
     <string name="tr_invite_eyebrow">Запросити клієнтів</string>
@@ -83,7 +83,7 @@
     <string name="tr_recovery_fair">Задовільно</string>
     <string name="tr_recovery_poor">Слабко</string>
     <string name="tr_metric_recovery">Відновлення</string>
-    <string name="tr_metric_streak">Стрік</string>
+    <string name="tr_metric_streak">Серія</string>
     <string name="tr_streak_weeks">%1$s тиж</string>
     <string name="tr_level">Рівень %1$s</string>
     <string name="tr_cycle">Цикл: %1$s · день %2$s</string>

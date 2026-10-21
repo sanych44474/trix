@@ -23,7 +23,6 @@
     <string name="pr_no_volume_title">Обсягу поки немає</string>
     <string name="pr_no_volume_detail">Заверши тренування, щоб побачити корисні дані.</string>
     <string name="pr_done_label">Завершено</string>
-    <string name="pr_records_eyebrow">Особисті рекорди</string>
     <string name="pr_proof_progress_title">Особисті рекорди</string>
     <string name="pr_record_updated_metric">%1$s · %2$s</string>
     <string name="pr_recent_label">нещодавно</string>
@@ -57,8 +56,6 @@
     <string name="pr_body_map_day_assists">допомагає у: %1$s</string>
     <string name="pr_trend_title">Тренд по м\'язах</string>
     <string name="pr_trend_pick_label">М\'яз · сер. підходів/тиждень (останні 4)</string>
-    <string name="pr_trend_aria">Підходи на тиждень для: %1$s, за 12 тижнів</string>
-    <string name="pr_trend_bar_title">Тиждень до %1$s: %2$s підх.</string>
     <string name="pr_trend_bar_detail">Тиждень до %1$s: %2$s — %3$s підх.</string>
     <string name="pr_trend_summary">Останні 4 тижні: у середньому %1$s підх. на тиждень.</string>
     <string name="pr_trend_up">Це на %1$s%% більше, ніж 4 тижні перед тим.</string>
