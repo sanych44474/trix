@@ -32,6 +32,8 @@ data class ProfileResponse(
         val waterGoalMl: Int? = null,
         val stepsGoal: Int? = null,
         val trainingWeekdays: List<Int> = emptyList(),
+        /** Local hour of the daily reminder (the bot's default is 9). */
+        val reminderHour: Int = 9,
         /** Only clients have trainer-sharing consent; null for everyone else. */
         val share: Consent? = null,
     )

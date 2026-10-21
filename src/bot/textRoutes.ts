@@ -1,5 +1,6 @@
 // Free-text routing: which handler gets a plain message, by the user's current session mode.
 import { handleAnnounce } from "./owner";
+import { handleFeedbackReply } from "./feedbackReply";
 import { handleVideoUrl } from "./ownerVideos";
 import { obProgress } from "../features/onboarding/questions";
 import { onboardingStep } from "./onboarding";
@@ -84,6 +85,7 @@ export const MODE_TEXT_HANDLERS = {
   msg_client: (ctx, text) => handleTrainerMessage(ctx, text),
   msg_trainer: (ctx, text) => handleClientReply(ctx, text),
   answer_q: (ctx, text) => handleAnswerQuestion(ctx, text),
+  feedback_reply: (ctx, text) => handleFeedbackReply(ctx, text),
   records_alias: (ctx, text) => handleAliasInput(ctx, text),
   weight_edit: (ctx, text) => handleWeightEdit(ctx, text),
   sets_edit: (ctx, text) => handleSetsEdit(ctx, text),

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tt_share_title">Розсилка програм</string>
+    <string name="tt_share_hint">Опублікуй збережений шаблон у бібліотеку, отримай посилання або призначи обраним клієнтам. Потрібен доступ інструктора від власника.</string>
+    <string name="tt_publish_heading">Шаблон у бібліотеку або за посиланням</string>
+    <string name="tt_templates_empty">Збережених шаблонів ще немає. Спершу збережи шаблон із плану клієнта.</string>
+    <string name="tt_publish_library">Опублікувати в бібліотеці</string>
+    <string name="tt_publish_link">Отримати посилання</string>
+    <string name="tt_published">«%1$s» опубліковано в бібліотеці.</string>
+    <string name="tt_link_ready">Посилання готове:</string>
+    <string name="tt_my_plan_title">Опублікувати мій план</string>
+    <string name="tt_my_plan_name">Назва програми, напр. PPL 6-денна</string>
+    <string name="tt_my_plan_btn">Опублікувати мій план</string>
+    <string name="tt_assign_title">Призначити клієнтам</string>
+    <string name="tt_no_clients">Клієнтів поки немає.</string>
+    <string name="tt_assign_btn">Призначити %1$d клієнтам</string>
+    <string name="tt_pick_template">Спершу обери шаблон.</string>
+    <string name="tt_assigned">Призначено %1$d з %2$d клієнтів.</string>
+
+    <string name="tt_report_title">Тижневий звіт по клієнтах</string>
+    <string name="tt_report_active">Активні за 7 днів: %1$d з %2$d клієнтів (%3$d%%)</string>
+    <string name="tt_report_empty">Клієнтів поки немає.</string>
+    <string name="tt_report_interview_ok">інтерв\'ю пройдено</string>
+    <string name="tt_report_interview">інтерв\'ю %1$d/%2$d</string>
+    <string name="tt_report_events">Тр %1$d · Чк %2$d · Хр %3$d · Кр %4$d</string>
+    <string name="tt_plan_active">План є</string>
+    <string name="tt_plan_none">Плану немає</string>
+    <string name="tt_bot_blocked">Заблокував бота</string>
+    <string name="tt_report_legend">Тр тренування · Чк чек-іни · Хр харчування · Кр кроки · найактивніші зверху</string>
+
+    <string name="tt_cleanup_title">Неактивні понад %1$d днів</string>
+    <string name="tt_cleanup_none">Неактивних користувачів немає.</string>
+    <string name="tt_cleanup_btn">Видалити всіх %1$d неактивних</string>
+    <string name="tt_cleanup_confirm">Так, видалити %1$d</string>
+    <string name="tt_cleanup_warning">Буде видалено всіх показаних користувачів. Це незворотно. Лише власник виключений.</string>
+    <string name="tt_cleanup_done">Видалено неактивних користувачів: %1$d.</string>
+
+    <string name="tt_retry">Повторити</string>
+    <string name="tt_cancel">Скасувати</string>
+</resources>

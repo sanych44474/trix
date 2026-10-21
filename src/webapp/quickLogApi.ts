@@ -5,11 +5,12 @@ import { appendMeals } from "../adapters/d1/v2Nutrition";
 import { aiJSON } from "../ai/index";
 import { nutritionSystem, NUTRITION_SCHEMA, type NutritionEstimate } from "../ai/prompts";
 import { localParts } from "../domain/localTime";
-import { parseMeasurements } from "../domain/workoutText";
+import { parseMeasurements, parseWorkoutText } from "../domain/workoutText";
+import { CARDIO_TYPES, cardioName } from "../domain/cardioPlan";
 import { cleanAi } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { logError, logInfo } from "../log";
-import type { Env, MealEntry, Weekday } from "../types";
+import type { Env, MealEntry, SetEntry, Weekday } from "../types";
 
 type QuickLogBody = {
   kind?: string;
@@ -19,6 +20,7 @@ type QuickLogBody = {
   weight?: number;
   reps?: number;
   text?: string;
+  key?: string;
   steps?: number;
   energy?: number;
   sleep?: number;
@@ -59,6 +61,33 @@ export async function handleQuickLogApi(req: Request, url: URL, env: Env): Promi
       exercises.push({ name, setsDone: Array.from({ length: sets }, () => ({ weight, reps })), skipped: false });
       await upsertWorkoutLog(env.DB, user._id, today, weekday as Weekday, exercises, existing?.completed ?? true, existing?.notes);
       if (weight > 0) await upsertStrengthRecord(env.DB, user._id, name, { metric: "reps", weight, reps }, today).catch(() => {});
+      return Response.json({ ok: true, exercises: exercises.length });
+    }
+
+    // Cardio quick log (bot: survey.ts handleCardioLog): the chosen type's name prefixes the typed
+    // "time/distance" text, and the line must carry a duration or a distance.
+    if (body.kind === "cardio") {
+      const key = String(body.key ?? "");
+      const text = String(body.text ?? "").trim().slice(0, 120);
+      if (!CARDIO_TYPES.some((c) => c.key === key) || !text) return new Response("bad request", { status: 400 });
+      const name = key === "other" ? "" : cardioName(user.lang, key);
+      const parsed = parseWorkoutText(name ? `${name} ${text}` : text).filter((s) => (s.seconds ?? 0) > 0 || (s.meters ?? 0) > 0);
+      if (!parsed.length) return Response.json({ ok: false, reason: "unreadable" });
+      const byName = new Map<string, SetEntry[]>();
+      for (const s of parsed) {
+        const arr = byName.get(s.exercise) ?? [];
+        arr.push({
+          reps: s.reps,
+          weight: s.weight,
+          ...(typeof s.seconds === "number" ? { seconds: s.seconds } : {}),
+          ...(typeof s.meters === "number" ? { meters: s.meters } : {}),
+        });
+        byName.set(s.exercise, arr);
+      }
+      const existing = await getWorkoutLog(env.DB, user._id, today);
+      const exercises = (existing?.exercises ?? []).filter((e) => !byName.has(e.name));
+      for (const [exName, setsDone] of byName) exercises.push({ name: exName, setsDone, skipped: false });
+      await upsertWorkoutLog(env.DB, user._id, today, weekday as Weekday, exercises, existing?.completed ?? true, existing?.notes);
       return Response.json({ ok: true, exercises: exercises.length });
     }
 

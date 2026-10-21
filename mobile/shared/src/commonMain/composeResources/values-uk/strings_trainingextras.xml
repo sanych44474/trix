@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tx_back">Назад</string>
+    <string name="tx_cardio_title">Кардіо</string>
+    <string name="tx_cardio_open">Кардіо</string>
+    <string name="tx_cardio_quick">Швидкий запис</string>
+    <string name="tx_cardio_prompt">%1$s: введи час і/або дистанцію.</string>
+    <string name="tx_cardio_placeholder">30 хв 8 км</string>
+    <string name="tx_cardio_log">Записати</string>
+    <string name="tx_cardio_saved">Записано.</string>
+    <string name="tx_cardio_unreadable">Потрібен час або дистанція, напр. 30 хв або 5 км.</string>
+    <string name="tx_cardio_structured">Структуровані сесії</string>
+    <string name="tx_cardio_template">%1$s %2$s · близько %3$d хв</string>
+    <string name="tx_cardio_step">%1$s%2$d хв %3$s · Z%4$d (%5$d–%6$d %7$s)</string>
+    <string name="tx_standards_title">Силові стандарти</string>
+    <string name="tx_standards_needs_weight">Спершу вкажи вагу тіла в профілі, щоб порахувати співвідношення.</string>
+    <string name="tx_standards_empty">Поки немає рекордів у базових вправах (присід, жим лежачи, станова, жим стоячи, тяга). Залогуй кілька і повертайся.</string>
+    <string name="tx_standards_lift">%1$s: %2$s</string>
+    <string name="tx_standards_e1rm">%1$d кг розрахункового 1ПМ · ×%2$s від ваги тіла</string>
+    <string name="tx_standards_next">далі: %1$s при %2$d кг</string>
+    <string name="tx_standards_bodyweight">Вага тіла %1$d кг</string>
+    <string name="tx_comeback_title">З поверненням</string>
+    <string name="tx_comeback_progress">Питання %1$d з %2$d</string>
+    <string name="tx_comeback_hint">Одне-два речення</string>
+    <string name="tx_comeback_next">Далі</string>
+    <string name="tx_comeback_error">Не вдалося зберегти. Спробуй ще раз.</string>
+    <string name="tx_comeback_done">Готово</string>
+    <string name="tx_comeback_done_keep">Чудово, план лишається як є. Повертаймось до роботи!</string>
+    <string name="tx_comeback_done_adjust">Напиши в чаті з ботом, що змінити (ваги, вправи, дні), і план буде підлаштовано.</string>
+    <string name="tx_comeback_done_recreate">Перестворюю твій план з поточного профілю. Він з’явиться в Плані, коли буде готовий.</string>
+</resources>

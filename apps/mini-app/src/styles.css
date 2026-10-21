@@ -1052,4 +1052,5 @@ button { cursor: pointer; }
 .roster-stats .icon:not(:first-child) { margin-left: 6px; }
 .check-row-master { font-weight: 700; }
 .check-row.muted { opacity: .5; }
+.fb-reply { margin: 6px 0; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 8px; }
 .search-ai { display: grid; gap: 6px; margin-top: 12px; }

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dl_wellbeing_eyebrow">Самопочуття</string>
+    <string name="dl_wellbeing_title">Останні 90 днів</string>
+    <string name="dl_wellbeing_none">Щоб побачити середні значення та тренд, потрібно хоча б два чек-іни.</string>
+    <string name="dl_wellbeing_count">Чек-інів: %1$d</string>
+    <string name="dl_wellbeing_trend_note">Тренд: друга половина періоду порівняно з першою.</string>
+    <string name="dl_energy">Енергія</string>
+    <string name="dl_sleep">Сон</string>
+    <string name="dl_stress">Стрес</string>
+    <string name="dl_reminder_eyebrow">Нагадування</string>
+    <string name="dl_reminder_title">Час щоденного нагадування</string>
+    <string name="dl_reminder_hint">Місцевий час. Щоденні нагадування приходять у цю годину.</string>
+    <string name="dl_saving">Зберігаємо…</string>
+    <string name="dl_error">Не вдалося зберегти. Спробуйте ще раз.</string>
+    <string name="dl_diff_easier">Легше</string>
+    <string name="dl_diff_harder">Складніше</string>
+    <string name="dl_diff_swapped">Замінено вправ: %1$d.</string>
+    <string name="dl_diff_none">Для цього дня не знайдено варіантів у каталозі.</string>
+    <string name="dl_checklist_title">Лишилось заповнити сьогодні</string>
+    <string name="dl_checklist_hint">Ще %1$d до завершення дня.</string>
+    <string name="dl_checklist_open">Відкрити</string>
+</resources>

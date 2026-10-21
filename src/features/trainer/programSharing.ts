@@ -11,7 +11,8 @@ import { getTrainer, listClients } from "../../adapters/d1/v2Trainer";
 import { getTrainerTemplate, listTrainerTemplates, createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken } from "../../adapters/d1/v2TrainerPrograms";
 import { stampOnboardedAt, updateUser } from "../../adapters/d1/v2Users";
 import { botDeepLink } from "../../notify/links";
-import { isOwner } from "../owner/ownerAccess";
+import { isOwnerOf } from "../owner/ownerAccess";
+import type { DB } from "../../adapters/d1/shared";
 import { adaptPlan } from "../../domain/planAdapt";
 import { formatRecordBest } from "../../domain/setFormat";
 import { escapeHtml, t } from "../../locales/i18n";
@@ -23,10 +24,34 @@ import { shortCode } from "./trainerCommon";
 // Can this actor share programs broadly? Owner always; a trainer only if the owner granted the
 // instructor capability. Gate for the whole share flow.
 export async function canShareProgram(ctx: MyContext): Promise<boolean> {
-  if (await isOwner(ctx)) return true;
-  if (ctx.user.role !== "trainer") return false;
-  const tr = await getTrainer(ctx.db, ctx.user._id).catch(() => null);
+  return canShareProgramFor(ctx.db, ctx.user);
+}
+
+// Ctx-free form of the same gate (the Mini App / native routes call this).
+export async function canShareProgramFor(db: DB, user: UserDoc): Promise<boolean> {
+  if (await isOwnerOf(db, user)) return true;
+  if (user.role !== "trainer") return false;
+  const tr = await getTrainer(db, user._id).catch(() => null);
   return !!tr?.isInstructor;
+}
+
+// Recent strength PRs as adaptPlan context (the assign and take flows both use it).
+export async function recentPrs(db: DB, userId: number): Promise<string | undefined> {
+  const records = await listStrength(db, userId, 8).catch(() => []);
+  return records.length ? records.map((r) => `${r.exercise}: ${formatRecordBest(r)}`).join("\n") : undefined;
+}
+
+// Make an adapted plan a client's active plan (nutrition is mirrored onto the user doc).
+export async function activateClientPlan(db: DB, clientId: number, plan: PlanDoc): Promise<void> {
+  await setActivePlan(db, plan);
+  await updateUser(db, clientId, { nutrition: plan.nutrition });
+}
+
+// Store a shared program and return its code. Library entries are public; link-only are not.
+export async function publishProgram(db: DB, ownerId: number, name: string, plan: BankPlan, isPublic: boolean): Promise<string> {
+  const code = shortCode();
+  await createSharedProgram(db, code, ownerId, name, plan, isPublic);
+  return code;
 }
 
 // 📤 Share a program — pick one of the instructor's saved templates, then choose how to
@@ -122,12 +147,10 @@ export async function shareAssignToClients(ctx: MyContext) {
   const names = new Map<string, LocalizedName>(); // one localization per exercise, not per client
   for (const c of clients) {
     try {
-      const records = await listStrength(ctx.db, c._id, 8).catch(() => []);
-      const prs = records.length ? records.map((r) => `${r.exercise}: ${formatRecordBest(r)}`).join("\n") : undefined;
+      const prs = await recentPrs(ctx.db, c._id);
       const draft = adaptPlan(tpl.plan, c.profile, c._id, { prs, authoredBy: ctx.user._id });
       await localizePlanNames(ctx, draft, c.lang, names);
-      await setActivePlan(ctx.db, draft);
-      await updateUser(ctx.db, c._id, { nutrition: draft.nutrition });
+      await activateClientPlan(ctx.db, c._id, draft);
       await ctx.api.sendMessage(c.chatId, t(c.lang, "share_client_got", { name: escapeHtml(tpl.name) }), { ...HTML, reply_markup: mainMenu(c.lang) }).catch(() => {});
       ok++;
       assigned.push(c);
@@ -158,8 +181,7 @@ export async function publishShared(ctx: MyContext, templateId: number, isPublic
   if (!(await canShareProgram(ctx))) { await reply(ctx, t(lang, "share_not_allowed")); return; }
   const tpl = await getTrainerTemplate(ctx.db, ctx.user._id, templateId);
   if (!tpl) { await reply(ctx, t(lang, "error_generic")); return; }
-  const code = shortCode();
-  await createSharedProgram(ctx.db, code, ctx.user._id, tpl.name, tpl.plan, isPublic);
+  const code = await publishProgram(ctx.db, ctx.user._id, tpl.name, tpl.plan, isPublic);
   if (isPublic) {
     await reply(ctx, t(lang, "share_published", { name: escapeHtml(tpl.name) }), menuBtn(lang));
   } else {
@@ -245,8 +267,7 @@ export async function handleShareMyPlanName(ctx: MyContext, text: string) {
   await setMode(ctx, "idle");
   const plan = await getActivePlan(ctx.db, ctx.user._id);
   if (!plan || !plan.split.length) { await reply(ctx, t(lang, "share_myplan_noplan"), menuBtn(lang)); return; }
-  const code = shortCode();
-  await createSharedProgram(ctx.db, code, ctx.user._id, name, planToBank(plan), true);
+  await publishProgram(ctx.db, ctx.user._id, name, planToBank(plan), true);
   await recordAudit(ctx.db, ctx.user._id, "share_myplan", undefined, name).catch(() => {});
   await reply(ctx, t(lang, "share_published", { name: escapeHtml(name) }), menuBtn(lang));
 }

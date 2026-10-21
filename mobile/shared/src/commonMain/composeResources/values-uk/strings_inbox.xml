@@ -25,4 +25,5 @@
     <string name="ch_ai_draft">ШІ-чернетка відповіді</string>
     <string name="ch_err_network">Немає зв\'язку. Перевір інтернет і спробуй ще раз.</string>
     <string name="ch_err_generic">Щось пішло не так. Спробуй ще раз.</string>
+    <string name="ib_feedback_reply">Відповідь на «%1$s»: %2$s</string>
 </resources>

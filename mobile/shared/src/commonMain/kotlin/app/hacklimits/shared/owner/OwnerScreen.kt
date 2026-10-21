@@ -1,5 +1,10 @@
 package app.hacklimits.shared.owner
 
+import app.hacklimits.shared.trainertools.OwnerCleanupCard
+import app.hacklimits.shared.resources.ow_fbt_replied
+import app.hacklimits.shared.resources.ow_fbt_reply_sent
+import app.hacklimits.shared.resources.ow_fbt_reply_ph
+import app.hacklimits.shared.resources.ow_fbt_reply_send
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -121,6 +126,7 @@ fun OwnerScreen(onBack: () -> Unit) {
                 }
                 when (s.section) {
                     SECTION_ROSTER -> item {
+                        OwnerCleanupCard()
                         RosterPanel(
                             users = users,
                             busy = s.rosterBusy,
@@ -136,6 +142,7 @@ fun OwnerScreen(onBack: () -> Unit) {
                             onNotify = feedback::setNotify,
                             onStatus = { row, status -> feedback.update(row, status = status) },
                             onCategoryOf = { row, category -> feedback.update(row, category = category) },
+                            onReply = feedback::reply,
                         )
                     }
                     else -> item {
@@ -515,6 +522,7 @@ private fun FeedbackPanel(
     onNotify: (Boolean) -> Unit,
     onStatus: (FeedbackRow, String) -> Unit,
     onCategoryOf: (FeedbackRow, String) -> Unit,
+    onReply: (FeedbackRow, String) -> Unit,
 ) {
     val page = state.page
     OwnerPanel(eyebrow = Res.string.ow_fbt_eyebrow, title = Res.string.ow_fbt_title) {
@@ -562,6 +570,23 @@ private fun FeedbackPanel(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(row.text)
+                    row.reply?.let { reply ->
+                        Text(stringResource(Res.string.ow_fbt_replied), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(reply, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (state.repliedId == row.id) Text(stringResource(Res.string.ow_fbt_reply_sent), color = MaterialTheme.colorScheme.primary)
+                    var draft by remember(row.id) { mutableStateOf("") }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it.take(1500) },
+                            placeholder = { Text(stringResource(Res.string.ow_fbt_reply_ph)) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        Button(onClick = { onReply(row, draft); draft = "" }, enabled = !busy && draft.isNotBlank()) {
+                            Text(stringResource(Res.string.ow_fbt_reply_send))
+                        }
+                    }
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         FEEDBACK_CATEGORIES.forEach { c ->
                             FilterChip(

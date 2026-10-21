@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tx_back">Back</string>
+    <string name="tx_cardio_title">Cardio</string>
+    <string name="tx_cardio_open">Cardio</string>
+    <string name="tx_cardio_quick">Quick log</string>
+    <string name="tx_cardio_prompt">%1$s: enter time and/or distance.</string>
+    <string name="tx_cardio_placeholder">30 min 8 km</string>
+    <string name="tx_cardio_log">Log</string>
+    <string name="tx_cardio_saved">Logged.</string>
+    <string name="tx_cardio_unreadable">I need a time or a distance, e.g. 30 min or 5 km.</string>
+    <string name="tx_cardio_structured">Structured sessions</string>
+    <string name="tx_cardio_template">%1$s %2$s · about %3$d min</string>
+    <string name="tx_cardio_step">%1$s%2$d min %3$s · Z%4$d (%5$d–%6$d %7$s)</string>
+    <string name="tx_standards_title">Strength standards</string>
+    <string name="tx_standards_needs_weight">Set your bodyweight in your profile first, so the ratios can be worked out.</string>
+    <string name="tx_standards_empty">No big-lift records yet (squat, bench, deadlift, overhead press, row). Log a few and check back.</string>
+    <string name="tx_standards_lift">%1$s: %2$s</string>
+    <string name="tx_standards_e1rm">%1$d kg estimated 1RM · ×%2$s bodyweight</string>
+    <string name="tx_standards_next">next: %1$s at %2$d kg</string>
+    <string name="tx_standards_bodyweight">Bodyweight %1$d kg</string>
+    <string name="tx_comeback_title">Welcome back</string>
+    <string name="tx_comeback_progress">Question %1$d of %2$d</string>
+    <string name="tx_comeback_hint">A sentence or two</string>
+    <string name="tx_comeback_next">Next</string>
+    <string name="tx_comeback_error">Could not save that. Try again.</string>
+    <string name="tx_comeback_done">Done</string>
+    <string name="tx_comeback_done_keep">Great, your plan stays as it is. Let’s get back to it!</string>
+    <string name="tx_comeback_done_adjust">Send the changes you want (weights, exercises, days) in the bot chat and the plan will be adjusted.</string>
+    <string name="tx_comeback_done_recreate">Rebuilding your plan from your current profile. It will show up in Plan when it is ready.</string>
+</resources>

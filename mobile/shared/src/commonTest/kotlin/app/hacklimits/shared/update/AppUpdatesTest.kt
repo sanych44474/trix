@@ -39,6 +39,17 @@ class AppUpdatesTest {
     }
 
     @Test
+    fun readsTheSelfUpdateDownloadWhenAnApkIsPublished() = runTest {
+        val sha = "a".repeat(64)
+        val api = ApiClient("https://api.example.test", InMemorySessionStore(), HttpClient(MockEngine {
+            respond("""{"data":{"android":{"minVersionCode":1,"latestVersionCode":4,"download":{"url":"https://api.example.test/download/android","versionCode":4,"versionName":"0.2.0","sha256":"$sha","size":3200000}}}}""", HttpStatusCode.OK, json)
+        }))
+        val gate = AppConfigApi(api).android()
+        assertEquals(ApkDownload("https://api.example.test/download/android", 4, "0.2.0", sha, 3_200_000), gate.download)
+        assertEquals(Gate.Optional, decide(2, gate))
+    }
+
+    @Test
     fun anUnreadableSuccessIsReportedAsBadResponseNotAsNoConnection() = runTest {
         val reported = mutableListOf<String>()
         val api = ApiClient(

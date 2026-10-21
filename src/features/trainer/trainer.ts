@@ -402,52 +402,70 @@ async function notifyWaitlistSlot(ctx: MyContext, trainerId: number) {
 
 // On-demand trainer report — the owner's /users table scoped to this trainer's clients
 // (same columns minus trainer/ban), plus one-tap "finish the interview" nudges below.
+export interface TrainerReportRow {
+  u: UserDoc;
+  ev: { workouts: number; checkins: number; nutrition: number; steps: number };
+  ps?: { active: boolean; draft: boolean };
+  prog: { filled: number; total: number };
+}
+
+export interface TrainerReport {
+  /** Clients in listClients order (the bot's "finish the interview" buttons follow it). */
+  clients: UserDoc[];
+  /** Most-active first, the same ranking as the owner table. */
+  ranked: TrainerReportRow[];
+  active7: number;
+  activePct: number;
+}
+
+// The weekly report data, shared by the bot's /trreport text table and the app's Report tab.
+// Retention snapshot: active in the last 7 days / total clients, in the trainer's timezone.
+export async function trainerReportData(db: D1Database, trainer: UserDoc): Promise<TrainerReport> {
+  const clients = await listClients(db, trainer._id);
+  const [eventCounts, planStatus] = await Promise.all([
+    eventCountsByUser(db).catch(() => new Map<number, { workouts: number; checkins: number; nutrition: number; steps: number }>()),
+    planStatusByUser(db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
+  ]);
+  const todayStr = localParts(trainer.profile.timezone).date;
+  const active7 = clients.filter((c) => c.lastSeenAt && c.lastSeenAt.toISOString().slice(0, 10) >= isoDateMinus(todayStr, 7)).length;
+  const activePct = clients.length ? Math.round((active7 / clients.length) * 100) : 0;
+  const zero = { workouts: 0, checkins: 0, nutrition: 0, steps: 0 };
+  const ranked: TrainerReportRow[] = [...clients]
+    .map((u) => ({ u, ev: eventCounts.get(u._id) ?? zero, ps: planStatus.get(u._id), prog: interviewProgress(u.profile) }))
+    .sort((a, b) => {
+      const sum = (e: typeof zero) => e.workouts + e.checkins + e.nutrition + e.steps;
+      return sum(b.ev) - sum(a.ev);
+    });
+  return { clients, ranked, active7, activePct };
+}
+
 export async function cmdTrainerReport(ctx: MyContext) {
   const lang = ctx.user.lang;
   if (ctx.user.role !== "trainer") return;
-  const clients = await listClients(ctx.db, ctx.user._id);
+  const report = await trainerReportData(ctx.db, ctx.user);
+  const { clients, ranked, active7, activePct } = report;
   if (!clients.length) {
     await reply(ctx, t(lang, "tr_report_noclients"), menuBtn(lang));
     return;
   }
-  const [eventCounts, planStatus] = await Promise.all([
-    eventCountsByUser(ctx.db).catch(() => new Map<number, { workouts: number; checkins: number; nutrition: number; steps: number }>()),
-    planStatusByUser(ctx.db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
-  ]);
-  // Retention snapshot: active in the last 7 days / total clients.
-  const todayStr = localParts(ctx.user.profile.timezone).date;
-  const active7 = clients.filter((c) => c.lastSeenAt && c.lastSeenAt.toISOString().slice(0, 10) >= isoDateMinus(todayStr, 7)).length;
-  const activePct = clients.length ? Math.round((active7 / clients.length) * 100) : 0;
   const biz = [
     `💰 <b>${t(lang, "tr_biz")}</b>`,
     `• ${t(lang, "tr_biz_clients")}: <b>${clients.length}</b> · ${t(lang, "tr_biz_active")}: <b>${active7}</b> (${activePct}%)`,
     "",
   ].join("\n");
-  const zero = { workouts: 0, checkins: 0, nutrition: 0, steps: 0 };
-  // Most-active first, same ranking as the owner table.
-  const ranked = [...clients]
-    .map((u) => ({ u, ev: eventCounts.get(u._id) ?? zero }))
-    .sort((a, b) => {
-      const sum = (e: typeof zero) => e.workouts + e.checkins + e.nutrition + e.steps;
-      return sum(b.ev) - sum(a.ev);
-    });
   const header = ["name", "nick", "stat", "pln", "drf", "W", "C", "N", "S", "last", "blk"];
   const cells = [
     header,
-    ...ranked.map(({ u, ev }) => {
-      const prog = interviewProgress(u.profile);
-      const ps = planStatus.get(u._id);
-      return [
-        (u.profile.name || `id ${u._id}`).slice(0, 16),
-        u.username ? `@${u.username}` : "-",
-        u.onboarded ? "ok" : `${prog.filled}/${prog.total}`,
-        ps?.active ? "y" : "-",
-        ps?.draft ? "y" : "-",
-        String(ev.workouts), String(ev.checkins), String(ev.nutrition), String(ev.steps),
-        u.lastSeenAt ? u.lastSeenAt.toISOString().slice(5, 10) : "—",
-        u.botBlocked ? "x" : "-",
-      ];
-    }),
+    ...ranked.map(({ u, ev, ps, prog }) => [
+      (u.profile.name || `id ${u._id}`).slice(0, 16),
+      u.username ? `@${u.username}` : "-",
+      u.onboarded ? "ok" : `${prog.filled}/${prog.total}`,
+      ps?.active ? "y" : "-",
+      ps?.draft ? "y" : "-",
+      String(ev.workouts), String(ev.checkins), String(ev.nutrition), String(ev.steps),
+      u.lastSeenAt ? u.lastSeenAt.toISOString().slice(5, 10) : "—",
+      u.botBlocked ? "x" : "-",
+    ]),
   ];
   const widths = header.map((_, i) => Math.max(...cells.map((r) => r[i].length)));
   const rightAlign = new Set([5, 6, 7, 8]); // numeric columns W/C/N/S

@@ -17,6 +17,9 @@ import { getClientCard, getClientForTrainer, listClients, setClientCard, setClie
 import { getQuestion, insertMessage, listQuestionsForTrainer, setQuestionStatus } from "../adapters/d1/v2TrainerMessages";
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
+import { activateClientPlan, canShareProgramFor, planToBank, publishProgram, recentPrs } from "../features/trainer/programSharing";
+import { trainerReportData } from "../features/trainer/trainer";
+import { botDeepLink } from "../notify/links";
 import { logInfo } from "../log";
 import { adaptPlan } from "../domain/planAdapt";
 import { escapeHtml, t } from "../locales/i18n";
@@ -128,6 +131,89 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       return { status: 200, body: { ok: true, sent } };
     });
     return Response.json(bc.body, { status: bc.status });
+  }
+
+  // Weekly client report: the bot's /trreport table as structured rows (same ranking, same data).
+  if (req.method === "GET" && url.pathname === "/api/trainer/report") {
+    const report = await trainerReportData(env.DB, user);
+    const rows = report.ranked.map(({ u, ev, ps, prog }) => ({
+      id: u._id,
+      name: u.profile.name ?? null,
+      username: u.username ?? null,
+      onboarded: u.onboarded,
+      interview: prog,
+      plan: { active: !!ps?.active, draft: !!ps?.draft },
+      events: ev,
+      lastSeen: u.lastSeenAt ? u.lastSeenAt.toISOString() : null,
+      botBlocked: !!u.botBlocked,
+    }));
+    return Response.json({ clientCount: report.clients.length, active7: report.active7, activePct: report.activePct, rows }, { headers: { "cache-control": "no-store" } });
+  }
+
+  // Program sharing (the bot's share flow, features/trainer/programSharing.ts): publish a saved
+  // template to the library or as a link, publish my own active plan, assign a template to clients.
+  if (req.method === "POST" && url.pathname === "/api/trainer/share/template") {
+    if (!(await canShareProgramFor(env.DB, user))) return Response.json({ error: "forbidden" }, { status: 403 });
+    const parsedShare = await readJsonBody(req);
+    if (!parsedShare.ok) return parsedShare.response;
+    const b = parsedShare.body as Record<string, unknown>;
+    if (b.mode !== "library" && b.mode !== "link") return Response.json({ error: "bad request" }, { status: 400 });
+    const tpl = await getTrainerTemplate(env.DB, user._id, Number(b.templateId));
+    if (!tpl) return Response.json({ error: "not found" }, { status: 404 });
+    const isPublic = b.mode === "library";
+    const pub = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
+      const code = await publishProgram(env.DB, user._id, tpl.name, tpl.plan, isPublic);
+      return { status: 200, body: { ok: true, code, name: tpl.name, ...(isPublic ? {} : { link: botDeepLink(env, `prog_${code}`) }) } };
+    });
+    return Response.json(pub.body, { status: pub.status });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/trainer/share/plan") {
+    if (!(await canShareProgramFor(env.DB, user))) return Response.json({ error: "forbidden" }, { status: 403 });
+    const parsedMine = await readJsonBody(req);
+    if (!parsedMine.ok) return parsedMine.response;
+    const rawName = (parsedMine.body as Record<string, unknown>).name;
+    const name = typeof rawName === "string" ? rawName.trim().slice(0, 48) : "";
+    if (!name) return Response.json({ error: "bad request" }, { status: 400 });
+    const plan = await getActivePlan(env.DB, user._id);
+    if (!plan || !plan.split.length) return Response.json({ error: "not found" }, { status: 404 });
+    const pubMine = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
+      const code = await publishProgram(env.DB, user._id, name, planToBank(plan), true);
+      await recordAudit(env.DB, user._id, "share_myplan", undefined, name).catch(() => {});
+      return { status: 200, body: { ok: true, code, name } };
+    });
+    return Response.json(pubMine.body, { status: pubMine.status });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/trainer/share/assign") {
+    if (!(await canShareProgramFor(env.DB, user))) return Response.json({ error: "forbidden" }, { status: 403 });
+    const parsedAssign = await readJsonBody(req);
+    if (!parsedAssign.ok) return parsedAssign.response;
+    const b = parsedAssign.body as Record<string, unknown>;
+    const ids = Array.isArray(b.clientIds) ? b.clientIds.map(Number) : [];
+    if (!ids.length || !ids.every((n) => Number.isInteger(n) && n > 0)) return Response.json({ error: "bad request" }, { status: 400 });
+    const tpl = await getTrainerTemplate(env.DB, user._id, Number(b.templateId));
+    if (!tpl) return Response.json({ error: "not found" }, { status: 404 });
+    // Only the trainer's own active clients, as the bot's selection does.
+    const clients = (await listClients(env.DB, user._id)).filter((c) => ids.includes(c._id));
+    if (!clients.length) return Response.json({ error: "bad request" }, { status: 400 });
+    const assign = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
+      let ok = 0;
+      for (const c of clients) {
+        try {
+          const prs = await recentPrs(env.DB, c._id);
+          const draft = adaptPlan(tpl.plan, c.profile, c._id, { prs, authoredBy: user._id });
+          await activateClientPlan(env.DB, c._id, draft);
+          await pingOther(env, c.chatId, t(c.lang, "share_client_got", { name: escapeHtml(tpl.name) }), appMarkup(env, t(c.lang, "nb_open_today"), "today"));
+          ok++;
+        } catch (err) {
+          console.error("trainer share assign", c._id, err);
+        }
+      }
+      await recordAudit(env.DB, user._id, "share_program", undefined, `${tpl.name} → ${ok}/${clients.length}`).catch(() => {});
+      return { status: 200, body: { ok: true, assigned: ok, total: clients.length } };
+    });
+    return Response.json(assign.body, { status: assign.status });
   }
 
   // Answer a client question — deliver to the client (chat push + stored message), mark answered.

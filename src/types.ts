@@ -171,6 +171,7 @@ export type SessionMode =
   | "msg_client"
   | "msg_trainer"
   | "answer_q"
+  | "feedback_reply"
   | "records_alias"
   | "weight_edit"
   | "sets_edit"

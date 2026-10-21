@@ -15,6 +15,7 @@ import * as P from "../ai/prompts";
 import { buildActivityCells } from "../domain/activity";
 import { deloadDue } from "../domain/deload";
 import { localParts, localCutoff } from "../domain/localTime";
+import { wellbeingAverages } from "../domain/wellbeing";
 import { e1rm, weekStartStr, weekStreak } from "../domain/records";
 import { conditioningLoadLabel, renderActivityGrid, renderStrength, exerciseChart, wellbeingChart } from "../render";
 import { strengthStandard, type StrengthLevel } from "../domain/standards";
@@ -253,13 +254,13 @@ export async function cmdWellbeing(ctx: MyContext) {
   await clearEditOwner(ctx);
   const lang = ctx.user.lang;
   const checkins = await dailyCheckinsSince(ctx.db, ctx.user._id, localCutoff(ctx.user.profile.timezone, 90));
-  if (checkins.length < 2) { await reply(ctx, t(lang, "wellbeing_none"), menuBtn(lang)); return; }
+  const means = wellbeingAverages(checkins);
+  if (!means) { await reply(ctx, t(lang, "wellbeing_none"), menuBtn(lang)); return; }
   const cfg = wellbeingChart(lang, checkins);
   if (cfg) await sendChartPng(ctx, cfg);
-  const avg = (sel: (c: (typeof checkins)[number]) => number) => (checkins.reduce((s, c) => s + sel(c), 0) / checkins.length).toFixed(1);
   await reply(
     ctx,
-    t(lang, "wellbeing_summary", { n: checkins.length, energy: avg((c) => c.energy), sleep: avg((c) => c.sleep), stress: avg((c) => c.stress) }),
+    t(lang, "wellbeing_summary", { n: checkins.length, energy: means.energy.toFixed(1), sleep: means.sleep.toFixed(1), stress: means.stress.toFixed(1) }),
     menuBtn(lang),
   );
 }

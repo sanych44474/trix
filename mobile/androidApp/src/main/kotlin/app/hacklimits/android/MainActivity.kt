@@ -13,6 +13,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import app.hacklimits.shared.App
+import app.hacklimits.shared.update.AppUpdater
 import app.hacklimits.android.media.ActivityFilePicker
 import org.koin.android.ext.android.inject
 
@@ -22,7 +23,7 @@ class MainActivity : ComponentActivity() {
     private val fileSaver: ActivityFileSaver by inject()
     private val photoPicker: ActivityPhotoPicker by inject()
     private val speechInput: ActivitySpeechInput by inject()
-    private val updater: PlayAppUpdater by inject()
+    private val updater: AppUpdater by inject()
     private val filePicker: ActivityFilePicker by inject()
     private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> filePicker.onPicked(uri) }
     private val errors: NativeErrorReporter by inject()
@@ -43,7 +44,7 @@ class MainActivity : ComponentActivity() {
         fileSaver.launcher = createDocument
         speechInput.launch = { intent -> recognizeSpeech.launch(intent) }
         photoPicker.launch = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-        updater.launcher = updateFlow
+        (updater as? PlayAppUpdater)?.launcher = updateFlow
         filePicker.launch = { mime -> pickFile.launch(mime) }
         setContent {
             App(
@@ -59,7 +60,7 @@ class MainActivity : ComponentActivity() {
         if (fileSaver.launcher === createDocument) fileSaver.launcher = null
         speechInput.launch = null
         photoPicker.launch = null
-        if (updater.launcher === updateFlow) updater.launcher = null
+        (updater as? PlayAppUpdater)?.let { if (it.launcher === updateFlow) it.launcher = null }
         filePicker.launch = null
         filePicker.onPicked(null)
         super.onDestroy()

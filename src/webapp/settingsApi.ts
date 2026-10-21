@@ -9,6 +9,7 @@ import { resolveWaitlistNudge } from "../features/trainer/trainer";
 import { deleteUserData } from "../adapters/d1/v2Account";
 import { getOwnerChatId } from "../adapters/d1/v2Admin";
 import { insertFeedback } from "../adapters/d1/v2Feedback";
+import { feedbackReplyMarkup } from "../features/feedback/replyFeedback";
 import { unlinkClient } from "../adapters/d1/v2Trainer";
 import { clearVacation, getUser, setVacation, updateUser } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
@@ -143,11 +144,11 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
       // A lost-response retry must not double-insert the feedback row or double-ping the owner.
       const fb = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
         const { date } = localParts(user.profile.timezone);
-        await insertFeedback(env.DB, { userId: user._id, username: user.username, text, date });
+        const feedbackId = await insertFeedback(env.DB, { userId: user._id, username: user.username, text, date });
         const ownerChatId = await getOwnerChatId(env.DB).catch(() => null);
         if (ownerChatId) {
           const who = user.username ? `@${user.username}` : `id ${user._id}`;
-          await tgSend(env, ownerChatId, `✍️ <b>Feedback</b> from ${escapeHtml(who)}:\n${escapeHtml(text)}`);
+          await tgSend(env, ownerChatId, `✍️ <b>Feedback</b> from ${escapeHtml(who)}:\n${escapeHtml(text)}`, feedbackReplyMarkup(feedbackId));
         }
         return { status: 200, body: { ok: true, state: state(user, user.lang) } };
       });

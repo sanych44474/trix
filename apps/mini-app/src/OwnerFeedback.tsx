@@ -8,7 +8,7 @@ import { Icon, type IconName } from "./icons";
 
 type Category = "bug" | "idea" | "complaint" | "praise" | "rating" | "other";
 type Status = "new" | "done" | "wontfix";
-type Row = { id: number; userId: number; username?: string; name?: string; text: string; date: string; category: Category; status: Status };
+type Row = { id: number; userId: number; username?: string; name?: string; text: string; date: string; category: Category; status: Status; reply?: string; repliedAt?: string };
 type Payload = { rows: Row[]; counts: Record<Status, number> };
 
 const CATS: Category[] = ["bug", "idea", "complaint", "praise", "rating", "other"];
@@ -21,6 +21,8 @@ export function OwnerFeedback({ lang }: { lang: Lang }) {
   const [busy, setBusy] = useState<number | null>(null);
   const [notify, setNotify] = useState(true);
   const [error, setError] = useState(false);
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  const [sentTo, setSentTo] = useState<number | null>(null);
   const load = (f = filter) => { setError(false); api<Payload>(`/api/v2/owner/feedback?status=${f}`).then(setData).catch(() => setError(true)); };
   useEffect(() => load(filter), [filter]);
 
@@ -29,6 +31,17 @@ export function OwnerFeedback({ lang }: { lang: Lang }) {
     try {
       await api(`/api/v2/owner/feedback/${row.id}`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ ...patch, ...(patch.status === "done" ? { notify } : {}) }) });
       load();
+    } catch { setError(true); } finally { setBusy(null); }
+  };
+
+  // Same delivery as the bot's Reply button: Telegram or push, plus the author's inbox.
+  const sendReply = async (row: Row) => {
+    const text = (drafts[row.id] ?? "").trim();
+    if (!text) return;
+    setBusy(row.id); setError(false);
+    try {
+      await api(`/api/v2/owner/feedback/${row.id}/reply`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ text }) });
+      setDrafts((d) => ({ ...d, [row.id]: "" })); setSentTo(row.id); load();
     } catch { setError(true); } finally { setBusy(null); }
   };
 
@@ -53,6 +66,12 @@ export function OwnerFeedback({ lang }: { lang: Lang }) {
         <small>{r.name || (r.username ? `@${r.username}` : `id ${r.userId}`)} · {r.date}</small>
       </div>
       <p>{r.text}</p>
+      {r.reply && <p className="fb-reply"><small>{t(lang, "fbt_replied")}</small><br />{r.reply}</p>}
+      {sentTo === r.id && <div className="save-note">{t(lang, "fbt_reply_sent")}</div>}
+      <div className="input-row">
+        <input value={drafts[r.id] ?? ""} maxLength={1500} placeholder={t(lang, "fbt_reply_ph")} onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") void sendReply(r); }} />
+        <button className="button button-primary" disabled={busy === r.id || !(drafts[r.id] ?? "").trim()} onClick={() => void sendReply(r)}>{busy === r.id ? "…" : t(lang, "fbt_reply_send")}</button>
+      </div>
       <div className="button-row">
         {r.status !== "done" && <button className="button button-primary" disabled={busy === r.id} onClick={() => void update(r, { status: "done" })}>{busy === r.id ? "…" : t(lang, "fbt_mark_done")}</button>}
         {r.status === "new" && <button className="button button-ghost" disabled={busy === r.id} onClick={() => void update(r, { status: "wontfix" })}>{t(lang, "fbt_mark_wontfix")}</button>}

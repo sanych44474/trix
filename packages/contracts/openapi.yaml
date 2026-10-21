@@ -1052,6 +1052,103 @@ paths:
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '409': {$ref: '#/components/responses/Conflict'}
+  /api/v2/cardio:
+    get:
+      operationId: getCardio
+      description: Cardio quick-log types (names are the free-text prefixes) and the structured templates, in the user's language (src/webapp/trainingExtrasApi.ts).
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: Cardio types and templates
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {type: object}
+                  required: [data]
+  /api/v2/standards:
+    get:
+      operationId: getStandards
+      description: Strength standards per big lift (squat, bench, deadlift, OHP, row) against bodyweight-relative levels. needsWeight=true when no bodyweight is known.
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: Strength standards
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {type: object}
+                  required: [data]
+  /api/v2/comeback:
+    get:
+      operationId: getComeback
+      description: Post-vacation comeback interview. pending=true while the bot would be asking it (session mode comeback).
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: Comeback state and questions
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {type: object}
+                  required: [data]
+    post:
+      operationId: answerComeback
+      description: Submit all answers and the decision (keep, adjust or recreate). Recreate rebuilds the plan in the background like /api/v2/plan/replan.
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers, decision]
+              properties:
+                answers:
+                  type: object
+                  properties:
+                    feel: {type: string, maxLength: 300}
+                    goals: {type: string, enum: [same, changed]}
+                    weight: {type: string, enum: [up, same, down]}
+                    changed: {type: string, enum: [yes, no]}
+                  required: [feel, goals, weight, changed]
+                decision: {type: string, enum: [keep, adjust, recreate]}
+      responses:
+        '200':
+          description: Decision applied
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {type: object}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
   /api/v2/nutrition:
     get:
       operationId: getNutrition
@@ -1166,7 +1263,7 @@ paths:
                 index: {type: integer, minimum: -1, maximum: 12}
                 action:
                   type: string
-                  enum: [weight, sets, wmode, video, link, del, move, swap, add, note, technique, meso, dayadd, daydel, dayswap, fitkit]
+                  enum: [weight, sets, wmode, video, link, del, move, swap, add, note, technique, meso, dayadd, daydel, dayswap, fitkit, difficulty]
                 value:
                   type: string
                   maxLength: 1000
@@ -1186,6 +1283,7 @@ paths:
                 dir:
                   type: string
                   enum: [up, down]
+                  description: 'action=move (reorder within the day) and action=difficulty (up = harder, down = easier)'
                 catalogId: {type: string, maxLength: 80}
                 freeExerciseId: {type: string, maxLength: 120, description: 'action=add from the exercise library: the free-exercise-db id (sets canonicalName, reuses cached steps)'}
                 group:
@@ -1349,6 +1447,76 @@ paths:
                         pending: {type: boolean}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v2/wellbeing:
+    get:
+      operationId: getWellbeing
+      summary: 90-day wellbeing averages and trend (the bot's /well screen)
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: Averages are null under two check-ins; trend is the second-half minus first-half change per metric
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [count, averages, trend]
+                      properties:
+                        count: {type: integer, minimum: 0}
+                        averages:
+                          nullable: true
+                          type: object
+                          properties:
+                            energy: {type: number}
+                            sleep: {type: number}
+                            stress: {type: number}
+                        trend:
+                          nullable: true
+                          type: object
+                          properties:
+                            energy: {type: number}
+                            sleep: {type: number}
+                            stress: {type: number}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v2/survey:
+    get:
+      operationId: getEveningSurvey
+      summary: Today's still-unlogged evening items (food, water, steps, checkin)
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: Items the user has not logged yet today; empty when the day is complete
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [date, items]
+                      properties:
+                        date: {type: string, format: date}
+                        items:
+                          type: array
+                          items:
+                            type: object
+                            required: [key, label]
+                            properties:
+                              key: {type: string, enum: [food, water, steps, checkin]}
+                              label: {type: string}
+                  required: [data]
         '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/profile:
     get:
@@ -2941,6 +3109,175 @@ paths:
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v2/trainer/report:
+    get:
+      operationId: getTrainerReport
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: Weekly client report (the bot's /trreport table as rows), most-active first
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        clientCount: {type: integer}
+                        active7: {type: integer}
+                        activePct: {type: integer}
+                        rows:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id: {type: integer}
+                              name: {type: string, nullable: true}
+                              username: {type: string, nullable: true}
+                              onboarded: {type: boolean}
+                              interview:
+                                type: object
+                                properties:
+                                  filled: {type: integer}
+                                  total: {type: integer}
+                              plan:
+                                type: object
+                                properties:
+                                  active: {type: boolean}
+                                  draft: {type: boolean}
+                              events:
+                                type: object
+                                properties:
+                                  workouts: {type: integer}
+                                  checkins: {type: integer}
+                                  nutrition: {type: integer}
+                                  steps: {type: integer}
+                              lastSeen: {type: string, format: date-time, nullable: true}
+                              botBlocked: {type: boolean}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/v2/trainer/share/template:
+    post:
+      operationId: shareTrainerTemplate
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateId, mode]
+              properties:
+                templateId: {type: integer, minimum: 1}
+                mode: {type: string, enum: [library, link]}
+      responses:
+        '200':
+          description: Program published; link is set for mode=link only
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        code: {type: string}
+                        name: {type: string}
+                        link: {type: string}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+  /api/v2/trainer/share/plan:
+    post:
+      operationId: shareTrainerOwnPlan
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string, maxLength: 48}
+      responses:
+        '200':
+          description: The trainer's active plan published to the public library
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        code: {type: string}
+                        name: {type: string}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+  /api/v2/trainer/share/assign:
+    post:
+      operationId: assignTrainerTemplate
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateId, clientIds]
+              properties:
+                templateId: {type: integer, minimum: 1}
+                clientIds:
+                  type: array
+                  minItems: 1
+                  items: {type: integer, minimum: 1}
+      responses:
+        '200':
+          description: Template adapted and activated for the selected clients
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ok: {const: true}
+                        assigned: {type: integer}
+                        total: {type: integer}
+                  required: [data]
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '400': {$ref: '#/components/responses/ValidationError'}
   /api/v2/trainer/templates:
     get:
       operationId: listTrainerTemplates
@@ -3492,6 +3829,41 @@ paths:
                       properties:
                         html: {type: string}
                   required: [data]
+  /api/v2/owner/cleanup:
+    post:
+      operationId: ownerCleanup
+      description: Bulk inactive-user cleanup. Without confirm, returns the preview count; with confirm true, deletes every eligible candidate.
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirm: {type: boolean}
+      responses:
+        '200':
+          description: Preview (count) or result (deleted)
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        count: {type: integer}
+                        days: {type: integer}
+                        deleted: {type: integer}
+                  required: [data]
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v2/owner/users:
     get:
       operationId: getOwnerUsers
@@ -4138,8 +4510,9 @@ components:
       properties:
         kind:
           type: string
-          enum: [water, workout, steps, measure, checkin, food]
-        text: {type: string, maxLength: 500, description: 'kind=measure | food'}
+          enum: [water, workout, steps, measure, checkin, food, cardio]
+        text: {type: string, maxLength: 500, description: 'kind=measure | food | cardio (cardio: time and/or distance, e.g. "30 min 8 km")'}
+        key: {type: string, enum: [row, bike, run, walk, swim, ellipt, rope, other], description: 'kind=cardio'}
         ml: {type: number, minimum: 1, maximum: 3000, description: 'kind=water'}
         steps: {type: number, minimum: 0, maximum: 200000, description: 'kind=steps'}
         name: {type: string, maxLength: 80, description: 'kind=workout'}

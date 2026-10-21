@@ -39,7 +39,7 @@ android {
         // API 36 is the current Google Play target requirement; move to 37 after testing Android 17.
         targetSdk = 36
         versionCode = appVersionCode
-        versionName = "0.1.0"
+        versionName = providers.gradleProperty("hacklimits.versionName").orNull ?: "0.1.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "PRIVACY_POLICY_URL", "\"$privacyPolicyUrl\"")
         // Crash reports only from real installs; debug builds keep crashes on the developer's screen.
@@ -49,6 +49,20 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // How an install gets new versions. "direct" (the APK testers and the website hand out) downloads
+    // them from Cloudflare itself and asks the user to install; "play" leaves updates to Google Play,
+    // whose policy forbids self-updating apps (and the install-packages permission that needs).
+    flavorDimensions += "store"
+    productFlavors {
+        create("direct") {
+            dimension = "store"
+            isDefault = true
+        }
+        create("play") {
+            dimension = "store"
+        }
     }
 
     signingConfigs {

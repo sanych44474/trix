@@ -120,6 +120,8 @@ internal class FeedbackTriageViewModel(private val api: OwnerApi) : ViewModel() 
         /** Tell the author when a row is marked done. */
         val notify: Boolean = true,
         val failed: Boolean = false,
+        /** The row whose reply just went out, for the "sent" note. */
+        val repliedId: Long? = null,
     )
 
     private val _state = MutableStateFlow(State())
@@ -147,6 +149,22 @@ internal class FeedbackTriageViewModel(private val api: OwnerApi) : ViewModel() 
             _state.update { it.copy(busyId = row.id, failed = false) }
             try {
                 api.updateFeedback(row.id, status, category, _state.value.notify, Uuid.random().toString())
+                fetch()
+            } catch (e: Exception) {
+                _state.update { it.copy(failed = true) }
+            } finally {
+                _state.update { it.copy(busyId = null) }
+            }
+        }
+    }
+
+    fun reply(row: FeedbackRow, text: String) {
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(busyId = row.id, failed = false, repliedId = null) }
+            try {
+                api.replyFeedback(row.id, text.trim(), Uuid.random().toString())
+                _state.update { it.copy(repliedId = row.id) }
                 fetch()
             } catch (e: Exception) {
                 _state.update { it.copy(failed = true) }

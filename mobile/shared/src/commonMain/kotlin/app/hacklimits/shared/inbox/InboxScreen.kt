@@ -1,5 +1,6 @@
 package app.hacklimits.shared.inbox
 
+import app.hacklimits.shared.resources.ib_feedback_reply
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -134,6 +135,7 @@ private fun InboxCopy.resource(): StringResource = when (this) {
     InboxCopy.BADGE -> Res.string.ib_badge
     InboxCopy.PROGRESSION -> Res.string.ib_progression
     InboxCopy.FEEDBACK_DONE -> Res.string.ib_feedback_done
+    InboxCopy.FEEDBACK_REPLY -> Res.string.ib_feedback_reply
     InboxCopy.SQUAD_PR -> Res.string.ib_squad_pr
     InboxCopy.SQUAD_WEEK -> Res.string.ib_squad_week
     InboxCopy.SQUAD_WEEK_PAST -> Res.string.ib_squad_week_past

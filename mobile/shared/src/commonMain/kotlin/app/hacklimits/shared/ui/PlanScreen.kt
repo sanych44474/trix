@@ -1,5 +1,6 @@
 package app.hacklimits.shared.ui
 
+import app.hacklimits.shared.daily.DayDifficultyButtons
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -182,6 +183,7 @@ fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Uni
                                                     }
                                                 }
                                             }
+                                            DayDifficultyButtons(weekday, onChanged = vm::load)
                                             OutlinedButton(onClick = { sheet = PlanSheet.Pick(weekday) }, enabled = s.busy == null, modifier = Modifier.fillMaxWidth()) {
                                                 Text(stringResource(Res.string.pl_plan_add_exercise_btn))
                                             }

@@ -18,7 +18,7 @@ import kotlinx.serialization.json.jsonObject
 enum class InboxTarget { Plan, Progress, Role, Today, More }
 
 /** Which sentence a row shows; the screen resolves it to a string resource. */
-enum class InboxCopy { PLAN_ASSIGNED, PLAN_CHANGED, MESSAGE, BADGE, PROGRESSION, FEEDBACK_DONE, SQUAD_PR, SQUAD_WEEK, SQUAD_WEEK_PAST }
+enum class InboxCopy { PLAN_ASSIGNED, PLAN_CHANGED, MESSAGE, BADGE, PROGRESSION, FEEDBACK_DONE, FEEDBACK_REPLY, SQUAD_PR, SQUAD_WEEK, SQUAD_WEEK_PAST }
 
 /** Placeholder for an unnamed squad; the screen swaps in the localized default. */
 object DefaultSquadName
@@ -38,6 +38,7 @@ internal fun inboxLine(item: InboxItem, uk: Boolean): InboxLine? {
         "badge" -> InboxLine(InboxCopy.BADGE, listOf(p.strOrNull(if (uk) "uk" else "en") ?: p.str("code")))
         "progression" -> InboxLine(InboxCopy.PROGRESSION, listOf(p.int("n")))
         "feedback_done" -> InboxLine(InboxCopy.FEEDBACK_DONE, listOf(p.str("preview")))
+        "feedback_reply" -> InboxLine(InboxCopy.FEEDBACK_REPLY, listOf(p.str("preview"), p.str("reply")))
         "squad_pr" -> InboxLine(InboxCopy.SQUAD_PR, listOf(p.str("name"), p.str("exercise"), p.str("best")))
         "squad_week" -> {
             val copy = if (p["past"]?.let { (it as? JsonPrimitive)?.booleanOrNull } == true) InboxCopy.SQUAD_WEEK_PAST else InboxCopy.SQUAD_WEEK
@@ -53,7 +54,7 @@ internal fun inboxTarget(kind: String): InboxTarget? = when (kind) {
     "plan_assigned", "plan_changed", "progression" -> InboxTarget.Plan
     "message" -> InboxTarget.Role
     "badge" -> InboxTarget.Progress
-    "feedback_done" -> InboxTarget.Today
+    "feedback_done", "feedback_reply" -> InboxTarget.Today
     "squad_pr", "squad_week" -> InboxTarget.More
     else -> null
 }

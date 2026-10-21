@@ -58,6 +58,7 @@ class ProfileViewModel(
         val trainerError: Boolean = false,
         val whatsNew: WhatsNewNote? = null,
         val prefs: DisplayPrefs = DisplayPrefs(),
+        val reminderHour: Int? = null,
     )
 
     private val _state = MutableStateFlow(State())
@@ -94,6 +95,7 @@ class ProfileViewModel(
                     options = response.options,
                     weekdays = response.weekdays,
                     referralLink = response.referralLink,
+                    reminderHour = response.profile.reminderHour,
                     referredCount = response.referredCount,
                 )
             }

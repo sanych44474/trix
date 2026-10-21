@@ -19,7 +19,7 @@ test("expectedSchema over the real migrations: v2 tables, no dropped legacy ones
   assert.ok(s.tables.includes("v2_feedback"));
   assert.ok(s.tables.includes("v2_inbox"));
   assert.ok(!s.tables.includes("users"));
-  assert.deepEqual(s.columns.v2_feedback, ["category", "resolvedAt", "status"]);
+  assert.deepEqual(s.columns.v2_feedback, ["category", "repliedAt", "reply", "resolvedAt", "status"]);
 });
 
 test("expectedSchema matches a database built from the migrations (test harness)", async () => {

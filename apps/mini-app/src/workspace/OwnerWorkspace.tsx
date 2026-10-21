@@ -7,6 +7,7 @@ import type { OwnerUsers } from "../types";
 import { t, type Lang } from "../i18n";
 import { plainReport, OWNER_REPORT_SECTIONS, OWNER_TABS, type OwnerSection } from "../logic/workspace";
 import { OwnerReport, Panel, WorkspaceError } from "./shared";
+import { OwnerCleanupCard } from "./OwnerCleanupCard";
 
 
 export function OwnerWorkspace({ lang }: { lang: Lang }) {
@@ -75,6 +76,7 @@ export function OwnerWorkspace({ lang }: { lang: Lang }) {
 
     {section === "roster" && <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "roster_eyebrow")}</span><h2>{t(lang, "recent_users_title")}</h2></div><span className="tag">{users.rows.length}</span></div>
+      <OwnerCleanupCard lang={lang} onDone={() => void loadUsers()} />
       <OwnerRoster lang={lang} rows={users.rows} busy={rosterBusy} nudged={nudged} onAction={(id, action) => void userAction(id, action)} />
     </Panel>}
 

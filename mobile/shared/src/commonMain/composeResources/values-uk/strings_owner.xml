@@ -108,4 +108,8 @@
     <string name="ow_fbt_mark_done">✓ Зроблено</string>
     <string name="ow_fbt_mark_wontfix">Не робимо</string>
     <string name="ow_fbt_reopen">Повернути в нові</string>
+    <string name="ow_fbt_reply_ph">Відповідь автору…</string>
+    <string name="ow_fbt_reply_send">Надіслати</string>
+    <string name="ow_fbt_reply_sent">Відповідь надіслано</string>
+    <string name="ow_fbt_replied">Твоя відповідь</string>
 </resources>
