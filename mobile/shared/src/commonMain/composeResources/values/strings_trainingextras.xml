@@ -26,6 +26,5 @@
     <string name="tx_comeback_error">Could not save that. Try again.</string>
     <string name="tx_comeback_done">Done</string>
     <string name="tx_comeback_done_keep">Great, your plan stays as it is. Let’s get back to it!</string>
-    <string name="tx_comeback_done_adjust">Send the changes you want (weights, exercises, days) in the bot chat and the plan will be adjusted.</string>
     <string name="tx_comeback_done_recreate">Rebuilding your plan from your current profile. It will show up in Plan when it is ready.</string>
 </resources>

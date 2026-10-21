@@ -1,21 +1,17 @@
 // Daily and bi-weekly check-ins in the chat: the wellbeing check-in, its callback flow and the
 // adaptive check-in answer. Split out of router.ts; router.ts re-exports everything here.
 import { logInfo } from "../log";
-import { aiJSON } from "../ai";
-import * as P from "../ai/prompts";
 import { checkinScale, menuBtn } from "../adapters/telegram/keyboards";
 import { showEveningSurvey } from "../features/survey/eveningSurvey";
 import { getWorkoutLog } from "../adapters/d1/v2Workouts";
-import { getActivePlan, setActivePlan } from "../adapters/d1/v2Plans";
-import { recordAdjustment } from "../adapters/d1/v2PlanHistory";
+import { getActivePlan } from "../adapters/d1/v2Plans";
 import { recordDailyCheckin } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";
-import { weeksSincePlan } from "../domain/deload";
-import { cleanAi, escapeHtml, t } from "../locales/i18n";
+import { escapeHtml, t } from "../locales/i18n";
 import { MyContext, reply, setMode } from "../adapters/telegram/context";
-import { coachContext } from "../features/coach/coachContext";
 import { maybeCelebrateLevel, deferAi } from "../features/aiDefer";
+import { applyAdaptiveCheckin } from "../features/checkin/adaptive";
 
 export async function cmdCheckin(ctx: MyContext) {
   const lang = ctx.user.lang;
@@ -88,34 +84,9 @@ export async function handleAdaptiveCheckin(ctx: MyContext, text: string) {
   }
   await ctx.replyWithChatAction("typing").catch(() => {});
   deferAi(ctx, "coach", async () => {
-    const result = await aiJSON<P.AdaptiveResult>(ctx.env, {
-      system: P.adaptiveAdjustmentSystem(lang, ctx.user.profile, await coachContext(ctx, ctx.user)),
-      user: text,
-      schema: P.ADAPTIVE_SCHEMA,
-      temperature: 0.5,
-      kind: "coach",
-      db: ctx.db,
-      userId: ctx.user._id,
-    });
-    // Apply each micro-adjustment to the live plan (only the fields the AI changed).
-    const applied: string[] = [];
-    for (const adj of result.adjustments ?? []) {
-      const day = plan.split.find((d) => d.weekday === adj.weekday);
-      const ex = day?.exercises[adj.index];
-      if (!ex) continue;
-      if (adj.sets) ex.sets = cleanAi(adj.sets);
-      if (adj.startWeight) ex.startWeight = cleanAi(adj.startWeight);
-      if (adj.sets || adj.startWeight) {
-        applied.push(`${ex.name}: ${ex.sets} · ${ex.startWeight}`);
-      }
-    }
-    if (applied.length) {
-      await setActivePlan(ctx.db, plan);
-      const week = weeksSincePlan(plan.generatedAt.toISOString(), localParts(ctx.user.profile.timezone).date);
-      await recordAdjustment(ctx.db, ctx.user._id, week, JSON.stringify(result.adjustments ?? []));
-    }
+    const { reply: answer, applied } = await applyAdaptiveCheckin(ctx, plan, text);
     const summary = applied.length ? "\n\n" + applied.map((a) => `• ${escapeHtml(a)}`).join("\n") : "";
-    await reply(ctx, escapeHtml(cleanAi(result.reply)) + summary, menuBtn(lang));
+    await reply(ctx, escapeHtml(answer) + summary, menuBtn(lang));
   });
 }
 

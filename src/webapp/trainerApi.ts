@@ -18,6 +18,7 @@ import { getQuestion, insertMessage, listQuestionsForTrainer, setQuestionStatus 
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { activateClientPlan, canShareProgramFor, planToBank, publishProgram, recentPrs } from "../features/trainer/programSharing";
+import { localizePlanNames, type LocalizedName } from "../features/exercise/catalog";
 import { trainerReportData } from "../features/trainer/trainer";
 import { botDeepLink } from "../notify/links";
 import { logInfo } from "../log";
@@ -199,10 +200,14 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     if (!clients.length) return Response.json({ error: "bad request" }, { status: 400 });
     const assign = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
       let ok = 0;
+      // Same as the bot's shareAssignToClients: exercise names in the client's language, one
+      // localization per exercise across clients. Best effort: a failure keeps the English names.
+      const names = new Map<string, LocalizedName>();
       for (const c of clients) {
         try {
           const prs = await recentPrs(env.DB, c._id);
           const draft = adaptPlan(tpl.plan, c.profile, c._id, { prs, authoredBy: user._id });
+          await localizePlanNames({ db: env.DB, env, user }, draft, c.lang, names).catch(() => false);
           await activateClientPlan(env.DB, c._id, draft);
           await pingOther(env, c.chatId, t(c.lang, "share_client_got", { name: escapeHtml(tpl.name) }), appMarkup(env, t(c.lang, "nb_open_today"), "today"));
           ok++;

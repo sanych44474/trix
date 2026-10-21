@@ -4,7 +4,10 @@
 import { bodyLogsByUser } from "../adapters/d1/v2Tracking";
 import { listStrength } from "../adapters/d1/v2Workouts";
 import { updateUser } from "../adapters/d1/v2Users";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { comebackSteps } from "../features/vacation/comeback";
+import { applyAdaptiveCheckin } from "../features/checkin/adaptive";
 import { CARDIO_TEMPLATES, CARDIO_TYPES, cardioName, zoneBpm } from "../domain/cardioPlan";
 import { e1rm } from "../domain/records";
 import { strengthStandard } from "../domain/standards";
@@ -141,6 +144,31 @@ export async function handleTrainingExtrasApi(req: Request, url: URL, env: Env, 
     if (ctx) ctx.waitUntil(job);
     else await job;
     return json({ ok: true, decision, planPending: true });
+  }
+
+  // ---- Adaptive check-in (bot: checkinCmds.ts handleAdaptiveCheckin; the comeback "adjust" continues here) ----
+  if (path === "/api/checkin/adaptive") {
+    if (req.method === "GET") {
+      const plan = await getActivePlan(env.DB, user._id);
+      return json({ pending: user.session.mode === "checkin_adaptive", hasPlan: !!plan && plan.split.length > 0 });
+    }
+    if (req.method !== "POST") return err(405, "method not allowed");
+    let body: { text?: unknown };
+    try {
+      body = (await req.json()) as typeof body;
+    } catch {
+      return err(400, "bad request");
+    }
+    const text = typeof body.text === "string" ? body.text.trim().slice(0, 1000) : "";
+    if (!text) return err(400, "bad request");
+    const plan = await getActivePlan(env.DB, user._id);
+    if (!plan || !plan.split.length) return err(409, "no_plan");
+    const result = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
+      if (user.session.mode === "checkin_adaptive") await updateUser(env.DB, user._id, { session: { ...user.session, mode: "idle" } });
+      const { reply, applied } = await applyAdaptiveCheckin({ db: env.DB, env, user }, plan, text);
+      return { status: 200, body: { ok: true, reply, adjustments: applied } };
+    });
+    return json(result.body, result.status);
   }
 
   return err(404, "not found");

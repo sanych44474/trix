@@ -26,6 +26,5 @@
     <string name="tx_comeback_error">Не вдалося зберегти. Спробуй ще раз.</string>
     <string name="tx_comeback_done">Готово</string>
     <string name="tx_comeback_done_keep">Чудово, план лишається як є. Повертаймось до роботи!</string>
-    <string name="tx_comeback_done_adjust">Напиши в чаті з ботом, що змінити (ваги, вправи, дні), і план буде підлаштовано.</string>
     <string name="tx_comeback_done_recreate">Перестворюю твій план з поточного профілю. Він з’явиться в Плані, коли буде готовий.</string>
 </resources>

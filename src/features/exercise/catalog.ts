@@ -6,14 +6,17 @@ import { getCatalogExercise, getExerciseTranslation, upsertExerciseTranslation, 
 import { cleanAi } from "../../locales/i18n";
 import { aiJSON, aiText } from "../../ai";
 import * as P from "../../ai/prompts";
-import { type MyContext } from "../../adapters/telegram/context";
+import type { MyContext } from "../../adapters/telegram/context";
+
+// What the AI-backed catalog helpers read; the webapp passes a plain object, the bot its grammY context.
+type AiCtx = Pick<MyContext, "db" | "env" | "user">;
 import { extractExerciseQuery, stripEquipmentWords, muscleGroupToEnum } from "../../domain/exerciseDefaults";
 
 // Instructions + safety for an exercise in the user's language. English is served straight
 // from the catalog; other languages are translated on first use and cached so /today is
 // instant afterwards. Falls back to the English original if translation fails.
 export async function exerciseInfoEntry(
-  ctx: MyContext,
+  ctx: AiCtx,
   exerciseId: string,
   lang: Lang,
 ): Promise<{ name: string; instructions: string; safety: string } | null> {
@@ -51,7 +54,7 @@ export async function exerciseInfoEntry(
   }
 }
 
-export async function translateExerciseQueryToEnglish(ctx: MyContext, query: string): Promise<string> {
+export async function translateExerciseQueryToEnglish(ctx: AiCtx, query: string): Promise<string> {
   if (ctx.user.lang === "en") return query.trim();
   try {
     const translated = await aiText(ctx.env, {
@@ -72,7 +75,7 @@ export async function translateExerciseQueryToEnglish(ctx: MyContext, query: str
   }
 }
 
-export async function searchExerciseCatalog(ctx: MyContext, query: string, limit = 5): Promise<CatalogExercise[]> {
+export async function searchExerciseCatalog(ctx: AiCtx, query: string, limit = 5): Promise<CatalogExercise[]> {
   const cleaned = extractExerciseQuery(query);
   const english = await translateExerciseQueryToEnglish(ctx, cleaned);
   // Specific phrasings first; the equipment-stripped forms are last-resort so exact matches win
@@ -92,7 +95,7 @@ export async function searchExerciseCatalog(ctx: MyContext, query: string, limit
 // Resolve a catalog id + canonical name for one (ungrounded) plan exercise: match the
 // catalog by its name (UA/EN), else AI-author a catalog entry (coach). No mutation here.
 export async function groundExercise(
-  ctx: MyContext,
+  ctx: AiCtx,
   day: PlanDay,
   ex: PlanExercise,
 ): Promise<{ id: string; name: string } | null> {
@@ -125,7 +128,7 @@ export type LocalizedName = { id: string; canonicalName?: string; name: string }
 
 /** `memo` (optional) carries results between calls -- a trainer assigning one template to many
  *  clients localizes the same exercises once, not once per client. Keyed by language and name. */
-export async function localizePlanNames(ctx: MyContext, plan: PlanDoc, lang: Lang, memo?: Map<string, LocalizedName>): Promise<boolean> {
+export async function localizePlanNames(ctx: AiCtx, plan: PlanDoc, lang: Lang, memo?: Map<string, LocalizedName>): Promise<boolean> {
   if (lang === "en") return false;
   const CYR = /[Ѐ-ӿ]/;
   let changed = false;
@@ -168,7 +171,7 @@ export async function localizePlanNames(ctx: MyContext, plan: PlanDoc, lang: Lan
 // draft) is corrected the first time anyone views it — not only when it's next (re)assigned. A
 // healthy (already-Cyrillic) plan costs a scan and no write. `lang` is the plan OWNER's language
 // (not the viewer's), so a trainer opening a client's plan persists names in the client's language.
-export async function healPlanNamesForDisplay(ctx: MyContext, plan: PlanDoc, lang: Lang): Promise<PlanDoc> {
+export async function healPlanNamesForDisplay(ctx: AiCtx, plan: PlanDoc, lang: Lang): Promise<PlanDoc> {
   const changed = await localizePlanNames(ctx, plan, lang);
   if (changed) {
     if (plan.status === "draft") await saveDraftPlan(ctx.db, plan).catch(() => {});
@@ -187,7 +190,7 @@ export async function exerciseIdForName(name: string): Promise<string> {
 }
 
 export async function createExerciseCatalogEntry(
-  ctx: MyContext,
+  ctx: AiCtx,
   query: string,
   day: PlanDay,
   mode: "swap" | "add",

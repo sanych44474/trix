@@ -10,4 +10,5 @@ val trainingExtrasModule: Module = module {
     viewModel { CardioViewModel(get()) }
     viewModel { StandardsViewModel(get()) }
     viewModel { ComebackViewModel(get()) }
+    viewModel { AdaptiveCheckinViewModel(get()) }
 }
