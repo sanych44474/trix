@@ -66,8 +66,8 @@ class HackLimitsApp : Application() {
                     single<ErrorReporter> { get<NativeErrorReporter>() }
                     single { ActivityFilePicker(get()) }
                     single<MediaFilePicker> { get<ActivityFilePicker>() }
-                    single { PlayAppUpdater(get()) }
-                    single<AppUpdater> { get<PlayAppUpdater>() }
+                    // Play or self-update from Cloudflare, by build flavor (src/play, src/direct).
+                    single<AppUpdater> { storeUpdater(get()) }
                 },
             )
         }.koin

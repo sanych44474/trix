@@ -50,6 +50,8 @@ data class FeedbackRow(
     val date: String,
     val category: String,
     val status: String,
+    /** The owner's answer, once sent (bot Reply button or this console). */
+    val reply: String? = null,
 )
 
 @Serializable data class FeedbackCounts(val new: Int = 0, val done: Int = 0, val wontfix: Int = 0)
@@ -82,6 +84,7 @@ data class AnnounceResult(
 @Serializable private data class SentCount(val sent: Int = 0)
 @Serializable private data class ImageResult(val ok: Boolean = false)
 @Serializable private data class FeedbackSaved(val ok: Boolean = false, val notified: Boolean = false)
+@Serializable private data class FeedbackReplied(val ok: Boolean = false, val delivered: Boolean = false)
 
 /**
  * The owner console's endpoints (src/webapp/ownerApi.ts). Every route answers 404 to anyone who is
@@ -126,6 +129,10 @@ class OwnerApi(private val api: ApiClient) {
         }
         return post<FeedbackSaved>("api/v2/owner/feedback/$id", key, body).notified
     }
+
+    /** Answers the author (Telegram or push, plus their inbox) and closes the row; false when it can't be delivered. */
+    suspend fun replyFeedback(id: Long, text: String, key: String): Boolean =
+        post<FeedbackReplied>("api/v2/owner/feedback/$id/reply", key, buildJsonObject { put("text", text.take(1500)) }).delivered
 
     suspend fun release(): ReleaseInfo = api.unwrap(api.http.get("api/v2/owner/release") { api.authorize(this) })
 

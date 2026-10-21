@@ -108,4 +108,8 @@
     <string name="ow_fbt_mark_done">✓ Done</string>
     <string name="ow_fbt_mark_wontfix">Won\'t do</string>
     <string name="ow_fbt_reopen">Back to new</string>
+    <string name="ow_fbt_reply_ph">Reply to the author…</string>
+    <string name="ow_fbt_reply_send">Send</string>
+    <string name="ow_fbt_reply_sent">Reply sent</string>
+    <string name="ow_fbt_replied">Your reply</string>
 </resources>

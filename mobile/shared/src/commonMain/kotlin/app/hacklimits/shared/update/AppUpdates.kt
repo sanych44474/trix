@@ -11,22 +11,25 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
-@Serializable data class VersionGate(val minVersionCode: Int = 1, val latestVersionCode: Int = 1)
+/** The published APK, for installs outside a store (they update themselves from Cloudflare). */
+@Serializable data class ApkDownload(val url: String, val versionCode: Int, val versionName: String = "", val sha256: String, val size: Long)
+
+@Serializable data class VersionGate(val minVersionCode: Int = 1, val latestVersionCode: Int = 1, val download: ApkDownload? = null)
 @Serializable private data class AppConfig(val android: VersionGate = VersionGate())
 
 class AppConfigApi(private val api: ApiClient) {
     suspend fun android(): VersionGate = api.unwrap<AppConfig>(api.http.get("api/v2/app/config")).android
 }
 
-/** The store's own update flow (Play In-App Updates on Android). */
+/** How this build updates: Play In-App Updates, or (APK installs) download from [VersionGate.download]. */
 interface AppUpdater {
     /** True once a background (flexible) update has downloaded and waits for a restart. */
     val readyToInstall: StateFlow<Boolean>
 
-    /** Starts the store's update flow; false when it can't (e.g. not installed from the store). */
-    suspend fun start(immediate: Boolean): Boolean
+    /** Starts the update; false when it can't (no store, nothing to download). */
+    suspend fun start(immediate: Boolean, gate: VersionGate): Boolean
 
-    /** Restarts into a downloaded flexible update. */
+    /** Installs a downloaded update (Play restarts the app; an APK install asks the user first). */
     fun install()
 
     /** The app's store page, for when the in-app flow is unavailable. */
@@ -51,25 +54,26 @@ fun decide(versionCode: Int, gate: VersionGate): Gate = when {
 
 class UpdateViewModel(private val api: AppConfigApi, private val platform: AppPlatform, private val updater: AppUpdater) : ViewModel() {
     private val _gate = MutableStateFlow(Gate.Current)
+    private var config = VersionGate()
     val gate: StateFlow<Gate> = _gate.asStateFlow()
     val readyToInstall: StateFlow<Boolean> = updater.readyToInstall
 
     init {
         viewModelScope.launch {
             // Offline or an old server: never lock anyone out on a failed check.
-            val config = runCatching { api.android() }.getOrNull() ?: return@launch
+            config = runCatching { api.android() }.getOrNull() ?: return@launch
             val gate = decide(platform.versionCode, config)
             _gate.value = gate
             when (gate) {
-                Gate.Required -> updater.start(immediate = true)
-                Gate.Optional -> updater.start(immediate = false)
+                Gate.Required -> updater.start(immediate = true, config)
+                Gate.Optional -> updater.start(immediate = false, config)
                 Gate.Current -> Unit
             }
         }
     }
 
     fun update() {
-        viewModelScope.launch { if (!updater.start(immediate = true)) updater.openStore() }
+        viewModelScope.launch { if (!updater.start(immediate = true, config)) updater.openStore() }
     }
 
     fun install() = updater.install()

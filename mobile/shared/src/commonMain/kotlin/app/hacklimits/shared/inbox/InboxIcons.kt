@@ -15,6 +15,7 @@ internal fun inboxIcon(kind: String): ImageVector = when (kind) {
     "message" -> InboxIcons.Chat
     "badge" -> InboxIcons.Badge
     "feedback_done" -> InboxIcons.Check
+    "feedback_reply" -> InboxIcons.Chat
     else -> InboxIcons.People
 }
 

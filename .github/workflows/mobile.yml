@@ -54,7 +54,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Test, lint and build debug APK
-        run: ./gradlew --no-daemon -Phacklimits.apiBaseUrl=https://ci.invalid :shared:testAndroidHostTest :androidApp:lintDebug :androidApp:assembleDebug
+        run: ./gradlew --no-daemon -Phacklimits.apiBaseUrl=https://ci.invalid :shared:testAndroidHostTest :androidApp:lintDirectDebug :androidApp:assembleDirectDebug :androidApp:assemblePlayDebug
 
       - name: Upload test results and lint report
         if: always()
@@ -64,4 +64,4 @@ jobs:
           retention-days: 7
           path: |
             mobile/shared/build/test-results/**
-            mobile/androidApp/build/reports/lint-results-debug.html
+            mobile/androidApp/build/reports/lint-results-directDebug.html

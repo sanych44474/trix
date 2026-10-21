@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import app.hacklimits.shared.update.AppUpdater
+import app.hacklimits.shared.update.VersionGate
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.InstallStateUpdatedListener
@@ -41,7 +42,7 @@ class PlayAppUpdater(private val context: Context) : AppUpdater {
         manager.registerListener(listener)
     }
 
-    override suspend fun start(immediate: Boolean): Boolean {
+    override suspend fun start(immediate: Boolean, gate: VersionGate): Boolean {
         val target = launcher ?: return false
         val info = runCatching { manager.appUpdateInfo.await() }.getOrNull() ?: return false
         if (info.installStatus() == InstallStatus.DOWNLOADED) {

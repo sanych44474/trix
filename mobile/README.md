@@ -67,12 +67,30 @@ signing key comes only from the environment:
 ```powershell
 $env:HACKLIMITS_KEYSTORE_PATH = "C:\path\outside\repo\upload.jks"
 $env:HACKLIMITS_KEYSTORE_PASSWORD = "..."; $env:HACKLIMITS_KEY_ALIAS = "upload"; $env:HACKLIMITS_KEY_PASSWORD = "..."
-.\gradlew.bat -Phacklimits.apiBaseUrl=https://<worker> -Phacklimits.privacyPolicyUrl=https://<policy> -Phacklimits.versionCode=2 :androidApp:bundleRelease
+.\gradlew.bat -Phacklimits.apiBaseUrl=https://<worker> -Phacklimits.privacyPolicyUrl=https://<policy> -Phacklimits.versionCode=2 -Phacklimits.versionName=0.2.0 :androidApp:assembleDirectRelease :androidApp:bundlePlayRelease
 ```
 
 Without those variables the release build is unsigned (useful to check that R8 shrinking works).
-Upload the `.aab` from `androidApp/build/outputs/bundle/release/`; Play App Signing holds the app
-signing key, this is only the upload key. Raise `hacklimits.versionCode` for every upload.
+Raise `hacklimits.versionCode` for every release.
+
+Two flavors decide how an install gets updates:
+
+<table>
+  <tr><th>Flavor</th><th>Who gets it</th><th>Updates</th></tr>
+  <tr><td><code>direct</code> (default)</td><td>The APK given to testers or linked from the site</td><td>Downloads new versions from Cloudflare itself, checks size and SHA-256, then Android asks the user to install.</td></tr>
+  <tr><td><code>play</code></td><td>Google Play</td><td>Play In-App Updates only. No install-packages permission: Play forbids self-updating apps.</td></tr>
+</table>
+
+Publish a direct release (LIVE, writes to the production R2 bucket):
+
+```bash
+node scripts/publish-apk.mjs mobile/androidApp/build/outputs/apk/direct/release/androidApp-direct-release.apk 2 0.2.0
+```
+
+Installed APKs see it within minutes through `/api/v2/app/config`; `https://<worker>/download/android`
+is the permanent download link. For Play, upload the `.aab` from
+`androidApp/build/outputs/bundle/playRelease/`; Play App Signing holds the app signing key, this is
+only the upload key.
 
 ## Google Play launch checklist
 

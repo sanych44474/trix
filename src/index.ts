@@ -41,7 +41,7 @@ import { handleStravaCallback } from "./webapp/stravaApi";
 import { handleQuickLogApi } from "./webapp/quickLogApi";
 import { handleV2Api } from "./webapp/v2Api";
 import { handleEmailAuth } from "./webapp/emailAuth";
-import { handleAppConfig } from "./webapp/appConfig";
+import { handleApkDownload, handleAppConfig } from "./webapp/appConfig";
 import { handleProviderAuth } from "./webapp/providerAuth";
 import { handlePushApi } from "./webapp/pushApi";
 import { logError, logInfo, runWithRequestId, withHeader } from "./log";
@@ -62,6 +62,8 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
   if (url.pathname.startsWith("/admin/") && !(await withinLimit(env, "admin", req.headers.get("cf-connecting-ip") ?? "unknown"))) {
     return new Response("too many requests", { status: 429, headers: { "retry-after": "60" } });
   }
+    const apkResponse = await handleApkDownload(req, url, env);
+    if (apkResponse) return apkResponse;
     if (url.pathname === "/" || url.pathname === "/health") {
       return new Response("trix bot up", { status: 200 });
     }
@@ -226,7 +228,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
     // delegates to the legacy implementations; business behavior therefore stays identical
     // during the staged migration.
     if (url.pathname.startsWith("/api/v2/")) {
-      const appConfigResponse = handleAppConfig(req, url, env);
+      const appConfigResponse = await handleAppConfig(req, url, env);
       if (appConfigResponse) return appConfigResponse;
       const providerAuthResponse = await handleProviderAuth(req, url, env);
       if (providerAuthResponse) return providerAuthResponse;

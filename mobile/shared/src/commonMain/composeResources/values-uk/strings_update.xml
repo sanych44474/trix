@@ -3,6 +3,6 @@
     <string name="upd_required_title">Оновіть Hack Limits</string>
     <string name="upd_required_body">Ця версія більше не підтримується. Оновіть застосунок, щоб і далі тренуватися, записувати й синхронізувати прогрес.</string>
     <string name="upd_update">Оновити</string>
-    <string name="upd_ready">Оновлення завантажено.</string>
-    <string name="upd_restart">Перезапустити</string>
+    <string name="upd_ready">Нова версія готова.</string>
+    <string name="upd_restart">Оновити зараз</string>
 </resources>

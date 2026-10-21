@@ -25,4 +25,5 @@
     <string name="ch_ai_draft">AI draft of a reply</string>
     <string name="ch_err_network">No connection. Check the internet and try again.</string>
     <string name="ch_err_generic">Something went wrong. Try again.</string>
+    <string name="ib_feedback_reply">Reply to “%1$s”: %2$s</string>
 </resources>
