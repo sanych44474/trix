@@ -54,4 +54,13 @@
     <string name="social_notice_compete_on">Ти в рейтингах.</string>
     <string name="social_notice_compete_off">Ти вийшов з рейтингів. Повернутися можна будь-коли.</string>
     <string name="social_err_not_found">Цього вже немає.</string>
+
+    <string name="so_tab_buddy">Баді</string>
+    <string name="so_buddy_eyebrow">Баді</string>
+    <string name="so_level">Рівень %1$d</string>
+    <string name="so_buddy_stats">%1$d тренувань у тебе · %2$d у %3$s · стрік %4$d тиж</string>
+    <string name="so_no_buddy_title">Баді не підключено</string>
+    <string name="so_no_buddy_detail">Запроси партнера з Telegram, щоб порівнювати регулярність і підтримувати мотивацію.</string>
+    <string name="so_coach_btn">Запитати AI-тренера</string>
+    <string name="so_trainer_btn">Запитати тренера</string>
 </resources>

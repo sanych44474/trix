@@ -13,6 +13,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import app.hacklimits.shared.App
+import app.hacklimits.android.media.ActivityFilePicker
 import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
@@ -21,6 +22,12 @@ class MainActivity : ComponentActivity() {
     private val fileSaver: ActivityFileSaver by inject()
     private val photoPicker: ActivityPhotoPicker by inject()
     private val speechInput: ActivitySpeechInput by inject()
+    private val updater: PlayAppUpdater by inject()
+    private val filePicker: ActivityFilePicker by inject()
+    private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> filePicker.onPicked(uri) }
+    private val errors: NativeErrorReporter by inject()
+    // Play's update screen reports back here; a cancelled immediate update is re-offered by the gate.
+    private val updateFlow = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {}
     private val recognizeSpeech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         speechInput.onResult(result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull())
     }
@@ -36,6 +43,8 @@ class MainActivity : ComponentActivity() {
         fileSaver.launcher = createDocument
         speechInput.launch = { intent -> recognizeSpeech.launch(intent) }
         photoPicker.launch = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+        updater.launcher = updateFlow
+        filePicker.launch = { mime -> pickFile.launch(mime) }
         setContent {
             App(
                 onSignedIn = ::onSignedIn,
@@ -45,8 +54,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** The singletons outlive this Activity: drop everything that points back at it. */
+    override fun onDestroy() {
+        if (fileSaver.launcher === createDocument) fileSaver.launcher = null
+        speechInput.launch = null
+        photoPicker.launch = null
+        if (updater.launcher === updateFlow) updater.launcher = null
+        filePicker.launch = null
+        filePicker.onPicked(null)
+        super.onDestroy()
+    }
+
     /** Ask for notifications only once someone is signed in and reminders mean something. */
     private fun onSignedIn() {
+        errors.flushLastCrash()
         if (!pushRegistrar.available()) return
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED

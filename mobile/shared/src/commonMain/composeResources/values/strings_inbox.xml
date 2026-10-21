@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ib_title">Notifications</string>
+    <string name="ib_close">Close</string>
+    <string name="ib_error">Something went wrong. Try again.</string>
+    <string name="ib_empty">Nothing yet. Plan updates, trainer messages and badges will show up here.</string>
+    <string name="ib_seen_yesterday">yesterday</string>
+    <string name="ib_plan_assigned">Your plan is ready: open it to see this week.</string>
+    <string name="ib_plan_changed">Your trainer updated your plan.</string>
+    <string name="ib_message">%1$s: %2$s</string>
+    <string name="ib_badge">New badge: %1$s</string>
+    <string name="ib_progression">Your plan progressed: %1$d change(s) for this week.</string>
+    <string name="ib_feedback_done">Your feedback made it in: “%1$s”</string>
+    <string name="ib_squad_pr">%1$s set a record in your squad: %2$s %3$s</string>
+    <string name="ib_squad_week">Squad “%1$s” this week: %2$s. %3$d workout(s) in total.</string>
+    <string name="ib_squad_week_past">Squad “%1$s” last week: %2$s. %3$d workout(s) in total.</string>
+    <string name="ib_squads_default">Squad</string>
+
+    <string name="ch_title">Chat</string>
+    <string name="ch_unavailable">The chat is not available.</string>
+    <string name="ch_empty_client">No messages yet. Say hi, or ask about your plan.</string>
+    <string name="ch_empty_trainer">No messages yet. Write first; the client gets a notification.</string>
+    <string name="ch_input_hint">Message</string>
+    <string name="ch_send">Send</string>
+    <string name="ch_ai_draft">AI draft of a reply</string>
+    <string name="ch_err_network">No connection. Check the internet and try again.</string>
+    <string name="ch_err_generic">Something went wrong. Try again.</string>
+</resources>

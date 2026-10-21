@@ -5,11 +5,15 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
+import io.ktor.serialization.ContentConvertException
+import app.hacklimits.shared.platform.ErrorReporter
+import io.ktor.client.statement.request
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -33,7 +37,12 @@ class ApiException(val status: Int, val code: String, message: String?) : Except
  * session tokens in the body instead of a cookie) and carries the bearer session when there is one.
  * A 401 on an authenticated call means the session is gone: [sessionExpired] tells the UI.
  */
-class ApiClient(private val baseUrl: String, private val sessions: SessionStore, engine: HttpClient? = null) {
+class ApiClient(
+    private val baseUrl: String,
+    private val sessions: SessionStore,
+    engine: HttpClient? = null,
+    val reporter: ErrorReporter = ErrorReporter.None,
+) {
     private val expired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val sessionExpired: SharedFlow<Unit> = expired
 
@@ -62,8 +71,20 @@ class ApiClient(private val baseUrl: String, private val sessions: SessionStore,
 
     /** Decode `{ data: T }` (v2 routes add `meta`), or throw [ApiException] with the server's code. */
     suspend inline fun <reified T> unwrap(response: HttpResponse): T {
-        if (response.status.isSuccess()) return response.body<Envelope<T>>().data
+        if (response.status.isSuccess()) {
+            return try {
+                response.body<Envelope<T>>().data
+            } catch (e: ContentConvertException) {
+                throw undecodable(response, e)
+            }
+        }
         throw errorOf(response)
+    }
+
+    /** A 2xx the app can't read is an app/server mismatch, not a connection problem: report it. */
+    fun undecodable(response: HttpResponse, error: Throwable): ApiException {
+        reporter.record(error, "decode ${response.request.url.encodedPath}")
+        return ApiException(response.status.value, "bad_response", error.message)
     }
 
     suspend fun errorOf(response: HttpResponse): ApiException {
@@ -88,3 +109,11 @@ class ApiClient(private val baseUrl: String, private val sessions: SessionStore,
 
 @kotlinx.serialization.Serializable
 data class Envelope<T>(val data: T)
+
+private const val AI_TIMEOUT_MS = 120_000L
+
+/** AI-backed calls: the server may try several providers (25 s each) before it answers. */
+fun HttpRequestBuilder.aiTimeout() = timeout {
+    requestTimeoutMillis = AI_TIMEOUT_MS
+    socketTimeoutMillis = AI_TIMEOUT_MS
+}

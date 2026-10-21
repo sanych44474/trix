@@ -188,6 +188,34 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/AuthProviders'}
                   required: [data]
+  /api/v2/app/config:
+    get:
+      operationId: getAppConfig
+      description: >-
+        Update gate for the native app. Below minVersionCode the app blocks until it updates; below
+        latestVersionCode it offers a background update. Cached for 5 minutes.
+      security: []
+      responses:
+        '200':
+          description: Native app version requirements
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        android:
+                          type: object
+                          properties:
+                            minVersionCode: {type: integer, minimum: 1}
+                            latestVersionCode: {type: integer, minimum: 1}
+                          required: [minVersionCode, latestVersionCode]
+                      required: [android]
+                  required: [data]
   /api/v2/auth/google/nonce:
     post:
       operationId: startGoogleSignIn

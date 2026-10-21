@@ -1,119 +1,204 @@
 package app.hacklimits.shared.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.hacklimits.shared.media.NoSpeechInput
+import app.hacklimits.shared.media.SpeechInput
+import app.hacklimits.shared.nutrition.AdviceSection
+import app.hacklimits.shared.nutrition.BarcodePanel
+import app.hacklimits.shared.nutrition.FuelTabs
+import app.hacklimits.shared.nutrition.GroceryCard
+import app.hacklimits.shared.nutrition.KcalCard
+import app.hacklimits.shared.nutrition.MealActions
+import app.hacklimits.shared.nutrition.MealList
 import app.hacklimits.shared.nutrition.NutritionViewModel
+import app.hacklimits.shared.nutrition.PlanCard
+import app.hacklimits.shared.nutrition.QuickTiles
+import app.hacklimits.shared.nutrition.SearchPanel
+import app.hacklimits.shared.nutrition.TextPanel
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
-import kotlin.math.roundToInt
+import org.koin.compose.koinInject
 
+/** Food: the day's totals, the quick adds (search, voice text, barcode, photo), the meal list with its
+ * editor, the meal plan and the grocery list. Port of the Mini App's FuelView.tsx. */
 @Composable
 fun NutritionScreen(vm: NutritionViewModel, onOpenMealPhoto: () -> Unit) {
     val s by vm.state.collectAsStateWithLifecycle()
+    val speech: SpeechInput = koinInject()
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { vm.refresh() }
-    LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text(stringResource(Res.string.tab_food), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
-        s.error?.let { item { Text(stringResource(errorText(it)), color = MaterialTheme.colorScheme.error) } }
-        val day = s.day
-        if (day != null) {
+
+    val day = s.day
+    val loadError = s.loadError
+    val planDays = day?.mealPlan?.days.orEmpty()
+    val hasPlan = planDays.isNotEmpty()
+    val tab = if (hasPlan) s.tab else NutritionViewModel.Tab.Day
+    val actions = MealActions(
+        onToggle = vm::toggleMealEdit,
+        onCorrection = vm::onCorrection,
+        onSaveMacros = vm::saveMacros,
+        onSaveGrams = vm::saveMealGrams,
+        onScale = vm::scaleMeal,
+        onDelete = vm::deleteMeal,
+    )
+
+    LazyColumn(
+        Modifier.fillMaxSize().imePadding(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { Text(stringResource(Res.string.fd_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
+        if (day == null) {
             item {
-                Panel {
-                    val t = day.targets
-                    MacroBar(stringResource(Res.string.food_kcal), day.totals.kcal, t?.calories)
-                    MacroBar(stringResource(Res.string.food_protein), day.totals.protein, t?.protein)
-                    MacroBar(stringResource(Res.string.food_fats), day.totals.fats, t?.fats)
-                    MacroBar(stringResource(Res.string.food_carbs), day.totals.carbs, t?.carbs)
+                if (loadError != null) {
+                    LoadErrorCard(loadError, onRetry = vm::refresh)
+                } else {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 }
             }
-            item {
-                Panel {
-                    Text(stringResource(Res.string.food_add), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Button(onClick = onOpenMealPhoto, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.food_meal_photo)) }
-                    OutlinedTextField(s.freeText, vm::onFreeText, label = { Text(stringResource(Res.string.food_free_text)) }, modifier = Modifier.fillMaxWidth())
-                    Button(onClick = vm::addText, enabled = !s.busy && s.freeText.trim().length >= 2) { Text(stringResource(Res.string.food_log_text)) }
-                    OutlinedTextField(s.query, vm::onQuery, label = { Text(stringResource(Res.string.food_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    s.results.take(8).forEach { item ->
-                        Column(Modifier.fillMaxWidth().clickable { vm.pick(item) }.padding(vertical = 6.dp)) {
-                            Text(listOfNotNull(item.name, item.brand).joinToString(" · "))
-                            Text(stringResource(Res.string.food_per100, item.per100.kcal.roundToInt(), item.per100.p.roundToInt()), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    s.picked?.let { picked ->
-                        Text(picked.name, fontWeight = FontWeight.SemiBold)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(s.grams, vm::onGrams, label = { Text(stringResource(Res.string.food_grams)) }, singleLine = true, modifier = Modifier.weight(1f),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                            Button(onClick = vm::addPicked, enabled = !s.busy && s.grams.isNotBlank()) { Text(stringResource(Res.string.food_add_short)) }
-                        }
-                    }
-                    if (day.recent.isNotEmpty()) {
-                        Text(stringResource(Res.string.food_recent), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        day.recent.take(6).forEach { r ->
-                            Row(Modifier.fillMaxWidth().clickable(enabled = !s.busy) { vm.readd(r.ri) }.padding(vertical = 4.dp)) {
-                                Text("+ ${r.desc}", Modifier.weight(1f)); Text("${r.kcal.roundToInt()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
+            return@LazyColumn
+        }
+
+        if (hasPlan) item { FuelTabs(tab, vm::setTab) }
+        s.actionError?.let { code -> item { ActionErrorCard(code, vm::dismissError) } }
+
+        when (tab) {
+            NutritionViewModel.Tab.Day -> {
+                item { KcalCard(day) }
+                item {
+                    QuickTiles(
+                        panel = s.panel,
+                        onSearch = { vm.togglePanel(NutritionViewModel.Panel.Search) },
+                        onPhoto = onOpenMealPhoto,
+                        onVoice = { vm.togglePanel(NutritionViewModel.Panel.Text) },
+                        onBarcode = { vm.togglePanel(NutritionViewModel.Panel.Barcode) },
+                    )
                 }
+                when (s.panel) {
+                    NutritionViewModel.Panel.Search -> item {
+                        SearchPanel(
+                            query = s.query,
+                            onQuery = vm::onQuery,
+                            onSearch = vm::search,
+                            searching = s.searching,
+                            results = s.results,
+                            recent = day.recent,
+                            onReadd = vm::readd,
+                            onPick = vm::pick,
+                            busy = s.busy,
+                            selected = s.selected,
+                            grams = s.grams,
+                            onGrams = vm::onGrams,
+                            onAdd = vm::addSelected,
+                        )
+                    }
+                    NutritionViewModel.Panel.Text -> item {
+                        TextPanel(
+                            text = s.freeText,
+                            onText = vm::onFreeText,
+                            onSend = vm::sendText,
+                            busy = s.busy,
+                            micAvailable = speech !is NoSpeechInput,
+                            onVoice = {
+                                val tag = if (Locale.current.language == "uk") "uk-UA" else "en-US"
+                                scope.launch { speech.listen(tag)?.let(vm::appendSpoken) }
+                            },
+                        )
+                    }
+                    NutritionViewModel.Panel.Barcode -> item {
+                        BarcodePanel(
+                            code = s.barcode,
+                            onCode = vm::onBarcode,
+                            onScan = vm::searchBarcode,
+                            searching = s.searching,
+                            results = s.results,
+                            onPick = vm::pick,
+                            busy = s.busy,
+                            selected = s.selected,
+                            grams = s.grams,
+                            onGrams = vm::onGrams,
+                            onAdd = vm::addSelected,
+                        )
+                    }
+                    null -> Unit
+                }
+                item { MealList(day.meals, s.editingMeal, s.correction, s.busy, actions) }
+                item { AdviceSection(s.advice, s.adviceBusy, onRecipe = { vm.askAdvice(true) }, onRecover = { vm.askAdvice(false) }) }
             }
-            item {
-                Panel {
-                    Text(stringResource(Res.string.food_today), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    if (day.meals.isEmpty()) Text(stringResource(Res.string.food_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    day.meals.forEach { m ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(m.desc)
-                                Text(stringResource(Res.string.food_meal_line, m.kcal.roundToInt(), m.protein.roundToInt(), m.fats.roundToInt(), m.carbs.roundToInt()),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            TextButton(onClick = { vm.delete(m.index) }, enabled = !s.busy) { Text(stringResource(Res.string.plan_delete)) }
-                        }
-                    }
-                }
+            NutritionViewModel.Tab.Plan -> item {
+                PlanCard(
+                    days = planDays,
+                    editing = s.planEditing,
+                    planGrams = s.planGrams,
+                    busy = s.busy,
+                    regenerating = s.regenerating,
+                    regenerated = s.regenerated,
+                    onToggleItem = vm::togglePlanItem,
+                    onPlanGrams = vm::onPlanGrams,
+                    onScale = vm::scalePlanItem,
+                    onSave = vm::savePlanItemGrams,
+                    onDelete = vm::deletePlanItem,
+                    onRegenerate = vm::regenerateMealPlan,
+                )
+            }
+            NutritionViewModel.Tab.Grocery -> item {
+                GroceryCard(
+                    days = s.groceryDays,
+                    lines = s.grocery,
+                    sending = s.grocerySending,
+                    sent = s.grocerySent,
+                    onDays = vm::loadGrocery,
+                    onSend = vm::sendGrocery,
+                )
             }
         }
     }
 }
 
+/** The whole Food screen cannot load: the error and a retry, nothing else. */
 @Composable
-private fun MacroBar(label: String, value: Double, target: Double?) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row { Text(label, Modifier.weight(1f)); Text(if (target != null) "${value.roundToInt()} / ${target.roundToInt()}" else "${value.roundToInt()}") }
-        if (target != null && target > 0) LinearProgressIndicator(progress = { (value / target).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+private fun LoadErrorCard(code: String, onRetry: () -> Unit) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(errorText(code)), color = MaterialTheme.colorScheme.error)
+            TextButton(onClick = onRetry) { Text(stringResource(Res.string.fd_retry)) }
+        }
     }
 }
 
+/** A single action failed: shown over the loaded day, dismissible. */
 @Composable
-private fun Panel(content: @Composable () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+private fun ActionErrorCard(code: String, onDismiss: () -> Unit) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(errorText(code)), Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.fd_close)) }
+        }
     }
 }

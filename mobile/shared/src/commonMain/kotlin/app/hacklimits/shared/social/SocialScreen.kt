@@ -17,6 +17,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -46,9 +47,12 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.round
 
-/** Squads, challenges and the leaderboard in one screen, one tab each. */
+/**
+ * Squads, challenges, the leaderboard and the buddy in one screen, one tab each. [onOpenCoach]
+ * opens the AI coach, or the trainer chat for a client with a trainer.
+ */
 @Composable
-fun SocialScreen(onBack: () -> Unit) {
+fun SocialScreen(onBack: () -> Unit, onOpenCoach: () -> Unit = {}) {
     val vm: SocialViewModel = koinViewModel()
     val s by vm.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(0) }
@@ -57,8 +61,12 @@ fun SocialScreen(onBack: () -> Unit) {
             TextButton(onClick = onBack) { Text(stringResource(Res.string.back)) }
             Text(stringResource(Res.string.social_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
+        OutlinedButton(
+            onClick = onOpenCoach,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) { Text(stringResource(if (s.routed) Res.string.so_trainer_btn else Res.string.so_coach_btn)) }
         TabRow(selectedTabIndex = tab) {
-            listOf(Res.string.social_tab_squads, Res.string.social_tab_challenges, Res.string.social_tab_leaderboard).forEachIndexed { i, label ->
+            listOf(Res.string.social_tab_squads, Res.string.social_tab_challenges, Res.string.social_tab_leaderboard, Res.string.so_tab_buddy).forEachIndexed { i, label ->
                 Tab(selected = tab == i, onClick = { tab = i }, text = { Text(stringResource(label)) })
             }
         }
@@ -78,7 +86,8 @@ fun SocialScreen(onBack: () -> Unit) {
         when (tab) {
             0 -> SquadsTab(s, vm)
             1 -> ChallengesTab(s, vm)
-            else -> BoardsTab(s, vm)
+            2 -> BoardsTab(s, vm)
+            else -> BuddyTab(s, vm)
         }
     }
 }
@@ -257,6 +266,41 @@ private fun BoardCard(title: StringResource, board: Boards.Board?) {
                         fontWeight = if (row.me) FontWeight.Bold else FontWeight.Normal,
                     )
                     Text(row.detail.ifBlank { formatValue(row.value) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BuddyTab(s: SocialViewModel.State, vm: SocialViewModel) {
+    val response = s.buddy
+    if (response == null) { SectionPlaceholder(s, vm); return }
+    val buddy = response.buddy
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                if (buddy == null) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(stringResource(Res.string.so_buddy_eyebrow), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(Res.string.so_no_buddy_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(Res.string.so_no_buddy_detail), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text(stringResource(Res.string.so_buddy_eyebrow), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(buddy.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            }
+                            Text(stringResource(Res.string.so_level, buddy.level))
+                        }
+                        Text(stringResource(Res.string.so_buddy_stats, buddy.myWeekWorkouts, buddy.weekWorkouts, buddy.name, buddy.streak))
+                        LinearProgressIndicator(
+                            progress = { if (buddy.needed > 0) (buddy.intoLevel.toFloat() / buddy.needed).coerceIn(0f, 1f) else 1f },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
         }

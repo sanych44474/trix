@@ -4,13 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hacklimits.shared.data.ApiClient
 import app.hacklimits.shared.data.ApiException
-import app.hacklimits.shared.data.Dashboard
 import app.hacklimits.shared.data.DashboardApi
-import app.hacklimits.shared.data.HistoryItem
+import app.hacklimits.shared.data.DayWorkout
 import app.hacklimits.shared.data.PhotoRef
+import app.hacklimits.shared.data.TrainingPlanDay
 import app.hacklimits.shared.data.ProgressApi
+import app.hacklimits.shared.data.ProgressDashboard
 import app.hacklimits.shared.data.Records
 import app.hacklimits.shared.platform.PhotoPicker
+import app.hacklimits.shared.progress.muscle.isoPlusDays
+import app.hacklimits.shared.progress.muscle.registerLearnedMuscles
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,43 +23,76 @@ import kotlinx.coroutines.launch
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-/** Progress: body weight trend and logging, personal records, recent workouts, progress photos. */
+/** The Progress screen's three tabs. */
+enum class ProgressSection { TRAIN, BODY, FOOD }
+
+/** Outcome of the last save, shown under the form that made it. */
+enum class ProgressNotice { SAVED, PHOTO_SAVED, FAILED }
+
+data class Checkin(val energy: Int = 3, val sleep: Int = 3, val stress: Int = 3)
+
+/**
+ * Progress (Mini App ProgressView): the training, body and food tabs over one dashboard payload, the
+ * personal records, the plan (for the body map's exercise picker), the progress photos, and the
+ * body-measurement / check-in / photo forms.
+ */
 @OptIn(ExperimentalUuidApi::class)
 class ProgressViewModel(
     private val progress: ProgressApi,
-    private val dashboard: DashboardApi,
+    // Injected by SharedModule; the Progress payload comes from ProgressApi.dashboard(), which carries the fields this screen needs.
+    @Suppress("unused") private val dashboard: DashboardApi,
     private val api: ApiClient,
     private val picker: PhotoPicker,
 ) : ViewModel() {
     data class State(
         val loading: Boolean = true,
-        val weight: Dashboard.Weight = Dashboard.Weight(),
+        val error: String? = null,
+        val data: ProgressDashboard? = null,
         val records: Records = Records(),
-        val history: List<HistoryItem> = emptyList(),
+        val planDays: List<TrainingPlanDay> = emptyList(),
         val photos: List<PhotoRef> = emptyList(),
         val bearer: String? = null,
-        val weightInput: String = "",
-        val busy: Boolean = false,
-        val error: String? = null,
+        val section: ProgressSection = ProgressSection.TRAIN,
+        val weightPeriod: Int = 30,
+        val exercise: String? = null,
+        val measureKey: String? = null,
+        val selectedDay: String? = null,
+        val dayDetail: DayWorkout? = null,
+        val dayDetailBusy: Boolean = false,
+        val dayDetailFailed: Boolean = false,
+        val measureInput: String = "",
+        val checkin: Checkin = Checkin(),
+        val busy: String? = null,
+        val notice: ProgressNotice? = null,
     )
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
 
-    fun photoUrl(id: Long) = progress.photoUrl(id)
+    fun photoUrl(id: Long): String = progress.photoUrl(id)
 
     fun refresh() {
         viewModelScope.launch {
             _state.update { it.copy(error = null) }
             try {
                 coroutineScope {
-                    val d = async { dashboard.load() }
+                    val d = async { progress.dashboard() }
                     val r = async { runCatching { progress.records() }.getOrDefault(Records()) }
-                    val h = async { runCatching { progress.history() }.getOrDefault(emptyList()) }
-                    val p = async { runCatching { progress.photos() }.getOrDefault(emptyList()) }
+                    val p = async { runCatching { progress.plan() }.getOrDefault(emptyList()) }
+                    val ph = async { runCatching { progress.photos() }.getOrDefault(emptyList()) }
+                    val data = d.await()
+                    registerLearnedMuscles(data.calendar.learnedMuscles)
                     _state.update {
-                        it.copy(loading = false, weight = d.await().weight, records = r.await(), history = h.await(),
-                            photos = p.await(), bearer = api.bearer())
+                        it.copy(
+                            loading = false,
+                            data = data,
+                            records = r.await(),
+                            planDays = p.await(),
+                            photos = ph.await(),
+                            bearer = api.bearer(),
+                            exercise = it.exercise ?: data.exercises.firstOrNull()?.name,
+                            measureKey = it.measureKey ?: data.measurements.firstOrNull()?.key,
+                        )
                     }
                 }
             } catch (e: ApiException) {
@@ -67,28 +103,77 @@ class ProgressViewModel(
         }
     }
 
-    fun onWeight(value: String) = _state.update { it.copy(weightInput = value.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(6)) }
+    fun selectSection(section: ProgressSection) = _state.update { it.copy(section = section) }
 
-    fun logWeight() {
-        val kg = _state.value.weightInput.replace(',', '.').toDoubleOrNull() ?: return
-        if (kg !in 25.0..400.0) { _state.update { it.copy(error = "invalid_weight") }; return }
-        act { progress.logWeight(kg, Uuid.random().toString()); _state.update { it.copy(weightInput = "") }; refresh() }
+    fun selectWeightPeriod(days: Int) = _state.update { it.copy(weightPeriod = days) }
+
+    fun selectExercise(name: String) = _state.update { it.copy(exercise = name) }
+
+    fun selectMeasureKey(key: String) = _state.update { it.copy(measureKey = key) }
+
+    fun onMeasureInput(text: String) = _state.update { it.copy(measureInput = text) }
+
+    fun onCheckin(checkin: Checkin) = _state.update { it.copy(checkin = checkin) }
+
+    /** Taps a day of the calendar: opens its detail, or closes it when it is already open. */
+    fun openDay(date: String) {
+        val current = _state.value
+        if (current.selectedDay == date) {
+            _state.update { it.copy(selectedDay = null) }
+            return
+        }
+        val today = current.data?.today ?: return
+        val floor = isoPlusDays(today, -14) // the workout-detail endpoint's 14-day window
+        _state.update { it.copy(selectedDay = date, dayDetail = null, dayDetailFailed = false) }
+        if (date < floor || date > today) return // outside the window: the calendar's own data only
+        viewModelScope.launch {
+            _state.update { it.copy(dayDetailBusy = true) }
+            try {
+                val detail = progress.dayWorkout(date)
+                _state.update { if (it.selectedDay == date) it.copy(dayDetail = detail) else it }
+            } catch (e: Exception) {
+                _state.update { if (it.selectedDay == date) it.copy(dayDetailFailed = true) else it }
+            } finally {
+                _state.update { it.copy(dayDetailBusy = false) }
+            }
+        }
     }
 
-    fun addPhoto() = act {
+    fun saveMeasure() {
+        val text = _state.value.measureInput.trim()
+        if (text.isEmpty()) return
+        act("measure") {
+            progress.logMeasure(text, Uuid.random().toString())
+            _state.update { it.copy(measureInput = "", notice = ProgressNotice.SAVED) }
+        }
+    }
+
+    fun saveCheckin() {
+        val c = _state.value.checkin
+        act("checkin") {
+            progress.logCheckin(c.energy, c.sleep, c.stress, Uuid.random().toString())
+            _state.update { it.copy(notice = ProgressNotice.SAVED) }
+        }
+    }
+
+    fun addPhoto() = act("photo") {
         val photo = picker.pick() ?: return@act
         progress.uploadPhoto(photo.bytes, photo.mimeType)
-        refresh()
+        val photos = runCatching { progress.photos() }.getOrDefault(_state.value.photos)
+        _state.update { it.copy(photos = photos, notice = ProgressNotice.PHOTO_SAVED) }
     }
 
-    private fun act(block: suspend () -> Unit) {
-        if (_state.value.busy) return
+    private fun act(key: String, block: suspend () -> Unit) {
+        if (_state.value.busy != null) return
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null) }
-            try { block() }
-            catch (e: ApiException) { _state.update { it.copy(error = e.code) } }
-            catch (e: Exception) { _state.update { it.copy(error = "network") } }
-            finally { _state.update { it.copy(busy = false) } }
+            _state.update { it.copy(busy = key, notice = null) }
+            try {
+                block()
+            } catch (e: Exception) {
+                _state.update { it.copy(notice = ProgressNotice.FAILED) }
+            } finally {
+                _state.update { it.copy(busy = null) }
+            }
         }
     }
 }

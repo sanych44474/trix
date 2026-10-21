@@ -81,28 +81,30 @@ fun SignInScreen(vm: SignInViewModel) {
             }
         }
 
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Text(stringResource(Res.string.signin_or_email), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (s.emailChallengeId == null) {
-            OutlinedTextField(
-                value = s.email, onValueChange = vm::onEmail, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(Res.string.signin_email)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Send),
-            )
-            Button(onClick = vm::sendCode, enabled = !s.busy && s.email.contains('@'), modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text(stringResource(Res.string.signin_send_code))
+        if (s.providers?.emailAvailable == true) {
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text(stringResource(Res.string.signin_or_email), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (s.emailChallengeId == null) {
+                OutlinedTextField(
+                    value = s.email, onValueChange = vm::onEmail, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(Res.string.signin_email)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Send),
+                )
+                Button(onClick = vm::sendCode, enabled = !s.busy && s.email.contains('@'), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                    Text(stringResource(Res.string.signin_send_code))
+                }
+            } else {
+                Text(stringResource(Res.string.signin_code_sent, s.email))
+                OutlinedTextField(
+                    value = s.code, onValueChange = vm::onCode, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(Res.string.signin_code)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                )
+                Button(onClick = vm::verifyCode, enabled = !s.busy && s.code.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                    Text(stringResource(Res.string.signin_verify))
+                }
+                TextButton(onClick = vm::changeEmail) { Text(stringResource(Res.string.signin_change_email)) }
             }
-        } else {
-            Text(stringResource(Res.string.signin_code_sent, s.email))
-            OutlinedTextField(
-                value = s.code, onValueChange = vm::onCode, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(Res.string.signin_code)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-            )
-            Button(onClick = vm::verifyCode, enabled = !s.busy && s.code.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text(stringResource(Res.string.signin_verify))
-            }
-            TextButton(onClick = vm::changeEmail) { Text(stringResource(Res.string.signin_change_email)) }
         }
         s.error?.let { code ->
             Text(

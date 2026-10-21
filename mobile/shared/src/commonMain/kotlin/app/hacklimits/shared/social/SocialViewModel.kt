@@ -2,6 +2,7 @@ package app.hacklimits.shared.social
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.hacklimits.shared.coach.CoachApi
 import app.hacklimits.shared.data.ApiException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +15,7 @@ import kotlin.uuid.Uuid
 /** Squads, challenges and the leaderboard. Each section loads on its own, so one failing call
  * leaves the other two usable. Confirmations are a [Notice] the screen turns into text. */
 @OptIn(ExperimentalUuidApi::class)
-class SocialViewModel(private val api: SocialApi) : ViewModel() {
+class SocialViewModel(private val api: SocialApi, private val coach: CoachApi) : ViewModel() {
     enum class Notice {
         SQUAD_CREATED, SQUAD_JOINED, SQUAD_ALREADY, SQUAD_LEFT,
         JOIN_NOT_FOUND, JOIN_FULL, TOO_MANY_SQUADS,
@@ -25,6 +26,9 @@ class SocialViewModel(private val api: SocialApi) : ViewModel() {
         val squads: List<Squad>? = null,
         val challenges: Challenges? = null,
         val boards: Boards? = null,
+        val buddy: BuddyResponse? = null,
+        /** A client with a trainer: the coach entry leads to the trainer chat instead of the AI. */
+        val routed: Boolean = false,
         val loading: Boolean = true,
         val loadError: String? = null,
         val busy: Boolean = false,
@@ -43,16 +47,22 @@ class SocialViewModel(private val api: SocialApi) : ViewModel() {
             val squads = async { attempt { api.squads() } }
             val challenges = async { attempt { api.challenges() } }
             val boards = async { attempt { api.boards() } }
+            val buddy = async { attempt { api.buddy() } }
+            val routed = async { attempt { coach.thread().trainer != null } }
             val (s, e1) = squads.await()
             val (c, e2) = challenges.await()
             val (b, e3) = boards.await()
+            val (bu, e4) = buddy.await()
+            val (r, e5) = routed.await()
             _state.update {
                 it.copy(
                     loading = false,
                     squads = s ?: it.squads,
                     challenges = c ?: it.challenges,
                     boards = b ?: it.boards,
-                    loadError = e1 ?: e2 ?: e3,
+                    buddy = bu ?: it.buddy,
+                    routed = r ?: it.routed,
+                    loadError = e1 ?: e2 ?: e3 ?: e4 ?: e5,
                 )
             }
         }

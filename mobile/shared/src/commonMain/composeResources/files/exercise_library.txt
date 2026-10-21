@@ -1,0 +1,750 @@
+3_4_Sit-Up|abs|body|b|Підйом тулуба на 3/4
+Ab_Crunch_Machine|abs|machine|i|Скручування в тренажері
+Ab_Roller|abs|other|i|Ролик для преса
+Advanced_Kettlebell_Windmill|abs|kettlebell|i|Млин з гирею (просунутий)
+Air_Bike|abs|body|b|Велосипед лежачи
+Alternate_Hammer_Curl|biceps|dumbbell|b|Молоткові згинання поперемінно
+Alternate_Heel_Touchers|abs|body|b|Торкання п'ят поперемінно
+Alternate_Incline_Dumbbell_Curl|biceps|dumbbell|b|Згинання з гантелями на похилій лаві поперемінно
+Alternate_Leg_Diagonal_Bound|quadriceps|other|b|Діагональні стрибки з ноги на ногу
+Alternating_Cable_Shoulder_Press|deltoids|cable|b|Жим у кросовері над головою поперемінно
+Alternating_Deltoid_Raise|deltoids|dumbbell|b|Підйоми на дельти поперемінно
+Alternating_Floor_Press|chest|kettlebell|b|Жим гантелей лежачи на підлозі поперемінно
+Alternating_Hang_Clean|hamstring|kettlebell|i|Взяття гир з вису поперемінно
+Alternating_Kettlebell_Press|deltoids|kettlebell|i|Жим гир поперемінно
+Alternating_Kettlebell_Row|upper-back|kettlebell|i|Тяга гир у нахилі поперемінно
+Alternating_Renegade_Row|upper-back|kettlebell|e|Тяга ренегата поперемінно
+Anti-Gravity_Press|deltoids|barbell|b|Жим штанги лежачи на похилій лаві обличчям донизу
+Arnold_Dumbbell_Press|deltoids|dumbbell|i|Жим Арнольда
+Around_The_Worlds|chest|dumbbell|i|«Навколо світу» з гантелями
+Atlas_Stone_Trainer|lower-back|other|i|Тренажер каменів Атласа
+Atlas_Stones|lower-back|other|e|Камені Атласа
+Axle_Deadlift|lower-back|other|i|Станова тяга з товстим грифом
+Back_Flyes_-_With_Bands|deltoids|band|b|Зворотні розведення з гумою
+Backward_Drag|quadriceps|other|b|Протягування саней спиною вперед
+Backward_Medicine_Ball_Throw|deltoids|ball|b|Кидок медболу назад
+Balance_Board|calves|other|b|Балансувальна дошка
+Ball_Leg_Curl|hamstring|ball|b|Згинання ніг на фітболі
+Band_Assisted_Pull-Up|upper-back|other|b|Підтягування з гумою
+Band_Good_Morning_Pull_Through|hamstring|band|b|Протяжка з гумою між ніг
+Band_Good_Morning|hamstring|band|b|Нахили «доброго ранку» з гумою
+Band_Hip_Adductions|adductors|band|b|Зведення ноги з гумою
+Band_Pull_Apart|deltoids|band|b|Розтягування гуми перед собою
+Band_Skull_Crusher|triceps|band|b|Французький жим з гумою
+Barbell_Ab_Rollout_-_On_Knees|abs|barbell|e|Викочування штанги з колін
+Barbell_Ab_Rollout|abs|barbell|i|Викочування штанги стоячи
+Barbell_Bench_Press_-_Medium_Grip|chest|barbell|b|Жим штанги лежачи середнім хватом
+Barbell_Curls_Lying_Against_An_Incline|biceps|barbell|b|Згинання зі штангою лежачи на похилій лаві
+Barbell_Curl|biceps|barbell|b|Згинання рук зі штангою
+Barbell_Deadlift|lower-back|barbell|i|Станова тяга зі штангою
+Barbell_Full_Squat|quadriceps|barbell|i|Глибокий присід зі штангою
+Barbell_Glute_Bridge|gluteal|barbell|i|Сідничний міст зі штангою
+Barbell_Guillotine_Bench_Press|chest|barbell|i|Жим «гільйотина» до шиї
+Barbell_Hack_Squat|quadriceps|barbell|i|Гак-присід зі штангою за спиною
+Barbell_Hip_Thrust|gluteal|barbell|i|Сідничний міст зі штангою від лави
+Barbell_Incline_Bench_Press_-_Medium_Grip|chest|barbell|b|Жим штанги на похилій лаві середнім хватом
+Barbell_Incline_Shoulder_Raise|deltoids|barbell|b|Підйом плечей зі штангою на похилій лаві
+Barbell_Lunge|quadriceps|barbell|i|Випади зі штангою
+Barbell_Rear_Delt_Row|deltoids|barbell|b|Тяга штанги до грудей на задні дельти
+Barbell_Rollout_from_Bench|abs|barbell|i|Викочування штанги з лави
+Barbell_Seated_Calf_Raise|calves|barbell|b|Підйом на носки сидячи зі штангою
+Barbell_Shoulder_Press|deltoids|barbell|i|Жим штанги над головою
+Barbell_Shrug_Behind_The_Back|trapezius|barbell|b|Шраги зі штангою за спиною
+Barbell_Shrug|trapezius|barbell|b|Шраги зі штангою
+Barbell_Side_Bend|abs|barbell|b|Нахили в бік зі штангою
+Barbell_Side_Split_Squat|quadriceps|barbell|b|Бічний присід зі штангою
+Barbell_Squat_To_A_Bench|quadriceps|barbell|e|Присід зі штангою до лави
+Barbell_Squat|quadriceps|barbell|b|Присідання зі штангою
+Barbell_Step_Ups|quadriceps|barbell|i|Зашагування на платформу зі штангою
+Barbell_Walking_Lunge|quadriceps|barbell|b|Випади в ходьбі зі штангою
+Battling_Ropes|deltoids|other|b|Бойові канати
+Bear_Crawl_Sled_Drags|quadriceps|other|b|Ведмежа хода з санями
+Bench_Dips|triceps|body|b|Віджимання від лави
+Bench_Jump|quadriceps|body|i|Стрибки через лаву
+Bench_Press_-_Powerlifting|triceps|barbell|i|Жим лежачи (пауерліфтинг)
+Bench_Press_-_With_Bands|chest|band|b|Жим лежачи з гумою
+Bench_Press_with_Chains|triceps|barbell|e|Жим лежачи з ланцюгами
+Bench_Sprint|quadriceps|other|b|Спринт на лаву
+Bent-Arm_Barbell_Pullover|upper-back|barbell|i|Пуловер зі штангою на зігнутих руках
+Bent-Arm_Dumbbell_Pullover|chest|dumbbell|i|Пуловер з гантеллю на зігнутих руках
+Bent-Knee_Hip_Raise|abs|body|b|Підйом таза з зігнутими колінами
+Bent_Over_Barbell_Row|upper-back|barbell|b|Тяга штанги в нахилі
+Bent_Over_Dumbbell_Rear_Delt_Raise_With_Head_On_Bench|deltoids|dumbbell|b|Розведення гантелей у нахилі з опорою головою на лаву
+Bent_Over_Low-Pulley_Side_Lateral|deltoids|cable|b|Відведення руки з нижнього блока в нахилі
+Bent_Over_One-Arm_Long_Bar_Row|upper-back|barbell|b|Тяга Т-грифа однією рукою в нахилі
+Bent_Over_Two-Arm_Long_Bar_Row|upper-back|barbell|i|Тяга Т-грифа в нахилі
+Bent_Over_Two-Dumbbell_Row_With_Palms_In|upper-back|dumbbell|b|Тяга двох гантелей у нахилі нейтральним хватом
+Bent_Over_Two-Dumbbell_Row|upper-back|dumbbell|b|Тяга двох гантелей у нахилі
+Bent_Press|abs|kettlebell|e|Жим гирі з нахилом у бік
+Bicycling_Stationary|quadriceps|machine|b|Велотренажер
+Bicycling|quadriceps|other|b|Велосипед
+Board_Press|triceps|barbell|i|Жим лежачи з дошками
+Body-Up|triceps|body|i|Перехід з планки на прямі руки
+Body_Tricep_Press|triceps|body|b|Віджимання на трицепс з власною вагою
+Bodyweight_Flyes|chest|ezbar|i|Розведення з власною вагою
+Bodyweight_Mid_Row|upper-back|other|i|Тяга до пояса з власною вагою
+Bodyweight_Squat|quadriceps|body|b|Присідання без ваги
+Bodyweight_Walking_Lunge|quadriceps|other|b|Випади в ходьбі без ваги
+Bosu_Ball_Cable_Crunch_With_Side_Bends|abs|cable|b|Скручування з блоком на BOSU з нахилами
+Bottoms-Up_Clean_From_The_Hang_Position|forearm|kettlebell|i|Взяття гирі дном догори з вису
+Bottoms_Up|abs|body|b|Підйом таза лежачи
+Box_Jump_Multiple_Response|hamstring|other|b|Серійні стрибки на тумбу
+Box_Skip|hamstring|other|b|Стрибки через тумбу
+Box_Squat_with_Bands|quadriceps|barbell|e|Присід на тумбу з гумою
+Box_Squat_with_Chains|quadriceps|barbell|e|Присід на тумбу з ланцюгами
+Box_Squat|quadriceps|barbell|i|Присід на тумбу
+Bradford_Rocky_Presses|deltoids|barbell|b|Жим Бредфорда
+Butt-Ups|abs|body|b|Підйом таза з планки
+Butt_Lift_Bridge|gluteal|body|b|Сідничний міст
+Butterfly|chest|machine|b|Метелик (зведення в тренажері)
+Cable_Chest_Press|chest|cable|b|Жим від грудей у кросовері
+Cable_Crossover|chest|cable|b|Зведення рук у кросовері
+Cable_Crunch|abs|cable|b|Скручування на блоці на колінах
+Cable_Deadlifts|quadriceps|cable|b|Станова тяга з нижнього блока
+Cable_Hammer_Curls_-_Rope_Attachment|biceps|cable|b|Молоткові згинання на блоці з канатом
+Cable_Hip_Adduction|quadriceps|cable|b|Зведення ноги на нижньому блоці
+Cable_Incline_Pushdown|upper-back|cable|b|Розгинання на трицепс з блока на похилій лаві
+Cable_Incline_Triceps_Extension|triceps|cable|b|Розгинання на трицепс з блока лежачи на похилій лаві
+Cable_Internal_Rotation|deltoids|cable|b|Внутрішня ротація плеча на блоці
+Cable_Iron_Cross|chest|cable|b|Залізний хрест у кросовері
+Cable_Judo_Flip|abs|cable|b|Кидок «дзюдо» на блоці
+Cable_Lying_Triceps_Extension|triceps|cable|b|Розгинання на трицепс з блока лежачи
+Cable_One_Arm_Tricep_Extension|triceps|cable|b|Розгинання на трицепс з блока однією рукою
+Cable_Preacher_Curl|biceps|cable|b|Згинання на лаві Скотта з блоком
+Cable_Rear_Delt_Fly|deltoids|cable|b|Розведення на задні дельти в кросовері
+Cable_Reverse_Crunch|abs|cable|b|Зворотні скручування з блоком
+Cable_Rope_Overhead_Triceps_Extension|triceps|cable|b|Розгинання з канатом з-за голови
+Cable_Rope_Rear-Delt_Rows|deltoids|cable|b|Тяга каната до обличчя на задні дельти
+Cable_Russian_Twists|abs|cable|b|Російські скручування з блоком
+Cable_Seated_Crunch|abs|cable|b|Скручування з блоком сидячи
+Cable_Seated_Lateral_Raise|deltoids|cable|b|Відведення руки з блока сидячи
+Cable_Shoulder_Press|deltoids|cable|b|Жим з блоків над головою
+Cable_Shrugs|trapezius|cable|b|Шраги на блоці
+Cable_Wrist_Curl|forearm|cable|b|Згинання зап'ясть на блоці
+Calf-Machine_Shoulder_Shrug|trapezius|machine|b|Шраги в тренажері для литок
+Calf_Press_On_The_Leg_Press_Machine|calves|machine|b|Жим носками в тренажері для жиму ногами
+Calf_Press|calves|machine|b|Жим носками в тренажері
+Calf_Raise_On_A_Dumbbell|calves|dumbbell|i|Підйом на носок на гантелі
+Calf_Raises_-_With_Bands|calves|band|b|Підйоми на носки з гумою
+Car_Deadlift|quadriceps|other|i|Станова тяга автомобіля
+Car_Drivers|deltoids|barbell|b|«Кермо» з диском
+Carioca_Quick_Step|adductors|other|b|Кроки каріока
+Catch_and_Overhead_Throw|upper-back|ball|b|Ловля і кидок медболу з-за голови
+Chain_Handle_Extension|triceps|other|i|Розгинання з ланцюгом на трицепс
+Chain_Press|chest|other|i|Жим з ланцюгами
+Chair_Squat|quadriceps|machine|b|Присідання на стілець
+Chest_Push_from_3_point_stance|chest|ball|b|Поштовх медболу від грудей з трьох точок опори
+Chest_Push_multiple_response|chest|ball|b|Серійні поштовхи медболу від грудей
+Chest_Push_single_response|chest|ball|b|Поштовх медболу від грудей
+Chest_Push_with_Run_Release|chest|ball|b|Поштовх медболу від грудей з ривком
+Chin-Up|upper-back|body|b|Підтягування зворотним хватом
+Circus_Bell|deltoids|other|e|Цирковий дзвін (стронгмен)
+Clean_Deadlift|hamstring|barbell|b|Тяга для взяття на груди
+Clean_Pull|quadriceps|barbell|i|Тяга взяття
+Clean_Shrug|trapezius|barbell|b|Шраги взяття
+Clean_and_Jerk|deltoids|barbell|e|Поштовх штанги (взяття і поштовх)
+Clean_and_Press|deltoids|barbell|i|Взяття на груди і жим
+Clean_from_Blocks|quadriceps|barbell|i|Взяття на груди з плінтів
+Clean|hamstring|barbell|i|Взяття штанги на груди
+Clock_Push-Up|chest|body|i|Віджимання «годинник»
+Close-Grip_Barbell_Bench_Press|triceps|barbell|b|Жим штанги лежачи вузьким хватом
+Close-Grip_Dumbbell_Press|triceps|dumbbell|b|Жим гантелей лежачи разом
+Close-Grip_EZ-Bar_Curl_with_Band|biceps|ezbar|b|Згинання EZ-грифа вузьким хватом з гумою
+Close-Grip_EZ-Bar_Press|triceps|ezbar|b|Жим EZ-грифа вузьким хватом
+Close-Grip_EZ_Bar_Curl|biceps|barbell|b|Згинання EZ-грифа вузьким хватом
+Close-Grip_Front_Lat_Pulldown|upper-back|cable|b|Тяга верхнього блока вузьким хватом
+Close-Grip_Push-Up_off_of_a_Dumbbell|triceps|body|i|Вузькі віджимання від гантелі
+Close-Grip_Standing_Barbell_Curl|biceps|barbell|b|Згинання штанги стоячи вузьким хватом
+Cocoons|abs|body|b|«Кокон» на прес
+Conans_Wheel|quadriceps|other|i|Колесо Конана
+Concentration_Curls|biceps|dumbbell|b|Концентровані згинання
+Cross-Body_Crunch|abs|body|b|Діагональні скручування
+Cross_Body_Hammer_Curl|biceps|dumbbell|b|Молоткові згинання до протилежного плеча
+Cross_Over_-_With_Bands|chest|band|b|Зведення рук з гумою
+Crucifix|deltoids|other|b|Утримання «розп'яття»
+Crunch_-_Hands_Overhead|abs|body|b|Скручування з руками над головою
+Crunch_-_Legs_On_Exercise_Ball|abs|body|b|Скручування з ногами на фітболі
+Crunches|abs|body|b|Скручування
+Cuban_Press|deltoids|dumbbell|i|Кубинський жим
+Dead_Bug|abs|body|b|Мертвий жук
+Deadlift_with_Bands|lower-back|barbell|e|Станова тяга з гумою
+Deadlift_with_Chains|lower-back|barbell|e|Станова тяга з ланцюгами
+Decline_Barbell_Bench_Press|chest|barbell|b|Жим штанги на лаві з негативним нахилом
+Decline_Close-Grip_Bench_To_Skull_Crusher|triceps|barbell|i|Вузький жим і французький жим на лаві з негативним нахилом
+Decline_Crunch|abs|body|i|Скручування на лаві з негативним нахилом
+Decline_Dumbbell_Bench_Press|chest|dumbbell|b|Жим гантелей на лаві з негативним нахилом
+Decline_Dumbbell_Flyes|chest|dumbbell|b|Розведення гантелей на лаві з негативним нахилом
+Decline_Dumbbell_Triceps_Extension|triceps|dumbbell|b|Розгинання гантелей на трицепс на лаві з негативним нахилом
+Decline_EZ_Bar_Triceps_Extension|triceps|barbell|b|Французький жим EZ-грифа на лаві з негативним нахилом
+Decline_Oblique_Crunch|abs|body|b|Косі скручування на лаві з негативним нахилом
+Decline_Push-Up|chest|other|b|Віджимання з ногами на опорі
+Decline_Reverse_Crunch|abs|body|b|Зворотні скручування на лаві з негативним нахилом
+Decline_Smith_Press|chest|machine|b|Жим у Сміті на лаві з негативним нахилом
+Deficit_Deadlift|lower-back|barbell|i|Станова тяга з дефіцитом
+Depth_Jump_Leap|quadriceps|other|b|Стрибок у глибину з вистрибуванням
+Dip_Machine|triceps|machine|b|Віджимання в тренажері
+Dips_-_Chest_Version|chest|other|i|Віджимання на брусах на груди
+Dips_-_Triceps_Version|triceps|body|b|Віджимання на брусах на трицепс
+Donkey_Calf_Raises|calves|other|i|Підйоми на носки «віслюк»
+Double_Kettlebell_Alternating_Hang_Clean|hamstring|kettlebell|i|Взяття двох гир з вису поперемінно
+Double_Kettlebell_Jerk|deltoids|kettlebell|i|Поштовх двох гир
+Double_Kettlebell_Push_Press|deltoids|kettlebell|i|Швунг двох гир
+Double_Kettlebell_Snatch|deltoids|kettlebell|e|Ривок двох гир
+Double_Kettlebell_Windmill|abs|kettlebell|i|Млин з двома гирями
+Double_Leg_Butt_Kick|quadriceps|body|b|Стрибки з захлестом гомілок
+Downward_Facing_Balance|gluteal|ball|i|Баланс на фітболі обличчям донизу
+Drag_Curl|biceps|barbell|i|Згинання зі штангою вздовж тулуба
+Drop_Push|chest|other|i|Віджимання з падінням
+Dumbbell_Alternate_Bicep_Curl|biceps|dumbbell|b|Згинання рук з гантелями поперемінно
+Dumbbell_Bench_Press_with_Neutral_Grip|chest|dumbbell|b|Жим гантелей лежачи нейтральним хватом
+Dumbbell_Bench_Press|chest|dumbbell|b|Жим гантелей лежачи
+Dumbbell_Bicep_Curl|biceps|dumbbell|b|Згинання рук з гантелями
+Dumbbell_Clean|hamstring|dumbbell|i|Взяття гантелей на груди
+Dumbbell_Floor_Press|triceps|dumbbell|i|Жим гантелей лежачи на підлозі
+Dumbbell_Flyes|chest|dumbbell|b|Розведення гантелей лежачи
+Dumbbell_Incline_Row|upper-back|dumbbell|b|Тяга гантелей лежачи на похилій лаві
+Dumbbell_Incline_Shoulder_Raise|deltoids|dumbbell|b|Підйом плечей з гантелями на похилій лаві
+Dumbbell_Lunges|quadriceps|dumbbell|b|Випади з гантелями
+Dumbbell_Lying_One-Arm_Rear_Lateral_Raise|deltoids|dumbbell|i|Відведення гантелі лежачи на боці на задню дельту
+Dumbbell_Lying_Pronation|forearm|dumbbell|i|Пронація з гантеллю лежачи
+Dumbbell_Lying_Rear_Lateral_Raise|deltoids|dumbbell|i|Розведення гантелей лежачи на задні дельти
+Dumbbell_Lying_Supination|forearm|dumbbell|i|Супінація з гантеллю лежачи
+Dumbbell_One-Arm_Shoulder_Press|deltoids|dumbbell|i|Жим гантелі над головою однією рукою
+Dumbbell_One-Arm_Triceps_Extension|triceps|dumbbell|i|Розгинання гантелі з-за голови однією рукою
+Dumbbell_One-Arm_Upright_Row|deltoids|dumbbell|i|Тяга гантелі до підборіддя однією рукою
+Dumbbell_Prone_Incline_Curl|biceps|dumbbell|i|Згинання з гантелями лежачи грудьми на похилій лаві
+Dumbbell_Raise|deltoids|dumbbell|b|Підйом гантелей стоячи
+Dumbbell_Rear_Lunge|quadriceps|dumbbell|i|Зворотні випади з гантелями
+Dumbbell_Scaption|deltoids|dumbbell|b|Підйом гантелей у площині лопатки
+Dumbbell_Seated_Box_Jump|quadriceps|dumbbell|i|Стрибок на тумбу з положення сидячи з гантелями
+Dumbbell_Seated_One-Leg_Calf_Raise|calves|dumbbell|b|Підйом на носок сидячи з гантеллю однією ногою
+Dumbbell_Shoulder_Press|deltoids|dumbbell|i|Жим гантелей над головою
+Dumbbell_Shrug|trapezius|dumbbell|b|Шраги з гантелями
+Dumbbell_Side_Bend|abs|dumbbell|b|Нахили в бік з гантеллю
+Dumbbell_Squat_To_A_Bench|quadriceps|dumbbell|i|Присід з гантелями до лави
+Dumbbell_Squat|quadriceps|dumbbell|b|Присідання з гантелями
+Dumbbell_Step_Ups|quadriceps|dumbbell|i|Зашагування на платформу з гантелями
+Dumbbell_Tricep_Extension_-Pronated_Grip|triceps|dumbbell|b|Розгинання гантелей на трицепс прямим хватом
+EZ-Bar_Curl|biceps|ezbar|b|Згинання рук з EZ-грифом
+EZ-Bar_Skullcrusher|triceps|ezbar|b|Французький жим з EZ-грифом
+Elbow_to_Knee|abs|body|b|Скручування «лікоть до коліна»
+Elevated_Back_Lunge|quadriceps|barbell|i|Зворотні випади з підвищення
+Elevated_Cable_Rows|upper-back|cable|i|Тяга нижнього блока сидячи на підвищенні
+Elliptical_Trainer|quadriceps|machine|i|Орбітрек
+Exercise_Ball_Crunch|abs|ball|b|Скручування на фітболі
+Exercise_Ball_Pull-In|abs|ball|b|Підтягування колін на фітболі
+Extended_Range_One-Arm_Kettlebell_Floor_Press|chest|kettlebell|b|Жим гирі на підлозі однією рукою з повною амплітудою
+External_Rotation_with_Band|deltoids|band|b|Зовнішня ротація плеча з гумою
+External_Rotation_with_Cable|deltoids|cable|b|Зовнішня ротація плеча на блоці
+External_Rotation|deltoids|dumbbell|b|Зовнішня ротація плеча з гантеллю
+Face_Pull|deltoids|cable|i|Тяга каната до обличчя
+Farmers_Walk|forearm|other|i|Прогулянка фермера
+Fast_Skipping|quadriceps|body|b|Швидкий скіпінг
+Finger_Curls|forearm|barbell|b|Згинання пальців зі штангою
+Flat_Bench_Cable_Flyes|chest|cable|i|Розведення з блоків на горизонтальній лаві
+Flat_Bench_Leg_Pull-In|abs|body|b|Підтягування колін лежачи на лаві
+Flat_Bench_Lying_Leg_Raise|abs|body|b|Підйом ніг лежачи на лаві
+Flexor_Incline_Dumbbell_Curls|biceps|dumbbell|b|Згинання гантелей на похилій лаві (акцент на згиначі)
+Floor_Glute-Ham_Raise|hamstring|other|i|Сіднично-підколінний підйом на підлозі
+Floor_Press_with_Chains|triceps|barbell|i|Жим лежачи на підлозі з ланцюгами
+Floor_Press|triceps|barbell|i|Жим штанги лежачи на підлозі
+Flutter_Kicks|gluteal|body|b|Ножиці лежачи
+Forward_Drag_with_Press|chest|other|i|Протягування саней вперед з жимом
+Frankenstein_Squat|quadriceps|barbell|i|Присід Франкенштейна
+Freehand_Jump_Squat|quadriceps|body|i|Присідання з вистрибуванням
+Frog_Sit-Ups|abs|body|i|Підйом тулуба «жабка»
+Front_Barbell_Squat_To_A_Bench|quadriceps|barbell|e|Фронтальний присід до лави
+Front_Barbell_Squat|quadriceps|barbell|e|Фронтальні присідання зі штангою
+Front_Box_Jump|hamstring|other|b|Стрибок на тумбу
+Front_Cable_Raise|deltoids|cable|b|Підйом руки перед собою з нижнього блока
+Front_Cone_Hops_or_hurdle_hops|quadriceps|other|b|Стрибки через конуси або бар'єри
+Front_Dumbbell_Raise|deltoids|dumbbell|b|Підйом гантелей перед собою
+Front_Incline_Dumbbell_Raise|deltoids|dumbbell|b|Підйом гантелей перед собою на похилій лаві
+Front_Plate_Raise|deltoids|other|i|Підйом диска перед собою
+Front_Raise_And_Pullover|chest|barbell|b|Підйом перед собою і пуловер
+Front_Squat_Clean_Grip|quadriceps|barbell|i|Фронтальний присід хватом для взяття
+Front_Squats_With_Two_Kettlebells|quadriceps|kettlebell|i|Фронтальні присідання з двома гирями
+Front_Two-Dumbbell_Raise|deltoids|dumbbell|b|Підйом двох гантелей перед собою
+Full_Range-Of-Motion_Lat_Pulldown|upper-back|cable|i|Тяга верхнього блока з повною амплітудою
+Gironda_Sternum_Chins|upper-back|other|i|Підтягування Жиронди до грудини
+Glute_Ham_Raise|hamstring|machine|i|Сіднично-підколінний підйом
+Glute_Kickback|gluteal|body|b|Махи ногою назад на сідниці
+Goblet_Squat|quadriceps|kettlebell|b|Кубковий присід
+Good_Morning_off_Pins|hamstring|barbell|i|«Доброго ранку» з упорів
+Good_Morning|hamstring|barbell|i|Нахили «доброго ранку»
+Gorilla_Chin_Crunch|abs|body|i|Підтягування «горила» зі скручуванням
+Hack_Squat|quadriceps|machine|b|Гак-присід
+Hammer_Curls|biceps|dumbbell|b|Молоткові згинання
+Hammer_Grip_Incline_DB_Bench_Press|chest|dumbbell|b|Жим гантелей на похилій лаві нейтральним хватом
+Handstand_Push-Ups|deltoids|body|e|Віджимання в стійці на руках
+Hang_Clean_-_Below_the_Knees|quadriceps|barbell|i|Взяття з вису нижче колін
+Hang_Clean|quadriceps|barbell|i|Взяття штанги на груди з вису
+Hang_Snatch_-_Below_Knees|hamstring|barbell|e|Ривок з вису нижче колін
+Hang_Snatch|hamstring|barbell|e|Ривок з вису
+Hanging_Bar_Good_Morning|hamstring|barbell|i|«Доброго ранку» зі штангою в упорах
+Hanging_Leg_Raise|abs|body|e|Підйом ніг у висі
+Hanging_Pike|abs|body|e|Підйом ніг до перекладини у висі
+Heaving_Snatch_Balance|quadriceps|barbell|i|Підсід у ривку з поштовхом
+Heavy_Bag_Thrust|chest|other|b|Поштовхи важкого мішка
+High_Cable_Curls|biceps|cable|i|Згинання рук з верхніх блоків
+Hip_Extension_with_Bands|gluteal|band|b|Розгинання стегна з гумою
+Hip_Flexion_with_Band|quadriceps|band|b|Згинання стегна з гумою
+Hip_Lift_with_Band|gluteal|band|b|Підйом таза з гумою
+Hurdle_Hops|hamstring|other|b|Стрибки через бар'єри
+Hyperextensions_Back_Extensions|lower-back|other|b|Гіперекстензія
+Hyperextensions_With_No_Hyperextension_Bench|lower-back|body|i|Гіперекстензія без тренажера
+Incline_Barbell_Triceps_Extension|triceps|barbell|i|Французький жим штанги на похилій лаві
+Incline_Bench_Pull|upper-back|barbell|b|Тяга штанги лежачи на похилій лаві
+Incline_Cable_Chest_Press|chest|cable|b|Жим з блоків на похилій лаві
+Incline_Cable_Flye|chest|cable|i|Розведення з блоків на похилій лаві
+Incline_Dumbbell_Bench_With_Palms_Facing_In|chest|dumbbell|b|Жим гантелей на похилій лаві долонями всередину
+Incline_Dumbbell_Curl|biceps|dumbbell|b|Згинання з гантелями на похилій лаві
+Incline_Dumbbell_Flyes_-_With_A_Twist|chest|dumbbell|b|Розведення гантелей на похилій лаві з розворотом
+Incline_Dumbbell_Flyes|chest|dumbbell|b|Розведення гантелей на похилій лаві
+Incline_Dumbbell_Press|chest|dumbbell|b|Жим гантелей на похилій лаві
+Incline_Hammer_Curls|biceps|dumbbell|b|Молоткові згинання на похилій лаві
+Incline_Inner_Biceps_Curl|biceps|dumbbell|b|Згинання на внутрішній біцепс на похилій лаві
+Incline_Push-Up_Close-Grip|triceps|body|b|Вузькі віджимання від опори
+Incline_Push-Up_Depth_Jump|chest|other|b|Вибухові віджимання від опори зі стрибком
+Incline_Push-Up_Medium|chest|body|b|Віджимання від опори середньою постановкою
+Incline_Push-Up_Reverse_Grip|chest|body|b|Віджимання від опори зворотним хватом
+Incline_Push-Up_Wide|chest|body|b|Широкі віджимання від опори
+Incline_Push-Up|chest|body|b|Віджимання від опори
+Internal_Rotation_with_Band|deltoids|band|b|Внутрішня ротація плеча з гумою
+Inverted_Row_with_Straps|upper-back|other|b|Горизонтальне підтягування на петлях
+Inverted_Row|upper-back|other|b|Горизонтальне підтягування
+Iron_Cross|deltoids|dumbbell|i|Залізний хрест з гантелями
+Isometric_Chest_Squeezes|chest|body|b|Ізометричне стискання долонь на груди
+Isometric_Neck_Exercise_-_Front_And_Back|neck|body|b|Ізометрія для шиї вперед і назад
+Isometric_Neck_Exercise_-_Sides|neck|body|b|Ізометрія для шиї в боки
+Isometric_Wipers|chest|body|b|Ізометричні «двірники»
+JM_Press|triceps|barbell|b|JM-жим
+Jackknife_Sit-Up|abs|body|b|Складка на прес
+Janda_Sit-Up|abs|body|b|Підйом тулуба за Яндою
+Jefferson_Squats|quadriceps|barbell|i|Присід Джефферсона
+Jerk_Balance|deltoids|barbell|i|Баланс у поштовху
+Jerk_Dip_Squat|quadriceps|barbell|i|Підсід у поштовху
+Jogging_Treadmill|quadriceps|machine|b|Біг підтюпцем на доріжці
+Keg_Load|lower-back|other|i|Закидання бочки
+Kettlebell_Arnold_Press|deltoids|kettlebell|i|Жим Арнольда з гирею
+Kettlebell_Dead_Clean|hamstring|kettlebell|i|Взяття гирі з підлоги
+Kettlebell_Figure_8|abs|kettlebell|i|Вісімка з гирею
+Kettlebell_Hang_Clean|hamstring|kettlebell|i|Взяття гирі з вису
+Kettlebell_One-Legged_Deadlift|hamstring|kettlebell|i|Тяга гирі на одній нозі
+Kettlebell_Pass_Between_The_Legs|abs|kettlebell|i|Передача гирі між ногами
+Kettlebell_Pirate_Ships|deltoids|kettlebell|b|«Піратський корабель» з гирею
+Kettlebell_Pistol_Squat|quadriceps|kettlebell|e|Пістолет з гирею
+Kettlebell_Seated_Press|deltoids|kettlebell|i|Жим гирі сидячи
+Kettlebell_Seesaw_Press|deltoids|kettlebell|i|Жим гир «гойдалка»
+Kettlebell_Sumo_High_Pull|trapezius|kettlebell|i|Протяжка гирі в стійці сумо
+Kettlebell_Thruster|deltoids|kettlebell|i|Трастер з гирею
+Kettlebell_Turkish_Get-Up_Lunge_style|deltoids|kettlebell|i|Турецький підйом з гирею (через випад)
+Kettlebell_Turkish_Get-Up_Squat_style|deltoids|kettlebell|i|Турецький підйом з гирею (через присід)
+Kettlebell_Windmill|abs|kettlebell|i|Млин з гирею
+Kipping_Muscle_Up|upper-back|other|i|Вихід силою з розмахом
+Knee_Hip_Raise_On_Parallel_Bars|abs|other|b|Підйом колін в упорі на брусах
+Knee_Tuck_Jump|hamstring|body|b|Стрибки з підтягуванням колін
+Kneeling_Arm_Drill|deltoids|other|b|Робота руками для бігу на колінах
+Kneeling_Cable_Crunch_With_Alternating_Oblique_Twists|abs|cable|b|Скручування на блоці на колінах з поворотами
+Kneeling_Cable_Triceps_Extension|triceps|cable|i|Розгинання з блока з-за голови на колінах
+Kneeling_High_Pulley_Row|upper-back|cable|b|Тяга верхнього блока на колінах
+Kneeling_Jump_Squat|gluteal|barbell|e|Стрибок з колін у присід
+Kneeling_Single-Arm_High_Pulley_Row|upper-back|cable|b|Тяга верхнього блока однією рукою на колінах
+Kneeling_Squat|gluteal|barbell|i|Присід з колін зі штангою
+Landmine_180s|abs|barbell|b|Повороти з кутовою штангою на 180°
+Landmine_Linear_Jammer|deltoids|barbell|i|Лінійний жим кутової штанги
+Lateral_Bound|adductors|body|b|Бічні стрибки з ноги на ногу
+Lateral_Box_Jump|adductors|other|b|Бічний стрибок на тумбу
+Lateral_Cone_Hops|adductors|other|b|Бічні стрибки через конуси
+Lateral_Raise_-_With_Bands|deltoids|band|b|Підйоми рук у боки з гумою
+Leg-Over_Floor_Press|chest|kettlebell|i|Жим гантелі на підлозі з закинутою ногою
+Leg_Extensions|quadriceps|machine|b|Розгинання ніг у тренажері
+Leg_Lift|gluteal|body|b|Підйом ноги
+Leg_Press|quadriceps|machine|b|Жим ногами
+Leg_Pull-In|abs|body|b|Підтягування колін лежачи
+Leverage_Chest_Press|chest|machine|b|Жим від грудей у важільному тренажері
+Leverage_Deadlift|quadriceps|machine|b|Станова тяга у важільному тренажері
+Leverage_Decline_Chest_Press|chest|machine|b|Жим у важільному тренажері з негативним нахилом
+Leverage_High_Row|upper-back|machine|b|Верхня тяга у важільному тренажері
+Leverage_Incline_Chest_Press|chest|machine|b|Жим під кутом у важільному тренажері
+Leverage_Iso_Row|upper-back|machine|b|Тяга у важільному тренажері кожною рукою окремо
+Leverage_Shoulder_Press|deltoids|machine|b|Жим над головою у важільному тренажері
+Leverage_Shrug|trapezius|machine|b|Шраги у важільному тренажері
+Linear_3-Part_Start_Technique|hamstring|other|b|Техніка старту з трьох фаз
+Linear_Acceleration_Wall_Drill|hamstring|other|b|Вправа на розгін з упором у стіну
+Linear_Depth_Jump|quadriceps|other|i|Стрибок у глибину
+Log_Lift|deltoids|other|i|Жим колоди
+London_Bridges|upper-back|other|i|«Лондонські мости» на канаті
+Low_Cable_Crossover|chest|cable|b|Зведення з нижніх блоків
+Low_Cable_Triceps_Extension|triceps|cable|b|Розгинання на трицепс з нижнього блока
+Low_Pulley_Row_To_Neck|deltoids|cable|b|Тяга нижнього блока до шиї
+Lunge_Pass_Through|hamstring|kettlebell|i|Випади з передачею гирі
+Lunge_Sprint|quadriceps|machine|i|Спринт з випаду
+Lying_Cable_Curl|biceps|cable|i|Згинання з блоком лежачи
+Lying_Cambered_Barbell_Row|upper-back|barbell|b|Тяга вигнутого грифа лежачи на лаві
+Lying_Close-Grip_Bar_Curl_On_High_Pulley|biceps|cable|b|Згинання з верхнього блока лежачи вузьким хватом
+Lying_Close-Grip_Barbell_Triceps_Extension_Behind_The_Head|triceps|barbell|i|Французький жим за голову вузьким хватом
+Lying_Close-Grip_Barbell_Triceps_Press_To_Chin|triceps|ezbar|i|Французький жим до підборіддя вузьким хватом
+Lying_Dumbbell_Tricep_Extension|triceps|dumbbell|i|Французький жим з гантелями лежачи
+Lying_Face_Down_Plate_Neck_Resistance|neck|other|i|Розгинання шиї з диском лежачи обличчям донизу
+Lying_Face_Up_Plate_Neck_Resistance|neck|other|i|Згинання шиї з диском лежачи на спині
+Lying_High_Bench_Barbell_Curl|biceps|barbell|i|Згинання зі штангою лежачи на високій лаві
+Lying_Leg_Curls|hamstring|machine|b|Згинання ніг лежачи
+Lying_Machine_Squat|quadriceps|machine|i|Присід лежачи в тренажері
+Lying_One-Arm_Lateral_Raise|deltoids|dumbbell|i|Відведення гантелі лежачи на боці
+Lying_Rear_Delt_Raise|deltoids|dumbbell|i|Розведення лежачи на задні дельти
+Lying_Supine_Dumbbell_Curl|biceps|dumbbell|b|Згинання з гантелями лежачи на спині
+Lying_T-Bar_Row|upper-back|machine|i|Тяга Т-грифа з упором грудьми
+Lying_Triceps_Press|triceps|ezbar|i|Французький жим лежачи
+Machine_Bench_Press|chest|machine|b|Жим лежачи в тренажері
+Machine_Bicep_Curl|biceps|machine|b|Згинання на біцепс у тренажері
+Machine_Preacher_Curls|biceps|machine|b|Згинання на біцепс у тренажері Скотта
+Machine_Shoulder_Military_Press|deltoids|machine|b|Армійський жим у тренажері
+Machine_Triceps_Extension|triceps|machine|b|Розгинання на трицепс у тренажері
+Medicine_Ball_Chest_Pass|chest|ball|b|Передача медболу від грудей
+Medicine_Ball_Full_Twist|abs|ball|b|Повний поворот з медболом
+Medicine_Ball_Scoop_Throw|deltoids|ball|b|Кидок медболу знизу вгору
+Middle_Back_Shrug|upper-back|dumbbell|i|Шраги на середину спини
+Mixed_Grip_Chin|upper-back|other|e|Підтягування різнохватом
+Monster_Walk|gluteal|band|b|Хода монстра з гумою
+Mountain_Climbers|quadriceps|other|b|Скелелаз
+Moving_Claw_Series|hamstring|other|b|Серія «кігтів» для бігу
+Muscle_Snatch|hamstring|barbell|i|Силовий ривок без підсіду
+Muscle_Up|upper-back|other|i|Вихід силою
+Narrow_Stance_Hack_Squats|quadriceps|machine|i|Гак-присід з вузькою постановкою ніг
+Narrow_Stance_Leg_Press|quadriceps|machine|i|Жим ногами з вузькою постановкою
+Narrow_Stance_Squats|quadriceps|barbell|i|Присідання з вузькою постановкою ніг
+Natural_Glute_Ham_Raise|hamstring|body|i|Сіднично-підколінний підйом з власною вагою
+Neck_Press|chest|barbell|i|Жим штанги до шиї
+Oblique_Crunches_-_On_The_Floor|abs|body|b|Косі скручування на підлозі
+Oblique_Crunches|abs|body|b|Косі скручування
+Olympic_Squat|quadriceps|barbell|i|Олімпійський присід
+One-Arm_Dumbbell_Row|upper-back|dumbbell|b|Тяга гантелі однією рукою
+One-Arm_Flat_Bench_Dumbbell_Flye|chest|dumbbell|b|Розведення гантелі однією рукою лежачи
+One-Arm_High-Pulley_Cable_Side_Bends|abs|cable|b|Нахили в бік з верхнім блоком
+One-Arm_Incline_Lateral_Raise|deltoids|dumbbell|b|Відведення гантелі однією рукою на похилій лаві
+One-Arm_Kettlebell_Clean_and_Jerk|deltoids|kettlebell|i|Поштовх гирі однією рукою
+One-Arm_Kettlebell_Clean|hamstring|kettlebell|i|Взяття гирі однією рукою
+One-Arm_Kettlebell_Floor_Press|chest|kettlebell|i|Жим гирі на підлозі однією рукою
+One-Arm_Kettlebell_Jerk|deltoids|kettlebell|i|Поштовх гирі однією рукою від грудей
+One-Arm_Kettlebell_Military_Press_To_The_Side|deltoids|kettlebell|i|Армійський жим гирі однією рукою в бік
+One-Arm_Kettlebell_Para_Press|deltoids|kettlebell|i|Пара-жим гирі однією рукою
+One-Arm_Kettlebell_Push_Press|deltoids|kettlebell|i|Швунг гирі однією рукою
+One-Arm_Kettlebell_Row|upper-back|kettlebell|i|Тяга гирі однією рукою в нахилі
+One-Arm_Kettlebell_Snatch|deltoids|kettlebell|e|Ривок гирі однією рукою
+One-Arm_Kettlebell_Split_Jerk|deltoids|kettlebell|i|Поштовх гирі однією рукою в ножиці
+One-Arm_Kettlebell_Split_Snatch|deltoids|kettlebell|e|Ривок гирі однією рукою в ножиці
+One-Arm_Kettlebell_Swings|hamstring|kettlebell|i|Махи гирею однією рукою
+One-Arm_Long_Bar_Row|upper-back|barbell|b|Тяга Т-грифа однією рукою
+One-Arm_Medicine_Ball_Slam|abs|ball|b|Кидок медболу об підлогу однією рукою
+One-Arm_Open_Palm_Kettlebell_Clean|hamstring|kettlebell|i|Взяття гирі однією рукою відкритою долонею
+One-Arm_Overhead_Kettlebell_Squats|quadriceps|kettlebell|e|Присідання з гирею над головою однією рукою
+One-Arm_Side_Deadlift|quadriceps|barbell|e|Станова тяга збоку однією рукою
+One-Arm_Side_Laterals|deltoids|dumbbell|b|Відведення гантелі в бік однією рукою
+One-Legged_Cable_Kickback|gluteal|cable|i|Відведення ноги назад на нижньому блоці
+One_Arm_Chin-Up|upper-back|other|e|Підтягування на одній руці
+One_Arm_Dumbbell_Bench_Press|chest|dumbbell|b|Жим гантелі лежачи однією рукою
+One_Arm_Dumbbell_Preacher_Curl|biceps|dumbbell|b|Згинання гантелі на лаві Скотта однією рукою
+One_Arm_Floor_Press|triceps|barbell|i|Жим на підлозі однією рукою
+One_Arm_Lat_Pulldown|upper-back|cable|b|Тяга верхнього блока однією рукою
+One_Arm_Pronated_Dumbbell_Triceps_Extension|triceps|dumbbell|b|Розгинання гантелі лежачи однією рукою прямим хватом
+One_Arm_Supinated_Dumbbell_Triceps_Extension|triceps|dumbbell|b|Розгинання гантелі лежачи однією рукою зворотним хватом
+One_Leg_Barbell_Squat|quadriceps|barbell|e|Присід на одній нозі зі штангою
+Open_Palm_Kettlebell_Clean|hamstring|kettlebell|e|Взяття гирі відкритою долонею
+Otis-Up|abs|other|b|Підйом тулуба з диском (Otis-Up)
+Overhead_Cable_Curl|biceps|cable|i|Згинання з верхніх блоків над головою
+Overhead_Slam|upper-back|ball|b|Кидок медболу з-за голови об підлогу
+Overhead_Squat|quadriceps|barbell|e|Присід зі штангою над головою
+Pallof_Press_With_Rotation|abs|cable|b|Жим Паллофа з поворотом
+Pallof_Press|abs|cable|b|Жим Паллофа
+Palms-Down_Dumbbell_Wrist_Curl_Over_A_Bench|forearm|dumbbell|b|Розгинання зап'ястя з гантеллю на лаві
+Palms-Down_Wrist_Curl_Over_A_Bench|forearm|barbell|b|Розгинання зап'ясть зі штангою на лаві
+Palms-Up_Barbell_Wrist_Curl_Over_A_Bench|forearm|barbell|b|Згинання зап'ясть зі штангою на лаві
+Palms-Up_Dumbbell_Wrist_Curl_Over_A_Bench|forearm|dumbbell|b|Згинання зап'ястя з гантеллю на лаві
+Parallel_Bar_Dip|triceps|other|b|Віджимання на брусах
+Physioball_Hip_Bridge|gluteal|ball|b|Сідничний міст на фітболі
+Pin_Presses|triceps|barbell|i|Жим з упорів
+Plank|abs|body|b|Планка
+Plate_Pinch|forearm|other|i|Утримання дисків щипком
+Plate_Twist|abs|other|i|Повороти з диском
+Platform_Hamstring_Slides|hamstring|other|b|Ковзання на задню поверхню стегна
+Plie_Dumbbell_Squat|quadriceps|dumbbell|b|Присід плі з гантеллю
+Plyo_Kettlebell_Pushups|chest|kettlebell|e|Пліометричні віджимання на гирях
+Plyo_Push-up|chest|body|b|Пліометричні віджимання
+Power_Clean_from_Blocks|hamstring|barbell|i|Силове взяття з плінтів
+Power_Clean|hamstring|barbell|i|Силове взяття на груди
+Power_Jerk|quadriceps|barbell|e|Силовий поштовх
+Power_Partials|deltoids|dumbbell|b|Силові часткові підйоми в боки
+Power_Snatch_from_Blocks|quadriceps|barbell|i|Силовий ривок з плінтів
+Power_Snatch|hamstring|barbell|e|Силовий ривок
+Power_Stairs|hamstring|other|i|Підйом вантажу по сходах
+Preacher_Curl|biceps|barbell|b|Згинання на лаві Скотта
+Preacher_Hammer_Dumbbell_Curl|biceps|dumbbell|b|Молоткові згинання на лаві Скотта
+Press_Sit-Up|abs|barbell|e|Підйом тулуба з жимом штанги
+Prone_Manual_Hamstring|hamstring|other|b|Згинання ніг лежачи з опором партнера
+Prowler_Sprint|hamstring|other|b|Спринт із санями-проулером
+Pull_Through|gluteal|cable|b|Протяжка з блока між ніг
+Pullups|upper-back|body|b|Підтягування
+Push-Up_Wide|chest|body|b|Широкі віджимання
+Push-Ups_-_Close_Triceps_Position|triceps|body|i|Вузькі віджимання на трицепс
+Push-Ups_With_Feet_Elevated|chest|body|b|Віджимання з ногами на підвищенні
+Push-Ups_With_Feet_On_An_Exercise_Ball|chest|ball|i|Віджимання з ногами на фітболі
+Push_Press_-_Behind_the_Neck|deltoids|barbell|i|Швунг штанги з-за голови
+Push_Press|deltoids|barbell|e|Швунг штанги
+Push_Up_to_Side_Plank|chest|body|b|Віджимання з переходом у бічну планку
+Pushups_Close_and_Wide_Hand_Positions|chest|body|b|Віджимання вузько і широко
+Pushups|chest|body|b|Віджимання
+Quick_Leap|quadriceps|other|b|Швидкий стрибок на тумбу
+Rack_Delivery|deltoids|barbell|i|Взяття штанги до стійок
+Rack_Pull_with_Bands|lower-back|barbell|i|Тяга з плінтів з гумою
+Rack_Pulls|lower-back|barbell|i|Тяга з плінтів
+Recumbent_Bike|quadriceps|machine|b|Горизонтальний велотренажер
+Return_Push_from_Stance|deltoids|ball|b|Поштовх медболу зі стійки з поверненням
+Reverse_Band_Bench_Press|triceps|barbell|i|Жим лежачи зі зворотною гумою
+Reverse_Band_Box_Squat|quadriceps|barbell|i|Присід на тумбу зі зворотною гумою
+Reverse_Band_Deadlift|lower-back|barbell|e|Станова тяга зі зворотною гумою
+Reverse_Band_Power_Squat|quadriceps|barbell|e|Присід зі зворотною гумою
+Reverse_Band_Sumo_Deadlift|hamstring|barbell|e|Тяга сумо зі зворотною гумою
+Reverse_Barbell_Curl|biceps|barbell|b|Згинання штанги зворотним хватом
+Reverse_Barbell_Preacher_Curls|biceps|ezbar|i|Згинання на лаві Скотта зворотним хватом
+Reverse_Cable_Curl|biceps|cable|b|Згинання з блоком зворотним хватом
+Reverse_Crunch|abs|body|b|Зворотні скручування
+Reverse_Flyes_With_External_Rotation|deltoids|dumbbell|i|Зворотні розведення з зовнішньою ротацією
+Reverse_Flyes|deltoids|dumbbell|b|Зворотні розведення
+Reverse_Grip_Bent-Over_Rows|upper-back|barbell|i|Тяга штанги в нахилі зворотним хватом
+Reverse_Grip_Triceps_Pushdown|triceps|cable|b|Розгинання на блоці зворотним хватом
+Reverse_Hyperextension|hamstring|machine|i|Зворотна гіперекстензія
+Reverse_Machine_Flyes|deltoids|machine|b|Зворотні розведення в тренажері
+Reverse_Plate_Curls|biceps|other|b|Згинання з диском зворотним хватом
+Reverse_Triceps_Bench_Press|triceps|barbell|i|Жим лежачи зворотним хватом на трицепс
+Rickshaw_Carry|forearm|other|i|Перенесення рикші
+Rickshaw_Deadlift|quadriceps|other|i|Станова тяга рикші
+Ring_Dips|triceps|other|i|Віджимання на кільцях
+Rocket_Jump|quadriceps|body|b|Стрибок «ракета»
+Rocking_Standing_Calf_Raise|calves|barbell|b|Перекати з п'ят на носки стоячи
+Rocky_Pull-Ups_Pulldowns|upper-back|other|i|Підтягування і тяга блока «Роккі»
+Romanian_Deadlift_from_Deficit|hamstring|barbell|i|Румунська тяга з дефіциту
+Romanian_Deadlift|hamstring|barbell|i|Румунська тяга
+Rope_Climb|upper-back|other|i|Лазіння по канату
+Rope_Crunch|abs|cable|b|Скручування з канатом на блоці
+Rope_Jumping|quadriceps|other|i|Стрибки через скакалку
+Rope_Straight-Arm_Pulldown|upper-back|cable|b|Пуловер з канатом на верхньому блоці
+Rowing_Stationary|quadriceps|machine|i|Гребний тренажер
+Running_Treadmill|quadriceps|machine|b|Біг на доріжці
+Russian_Twist|abs|body|i|Російські скручування
+Sandbag_Load|quadriceps|other|b|Закидання мішка з піском
+Scapular_Pull-Up|trapezius|other|b|Лопаткові підтягування
+Scissors_Jump|quadriceps|body|b|Стрибки «ножиці»
+Seated_Band_Hamstring_Curl|hamstring|other|b|Згинання ноги з гумою сидячи
+Seated_Barbell_Military_Press|deltoids|barbell|i|Армійський жим штанги сидячи
+Seated_Barbell_Twist|abs|barbell|b|Повороти зі штангою сидячи
+Seated_Bent-Over_One-Arm_Dumbbell_Triceps_Extension|triceps|dumbbell|b|Розгинання гантелі однією рукою в нахилі сидячи
+Seated_Bent-Over_Rear_Delt_Raise|deltoids|dumbbell|i|Розведення в нахилі сидячи на задні дельти
+Seated_Bent-Over_Two-Arm_Dumbbell_Triceps_Extension|triceps|dumbbell|i|Розгинання двох гантелей у нахилі сидячи
+Seated_Cable_Rows|upper-back|cable|b|Тяга нижнього блока сидячи
+Seated_Cable_Shoulder_Press|deltoids|cable|b|Жим з блоків над головою сидячи
+Seated_Calf_Raise|calves|machine|b|Підйом на носки сидячи
+Seated_Close-Grip_Concentration_Barbell_Curl|biceps|barbell|i|Концентроване згинання штанги сидячи вузьким хватом
+Seated_Dumbbell_Curl|biceps|dumbbell|b|Згинання з гантелями сидячи
+Seated_Dumbbell_Inner_Biceps_Curl|biceps|dumbbell|b|Згинання на внутрішній біцепс сидячи
+Seated_Dumbbell_Palms-Down_Wrist_Curl|forearm|dumbbell|b|Розгинання зап'ясть з гантелями сидячи
+Seated_Dumbbell_Palms-Up_Wrist_Curl|forearm|dumbbell|b|Згинання зап'ясть з гантелями сидячи
+Seated_Dumbbell_Press|deltoids|dumbbell|b|Жим гантелей сидячи
+Seated_Flat_Bench_Leg_Pull-In|abs|body|b|Підтягування колін сидячи на лаві
+Seated_Good_Mornings|lower-back|barbell|i|«Доброго ранку» сидячи
+Seated_Head_Harness_Neck_Resistance|neck|other|i|Розгинання шиї з упряжжю сидячи
+Seated_Leg_Curl|hamstring|machine|b|Згинання ніг сидячи
+Seated_Leg_Tucks|abs|body|b|Підтягування колін до грудей сидячи
+Seated_One-Arm_Dumbbell_Palms-Down_Wrist_Curl|forearm|dumbbell|i|Розгинання зап'ястя з гантеллю однією рукою сидячи
+Seated_One-Arm_Dumbbell_Palms-Up_Wrist_Curl|forearm|dumbbell|b|Згинання зап'ястя з гантеллю однією рукою сидячи
+Seated_One-arm_Cable_Pulley_Rows|upper-back|cable|i|Тяга нижнього блока однією рукою сидячи
+Seated_Palm-Up_Barbell_Wrist_Curl|forearm|barbell|b|Згинання зап'ясть зі штангою сидячи
+Seated_Palms-Down_Barbell_Wrist_Curl|forearm|barbell|b|Розгинання зап'ясть зі штангою сидячи
+Seated_Side_Lateral_Raise|deltoids|dumbbell|b|Махи гантелями в боки сидячи
+Seated_Triceps_Press|triceps|dumbbell|b|Французький жим сидячи
+Seated_Two-Arm_Palms-Up_Low-Pulley_Wrist_Curl|forearm|cable|b|Згинання зап'ясть з нижнього блока сидячи
+See-Saw_Press_Alternating_Side_Press|deltoids|dumbbell|i|Жим «гойдалка» поперемінно
+Shotgun_Row|upper-back|cable|b|Тяга «рушниця» однією рукою на блоці
+Shoulder_Press_-_With_Bands|deltoids|band|b|Жим над головою з гумою
+Side_Bridge|abs|body|b|Бічна планка
+Side_Hop-Sprint|quadriceps|other|b|Бічний стрибок і спринт
+Side_Jackknife|abs|body|b|Бічна складка
+Side_Lateral_Raise|deltoids|dumbbell|b|Махи гантелями в боки
+Side_Laterals_to_Front_Raise|deltoids|dumbbell|b|Махи в боки з переходом перед собою
+Side_Standing_Long_Jump|quadriceps|other|b|Бічний стрибок у довжину з місця
+Side_To_Side_Chins|upper-back|other|i|Підтягування з перенесенням з боку в бік
+Side_to_Side_Box_Shuffle|quadriceps|other|b|Бічні перескоки через тумбу
+Single-Arm_Cable_Crossover|chest|cable|b|Зведення в кросовері однією рукою
+Single-Arm_Linear_Jammer|deltoids|barbell|i|Жим кутової штанги однією рукою
+Single-Arm_Push-Up|chest|body|i|Віджимання на одній руці
+Single-Cone_Sprint_Drill|quadriceps|other|b|Спринт навколо конуса
+Single-Leg_High_Box_Squat|quadriceps|other|b|Присід на одній нозі на високу тумбу
+Single-Leg_Hop_Progression|quadriceps|other|b|Стрибки на одній нозі
+Single-Leg_Lateral_Hop|quadriceps|other|b|Бічні стрибки на одній нозі
+Single-Leg_Leg_Extension|quadriceps|machine|b|Розгинання однієї ноги в тренажері
+Single-Leg_Stride_Jump|quadriceps|other|b|Стрибок на одній нозі з тумби
+Single_Dumbbell_Raise|deltoids|dumbbell|b|Підйом однієї гантелі перед собою
+Single_Leg_Butt_Kick|quadriceps|body|b|Захлест гомілки однією ногою
+Single_Leg_Glute_Bridge|gluteal|body|b|Сідничний міст на одній нозі
+Single_Leg_Push-off|quadriceps|other|b|Відштовхування однією ногою від тумби
+Sit-Up|abs|body|b|Підйом тулуба
+Skating|quadriceps|other|i|Ковзанярські стрибки
+Sled_Drag_-_Harness|quadriceps|other|b|Протягування саней в упряжі
+Sled_Overhead_Backward_Walk|deltoids|other|b|Хода назад із санями над головою
+Sled_Overhead_Triceps_Extension|triceps|other|b|Розгинання на трицепс із санями
+Sled_Push|quadriceps|other|b|Штовхання саней
+Sled_Reverse_Flye|deltoids|other|b|Зворотні розведення із санями
+Sled_Row|upper-back|other|b|Тяга саней
+Sledgehammer_Swings|abs|other|b|Удари кувалдою
+Smith_Incline_Shoulder_Raise|deltoids|barbell|b|Підйом плечей у Сміті на похилій лаві
+Smith_Machine_Behind_the_Back_Shrug|trapezius|machine|b|Шраги в Сміті за спиною
+Smith_Machine_Bench_Press|chest|machine|b|Жим лежачи в Сміті
+Smith_Machine_Bent_Over_Row|upper-back|machine|b|Тяга в нахилі в Сміті
+Smith_Machine_Calf_Raise|calves|machine|b|Підйом на носки в Сміті
+Smith_Machine_Close-Grip_Bench_Press|triceps|machine|b|Жим лежачи вузьким хватом у Сміті
+Smith_Machine_Decline_Press|chest|machine|b|Жим у Сміті з негативним нахилом
+Smith_Machine_Hang_Power_Clean|hamstring|machine|i|Силове взяття з вису в Сміті
+Smith_Machine_Hip_Raise|abs|machine|b|Підйом таза в Сміті
+Smith_Machine_Incline_Bench_Press|chest|machine|b|Жим на похилій лаві в Сміті
+Smith_Machine_Leg_Press|quadriceps|machine|i|Жим ногами в Сміті
+Smith_Machine_One-Arm_Upright_Row|deltoids|machine|b|Тяга до підборіддя однією рукою в Сміті
+Smith_Machine_Overhead_Shoulder_Press|deltoids|machine|b|Жим над головою в Сміті
+Smith_Machine_Pistol_Squat|quadriceps|machine|i|Пістолет у Сміті
+Smith_Machine_Reverse_Calf_Raises|calves|machine|b|Підйом носків у Сміті
+Smith_Machine_Squat|quadriceps|machine|b|Присідання в Сміті
+Smith_Machine_Stiff-Legged_Deadlift|hamstring|machine|b|Тяга на прямих ногах у Сміті
+Smith_Machine_Upright_Row|trapezius|machine|b|Тяга до підборіддя в Сміті
+Smith_Single-Leg_Split_Squat|quadriceps|machine|b|Болгарський присід у Сміті
+Snatch_Balance|quadriceps|barbell|i|Підсід у ривку
+Snatch_Deadlift|hamstring|barbell|i|Тяга ривковим хватом
+Snatch_Pull|hamstring|barbell|i|Ривкова тяга
+Snatch_Shrug|trapezius|barbell|i|Шраги ривковим хватом
+Snatch_from_Blocks|quadriceps|barbell|e|Ривок з плінтів
+Snatch|quadriceps|barbell|i|Ривок
+Speed_Band_Overhead_Triceps|triceps|band|b|Швидкі розгинання гуми з-за голови
+Speed_Box_Squat|quadriceps|barbell|i|Швидкісний присід на тумбу
+Speed_Squats|quadriceps|barbell|e|Швидкісні присідання
+Spell_Caster|abs|dumbbell|b|«Чарівник» з гантелями
+Spider_Crawl|abs|body|b|Повзання «павук»
+Spider_Curl|biceps|ezbar|b|Згинання «павук»
+Split_Clean|quadriceps|barbell|i|Взяття в ножиці
+Split_Jerk|quadriceps|barbell|i|Поштовх у ножиці
+Split_Jump|quadriceps|body|b|Стрибки з випаду зі зміною ніг
+Split_Snatch|hamstring|barbell|e|Ривок у ножиці
+Split_Squat_with_Dumbbells|quadriceps|dumbbell|b|Спліт-присід з гантелями
+Squat_Jerk|quadriceps|barbell|e|Поштовх з підсідом
+Squat_with_Bands|quadriceps|barbell|i|Присід з гумою
+Squat_with_Chains|quadriceps|barbell|i|Присід з ланцюгами
+Squat_with_Plate_Movers|quadriceps|barbell|i|Присід з перенесенням дисків
+Squats_-_With_Bands|quadriceps|band|b|Присідання з гумою
+Stairmaster|quadriceps|machine|i|Степ-тренажер (сходи)
+Standing_Alternating_Dumbbell_Press|deltoids|dumbbell|b|Жим гантелей стоячи поперемінно
+Standing_Barbell_Calf_Raise|calves|barbell|b|Підйом на носки стоячи зі штангою
+Standing_Barbell_Press_Behind_Neck|deltoids|barbell|i|Жим штанги з-за голови стоячи
+Standing_Bent-Over_One-Arm_Dumbbell_Triceps_Extension|triceps|dumbbell|b|Розгинання гантелі в нахилі однією рукою
+Standing_Bent-Over_Two-Arm_Dumbbell_Triceps_Extension|triceps|dumbbell|b|Розгинання двох гантелей у нахилі
+Standing_Biceps_Cable_Curl|biceps|cable|b|Згинання на біцепс з нижнього блока стоячи
+Standing_Bradford_Press|deltoids|barbell|b|Жим Бредфорда стоячи
+Standing_Cable_Chest_Press|chest|cable|b|Жим від грудей з блоків стоячи
+Standing_Cable_Lift|abs|cable|b|Діагональний підйом з блока знизу вгору
+Standing_Cable_Wood_Chop|abs|cable|b|«Дроворуб» з блоком
+Standing_Calf_Raises|calves|machine|b|Підйом на носки стоячи
+Standing_Concentration_Curl|biceps|dumbbell|b|Концентроване згинання стоячи
+Standing_Dumbbell_Calf_Raise|calves|dumbbell|i|Підйом на носки з гантелями стоячи
+Standing_Dumbbell_Press|deltoids|dumbbell|b|Жим гантелей стоячи
+Standing_Dumbbell_Reverse_Curl|biceps|dumbbell|i|Згинання гантелей зворотним хватом стоячи
+Standing_Dumbbell_Straight-Arm_Front_Delt_Raise_Above_Head|deltoids|dumbbell|i|Підйом гантелей прямими руками над головою
+Standing_Dumbbell_Triceps_Extension|triceps|dumbbell|b|Розгинання гантелі з-за голови стоячи
+Standing_Dumbbell_Upright_Row|trapezius|dumbbell|b|Тяга гантелей до підборіддя
+Standing_Front_Barbell_Raise_Over_Head|deltoids|barbell|i|Підйом штанги перед собою над головою
+Standing_Inner-Biceps_Curl|biceps|dumbbell|i|Згинання на внутрішній біцепс стоячи
+Standing_Leg_Curl|hamstring|machine|b|Згинання ноги стоячи
+Standing_Long_Jump|quadriceps|body|b|Стрибок у довжину з місця
+Standing_Low-Pulley_Deltoid_Raise|deltoids|cable|b|Відведення руки з нижнього блока стоячи
+Standing_Low-Pulley_One-Arm_Triceps_Extension|triceps|cable|i|Розгинання з нижнього блока однією рукою
+Standing_Military_Press|deltoids|barbell|b|Армійський жим стоячи
+Standing_Olympic_Plate_Hand_Squeeze|forearm|other|b|Утримання диска пальцями стоячи
+Standing_One-Arm_Cable_Curl|biceps|cable|i|Згинання з блоком однією рукою стоячи
+Standing_One-Arm_Dumbbell_Curl_Over_Incline_Bench|biceps|dumbbell|b|Згинання гантелі однією рукою через похилу лаву
+Standing_One-Arm_Dumbbell_Triceps_Extension|triceps|dumbbell|b|Розгинання гантелі з-за голови однією рукою стоячи
+Standing_Overhead_Barbell_Triceps_Extension|triceps|barbell|b|Французький жим штанги стоячи
+Standing_Palm-In_One-Arm_Dumbbell_Press|deltoids|dumbbell|b|Жим гантелі нейтральним хватом однією рукою стоячи
+Standing_Palms-In_Dumbbell_Press|deltoids|dumbbell|i|Жим гантелей нейтральним хватом стоячи
+Standing_Palms-Up_Barbell_Behind_The_Back_Wrist_Curl|forearm|barbell|b|Згинання зап'ясть зі штангою за спиною
+Standing_Rope_Crunch|abs|cable|b|Скручування з канатом стоячи
+Standing_Towel_Triceps_Extension|triceps|body|b|Розгинання з рушником на трицепс
+Standing_Two-Arm_Overhead_Throw|deltoids|ball|b|Кидок медболу з-за голови двома руками
+Star_Jump|quadriceps|body|b|Стрибок «зірочка»
+Step-up_with_Knee_Raise|gluteal|body|b|Зашагування з підйомом коліна
+Step_Mill|quadriceps|machine|i|Сходовий тренажер
+Stiff-Legged_Barbell_Deadlift|hamstring|barbell|i|Станова тяга на прямих ногах зі штангою
+Stiff-Legged_Dumbbell_Deadlift|hamstring|dumbbell|b|Станова тяга на прямих ногах з гантелями
+Stiff_Leg_Barbell_Good_Morning|lower-back|barbell|b|«Доброго ранку» на прямих ногах
+Straight-Arm_Dumbbell_Pullover|chest|dumbbell|i|Пуловер з гантеллю на прямих руках
+Straight-Arm_Pulldown|upper-back|cable|b|Пуловер на верхньому блоці прямими руками
+Straight_Bar_Bench_Mid_Rows|upper-back|barbell|b|Тяга прямого грифа з блока з упором
+Straight_Raises_on_Incline_Bench|deltoids|barbell|b|Підйоми прямих рук на похилій лаві
+Stride_Jump_Crossover|quadriceps|other|b|Стрибки з перехрещенням через лаву
+Sumo_Deadlift_with_Bands|hamstring|barbell|i|Тяга сумо з гумою
+Sumo_Deadlift_with_Chains|hamstring|barbell|i|Тяга сумо з ланцюгами
+Sumo_Deadlift|hamstring|barbell|i|Станова тяга сумо
+Supine_Chest_Throw|triceps|ball|b|Кидок медболу від грудей лежачи
+Supine_One-Arm_Overhead_Throw|abs|ball|b|Кидок медболу однією рукою з-за голови лежачи
+Supine_Two-Arm_Overhead_Throw|abs|ball|b|Кидок медболу з-за голови лежачи
+Suspended_Fallout|abs|other|i|Розкочування на петлях
+Suspended_Push-Up|chest|other|b|Віджимання на петлях
+Suspended_Reverse_Crunch|abs|other|b|Зворотні скручування на петлях
+Suspended_Row|upper-back|other|b|Тяга на петлях
+Suspended_Split_Squat|quadriceps|other|i|Спліт-присід на петлях
+Svend_Press|chest|other|b|Жим Свенда
+T-Bar_Row_with_Handle|upper-back|barbell|b|Тяга Т-грифа з рукояткою
+Tate_Press|triceps|dumbbell|i|Жим Тейта
+Thigh_Abductor|gluteal|machine|b|Розведення ніг у тренажері
+Thigh_Adductor|adductors|machine|b|Зведення ніг у тренажері
+Tire_Flip|quadriceps|other|i|Перекидання шини
+Trail_Running_Walking|quadriceps|other|b|Трейл: біг або ходьба
+Trap_Bar_Deadlift|quadriceps|other|b|Станова тяга з трап-грифом
+Tricep_Dumbbell_Kickback|triceps|dumbbell|b|Розгинання гантелі в нахилі (кікбек)
+Triceps_Overhead_Extension_with_Rope|triceps|cable|b|Розгинання з канатом з-за голови спиною до блока
+Triceps_Pushdown_-_Rope_Attachment|triceps|cable|b|Розгинання на блоці з канатом
+Triceps_Pushdown_-_V-Bar_Attachment|triceps|cable|b|Розгинання на блоці з V-рукояттю
+Triceps_Pushdown|triceps|cable|b|Розгинання рук на блоці
+Tuck_Crunch|abs|body|b|Скручування з підтягнутими колінами
+Two-Arm_Dumbbell_Preacher_Curl|biceps|dumbbell|b|Згинання гантелей на лаві Скотта
+Two-Arm_Kettlebell_Clean|deltoids|kettlebell|i|Взяття гирі двома руками
+Two-Arm_Kettlebell_Jerk|deltoids|kettlebell|i|Поштовх гирі двома руками
+Two-Arm_Kettlebell_Military_Press|deltoids|kettlebell|i|Армійський жим двох гир
+Two-Arm_Kettlebell_Row|upper-back|kettlebell|i|Тяга двох гир у нахилі
+Underhand_Cable_Pulldowns|upper-back|cable|b|Тяга верхнього блока зворотним хватом
+Upright_Barbell_Row|deltoids|barbell|b|Тяга штанги до підборіддя
+Upright_Cable_Row|trapezius|cable|i|Тяга нижнього блока до підборіддя
+Upright_Row_-_With_Bands|trapezius|band|b|Тяга гуми до підборіддя
+V-Bar_Pulldown|upper-back|cable|i|Тяга верхнього блока з V-рукояттю
+V-Bar_Pullup|upper-back|body|b|Підтягування з V-рукояттю
+Vertical_Swing|hamstring|dumbbell|b|Махи гантеллю вгору
+Walking_Treadmill|quadriceps|machine|b|Ходьба на доріжці
+Weighted_Ball_Hyperextension|lower-back|ball|i|Гіперекстензія на фітболі з вагою
+Weighted_Ball_Side_Bend|abs|ball|i|Бічні нахили на фітболі з вагою
+Weighted_Bench_Dip|triceps|other|i|Віджимання від лави з вагою
+Weighted_Crunches|abs|ball|b|Скручування з вагою
+Weighted_Jump_Squat|quadriceps|barbell|i|Присідання з вистрибуванням з вагою
+Weighted_Pull_Ups|upper-back|other|i|Підтягування з вагою
+Weighted_Sissy_Squat|quadriceps|barbell|e|Сісі-присід з вагою
+Weighted_Sit-Ups_-_With_Bands|abs|other|i|Підйом тулуба з гумою
+Weighted_Squat|quadriceps|other|i|Присід з поясом для ваги
+Wide-Grip_Barbell_Bench_Press|chest|barbell|i|Жим штанги лежачи широким хватом
+Wide-Grip_Decline_Barbell_Bench_Press|chest|barbell|i|Жим штанги широким хватом з негативним нахилом
+Wide-Grip_Decline_Barbell_Pullover|chest|barbell|i|Пуловер зі штангою широким хватом з негативним нахилом
+Wide-Grip_Lat_Pulldown|upper-back|cable|b|Тяга верхнього блока широким хватом
+Wide-Grip_Pulldown_Behind_The_Neck|upper-back|cable|i|Тяга верхнього блока за голову
+Wide-Grip_Rear_Pull-Up|upper-back|body|i|Підтягування за голову широким хватом
+Wide-Grip_Standing_Barbell_Curl|biceps|barbell|b|Згинання штанги стоячи широким хватом
+Wide_Stance_Barbell_Squat|quadriceps|barbell|i|Присідання зі штангою з широкою постановкою ніг
+Wide_Stance_Stiff_Legs|hamstring|barbell|i|Тяга на прямих ногах з широкою постановкою
+Wind_Sprints|abs|body|b|Спринтерські прискорення
+Wrist_Roller|forearm|other|b|Намотування мотузки з вагою
+Wrist_Rotations_with_Straight_Bar|forearm|barbell|b|Обертання зап'ясть з грифом
+Yoke_Walk|quadriceps|other|i|Хода з коромислом
+Zercher_Squats|quadriceps|barbell|e|Присідання Зерхера
+Zottman_Curl|biceps|dumbbell|i|Згинання Зоттмана
+Zottman_Preacher_Curl|biceps|dumbbell|i|Згинання Зоттмана на лаві Скотта

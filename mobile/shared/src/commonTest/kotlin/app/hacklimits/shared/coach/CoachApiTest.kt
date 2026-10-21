@@ -86,20 +86,55 @@ class CoachApiTest {
     }
 
     @Test
-    fun threadLinesAreInTimeOrderWithTrainerRepliesAsTrainer() {
-        val lines = threadLines(
-            CoachThread(
-                trainer = CoachTrainer("Anna"),
-                questions = listOf(CoachQuestion(3, "Knee hurts &amp; swells", "answered", "2026-10-20T10:00:00.000Z")),
-                messages = listOf(
-                    CoachMessage(fromMe = false, text = "<b>Rest</b> it.", createdAt = "2026-10-20 11:00:00"),
-                    CoachMessage(fromMe = true, text = "Thanks", createdAt = "2026-10-20 11:05:00"),
-                ),
-            ),
-        )
-        assertEquals(listOf(CoachRole.User, CoachRole.Trainer, CoachRole.User), lines.map { it.role })
-        assertEquals("Knee hurts & swells", lines[0].text)
-        assertEquals("Rest it.", lines[1].text)
+    fun askDecodesTheActionButtonsUnderTheAnswer() = runTest {
+        val coach = api {
+            respond(
+                """{"data":{"answer":"Drop the squat weight.","actions":[{"label":"Squat -5 kg","kind":"weight","weekday":1,"index":0,"value":"100"},{"label":"Send to team","kind":"feedback","value":"Cannot log sets","note":"my note"}]},"meta":{"version":2}}""",
+                HttpStatusCode.OK,
+                json,
+            )
+        }
+        val actions = coach.ask("Squat is heavy", emptyList(), "k".repeat(16)).actions
+        assertEquals(listOf("weight", "feedback"), actions.map { it.kind })
+        assertEquals(1, actions[0].weekday)
+        assertEquals("my note", actions[1].note)
+    }
+
+    @Test
+    fun feedbackPostsTheSummaryAndTheOriginalWithAKey() = runTest {
+        val coach = api { request ->
+            assertEquals("/api/v2/coach/feedback", request.url.encodedPath)
+            assertEquals("k".repeat(16), request.headers["Idempotency-Key"])
+            val body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+            assertContains(body, "\"summary\":\"Cannot log sets\"")
+            assertContains(body, "\"original\":\"my note\"")
+            respond("""{"data":{"ok":true},"meta":{"version":2}}""", HttpStatusCode.OK, json)
+        }
+        coach.feedback("Cannot log sets", "my note", "k".repeat(16))
+    }
+
+    @Test
+    fun planEditPostsTheMiniAppPayloadAndLeavesOutAnEmptyValue() = runTest {
+        var body = ""
+        val coach = api { request ->
+            assertEquals("/api/v2/plan", request.url.encodedPath)
+            body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+            respond("""{"data":{},"meta":{"version":2}}""", HttpStatusCode.OK, json)
+        }
+        coach.planEdit("del", weekday = 3, index = -1, value = null, key = "k".repeat(16))
+        assertContains(body, "\"action\":\"del\"")
+        assertContains(body, "\"weekday\":3")
+        assertContains(body, "\"index\":-1")
+        assertFalse(body.contains("\"value\""), "no value key when there is nothing to send")
+    }
+
+    @Test
+    fun coachActionsMapToThePlanEditTheMiniAppSends() {
+        assertEquals(PlanEdit("del", 2, 4, null), CoachAction("Remove", "delete", weekday = 2, index = 4).toPlanEdit())
+        assertEquals(PlanEdit("swap", 1, -1, "Row"), CoachAction("Swap", "swap", weekday = 1, exercise = "Row", value = "ignored").toPlanEdit())
+        assertEquals(PlanEdit("weight", 5, -1, "80"), CoachAction("Weight", "weight", weekday = 5, value = "80").toPlanEdit())
+        assertNull(CoachAction("Note", "note", weekday = 1).toPlanEdit(), "kinds the app cannot apply are left out")
+        assertNull(CoachAction("Sets", "sets").toPlanEdit(), "a plan edit without a weekday cannot be applied")
     }
 
     @Test

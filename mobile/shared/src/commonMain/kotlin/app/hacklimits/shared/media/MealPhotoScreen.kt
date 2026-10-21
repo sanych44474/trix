@@ -67,6 +67,13 @@ fun MealPhotoScreen(onBack: () -> Unit, onLogged: () -> Unit) {
         item {
             Panel {
                 Text(stringResource(Res.string.media_photo_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = s.caption,
+                    onValueChange = vm::onCaption,
+                    label = { Text(stringResource(Res.string.md_meal_caption_ph)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Button(
                     onClick = vm::choosePhoto, enabled = !s.busy, modifier = Modifier.fillMaxWidth()
                         .semantics { contentDescription = photoCd },
@@ -79,7 +86,7 @@ fun MealPhotoScreen(onBack: () -> Unit, onLogged: () -> Unit) {
             item {
                 Panel {
                     Text(stringResource(Res.string.media_items_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    if (s.draft.isEmpty()) Text(stringResource(Res.string.media_items_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (s.draft.isEmpty()) Text(stringResource(Res.string.md_meal_unreadable), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     s.draft.forEachIndexed { index, d ->
                         val preview = d.toLogged()
                         Text(d.estimate.desc, fontWeight = FontWeight.SemiBold)
@@ -99,6 +106,7 @@ fun MealPhotoScreen(onBack: () -> Unit, onLogged: () -> Unit) {
                             ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        TextButton(onClick = { vm.removeItem(index) }, enabled = !s.busy) { Text(stringResource(Res.string.md_delete)) }
                     }
                     if (s.draft.isNotEmpty()) {
                         Button(
@@ -107,6 +115,15 @@ fun MealPhotoScreen(onBack: () -> Unit, onLogged: () -> Unit) {
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(stringResource(Res.string.media_log_meal)) }
                     }
+                }
+            }
+        }
+
+        if (s.estimated) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = vm::choosePhoto, enabled = !s.busy, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.md_meal_another)) }
+                    TextButton(onClick = vm::reset, enabled = !s.busy) { Text(stringResource(Res.string.md_close)) }
                 }
             }
         }
@@ -130,6 +147,11 @@ fun MealPhotoScreen(onBack: () -> Unit, onLogged: () -> Unit) {
                         }
                     }
                 }
+                if (vm.recordAvailable) {
+                    OutlinedButton(onClick = vm::toggleRecording, enabled = !s.busy, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(if (s.recording) Res.string.md_voice_stop else Res.string.md_voice_record))
+                    }
+                }
                 Button(onClick = vm::logText, enabled = !s.busy && s.text.trim().length >= 2, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(Res.string.media_text_log))
                 }
@@ -144,6 +166,9 @@ private fun faultText(code: String): StringResource = when (code) {
     "rate_limited" -> Res.string.media_err_rate_limited
     "dependency_unavailable" -> Res.string.media_err_ai_unavailable
     "validation_error" -> Res.string.media_err_bad_input
+    CODE_PHOTO_LIMIT -> Res.string.md_meal_limit
+    FAULT_NO_MIC -> Res.string.md_voice_no_mic
+    FAULT_UNCLEAR -> Res.string.md_voice_unclear
     FAULT_UNREADABLE -> Res.string.media_text_unreadable
     FAULT_GRAMS -> Res.string.media_err_grams
     FAULT_SPEECH -> Res.string.media_err_speech

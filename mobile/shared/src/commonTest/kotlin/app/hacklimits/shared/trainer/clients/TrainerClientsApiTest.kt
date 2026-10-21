@@ -48,6 +48,7 @@ class TrainerClientsApiTest {
         assertEquals(7L, clients[0].id)
         assertEquals("active", clients[0].plan)
         assertTrue(clients[0].atRisk)
+        assertEquals(listOf("2026-10-14", "2026-10-16"), clients[0].missedDates)
 
         val card = api.card(7)
         assertEquals("Anna", card.client.name)
@@ -103,6 +104,81 @@ class TrainerClientsApiTest {
                 }),
             ),
         )
-        assertTrue(api.nudgeInterview(7, key = "1a2b3c4d-0000-4000-8000-000000000001"))
+        api.nudgeInterview(7, key = "1a2b3c4d-0000-4000-8000-000000000001")
+    }
+
+    @Test
+    fun cardDecodesReadinessHistoryPhotosAndTheDraftWindow() = runTest {
+        val api = TrainerClientsApi(
+            ApiClient(
+                "https://api.example.test",
+                InMemorySessionStore(token),
+                HttpClient(MockEngine { _ ->
+                    respond(
+                        """{"data":{"client":{"id":7,"name":"Anna","onboarded":false,"flagged":false},"note":null,"card":null,"draft":{"days":4,"exercises":18,"createdAt":"2026-10-19","autoActivatesAt":"2026-10-22","postponed":false},"cycle":{"phase":"luteal","day":21},"shared":{"health":{"limitations":"none","injuries":[{"area":"knee","severity":"mild","since":"2026-10-01"}]}},"noteHistory":[{"field":"healthNotes","value":"tendon","savedAt":"2026-10-10T09:30:00Z"}],"photos":[{"id":3,"takenAt":"2026-10-12"}],"messages":[],"dashboard":{"recovery":{"score":71.6,"label":"good","factors":[]},"gamification":{"level":4,"xp":120,"intoLevel":20,"needed":80,"streak":3}}},"meta":{"version":2}}""",
+                        HttpStatusCode.OK, json,
+                    )
+                }),
+            ),
+        )
+        val card = api.card(7)
+        assertEquals(4, card.draft?.days)
+        assertEquals("2026-10-22", card.draft?.autoActivatesAt)
+        assertEquals("luteal", card.cycle?.phase)
+        assertEquals("tendon", card.noteHistory.single().value)
+        assertEquals(3L, card.photos?.single()?.id)
+        assertEquals("good", card.dashboard?.recovery?.label)
+        assertEquals(71.6, card.dashboard?.recovery?.score)
+        assertEquals(3, card.dashboard?.gamification?.streak)
+        assertEquals("knee", card.shared.health?.injuries?.single()?.area)
+    }
+
+    @Test
+    fun unreadCountsAreKeyedByClientId() = runTest {
+        val api = TrainerClientsApi(
+            ApiClient(
+                "https://api.example.test",
+                InMemorySessionStore(token),
+                HttpClient(MockEngine { request ->
+                    assertEquals("/api/v2/chat/unread", request.url.encodedPath)
+                    respond("""{"data":{"bySender":{"7":2,"x":1,"9":0}},"meta":{"version":2}}""", HttpStatusCode.OK, json)
+                }),
+            ),
+        )
+        assertEquals(mapOf(7L to 2, 9L to 0), api.chatUnread())
+    }
+
+    @Test
+    fun draftDecisionPostsTheChoiceWithAKey() = runTest {
+        val requestId = "5e6f7a8b-1c2d-4e3f-9a0b-1c2d3e4f5a6b"
+        val api = TrainerClientsApi(
+            ApiClient(
+                "https://api.example.test",
+                InMemorySessionStore(token),
+                HttpClient(MockEngine { request ->
+                    assertEquals("/api/v2/trainer/client/7/draft", request.url.encodedPath)
+                    assertEquals(requestId, request.headers["Idempotency-Key"])
+                    assertEquals("""{"decision":"postpone"}""", (request.body as TextContent).text)
+                    respond("""{"data":{"ok":true},"meta":{"version":2}}""", HttpStatusCode.OK, json)
+                }),
+            ),
+        )
+        api.decideDraft(7, "postpone", requestId)
+    }
+
+    @Test
+    fun templateFromAClientWithoutAPlanIsNotFound() = runTest {
+        val api = TrainerClientsApi(
+            ApiClient(
+                "https://api.example.test",
+                InMemorySessionStore(token),
+                HttpClient(MockEngine { request ->
+                    assertEquals("/api/v2/trainer/templates", request.url.encodedPath)
+                    assertEquals("""{"action":"create","name":"Push day","fromClientId":7}""", (request.body as TextContent).text)
+                    respond("""{"error":{"code":"not_found","message":"not found"}}""", HttpStatusCode.NotFound, json)
+                }),
+            ),
+        )
+        assertEquals(404, assertFailsWith<ApiException> { api.createTemplate(7, "Push day", "9c8b7a6d-0000-4000-8000-000000000002") }.status)
     }
 }

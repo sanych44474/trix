@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ib_title">Сповіщення</string>
+    <string name="ib_close">Закрити</string>
+    <string name="ib_error">Щось пішло не так. Спробуй ще раз.</string>
+    <string name="ib_empty">Поки нічого. Тут з\'являться оновлення плану, повідомлення тренера і бейджі.</string>
+    <string name="ib_seen_yesterday">вчора</string>
+    <string name="ib_plan_assigned">Твій план готовий: відкрий, щоб побачити цей тиждень.</string>
+    <string name="ib_plan_changed">Тренер оновив твій план.</string>
+    <string name="ib_message">%1$s: %2$s</string>
+    <string name="ib_badge">Новий бейдж: %1$s</string>
+    <string name="ib_progression">План зрушив уперед: змін на цей тиждень — %1$d.</string>
+    <string name="ib_feedback_done">Твій відгук враховано: «%1$s»</string>
+    <string name="ib_squad_pr">%1$s поставив рекорд у скваді: %2$s %3$s</string>
+    <string name="ib_squad_week">Сквад «%1$s» цього тижня: %2$s. Разом тренувань: %3$d.</string>
+    <string name="ib_squad_week_past">Сквад «%1$s» минулого тижня: %2$s. Разом тренувань: %3$d.</string>
+    <string name="ib_squads_default">Сквод</string>
+
+    <string name="ch_title">Чат</string>
+    <string name="ch_unavailable">Чат недоступний.</string>
+    <string name="ch_empty_client">Повідомлень ще немає. Привітайся або спитай про свій план.</string>
+    <string name="ch_empty_trainer">Повідомлень ще немає. Напиши першим — клієнт отримає сповіщення.</string>
+    <string name="ch_input_hint">Повідомлення</string>
+    <string name="ch_send">Надіслати</string>
+    <string name="ch_ai_draft">ШІ-чернетка відповіді</string>
+    <string name="ch_err_network">Немає зв\'язку. Перевір інтернет і спробуй ще раз.</string>
+    <string name="ch_err_generic">Щось пішло не так. Спробуй ще раз.</string>
+</resources>

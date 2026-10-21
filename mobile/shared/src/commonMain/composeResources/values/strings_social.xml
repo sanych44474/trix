@@ -54,4 +54,13 @@
     <string name="social_notice_compete_on">You are on the leaderboard now.</string>
     <string name="social_notice_compete_off">You left the leaderboard. You can rejoin any time.</string>
     <string name="social_err_not_found">That item no longer exists.</string>
+
+    <string name="so_tab_buddy">Buddy</string>
+    <string name="so_buddy_eyebrow">Buddy</string>
+    <string name="so_level">Level %1$d</string>
+    <string name="so_buddy_stats">%1$d sessions for you · %2$d for %3$s · %4$d week streak</string>
+    <string name="so_no_buddy_title">No buddy connected</string>
+    <string name="so_no_buddy_detail">Invite a training partner from Telegram to compare consistency and keep the loop alive.</string>
+    <string name="so_coach_btn">Ask the AI coach</string>
+    <string name="so_trainer_btn">Ask your trainer</string>
 </resources>

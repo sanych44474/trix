@@ -8,7 +8,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
 
-@Serializable data class AuthProviders(val googleClientId: String? = null, val telegramAvailable: Boolean = false)
+/** emailAvailable defaults to false: a server that doesn't say can't send codes (it predates the field). */
+@Serializable data class AuthProviders(val googleClientId: String? = null, val telegramAvailable: Boolean = false, val emailAvailable: Boolean = false)
 @Serializable data class EmailChallenge(val challengeId: String, val expiresInSeconds: Int = 600)
 @Serializable data class GoogleChallenge(val challengeId: String, val nonce: String, val clientId: String)
 @Serializable data class TelegramChallenge(

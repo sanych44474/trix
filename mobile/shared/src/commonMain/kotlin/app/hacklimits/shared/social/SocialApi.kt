@@ -72,6 +72,21 @@ data class Boards(
     @Serializable data class Row(val pos: Int, val name: String, val value: Double = 0.0, val detail: String = "", val me: Boolean = false)
 }
 
+/** GET /api/v2/buddy (buddyApi.ts). [buddy] is null when the viewer has no accountability partner. */
+@Serializable
+data class BuddyResponse(val buddy: Buddy? = null) {
+    @Serializable
+    data class Buddy(
+        val name: String = "",
+        val level: Int = 1,
+        val intoLevel: Int = 0,
+        val needed: Int = 0,
+        val streak: Int = 0,
+        val weekWorkouts: Int = 0,
+        val myWeekWorkouts: Int = 0,
+    )
+}
+
 /** The v2 social routes. Every call goes through ApiClient.unwrap, so errors arrive as ApiException. */
 class SocialApi(private val api: ApiClient) {
     suspend fun squads(): List<Squad> =
@@ -94,6 +109,8 @@ class SocialApi(private val api: ApiClient) {
     }
 
     suspend fun boards(): Boards = api.unwrap(api.http.get("api/v2/boards") { api.authorize(this) })
+
+    suspend fun buddy(): BuddyResponse = api.unwrap(api.http.get("api/v2/buddy") { api.authorize(this) })
 
     /** The leaderboard opt-in is a settings action, not a boards call (settingsApi.ts "compete"). */
     suspend fun setCompete(on: Boolean) {
