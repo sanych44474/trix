@@ -88,12 +88,15 @@ test("launcher: a new athlete is sent to the questionnaire whatever they type", 
   assert.match(webAppUrls(sent.at(-1)!)[0] ?? "", /view=onboarding$/);
 });
 
-test("launcher: lets through trainer/buddy deep links, payments, the owner, groups, and runs nothing without the app", async () => {
+test("launcher: lets through trainer/buddy deep links, app sign-in, payments, the owner, groups, and runs nothing without the app", async () => {
   const db = newDb();
   const user = await solo(db, 512, { onboarded: true });
   const cases: Array<[string, Record<string, unknown>, Record<string, unknown>, boolean]> = [
     ["trainer link", user as never, { message: { text: "/start tr_abc" } }, true],
     ["buddy link", user as never, { message: { text: "/start buddy_9" } }, true],
+    // Without these two the app's Telegram sign-in worked only for the owner (who skips the gate).
+    ["app sign-in link", user as never, { message: { text: "/start login_" + "a".repeat(32) } }, true],
+    ["app sign-in confirm", user as never, { callbackQuery: { data: "tglogin:ok:" + "a".repeat(32) } }, true],
     ["payment", user as never, { message: { successful_payment: {} } }, true],
     ["group", user as never, { message: { text: "hi" }, chat: { id: -1, type: "group" } }, true],
     ["no app", user as never, { message: { text: "hi" } }, false],
