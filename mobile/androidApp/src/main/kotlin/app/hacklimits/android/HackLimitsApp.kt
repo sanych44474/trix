@@ -1,5 +1,9 @@
 package app.hacklimits.android
 
+import app.hacklimits.android.media.ActivityAudioRecorder
+import app.hacklimits.shared.media.AudioRecorder
+import app.hacklimits.shared.media.NoSpeechInput
+import android.speech.SpeechRecognizer
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
@@ -17,6 +21,7 @@ import app.hacklimits.shared.platform.FileSaver
 import app.hacklimits.shared.platform.PhotoPicker
 import app.hacklimits.shared.platform.RestAlarm
 import app.hacklimits.android.health.HealthConnectSync
+import app.hacklimits.android.health.StepSensor
 import app.hacklimits.shared.integrations.HealthSync
 import app.hacklimits.shared.media.SpeechInput
 import java.lang.ref.WeakReference
@@ -58,7 +63,10 @@ class HackLimitsApp : Application() {
                     single { ActivityPhotoPicker(get()) }
                     single<PhotoPicker> { get<ActivityPhotoPicker>() }
                     single { ActivitySpeechInput(get()) }
-                    single<SpeechInput> { get<ActivitySpeechInput>() }
+                    // Without a system recognizer, voice goes through a recorded clip and server transcription.
+                    single<SpeechInput> { if (SpeechRecognizer.isRecognitionAvailable(get())) get<ActivitySpeechInput>() else NoSpeechInput }
+                    single { ActivityAudioRecorder(get()) }
+                    single<AudioRecorder> { get<ActivityAudioRecorder>() }
                     single<HealthSync> { HealthConnectSync(get()) }
                     single<GoogleSignIn> { CredentialGoogleSignIn { current?.get() } }
                     single { PushRegistrar(get(), get(), get(), get()) }
@@ -72,6 +80,7 @@ class HackLimitsApp : Application() {
             )
         }.koin
         koin.get<NativeErrorReporter>().installCrashHandler()
+        StepSensor(this).schedule()
     }
 }
 

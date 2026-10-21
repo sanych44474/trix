@@ -1,5 +1,6 @@
 package app.hacklimits.shared
 
+import app.hacklimits.shared.platform.OpenView
 import app.hacklimits.shared.trainingextras.CardioScreen
 import app.hacklimits.shared.trainingextras.ComebackScreen
 import app.hacklimits.shared.trainingextras.StandardsCard
@@ -126,7 +127,12 @@ private val TABS = listOf(
 
 /** Root: signed out -> sign-in; signed in -> the app. A 401 from the server signs out. */
 @Composable
-fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onRequestHealthPermission: () -> Unit = {}) {
+fun App(
+    onSignedIn: () -> Unit = {},
+    beforeSignOut: suspend () -> Unit = {},
+    onRequestHealthPermission: () -> Unit = {},
+    onRequestActivityPermission: () -> Unit = {},
+) {
     val display = koinInject<DisplayPreferences>()
     val displayPrefs by display.prefs.collectAsStateWithLifecycle()
     LaunchedEffect(display) { runCatching { display.load() } }
@@ -158,6 +164,12 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                 return@Surface
             }
             val nav = rememberNavController()
+            val openView by OpenView.requested.collectAsStateWithLifecycle()
+            LaunchedEffect(openView) {
+                val view = openView ?: return@LaunchedEffect
+                OpenView.consumed()
+                routeForView(view)?.let { route -> nav.navigate(route) { launchSingleTop = true } }
+            }
             val entry by nav.currentBackStackEntryAsState()
             val onTab = TABS.any { tab -> entry?.destination?.hasRoute(tab.route::class) == true }
             Scaffold(
@@ -296,7 +308,11 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                         ChatScreen(peerId = peerId.takeIf { it > 0 }, onBack = { nav.popBackStack() })
                     }
                     composable<IntegrationsRoute> {
-                        IntegrationsScreen(onBack = { nav.popBackStack() }, onRequestHealthPermission = onRequestHealthPermission)
+                        IntegrationsScreen(
+                            onBack = { nav.popBackStack() },
+                            onRequestHealthPermission = onRequestHealthPermission,
+                            onRequestActivityPermission = onRequestActivityPermission,
+                        )
                     }
                     composable<MealPhotoRoute> { MealPhotoScreen(onBack = { nav.popBackStack() }, onLogged = { nav.popBackStack() }) }
                     composable<TrainerClientsRoute> {
@@ -323,4 +339,19 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
             }
         }
     }
+}
+
+/** A notification's screen (the server's ?view= names) as a route; unknown names open nothing. */
+private fun routeForView(view: String): Any? = when (view) {
+    "today" -> TodayRoute
+    "train" -> LoggerRoute
+    "plan" -> PlanRoute()
+    "fuel" -> FoodRoute
+    "progress" -> ProgressRoute
+    "more", "settings", "role" -> MoreRoute
+    "library" -> ExerciseLibraryRoute
+    "inbox" -> InboxRoute
+    "coach" -> CoachRoute
+    "onboarding" -> OnboardingRoute
+    else -> null
 }

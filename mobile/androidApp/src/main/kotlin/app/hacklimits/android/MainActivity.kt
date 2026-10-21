@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import app.hacklimits.android.health.HealthConnectSync
+import app.hacklimits.android.health.StepSensor
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -13,8 +14,11 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import app.hacklimits.shared.App
+import app.hacklimits.shared.platform.OpenView
+import android.content.Intent
 import app.hacklimits.shared.update.AppUpdater
 import app.hacklimits.android.media.ActivityFilePicker
+import app.hacklimits.android.media.ActivityAudioRecorder
 import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
@@ -25,6 +29,8 @@ class MainActivity : ComponentActivity() {
     private val speechInput: ActivitySpeechInput by inject()
     private val updater: AppUpdater by inject()
     private val filePicker: ActivityFilePicker by inject()
+    private val audioRecorder: ActivityAudioRecorder by inject()
+    private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> audioRecorder.onPermission(granted) }
     private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> filePicker.onPicked(uri) }
     private val errors: NativeErrorReporter by inject()
     // Play's update screen reports back here; a cancelled immediate update is re-offered by the gate.
@@ -34,6 +40,10 @@ class MainActivity : ComponentActivity() {
     }
     // The Integrations screen re-checks the grant when it resumes, so the result needs no handling.
     private val healthPermission = registerForActivityResult(HealthConnectSync.permissionContract()) {}
+    // Once granted, the hourly reading keeps the start of each day; the screen re-checks on resume.
+    private val activityPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) StepSensor(this).schedule()
+    }
     private val pickPhoto = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> photoPicker.onPicked(uri) }
     // MIME type is a placeholder: the picker only needs a name, and the bytes decide the content.
     private val createDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri -> fileSaver.onPicked(uri) }
@@ -41,18 +51,27 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        OpenView.request(intent?.getStringExtra(EXTRA_VIEW))
         fileSaver.launcher = createDocument
         speechInput.launch = { intent -> recognizeSpeech.launch(intent) }
         photoPicker.launch = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
         (updater as? PlayAppUpdater)?.launcher = updateFlow
         filePicker.launch = { mime -> pickFile.launch(mime) }
+        audioRecorder.requestPermission = { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
         setContent {
             App(
                 onSignedIn = ::onSignedIn,
                 beforeSignOut = pushRegistrar::unregister,
                 onRequestHealthPermission = { healthPermission.launch(HealthConnectSync.PERMISSIONS) },
+                onRequestActivityPermission = { activityPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION) },
             )
         }
+    }
+
+    /** A notification tapped while the app is open: go to its screen. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        OpenView.request(intent.getStringExtra(EXTRA_VIEW))
     }
 
     /** The singletons outlive this Activity: drop everything that points back at it. */
@@ -63,6 +82,8 @@ class MainActivity : ComponentActivity() {
         (updater as? PlayAppUpdater)?.let { if (it.launcher === updateFlow) it.launcher = null }
         filePicker.launch = null
         filePicker.onPicked(null)
+        audioRecorder.requestPermission = null
+        audioRecorder.onPermission(false)
         super.onDestroy()
     }
 

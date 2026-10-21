@@ -5,6 +5,7 @@
 //    failure is now PERSISTED and retried, not silently dropped.
 //  - deliverDueNotifications: called once per runScheduleInner tick (the existing per-minute
 //    cron) — sweeps rows a previous attempt backed off, whose nextAttemptAt has now passed.
+import { pushActions } from "./domain/pushActions";
 import type { Bot } from "grammy";
 import { GrammyError } from "grammy";
 import { claimNotification, dueNotifications, enqueueNotification, notificationsMuted, markPermanentFailure, markRetry, markSent, type OutboxRow } from "./adapters/d1/v2Notifications";
@@ -33,7 +34,11 @@ async function attemptPush(env: Env, row: OutboxRow): Promise<DeliveryResult> {
     await markPermanentFailure(db, row.id, "failed", "no_channel");
     return "failed";
   }
-  const msg = { ...pushParts(row.payload.text, "Hack Limits"), data: { kind: row.kind } };
+  const { view, actions } = pushActions(row.payload.extra);
+  const msg = {
+    ...pushParts(row.payload.text, "Hack Limits"),
+    data: { kind: row.kind, ...(view ? { view } : {}), ...(actions.length ? { actions: JSON.stringify(actions) } : {}) },
+  };
   const results = await Promise.all(tokens.map((t) => sendPush(env, t, msg)));
   await deletePushTokens(db, tokens.filter((_, i) => results[i] === "unregistered").map((t) => t.token)).catch(() => {});
   if (results.includes("sent")) {

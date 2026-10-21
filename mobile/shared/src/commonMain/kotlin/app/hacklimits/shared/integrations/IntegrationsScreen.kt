@@ -1,5 +1,13 @@
 package app.hacklimits.shared.integrations
 
+import app.hacklimits.shared.resources.integ_health_synced_sensor
+import app.hacklimits.shared.resources.integ_health_sources
+import app.hacklimits.shared.resources.integ_health_no_sources
+import app.hacklimits.shared.resources.integ_health_open
+import app.hacklimits.shared.resources.integ_sensor_title
+import app.hacklimits.shared.resources.integ_sensor_hint
+import app.hacklimits.shared.resources.integ_sensor_on
+import app.hacklimits.shared.resources.integ_sensor_allow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,7 +42,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
-fun IntegrationsScreen(onBack: () -> Unit, onRequestHealthPermission: () -> Unit) {
+fun IntegrationsScreen(onBack: () -> Unit, onRequestHealthPermission: () -> Unit, onRequestActivityPermission: () -> Unit = {}) {
     val vm: IntegrationsViewModel = koinViewModel()
     val s by vm.state.collectAsStateWithLifecycle()
     val uri = LocalUriHandler.current
@@ -58,16 +66,46 @@ fun IntegrationsScreen(onBack: () -> Unit, onRequestHealthPermission: () -> Unit
                 !s.healthGranted -> Button(onClick = onRequestHealthPermission, enabled = !s.healthBusy, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(Res.string.integ_health_connect))
                 }
-                else -> {
-                    Text(stringResource(Res.string.integ_health_granted))
-                    Button(onClick = vm::syncSteps, enabled = !s.healthBusy, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(Res.string.integ_health_sync))
+                else -> Text(stringResource(Res.string.integ_health_granted))
+            }
+            if (s.healthGranted || s.sensorGranted) {
+                Button(onClick = vm::syncSteps, enabled = !s.healthBusy, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(Res.string.integ_health_sync))
+                }
+            }
+            s.healthSteps?.let {
+                val line = if (s.stepsFromSensor) Res.string.integ_health_synced_sensor else Res.string.integ_health_synced
+                Text(stringResource(line, it), modifier = Modifier.liveRegionPolite())
+            }
+            if (s.healthNoSteps) {
+                Text(stringResource(Res.string.integ_health_no_steps), modifier = Modifier.liveRegionPolite())
+                // Health Connect only holds what other apps write: say which do, or how to turn it on.
+                val sources = s.healthSources.orEmpty()
+                if (sources.isNotEmpty()) {
+                    Text(stringResource(Res.string.integ_health_sources, sources.joinToString(", ")), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else if (s.healthGranted) {
+                    Text(stringResource(Res.string.integ_health_no_sources), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (s.healthAvailable) {
+                    OutlinedButton(onClick = vm::openHealthSettings, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(Res.string.integ_health_open))
                     }
                 }
             }
-            s.healthSteps?.let { Text(stringResource(Res.string.integ_health_synced, it), modifier = Modifier.liveRegionPolite()) }
-            if (s.healthNoSteps) Text(stringResource(Res.string.integ_health_no_steps), modifier = Modifier.liveRegionPolite())
             s.healthError?.let { Text(stringResource(errorText(it)), color = MaterialTheme.colorScheme.error, modifier = Modifier.liveRegionPolite()) }
+        }
+
+        if (s.sensorAvailable) {
+            Section(stringResource(Res.string.integ_sensor_title)) {
+                Text(stringResource(Res.string.integ_sensor_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (s.sensorGranted) {
+                    Text(stringResource(Res.string.integ_sensor_on))
+                } else {
+                    OutlinedButton(onClick = onRequestActivityPermission, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(Res.string.integ_sensor_allow))
+                    }
+                }
+            }
         }
 
         Section(stringResource(Res.string.integ_strava_title)) {

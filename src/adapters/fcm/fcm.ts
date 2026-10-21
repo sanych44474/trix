@@ -64,9 +64,10 @@ export async function sendPush(env: Pick<Env, "FCM_SERVICE_ACCOUNT">, target: { 
       body: JSON.stringify({
         message: {
           ...(target.kind === "fid" ? { fid: target.token } : { token: target.token }),
-          notification: { title: msg.title, body: msg.body },
-          ...(msg.data ? { data: msg.data } : {}),
-          android: { priority: "high", notification: { channel_id: "reminders" } },
+          // Data only: the app builds the notification itself (PushService), which is the only way to
+          // give it action buttons and open the right screen. High priority wakes it in the background.
+          data: { ...msg.data, title: msg.title, body: msg.body },
+          android: { priority: "high" },
         },
       }),
       signal: AbortSignal.timeout(8000),

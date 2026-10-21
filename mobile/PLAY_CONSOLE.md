@@ -23,16 +23,17 @@ us do not count as "sharing" in Play's definition). No data is used for advertis
   <tr><td>Personal info — Email address</td><td>Yes</td><td>Account management</td><td>Optional (email or Google sign-in)</td></tr>
   <tr><td>Personal info — User IDs</td><td>Yes</td><td>Account management</td><td>Required</td></tr>
   <tr><td>Health and fitness — Health info</td><td>Yes (injuries, limitations, body weight and measurements, check-ins)</td><td>App functionality, Personalization</td><td>Optional</td></tr>
-  <tr><td>Health and fitness — Fitness info</td><td>Yes (workouts, steps from Health Connect, Strava activities if connected)</td><td>App functionality, Personalization</td><td>Required for the core feature</td></tr>
+  <tr><td>Health and fitness — Fitness info</td><td>Yes (workouts, steps from Health Connect or the phone's step counter, Strava activities if connected)</td><td>App functionality, Personalization</td><td>Required for the core feature</td></tr>
   <tr><td>Photos and videos — Photos</td><td>Yes (progress photos, meal photos for estimates)</td><td>App functionality</td><td>Optional</td></tr>
   <tr><td>Messages — Other in-app messages</td><td>Yes (AI coach questions, messages with a trainer)</td><td>App functionality</td><td>Optional</td></tr>
   <tr><td>App activity — App interactions</td><td>Yes (feature usage counters)</td><td>Analytics</td><td>Required</td></tr>
   <tr><td>App info and performance — Crash logs / Diagnostics</td><td>Yes (crash reports via Firebase Crashlytics; error type and message in our server log)</td><td>App functionality</td><td>Required</td></tr>
   <tr><td>Device or other IDs</td><td>Yes (Firebase Installation ID for push)</td><td>App functionality</td><td>Optional (only with notifications)</td></tr>
-  <tr><td>Location, Financial info, Contacts, Calendar, Audio, Files, Web browsing</td><td>No</td><td>—</td><td>—</td></tr>
+  <tr><td>Audio — Voice or sound recordings</td><td>Yes, only on phones without on-device speech recognition: a voice note is sent once for transcription and not stored</td><td>App functionality</td><td>Optional</td></tr>
+  <tr><td>Location, Financial info, Contacts, Calendar, Files, Web browsing</td><td>No</td><td>—</td><td>—</td></tr>
 </table>
 
-Notes: voice input uses Android's on-device speech recognition, so no audio reaches us. Uploaded
+Notes: voice input uses Android's on-device speech recognition when the phone has it, so no audio reaches us; only phones without it record a short clip that is sent once for transcription and deleted. Uploaded
 photos are re-encoded on the phone, which strips location data.
 
 ## Health apps declaration

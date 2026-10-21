@@ -23,7 +23,7 @@ async function serviceAccount() {
 /** Stub Google: the OAuth exchange and FCM send. `fcm` decides each send's HTTP outcome by token. */
 function stubGoogle(fcm: (token: string) => Response) {
   const real = globalThis.fetch;
-  const sent: Array<{ token: string; field: string; title: string; body: string }> = [];
+  const sent: Array<{ token: string; field: string; title: string; body: string; view?: string; actions?: string }> = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url === "https://oauth2.googleapis.com/token") {
@@ -34,9 +34,11 @@ function stubGoogle(fcm: (token: string) => Response) {
     }
     if (url === "https://fcm.googleapis.com/v1/projects/hl-test/messages:send") {
       assert.equal(new Headers(init?.headers).get("authorization"), "Bearer ya29.test");
-      const { message } = JSON.parse(String(init?.body)) as { message: { token?: string; fid?: string; notification: { title: string; body: string } } };
+      const { message } = JSON.parse(String(init?.body)) as { message: { token?: string; fid?: string; notification?: unknown; data: { title: string; body: string; view?: string; actions?: string } } };
       const address = message.fid ?? message.token ?? "";
-      sent.push({ token: address, field: message.fid ? "fid" : "token", ...message.notification });
+      // Data-only: the app draws the notification (so it can carry action buttons).
+      assert.equal(message.notification, undefined);
+      sent.push({ token: address, field: message.fid ? "fid" : "token", title: message.data.title, body: message.data.body, ...(message.data.view ? { view: message.data.view } : {}), ...(message.data.actions ? { actions: message.data.actions } : {}) });
       return fcm(address);
     }
     return real(input, init);
@@ -109,4 +111,16 @@ test("push API: register, re-register moves the token, unregister only removes y
   assert.deepEqual(await listPushTokens(db, 62), []);
   await call(62, "POST", { token: TOKEN_B, platform: "android", kind: "fid" });
   assert.deepEqual((await listPushTokens(db, 62)).map((t) => [t.token, t.kind]), [[TOKEN_B, "fid"]], "the app says it registered an installation ID");
+});
+
+test("pushActions: screens from the Telegram buttons; the first is where a tap goes", async () => {
+  const { pushActions } = await import("../src/domain/pushActions");
+  const extra = { parse_mode: "HTML", reply_markup: { inline_keyboard: [
+    [{ text: "🏋️ Start workout", web_app: { url: "https://trix.example/app-v2?view=train" } }],
+    [{ text: "Plan", url: "https://trix.example/app-v2?view=plan&x=1" }, { text: "Again train", web_app: { url: "https://trix.example/app-v2?view=train" } }],
+    [{ text: "Old chat button", callback_data: "menu:today" }, { text: "Odd", url: "https://trix.example/?view=nope" }],
+  ] } };
+  assert.deepEqual(pushActions(extra), { view: "train", actions: [{ label: "🏋️ Start workout", view: "train" }, { label: "Plan", view: "plan" }] });
+  assert.deepEqual(pushActions(undefined), { actions: [] });
+  assert.deepEqual(pushActions({ reply_markup: { inline_keyboard: [[{ text: "x", callback_data: "y" }]] } }), { actions: [] });
 });

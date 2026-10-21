@@ -22,4 +22,12 @@
     <string name="integ_strava_sync">Sync now</string>
     <string name="integ_strava_synced">Imported %1$d activities.</string>
     <string name="integ_strava_disconnect">Disconnect</string>
+    <string name="integ_health_synced_sensor">Added %1$d steps for today from the phone’s step counter.</string>
+    <string name="integ_health_sources">Apps sending steps to Health Connect: %1$s. Open that app once so it syncs.</string>
+    <string name="integ_health_no_sources">No app sends steps to Health Connect yet. Samsung: Samsung Health → Settings → Health Connect → allow Steps. Other phones: Google Fit → Settings → Sync with Health Connect.</string>
+    <string name="integ_health_open">Open Health Connect</string>
+    <string name="integ_sensor_title">Phone step counter</string>
+    <string name="integ_sensor_hint">Counts steps with the phone’s own sensor when Health Connect has none. Counting starts once you allow it.</string>
+    <string name="integ_sensor_on">The phone’s step counter is on.</string>
+    <string name="integ_sensor_allow">Count steps with this phone</string>
 </resources>
