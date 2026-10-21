@@ -26,6 +26,19 @@ function expandNumberedPlaceholders(sql: string): { sql: string; refs: number[] 
   return { sql: rewritten, refs };
 }
 
+// D1's result envelope. Reads carry rows in `results`; writes carry an empty `results` and
+// `meta.changes`. `.all()`, `.run()` and `db.batch()` all return this shape.
+export interface D1Result<T = unknown> {
+  results: T[];
+  success: true;
+  meta: { changes: number; last_row_id: number; rows_read: number; rows_written: number; duration: number };
+}
+
+// node:sqlite (Node 22.14) has no `columns()`, so a statement counts as row-returning when it reads
+// (SELECT/WITH/VALUES/PRAGMA) or has RETURNING. Caveat: a `WITH ... INSERT` runs through `.all()`,
+// so its meta.changes reads 0. No repo uses that form.
+const ROW_RETURNING_RE = /^\s*(?:SELECT|WITH|VALUES|PRAGMA)\b|\bRETURNING\b/i;
+
 // One bound statement. node:sqlite is synchronous; D1 callers await the results (awaiting a
 // non-promise is fine), so we can return plain values.
 class Stmt {
@@ -49,12 +62,26 @@ class Stmt {
   first<T = unknown>(): T | null {
     return (this.raw.prepare(this.text()).get(...(this.bound() as never[])) as T) ?? null;
   }
-  all<T = unknown>(): { results: T[] } {
-    return { results: this.raw.prepare(this.text()).all(...(this.bound() as never[])) as T[] };
+  /** Executes the statement and returns the D1Result envelope (what `.all()` and `batch()` report). */
+  exec<T = unknown>(): D1Result<T> {
+    const sql = this.text();
+    const args = this.bound() as never[];
+    if (ROW_RETURNING_RE.test(sql)) {
+      const results = this.raw.prepare(sql).all(...args) as T[];
+      return { results, success: true, meta: { changes: 0, last_row_id: 0, rows_read: results.length, rows_written: 0, duration: 0 } };
+    }
+    const info = this.raw.prepare(sql).run(...args);
+    return {
+      results: [],
+      success: true,
+      meta: { changes: info.changes, last_row_id: Number(info.lastInsertRowid), rows_read: 0, rows_written: info.changes, duration: 0 },
+    };
   }
-  run() {
-    const info = this.raw.prepare(this.text()).run(...(this.bound() as never[]));
-    return { meta: { changes: info.changes, last_row_id: Number(info.lastInsertRowid), rows_written: info.changes } };
+  all<T = unknown>(): D1Result<T> {
+    return this.exec<T>();
+  }
+  run(): D1Result {
+    return this.exec();
   }
 }
 
@@ -64,10 +91,12 @@ class FakeD1 {
   prepare(sql: string) {
     return new Stmt(this.raw, sql);
   }
-  async batch(stmts: Stmt[]) {
+  // Like D1: all statements run in one transaction and results come back in order (reads as rows,
+  // writes as meta). Any failure rolls the whole batch back before rethrowing.
+  async batch<T = unknown>(stmts: Stmt[]): Promise<D1Result<T>[]> {
     this.raw.exec("BEGIN");
     try {
-      const out = stmts.map((s) => s.run());
+      const out = stmts.map((s) => s.exec<T>());
       this.raw.exec("COMMIT");
       return out;
     } catch (e) {
