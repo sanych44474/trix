@@ -168,7 +168,9 @@ async function attachGoogleIdentity(db: DB, subject: string, email: string | nul
 
 async function providersRoute(env: Env): Promise<Response> {
   const username = env.BOT_USERNAME?.replace(/^@/, "");
-  return json({ googleClientId: env.GOOGLE_CLIENT_ID ?? null, telegramAvailable: !!username && /^[A-Za-z0-9_]{5,32}$/.test(username) });
+  // Same condition emailAuth.ts checks before it sends a code: the app hides email sign-in otherwise.
+  const emailAvailable = !!env.RESEND_API_KEY && !!env.AUTH_EMAIL_FROM && (env.AUTH_SECRET?.length ?? 0) >= 32;
+  return json({ googleClientId: env.GOOGLE_CLIENT_ID ?? null, telegramAvailable: !!username && /^[A-Za-z0-9_]{5,32}$/.test(username), emailAvailable });
 }
 
 async function googleNonceRoute(req: Request, url: URL, env: Env): Promise<Response> {

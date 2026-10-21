@@ -66,3 +66,11 @@ test("Google sign-in: an Android Credential Manager token (azp = Android client)
   assert.match(ok!.headers.get("set-cookie") ?? "", /__Host-trix_session=.*HttpOnly/);
   assert.equal((await verify(c3.challengeId, await sign(claims(c3.nonce))))!.status, 401, "a challenge is single-use");
 });
+
+test("providers says whether email codes can be sent, so the app can hide email sign-in", async () => {
+  const url = new URL(`${origin}/api/v2/auth/providers`);
+  const get = async (env: Partial<Env>) => ((await (await handleProviderAuth(new Request(url), url, env as Env))!.json()) as { data: { emailAvailable: boolean } }).data.emailAvailable;
+  assert.equal(await get({}), false);
+  assert.equal(await get({ RESEND_API_KEY: "re_x", AUTH_EMAIL_FROM: "a@b.c", AUTH_SECRET: "s".repeat(32) }), true);
+  assert.equal(await get({ RESEND_API_KEY: "re_x", AUTH_SECRET: "s".repeat(32) }), false);
+});
