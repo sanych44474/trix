@@ -15,4 +15,18 @@
     <string name="coach_err_invalid">That question is empty or longer than 500 characters.</string>
     <string name="coach_err_not_found">The coach is not available for this account right now.</string>
     <string name="coach_err_generic">Something went wrong. Try again.</string>
+
+    <string name="co_ai_eyebrow">AI coach</string>
+    <string name="co_ai_title">Chat with the AI coach</string>
+    <string name="co_intro">Ask about training, weight, food or your plan. The coach sees your plan and recent workouts and can suggest a change right away — tap the button under the answer. Found a bug or have an idea? Say so and the coach will pass it to the team.</string>
+    <string name="co_action_done">Done, plan updated</string>
+    <string name="co_feedback_sent">Sent to the team</string>
+    <string name="co_clear">Start a new chat</string>
+    <string name="co_trainer_eyebrow">Your trainer</string>
+    <string name="co_trainer_title">Chat with your trainer</string>
+    <string name="co_trainer_detail">Your trainer: %1$s. Write here: questions, how the workout went, anything about food. They get a notification.</string>
+    <string name="co_trainer_fallback">Your trainer</string>
+    <string name="co_questions_title">Questions waiting for a reply</string>
+    <string name="co_awaiting_reply">Awaiting reply</string>
+    <string name="co_conversation_eyebrow">Conversation</string>
 </resources>

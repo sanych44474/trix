@@ -27,7 +27,7 @@ us do not count as "sharing" in Play's definition). No data is used for advertis
   <tr><td>Photos and videos — Photos</td><td>Yes (progress photos, meal photos for estimates)</td><td>App functionality</td><td>Optional</td></tr>
   <tr><td>Messages — Other in-app messages</td><td>Yes (AI coach questions, messages with a trainer)</td><td>App functionality</td><td>Optional</td></tr>
   <tr><td>App activity — App interactions</td><td>Yes (feature usage counters)</td><td>Analytics</td><td>Required</td></tr>
-  <tr><td>App info and performance — Crash logs / Diagnostics</td><td>Yes (server-side error records)</td><td>App functionality</td><td>Required</td></tr>
+  <tr><td>App info and performance — Crash logs / Diagnostics</td><td>Yes (crash reports via Firebase Crashlytics; error type and message in our server log)</td><td>App functionality</td><td>Required</td></tr>
   <tr><td>Device or other IDs</td><td>Yes (Firebase Installation ID for push)</td><td>App functionality</td><td>Optional (only with notifications)</td></tr>
   <tr><td>Location, Financial info, Contacts, Calendar, Audio, Files, Web browsing</td><td>No</td><td>—</td><td>—</td></tr>
 </table>

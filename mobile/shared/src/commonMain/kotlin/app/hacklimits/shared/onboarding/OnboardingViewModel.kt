@@ -3,8 +3,9 @@ package app.hacklimits.shared.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hacklimits.shared.data.ApiException
-import app.hacklimits.shared.data.OnboardingAnswers
 import app.hacklimits.shared.data.OnboardingApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -12,63 +13,180 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 
 /**
- * The questionnaire, in four short steps: goal -> level and equipment -> training days -> about you.
- * Only what the plan generator needs is asked (src/webapp/profileApi.ts requires sex, age, goal,
- * level, training days and equipment); height, weight and the rest are asked later on Today.
- * Each step saves the draft, which is also what the owner funnel counts as "started".
+ * The onboarding questionnaire (Mini App Onboarding.tsx): a welcome screen, then one question per
+ * screen. Choice answers advance on tap; typed answers have a Next button. Answers are saved to the
+ * server as a draft (debounced), so closing the app resumes at the first open question.
+ *
+ * The other way in is a ready program: the body basics (sex, age, height, weight), then the program
+ * list; applying one onboards the person. [isClient] adds the trainer-sharing question.
  */
-class OnboardingViewModel(private val api: OnboardingApi) : ViewModel() {
+class OnboardingViewModel(private val api: OnboardingApi, val isClient: Boolean = false) : ViewModel() {
+    enum class Mode { QUESTIONS, BASICS, PICK }
+
+    enum class Failure { SAVE, VALIDATION }
+
     data class State(
-        val step: Int = 0,
-        val answers: OnboardingAnswers = OnboardingAnswers(),
-        val busy: Boolean = false,
-        val error: String? = null,
+        val answers: Answers = Answers(),
+        /** -1 is the welcome screen; otherwise the index into [steps]. */
+        val index: Int = -1,
+        val mode: Mode = Mode.QUESTIONS,
+        val saving: Boolean = false,
+        val failure: Failure? = null,
         val submitted: Boolean = false,
-    ) {
-        val canContinue: Boolean get() = when (step) {
-            0 -> answers.goal != null
-            1 -> answers.level != null && answers.equipment != null
-            2 -> answers.trainingWeekdays.isNotEmpty()
-            else -> answers.sex != null && (answers.age ?: 0) in 10..100
-        }
-    }
+        /** A draft was found on the server; the welcome screen offers to resume it. */
+        val hasDraft: Boolean = false,
+    )
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
+    private var draftJob: Job? = null
+    private var advanceJob: Job? = null
 
-    fun update(change: (OnboardingAnswers) -> OnboardingAnswers) = _state.update { it.copy(answers = change(it.answers), error = null) }
-
-    fun toggleDay(day: Int) = update { a ->
-        a.copy(trainingWeekdays = (if (day in a.trainingWeekdays) a.trainingWeekdays - day else a.trainingWeekdays + day).sorted())
+    init {
+        viewModelScope.launch {
+            val draft = api.loadDraft()
+            if (draft != null && draft != Answers()) _state.update { it.copy(answers = draft, hasDraft = true) }
+        }
     }
 
-    fun back() = _state.update { if (it.step > 0) it.copy(step = it.step - 1, error = null) else it }
+    fun stepsOf(s: State): List<Step> = if (s.mode == Mode.BASICS) basicSteps() else stepsFor(s.answers, isClient)
 
-    fun next() {
+    fun answeredCount(s: State): Int = stepsOf(s).count { isAnswered(it, s.answers) }
+
+    /** Welcome -> the first open question (a resumed draft continues where it stopped). */
+    fun start() = _state.update { it.copy(index = firstOpenStep(it.answers, isClient), mode = Mode.QUESTIONS, failure = null) }
+
+    /** Welcome -> the ready-program path: body basics first. */
+    fun startReady() = _state.update { it.copy(mode = Mode.BASICS, index = 0, failure = null) }
+
+    fun back() {
         val s = _state.value
-        if (!s.canContinue || s.busy) return
-        if (s.step < LAST_STEP) {
-            _state.update { it.copy(step = it.step + 1) }
-            viewModelScope.launch { runCatching { api.saveDraft(s.answers, answered = s.step + 1, total = LAST_STEP + 1) } }
-            return
+        advanceJob?.cancel()
+        when {
+            s.mode == Mode.PICK -> _state.update { it.copy(mode = Mode.QUESTIONS, index = -1, failure = null) }
+            s.mode == Mode.BASICS && s.index == 0 -> _state.update { it.copy(mode = Mode.QUESTIONS, index = -1, failure = null) }
+            else -> _state.update { it.copy(index = it.index - 1, failure = null) }
         }
-        viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null) }
-            try {
-                api.submit(s.answers.copy(timezone = TimeZone.currentSystemDefault().id))
-                _state.update { it.copy(busy = false, submitted = true) }
-            } catch (e: ApiException) {
-                _state.update { it.copy(busy = false, error = e.code) }
-            } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = "network") }
+    }
+
+    private fun edit(change: (Answers) -> Answers) {
+        _state.update { it.copy(answers = change(it.answers), failure = null) }
+        scheduleDraft()
+    }
+
+    /** Typed answers: the age, height or weight field. */
+    fun setNumber(id: StepId, raw: String) {
+        val value = raw.replace(',', '.').toDoubleOrNull()
+        edit {
+            when (id) {
+                StepId.AGE -> it.copy(age = value?.toInt())
+                StepId.HEIGHT -> it.copy(heightCm = value?.toInt())
+                else -> it.copy(weightKg = value)
             }
         }
     }
 
-    companion object {
-        const val LAST_STEP = 3
-        val GOALS = listOf("fat loss", "muscle gain", "recomposition", "strength", "endurance")
-        val LEVELS = listOf("beginner", "intermediate", "advanced")
-        val EQUIPMENT = listOf("full gym", "home basics (dumbbells, bands)", "dumbbells only", "bodyweight only")
+    fun setLift(lift: String, raw: String) {
+        val value = raw.toIntOrNull()
+        edit { a ->
+            val l = a.lifts ?: Lifts()
+            a.copy(lifts = when (lift) {
+                "bench" -> l.copy(bench = value)
+                "squat" -> l.copy(squat = value)
+                else -> l.copy(deadlift = value)
+            })
+        }
+    }
+
+    fun skipLifts() {
+        edit { it.copy(lifts = null) }
+        next()
+    }
+
+    fun toggleDay(day: Int) = edit { a ->
+        val days = a.trainingWeekdays
+        a.copy(trainingWeekdays = (if (day in days) days - day else days + day).sorted())
+    }
+
+    fun setLimitations(text: String) = edit { it.copy(limitations = text.take(500)) }
+
+    /** "No limitations": answers the text step and moves on. */
+    fun noLimitations() {
+        edit { it.copy(limitations = "none") }
+        next()
+    }
+
+    /** A choice tap: store it, then move on after a short beat so the tap visibly lands. */
+    fun chooseOption(step: Step, value: String) {
+        val next = choose(step, _state.value.answers, value)
+        edit { next }
+        advanceJob?.cancel()
+        advanceJob = viewModelScope.launch {
+            delay(180)
+            val s = _state.value
+            val steps = stepsOf(s.copy(answers = next))
+            if (s.index >= steps.size - 1) finish(next) else _state.update { it.copy(index = it.index + 1) }
+        }
+    }
+
+    /** Next on a typed step: only when the step's answer is valid. */
+    fun next() {
+        val s = _state.value
+        val steps = stepsOf(s)
+        val step = steps.getOrNull(s.index) ?: return
+        if (!isAnswered(step, s.answers) || s.saving) return
+        if (s.index >= steps.size - 1) finish(s.answers) else _state.update { it.copy(index = it.index + 1) }
+    }
+
+    private fun finish(final: Answers) {
+        if (_state.value.mode == Mode.BASICS) saveBasics(final) else submit(final)
+    }
+
+    private fun saveBasics(final: Answers) {
+        val body = basicsRequest(final) ?: return
+        viewModelScope.launch {
+            _state.update { it.copy(saving = true, failure = null) }
+            try {
+                api.saveBasics(body)
+                _state.update { it.copy(mode = Mode.PICK, index = -1) }
+            } catch (e: Exception) {
+                _state.update { it.copy(failure = Failure.SAVE) }
+            } finally {
+                _state.update { it.copy(saving = false) }
+            }
+        }
+    }
+
+    private fun submit(final: Answers) {
+        val request = toRequest(final, isClient, TimeZone.currentSystemDefault().id)
+        if (request == null) {
+            _state.update { it.copy(index = firstOpenStep(final, isClient)) }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(saving = true, failure = null) }
+            try {
+                api.submit(request)
+                _state.update { it.copy(submitted = true) }
+            } catch (e: ApiException) {
+                _state.update { it.copy(failure = if (e.code == "validation_error") Failure.VALIDATION else Failure.SAVE) }
+            } catch (e: Exception) {
+                _state.update { it.copy(failure = Failure.SAVE) }
+            } finally {
+                _state.update { it.copy(saving = false) }
+            }
+        }
+    }
+
+    /** The server keeps a copy (another device resumes it); debounced, best-effort. */
+    private fun scheduleDraft() {
+        val s = _state.value
+        if (s.mode != Mode.QUESTIONS || s.index < 0) return
+        draftJob?.cancel()
+        draftJob = viewModelScope.launch {
+            delay(800)
+            val current = _state.value
+            runCatching { api.saveDraft(current.answers, answeredCount(current), stepsFor(current.answers, isClient).size) }
+        }
     }
 }

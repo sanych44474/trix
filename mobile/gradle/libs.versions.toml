@@ -21,6 +21,9 @@ google-services = "4.5.0"
 androidx-work = "2.12.0"
 androidx-datastore = "1.2.1"
 androidx-health-connect = "1.1.0"
+firebase-crashlytics-plugin = "3.0.8"
+play-app-update = "2.1.0"
+leakcanary = "2.14"
 
 [libraries]
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
@@ -56,6 +59,9 @@ androidx-credentials-play = { module = "androidx.credentials:credentials-play-se
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
+firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
+play-app-update = { module = "com.google.android.play:app-update-ktx", version.ref = "play-app-update" }
+leakcanary = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanary" }
 androidx-work = { module = "androidx.work:work-runtime-ktx", version.ref = "androidx-work" }
 androidx-health-connect = { module = "androidx.health.connect:connect-client", version.ref = "androidx-health-connect" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences-core", version.ref = "androidx-datastore" }
@@ -69,3 +75,4 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 google-services = { id = "com.google.gms.google-services", version.ref = "google-services" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebase-crashlytics-plugin" }

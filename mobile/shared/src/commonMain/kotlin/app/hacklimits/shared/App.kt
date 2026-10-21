@@ -1,5 +1,6 @@
 package app.hacklimits.shared
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
@@ -24,12 +25,28 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import app.hacklimits.shared.coach.CoachScreen
+import app.hacklimits.shared.chat.ChatScreen
+import app.hacklimits.shared.inbox.InboxScreen
+import app.hacklimits.shared.inbox.InboxTarget
+import app.hacklimits.shared.plan.ExerciseLibraryScreen
+import app.hacklimits.shared.plan.InjuriesScreen
+import app.hacklimits.shared.programs.ProgramsScreen
 import app.hacklimits.shared.integrations.IntegrationsScreen
 import app.hacklimits.shared.media.MealPhotoScreen
 import app.hacklimits.shared.social.SocialScreen
 import app.hacklimits.shared.trainer.business.TrainerBusinessScreen
 import app.hacklimits.shared.trainer.clients.TrainerClientsScreen
 import app.hacklimits.shared.ui.MoreDestination
+import app.hacklimits.shared.ui.MoreTool
+import app.hacklimits.shared.account.FindTrainerScreen
+import app.hacklimits.shared.owner.OwnerApi
+import app.hacklimits.shared.owner.OwnerScreen
+import app.hacklimits.shared.media.FormCheckScreen
+import app.hacklimits.shared.media.ImportCsvScreen
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import app.hacklimits.shared.settings.DisplayPreferences
 import org.koin.core.parameter.parametersOf
 import app.hacklimits.shared.data.ApiClient
 import app.hacklimits.shared.data.AuthApi
@@ -51,6 +68,10 @@ import app.hacklimits.shared.ui.TodayScreen
 import app.hacklimits.shared.ui.theme.HackLimitsIcons
 import app.hacklimits.shared.ui.theme.HackLimitsTheme
 import app.hacklimits.shared.workout.PendingSaves
+import app.hacklimits.shared.update.Gate
+import app.hacklimits.shared.update.UpdateReadyBar
+import app.hacklimits.shared.update.UpdateRequiredScreen
+import app.hacklimits.shared.update.UpdateViewModel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.jetbrains.compose.resources.StringResource
@@ -72,6 +93,16 @@ import org.koin.compose.viewmodel.koinViewModel
 @Serializable object MealPhotoRoute
 @Serializable object TrainerClientsRoute
 @Serializable object TrainerBusinessRoute
+@Serializable object ExerciseLibraryRoute
+@Serializable object ProgramsRoute
+@Serializable object InjuriesRoute
+@Serializable object InboxRoute
+@Serializable object FindTrainerRoute
+@Serializable object OwnerRoute
+@Serializable object FormCheckRoute
+@Serializable object ImportCsvRoute
+/** peerId = 0: a client's own trainer; otherwise the client a trainer is talking to. */
+@Serializable data class ChatRoute(val peerId: Long = 0)
 
 /** A bottom-bar tab: its route, label and icon. Full-screen flows (workout, plan, questionnaire)
  * open above the tabs without the bar. */
@@ -87,7 +118,10 @@ private val TABS = listOf(
 /** Root: signed out -> sign-in; signed in -> the app. A 401 from the server signs out. */
 @Composable
 fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onRequestHealthPermission: () -> Unit = {}) {
-    HackLimitsTheme {
+    val display = koinInject<DisplayPreferences>()
+    val displayPrefs by display.prefs.collectAsStateWithLifecycle()
+    LaunchedEffect(display) { runCatching { display.load() } }
+    HackLimitsTheme(displayPrefs) {
         Surface(Modifier.fillMaxSize()) {
             val sessions = koinInject<SessionStore>()
             val api = koinInject<ApiClient>()
@@ -95,6 +129,13 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
             val pending = koinInject<PendingSaves>()
             val platform = koinInject<AppPlatform>()
             val scope = rememberCoroutineScope()
+            val updates: UpdateViewModel = koinViewModel()
+            val gate by updates.gate.collectAsStateWithLifecycle()
+            val updateReady by updates.readyToInstall.collectAsStateWithLifecycle()
+            if (gate == Gate.Required) {
+                UpdateRequiredScreen(onUpdate = updates::update)
+                return@Surface
+            }
             val signedIn by sessions.signedIn.collectAsStateWithLifecycle()
             LaunchedEffect(api) { api.sessionExpired.collect { sessions.clear() } }
             LaunchedEffect(signedIn) {
@@ -112,20 +153,23 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
             val onTab = TABS.any { tab -> entry?.destination?.hasRoute(tab.route::class) == true }
             Scaffold(
                 bottomBar = {
-                    if (onTab) NavigationBar {
-                        TABS.forEach { tab ->
-                            NavigationBarItem(
-                                selected = entry?.destination?.hasRoute(tab.route::class) == true,
-                                onClick = {
-                                    nav.navigate(tab.route) {
-                                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                icon = { Icon(tab.icon, contentDescription = null) },
-                                label = { Text(stringResource(tab.label)) },
-                            )
+                    Column {
+                        if (updateReady) UpdateReadyBar(onRestart = updates::install)
+                        if (onTab) NavigationBar {
+                            TABS.forEach { tab ->
+                                NavigationBarItem(
+                                    selected = entry?.destination?.hasRoute(tab.route::class) == true,
+                                    onClick = {
+                                        nav.navigate(tab.route) {
+                                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    icon = { Icon(tab.icon, contentDescription = null) },
+                                    label = { Text(stringResource(tab.label)) },
+                                )
+                            }
                         }
                     }
                 },
@@ -138,11 +182,16 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                             onStartWorkout = { nav.navigate(LoggerRoute) },
                             onOpenPlan = { nav.navigate(PlanRoute()) },
                             onStartQuestionnaire = { nav.navigate(OnboardingRoute) },
+                            onOpenTraining = { nav.navigate(LoggerRoute) },
+                            onAskCoach = { nav.navigate(CoachRoute) },
                         )
                     }
                     composable<FoodRoute> { NutritionScreen(koinViewModel(), onOpenMealPhoto = { nav.navigate(MealPhotoRoute) }) }
                     composable<ProgressRoute> { ProgressScreen(koinViewModel()) }
                     composable<MoreRoute> {
+                        val ownerApi = koinInject<OwnerApi>()
+                        var isOwner by remember { mutableStateOf(false) }
+                        LaunchedEffect(ownerApi) { isOwner = ownerApi.isOwner() }
                         MoreScreen(
                             koinViewModel(),
                             privacyUrl = platform.privacyPolicyUrl,
@@ -159,30 +208,97 @@ fun App(onSignedIn: () -> Unit = {}, beforeSignOut: suspend () -> Unit = {}, onR
                                     },
                                 )
                             },
+                            isOwner = isOwner,
+                            onOpenTool = { tool ->
+                                when (tool) {
+                                    MoreTool.Inbox -> nav.navigate(InboxRoute)
+                                    MoreTool.Injuries -> nav.navigate(InjuriesRoute)
+                                    MoreTool.FindTrainer -> nav.navigate(FindTrainerRoute)
+                                    MoreTool.Programs -> nav.navigate(ProgramsRoute)
+                                    MoreTool.Library -> nav.navigate(ExerciseLibraryRoute)
+                                    MoreTool.Photos -> nav.navigate(ProgressRoute)
+                                    MoreTool.WeekCard -> nav.navigate(TodayRoute)
+                                    MoreTool.Owner -> nav.navigate(OwnerRoute)
+                                    MoreTool.FormCheck -> nav.navigate(FormCheckRoute)
+                                    MoreTool.ImportCsv -> nav.navigate(ImportCsvRoute)
+                                    // The plate calculator sits in the workout overview, as in the Mini App.
+                                    MoreTool.Plates -> nav.navigate(LoggerRoute)
+                                }
+                            },
                         )
                     }
                     composable<OnboardingRoute> {
-                        OnboardingScreen(koinViewModel(), onDone = { nav.popBackStack() }, onClose = { nav.popBackStack() })
+                        OnboardingScreen(
+                            koinViewModel(),
+                            onDone = { nav.popBackStack() },
+                            onClose = { nav.popBackStack() },
+                            onFindTrainer = { nav.navigate(FindTrainerRoute) },
+                            // "Become a coach" lives in More's profile section.
+                            onBecomeCoach = { nav.navigate(MoreRoute) },
+                        )
                     }
                     composable<PlanRoute> { entry ->
                         val clientId = entry.toRoute<PlanRoute>().clientId
                         PlanScreen(
                             koinViewModel(parameters = { if (clientId > 0) parametersOf(clientId) else parametersOf() }),
                             onClose = { nav.popBackStack() },
+                            onOpenLibrary = { nav.navigate(ExerciseLibraryRoute) },
                         )
                     }
+                    composable<ExerciseLibraryRoute> { ExerciseLibraryScreen(koinViewModel(), onBack = { nav.popBackStack() }) }
+                    composable<ProgramsRoute> {
+                        ProgramsScreen(koinViewModel(), onBack = { nav.popBackStack() }, onApplied = { nav.popBackStack() })
+                    }
+                    composable<InjuriesRoute> { InjuriesScreen(koinViewModel(), onBack = { nav.popBackStack() }) }
                     composable<CoachRoute> { CoachScreen(onBack = { nav.popBackStack() }) }
-                    composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }) }
+                    composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }, onOpenCoach = { nav.navigate(CoachRoute) }) }
+                    composable<OwnerRoute> { OwnerScreen(onBack = { nav.popBackStack() }) }
+                    composable<FormCheckRoute> { FormCheckScreen(onBack = { nav.popBackStack() }) }
+                    composable<ImportCsvRoute> { ImportCsvScreen(onBack = { nav.popBackStack() }) }
+                    composable<FindTrainerRoute> {
+                        FindTrainerScreen(koinViewModel(), onBack = { nav.popBackStack() }, onAccepted = { nav.popBackStack() })
+                    }
+                    composable<InboxRoute> {
+                        InboxScreen(
+                            onBack = { nav.popBackStack() },
+                            onOpen = { target ->
+                                when (target) {
+                                    InboxTarget.Plan -> nav.navigate(PlanRoute())
+                                    InboxTarget.Progress -> nav.navigate(ProgressRoute)
+                                    InboxTarget.Today -> nav.navigate(TodayRoute)
+                                    InboxTarget.More -> nav.navigate(MoreRoute)
+                                    InboxTarget.Role -> nav.navigate(CoachRoute)
+                                }
+                            },
+                        )
+                    }
+                    composable<ChatRoute> { entry ->
+                        val peerId = entry.toRoute<ChatRoute>().peerId
+                        ChatScreen(peerId = peerId.takeIf { it > 0 }, onBack = { nav.popBackStack() })
+                    }
                     composable<IntegrationsRoute> {
                         IntegrationsScreen(onBack = { nav.popBackStack() }, onRequestHealthPermission = onRequestHealthPermission)
                     }
                     composable<MealPhotoRoute> { MealPhotoScreen(onBack = { nav.popBackStack() }, onLogged = { nav.popBackStack() }) }
                     composable<TrainerClientsRoute> {
-                        TrainerClientsScreen(onBack = { nav.popBackStack() }, onOpenClientPlan = { id -> nav.navigate(PlanRoute(id)) })
+                        TrainerClientsScreen(
+                            onBack = { nav.popBackStack() },
+                            onOpenClientPlan = { id -> nav.navigate(PlanRoute(id)) },
+                            onOpenChat = { id -> nav.navigate(ChatRoute(id)) },
+                            onOpenCoach = { nav.navigate(CoachRoute) },
+                            onOpenBusiness = { nav.navigate(TrainerBusinessRoute) },
+                        )
                     }
                     composable<TrainerBusinessRoute> { TrainerBusinessScreen(onBack = { nav.popBackStack() }) }
                     composable<LoggerRoute> {
-                        LoggerScreen(koinViewModel(), onClose = { nav.popBackStack() })
+                        LoggerScreen(
+                            koinViewModel(),
+                            onClose = { nav.popBackStack() },
+                            onAskCoach = { nav.navigate(CoachRoute) },
+                            planContent = {
+                                PlanScreen(koinViewModel(), onClose = {}, onOpenLibrary = { nav.navigate(ExerciseLibraryRoute) })
+                            },
+                        )
                     }
                 }
             }

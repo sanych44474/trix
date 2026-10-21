@@ -15,4 +15,18 @@
     <string name="coach_err_invalid">Запитання порожнє або довше за 500 символів.</string>
     <string name="coach_err_not_found">Коуч зараз недоступний для цього акаунта.</string>
     <string name="coach_err_generic">Щось пішло не так. Спробуйте знову.</string>
+
+    <string name="co_ai_eyebrow">AI-тренер</string>
+    <string name="co_ai_title">Чат з AI-тренером</string>
+    <string name="co_intro">Питай про тренування, вагу, харчування чи план. Тренер бачить твій план і останні тренування й може одразу запропонувати зміну — натисни кнопку під відповіддю. Знайшов баг чи маєш ідею — напиши, тренер передасть команді.</string>
+    <string name="co_action_done">Готово, план оновлено</string>
+    <string name="co_feedback_sent">Передано команді</string>
+    <string name="co_clear">Почати нову розмову</string>
+    <string name="co_trainer_eyebrow">Твій тренер</string>
+    <string name="co_trainer_title">Чат з тренером</string>
+    <string name="co_trainer_detail">Тренер: %1$s. Пиши сюди питання, як пройшло тренування, що не так із харчуванням — тренер отримає сповіщення.</string>
+    <string name="co_trainer_fallback">Твій тренер</string>
+    <string name="co_questions_title">Питання, що чекають відповіді</string>
+    <string name="co_awaiting_reply">Чекає відповіді</string>
+    <string name="co_conversation_eyebrow">Листування</string>
 </resources>

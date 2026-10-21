@@ -153,11 +153,11 @@ export async function handleClientErrorApi(req: Request, url: URL, env: Env): Pr
   // broken client is trying to send.
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return parsed.response;
-  const body = parsed.body as { message?: unknown; source?: unknown; line?: unknown };
+  const body = parsed.body as { message?: unknown; source?: unknown; line?: unknown; surface?: unknown };
   const message = typeof body.message === "string" ? body.message.trim().slice(0, 160) : "";
   if (!message) return Response.json({ error: "bad request" }, { status: 400 });
   const where = typeof body.source === "string" && body.source ? ` @ ${body.source.slice(-40)}:${Number(body.line) || 0}` : "";
-  await recordError(env.DB, { userId: user._id, kind: "webapp", errorType: "client_js", message: `${message}${where}` }).catch(() => {});
+  await recordError(env.DB, { userId: user._id, kind: body.surface === "native" ? "native" : "webapp", errorType: body.surface === "native" ? "client_native" : "client_js", message: `${message}${where}` }).catch(() => {});
   return Response.json({ ok: true });
 }
 

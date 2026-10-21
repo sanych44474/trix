@@ -171,6 +171,10 @@ ALLOW_DEBUG_USER = "0"
 # Enabled for all users [2026-09-16] once the v2 cutover (all 10 domains) landed and was verified
 # live against production data. The legacy /app shell is retired (docs/adr/0006-retire-legacy-app-shell.md).
 V2_APP_ENABLED = "1"
+# Native app update gate (GET /api/v2/app/config). Below MIN the app blocks and updates; below
+# LATEST it offers a background update. Raise MIN only after that build is live on Play.
+ANDROID_MIN_VERSION_CODE = "1"
+ANDROID_LATEST_VERSION_CODE = "1"
 AUTH_EMAIL_FROM = ""
 # Your bot's @username (no @), numeric id and display name. BOT_ID + BOT_USERNAME let the Worker
 # skip a getMe round-trip per webhook; leave them empty and grammY fetches it once instead.

@@ -1,0 +1,31 @@
+<resources>
+    <string name="md_delete">Видалити</string>
+    <string name="md_close">Закрити</string>
+    <string name="md_saving">Збереження…</string>
+    <string name="md_meal_caption_ph">Підказка для ШІ (необов\'язково): напр. 200 г рису, без олії</string>
+    <string name="md_meal_unreadable">Не вдалося розпізнати їжу на фото. Зніми ближче й згори або опиши страву нижче.</string>
+    <string name="md_meal_limit">На сьогодні ліміт фото-оцінок вичерпано. Опиши страву текстом.</string>
+    <string name="md_meal_another">Інше фото</string>
+    <string name="md_voice_record">Записати голосом</string>
+    <string name="md_voice_stop">Зупинити запис</string>
+    <string name="md_voice_no_mic">Немає доступу до мікрофона. Дозволь його для Telegram у налаштуваннях телефона.</string>
+    <string name="md_voice_unclear">Не вдалося розібрати слова. Спробуй ще раз ближче до мікрофона.</string>
+    <string name="md_form_check_title">Перевірка техніки за відео</string>
+    <string name="md_form_check_intro">Зніми один підхід збоку, усе тіло в кадрі, до %1$d с. ШІ-тренер відповість 2–3 підказками на наступний підхід.</string>
+    <string name="md_form_check_caption_ph">Вправа (необов\'язково), напр. присід зі штангою</string>
+    <string name="md_form_check_btn">Зняти або вибрати відео</string>
+    <string name="md_form_check_watching">Дивлюся твій підхід…</string>
+    <string name="md_form_check_disclaimer">Це тренерські підказки, не медична порада. Якщо щось болить — зменш вагу й звернись до фахівця.</string>
+    <string name="md_form_check_too_big">Відео завелике. Обріж до одного підходу (до %1$d с).</string>
+    <string name="md_form_check_too_long">Відео довше за %1$d с. Обріж до одного підходу.</string>
+    <string name="md_form_check_limit">На сьогодні %1$d перевірок вичерпано. Більше — завтра.</string>
+    <string name="md_form_check_failed">Не вдалося перевірити це відео. Спробуй ще раз при кращому світлі, щоб усе тіло було в кадрі.</string>
+    <string name="md_import_title">Історія зі Strong чи Hevy</string>
+    <string name="md_import_detail">У Strong чи Hevy експортуй тренування в CSV (Налаштування → Експорт даних), потім вибери файл тут. Дні, які ти вже записав у trix, не змінюються.</string>
+    <string name="md_import_btn">Вибрати CSV-файл</string>
+    <string name="md_import_done">Імпортовано днів тренувань: %1$d, пропущено вже записаних: %2$d.</string>
+    <string name="md_import_done_capped">Імпортовано днів тренувань: %1$d (останні %3$d), пропущено вже записаних: %2$d.</string>
+    <string name="md_import_too_big">Файл завеликий (макс. 3 МБ).</string>
+    <string name="md_import_wrong_format">Це не схоже на CSV-експорт зі Strong чи Hevy.</string>
+    <string name="md_import_failed">Імпорт не вдався. Спробуй ще раз.</string>
+</resources>

@@ -27,6 +27,8 @@ data class ClientRow(
     val flagged: Boolean = false,
     val onboarded: Boolean = false,
     val plan: String = "none",
+    /** Two missed planned dates, when the client is at risk for missed workouts. */
+    val missedDates: List<String>? = null,
 )
 
 @Serializable data class TrainerRequest(val id: Long, val clientId: Long, val name: String, val note: String = "")
@@ -55,20 +57,43 @@ data class TrainerInvite(
     val prospects: List<ProspectInvite> = emptyList(),
 )
 
-/** GET /api/v2/trainer/client/{id}/card — only the fields the card screen shows. */
+/** GET /api/v2/trainer/client/{id}/card. Fields the card screen does not show are left out. */
 @Serializable
 data class ClientCard(
     val client: CardClient,
     val note: String? = null,
     val card: CardNotes? = null,
     val draft: Draft? = null,
+    val cycle: Cycle? = null,
     val shared: Shared = Shared(),
+    val noteHistory: List<NoteEntry> = emptyList(),
+    val photos: List<Photo>? = null,
+    val dashboard: Dashboard? = null,
 ) {
     @Serializable data class CardClient(val id: Long, val name: String, val onboarded: Boolean = false, val flagged: Boolean = false)
     @Serializable data class CardNotes(val healthNotes: String? = null, val personalNotes: String? = null, val birthday: String? = null)
-    @Serializable data class Draft(val days: Int, val exercises: Int, val createdAt: String)
-    @Serializable data class Shared(val body: Body? = null, val health: Health? = null) {
-        @Serializable data class Body(val heightCm: Double? = null, val weightKg: Double? = null, val goalWeight: Double? = null)
+    @Serializable
+    data class Draft(
+        val days: Int,
+        val exercises: Int,
+        val createdAt: String,
+        val autoActivatesAt: String? = null,
+        val postponed: Boolean = false,
+    )
+    @Serializable data class Cycle(val phase: String, val day: Int)
+    @Serializable data class NoteEntry(val field: String, val value: String, val savedAt: String)
+    @Serializable data class Photo(val id: Long, val takenAt: String)
+
+    /** The readiness numbers only; the rest of the client's dashboard is ignored. */
+    @Serializable
+    data class Dashboard(val recovery: Recovery? = null, val gamification: Gamification? = null) {
+        @Serializable data class Recovery(val score: Double = 0.0, val label: String = "fair")
+        @Serializable data class Gamification(val level: Int = 1, val streak: Int? = null)
+    }
+
+    @Serializable
+    data class Shared(val body: Body? = null, val health: Health? = null) {
+        @Serializable data class Body(val heightCm: Double? = null, val weightKg: Double? = null, val age: Double? = null)
         @Serializable data class Health(val limitations: String? = null, val injuries: List<Injury> = emptyList())
         @Serializable data class Injury(val area: String, val severity: String, val since: String)
     }
@@ -78,7 +103,7 @@ data class ClientCard(
 @Serializable private data class ClientsBlock(val clients: List<ClientRow> = emptyList())
 @Serializable private data class RequestsBody(val requests: List<TrainerRequest> = emptyList())
 @Serializable private data class QuestionsBody(val questions: List<TrainerQuestion> = emptyList())
-@Serializable private data class NudgeResult(val ok: Boolean = true, val alreadyOnboarded: Boolean = false)
+@Serializable private data class UnreadBody(val bySender: Map<String, Int> = emptyMap())
 
 /**
  * The trainer's client-side endpoints. Every mutation sends an Idempotency-Key so a retried tap
@@ -88,6 +113,11 @@ class TrainerClientsApi(private val api: ApiClient) {
     /** Only the trainer block of the dashboard is read here; the rest of the payload is ignored. */
     suspend fun clients(): List<ClientRow> =
         api.unwrap<ClientsEnvelope>(api.http.get("api/v2/dashboard") { api.authorize(this) }).trainer?.clients ?: emptyList()
+
+    /** Unread chat messages per client id. */
+    suspend fun chatUnread(): Map<Long, Int> =
+        api.unwrap<UnreadBody>(api.http.get("api/v2/chat/unread") { api.authorize(this) })
+            .bySender.mapNotNull { (id, count) -> id.toLongOrNull()?.let { it to count } }.toMap()
 
     suspend fun requests(): List<TrainerRequest> =
         api.unwrap<RequestsBody>(api.http.get("api/v2/requests") { api.authorize(this) }).requests
@@ -124,19 +154,38 @@ class TrainerClientsApi(private val api: ApiClient) {
         api.unwrap<JsonElement>(post("api/v2/trainer/client/$clientId/flag", key, buildJsonObject { put("flagged", flagged) }))
     }
 
+    /** The trainer's call on the waiting plan draft: "assign", "postpone" or "discard". */
+    suspend fun decideDraft(clientId: Long, decision: String, key: String) {
+        api.unwrap<JsonElement>(post("api/v2/trainer/client/$clientId/draft", key, buildJsonObject { put("decision", decision) }))
+    }
+
     /** The server reads a JSON body on every trainer POST, so these send an empty object. */
     suspend fun requestPhoto(clientId: Long, key: String) {
         api.unwrap<JsonElement>(post("api/v2/trainer/client/$clientId/photo-request", key, JsonObject(emptyMap())))
     }
 
-    /** True when the client already finished the questionnaire, so nothing was sent. */
-    suspend fun nudgeInterview(clientId: Long, key: String): Boolean =
-        api.unwrap<NudgeResult>(post("api/v2/trainer/client/$clientId/interview-nudge", key, JsonObject(emptyMap()))).alreadyOnboarded
+    suspend fun nudgeInterview(clientId: Long, key: String) {
+        api.unwrap<JsonElement>(post("api/v2/trainer/client/$clientId/interview-nudge", key, JsonObject(emptyMap())))
+    }
+
+    /** Saves the client's current active plan as a reusable template. 404 when there is no active plan. */
+    suspend fun createTemplate(clientId: Long, name: String, key: String) {
+        api.unwrap<JsonElement>(post("api/v2/trainer/templates", key, buildJsonObject {
+            put("action", "create")
+            put("name", name)
+            put("fromClientId", clientId)
+        }))
+    }
 
     suspend fun invite(): TrainerInvite = api.unwrap(api.http.get("api/v2/trainer/invite") { api.authorize(this) })
 
     suspend fun createInvite(name: String, key: String): ProspectInvite =
         api.unwrap(post("api/v2/trainer/invite", key, buildJsonObject { put("name", name) }))
+
+    /** Progress photos are fetched with the bearer header, so the caller passes [bearer] to the image loader. */
+    fun photoUrl(id: Long): String = api.url("api/v2/photo?id=$id")
+
+    suspend fun bearer(): String? = api.bearer()
 
     private suspend fun post(path: String, key: String, body: JsonElement) = api.http.post(path) {
         api.authorize(this)

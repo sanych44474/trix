@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="upd_required_title">Update Hack Limits</string>
+    <string name="upd_required_body">This version is no longer supported. Update to keep training, logging and syncing your progress.</string>
+    <string name="upd_update">Update</string>
+    <string name="upd_ready">The update is downloaded.</string>
+    <string name="upd_restart">Restart</string>
+</resources>
