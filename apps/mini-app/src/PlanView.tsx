@@ -56,6 +56,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   const [videoDrafts, setVideoDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [difficultyNote, setDifficultyNote] = useState<{ weekday: number; swapped: number } | null>(null);
   const [showChanges, setShowChanges] = useState(false);
   const [dayBusy, setDayBusy] = useState<string | null>(null);
   const [openDay, setOpenDay] = useState<number | null>(null);
@@ -124,6 +125,22 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   // Only weekdays the plan does not already use -- adding a duplicate is a 409 server-side, so
   // don't offer it.
   const removeDay = (weekday: number) => mutateDay(`del:${weekday}`, { action: "daydel", weekday });
+
+  // Whole-day "easier / harder": swaps this day's exercises one difficulty tier (the bot's buttons).
+  const stepDifficulty = async (weekday: number, dir: "up" | "down") => {
+    if (!plan) return;
+    setDayBusy(`diff:${weekday}:${dir}`); setSaved(null); setActionError(null); setDifficultyNote(null);
+    try {
+      const result = await api<{ ok: true; swapped: number; days: Plan["days"]; version: string; changes?: Plan["changes"] }>("/api/v2/plan", {
+        method: "POST",
+        headers: { "If-Match": `"${plan.version}"` },
+        idempotencyKey: crypto.randomUUID(),
+        body: typedBody<"editPlan">({ action: "difficulty", weekday, dir, clientId: clientId ?? undefined }),
+      });
+      setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}) });
+      setDifficultyNote({ weekday, swapped: result.swapped });
+    } catch (err) { setActionError(err); } finally { setDayBusy(null); }
+  };
 
   const addExercise = async (weekday: number) => {
     const name = newExercises[weekday]?.trim();
@@ -304,6 +321,11 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
               </li>)}
             </ol>
             <button type="button" className="button button-secondary button-block" onClick={() => setSheet({ kind: "pick", weekday })}><Icon name="plus" size={20} />{t(lang, "plan_add_exercise_btn")}</button>
+            <div className="button-row">
+              <button type="button" className="button button-secondary" disabled={dayBusy !== null} onClick={() => void stepDifficulty(weekday, "down")}>{dayBusy === `diff:${weekday}:down` ? "…" : t(lang, "plan_diff_easier_btn")}</button>
+              <button type="button" className="button button-secondary" disabled={dayBusy !== null} onClick={() => void stepDifficulty(weekday, "up")}>{dayBusy === `diff:${weekday}:up` ? "…" : t(lang, "plan_diff_harder_btn")}</button>
+            </div>
+            {difficultyNote?.weekday === weekday && <p className="muted">{difficultyNote.swapped > 0 ? t(lang, "plan_diff_swapped", { n: difficultyNote.swapped }) : t(lang, "plan_diff_none")}</p>}
             {plan.days.length > 1 && <button className="button button-quiet danger" disabled={dayBusy !== null} onClick={() => void removeDay(weekday)}>{dayBusy === `del:${weekday}` ? "…" : t(lang, "plan_day_remove_btn")}</button>}
           </div>}
         </li>;

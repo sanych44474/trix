@@ -1,5 +1,6 @@
 import { recentExerciseNames } from "./logic/bodyMap";
 import { StravaCard } from "./StravaCard";
+import { WellbeingCard } from "./WellbeingCard";
 import { WeightChart } from "./WeightChart";
 import { PhotoPair } from "./PhotoPair";
 import { targetsForDay } from "./logic/dayTargets";
@@ -252,6 +253,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
         <button className="button button-secondary button-block" disabled={busy === "checkin"} onClick={() => void post("checkin", { kind: "checkin", ...checkin })}>{busy === "checkin" ? t(lang, "saving_ellipsis") : t(lang, "save_checkin_btn")}</button>
         {notice && <div className="save-note">{notice}</div>}
       </Card>
+      <WellbeingCard lang={lang} />
 
       <Card>
         <h2 className="card-title">{t(lang, "progress_photo_upload_title")}</h2>

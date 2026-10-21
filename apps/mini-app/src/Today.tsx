@@ -12,6 +12,7 @@ import { todayPlan } from "./logic/todayPlan";
 import { canUseMainButton, showMainButton } from "./telegram";
 import { FineTuneCard } from "./FineTuneCard";
 import { WhatsNewCard } from "./WhatsNew";
+import { EveningChecklistCard } from "./EveningChecklist";
 import { WeekCard, WeekSummaryCard } from "./Week";
 import { Icon } from "./icons";
 import { Card } from "./train/ui";
@@ -85,6 +86,11 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
   const group = dashboard.calendar.split.find((d) => d.weekday === plan.week.find((w) => w.today)?.weekday)?.group;
   const [more, setMore] = useState(() => { try { return localStorage.getItem(MORE_KEY) === "1"; } catch { return false; } });
   const toggleMore = () => { const next = !more; setMore(next); try { localStorage.setItem(MORE_KEY, next ? "1" : "0"); } catch { /* optional */ } };
+  // The checklist's water and steps items open the water-and-steps block inside the "more" section.
+  const openWaterSteps = () => {
+    if (!more) toggleMore();
+    requestAnimationFrame(() => document.getElementById("today-more")?.scrollIntoView({ block: "start", behavior: "smooth" }));
+  };
 
   const primary = plan.state === "start" || plan.state === "continue";
   const action = plan.state === "start" ? t(lang, "start_session")
@@ -137,6 +143,7 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
       <WeekStrip lang={lang} week={plan.week} />
     </section>
 
+    <EveningChecklistCard lang={lang} dashboard={dashboard} onOpen={onOpen} onWaterSteps={openWaterSteps} />
     {dashboard.viewer.profileGaps && dashboard.viewer.profileGaps.length > 0 && <FineTuneCard lang={lang} gaps={dashboard.viewer.profileGaps} onSaved={onReload} />}
     {dashboard.whatsnew && <WhatsNewCard lang={lang} version={dashboard.whatsnew.version} text={dashboard.whatsnew.text} />}
 

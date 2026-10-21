@@ -13,9 +13,9 @@ import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Weekday } from "../types";
 import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
 import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
-import { getCatalogExercise, listCandidatesByMuscles, listExercisesByMusclesAnyLevel } from "../adapters/d1/v2Catalog";
+import { getCatalogExercise, listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
 import { updateUser } from "../adapters/d1/v2Users";
-import { pickDifficultySwaps } from "../domain/difficultySwap";
+import { adjustDayDifficulty } from "../features/plan/difficulty";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { getPlanDay } from "../domain/progression";
 import { switchMode } from "../domain/session";
@@ -231,42 +231,16 @@ export async function adjustDifficulty(ctx: MyContext, direction: "ok" | "up" | 
   const targetDay = plan.split.find((d) => d.weekday === wd);
   if (!targetDay) { await reply(ctx, t(lang, "no_plan"), menuBtn(lang)); return; }
 
-  const usedIds = (targetDay.exercises ?? []).map((e) => e.exerciseId).filter(Boolean) as string[];
-
-  // One catalog lookup per exercise (cheap PK reads) to know each one's own muscle/tier, then
-  // ONE bulk candidate fetch across every distinct muscle in the day — replacing what used to be
-  // up to 4 sequential RANDOM()-ordered bucket scans PER exercise (one per difficulty tier tried).
-  const catalogByExerciseId = new Map<string, CatalogExercise>();
-  for (const ex of targetDay.exercises ?? []) {
-    if (!ex.exerciseId) continue;
-    const catalog = await getCatalogExercise(ctx.db, ex.exerciseId);
-    if (catalog) catalogByExerciseId.set(ex.exerciseId, catalog);
-  }
-  const muscles = [...new Set([...catalogByExerciseId.values()].map((c) => c.muscle))];
-  const pool = await listExercisesByMusclesAnyLevel(ctx.db, muscles);
-  const candidatesByMuscle = new Map<string, CatalogExercise[]>();
-  for (const c of pool) {
-    const bucket = candidatesByMuscle.get(c.muscle) ?? [];
-    bucket.push(c);
-    candidatesByMuscle.set(c.muscle, bucket);
-  }
-
-  const { exercises: updatedExercises, swappedCount } = pickDifficultySwaps(
-    targetDay.exercises ?? [],
+  // The swap rules live in features/plan/difficulty.ts, shared with the Mini App's plan action.
+  const { swappedCount } = (await adjustDayDifficulty(ctx.env, {
+    db: ctx.db,
+    ownerId: planOwnerId(ctx),
+    actorId: ctx.user._id,
+    lang,
+    split: plan.split,
+    weekday: wd,
     direction,
-    catalogByExerciseId,
-    candidatesByMuscle,
-    usedIds,
-  );
-
-  const newSplit = plan.split.map((day) =>
-    day.weekday === wd ? { ...day, exercises: updatedExercises } : day
-  );
-  let finalSplit = newSplit;
-  if (swappedCount > 0 && lang !== "en") {
-    finalSplit = await translatePlanExercises(ctx.env, lang, newSplit, ctx.db, ctx.user._id);
-  }
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), finalSplit);
+  })) ?? { swappedCount: 0 };
 
   if (swappedCount === 0) {
     await reply(ctx, t(lang, "plan_diff_no_swap"), menuBtn(lang));

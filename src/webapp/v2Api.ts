@@ -20,6 +20,7 @@ import { handleCoachApi } from "./coachApi";
 import { handleBuddyApi } from "./buddyApi";
 import { handleMediaApi } from "./mediaApi";
 import { handleChatApi } from "./chatApi";
+import { handleDailyApi } from "./dailyApi";
 import { handleProgramsApi } from "./programsApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handleAppEventApi, handlePhotoApi } from "./miscApi";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
@@ -71,6 +72,8 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
   { prefix: "/api/v2/boards", legacy: "/api/boards", handler: handleBoardsApi },
   { prefix: "/api/v2/client-error", legacy: "/api/client-error", handler: handleClientErrorApi },
   { prefix: "/api/v2/event", legacy: "/api/event", handler: handleAppEventApi },
+  { prefix: "/api/v2/wellbeing", legacy: "/api/wellbeing", handler: handleDailyApi },
+  { prefix: "/api/v2/survey", legacy: "/api/survey", handler: handleDailyApi },
 ];
 
 /**
