@@ -23,6 +23,7 @@ import { miniAppUser } from "./auth";
 import { nudgeOnboarding } from "../features/onboarding/nudge";
 import { INACTIVE_DAYS, listCleanupCandidates, purgeCleanupCandidates } from "../features/owner/inactiveCleanup";
 import type { Env } from "../types";
+import { typedFailure } from "./failure";
 
 const FB_ASK_COOLDOWN_DAYS = 14;
 const RELEASE_BATCH = 25;
@@ -30,9 +31,9 @@ const USER_ACTION_ROUTE = /^\/api\/owner\/user\/(\d+)\/(block|unblock|delete|nud
 
 export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const ownerChatId = await getOwnerChatId(env.DB).catch(() => undefined);
-  if (!ownerChatId || ownerChatId !== user.chatId) return Response.json({ error: "not found" }, { status: 404 });
+  if (!ownerChatId || ownerChatId !== user.chatId) return typedFailure(404, "not_found", "not found");
   const path = url.pathname;
 
   // Structured user rows for the in-app sortable/groupable table (richer than the text report).
@@ -78,7 +79,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const b = parsed.body as Record<string, unknown>;
     const text = typeof b.text === "string" ? b.text.trim().slice(0, 3000) : "";
     const after = Math.max(0, Math.round(Number(b.after) || 0));
-    if (!text) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!text) return typedFailure(400, "validation_error", "bad request");
     const queue = broadcastQueue(env);
     if (queue) {
       const { queued } = await queueAnnouncement(env, queue, user._id, text);
@@ -104,12 +105,12 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const parsed = await readJsonBody(req);
     if (!parsed.ok) return parsed.response;
     const prompt = typeof (parsed.body as { prompt?: unknown }).prompt === "string" ? (parsed.body as { prompt: string }).prompt.trim().slice(0, 1000) : "";
-    if (prompt.length < 3) return Response.json({ error: "bad request" }, { status: 400 });
+    if (prompt.length < 3) return typedFailure(400, "validation_error", "bad request");
     let jpeg: Uint8Array;
     try {
       jpeg = await generateImage(env, env.DB, prompt);
     } catch (err) {
-      if (err instanceof ImageBudgetError) return Response.json({ error: "rate_limited" }, { status: 429 });
+      if (err instanceof ImageBudgetError) return typedFailure(429, "rate_limited", "rate_limited");
       throw err;
     }
     const form = new FormData();
@@ -133,9 +134,9 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const parsed = await readJsonBody(req);
     if (!parsed.ok) return parsed.response;
     const text = String((parsed.body as Record<string, unknown>).text ?? "").trim();
-    if (!text || text.length > MAX_FEEDBACK_REPLY) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!text || text.length > MAX_FEEDBACK_REPLY) return typedFailure(400, "validation_error", "bad request");
     const result = await replyToFeedback(env, { api: rawTelegramApi(env) }, Number(fbReply[1]), text);
-    if (result === "not_found") return Response.json({ error: "not found" }, { status: 404 });
+    if (result === "not_found") return typedFailure(404, "not_found", "not found");
     return Response.json({ ok: true, delivered: result !== "not_delivered", queued: result === "queued" });
   }
   const fbMatch = /^\/api\/owner\/feedback\/(\d+)$/.exec(path);
@@ -145,16 +146,16 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const b = parsed.body as Record<string, unknown>;
     const status = (FEEDBACK_STATUSES as readonly string[]).includes(String(b.status)) ? (b.status as FeedbackStatus) : undefined;
     const category = (FEEDBACK_CATEGORIES as readonly string[]).includes(String(b.category)) ? (b.category as FeedbackCategory) : undefined;
-    if (!status && !category) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!status && !category) return typedFailure(400, "validation_error", "bad request");
     const before = await updateFeedback(env.DB, Number(fbMatch[1]), { status, category });
-    if (!before) return Response.json({ error: "not found" }, { status: 404 });
+    if (!before) return typedFailure(404, "not_found", "not found");
     // "Your idea is live": only on the transition to done, only when asked, never twice.
     let notified = false;
     if (status === "done" && before.status !== "done" && b.notify === true) {
       const author = await getUser(env.DB, before.userId).catch(() => null);
       if (author && !author.blocked && !author.botBlocked) {
         const preview = before.text.replace(/^\[AI coach\]\s*/, "").split("\n")[0]!.slice(0, 140);
-        notified = await pingOther(env, author.chatId, t(author.lang, "feedback_done_user", { text: escapeHtml(preview) }));
+        notified = await pingOther(env, author.chatId, t(author.lang, "feedback_done_user", { text: preview }));
         await recordInbox(env.DB, author._id, "feedback_done", { preview }).catch(() => {});
       }
     }
@@ -195,16 +196,16 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
   // (see OwnerWorkspace's pendingDelete state) rather than a second server round trip.
   const um = USER_ACTION_ROUTE.exec(path);
   if (um) {
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     const targetId = Number(um[1]);
     const action = um[2] as "block" | "unblock" | "delete" | "nudge";
     // The owner can't block/delete their own account through this console — self-lockout has no
     // recovery path in the Mini App (unlike the bot, which has no such guard but also isn't the
     // only door: /admin re-claims ownership by chat). Not present in the bot's own flow, but a
     // sane safety net for an irreversible action exposed as a one-tap button in a UI.
-    if (targetId === user._id) return Response.json({ error: "bad request" }, { status: 400 });
+    if (targetId === user._id) return typedFailure(400, "validation_error", "bad request");
     const target = await getUser(env.DB, targetId).catch(() => null);
-    if (!target) return Response.json({ error: "not found" }, { status: 404 });
+    if (!target) return typedFailure(404, "not_found", "not found");
     if (action === "delete") {
       await deleteUserData(env, targetId);
       return Response.json({ ok: true });
@@ -213,7 +214,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     // trainer's client card sends, worded as coming from trix rather than a trainer).
     if (action === "nudge") {
       const r = await nudgeOnboarding(env, target, t(target.lang, "owner_intv_remind_text"));
-      if (r.alreadyOnboarded) return Response.json({ error: "already onboarded" }, { status: 409 });
+      if (r.alreadyOnboarded) return typedFailure(409, "conflict", "already onboarded");
       return Response.json({ ok: true, sent: r.sent });
     }
     const blocked = action === "block";
@@ -235,5 +236,5 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     return Response.json({ deleted });
   }
 
-  return Response.json({ error: "not found" }, { status: 404 });
+  return typedFailure(404, "not_found", "not found");
 }

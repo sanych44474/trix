@@ -22,6 +22,7 @@ import { hasTelegramChat } from "../domain/delivery";
 import { apiFailure } from "./apiError";
 
 import { sendBestEffort as tgSend, telegramUpload } from "../adapters/telegram/rawApi";
+import { typedFailure } from "./failure";
 type TKey = Parameters<typeof t>[1];
 
 // Same toggleable reminder keys the bot's settings screen exposes (REM map in bot.ts), plus the
@@ -74,13 +75,13 @@ function download(filename: string, contentType: string, content: string): Respo
 
 export async function handleSettingsApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const lang = user.lang;
 
   if (req.method === "GET") {
     return Response.json(state(user, lang), { headers: { "cache-control": "no-store" } });
   }
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
 
   // Each action below already validates its own fields; readJsonBody adds the size cap and
   // uniform malformed-JSON handling this endpoint was missing.
@@ -92,7 +93,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
   try {
     if (action === "remToggle") {
       const key = String(body.key);
-      if (!REM_KEYS.some(([k]) => k === key)) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!REM_KEYS.some(([k]) => k === key)) return typedFailure(400, "validation_error", "bad request");
       const off = new Set(user.profile.remindersOff ?? []);
       if (off.has(key)) off.delete(key);
       else off.add(key);
@@ -105,7 +106,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
         user.vacationUntil = undefined;
       } else {
         const days = Number(body.days);
-        if (!Number.isInteger(days) || days < 1 || days > 90) return Response.json({ error: "bad request" }, { status: 400 });
+        if (!Number.isInteger(days) || days < 1 || days > 90) return typedFailure(400, "validation_error", "bad request");
         const until = new Date(Date.now() + days * 86_400_000);
         await setVacation(env.DB, user._id, until.toISOString());
         // Freeze the streak for the window (same bookkeeping as the bot's vacation flow).
@@ -117,11 +118,11 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
       }
     } else if (action === "lang") {
       const next = body.lang === "en" ? "en" : body.lang === "uk" ? "uk" : null;
-      if (!next) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!next) return typedFailure(400, "validation_error", "bad request");
       await updateUser(env.DB, user._id, { lang: next });
       user.lang = next;
     } else if (action === "cycle") {
-      if (user.profile.sex !== "female") return Response.json({ error: "bad request" }, { status: 400 });
+      if (user.profile.sex !== "female") return typedFailure(400, "validation_error", "bad request");
       const profile = { ...user.profile };
       if (typeof body.on === "boolean") profile.cycleTracking = body.on;
       if (typeof body.lastStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.lastStart)) {
@@ -140,7 +141,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
       if (patch.alias !== undefined) user.alias = patch.alias;
     } else if (action === "feedback") {
       const text = String(body.text ?? "").trim().slice(0, 1500);
-      if (text.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
+      if (text.length < 2) return typedFailure(400, "validation_error", "bad request");
       // A lost-response retry must not double-insert the feedback row or double-ping the owner.
       const fb = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
         const { date } = localParts(user.profile.timezone);
@@ -166,7 +167,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
       const ok = await tgSendDocument(env, user.chatId, "trix-export.json", json, t(lang, "export_json_caption"), "application/json");
       return Response.json({ ok });
     } else if (action === "leaveTrainer") {
-      if (user.role !== "client") return Response.json({ error: "bad request" }, { status: 400 });
+      if (user.role !== "client") return typedFailure(400, "validation_error", "bad request");
       const formerTrainerId = user.trainerId;
       await unlinkClient(env.DB, user._id);
       user.role = "solo";
@@ -174,7 +175,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
       if (formerTrainerId) {
         const trainer = await getUser(env.DB, formerTrainerId).catch(() => null);
         if (trainer) {
-          const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
+          const who = user.profile.name ?? `id ${user._id}`;
           await pingOther(env, trainer.chatId, t(trainer.lang, "client_left_trainer", { name: who }));
         }
         // A roster spot just freed up — same waitlist nudge the chat leave-trainer flow sends,
@@ -186,11 +187,11 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
       }
     } else if (action === "deleteAccount") {
       // Hard delete, same as the bot's /deleteme after confirm. The app MUST confirm first.
-      if (body.confirm !== true) return Response.json({ error: "bad request" }, { status: 400 });
+      if (body.confirm !== true) return typedFailure(400, "validation_error", "bad request");
       await deleteUserData(env, user._id);
       return Response.json({ ok: true, deleted: true });
     } else {
-      return Response.json({ error: "bad request" }, { status: 400 });
+      return typedFailure(400, "validation_error", "bad request");
     }
     return Response.json({ ok: true, state: state(user, user.lang) });
   } catch (err) {

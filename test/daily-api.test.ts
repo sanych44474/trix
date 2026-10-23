@@ -97,5 +97,5 @@ test("POST /api/plan difficulty: without an active plan there is nothing to step
     env(db),
   );
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { error: "no_plan" });
+  assert.deepEqual(await res.json(), { error: "no_plan", code: "not_found", retryable: false });
 });

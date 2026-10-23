@@ -11,12 +11,31 @@ export interface MiniAppIdentity {
   method: MiniAppAuthMethod;
 }
 
+// One resolution per Request object: the v2 pipeline authenticates a mutating call before the handler
+// runs, and the handler asks again. Without this, each ask re-verified initData, re-read the user and
+// wrote presence. Null (not signed in) is cached too.
+const identityByRequest = new WeakMap<Request, Promise<MiniAppIdentity | null>>();
+
+export function miniAppIdentity(req: Request, url: URL, env: Env): Promise<MiniAppIdentity | null> {
+  const cached = identityByRequest.get(req);
+  if (cached) return cached;
+  const pending = resolveIdentity(req, url, env);
+  identityByRequest.set(req, pending);
+  return pending;
+}
+
+/** A Request derived from `from` (same caller, one header stripped) reuses `from`'s identity. */
+export function shareIdentity(from: Request, to: Request): void {
+  const cached = identityByRequest.get(from);
+  if (cached) identityByRequest.set(to, cached);
+}
+
 /** Resolve the Mini-App user from Telegram initData or its HttpOnly app session (dev bypass via ?debugUser, gated
  * on the explicit ALLOW_DEBUG_USER opt-in — see wrangler.toml's comment on that var for why it is
  * not tied to WORKER_URL). Also accepts initData via the `tma` query param — <img src> can't send
  * headers, so the photo proxy authorizes through the URL (the initData HMAC is
  * self-authenticating). */
-export async function miniAppIdentity(req: Request, url: URL, env: Env): Promise<MiniAppIdentity | null> {
+async function resolveIdentity(req: Request, url: URL, env: Env): Promise<MiniAppIdentity | null> {
   const auth = req.headers.get("authorization") ?? "";
   const tmaQ = url.searchParams.get("tma");
   let userId: number | null = null;

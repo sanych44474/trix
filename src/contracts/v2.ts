@@ -16,9 +16,21 @@ export const V2_ERROR_CODES = [
 
 export type V2ErrorCode = (typeof V2_ERROR_CODES)[number];
 
+/** Codes a client may retry unchanged: the service is throttled or down, not the request. */
+const RETRYABLE_ERROR_CODES: readonly V2ErrorCode[] = ["rate_limited", "dependency_unavailable"];
+
+export function isV2ErrorCode(value: unknown): value is V2ErrorCode {
+  return typeof value === "string" && (V2_ERROR_CODES as readonly string[]).includes(value);
+}
+
+export function retryableFor(code: V2ErrorCode): boolean {
+  return RETRYABLE_ERROR_CODES.includes(code);
+}
+
 export interface V2Error {
   code: V2ErrorCode;
   message: string;
+  retryable: boolean;
   requestId?: string;
   details?: Record<string, unknown>;
 }

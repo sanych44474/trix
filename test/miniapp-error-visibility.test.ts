@@ -22,7 +22,7 @@ test("apiFailure records a handler exception where the owner report can see it",
   const res = await apiFailure(env, "api_plan", new Error("boom"), { userId: 8101, action: "weight" });
 
   assert.equal(res.status, 500);
-  assert.deepEqual(await res.json(), { error: "error" });
+  assert.deepEqual(await res.json(), { error: "error", code: "dependency_unavailable", retryable: true });
 
   const stats = await errorStatsSince(db, SINCE);
   const row = stats.find((s) => s.kind === "api_plan");

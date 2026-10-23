@@ -52,7 +52,7 @@ test("photo comparison: no chat to send to -> 409 no_telegram_chat (the client s
   const p = "/api/photocompare?debugUser=43";
   const res = await handleExtrasApi(new Request(`https://x${p}`, { method: "POST", body: form }), new URL(`https://x${p}`), env(db));
   assert.equal(res.status, 409);
-  assert.deepEqual(await res.json(), { error: "no_telegram_chat" });
+  assert.deepEqual(await res.json(), { error: "no_telegram_chat", code: "conflict", retryable: false });
 });
 
 test("export through /api/v2/settings arrives as the file, not wrapped in { data }", async () => {
