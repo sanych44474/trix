@@ -36,12 +36,13 @@ import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingA
 
 import { sendBestEffort as tgSend, telegramTry, telegramUpload } from "../adapters/telegram/rawApi";
 import { hasTelegramChat } from "../domain/delivery";
-const bad = () => Response.json({ error: "bad request" }, { status: 400 });
-const notFound = () => Response.json({ error: "not found" }, { status: 404 });
+import { typedFailure } from "./failure";
+const bad = () => typedFailure(400, "validation_error", "bad request");
+const notFound = () => typedFailure(404, "not_found", "not found");
 
 export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const lang = user.lang;
   const path = url.pathname;
   const noStore = { headers: { "cache-control": "no-store" } };
@@ -85,9 +86,9 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     let target = user;
     const clientIdParam = url.searchParams.get("clientId");
     if (clientIdParam) {
-      if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
+      if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
       const client = await getClientForTrainer(env.DB, user._id, Number(clientIdParam));
-      if (!client) return Response.json({ error: "not found" }, { status: 404 });
+      if (!client) return typedFailure(404, "not_found", "not found");
       target = client;
     }
     if (req.method === "GET") {
@@ -103,16 +104,16 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       // card gets it in THEIR chat to review/forward, not auto-sent to the client.
       const form = await req.formData().catch(() => null);
       const file = form?.get("photo");
-      if (!(file instanceof Blob)) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!(file instanceof Blob)) return typedFailure(400, "validation_error", "bad request");
       // The client rendered this PNG itself; with no chat to send it to, it saves or shares it.
-      if (!hasTelegramChat(user)) return Response.json({ error: "no_telegram_chat" }, { status: 409 });
+      if (!hasTelegramChat(user)) return typedFailure(409, "conflict", "no_telegram_chat");
       const tgForm = new FormData();
       tgForm.append("chat_id", String(user.chatId));
       tgForm.append("caption", t(lang, "wcard_image_caption", { name: target.profile.name ?? `id ${target._id}` }));
       tgForm.append("photo", file, "weekcard.png");
       return Response.json({ ok: (await telegramUpload(env, "sendPhoto", tgForm)) !== null });
     }
-    return Response.json({ error: "method not allowed" }, { status: 405 });
+    return typedFailure(405, "validation_error", "method not allowed");
   }
 
   // ---- Progress photo comparison ----
@@ -120,13 +121,13 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
   // them: the gallery renders the same authorized /api/photo URLs) and posts the PNG here. Same
   // "the webview can't hand you a file, so the bot does" route as /api/weekcard above.
   if (path === "/api/photocompare") {
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     const form = await req.formData().catch(() => null);
     const file = form?.get("photo");
-    if (!(file instanceof Blob)) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!(file instanceof Blob)) return typedFailure(400, "validation_error", "bad request");
     const from = String(form?.get("from") ?? "");
     const to = String(form?.get("to") ?? "");
-    if (!hasTelegramChat(user)) return Response.json({ error: "no_telegram_chat" }, { status: 409 });
+    if (!hasTelegramChat(user)) return typedFailure(409, "conflict", "no_telegram_chat");
     const tgForm = new FormData();
     tgForm.append("chat_id", String(user.chatId));
     tgForm.append("caption", t(lang, "photocompare_caption", { from, to }));
@@ -136,24 +137,24 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
 
   // ---- Story image upload (shareToStory needs a public URL; see storyMedia.ts) ----
   if (path === "/api/story") {
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     const form = await req.formData().catch(() => null);
     const file = form?.get("photo");
     if (!(file instanceof Blob)) return bad();
     const stored = await putStoryImage(env, user._id, await file.arrayBuffer(), file.type || "image/png").catch(() => null);
-    if (!stored) return Response.json({ error: "unavailable" }, { status: 503 });
+    if (!stored) return typedFailure(503, "dependency_unavailable", "unavailable");
     return Response.json({ url: `${(env.WORKER_URL || url.origin).replace(/\/$/, "")}${stored}` });
   }
 
   // ---- Voluntary support in Telegram Stars: an invoice link the app opens with openInvoice ----
   if (path === "/api/support/invoice") {
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     const parsed = await readJsonBody(req);
     if (!parsed.ok) return parsed.response;
     const stars = Number((parsed.body as { stars?: unknown } | null)?.stars);
     if (!isSupportAmount(stars)) return bad();
     const link = await telegramTry<string>(env, "createInvoiceLink", supportInvoice(lang, stars));
-    if (!link) return Response.json({ error: "unavailable" }, { status: 503 });
+    if (!link) return typedFailure(503, "dependency_unavailable", "unavailable");
     return Response.json({ link });
   }
 
@@ -185,7 +186,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
 
   // ---- Trainer requests inbox ----
   if (path === "/api/requests") {
-    if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
+    if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
     if (req.method === "GET") {
       const reqs = await pendingRequestsForTrainer(env.DB, user._id).catch(() => []);
       const out = [];
@@ -195,7 +196,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       }
       return Response.json({ requests: out }, noStore);
     }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     const parsed = await readJsonBody(req);
     if (!parsed.ok) return parsed.response;
     const v = validateBody(parsed.body, object({ id: num({ int: true, min: 1 }), action: oneOf(["accept", "decline"] as const) }));
@@ -214,7 +215,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     logInfo("trainer_client_connected", {});
     const client = await getUser(env.DB, r.clientId).catch(() => null);
     if (client) {
-      const trainerName = escapeHtml(user.profile.name ?? "trainer");
+      const trainerName = user.profile.name ?? "trainer";
       const appOnboarding = onboardingUrlFromEnv(env);
       const appHome = appViewUrlFromEnv(env, "settings");
       if (client.onboarded) {
@@ -269,7 +270,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       await cancelPendingRequest(env.DB, user._id);
       return Response.json({ ok: true });
     }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     if (user.role !== "solo") return bad();
     const parsed = await readJsonBody(req);
     if (!parsed.ok) return parsed.response;
@@ -280,7 +281,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     if (!trainer || !trDoc || trDoc.status !== "approved") return notFound();
     const note = v.value.note?.trim();
     const reqId = await createRequest(env.DB, user._id, trainer._id, note);
-    const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
+    const who = user.profile.name ?? `id ${user._id}`;
     void reqId;
     // The chat is retired: the trainer accepts or declines in the app (Workspace → requests).
     const requestsUrl = appViewUrlFromEnv(env, "role");
@@ -295,7 +296,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       const progs = await listPublicPrograms(env.DB, 20).catch(() => []);
       return Response.json({ role: user.role, programs: progs }, noStore);
     }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     if (user.role === "client") return bad(); // the trainer owns a client's plan
     const parsed = await readJsonBody(req);
     if (!parsed.ok) return parsed.response;
@@ -322,7 +323,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
   // them from the app (Telegram's share sheet or copy) without going through the chat.
   if (path === "/api/trainer/invite") {
     const tr = await getTrainer(env.DB, user._id).catch(() => null);
-    if (!tr) return Response.json({ error: "not a trainer" }, { status: 403 });
+    if (!tr) return typedFailure(403, "forbidden", "not a trainer");
     if (req.method === "GET") {
       const [clients, prospects] = await Promise.all([
         countClientsOf(env.DB, user._id).catch(() => 0),
@@ -339,8 +340,8 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
         prospects: prospects.slice(0, 20).map((p) => ({ name: p.name, link: botDeepLink(env, `trp_${p.code}`), createdAt: p.createdAt })),
       }, noStore);
     }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-    if (tr.status !== "approved") return Response.json({ error: "not approved" }, { status: 409 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
+    if (tr.status !== "approved") return typedFailure(409, "conflict", "not approved");
     const parsedInvite = await readJsonBody(req);
     if (!parsedInvite.ok) return parsedInvite.response;
     const v = validateBody(parsedInvite.body, object({ name: str({ max: 60 }) }));
@@ -367,7 +368,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
         noStore,
       );
     }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     const parsedProfile = await readJsonBody(req);
     if (!parsedProfile.ok) return parsedProfile.response;
     const body = parsedProfile.body as Record<string, unknown>;

@@ -30,6 +30,7 @@ import { buildClientCardPayload } from "./clientCard";
 import { readJsonBody } from "./validate";
 import type { BankPlan, Env, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
+import { typedFailure } from "./failure";
 
 const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|photo-request|interview-nudge|draft)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
@@ -45,8 +46,8 @@ function textField(v: unknown): string | null | undefined {
 
 export async function handleTrainerApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
+  if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
 
   // Q&A inbox — list the trainer's client questions (pending first).
   if (req.method === "GET" && url.pathname === "/api/trainer/questions") {
@@ -64,7 +65,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       const tpls = await listTrainerTemplates(env.DB, user._id, 30).catch(() => []);
       return Response.json({ templates: tpls.map((tp) => ({ id: tp.id, name: tp.name })) }, { headers: { "cache-control": "no-store" } });
     }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     const parsedTpl = await readJsonBody(req);
     if (!parsedTpl.ok) return parsedTpl.response;
     const b = parsedTpl.body as Record<string, unknown>;
@@ -75,9 +76,9 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     }
     if (b.action === "assign") {
       const client = await getClientForTrainer(env.DB, user._id, Number(b.clientId));
-      if (!client) return Response.json({ error: "not found" }, { status: 404 });
+      if (!client) return typedFailure(404, "not_found", "not found");
       const tpl = await getTrainerTemplate(env.DB, user._id, id);
-      if (!tpl) return Response.json({ error: "not found" }, { status: 404 });
+      if (!tpl) return typedFailure(404, "not_found", "not found");
       const draft = adaptPlan(tpl.plan, client.profile, client._id, { authoredBy: user._id });
       await saveDraftPlan(env.DB, draft);
       await assignDraftPlan(env.DB, client._id);
@@ -89,13 +90,13 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       // "Save this client's current active plan as a reusable template" — the minimal
       // creation flow: no plan-authoring UI, just snapshot an existing plan for later reuse.
       const name = textField(b.name);
-      if (!name) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!name) return typedFailure(400, "validation_error", "bad request");
       const fromClientId = Number(b.fromClientId);
-      if (!Number.isFinite(fromClientId)) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!Number.isFinite(fromClientId)) return typedFailure(400, "validation_error", "bad request");
       const client = await getClientForTrainer(env.DB, user._id, fromClientId);
-      if (!client) return Response.json({ error: "not found" }, { status: 404 });
+      if (!client) return typedFailure(404, "not_found", "not found");
       const plan = await getActivePlan(env.DB, fromClientId);
-      if (!plan) return Response.json({ error: "not found" }, { status: 404 });
+      if (!plan) return typedFailure(404, "not_found", "not found");
       const bankPlan: BankPlan = {
         split: plan.split,
         nutrition: plan.nutrition,
@@ -109,7 +110,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       await recordAudit(env.DB, user._id, "template_create", fromClientId, name).catch(() => {});
       return Response.json({ ok: true, id: newId });
     }
-    return Response.json({ error: "bad request" }, { status: 400 });
+    return typedFailure(400, "validation_error", "bad request");
   }
 
   // Broadcast a message to all of the trainer's clients (composed + confirmed in the app).
@@ -118,11 +119,11 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     if (!parsedBc.ok) return parsedBc.response;
     const b = parsedBc.body as Record<string, unknown>;
     const text = textField(b.text);
-    if (!text) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!text) return typedFailure(400, "validation_error", "bad request");
     // A lost-response retry must not message every client a second time.
     const bc = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
       const clients = await listClients(env.DB, user._id).catch(() => [] as UserDoc[]);
-      const who = escapeHtml(user.profile.name ?? "trainer");
+      const who = user.profile.name ?? "trainer";
       let sent = 0;
       for (const c of clients) {
         await pingOther(env, c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)), appMarkup(env, t(c.lang, "nb_reply"), "coach"));
@@ -154,13 +155,13 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   // Program sharing (the bot's share flow, features/trainer/programSharing.ts): publish a saved
   // template to the library or as a link, publish my own active plan, assign a template to clients.
   if (req.method === "POST" && url.pathname === "/api/trainer/share/template") {
-    if (!(await canShareProgramFor(env.DB, user))) return Response.json({ error: "forbidden" }, { status: 403 });
+    if (!(await canShareProgramFor(env.DB, user))) return typedFailure(403, "forbidden", "forbidden");
     const parsedShare = await readJsonBody(req);
     if (!parsedShare.ok) return parsedShare.response;
     const b = parsedShare.body as Record<string, unknown>;
-    if (b.mode !== "library" && b.mode !== "link") return Response.json({ error: "bad request" }, { status: 400 });
+    if (b.mode !== "library" && b.mode !== "link") return typedFailure(400, "validation_error", "bad request");
     const tpl = await getTrainerTemplate(env.DB, user._id, Number(b.templateId));
-    if (!tpl) return Response.json({ error: "not found" }, { status: 404 });
+    if (!tpl) return typedFailure(404, "not_found", "not found");
     const isPublic = b.mode === "library";
     const pub = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
       const code = await publishProgram(env.DB, user._id, tpl.name, tpl.plan, isPublic);
@@ -170,14 +171,14 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   }
 
   if (req.method === "POST" && url.pathname === "/api/trainer/share/plan") {
-    if (!(await canShareProgramFor(env.DB, user))) return Response.json({ error: "forbidden" }, { status: 403 });
+    if (!(await canShareProgramFor(env.DB, user))) return typedFailure(403, "forbidden", "forbidden");
     const parsedMine = await readJsonBody(req);
     if (!parsedMine.ok) return parsedMine.response;
     const rawName = (parsedMine.body as Record<string, unknown>).name;
     const name = typeof rawName === "string" ? rawName.trim().slice(0, 48) : "";
-    if (!name) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!name) return typedFailure(400, "validation_error", "bad request");
     const plan = await getActivePlan(env.DB, user._id);
-    if (!plan || !plan.split.length) return Response.json({ error: "not found" }, { status: 404 });
+    if (!plan || !plan.split.length) return typedFailure(404, "not_found", "not found");
     const pubMine = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
       const code = await publishProgram(env.DB, user._id, name, planToBank(plan), true);
       await recordAudit(env.DB, user._id, "share_myplan", undefined, name).catch(() => {});
@@ -187,17 +188,17 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   }
 
   if (req.method === "POST" && url.pathname === "/api/trainer/share/assign") {
-    if (!(await canShareProgramFor(env.DB, user))) return Response.json({ error: "forbidden" }, { status: 403 });
+    if (!(await canShareProgramFor(env.DB, user))) return typedFailure(403, "forbidden", "forbidden");
     const parsedAssign = await readJsonBody(req);
     if (!parsedAssign.ok) return parsedAssign.response;
     const b = parsedAssign.body as Record<string, unknown>;
     const ids = Array.isArray(b.clientIds) ? b.clientIds.map(Number) : [];
-    if (!ids.length || !ids.every((n) => Number.isInteger(n) && n > 0)) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!ids.length || !ids.every((n) => Number.isInteger(n) && n > 0)) return typedFailure(400, "validation_error", "bad request");
     const tpl = await getTrainerTemplate(env.DB, user._id, Number(b.templateId));
-    if (!tpl) return Response.json({ error: "not found" }, { status: 404 });
+    if (!tpl) return typedFailure(404, "not_found", "not found");
     // Only the trainer's own active clients, as the bot's selection does.
     const clients = (await listClients(env.DB, user._id)).filter((c) => ids.includes(c._id));
-    if (!clients.length) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!clients.length) return typedFailure(400, "validation_error", "bad request");
     const assign = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
       let ok = 0;
       // Same as the bot's shareAssignToClients: exercise names in the client's language, one
@@ -209,7 +210,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
           const draft = adaptPlan(tpl.plan, c.profile, c._id, { prs, authoredBy: user._id });
           await localizePlanNames({ db: env.DB, env, user }, draft, c.lang, names).catch(() => false);
           await activateClientPlan(env.DB, c._id, draft);
-          await pingOther(env, c.chatId, t(c.lang, "share_client_got", { name: escapeHtml(tpl.name) }), appMarkup(env, t(c.lang, "nb_open_today"), "today"));
+          await pingOther(env, c.chatId, t(c.lang, "share_client_got", { name: tpl.name }), appMarkup(env, t(c.lang, "nb_open_today"), "today"));
           ok++;
         } catch (err) {
           console.error("trainer share assign", c._id, err);
@@ -224,22 +225,22 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   // Answer a client question — deliver to the client (chat push + stored message), mark answered.
   const am = ANSWER_ROUTE.exec(url.pathname);
   if (am) {
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     const qid = Number(am[1]);
     const q = await getQuestion(env.DB, qid);
-    if (!q || q.trainerId !== user._id) return Response.json({ error: "not found" }, { status: 404 });
+    if (!q || q.trainerId !== user._id) return typedFailure(404, "not_found", "not found");
     const parsedAns = await readJsonBody(req);
     if (!parsedAns.ok) return parsedAns.response;
     const body = parsedAns.body as Record<string, unknown>;
     const text = textField(body.text);
-    if (!text) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!text) return typedFailure(400, "validation_error", "bad request");
     // The question's own status doesn't gate a re-answer (a trainer might legitimately amend),
     // so a lost-response retry must not double-message the client -- idempotency key only.
     const ans = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
       const client = await getUser(env.DB, q.clientId).catch(() => null);
       if (client) {
         await insertMessage(env.DB, user._id, q.clientId, text).catch(() => {});
-        await pingOther(env, client.chatId, t(client.lang, "answer_from_trainer", { text: escapeHtml(text) }), appMarkup(env, t(client.lang, "nb_reply"), "coach"));
+        await pingOther(env, client.chatId, t(client.lang, "answer_from_trainer", { text }), appMarkup(env, t(client.lang, "nb_reply"), "coach"));
       }
       await setQuestionStatus(env.DB, qid, "answered");
       logInfo("trainer_question_answered", {});
@@ -249,17 +250,17 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
   }
 
   const m = ROUTE.exec(url.pathname);
-  if (!m) return Response.json({ error: "not found" }, { status: 404 });
+  if (!m) return typedFailure(404, "not_found", "not found");
   const clientId = Number(m[1]);
   const action = m[2] as "card" | "note" | "flag" | "photo-request" | "interview-nudge" | "draft";
   const client = await getClientForTrainer(env.DB, user._id, clientId);
-  if (!client) return Response.json({ error: "not found" }, { status: 404 });
+  if (!client) return typedFailure(404, "not_found", "not found");
 
   if (req.method === "GET" && action === "card") {
     const payload = await buildClientCardPayload(env.DB, user, client);
     return Response.json(payload, { headers: { "cache-control": "no-store" } });
   }
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
 
   const parsedCard = await readJsonBody(req);
   if (!parsedCard.ok) return parsedCard.response;
@@ -271,15 +272,15 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       for (const key of ["healthNotes", "personalNotes"] as const) {
         if (body[key] === undefined) continue;
         const v = textField(body[key]);
-        if (v === undefined) return Response.json({ error: "bad request" }, { status: 400 });
+        if (v === undefined) return typedFailure(400, "validation_error", "bad request");
         patch[key] = v;
       }
       if (body.birthday !== undefined) {
         const v = textField(body.birthday);
-        if (v === undefined) return Response.json({ error: "bad request" }, { status: 400 });
+        if (v === undefined) return typedFailure(400, "validation_error", "bad request");
         // Canonical stored forms only: YYYY-MM-DD or MM-DD (year unknown); "" cleared to null above.
         if (v !== null && !/^\d{4}-\d{2}-\d{2}$/.test(v) && !/^\d{2}-\d{2}$/.test(v)) {
-          return Response.json({ error: "bad request" }, { status: 400 });
+          return typedFailure(400, "validation_error", "bad request");
         }
         patch.birthday = v;
       }
@@ -293,34 +294,34 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     }
     if (action === "draft") {
       // The trainer's call on a waiting draft (onboarding draft or weekly progression proposal).
-      if (body.decision !== "assign" && body.decision !== "discard" && body.decision !== "postpone") return Response.json({ error: "bad request" }, { status: 400 });
+      if (body.decision !== "assign" && body.decision !== "discard" && body.decision !== "postpone") return typedFailure(400, "validation_error", "bad request");
       if (body.decision === "postpone") {
         // The one "wait 3 more days" on a first-plan draft (staleDrafts.ts).
         const result = await postponeAutoActivation(env.DB, clientId);
-        if (result === "no_draft") return Response.json({ error: "not found" }, { status: 404 });
-        if (result === "already_used") return Response.json({ error: "already postponed" }, { status: 409 });
+        if (result === "no_draft") return typedFailure(404, "not_found", "not found");
+        if (result === "already_used") return typedFailure(409, "conflict", "already postponed");
         await recordAudit(env.DB, user._id, "postpone_draft", clientId).catch(() => {});
         return Response.json({ ok: true });
       }
       if (body.decision === "discard") {
-        if (!(await deleteDraftPlan(env.DB, clientId))) return Response.json({ error: "not found" }, { status: 404 });
+        if (!(await deleteDraftPlan(env.DB, clientId))) return typedFailure(404, "not_found", "not found");
         await recordAudit(env.DB, user._id, "discard_draft", clientId).catch(() => {});
         return Response.json({ ok: true });
       }
-      if (!(await assignDraftPlan(env.DB, clientId))) return Response.json({ error: "not found" }, { status: 404 });
+      if (!(await assignDraftPlan(env.DB, clientId))) return typedFailure(404, "not_found", "not found");
       await recordAudit(env.DB, user._id, "assign_plan", clientId).catch(() => {});
       await pingOther(env, client.chatId, t(client.lang, "client_plan_assigned"), appMarkup(env, t(client.lang, "nb_open_today"), "today"));
       return Response.json({ ok: true });
     }
     if (action === "note") {
       const note = textField(body.note);
-      if (note === undefined) return Response.json({ error: "bad request" }, { status: 400 });
+      if (note === undefined) return typedFailure(400, "validation_error", "bad request");
       await setClientNote(env.DB, user._id, clientId, note ?? "");
       return Response.json({ note });
     }
     if (action === "flag") {
       // Mirrors the bot's toggle: setUserFlag + audit trail.
-      if (typeof body.flagged !== "boolean") return Response.json({ error: "bad request" }, { status: 400 });
+      if (typeof body.flagged !== "boolean") return typedFailure(400, "validation_error", "bad request");
       await setUserFlag(env.DB, clientId, body.flagged);
       await recordAudit(env.DB, user._id, body.flagged ? "flag_client" : "unflag_client", clientId);
       return Response.json({ flagged: body.flagged });
@@ -331,7 +332,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       // prompt (with the same skip button) the bot sends. No new repo function, no audit trail —
       // the bot action doesn't record one either.
       await updateUser(env.DB, clientId, { session: { ...client.session, photoReviewFor: user._id } });
-      const trName = escapeHtml(user.profile.name ?? "trainer");
+      const trName = user.profile.name ?? "trainer";
       // The photo is added in the app (Progress → photos); the upload goes on to the trainer.
       const appKb = appMarkup(env, t(client.lang, "nb_add_photo"), "progress");
       const kb = appKb ?? { inline_keyboard: [[{ text: t(client.lang, "photo_req_skip_btn"), callback_data: "photo:skip" }]] };

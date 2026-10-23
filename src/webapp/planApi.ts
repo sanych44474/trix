@@ -4,7 +4,8 @@
 // features/plan/planEdits.ts, the same module the bot's editors use. Same initData auth as every
 // other webapp API.
 import { rebuildPlan, replanRunning } from "../features/plan/planService";
-import { PlanEditError, applyPlanEdit, planEditStatus, planVersionMatches, type PlanEdit } from "../features/plan/planEdits";
+import { PlanEditError, applyPlanEdit, planEditStatus, planVersionMatches, type PlanEdit, type PlanEditErrorCode } from "../features/plan/planEdits";
+import type { V2ErrorCode } from "../contracts/v2";
 import { kitMismatches, kitFromEquipment } from "../domain/equipmentFit";
 import { getActivePlan, updatePlanMesocycle } from "../adapters/d1/v2Plans";
 import { listPlanChanges } from "../adapters/d1/v2PlanHistory";
@@ -21,6 +22,16 @@ import { readJsonBody } from "./validate";
 import { buildVideoOpenLink } from "../domain/videoLink";
 import type { Env, ExerciseVideo, Lang, PlanDay, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
+import { typedFailure } from "./failure";
+
+const PLAN_EDIT_CODE: Record<PlanEditErrorCode, V2ErrorCode> = {
+  "bad request": "validation_error",
+  "not found": "not_found",
+  stale: "conflict",
+  full: "validation_error",
+  conflict: "conflict",
+  last: "validation_error",
+};
 
 interface PlanExerciseView {
   index: number;
@@ -145,7 +156,7 @@ const NON_DAY_ACTIONS_WITH_SWAPPED = new Set(["fitkit", "difficulty"]);
 
 export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
 
   // Rebuild the athlete's own plan from their current profile (after changing goal, level,
   // schedule or equipment in Settings). Builds in the background -- AI generation can take tens
@@ -154,9 +165,9 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
     if (req.method === "GET") {
       return Response.json({ pending: replanRunning(user), failed: !!user.session.replanFailed }, { headers: { "cache-control": "no-store" } });
     }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-    if (!user.onboarded) return Response.json({ error: "not_onboarded" }, { status: 409 });
-    if (user.role === "client" && user.trainerId) return Response.json({ error: "trainer_managed" }, { status: 403 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
+    if (!user.onboarded) return typedFailure(409, "conflict", "not_onboarded");
+    if (user.role === "client" && user.trainerId) return typedFailure(403, "forbidden", "trainer_managed");
     if (replanRunning(user)) return Response.json({ ok: true, pending: true });
     const session = { ...user.session, replanAt: new Date().toISOString(), replanFailed: undefined };
     await updateUser(env.DB, user._id, { session });
@@ -180,13 +191,13 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
     const clientId = url.searchParams.get("clientId");
     let owner: UserDoc = user;
     if (clientId) {
-      if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
+      if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
       const client = await getClientForTrainer(env.DB, user._id, Number(clientId));
-      if (!client) return Response.json({ error: "not found" }, { status: 404 });
+      if (!client) return typedFailure(404, "not_found", "not found");
       owner = client;
     }
     const plan = await getActivePlan(env.DB, owner._id);
-    if (!plan) return Response.json({ error: "no_plan" }, { status: 404 });
+    if (!plan) return typedFailure(404, "not_found", "no_plan");
     const videos = await resolveVideos(env, owner._id, plan.split);
     // The change log serves both audiences off one endpoint: an athlete seeing what their coach
     // changed, and a trainer seeing a client's plan history.
@@ -203,7 +214,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
     return Response.json(payload, { headers: { "cache-control": "no-store", etag: `"${payload.version}"` } });
   }
 
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
 
   // This is a discriminated-union editor (action -> a different op). readJsonBody adds the size cap
   // and uniform malformed-JSON handling; the edit's own validation lives in planEdits.ts.
@@ -214,14 +225,14 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
   // Resolve the target plan owner (self or a trainer's client).
   let owner: UserDoc = user;
   if (body.clientId !== undefined) {
-    if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
+    if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
     const client = await getClientForTrainer(env.DB, user._id, Number(body.clientId));
-    if (!client) return Response.json({ error: "not found" }, { status: 404 });
+    if (!client) return typedFailure(404, "not_found", "not found");
     owner = client;
   }
 
   const plan = await getActivePlan(env.DB, owner._id);
-  if (!plan) return Response.json({ error: "no_plan" }, { status: 404 });
+  if (!plan) return typedFailure(404, "not_found", "no_plan");
   // Coarse concurrency guard: a full replan (new generatedAt) invalidates in-flight edits. v2
   // accepts the standard If-Match header; the JSON version remains for the legacy client.
   const ifMatch = req.headers.get("if-match")?.replace(/^W\//, "").replace(/^"|"$/g, "");
@@ -229,13 +240,13 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
 
   // Mesocycle on/off is a whole-plan toggle, not a plan edit: no weekday or index to resolve.
   if (body.action === "meso") {
-    if (!planVersionMatches(plan, expectedVersion)) return Response.json({ error: "stale" }, { status: 409 });
+    if (!planVersionMatches(plan, expectedVersion)) return typedFailure(409, "conflict", "stale");
     await updatePlanMesocycle(env.DB, owner._id, body.on ? defaultMesocycle() : null);
     return Response.json({ ok: true });
   }
 
   const edit = toPlanEdit(body);
-  if (!edit) return Response.json({ error: "bad request" }, { status: 400 });
+  if (!edit) return typedFailure(400, "validation_error", "bad request");
   const action = String(body.action);
   try {
     const result = await applyPlanEdit({ env, owner, actorId: user._id, plan, expectedVersion }, edit);
@@ -251,7 +262,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
       ...(NON_DAY_ACTIONS_WITH_SWAPPED.has(action) ? { swapped: result.swapped } : {}),
     });
   } catch (err) {
-    if (err instanceof PlanEditError) return Response.json({ error: err.code }, { status: planEditStatus(err.code) });
+    if (err instanceof PlanEditError) return typedFailure(planEditStatus(err.code), PLAN_EDIT_CODE[err.code], err.code);
     return apiFailure(env, "api_plan", err, { userId: user._id, action });
   }
 }

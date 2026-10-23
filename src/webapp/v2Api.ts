@@ -3,27 +3,9 @@
 // second adapter at the seam without duplicating business rules or touching legacy URLs.
 import { profileGaps } from "../domain/profileGaps";
 import { BOOKMARK_HEADER, openReadSession } from "../adapters/d1/session";
-import { handleStravaApi } from "./stravaApi";
-import { miniAppUser } from "./auth";
-import { handleWorkoutApi } from "./workoutApi";
-import { handlePlanApi } from "./planApi";
-import { handleNutritionApi } from "./nutritionApi";
-import { handleProfileApi, handleOnboardingApi } from "./profileApi";
-import { handleSettingsApi } from "./settingsApi";
-import { handleQuickLogApi } from "./quickLogApi";
-import { handleTrainingExtrasApi } from "./trainingExtrasApi";
-import { handleExtrasApi } from "./extrasApi";
-import { handleSquadsApi } from "./squadApi";
-import { handleTrainerApi } from "./trainerApi";
-import { handleTrainerScheduleApi } from "./trainerScheduleApi";
-import { handleOwnerApi } from "./ownerApi";
-import { handleCoachApi } from "./coachApi";
-import { handleBuddyApi } from "./buddyApi";
-import { handleMediaApi } from "./mediaApi";
-import { handleChatApi } from "./chatApi";
-import { handleDailyApi } from "./dailyApi";
-import { handleProgramsApi } from "./programsApi";
-import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handleAppEventApi, handlePhotoApi } from "./miscApi";
+import { miniAppUser, shareIdentity } from "./auth";
+import { handlePhotoApi } from "./miscApi";
+import { v2RouteFor, type MiniAppHandler } from "./routes";
 import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
 import { runIdempotent, WORKOUT_SAVE_WINDOW_HOURS } from "../adapters/d1/v2Idempotency";
 import { expensiveBucket, withinLimit } from "../limits";
@@ -31,55 +13,8 @@ import { apiFailure, ERROR_RECORDED_HEADER } from "./apiError";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { checkCronHeartbeat } from "../schedulerJobs/global";
 import { logError, withHeader } from "../log";
-import { V2_ERROR_CODES, type V2ErrorCode, type V2Response } from "../contracts/v2";
+import { isV2ErrorCode, retryableFor, type V2ErrorCode, type V2Response } from "../contracts/v2";
 import type { Env } from "../types";
-
-type LegacyHandler = (req: Request, url: URL, env: Env, ctx?: ExecutionContext) => Promise<Response>;
-
-const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> = [
-  { prefix: "/api/v2/workout", legacy: "/api/workout", handler: handleWorkoutApi },
-  { prefix: "/api/v2/plan", legacy: "/api/plan", handler: handlePlanApi },
-  { prefix: "/api/v2/nutrition", legacy: "/api/nutrition", handler: handleNutritionApi },
-  { prefix: "/api/v2/profile", legacy: "/api/profile", handler: handleProfileApi },
-  { prefix: "/api/v2/onboarding", legacy: "/api/onboarding", handler: handleOnboardingApi },
-  { prefix: "/api/v2/settings", legacy: "/api/settings", handler: handleSettingsApi },
-  { prefix: "/api/v2/log", legacy: "/api/log", handler: handleQuickLogApi },
-  { prefix: "/api/v2/cardio", legacy: "/api/cardio", handler: handleTrainingExtrasApi },
-  { prefix: "/api/v2/standards", legacy: "/api/standards", handler: handleTrainingExtrasApi },
-  { prefix: "/api/v2/comeback", legacy: "/api/comeback", handler: handleTrainingExtrasApi },
-  { prefix: "/api/v2/checkin/adaptive", legacy: "/api/checkin/adaptive", handler: handleTrainingExtrasApi },
-  { prefix: "/api/v2/trainer/profile", legacy: "/api/trainer/profile", handler: handleExtrasApi },
-  { prefix: "/api/v2/trainer/invite", legacy: "/api/trainer/invite", handler: handleExtrasApi },
-  { prefix: "/api/v2/trainer/sessions", legacy: "/api/trainer/sessions", handler: handleTrainerScheduleApi },
-  { prefix: "/api/v2/trainer/finance", legacy: "/api/trainer/finance", handler: handleTrainerScheduleApi },
-  { prefix: "/api/v2/trainer", legacy: "/api/trainer", handler: handleTrainerApi },
-  { prefix: "/api/v2/owner", legacy: "/api/owner", handler: handleOwnerApi },
-  { prefix: "/api/v2/coach", legacy: "/api/coach", handler: handleCoachApi },
-  { prefix: "/api/v2/records", legacy: "/api/records", handler: handleExtrasApi },
-  { prefix: "/api/v2/weekcard", legacy: "/api/weekcard", handler: handleExtrasApi },
-  { prefix: "/api/v2/story", legacy: "/api/story", handler: handleExtrasApi },
-  { prefix: "/api/v2/support", legacy: "/api/support", handler: handleExtrasApi },
-  { prefix: "/api/v2/inbox", legacy: "/api/inbox", handler: handleExtrasApi },
-  { prefix: "/api/v2/strava", legacy: "/api/strava", handler: handleStravaApi },
-  { prefix: "/api/v2/photocompare", legacy: "/api/photocompare", handler: handleExtrasApi },
-  { prefix: "/api/v2/whatsnew", legacy: "/api/whatsnew", handler: handleExtrasApi },
-  { prefix: "/api/v2/plates", legacy: "/api/plates", handler: handleExtrasApi },
-  { prefix: "/api/v2/requests", legacy: "/api/requests", handler: handleExtrasApi },
-  { prefix: "/api/v2/trainers", legacy: "/api/trainers", handler: handleExtrasApi },
-  { prefix: "/api/v2/library", legacy: "/api/library", handler: handleExtrasApi },
-  { prefix: "/api/v2/squads", legacy: "/api/squads", handler: handleSquadsApi },
-  { prefix: "/api/v2/chat", legacy: "/api/chat", handler: handleChatApi },
-  { prefix: "/api/v2/programs", legacy: "/api/programs", handler: handleProgramsApi },
-  { prefix: "/api/v2/media", legacy: "/api/media", handler: handleMediaApi },
-  { prefix: "/api/v2/buddy", legacy: "/api/buddy", handler: handleBuddyApi },
-  { prefix: "/api/v2/challenges", legacy: "/api/challenges", handler: handleChallengesApi },
-  { prefix: "/api/v2/injuries", legacy: "/api/injuries", handler: handleInjuriesApi },
-  { prefix: "/api/v2/boards", legacy: "/api/boards", handler: handleBoardsApi },
-  { prefix: "/api/v2/client-error", legacy: "/api/client-error", handler: handleClientErrorApi },
-  { prefix: "/api/v2/event", legacy: "/api/event", handler: handleAppEventApi },
-  { prefix: "/api/v2/wellbeing", legacy: "/api/wellbeing", handler: handleDailyApi },
-  { prefix: "/api/v2/survey", legacy: "/api/survey", handler: handleDailyApi },
-];
 
 /**
  * The v2 error code for a legacy handler's failure. The HTTP status decides; the handler's own
@@ -89,7 +24,9 @@ const PATHS: Array<{ prefix: string; legacy: string; handler: LegacyHandler }> =
  * client the service was down when the request was simply wrong. Now a 4xx is never reported as an
  * outage, and a 5xx always is.
  */
-export function codeFor(status: number, legacyError?: string): V2ErrorCode {
+export function codeFor(status: number, legacyError?: string, explicit?: unknown): V2ErrorCode {
+  // A handler that tagged its failure (failure.ts typedFailure) is taken as tagged.
+  if (isV2ErrorCode(explicit)) return explicit;
   if (legacyError === "bad request" || legacyError === "incomplete") return "validation_error";
   if (legacyError === "conflict" || status === 409) return "conflict";
   if (status === 401 || legacyError === "unauthorized") return "unauthorized";
@@ -97,7 +34,7 @@ export function codeFor(status: number, legacyError?: string): V2ErrorCode {
   if (status === 404 || legacyError === "not found" || legacyError === "no_plan") return "not_found";
   if (status === 429) return "rate_limited";
   if (status >= 500) return "dependency_unavailable";
-  const named = V2_ERROR_CODES.includes(legacyError as V2ErrorCode) ? (legacyError as V2ErrorCode) : null;
+  const named = isV2ErrorCode(legacyError) ? legacyError : null;
   // Any other 4xx (400 with a specific reason, 405, 413, 422): the request was wrong. A handler that
   // names "dependency_unavailable" on a 4xx contradicts its own status; the status wins.
   if (status >= 400) return named && named !== "dependency_unavailable" ? named : "validation_error";
@@ -123,11 +60,11 @@ function withMeta<T>(data: T, req: Request): Response {
 function validateV2Headers(req: Request): Response | null {
   const key = req.headers.get("idempotency-key");
   if (key !== null && (key.length < 8 || key.length > 128)) {
-    return Response.json({ error: { code: "validation_error", message: "Idempotency-Key must be 8-128 characters" } }, { status: 400 });
+    return Response.json({ error: { code: "validation_error", message: "Idempotency-Key must be 8-128 characters", retryable: false } }, { status: 400 });
   }
   const ifMatch = req.headers.get("if-match");
   if (ifMatch !== null && ifMatch.length > 128) {
-    return Response.json({ error: { code: "validation_error", message: "If-Match is too long" } }, { status: 400 });
+    return Response.json({ error: { code: "validation_error", message: "If-Match is too long", retryable: false } }, { status: 400 });
   }
   return null;
 }
@@ -135,7 +72,7 @@ function validateV2Headers(req: Request): Response | null {
 /** The same envelope every v2 failure uses. */
 function failure(req: Request, status: number, code: V2ErrorCode, message: string, headers?: Record<string, string>): Response {
   const requestId = req.headers.get("x-request-id") ?? undefined;
-  return Response.json({ error: { code, message, ...(requestId ? { requestId } : {}) } }, { status, ...(headers ? { headers } : {}) });
+  return Response.json({ error: { code, message, retryable: retryableFor(code), ...(requestId ? { requestId } : {}) } }, { status, ...(headers ? { headers } : {}) });
 }
 
 /** How long a replayed Idempotency-Key is honoured. Only a workout save outlives the default. */
@@ -160,7 +97,7 @@ function surfaceKind(pathname: string): string {
  * (which 409'd every /workout/save when the two were first stacked). That used to be a hand-kept
  * list of "self-idempotent" handlers; now it holds by construction.
  */
-async function forward(req: Request, url: URL, env: Env, path: string, handler: LegacyHandler, ctx?: ExecutionContext): Promise<Response> {
+async function forward(req: Request, url: URL, env: Env, path: string, handler: MiniAppHandler, ctx?: ExecutionContext): Promise<Response> {
   const legacyUrl = new URL(url.toString());
   legacyUrl.pathname = path;
   const mutating = req.method !== "GET";
@@ -178,6 +115,7 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
     const headers = new Headers(req.headers);
     headers.delete("idempotency-key");
     handlerReq = new Request(req, { headers });
+    shareIdentity(req, handlerReq);
   }
 
   // A file download (the data export) is the response itself, not JSON to wrap in { data }.
@@ -213,19 +151,10 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
           ? (body as { message: string }).message
           : undefined)
       : undefined;
-    return failure(req, result.status, codeFor(result.status, legacyError), legacyError ?? "Request failed");
+    const explicit = body && typeof body === "object" ? (body as { code?: unknown }).code : undefined;
+    return failure(req, result.status, codeFor(result.status, legacyError, explicit), legacyError ?? "Request failed");
   }
   return withMeta(body, req);
-}
-
-function routeFor(pathname: string): { handler: LegacyHandler; legacyPath: string } | null {
-  for (const route of PATHS) {
-    // Whole path segments only: "/api/v2/workoutX" is not the workout surface.
-    if (pathname !== route.prefix && !pathname.startsWith(`${route.prefix}/`)) continue;
-    const suffix = pathname.slice(route.prefix.length);
-    return { handler: route.handler, legacyPath: route.legacy + (suffix || "") };
-  }
-  return null;
 }
 
 export async function handleV2Api(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
@@ -249,7 +178,7 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: Executio
   if (url.pathname === "/api/v2/dashboard" && req.method === "GET") {
     const user = await miniAppUser(req, url, env);
     if (!user) {
-      return Response.json({ error: { code: "unauthorized", message: "Authentication required" } }, { status: 401 });
+      return Response.json({ error: { code: "unauthorized", message: "Authentication required", retryable: false } }, { status: 401 });
     }
     // Dead-man switch for the cron rides the hottest fetch path (detached, never blocks). The
     // legacy /api/dashboard branch in index.ts has always done this, but every user is on the v2
@@ -268,13 +197,13 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: Executio
         errorType: "exception",
         message: String(err).slice(0, 200),
       }).catch(() => {});
-      return Response.json({ error: { code: "dependency_unavailable", message: "Dashboard unavailable" } }, { status: 503 });
+      return Response.json({ error: { code: "dependency_unavailable", message: "Dashboard unavailable", retryable: true } }, { status: 503 });
     }
   }
 
-  const route = routeFor(url.pathname);
-  if (!route) {
-    return Response.json({ error: { code: "not_found", message: "Route not found" } }, { status: 404 });
+  const match = v2RouteFor(url.pathname);
+  if (!match) {
+    return Response.json({ error: { code: "not_found", message: "Route not found", retryable: false } }, { status: 404 });
   }
-  return forward(req, url, env, route.legacyPath, route.handler, ctx);
+  return forward(req, url, env, match.legacyPath, match.route.handler, ctx);
 }

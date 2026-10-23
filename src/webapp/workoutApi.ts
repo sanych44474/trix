@@ -25,16 +25,17 @@ import {
 import { localParts } from "../domain/localTime";
 import type { Env, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
+import { typedFailure } from "./failure";
 
 export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const path = url.pathname;
   try {
     if (req.method === "GET" && path === "/api/workout/today") {
       const dateQ = url.searchParams.get("date");
       const dateErr = dateQ ? validateEditDate(dateQ, user) : null;
-      if (dateErr) return Response.json({ error: dateErr }, { status: 400 });
+      if (dateErr) return typedFailure(400, "validation_error", dateErr);
       const payload = await buildWorkoutTodayPayload(env.DB, user, env.WORKER_URL, env.TELEGRAM_BOT_TOKEN, dateQ ?? undefined);
       return Response.json(payload, { headers: { "cache-control": "no-store" } });
     }
@@ -72,39 +73,39 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
     }
     if (req.method === "GET" && path === "/api/workout/past") {
       const dateQ = (url.searchParams.get("date") ?? "").trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateQ)) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateQ)) return typedFailure(400, "validation_error", "bad request");
       const log = await getWorkoutLog(env.DB, user._id, dateQ);
-      if (!log) return Response.json({ error: "not found" }, { status: 404 });
+      if (!log) return typedFailure(404, "not_found", "not found");
       return Response.json({ exercises: assembleWorkoutCopy(log) }, { headers: { "cache-control": "no-store" } });
     }
     if (req.method === "GET" && path === "/api/workout/swap") {
       const index = Number(url.searchParams.get("index"));
       if (!Number.isInteger(index) || index < 0 || index > 50) {
-        return Response.json({ error: "bad request" }, { status: 400 });
+        return typedFailure(400, "validation_error", "bad request");
       }
       const planName = (url.searchParams.get("name") ?? "").trim().slice(0, 80) || undefined;
       const muscle = (url.searchParams.get("muscle") ?? "").trim().slice(0, 40) || undefined;
       const plan = await getActivePlan(env.DB, user._id);
       const result = await workoutSwapAlternatives(env.DB, user, plan, index, planName, muscle);
-      if (result === null) return Response.json({ error: "bad request" }, { status: 400 });
+      if (result === null) return typedFailure(400, "validation_error", "bad request");
       return Response.json(result);
     }
     if (req.method === "GET" && path === "/api/workout/exinfo") {
       const name = (url.searchParams.get("name") ?? "").trim();
-      if (name.length < 2 || name.length > 80) return Response.json({ error: "bad request" }, { status: 400 });
+      if (name.length < 2 || name.length > 80) return typedFailure(400, "validation_error", "bad request");
       const info = await lookupExerciseInfo(env, user, name);
       return Response.json(info, { headers: { "cache-control": "no-store" } });
     }
     if (req.method === "GET" && path === "/api/workout/steps") {
       const id = (url.searchParams.get("id") ?? "").trim();
-      if (!id || id.length > 120) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!id || id.length > 120) return typedFailure(400, "validation_error", "bad request");
       const result = await techniqueSteps(env, user, id).catch(() => ({ steps: [] as string[] }));
-      if (!result) return Response.json({ error: "not found" }, { status: 404 });
+      if (!result) return typedFailure(404, "not_found", "not found");
       return Response.json(result, { headers: { "cache-control": "private, max-age=86400" } });
     }
     if (req.method === "GET" && path === "/api/workout/search") {
       const q = (url.searchParams.get("q") ?? "").trim();
-      if (q.length < 2 || q.length > 60) return Response.json({ error: "bad request" }, { status: 400 });
+      if (q.length < 2 || q.length > 60) return typedFailure(400, "validation_error", "bad request");
       const matches = await searchCatalogForUser(env.DB, user, q);
       return Response.json({ matches });
     }
@@ -116,7 +117,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       const feel = parseFeel(body?.feel);
       const date = typeof body?.date === "string" ? body.date : "";
       const dateErr = validateEditDate(date, user);
-      if (!feel || dateErr) return Response.json({ error: dateErr ?? "bad feel" }, { status: 400 });
+      if (!feel || dateErr) return typedFailure(400, "validation_error", dateErr ?? "bad feel");
       const updated = await setSessionFeelRpe(env.DB, user._id, date, FEEL_RPE[feel]);
       return Response.json({ ok: true, updated });
     }
@@ -126,7 +127,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       const v = validateBody(parsed.body, object({ name: str({ max: 200 }) }));
       if (!v.ok) return v.response;
       const name = v.value.name.trim().slice(0, 80);
-      if (name.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
+      if (name.length < 2) return typedFailure(400, "validation_error", "bad request");
       const result = await createCustomExercise(env, user, name);
       return Response.json(result);
     }
@@ -155,11 +156,11 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       const parsed = await readJsonBody(req);
       if (!parsed.ok) return parsed.response;
       const v = validateSaveBody(parsed.body);
-      if ("error" in v) return Response.json({ error: v.error }, { status: 400 });
+      if ("error" in v) return typedFailure(400, "validation_error", v.error);
       const body = parsed.body;
       const dateB = body && typeof (body as { date?: unknown }).date === "string" ? (body as { date: string }).date : null;
       const dateErr = dateB ? validateEditDate(dateB, user) : null;
-      if (dateErr) return Response.json({ error: dateErr }, { status: 400 });
+      if (dateErr) return typedFailure(400, "validation_error", dateErr);
 
       // Idempotency: the log row itself is safe to re-save (workout_logs' PK is (userId, date)),
       // but saveWorkout ALSO sends a trainer notification and awards badges/XP as side effects --
@@ -180,7 +181,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
     if ((req.method === "PUT" || req.method === "DELETE") && path === "/api/workout/draft") {
       const dateQ = (url.searchParams.get("date") ?? "").trim();
       const dateErr = validateEditDate(dateQ, user);
-      if (dateErr) return Response.json({ error: dateErr }, { status: 400 });
+      if (dateErr) return typedFailure(400, "validation_error", dateErr);
       if (req.method === "DELETE") {
         await deleteWorkoutDraft(env.DB, user._id, dateQ);
         return Response.json({ ok: true });
@@ -192,7 +193,7 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       const updatedAt = await putWorkoutDraft(env.DB, user._id, dateQ, v.value.body);
       return Response.json({ ok: true, updatedAt });
     }
-    return Response.json({ error: "not found" }, { status: 404 });
+    return typedFailure(404, "not_found", "not found");
   } catch (err) {
     return apiFailure(env, "api_workout", err, { userId: user._id });
   }

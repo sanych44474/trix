@@ -4326,10 +4326,17 @@ components:
       properties:
         error:
           type: object
-          required: [code, message]
+          required: [code, message, retryable]
           properties:
             code: {type: string}
             message: {type: string}
+            retryable:
+              type: boolean
+              description: >-
+                true when the same request may succeed unchanged later (rate_limited,
+                dependency_unavailable, and a 5xx). false for validation_error, unauthorized,
+                forbidden, not_found and conflict: the request or the session must change first.
+                Set from the code, never guessed from the message (src/contracts/v2.ts retryableFor).
             requestId: {type: string}
             details: {type: object}
     SettingsRequest:
