@@ -1,5 +1,7 @@
 package app.hacklimits.shared.progress.muscle
 
+import app.hacklimits.shared.muscles.ExerciseMuscles
+import app.hacklimits.shared.muscles.classify
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
@@ -87,7 +89,7 @@ private fun zoneOf(sets: Double, mev: Int, mav: Int): String = when {
 }
 
 /** Fractional working sets per muscle over the completed workouts on or after `since`. */
-fun weeklyMuscleSets(logs: List<LoggedDay>, since: String, lookup: MuscleLookup = ::musclesForExercise): List<MuscleWeek> {
+fun weeklyMuscleSets(logs: List<LoggedDay>, since: String, lookup: MuscleLookup = { classify(it) }): List<MuscleWeek> {
     class Row(var sets: Double = 0.0) { val exercises = linkedMapOf<String, MuscleWeek.WeekExercise>() }
     val acc = mutableMapOf<String, Row>()
     fun add(slug: String, name: String, sets: Double, primary: Boolean) {
@@ -143,7 +145,7 @@ private fun statusFor(days: Int, primary: Boolean): String {
 }
 
 /** How recovered each tracked muscle is, from the days since it was last trained (see muscleLoad.ts). */
-fun muscleRecovery(logs: List<LoggedDay>, today: String, lookup: MuscleLookup = ::musclesForExercise): List<MuscleRecovery> {
+fun muscleRecovery(logs: List<LoggedDay>, today: String, lookup: MuscleLookup = { classify(it) }): List<MuscleRecovery> {
     val sorted = logs.filter { it.date <= today }.sortedWith { a, b -> b.date.compareTo(a.date) }
     return TRACKED_MUSCLES.map { slug ->
         var primaryDay: Pair<String, MutableList<String>>? = null
@@ -191,7 +193,7 @@ fun lopsidedPairs(sets: (String) -> Double, minStrong: Double = 6.0): List<Lopsi
 data class MuscleSeries(val weekEnds: List<String>, val series: Map<String, List<Double>>)
 
 /** Fractional sets per tracked muscle for each of the last `weeks` 7-day windows ending on `today` (oldest first). */
-fun weeklyMuscleSeries(logs: List<LoggedDay>, today: String, weeks: Int = 12, lookup: MuscleLookup = ::musclesForExercise): MuscleSeries {
+fun weeklyMuscleSeries(logs: List<LoggedDay>, today: String, weeks: Int = 12, lookup: MuscleLookup = { classify(it) }): MuscleSeries {
     val end = LocalDate.parse(today)
     val weekEnds = (0 until weeks).map { i -> end.plus((i - (weeks - 1)) * 7, DateTimeUnit.DAY).toString() }
     val buckets = TRACKED_MUSCLES.associateWith { DoubleArray(weeks) }
@@ -214,7 +216,7 @@ fun weeklyMuscleSeries(logs: List<LoggedDay>, today: String, weeks: Int = 12, lo
 data class WeekBalance(val balance: Int, val trainedSets: Double)
 
 /** The week's muscle balance score (0-100, key muscles against their minimum) and total fractional sets. */
-fun weekBalance(logs: List<LoggedDay>, since: String, lookup: MuscleLookup = ::musclesForExercise): WeekBalance {
+fun weekBalance(logs: List<LoggedDay>, since: String, lookup: MuscleLookup = { classify(it) }): WeekBalance {
     val week = weeklyMuscleSets(logs, since, lookup)
     val keys = KEY_MUSCLES.mapNotNull { slug -> week.firstOrNull { it.slug == slug } }
     val credit = keys.map { m -> if (m.mev > 0) min(1.0, m.sets / m.mev) else if (m.sets >= 1) 1.0 else 0.0 }

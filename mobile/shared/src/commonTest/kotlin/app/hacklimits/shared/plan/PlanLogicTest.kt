@@ -1,6 +1,8 @@
 package app.hacklimits.shared.plan
 
 import app.hacklimits.shared.data.Plan
+import app.hacklimits.shared.muscles.ExerciseMuscles
+import app.hacklimits.shared.muscles.classify
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -22,9 +24,18 @@ class PlanLogicTest {
 
     @Test
     fun exerciseNamesMapToTheirMuscles() {
-        val bench = musclesForExercise("Bench Press")
+        val bench = classify("Bench Press")
         assertTrue(bench != null && "chest" in bench.primary)
-        assertEquals(null, musclesForExercise("Zumba Party"), "an unknown name maps to nothing")
+        assertEquals(null, classify("Zumba Party"), "an unknown name maps to nothing")
+    }
+
+    @Test
+    fun learnedClassificationsCountTowardThePlanBalance() {
+        val days = listOf(day(1, ex(0, "Bench Press"), ex(1, "Dumbbell Fly"), ex(2, "Triceps Pushdown"), ex(3, "Odd machine")))
+        val learned = mapOf("odd machine" to ExerciseMuscles(listOf("abs"), emptyList()))
+        val issues = planBalance(days) { classify(it, learned) }
+        assertFalse(issues.any { it.slug == "abs" }, "a learned abs exercise counts toward the balance check")
+        assertTrue(planBalance(days).isEmpty(), "without the learned entry the plan has too little to judge")
     }
 
     @Test

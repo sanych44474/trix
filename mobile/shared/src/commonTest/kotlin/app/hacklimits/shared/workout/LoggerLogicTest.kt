@@ -2,15 +2,14 @@ package app.hacklimits.shared.workout
 
 import app.hacklimits.shared.data.AppJson
 import app.hacklimits.shared.data.WorkoutToday
+import app.hacklimits.shared.muscles.classify
 import app.hacklimits.shared.workout.logic.ExerciseImages
-import app.hacklimits.shared.workout.logic.ExerciseMuscleTable
 import app.hacklimits.shared.workout.logic.LoggerDraft
 import app.hacklimits.shared.workout.logic.LoggerExercise
 import app.hacklimits.shared.workout.logic.LoggerSet
 import app.hacklimits.shared.workout.logic.RestPrefs
 import app.hacklimits.shared.workout.logic.SessionClock
 import app.hacklimits.shared.workout.logic.SessionQuality
-import app.hacklimits.shared.workout.logic.Slug
 import app.hacklimits.shared.workout.logic.StartSource
 import app.hacklimits.shared.workout.logic.buildSaveEntries
 import app.hacklimits.shared.workout.logic.chooseStart
@@ -209,8 +208,8 @@ class LoggerLogicTest {
 
     @Test
     fun technicalLookupsMatchTheMiniAppCatalogue() {
-        assertEquals(listOf(Slug.CHEST), ExerciseMuscleTable.musclesFor("Вправа на груди")?.primary)
-        assertTrue(ExerciseMuscleTable.musclesFor("Rowing")?.primary?.contains(Slug.UPPER_BACK) == true)
+        assertEquals(listOf("chest"), classify("Вправа на груди")?.primary)
+        assertTrue(classify("Rowing")?.primary?.contains("upper-back") == true)
         val plank = ExerciseImages.match("Plank", null)
         assertEquals("Plank", plank?.id)
         assertTrue(plank?.exact == true)

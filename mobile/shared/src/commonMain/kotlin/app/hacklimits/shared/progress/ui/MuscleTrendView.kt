@@ -26,7 +26,7 @@ import app.hacklimits.shared.progress.muscle.MuscleLookup
 import app.hacklimits.shared.progress.muscle.TRACKED_MUSCLES
 import app.hacklimits.shared.progress.muscle.jsRound
 import app.hacklimits.shared.progress.muscle.weeklyMuscleSeries
-import app.hacklimits.shared.progress.muscle.musclesForExercise
+import app.hacklimits.shared.muscles.classify
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.pr_trend_band
 import app.hacklimits.shared.resources.pr_trend_bar_detail
@@ -39,7 +39,7 @@ import kotlin.math.floor
 
 /** Per-muscle trend: fractional sets for the last 12 weeks, one muscle at a time, against its MEV-MAV band. */
 @Composable
-fun MuscleTrendView(logs: List<LoggedDay>, today: String, uk: Boolean, lookup: MuscleLookup = ::musclesForExercise) {
+fun MuscleTrendView(logs: List<LoggedDay>, today: String, uk: Boolean, lookup: MuscleLookup = { classify(it) }) {
     val series = remember(logs, today) { weeklyMuscleSeries(logs, today, 12, lookup) }
     val lagging = remember(series) {
         var best: Pair<String, Double>? = null

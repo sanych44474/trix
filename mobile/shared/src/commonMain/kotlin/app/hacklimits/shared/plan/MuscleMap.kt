@@ -1,24 +1,12 @@
 package app.hacklimits.shared.plan
 
 import app.hacklimits.shared.data.Plan
+import app.hacklimits.shared.muscles.ExerciseMuscles
+import app.hacklimits.shared.muscles.classify
 import kotlin.math.floor
 
-// Port of src/domain/muscleLoad.ts (plan balance) and the name lookup of src/domain/exerciseMuscles.ts.
-// The server-learned muscle classifications of custom exercises are not on the device, so names the
-// rules do not recognise simply do not count toward the balance check.
-
-internal data class ExerciseMuscles(val primary: List<String>, val secondary: List<String>)
-
-internal fun musclesForExercise(name: String): ExerciseMuscles? {
-    val n = name.lowercase()
-    for (rule in MUSCLE_RULES) {
-        if (rule.regex.containsMatchIn(n)) return ExerciseMuscles(rule.primary, rule.secondary.filter { it !in rule.primary })
-    }
-    for (rule in REGION_FALLBACK_RULES) {
-        if (rule.regex.containsMatchIn(n)) return ExerciseMuscles(rule.primary, emptyList())
-    }
-    return null
-}
+// Port of src/domain/muscleLoad.ts (plan balance). Names are classified by the shared muscles module,
+// learned classifications included; names nothing recognises do not count toward the balance check.
 
 private val KEY_MUSCLES = listOf("chest", "upper-back", "deltoids", "quadriceps", "hamstring", "gluteal", "biceps", "triceps", "abs")
 private val BALANCE_PAIRS = listOf("chest" to "upper-back", "quadriceps" to "hamstring", "biceps" to "triceps")
@@ -87,14 +75,14 @@ private fun halfSet(x: Double): Double = floor(x * 2 + 0.5) / 2
  * antagonist pairs where one side gets under half the other's volume (only when the stronger side
  * has at least 6 sets). Plans with barely any mappable strength work are not judged.
  */
-internal fun planBalance(days: List<Plan.Day>): List<BalanceIssue> {
+internal fun planBalance(days: List<Plan.Day>, lookup: (String) -> ExerciseMuscles? = { classify(it) }): List<BalanceIssue> {
     val total = HashMap<String, Double>()
     val perDay = HashMap<Int, HashMap<String, Double>>()
     var mapped = 0
     for (day in days) {
         val dayMap = HashMap<String, Double>()
         for (ex in day.exercises) {
-            val m = musclesForExercise(ex.name) ?: continue
+            val m = lookup(ex.name) ?: continue
             mapped++
             val n = planSetCount(ex.sets).toDouble()
             for (slug in m.primary) dayMap[slug] = (dayMap[slug] ?: 0.0) + n
