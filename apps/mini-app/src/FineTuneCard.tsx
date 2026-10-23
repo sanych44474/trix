@@ -2,27 +2,21 @@ import { useState } from "react";
 import { api, typedBody } from "./api";
 import { t, type Key, type Lang } from "./i18n";
 import type { Dashboard } from "./types";
+import { QUESTIONS, type QuestionId } from "../../../src/domain/onboardingQuestions";
 
 type Gap = NonNullable<Dashboard["viewer"]["profileGaps"]>[number];
 
 // The questions onboarding no longer asks (or that the no-questionnaire start skipped), one at a
 // time on Today. Each answer saves at once; filling a calorie input recomputes the targets on the
 // server. "Later" hides the card for this session only -- it comes back while gaps remain.
-const CHOICES: Partial<Record<Gap, Array<{ value: string | number; label: Key }>>> = {
-  sex: [{ value: "male", label: "sex_male" }, { value: "female", label: "sex_female" }],
-  lifestyle: [{ value: "sedentary", label: "obo_life_sedentary" }, { value: "moderate", label: "obo_life_moderate" }, { value: "active", label: "obo_life_active" }],
-  sessionMinutes: [{ value: 30, label: "obo_min_30" }, { value: 45, label: "obo_min_45" }, { value: 60, label: "obo_min_60" }, { value: 90, label: "obo_min_90" }],
-  dietPrefs: [{ value: "none", label: "diet_everything" }, { value: "vegetarian", label: "diet_vegetarian" }, { value: "vegan", label: "diet_vegan" }],
+// Options, labels and bounds come from the onboarding question set (src/domain/onboardingQuestions.ts).
+const QUESTION_ID: Record<Gap, QuestionId> = {
+  sex: "sex", age: "age", heightCm: "height", weightKg: "weight",
+  lifestyle: "lifestyle", sessionMinutes: "duration", dietPrefs: "diet",
 };
-const QUESTION: Record<Gap, Key> = {
-  sex: "obq_sex", age: "obq_age", heightCm: "obq_height", weightKg: "obq_weight",
-  lifestyle: "obq_lifestyle", sessionMinutes: "obq_duration", dietPrefs: "obq_diet",
-};
-const NUMBER: Partial<Record<Gap, { min: number; max: number; step?: number; unit: Key; placeholder: string }>> = {
-  age: { min: 13, max: 100, unit: "obu_years", placeholder: "30" },
-  heightCm: { min: 100, max: 250, unit: "obu_cm", placeholder: "175" },
-  weightKg: { min: 30, max: 300, step: 0.1, unit: "obu_kg", placeholder: "75" },
-};
+const question = (gap: Gap) => QUESTIONS.find((q) => q.id === QUESTION_ID[gap])!;
+// sessionMinutes is a number on the profile; every other choice is a string.
+const choiceValue = (gap: Gap, value: string): string | number => (gap === "sessionMinutes" ? Number(value) : value);
 
 export function FineTuneCard({ lang, gaps, onSaved }: { lang: Lang; gaps: Gap[]; onSaved: () => void }) {
   const [hidden, setHidden] = useState(false);
@@ -42,19 +36,20 @@ export function FineTuneCard({ lang, gaps, onSaved }: { lang: Lang; gaps: Gap[];
       if (left.length === 1) onSaved();
     } catch { /* keep the question; the user can retry */ } finally { setBusy(false); }
   };
-  const num = NUMBER[gap];
+  const q = question(gap);
+  const num = q.number;
   const n = Number(value.replace(",", "."));
   const valid = !!num && value !== "" && Number.isFinite(n) && n >= num.min && n <= num.max;
 
   return <div className="card card-default fine-tune">
-    <div className="section-head"><div><span className="eyebrow">{t(lang, "ft_eyebrow", { n: left.length })}</span><h2>{t(lang, QUESTION[gap])}</h2></div></div>
+    <div className="section-head"><div><span className="eyebrow">{t(lang, "ft_eyebrow", { n: left.length })}</span><h2>{t(lang, q.q as Key)}</h2></div></div>
     <p className="muted">{t(lang, "ft_why")}</p>
-    {CHOICES[gap] && <div className="ob-options">
-      {CHOICES[gap]!.map((o) => <button key={String(o.value)} type="button" className="ob-option" disabled={busy} onClick={() => void save(o.value)}>{t(lang, o.label)}</button>)}
+    {q.options && <div className="ob-options">
+      {q.options.map((o) => <button key={o.value} type="button" className="ob-option" disabled={busy} onClick={() => void save(choiceValue(gap, o.value))}>{t(lang, o.label as Key)}</button>)}
     </div>}
     {num && <div className="input-row">
-      <input type="number" inputMode="decimal" min={num.min} max={num.max} step={num.step ?? 1} placeholder={num.placeholder} value={value} onChange={(e) => setValue(e.target.value)} />
-      <span className="muted">{t(lang, num.unit)}</span>
+      <input type="number" inputMode="decimal" min={num.min} max={num.max} step={num.step} placeholder={num.placeholder} value={value} onChange={(e) => setValue(e.target.value)} />
+      <span className="muted">{t(lang, num.unit as Key)}</span>
       <button type="button" className="button button-primary" disabled={busy || !valid} onClick={() => void save(gap === "weightKg" ? Math.round(n * 10) / 10 : Math.round(n))}>{busy ? "…" : t(lang, "ft_save")}</button>
     </div>}
     <div className="button-row"><button type="button" className="text-button" onClick={() => setHidden(true)}>{t(lang, "ft_later")}</button></div>

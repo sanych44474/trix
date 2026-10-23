@@ -11,6 +11,7 @@ import { track } from "./logic/track";
 import { moreLinksFor, navigationFor, tabFor, viewFromSearch, type View } from "./logic/navigation";
 import { DASHBOARD_CACHE_KEY, useDashboard } from "./useDashboard";
 import { useTelegramChrome } from "./useTelegramChrome";
+import { QUESTIONS } from "../../../src/domain/onboardingQuestions";
 const WorkspaceView = lazy(() => import("./Workspace").then((m) => ({ default: m.WorkspaceView })));
 const OnboardingView = lazy(() => import("./Onboarding").then((m) => ({ default: m.OnboardingView })));
 const ProfileView = lazy(() => import("./ProfileView").then((m) => ({ default: m.ProfileView })));
@@ -81,7 +82,7 @@ export const WEEKDAY_KEYS: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed",
 // The plan has exercises needing gear outside the owner's equipment (a dumbbells-only person with
 // barbell work): one tap swaps them all for same-muscle ones they can do, or changes the
 // equipment first if the profile answer was wrong.
-export const EQUIPMENT_CHOICES: Array<[NonNullable<PlanEditBody["equipment"]>, Key]> = [["full gym", "equip_full_gym"], ["home basics (dumbbells, bands)", "equip_home_basics"], ["dumbbells only", "equip_dumbbells_only"], ["bodyweight only", "equip_bodyweight_only"]];
+export const EQUIPMENT_CHOICES = QUESTIONS.find((q) => q.id === "equipment")!.options!.map((o) => [o.value as NonNullable<PlanEditBody["equipment"]>, o.label as Key] as const);
 // Deep-link parameters from notification buttons (src/notify/appKeyboard.ts): ?client= opens a
 // client's card in the trainer workspace, ?ask= pre-fills a question for the AI coach.
 const linkParams = new URLSearchParams(window.location.search);
