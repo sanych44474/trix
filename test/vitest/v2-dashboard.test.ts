@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import { buildDashboardPayload } from "../../src/adapters/d1/dashboardReader";
 import { getOrCreateUser, getUser, updateUser } from "../../src/adapters/d1/v2Users";
 import { setActivePlan } from "../../src/adapters/d1/v2Plans";
+import { linkClient } from "../../src/adapters/d1/v2Trainer";
 import { upsertStrengthRecord, upsertWorkoutLog } from "../../src/adapters/d1/v2Workouts";
 import { appendMeals } from "../../src/adapters/d1/v2Nutrition";
 import { recordDailyCheckin, setWater, upsertBodyLog, upsertStepLog } from "../../src/adapters/d1/v2Tracking";
@@ -191,6 +192,26 @@ describe("dashboardReader: trainer portfolio section", () => {
     expect(row.id).toBe(clientId);
     expect(row.name).toBe("Client");
     expect(row.workoutPct).toBeGreaterThan(0);
+  });
+
+  it("lists every client of a big roster, including the one who was active most recently", async () => {
+    // The section used to keep only the 30 least-recently-active clients, so whoever had just
+    // opened the app vanished from the trainer's list. 120 also crosses D1's 100-parameter
+    // limit on getUsersByIds' IN (...) list.
+    const trainerId = 9401;
+    await getOrCreateUser(env.DB, trainerId, trainerId, "en", "Coach");
+    await updateUser(env.DB, trainerId, { role: "trainer" });
+    const ids = Array.from({ length: 120 }, (_, i) => 940_000 + i);
+    for (const [i, id] of ids.entries()) {
+      await getOrCreateUser(env.DB, id, id, "en", `C${i}`);
+      await linkClient(env.DB, id, trainerId);
+      await updateUser(env.DB, id, { lastSeenAt: new Date(Date.UTC(2026, 0, 1) + i * 60_000) });
+    }
+    const trainer = await getUser(env.DB, trainerId);
+    const payload = await buildDashboardPayload(env.DB, trainer!);
+    const listed = new Set(payload.trainer?.clients.map((c) => c.id));
+    expect(listed.size).toBe(120);
+    expect(listed.has(ids[ids.length - 1])).toBe(true);
   });
 });
 

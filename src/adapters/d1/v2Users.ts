@@ -113,13 +113,19 @@ export async function getUser(db: DB, userId: number): Promise<UserDoc | null> {
 
 /** Batched user fetch — one `WHERE id IN (...)` instead of N `getUser` calls in a loop.
  * Returns a Map keyed by user id (missing ids simply absent). */
+const USERS_BY_IDS_CHUNK = 100;
+
 export async function getUsersByIds(db: DB, ids: number[]): Promise<Map<number, UserDoc>> {
   const out = new Map<number, UserDoc>();
   const uniq = [...new Set(ids.filter((id) => Number.isFinite(id)))];
   if (!uniq.length) return out;
-  const placeholders = uniq.map(() => "?").join(",");
-  const r = await db.prepare(`${SELECT_USER} WHERE a.id IN (${placeholders})`).bind(...uniq).all<V2UserRow>();
-  for (const row of r.results ?? []) { const u = toUser(row); out.set(u._id, u); }
+  // D1 binds at most 100 parameters per statement, so a big roster is read in chunks.
+  for (let i = 0; i < uniq.length; i += USERS_BY_IDS_CHUNK) {
+    const chunk = uniq.slice(i, i + USERS_BY_IDS_CHUNK);
+    const placeholders = chunk.map(() => "?").join(",");
+    const r = await db.prepare(`${SELECT_USER} WHERE a.id IN (${placeholders})`).bind(...chunk).all<V2UserRow>();
+    for (const row of r.results ?? []) { const u = toUser(row); out.set(u._id, u); }
+  }
   return out;
 }
 
