@@ -164,6 +164,7 @@
     <string name="fd_grocery_title">Список покупок</string>
     <string name="fd_grocery_empty">У плані ще немає продуктів.</string>
     <string name="fd_grocery_hint">Обери 3, 5 або 7 днів для списку покупок.</string>
+    <string name="fd_grocery_days">%1$s дн</string>
     <string name="fd_grocery_send">Надіслати в Telegram</string>
     <string name="fd_grocery_sent">Надіслано! Перевір чат у Telegram.</string>
     <string name="fd_retry">Повторити</string>

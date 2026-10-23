@@ -14,6 +14,26 @@ function saveRestPrefs(prefs: RestPrefs): void {
   try { localStorage.setItem(REST_PREFS_KEY, JSON.stringify(prefs)); } catch { /* storage is optional */ }
 }
 
+// The rest that is counting down, kept on the device so reopening the Mini App picks it up where it is.
+const REST_RUNNING_KEY = "rest_running";
+interface RunningRest { endAt: number; startedAt: number; target: number; label: string }
+
+function loadRunningRest(now: number): RunningRest | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(REST_RUNNING_KEY) ?? "null") as Partial<RunningRest> | null;
+    if (!saved || typeof saved.endAt !== "number" || typeof saved.startedAt !== "number") return null;
+    if (restProgress(saved.endAt, now).over >= REST_OVERRUN_CAP_SEC) return null;
+    return { endAt: saved.endAt, startedAt: saved.startedAt, target: Number(saved.target) || DEFAULT_REST_SEC, label: String(saved.label ?? "") };
+  } catch { return null; }
+}
+
+function saveRunningRest(rest: RunningRest | null): void {
+  try {
+    if (rest) localStorage.setItem(REST_RUNNING_KEY, JSON.stringify(rest));
+    else localStorage.removeItem(REST_RUNNING_KEY);
+  } catch { /* storage is optional */ }
+}
+
 // A short two-tone chirp so the phone can sit on the bench face-down. Built on demand and torn
 // down after: holding an AudioContext open across a whole session is what gets a webview's audio
 // throttled. Entirely best-effort -- autoplay policy may refuse it, and the haptic is the real
@@ -59,12 +79,20 @@ const IDLE_REST: RestState = { endAt: null, left: 0, over: 0, done: false, targe
  */
 export function useSession() {
   const [clock, setClock] = useState<SessionClock | undefined>(undefined);
-  const [rest, setRest] = useState<RestState>(IDLE_REST);
+  const [resumed] = useState(() => loadRunningRest(Date.now()));
+  const [rest, setRest] = useState<RestState>(() => resumed
+    ? { ...IDLE_REST, endAt: resumed.endAt, target: resumed.target, label: resumed.label }
+    : IDLE_REST);
   const [restPrefs, setRestPrefs] = useState<RestPrefs>(loadRestPrefs);
   // Refs, not state: these describe the rest currently open and are read inside callbacks, where
   // a stale closure over state would silently mis-measure. Nothing renders directly from them.
-  const restStartedRef = useRef<number | null>(null);
-  const restTargetRef = useRef<number>(DEFAULT_REST_SEC);
+  const restStartedRef = useRef<number | null>(resumed?.startedAt ?? null);
+  const restTargetRef = useRef<number>(resumed?.target ?? DEFAULT_REST_SEC);
+
+  useEffect(() => {
+    const startedAt = restStartedRef.current;
+    saveRunningRest(rest.endAt != null && startedAt != null ? { endAt: rest.endAt, startedAt, target: restTargetRef.current, label: rest.label } : null);
+  }, [rest.endAt, rest.label]);
 
   // Timestamp-based countdown (endAt is absolute), so a throttled/suspended webview can't desync
   // it -- every tick recomputes from Date.now(), and visibilitychange/focus make resumption

@@ -8,16 +8,10 @@
 import { sendBestEffort } from "../adapters/telegram/rawApi";
 import { miniAppUser } from "./auth";
 import { getStravaLink, signState, verifyState } from "../adapters/d1/v2Strava";
-import { authorizeUrl, connectStrava, disconnectStrava, syncStrava, type StravaConfig } from "../features/strava/stravaSync";
+import { authorizeUrl, connectStrava, disconnectStrava, stravaConfig, syncStrava } from "../features/strava/stravaSync";
 import { getUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
 import type { Env } from "../types";
-
-export function stravaConfig(env: Env, origin: string): StravaConfig | null {
-  if (!env.STRAVA_CLIENT_ID || !env.STRAVA_CLIENT_SECRET) return null;
-  const base = (env.WORKER_URL || origin).replace(/\/$/, "");
-  return { clientId: env.STRAVA_CLIENT_ID, clientSecret: env.STRAVA_CLIENT_SECRET, redirectUri: `${base}/strava/callback` };
-}
 
 export async function handleStravaApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);

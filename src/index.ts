@@ -17,7 +17,7 @@ import { healthcheckDue, pingHealthcheck } from "./adapters/monitoring/healthche
 import { handleBroadcastBatch, type BroadcastMessage } from "./features/owner/broadcastQueue";
 import { activityRaw } from "./adapters/d1/activityMetrics";
 import { buildActivityMetrics } from "./domain/activityMetrics";
-import { serveWeekMap } from "./webapp/weekMap";
+import { serveWeekMap } from "./features/report/weekMap";
 import { bumpEvent } from "./adapters/d1/v2Analytics";
 import { deleteSetting, getSetting, markUpdateSeen, pingDb, setSetting } from "./adapters/d1/v2Admin";
 import { setActivePlan } from "./adapters/d1/v2Plans";
@@ -25,18 +25,9 @@ import { getUser, updateUser } from "./adapters/d1/v2Users";
 import { miniAppUser } from "./webapp/auth";
 import { verifyVideoOpen } from "./domain/videoLink";
 import { buildDashboardPayload } from "./adapters/d1/dashboardReader";
-import { handleTrainerApi } from "./webapp/trainerApi";
-import { handleWorkoutApi } from "./webapp/workoutApi";
-import { handlePlanApi } from "./webapp/planApi";
-import { handleProfileApi, handleOnboardingApi } from "./webapp/profileApi";
-import { handleSettingsApi } from "./webapp/settingsApi";
-import { handleExtrasApi } from "./webapp/extrasApi";
-import { handleTrainerScheduleApi } from "./webapp/trainerScheduleApi";
-import { handleNutritionApi } from "./webapp/nutritionApi";
-import { handleBuddyApi } from "./webapp/buddyApi";
-import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./webapp/miscApi";
-import { handleOwnerApi } from "./webapp/ownerApi";
-import { serveStoryImage } from "./webapp/storyMedia";
+import { handlePhotoApi } from "./webapp/miscApi";
+import { legacyRouteFor } from "./webapp/routes";
+import { serveStoryImage } from "./adapters/r2/storyMedia";
 import { handleStravaCallback } from "./webapp/stravaApi";
 import { handleQuickLogApi } from "./webapp/quickLogApi";
 import { handleV2Api } from "./webapp/v2Api";
@@ -184,7 +175,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
 
     // Video-open tracking: count the click, then 302 to the real (YouTube-only) target.
     // GET /v?u=<encoded youtube url>&uid=<user id>&sig=<HMAC over uid+u, videoLink.ts>
-    // Public, short-lived story images for Telegram's shareToStory (webapp/storyMedia.ts).
+    // Public, short-lived story images for Telegram's shareToStory (adapters/r2/storyMedia.ts).
     if (req.method === "GET" && url.pathname.startsWith("/story/")) {
       return (await serveStoryImage(env, url.pathname)) ?? new Response("Not found", { status: 404 });
     }
@@ -243,59 +234,11 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
     // ADR-0006 removes it after 2026-12-31 unless traffic remains; this line is that evidence.
     if (url.pathname.startsWith("/api/")) logInfo("legacy_api_hit", { path: url.pathname, method: req.method });
 
-    // Trainer scheduling + money (own tables, own handler). Like the extras block below, this
-    // MUST come before the /api/trainer/ prefix catch.
-    if (url.pathname === "/api/trainer/sessions" || url.pathname === "/api/trainer/finance") {
-      return handleTrainerScheduleApi(req, url, env);
-    }
+    // Mini App handlers: one table (webapp/routes.ts), the same one the /api/v2 seam reads.
+    const miniAppRoute = legacyRouteFor(url.pathname);
+    if (miniAppRoute) return miniAppRoute.handler(req, url, env);
 
-    // Mini App extras: records, weekcard, requests, directory, library, whatsnew, plates,
-    // trainer profile. MUST come before the /api/trainer/ prefix catch — one lives under it.
-    if (
-      url.pathname === "/api/records" || url.pathname === "/api/weekcard" || url.pathname === "/api/whatsnew" ||
-      url.pathname === "/api/plates" || url.pathname === "/api/requests" || url.pathname === "/api/trainers" || url.pathname === "/api/library" ||
-      url.pathname === "/api/trainer/profile"
-    ) {
-      return handleExtrasApi(req, url, env);
-    }
-
-    // Mini App trainer APIs: client card read/write, note, flag (same initData auth + role gate).
-    if (url.pathname.startsWith("/api/trainer/")) {
-      return handleTrainerApi(req, url, env);
-    }
-
-    // Mini App guided workout logger: today's session, swap alternatives, rest push, batch save.
-    if (url.pathname.startsWith("/api/workout/")) {
-      return handleWorkoutApi(req, url, env);
-    }
-
-    // Mini App plan view + editor (self, or a trainer's client via clientId).
-    if (url.pathname === "/api/plan") {
-      return handlePlanApi(req, url, env);
-    }
-
-    // Mini App profile / settings editing.
-    if (url.pathname === "/api/profile") {
-      return handleProfileApi(req, url, env);
-    }
-
-    // Mini App nutrition suite: today's meals view/edit + meal-plan.
-    if (url.pathname === "/api/nutrition") {
-      return handleNutritionApi(req, url, env);
-    }
-
-    // Mini App long tail (P7): challenges, injuries, leaderboards.
-    if (url.pathname === "/api/buddy") return handleBuddyApi(req, url, env);
-    if (url.pathname === "/api/challenges") return handleChallengesApi(req, url, env);
-    if (url.pathname === "/api/injuries") return handleInjuriesApi(req, url, env);
-    if (url.pathname === "/api/boards") return handleBoardsApi(req, url, env);
-    if (url.pathname === "/api/client-error") return handleClientErrorApi(req, url, env);
     if (url.pathname === "/api/photo") return handlePhotoApi(req, url, env, ctx);
-    if (url.pathname.startsWith("/api/owner/")) return handleOwnerApi(req, url, env);
-
-    // Mini App settings consolidation + onboarding form.
-    if (url.pathname === "/api/settings") return handleSettingsApi(req, url, env);
-    if (url.pathname === "/api/onboarding") return handleOnboardingApi(req, url, env);
 
     // Mini App data: initData-authenticated JSON for the dashboard charts.
     if (req.method === "GET" && url.pathname === "/api/dashboard") {

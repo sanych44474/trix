@@ -25,9 +25,9 @@ import { buildWeekCard } from "../gamification/weekCard";
 import { renderBodyDynamics } from "../report/reportLines";
 import { localizePlanNames, healPlanNamesForDisplay } from "../exercise/catalog";
 import { mainMenu, menuBtn } from "../../adapters/telegram/keyboards";
-import { sendObStepTo } from "../onboarding/sendStep";
+import { nudgeOnboarding } from "../onboarding/nudge";
 import { obProgress } from "../onboarding/questions";
-import { sendOnboardingPromptTo } from "../../notify/onboardingApp";
+import { isDurable, notifySafely } from "../../notify";
 import { videosForDays } from "../plan/exerciseVideos";
 import { showClientLogDays } from "./trainerComms";
 import { intvLabel, anthroBlock, runTrainerDraft } from "./trainerInterview";
@@ -86,7 +86,7 @@ export async function showPlanEditDay(ctx: MyContext, targetId: number, prefix: 
   if (!day) { await reply(ctx, t(lang, "error_generic")); return; }
   // Editing a plan is NOT logging — suppress the "record workout" CTA and prefix the day with
   // whose plan this is, so a trainer with their own program never confuses it with a client's.
-  const header = t(lang, "edit_day_banner", { name: escapeHtml(target?.profile.name ?? `id ${targetId}`) });
+  const header = t(lang, "edit_day_banner", { name: target?.profile.name ?? `id ${targetId}` });
   await reply(
     ctx,
     `${header}\n\n${renderToday(lang, day, weekdayName(lang, wd), undefined, await videosForDays(ctx, [day]), { noCta: true })}`,
@@ -175,7 +175,7 @@ export async function showClientThread(ctx: MyContext, clientId: number, cname: 
 export async function showClientNote(ctx: MyContext, clientId: number, cname: string, lang: Lang) {
   const note = await getClientNote(ctx.db, ctx.user._id, clientId);
   const history = await listClientNoteHistory(ctx.db, ctx.user._id, clientId, "note");
-  let body = note ? `📝 ${cname}\n\n${escapeHtml(note)}` : t(lang, "cc_note_empty", { name: cname });
+  let body = note ? `📝 ${escapeHtml(cname)}\n\n${escapeHtml(note)}` : t(lang, "cc_note_empty", { name: cname });
   if (history.length) {
     body += `\n\n<i>${t(lang, "cc_note_history_hdr")}</i>\n` +
       history.slice(0, 5).map((h) => `• ${h.savedAt.slice(0, 10)}: ${escapeHtml(h.value)}`).join("\n");
@@ -286,24 +286,7 @@ export async function showClientIntake(ctx: MyContext, client: UserDoc, clientId
 export async function pingClientIntake(ctx: MyContext, client: UserDoc, clientId: number, cname: string, lang: Lang) {
   // Nudge the client to finish the interview: resume the exact question they stopped at.
   if (client.onboarded) { await clientCardAction(ctx, clientId, "intv"); return; }
-  const prefix = t(client.lang, "cc_intv_remind_text");
-  const transcript = client.session.transcript;
-  if (await sendOnboardingPromptTo(ctx, client.chatId, client.lang, prefix)) {
-    await updateUser(ctx.db, clientId, { session: { mode: "onboarding", step: 0 } });
-  } else if (client.session.mode === "onboarding" && transcript?.length) {
-    // AI-interview user — re-send the last unanswered question (same as the cron nudge).
-    const lastQ = [...transcript].reverse().find((m) => m.role === "assistant");
-    await ctx.api
-      .sendMessage(client.chatId, `${prefix}\n\n${escapeHtml(lastQ?.text ?? "")}`.trim(), HTML)
-      .catch(() => {});
-  } else {
-    // Button-wizard user (or an abandoned session) — resume at the first unanswered step.
-    const step = client.session.mode === "onboarding" && typeof client.session.step === "number"
-      ? client.session.step
-      : obProgress(client.profile).next;
-    await updateUser(ctx.db, clientId, { session: { mode: "onboarding", step } });
-    await sendObStepTo(ctx, client, step, prefix);
-  }
+  await nudgeOnboarding(ctx.env, client, t(client.lang, "cc_intv_remind_text"));
   await reply(ctx, t(lang, "cc_intv_reminded", { name: cname }));
 }
 
@@ -327,7 +310,7 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
     await reply(ctx, t(lang, "client_not_found"));
     return;
   }
-  const cname = escapeHtml(client.profile.name ?? `id ${clientId}`);
+  const cname = client.profile.name ?? `id ${clientId}`;
   if (action === "card") {
     await showClientCard(ctx, client, clientId, cname, lang);
   } else if (action === "edit") {
@@ -355,15 +338,21 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
     // The measurement dynamics below come from logs and stay trainer-visible as before.
     const block = anthroBlock(lang, client, cname);
     const anthro = block ? `${block}\n\n` : "";
-    await reply(ctx, `📐 ${cname}\n${anthro}${renderBodyDynamics(lang, body)}`);
+    await reply(ctx, `📐 ${escapeHtml(cname)}\n${anthro}${renderBodyDynamics(lang, body)}`);
   } else if (action === "draft") {
     await runTrainerDraft(ctx, client, client.profile);
   } else if (action === "assign") {
+    const draft = await getDraftPlan(ctx.db, clientId);
     const ok = await assignDraftPlan(ctx.db, clientId);
     if (!ok) { await reply(ctx, t(lang, "no_draft")); return; }
     await recordAudit(ctx.db, ctx.user._id, "assign_plan", clientId);
     await reply(ctx, t(lang, "plan_assigned", { name: cname }));
-    await ctx.api.sendMessage(client.chatId, t(client.lang, "client_plan_assigned"), { ...HTML, reply_markup: mainMenu(client.lang) }).catch(() => {});
+    await notifySafely(ctx.env, { api: ctx.api }, { userId: clientId, chatId: client.chatId }, {
+      kind: "plan_assigned",
+      key: `plan_assigned:${clientId}:${draft?.generatedAt.getTime() ?? 0}`,
+      text: t(client.lang, "client_plan_assigned"),
+      extra: { ...HTML, reply_markup: mainMenu(client.lang) },
+    });
   } else if (action === "flag") {
     const next = !client.flagged;
     await setUserFlag(ctx.db, clientId, next);
@@ -434,11 +423,15 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
     // Ask the client for a progress photo; their next photo routes to this trainer.
     await updateUser(ctx.db, clientId, { session: { ...client.session, photoReviewFor: ctx.user._id } });
     const kb = new InlineKeyboard().text(t(client.lang, "photo_req_skip_btn"), "photo:skip");
-    const trName = escapeHtml(ctx.user.profile.name ?? "trainer");
-    const ok = await ctx.api
-      .sendMessage(client.chatId, t(client.lang, "photo_req_from", { name: trName }), { ...HTML, reply_markup: kb })
-      .then(() => true)
-      .catch(() => false);
+    const trName = ctx.user.profile.name ?? "trainer";
+    // Each request is its own event (a trainer may ask again later), so the key is per request.
+    const result = await notifySafely(ctx.env, { api: ctx.api }, { userId: clientId, chatId: client.chatId }, {
+      kind: "photo_request",
+      key: `photo_request:${clientId}:${crypto.randomUUID()}`,
+      text: t(client.lang, "photo_req_from", { name: trName }),
+      extra: { ...HTML, reply_markup: kb },
+    });
+    const ok = isDurable(result) && result !== "muted";
     await reply(ctx, t(lang, ok ? "photo_req_sent" : "error_generic", { name: cname }), clientCardKb(lang, clientId));
   }
 }

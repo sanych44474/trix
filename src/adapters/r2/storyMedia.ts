@@ -6,7 +6,7 @@
 // Public by design: the user is about to post this exact image to their own story. The key is a
 // random UUID (122 bits), keys are never listed publicly, and the object is gone within two
 // days, so the images are also out of scope for /deleteme (see purgeExpiredStories).
-import type { Env } from "../types";
+import type { Env } from "../../types";
 
 const PREFIX = "stories/";
 export const STORY_TTL_MS = 2 * 86_400_000;

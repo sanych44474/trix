@@ -32,12 +32,12 @@ import { escapeHtml, t } from "./locales/i18n";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "./notify/onboardingApp";
 import { appKeyboard, } from "./notify/appKeyboard";
 import { finalizeOnboardingPlan, retryInterviewStep } from "./features/plan/planService";
-import { APP_VERSION } from "./webapp/appVersion";
+import { APP_VERSION } from "./appVersion";
 import { enforceStorageBudget } from "./adapters/r2/photoStorage";
-import { purgeExpiredStories } from "./webapp/storyMedia";
+import { purgeExpiredStories } from "./adapters/r2/storyMedia";
 import { stravaAccountsDue } from "./adapters/d1/v2Strava";
 import { syncStrava } from "./features/strava/stravaSync";
-import { stravaConfig } from "./webapp/stravaApi";
+import { stravaConfig } from "./features/strava/stravaSync";
 import { runGlobalJobs } from "./schedulerJobs/global";
 import { postSquadRecaps, processBuddyDuels, SQUAD_RECAP_HOUR_UTC, SQUAD_RECAP_BATCH } from "./schedulerJobs/social";
 import { weeklyDigest } from "./schedulerJobs/weeklyDigest";
@@ -209,7 +209,7 @@ async function runScheduleInner(env: Env): Promise<void> {
     if (budget?.evictedCount) console.log(JSON.stringify({ level: "info", scope: "r2_budget", ...budget }));
   });
 
-  // Story images (webapp/storyMedia.ts) live two days; sweep once a day.
+  // Story images (adapters/r2/storyMedia.ts) live two days; sweep once a day.
   await runOncePer(db, { key: "last_story_sweep", period: { windowMs: 86_400_000 } }, () => purgeExpiredStories(env));
 
   // Knowledge base for the coach (AI Search over the KB bucket): rebuilt and diffed once a day,

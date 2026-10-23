@@ -1,8 +1,6 @@
-// Workout logging core: parse free-text sets, the shared save pipeline (log write + PR
-// detection + workout/PR-count badges — also used by the Mini App's save route via
-// applyWorkoutSave), and the post-save UX (momentum recap, PR/badge celebration, trainer
-// notify, next-session preview). Extracted from bot.ts (god-file split; same barrel seam via
-// bot.ts's `export * from "./bot/workoutSave"`).
+// Chat side of workout logging: parse free-text sets, then the post-save UX (momentum recap,
+// PR/badge celebration, trainer notify, next-session preview). The save itself is
+// features/workout/completeWorkout.ts, shared with the Mini App's save route (webapp/workout.ts).
 import { InlineKeyboard } from "grammy";
 import type { Lang, PlanDay, SetEntry, Weekday } from "../types";
 import { getActivePlan } from "../adapters/d1/v2Plans";
@@ -14,6 +12,7 @@ import { nextTargetGuidance } from "../domain/progression";
 import { normalizeExercise, parseWorkoutText } from "../domain/workoutText";
 import { rankOf, weekStartStr, weekStreak } from "../domain/records";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
+import { notifySafely } from "../notify";
 import { upcomingSessions } from "../render";
 import { badgeLabel, computeBoards } from "../features/gamification/boards";
 
@@ -213,7 +212,14 @@ export async function notifyTrainerWorkout(ctx: MyContext, done: boolean, exerci
   if (ctx.user.role !== "client" || !ctx.user.trainerId) return;
   const trainer = await getUser(ctx.db, ctx.user.trainerId);
   if (!trainer) return;
-  const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`);
-  const key = done ? "trainer_notify_done" : "trainer_notify_skip";
-  await ctx.api.sendMessage(trainer.chatId, t(trainer.lang, key, { name: who, n: exerciseCount }), HTML).catch(() => {});
+  const who = ctx.user.profile.name ?? `id ${ctx.user._id}`;
+  const outcome = done ? "done" : "skip";
+  const { date } = localParts(ctx.user.profile.timezone);
+  // One verdict per client per day: re-logging the same outcome is the same event.
+  await notifySafely(ctx.env, { api: ctx.api }, { userId: trainer._id, chatId: trainer.chatId }, {
+    kind: `trainer_workout_${outcome}`,
+    key: `trainer_workout:${ctx.user._id}:${date}:${outcome}`,
+    text: t(trainer.lang, done ? "trainer_notify_done" : "trainer_notify_skip", { name: who, n: exerciseCount }),
+    extra: HTML,
+  });
 }

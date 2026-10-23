@@ -5,6 +5,10 @@ import { InlineKeyboard } from "grammy";
 import { t } from "../../locales/i18n";
 import type { TKey } from "../../adapters/telegram/context";
 import type { Lang, UserProfile, Weekday } from "../../types";
+import {
+  DIETS, EQUIPMENT, GOALS, LEVELS, LIFESTYLES, SEXES, SESSION_MINUTES, SLEEP_SCHEDULES,
+  type Diet, type Equipment, type Goal, type Level, type Lifestyle, type Sex, type SleepSchedule,
+} from "../../domain/onboardingQuestions";
 
 export interface ObStep {
   field: "sex" | "age" | "hw" | "goal" | "level" | "baselineLifts" | "daysPerWeek" | "trainingWeekdays" | "sessionMinutes" | "equipment" | "lifestyle" | "sleepSchedule" | "dietPrefs" | "limitations";
@@ -16,23 +20,40 @@ export interface ObStep {
   noneKey?: TKey; // optional "skip/none" button (i18n key) for text steps
 }
 
+// Bot button labels per option value. The values, their order and the ranges come from
+// domain/onboardingQuestions.ts; the record types make a missing label a compile error.
+export const OB_OPTION_LABELS: {
+  sex: Record<Sex, TKey>; goal: Record<Goal, TKey>; level: Record<Level, TKey>; sessionMinutes: Record<string, TKey>;
+  equipment: Record<Equipment, TKey>; lifestyle: Record<Lifestyle, TKey>; sleepSchedule: Record<SleepSchedule, TKey>; dietPrefs: Record<Diet, TKey>;
+} = {
+  sex: { male: "ob_sex_male", female: "ob_sex_female" },
+  goal: { "fat loss": "ob_goal_fatloss", "muscle gain": "ob_goal_muscle", recomposition: "ob_goal_recomp", strength: "ob_goal_strength", endurance: "ob_goal_endurance" },
+  level: { beginner: "ob_level_beginner", intermediate: "ob_level_intermediate", advanced: "ob_level_advanced" },
+  sessionMinutes: { "30": "ob_dur_30", "45": "ob_dur_45", "60": "ob_dur_60", "90": "ob_dur_90" },
+  equipment: { "full gym": "ob_eq_gym", "home basics (dumbbells, bands)": "ob_eq_home", "dumbbells only": "ob_eq_dumbbells", "bodyweight only": "ob_eq_bodyweight" },
+  lifestyle: { sedentary: "ob_life_sedentary", moderate: "ob_life_moderate", active: "ob_life_active" },
+  sleepSchedule: { morning: "ob_sleep_morning", evening: "ob_sleep_evening" },
+  dietPrefs: { none: "ob_diet_none", vegetarian: "ob_diet_vegetarian", vegan: "ob_diet_vegan" },
+};
+
+const buttons = <V extends string>(lang: Lang, values: readonly V[], keys: Record<V, TKey>) => values.map((value) => ({ label: t(lang, keys[value]), value }));
+
 export function obSteps(lang: Lang): ObStep[] {
-  const b = (label: TKey, value: string) => ({ label: t(lang, label), value });
   return [
-    { field: "sex", q: "ob_q_sex", buttons: [b("ob_sex_male", "male"), b("ob_sex_female", "female")] },
+    { field: "sex", q: "ob_q_sex", buttons: buttons(lang, SEXES, OB_OPTION_LABELS.sex) },
     { field: "age", q: "ob_q_age", input: "number" },
     { field: "hw", q: "ob_q_hw", input: "number2" },
-    { field: "goal", q: "ob_q_goal", buttons: [b("ob_goal_fatloss", "fat loss"), b("ob_goal_muscle", "muscle gain"), b("ob_goal_recomp", "recomposition"), b("ob_goal_strength", "strength"), b("ob_goal_endurance", "endurance")] },
-    { field: "level", q: "ob_q_level", buttons: [b("ob_level_beginner", "beginner"), b("ob_level_intermediate", "intermediate"), b("ob_level_advanced", "advanced")] },
+    { field: "goal", q: "ob_q_goal", buttons: buttons(lang, GOALS, OB_OPTION_LABELS.goal) },
+    { field: "level", q: "ob_q_level", buttons: buttons(lang, LEVELS, OB_OPTION_LABELS.level) },
     { field: "baselineLifts", q: "ob_q_baseline", input: "text", noneKey: "ob_baseline_none" },
     // Single source of truth for training frequency: the day picker. daysPerWeek is derived
     // from the count (no separate "how many days" question → no contradictions).
     { field: "trainingWeekdays", q: "ob_q_weekdays", multiselect: true },
-    { field: "sessionMinutes", q: "ob_q_duration", buttons: [b("ob_dur_30", "30"), b("ob_dur_45", "45"), b("ob_dur_60", "60"), b("ob_dur_90", "90")] },
-    { field: "equipment", q: "ob_q_equipment", buttons: [b("ob_eq_gym", "full gym"), b("ob_eq_home", "home basics (dumbbells, bands)"), b("ob_eq_dumbbells", "dumbbells only"), b("ob_eq_bodyweight", "bodyweight only")] },
-    { field: "lifestyle", q: "ob_q_lifestyle", buttons: [b("ob_life_sedentary", "sedentary"), b("ob_life_moderate", "moderate"), b("ob_life_active", "active")] },
-    { field: "sleepSchedule", q: "ob_q_sleep", buttons: [b("ob_sleep_morning", "morning"), b("ob_sleep_evening", "evening")] },
-    { field: "dietPrefs", q: "ob_q_diet", acceptsText: true, buttons: [b("ob_diet_none", "none"), b("ob_diet_vegetarian", "vegetarian"), b("ob_diet_vegan", "vegan")] },
+    { field: "sessionMinutes", q: "ob_q_duration", buttons: buttons(lang, SESSION_MINUTES.map(String), OB_OPTION_LABELS.sessionMinutes) },
+    { field: "equipment", q: "ob_q_equipment", buttons: buttons(lang, EQUIPMENT, OB_OPTION_LABELS.equipment) },
+    { field: "lifestyle", q: "ob_q_lifestyle", buttons: buttons(lang, LIFESTYLES, OB_OPTION_LABELS.lifestyle) },
+    { field: "sleepSchedule", q: "ob_q_sleep", buttons: buttons(lang, SLEEP_SCHEDULES, OB_OPTION_LABELS.sleepSchedule) },
+    { field: "dietPrefs", q: "ob_q_diet", acceptsText: true, buttons: buttons(lang, DIETS, OB_OPTION_LABELS.dietPrefs) },
     { field: "limitations", q: "ob_q_injuries", input: "text", noneKey: "ob_injuries_none" },
   ];
 }

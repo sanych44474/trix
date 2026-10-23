@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { filterLibrary, parseLibrary } from "../apps/mini-app/src/logic/library";
-import { FREE_EXERCISE_LIB } from "../apps/mini-app/src/data/freeExerciseLib";
-import { FREE_EXERCISE_IDS } from "../apps/mini-app/src/data/freeExerciseIds";
+import { FREE_EXERCISE_LIB } from "../src/domain/data/freeExerciseLib";
+import { FREE_EXERCISE_IDS } from "../src/domain/data/freeExerciseIds";
 
 const all = parseLibrary(FREE_EXERCISE_LIB);
 

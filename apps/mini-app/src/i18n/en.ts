@@ -454,6 +454,7 @@ export const en = {
   choose_day_error: "Choose at least one training day.",
   validation_error_hint: "Check the required fields and try again.",
   onboarding_save_error: "Could not save onboarding. Try again.",
+  onboarding_load_error: "Could not load the questions. Check your connection and try again.",
   building_plan_ellipsis: "Building your plan…",
   create_plan_btn: "Create my plan",
 
@@ -734,6 +735,7 @@ export const en = {
   grocery_title: "Grocery list",
   grocery_empty: "No foods in the meal plan yet.",
   grocery_hint: "Choose 3, 5 or 7 days to build a shopping list.",
+  grocery_days: "{n}d",
   activity_rings_eyebrow: "Today's load",
   activity_calendar_title: "Workout calendar",
   missed_label: "Missed",

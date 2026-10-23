@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cachedToday, cacheToday, enqueueSave, flushQueue, isNetworkError, readQueue, type QueuedSave } from "../apps/mini-app/src/logic/offlineSaves";
+import { cachedToday, cacheToday, enqueueSave, flushQueue, isNetworkError, readQueue, shouldRetry, type QueuedSave } from "../apps/mini-app/src/logic/offlineSaves";
 
 function memStore() {
   const m = new Map<string, string>();
@@ -30,7 +30,7 @@ test("flushQueue: sends with the stored key, stops when still offline, keeps ret
   const keys: string[] = [];
   const r = await flushQueue(s, async (q) => {
     keys.push(q.key);
-    if (q.key === "b") throw httpErr(409); // still in flight → keep
+    if (q.key === "b") throw Object.assign(httpErr(409), { retryable: true }); // still in flight → keep
     if (q.key === "c") throw httpErr(400); // too old → drop
     if (q.key === "d") throw new TypeError("Failed to fetch"); // offline again → keep
   });
@@ -48,9 +48,38 @@ test("cachedToday only returns today's plan", () => {
   assert.equal(cachedToday(s, "2026-10-03"), null);
 });
 
-test("flushQueue keeps a save the server refused for missing login data (opened offline)", async () => {
+test("flushQueue: the server's retryable flag decides a rejected save", async () => {
   const s = memStore();
-  enqueueSave(s, save("k", "2026-10-05"));
-  assert.deepEqual(await flushQueue(s, async () => { throw httpErr(401); }), { sent: 0, dropped: 0, remaining: 1 });
-  assert.deepEqual(await flushQueue(s, async () => {}), { sent: 1, dropped: 0, remaining: 0 });
+  enqueueSave(s, save("login", "2026-10-05"));
+  enqueueSave(s, save("flight", "2026-10-06"));
+  enqueueSave(s, save("old", "2026-10-07"));
+  const retryable = (status: number, flag: boolean) => Object.assign(new Error("x"), { status, retryable: flag });
+  const sent: string[] = [];
+  const r = await flushQueue(s, async (q) => {
+    if (q.key === "login") throw retryable(401, true); // opened offline, no login data yet
+    if (q.key === "flight") throw retryable(409, true); // same key still in flight
+    throw retryable(400, false); // more than 14 days back
+  });
+  assert.deepEqual(r, { sent: 0, dropped: 1, remaining: 2 });
+  assert.deepEqual(readQueue(s).map((q) => q.key), ["login", "flight"]);
+  await flushQueue(s, async (q) => { sent.push(q.key); });
+  assert.deepEqual(sent, ["login", "flight"]);
+});
+
+test("shouldRetry without the flag: no network, 429 and 5xx retry; other 4xx drop", () => {
+  assert.equal(shouldRetry(new TypeError("Failed to fetch")), true);
+  assert.equal(shouldRetry(httpErr(503)), true);
+  assert.equal(shouldRetry(httpErr(429)), true);
+  assert.equal(shouldRetry(httpErr(409)), false);
+  assert.equal(shouldRetry(httpErr(403)), false);
+  assert.equal(shouldRetry(Object.assign(new Error("x"), { status: 403, retryable: true })), true, "the flag wins");
+});
+
+test("the queue keeps the newest 20 saves", () => {
+  const s = memStore();
+  for (let i = 1; i <= 21; i++) enqueueSave(s, save(`k${i}`, `2026-10-${String(i).padStart(2, "0")}`));
+  const keys = readQueue(s).map((q) => q.key);
+  assert.equal(keys.length, 20);
+  assert.equal(keys[0], "k2", "the oldest save is the one dropped");
+  assert.equal(keys[19], "k21");
 });

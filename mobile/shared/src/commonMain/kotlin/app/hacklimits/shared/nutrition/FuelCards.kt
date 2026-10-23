@@ -331,7 +331,7 @@ internal fun PlanCard(
                     meal.items.forEachIndexed { itemIndex, item ->
                         val ref = NutritionViewModel.PlanItemRef(dayIndex, mealIndex, itemIndex)
                         TextButton(onClick = { onToggleItem(ref, item.grams) }) {
-                            Text("${item.food} ${formatDecimal(item.grams)}g")
+                            Text("${item.food} ${formatDecimal(item.grams)} ${stringResource(Res.string.fd_unit_g)}")
                         }
                         if (editing == ref) {
                             Column(Modifier.padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -374,7 +374,8 @@ internal fun GroceryCard(
             Text(stringResource(Res.string.fd_grocery_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(3, 5, 7).forEach { n ->
-                    if (n == days) Button(onClick = { onDays(n) }) { Text("${n}d") } else OutlinedButton(onClick = { onDays(n) }) { Text("${n}d") }
+                    val label = stringResource(Res.string.fd_grocery_days, n.toString())
+                    if (n == days) Button(onClick = { onDays(n) }) { Text(label) } else OutlinedButton(onClick = { onDays(n) }) { Text(label) }
                 }
             }
             when {
@@ -383,7 +384,7 @@ internal fun GroceryCard(
                 else -> lines.forEach { line ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(line.food, fontWeight = FontWeight.Medium)
-                        Text("${formatDecimal(line.grams)} g", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${formatDecimal(line.grams)} ${stringResource(Res.string.fd_unit_g)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

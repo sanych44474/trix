@@ -113,6 +113,7 @@
     <string name="tr_body_eyebrow">Спільні дані</string>
     <string name="tr_body_title">Показники тіла</string>
     <string name="tr_height">Зріст</string>
+    <string name="tr_minutes">%1$s хв</string>
     <string name="tr_weight">Вага</string>
     <string name="tr_age">Вік</string>
     <string name="tr_health_eyebrow">Здоров\'я</string>

@@ -6,7 +6,7 @@ import { TRACKED_MUSCLES } from "../src/domain/muscleLoad";
 import { renderWeeklyMuscleLines } from "../src/render";
 import { renderBodyMapPng } from "../src/render/bodyMapPng";
 import { MASKS } from "../src/render/bodyMapMasks";
-import { serveWeekMap, weekMapUrl } from "../src/webapp/weekMap";
+import { serveWeekMap, weekMapUrl } from "../src/features/report/weekMap";
 import { pathToPolygons } from "../src/render/rasterize";
 import type { Env } from "../src/types";
 

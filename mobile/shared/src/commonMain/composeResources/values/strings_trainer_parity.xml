@@ -113,6 +113,7 @@
     <string name="tr_body_eyebrow">Shared data</string>
     <string name="tr_body_title">Body metrics</string>
     <string name="tr_height">Height</string>
+    <string name="tr_minutes">%1$s min</string>
     <string name="tr_weight">Weight</string>
     <string name="tr_age">Age</string>
     <string name="tr_health_eyebrow">Health</string>

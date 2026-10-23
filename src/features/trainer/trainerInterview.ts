@@ -132,7 +132,7 @@ export async function onMiniInterview(ctx: MyContext, payload: string) {
     if (i % 2 === 1) kb.row();
   });
   kb.row().text(t(lang, "cc_open_card"), `cl:${clientId}:card`);
-  const cname = escapeHtml(client.profile.name ?? `id ${clientId}`);
+  const cname = client.profile.name ?? `id ${clientId}`;
   const title = codes.length === 0 ? `${t(lang, "mi_title", { name: cname })}\n\n` : "";
   await reply(ctx, `${title}(${codes.length + 1}/${MI_STEPS.length}) ${t(lang, step.q)}`, kb);
 }

@@ -35,5 +35,5 @@ export async function apiFailure(
     errorType: "exception",
     message: String(err).slice(0, 200),
   }).catch(() => {});
-  return Response.json({ error: "error" }, { status: 500, headers: { [ERROR_RECORDED_HEADER]: "1" } });
+  return Response.json({ error: "error", code: "dependency_unavailable", retryable: true }, { status: 500, headers: { [ERROR_RECORDED_HEADER]: "1" } });
 }

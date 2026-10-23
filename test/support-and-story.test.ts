@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { isSupportAmount, parseSupportPayload, recordSupportPayment, supportPayload, supportTotals } from "../src/adapters/d1/v2Support";
-import { purgeExpiredStories, putStoryImage, serveStoryImage, STORY_TTL_MS } from "../src/webapp/storyMedia";
+import { purgeExpiredStories, putStoryImage, serveStoryImage, STORY_TTL_MS } from "../src/adapters/r2/storyMedia";
 import type { Env } from "../src/types";
 
 function seedAccount(db: ReturnType<typeof newDb>, id: number): void {

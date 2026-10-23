@@ -53,6 +53,15 @@ export function notify(env: Env, sender: OutboxSender, to: Recipient, msg: Messa
   return enqueueAndDeliver(env, sender, { userId: to.userId, chatId: to.chatId, kind: msg.kind, idempotencyKey: msg.key, text: msg.text, extra: msg.extra });
 }
 
+/** notify() for a side message of a handler that must not fail because of it: a queueing error is
+ * logged and reported as "failed" instead of unwinding the handler's own reply. */
+export function notifySafely(env: Env, sender: OutboxSender, to: Recipient, msg: Message): Promise<DeliveryResult> {
+  return notify(env, sender, to, msg).catch((err: unknown) => {
+    console.error("notify", msg.kind, err);
+    return "failed" as const;
+  });
+}
+
 // "All notifications off" (profile.remindersOff holds "all") means nothing from the bot reaches
 // that person unless they asked for it just now. notify() enforces it in the outbox; the two
 // helpers below cover the sends that still go straight to Telegram: the Mini App's best-effort

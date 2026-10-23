@@ -1,7 +1,7 @@
 // Trainers & clients section. Part of the trainer feature slice (roadmap item 1); bot.ts's
 // barrel seam still applies: `export * from "./features/trainer/trainer"`.
 
-import { GrammyError, InlineKeyboard } from "grammy";
+import { InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
 import type { Lang, UserDoc } from "../../types";
 import { eventCountsByUser } from "../../adapters/d1/v2Analytics";
@@ -17,8 +17,10 @@ import { localParts } from "../../domain/localTime";
 import { escapeHtml, t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
 import { menuBtn, roleMenu } from "../../adapters/telegram/keyboards";
-import { renderObQuestion, sendFirstObStep } from "../onboarding/sendStep";
-import { sendOnboardingPrompt, sendOnboardingPromptTo } from "../../notify/onboardingApp";
+import { renderObQuestion } from "../onboarding/sendStep";
+import { nudgeOnboarding } from "../onboarding/nudge";
+import { notifySafely } from "../../notify";
+import { onboardingUrlFromEnv, sendOnboardingPrompt } from "../../notify/onboardingApp";
 import { trainerCardText, startTrainerWizard } from "./trainerWizard";
 import { requireTrainer, shortCode, trainerMenu } from "./trainerCommon";
 
@@ -44,7 +46,7 @@ export async function openFindTrainer(ctx: MyContext) {
 // Tell the trainer a client just paired with them, with a one-tap link to the client card.
 // When the client already has training history, surface it (the card has full analytics).
 export async function notifyTrainerOfClient(ctx: MyContext, trainer: UserDoc, client: UserDoc, withHistory: boolean) {
-  const who = escapeHtml(client.profile.name ?? `id ${client._id}`);
+  const who = client.profile.name ?? `id ${client._id}`;
   const kb = new InlineKeyboard().text(t(trainer.lang, "cc_open_card"), `cl:${client._id}:card`);
   let body: string;
   if (withHistory) {
@@ -53,7 +55,13 @@ export async function notifyTrainerOfClient(ctx: MyContext, trainer: UserDoc, cl
   } else {
     body = t(trainer.lang, "trainer_client_joined", { name: who });
   }
-  await ctx.api.sendMessage(trainer.chatId, body, { ...HTML, reply_markup: kb }).catch(() => {});
+  await notifySafely(ctx.env, { api: ctx.api }, { userId: trainer._id, chatId: trainer.chatId }, {
+    kind: "trainer_client_joined",
+    // Per day: a retried join is one message, but re-pairing after an unlink is news again.
+    key: `client_joined:${trainer._id}:${client._id}:${new Date().toISOString().slice(0, 10)}`,
+    text: body,
+    extra: { ...HTML, reply_markup: kb },
+  });
 }
 
 // One-time consent prompt sent to the CLIENT right after linking to a trainer: opt in to
@@ -81,14 +89,14 @@ async function pairWithTrainer(ctx: MyContext, trainerId: number, trainerName: s
   if (ctx.user.onboarded) {
     ctx.user.session = { mode: "idle" };
     await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
-    await reply(ctx, t(lang, "client_transferred", { name: escapeHtml(trainerName) }), menuBtn(lang));
+    await reply(ctx, t(lang, "client_transferred", { name: trainerName }), menuBtn(lang));
     if (trainer) await notifyTrainerOfClient(ctx, trainer, ctx.user, true);
     await reply(ctx, t(lang, "share_prompt_new"), sharePromptKb(lang));
     return;
   }
   // Brand-new user → the questionnaire first (we are in the client's context). One message, one
   // button: the Mini App asks the questions one at a time, including what the trainer may see.
-  await reply(ctx, t(lang, "client_paired", { name: escapeHtml(trainerName) }));
+  await reply(ctx, t(lang, "client_paired", { name: trainerName }));
   if (trainer) await notifyTrainerOfClient(ctx, trainer, ctx.user, false);
   ctx.user.session = { mode: "onboarding", step: 0 };
   await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });
@@ -141,19 +149,30 @@ export async function onTrainerApprove(ctx: MyContext, trainerId: number) {
   const trainer = await getUser(ctx.db, trainerId);
   if (trainer) {
     const link = botDeepLink(ctx.env, `tr_${code}`);
-    await ctx.api
-      .sendMessage(trainer.chatId, t(trainer.lang, "trainer_approved", { link: escapeHtml(link) }), { ...HTML, reply_markup: trainerMenu(trainer.lang) })
-      .catch(() => {});
+    await notifySafely(ctx.env, { api: ctx.api }, { userId: trainerId, chatId: trainer.chatId }, {
+      kind: "trainer_approved",
+      key: `trainer_approved:${trainerId}:${code}`,
+      text: t(trainer.lang, "trainer_approved", { link }),
+      extra: { ...HTML, reply_markup: trainerMenu(trainer.lang) },
+    });
   }
 }
 
 export async function onTrainerReject(ctx: MyContext, trainerId: number) {
   const ownerChatId = await getOwnerChatId(ctx.db);
   if (ownerChatId !== ctx.user.chatId) return;
+  const application = await getTrainer(ctx.db, trainerId);
   await rejectTrainer(ctx.db, trainerId);
   await reply(ctx, t(ctx.user.lang, "trainer_rejected_owner"));
   const trainer = await getUser(ctx.db, trainerId);
-  if (trainer) await ctx.api.sendMessage(trainer.chatId, t(trainer.lang, "trainer_rejected"), HTML).catch(() => {});
+  if (trainer) {
+    await notifySafely(ctx.env, { api: ctx.api }, { userId: trainerId, chatId: trainer.chatId }, {
+      kind: "trainer_rejected",
+      key: `trainer_rejected:${trainerId}:${application?.createdAt.getTime() ?? 0}`,
+      text: t(trainer.lang, "trainer_rejected"),
+      extra: HTML,
+    });
+  }
 }
 
 // --- request accept/decline (trainer side) ---
@@ -169,27 +188,33 @@ export async function onRequestAccept(ctx: MyContext, reqId: number) {
   await linkClient(ctx.db, req.clientId, ctx.user._id);
   logInfo("trainer_client_connected", {});
   const client = await getUser(ctx.db, req.clientId);
-  await reply(ctx, t(lang, "request_accepted_trainer", { name: escapeHtml(client?.profile.name ?? `id ${req.clientId}`) }));
+  await reply(ctx, t(lang, "request_accepted_trainer", { name: client?.profile.name ?? `id ${req.clientId}` }));
   if (client) {
-    const trainerName = escapeHtml(ctx.user.profile.name ?? "trainer");
+    const trainerName = ctx.user.profile.name ?? "trainer";
     if (client.onboarded) {
       // Existing athlete → transfer WITH their history (no re-onboarding). The card has analytics.
       await updateUser(ctx.db, client._id, { session: { mode: "idle" } });
-      await ctx.api
-        .sendMessage(client.chatId, t(client.lang, "client_transferred", { name: trainerName }), { ...HTML, reply_markup: menuBtn(client.lang) })
-        .catch(() => {});
+      await notifySafely(ctx.env, { api: ctx.api }, { userId: client._id, chatId: client.chatId }, {
+        kind: "client_transferred",
+        key: `client_transferred:${reqId}`,
+        text: t(client.lang, "client_transferred", { name: trainerName }),
+        extra: { ...HTML, reply_markup: menuBtn(client.lang) },
+      });
       await notifyTrainerOfClient(ctx, ctx.user, client, true);
     } else {
-      // Brand-new user → push the questionnaire to the client's chat (we're in the trainer's
+      // Brand-new user → the questionnaire goes to the client's chat (we're in the trainer's
       // context). In the Mini App it also asks what the trainer may see, so no separate prompt.
       await updateUser(ctx.db, client._id, { session: { mode: "onboarding", step: 0 } });
-      const accepted = t(client.lang, "client_accepted", { name: trainerName });
-      if (await sendOnboardingPromptTo(ctx, client.chatId, client.lang, accepted)) return;
-      await sendFirstObStep(ctx, client.chatId, client.lang, accepted);
+      const appFlow = !!onboardingUrlFromEnv(ctx.env);
+      await nudgeOnboarding(ctx.env, { ...client, session: { mode: "onboarding", step: 0 } }, t(client.lang, "client_accepted", { name: trainerName }));
+      if (appFlow) return;
     }
-    await ctx.api
-      .sendMessage(client.chatId, t(client.lang, "share_prompt_new"), { ...HTML, reply_markup: sharePromptKb(client.lang) })
-      .catch(() => {});
+    await notifySafely(ctx.env, { api: ctx.api }, { userId: client._id, chatId: client.chatId }, {
+      kind: "share_prompt",
+      key: `share_prompt:${reqId}`,
+      text: t(client.lang, "share_prompt_new"),
+      extra: { ...HTML, reply_markup: sharePromptKb(client.lang) },
+    });
   }
 }
 
@@ -205,7 +230,12 @@ export async function onRequestDecline(ctx: MyContext, reqId: number) {
   const client = await getUser(ctx.db, req.clientId);
   if (client) {
     const kb = new InlineKeyboard().text(t(client.lang, "menu_find_trainer"), "role:find");
-    await ctx.api.sendMessage(client.chatId, t(client.lang, "client_declined"), { ...HTML, reply_markup: kb }).catch(() => {});
+    await notifySafely(ctx.env, { api: ctx.api }, { userId: client._id, chatId: client.chatId }, {
+      kind: "client_declined",
+      key: `request_declined:${reqId}`,
+      text: t(client.lang, "client_declined"),
+      extra: { ...HTML, reply_markup: kb },
+    });
   }
 }
 
@@ -230,7 +260,7 @@ export async function cmdRequests(ctx: MyContext) {
   const reqClients = await getUsersByIds(ctx.db, reqs.map((r) => r.clientId));
   for (const r of reqs) {
     const client = reqClients.get(r.clientId);
-    const who = escapeHtml(client?.profile.name ?? `id ${r.clientId}`);
+    const who = client?.profile.name ?? `id ${r.clientId}`;
     const kb = new InlineKeyboard()
       .text(t(lang, "req_accept"), `req:accept:${r.id}`)
       .text(t(lang, "req_decline"), `req:decline:${r.id}`);
@@ -262,7 +292,7 @@ export async function cmdTrainer(ctx: MyContext) {
   const full = tr.maxClients !== undefined && nClients >= tr.maxClients;
   const prospects = await listProspects(ctx.db, ctx.user._id);
   const pendingLine = prospects.length
-    ? `\n\n${t(lang, "trainer_prospects_pending", { names: prospects.map((p) => escapeHtml(p.name)).join(", ") })}`
+    ? `\n\n${t(lang, "trainer_prospects_pending", { names: prospects.map((p) => p.name).join(", ") })}`
     : "";
   const body =
     `${card}\n\n${statusLine}\n${t(lang, "trainer_invite_link", { link })}` +
@@ -294,7 +324,7 @@ export async function handleProspectName(ctx: MyContext, text: string) {
   const code = shortCode();
   await createProspect(ctx.db, code, ctx.user._id, name);
   const link = botDeepLink(ctx.env, `trp_${code}`);
-  await reply(ctx, t(lang, "trainer_prospect_link", { name: escapeHtml(name), link: escapeHtml(link) }), menuBtn(lang));
+  await reply(ctx, t(lang, "trainer_prospect_link", { name, link }), menuBtn(lang));
 }
 
 // /start trp_<code> — the personal-invite counterpart to joinByCode's tr_<code>. Same pairing
@@ -366,9 +396,12 @@ export async function cmdLeaveTrainer(ctx: MyContext) {
 }
 
 export interface WaitlistNudge {
+  userId: number;
   chatId: number;
   lang: Lang;
   text: string;
+  /** One nudge per freed-up roster size: the same slot state is not announced twice. */
+  key: string;
 }
 
 /** When a trainer's roster spot frees (client left / limit raised): the nudge toward their
@@ -385,16 +418,27 @@ export async function resolveWaitlistNudge(db: D1Database, trainerId: number): P
   ]);
   if (!tr || !trainerUser || !pending.length) return null;
   if (tr.maxClients !== undefined && n >= tr.maxClients) return null; // still full
-  return { chatId: trainerUser.chatId, lang: trainerUser.lang, text: t(trainerUser.lang, "waitlist_slot_free", { n: pending.length }) };
+  return {
+    userId: trainerId,
+    chatId: trainerUser.chatId,
+    lang: trainerUser.lang,
+    text: t(trainerUser.lang, "waitlist_slot_free", { n: pending.length }),
+    key: `waitlist_slot:${trainerId}:${n}`,
+  };
 }
 
-// Best-effort, deduped by nature (fires only on the freeing event itself).
+// Best-effort, deduped by key (fires only on the freeing event itself).
 async function notifyWaitlistSlot(ctx: MyContext, trainerId: number) {
   try {
     const nudge = await resolveWaitlistNudge(ctx.db, trainerId);
     if (!nudge) return;
     const kb = new InlineKeyboard().text(t(nudge.lang, "menu_requests"), "menu:requests");
-    await ctx.api.sendMessage(nudge.chatId, nudge.text, { ...HTML, reply_markup: kb }).catch(() => {});
+    await notifySafely(ctx.env, { api: ctx.api }, { userId: nudge.userId, chatId: nudge.chatId }, {
+      kind: "waitlist_slot",
+      key: nudge.key,
+      text: nudge.text,
+      extra: { ...HTML, reply_markup: kb },
+    });
   } catch {
     /* best-effort */
   }
@@ -492,16 +536,18 @@ export async function handleTrainerBroadcast(ctx: MyContext, text: string) {
   const lang = ctx.user.lang;
   await setMode(ctx, "idle");
   const clients = await listClients(ctx.db, ctx.user._id);
-  const who = escapeHtml(ctx.user.profile.name ?? "trainer");
+  const who = ctx.user.profile.name ?? "trainer";
+  // One broadcast = one event: every recipient's outbox row shares this id.
+  const broadcastId = crypto.randomUUID();
   let sent = 0;
   for (const c of clients) {
-    try {
-      await ctx.api.sendMessage(c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + `\n\n${escapeHtml(text.slice(0, 1500))}`, HTML);
-      sent++;
-    } catch (err) {
-      if (err instanceof GrammyError && err.error_code === 403) await updateUser(ctx.db, c._id, { botBlocked: true }).catch(() => {});
-      else console.error("trainer broadcast", c._id, err);
-    }
+    const result = await notifySafely(ctx.env, { api: ctx.api }, { userId: c._id, chatId: c.chatId }, {
+      kind: "trainer_broadcast",
+      key: `trainer_broadcast:${broadcastId}`,
+      text: t(c.lang, "tr_broadcast_from", { name: who }) + `\n\n${escapeHtml(text.slice(0, 1500))}`,
+      extra: HTML,
+    });
+    if (result === "sent" || result === "retrying") sent++;
   }
   await reply(ctx, t(lang, "tr_broadcast_sent", { n: sent }), trainerMenu(lang));
 }

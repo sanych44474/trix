@@ -214,8 +214,8 @@ private fun CardBody(
                 TrainerPanel {
                     PanelHead(stringResource(Res.string.tr_body_eyebrow), stringResource(Res.string.tr_body_title))
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        body.heightCm?.let { Metric(stringResource(Res.string.tr_height), "${formatNumber(it)} cm") }
-                        body.weightKg?.let { Metric(stringResource(Res.string.tr_weight), "${formatNumber(it)} kg") }
+                        body.heightCm?.let { Metric(stringResource(Res.string.tr_height), "${formatNumber(it)} ${stringResource(Res.string.ob_obu_cm)}") }
+                        body.weightKg?.let { Metric(stringResource(Res.string.tr_weight), "${formatNumber(it)} ${stringResource(Res.string.pr_unit_kg)}") }
                         body.age?.let { Metric(stringResource(Res.string.tr_age), formatNumber(it)) }
                     }
                 }

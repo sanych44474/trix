@@ -4,7 +4,7 @@
 import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Lang, PlanDay, Weekday } from "../types";
 import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
-import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
+import { runPlanEdit, type PlanEditOutcome } from "./planEditRun";
 import { listActiveInjuries } from "../adapters/d1/v2Tracking";
 import { getCatalogExercise, searchExercisesByName } from "../adapters/d1/v2Catalog";
 import { updateUser } from "../adapters/d1/v2Users";
@@ -106,53 +106,57 @@ export async function applyCatalogExerciseChoice(
   const metric = exerciseMetric({ name: catalog.name });
   const timed = metric !== "reps";
   let fromName = "";
+  // Keep the rep scheme for a like-for-like reps swap, but never carry the old absolute load
+  // (e.g. a 100 kg back squat → goblet squat). Timed/cardio get their own default sets.
+  const shared = {
+    name: exName,
+    startWeight: timed ? "Bodyweight" : defaultStartWeightForExercise(catalog),
+    technique: exTech,
+    muscles: catalog.muscle,
+    ...(timed ? { metric } : {}),
+  };
+  let outcome: PlanEditOutcome | null = null;
   if (payload.action === "swap") {
     const current = payload.index !== undefined ? day.exercises[payload.index] : undefined;
-    if (!current) {
-      await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
-      return;
+    if (current) {
+      fromName = current.name;
+      outcome = await runPlanEdit(ctx, planOwnerId(ctx), {
+        kind: "swap",
+        weekday: payload.weekday,
+        index: payload.index!,
+        name: exName,
+        catalogId: catalog.id,
+        overrides: {
+          ...shared,
+          sets: timed ? defaultSetsForMetric(metric, catalog) : current.sets,
+          technique: exTech || current.technique,
+          isKeyLift: timed ? false : current.isKeyLift,
+        },
+      }, payload.source ?? "manual");
     }
-    fromName = current.name;
-    day.exercises[payload.index!] = {
-      exerciseId: catalog.id,
-      canonicalName: catalog.name,
-      name: exName,
-      // Keep the rep scheme for a like-for-like reps swap, but never carry the old absolute load
-      // (e.g. a 100 kg back squat → goblet squat). Timed/cardio get their own default sets.
-      sets: timed ? defaultSetsForMetric(metric, catalog) : current.sets,
-      startWeight: timed ? "Bodyweight" : defaultStartWeightForExercise(catalog),
-      technique: exTech || current.technique,
-      isKeyLift: timed ? false : current.isKeyLift,
-      muscles: catalog.muscle,
-      ...(timed ? { metric } : {}),
-    };
   } else {
-    day.exercises.push({
-      exerciseId: catalog.id,
-      canonicalName: catalog.name,
+    outcome = await runPlanEdit(ctx, planOwnerId(ctx), {
+      kind: "add",
+      weekday: payload.weekday,
       name: exName,
-      sets: defaultSetsForMetric(metric, catalog),
-      startWeight: timed ? "Bodyweight" : defaultStartWeightForExercise(catalog),
-      technique: exTech,
-      isKeyLift: false,
-      muscles: catalog.muscle,
-      ...(timed ? { metric } : {}),
-    });
+      catalogId: catalog.id,
+      overrides: { ...shared, sets: defaultSetsForMetric(metric, catalog), isKeyLift: false },
+    }, payload.source ?? "manual");
+  }
+  if (!outcome || !outcome.ok) {
+    await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
+    return;
   }
 
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), plan.split);
-
-  const updatedDay = plan.split.find((d) => d.weekday === payload.weekday);
+  const updatedDay = outcome.split.find((d) => d.weekday === payload.weekday);
   if (payload.action === "swap") {
     const swapped = updatedDay?.exercises[payload.index ?? 0];
-    await recordPlanChange(ctx.db, planOwnerId(ctx), payload.source ?? "manual", `swap: ${fromName} -> ${swapped?.name ?? catalog.name}`).catch(() => {});
     await reply(
       ctx,
       t(lang, "swap_done", { from: fromName, to: swapped?.name ?? catalog.name }),
       swapTuneKb(lang, payload.weekday, payload.index ?? 0),
     );
   } else {
-    await recordPlanChange(ctx.db, planOwnerId(ctx), payload.source ?? "manual", `add: ${updatedDay?.exercises.at(-1)?.name ?? catalog.name}`).catch(() => {});
     await reply(
       ctx,
       t(lang, "add_exercise_done", { name: updatedDay?.exercises.at(-1)?.name ?? catalog.name }),

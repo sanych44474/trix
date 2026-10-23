@@ -455,6 +455,7 @@ export const uk: Record<keyof typeof en, string> = {
   choose_day_error: "Обери хоча б один тренувальний день.",
   validation_error_hint: "Перевір обов'язкові поля і спробуй ще раз.",
   onboarding_save_error: "Не вдалося зберегти дані. Спробуй ще раз.",
+  onboarding_load_error: "Не вдалося завантажити питання. Перевір з'єднання і спробуй ще раз.",
   building_plan_ellipsis: "Створюємо твій план…",
   create_plan_btn: "Створити мій план",
 
@@ -735,6 +736,7 @@ export const uk: Record<keyof typeof en, string> = {
   grocery_title: "Список покупок",
   grocery_empty: "У плані ще немає продуктів.",
   grocery_hint: "Оберіть 3, 5 або 7 днів для списку покупок.",
+  grocery_days: "{n} дн",
   activity_rings_eyebrow: "Навантаження сьогодні",
   activity_calendar_title: "Календар тренувань",
   missed_label: "Пропущено",

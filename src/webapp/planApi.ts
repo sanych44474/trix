@@ -1,38 +1,38 @@
 // Plan view + editor for the Mini App (roadmap P5). GET returns a user's plan (own, or a
-// trainer's client via ?clientId=); POST applies one edit op (weight / sets / delete / move /
-// swap / add), mirroring the bot's day editor. All writes go through updateActivePlanSplit, so
-// the client and the bot editor stay in sync. Same initData auth as every other webapp API.
+// trainer's client via ?clientId=); POST applies one edit (weight / sets / delete / move / swap /
+// add / day add-remove / difficulty / fitkit), translated into a PlanEdit and applied by
+// features/plan/planEdits.ts, the same module the bot's editors use. Same initData auth as every
+// other webapp API.
 import { rebuildPlan, replanRunning } from "../features/plan/planService";
-import { adjustDayDifficulty } from "../features/plan/difficulty";
-import { FREE_EXERCISE_IDS } from "../../apps/mini-app/src/data/freeExerciseIds";
-import { awardAchievement } from "../adapters/d1/v2Gamification";
-import { fitSplitToKit, kitFromEquipment, kitMismatches } from "../domain/equipmentFit";
-import { swapPlanDays } from "../domain/recoverySwap";
-import { getActivePlan, updateActivePlanSplit, updatePlanMesocycle } from "../adapters/d1/v2Plans";
-import { listPlanChanges, recordPlanChange } from "../adapters/d1/v2PlanHistory";
+import { PlanEditError, applyPlanEdit, planEditStatus, planVersionMatches, type PlanEdit, type PlanEditErrorCode } from "../features/plan/planEdits";
+import type { V2ErrorCode } from "../contracts/v2";
+import { kitMismatches, kitFromEquipment } from "../domain/equipmentFit";
+import { learnedMusclesFor } from "../domain/exerciseMuscles";
+import { getActivePlan, updatePlanMesocycle } from "../adapters/d1/v2Plans";
+import { listPlanChanges } from "../adapters/d1/v2PlanHistory";
 import { defaultMesocycle, type Mesocycle } from "../domain/mesocycle";
 import { getClientForTrainer } from "../adapters/d1/v2Trainer";
 import { updateUser } from "../adapters/d1/v2Users";
-import { DAY_GROUPS } from "../domain/dayGroups";
-import { getExerciseTranslations, listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
-import {
-  getCatalogExercise,
-  getExerciseTranslation,
-  getExerciseVideos,
-  getUserVideos,
-  searchExercisesByName,
-  setUserVideo,
-} from "../adapters/d1/v2Catalog";
+import { getExerciseTranslation, getExerciseVideos, getUserVideos, searchExercisesByName } from "../adapters/d1/v2Catalog";
 import { exerciseMetric } from "../domain/setFormat";
 import { resolveWeightMode } from "../domain/exerciseClass";
-import { cleanAi, t } from "../locales/i18n";
+import { cleanAi } from "../locales/i18n";
 import { exerciseVideoKey, weekdayName } from "../render";
-import { parseYouTubeId } from "../youtube";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import { buildVideoOpenLink } from "../domain/videoLink";
-import type { Env, ExerciseVideo, Lang, PlanDay, PlanExercise, UserDoc, Weekday } from "../types";
+import type { Env, ExerciseVideo, Lang, PlanDay, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
+import { typedFailure } from "./failure";
+
+const PLAN_EDIT_CODE: Record<PlanEditErrorCode, V2ErrorCode> = {
+  "bad request": "validation_error",
+  "not found": "not_found",
+  stale: "conflict",
+  full: "validation_error",
+  conflict: "conflict",
+  last: "validation_error",
+};
 
 interface PlanExerciseView {
   index: number;
@@ -63,6 +63,9 @@ export interface PlanPayload {
   // The owner's equipment and how many plan exercises need gear outside it (domain/equipmentFit.ts);
   // > 0 shows the "fit my plan to my equipment" offer.
   kit: { equipment: string; mismatches: number };
+  // Plan exercises the body map's rules don't know, with their learned classification
+  // (domain/exerciseMuscles.ts); the native app registers them before computing the plan balance.
+  learnedMuscles?: { name: string; primary: string[]; secondary: string[] }[];
 }
 
 interface PlanChangeView {
@@ -110,38 +113,54 @@ function toView(days: PlanDay[], videos: Map<string, ExerciseVideo>, lang: Lang)
     }));
 }
 
-const MAX_EX_PER_DAY = 12;
+const VALUE_EDITS = new Set(["weight", "sets", "wmode", "video", "note", "technique"]);
+type ValueEditKind = "weight" | "sets" | "wmode" | "video" | "note" | "technique";
+const EXERCISE_EDITS = new Set(["link", "del"]);
+type ExerciseEditKind = "link" | "del";
 
-/** Localized label for a DAY_GROUPS id, using the same `pday_g_*` keys the bot's picker shows,
- *  so a day added from the app and one added from chat read identically. */
-function dayGroupLabel(groupId: string, lang: Lang): string {
-  return t(lang, `pday_g_${groupId}` as Parameters<typeof t>[1]);
+/** Translate the POST body into a PlanEdit. Null for an action the editor does not know. */
+function toPlanEdit(body: Record<string, unknown>): PlanEdit | null {
+  const action = String(body.action);
+  const weekday = Number(body.weekday);
+  const slot = {
+    weekday,
+    index: Number(body.index),
+    ...(typeof body.expectName === "string" ? { expectName: body.expectName } : {}),
+  };
+  // The Mini App's shared edit() helper sends the new value as `value` for every action; `name` is
+  // the older spelling the bot-era payload and the existing tests use. Accept both.
+  const name = String(body.value ?? body.name ?? "");
+  const catalogId = body.catalogId ? String(body.catalogId) : undefined;
+  const freeExerciseId = typeof body.freeExerciseId === "string" ? body.freeExerciseId : undefined;
+  if (VALUE_EDITS.has(action)) return { kind: action as ValueEditKind, value: String(body.value ?? ""), ...slot };
+  if (EXERCISE_EDITS.has(action)) return { kind: action as ExerciseEditKind, ...slot };
+  switch (action) {
+    case "move":
+      return { kind: "move", dir: body.dir === "up" ? "up" : "down", ...slot };
+    case "swap":
+      return { kind: "swap", name, catalogId, freeExerciseId, ...slot };
+    case "add":
+      return { kind: "add", weekday, name, catalogId, freeExerciseId };
+    case "dayadd":
+      return { kind: "dayadd", weekday, group: String(body.group ?? "") };
+    case "daydel":
+      return { kind: "daydel", weekday };
+    case "dayswap":
+      return { kind: "dayswap", weekday, other: Number(body.other) };
+    case "difficulty":
+      return { kind: "difficulty", weekday, dir: body.dir as "up" | "down" };
+    case "fitkit":
+      return { kind: "fitkit", ...(typeof body.equipment === "string" ? { equipment: body.equipment } : {}) };
+    default:
+      return null;
+  }
 }
 
-/** One-line "what changed" for the audit trail, mirroring the phrasing the bot's own editor
- *  already writes ("weight: Bench Press -> 60 kg") so both surfaces read as one history. */
-function changeSummary(action: string, before: string, after: PlanExercise | undefined): string {
-  if (action === "weight") return `weight: ${before} -> ${after?.startWeight ?? "?"}`;
-  if (action === "sets") return `sets: ${before} -> ${after?.sets ?? "?"}`;
-  if (action === "wmode") return `weight mode: ${before} -> ${after?.weightMode ?? "total"}`;
-  if (action === "video") return `video: ${before}`;
-  if (action === "note") return after?.note ? `comment: ${before}` : `comment removed: ${before}`;
-  if (action === "technique") return `technique: ${before}`;
-  if (action === "link") return `superset: ${before}`;
-  if (action === "del") return `removed: ${before}`;
-  if (action === "move") return `reordered: ${before}`;
-  if (action === "swap") return `swap: ${before} -> ${after?.name ?? "?"}`;
-  if (action === "add") return `added: ${after?.name ?? "?"}`;
-  return action;
-}
-
-const FREE_EXERCISE_ID_SET = new Set(FREE_EXERCISE_IDS);
-const NOTE_MAX = 300;
-const TECHNIQUE_MAX = 1000;
+const NON_DAY_ACTIONS_WITH_SWAPPED = new Set(["fitkit", "difficulty"]);
 
 export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
 
   // Rebuild the athlete's own plan from their current profile (after changing goal, level,
   // schedule or equipment in Settings). Builds in the background -- AI generation can take tens
@@ -150,9 +169,9 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
     if (req.method === "GET") {
       return Response.json({ pending: replanRunning(user), failed: !!user.session.replanFailed }, { headers: { "cache-control": "no-store" } });
     }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-    if (!user.onboarded) return Response.json({ error: "not_onboarded" }, { status: 409 });
-    if (user.role === "client" && user.trainerId) return Response.json({ error: "trainer_managed" }, { status: 403 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
+    if (!user.onboarded) return typedFailure(409, "conflict", "not_onboarded");
+    if (user.role === "client" && user.trainerId) return typedFailure(403, "forbidden", "trainer_managed");
     if (replanRunning(user)) return Response.json({ ok: true, pending: true });
     const session = { ...user.session, replanAt: new Date().toISOString(), replanFailed: undefined };
     await updateUser(env.DB, user._id, { session });
@@ -176,17 +195,17 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
     const clientId = url.searchParams.get("clientId");
     let owner: UserDoc = user;
     if (clientId) {
-      if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
+      if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
       const client = await getClientForTrainer(env.DB, user._id, Number(clientId));
-      if (!client) return Response.json({ error: "not found" }, { status: 404 });
+      if (!client) return typedFailure(404, "not_found", "not found");
       owner = client;
     }
     const plan = await getActivePlan(env.DB, owner._id);
-    if (!plan) return Response.json({ error: "no_plan" }, { status: 404 });
+    if (!plan) return typedFailure(404, "not_found", "no_plan");
     const videos = await resolveVideos(env, owner._id, plan.split);
-    // The change log had no reader anywhere in the codebase until now -- it was written by the
-    // bot's editor and never shown. Surfacing it here serves both audiences off one endpoint:
-    // an athlete seeing what their coach changed, and a trainer seeing a client's plan history.
+    const learned = learnedMusclesFor(plan.split.flatMap((d) => d.exercises.map((e) => e.name)));
+    // The change log serves both audiences off one endpoint: an athlete seeing what their coach
+    // changed, and a trainer seeing a client's plan history.
     const changes = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
     const payload: PlanPayload = {
       owner: { id: owner._id, name: owner.profile.name ?? `id ${owner._id}` },
@@ -196,15 +215,15 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
       mesocycle: plan.mesocycle ?? null,
       changes: changes.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
       kit: { equipment: owner.profile.equipment ?? "", mismatches: kitMismatches(plan.split, kitFromEquipment(owner.profile.equipment)) },
+      ...(learned.length ? { learnedMuscles: learned } : {}),
     };
     return Response.json(payload, { headers: { "cache-control": "no-store", etag: `"${payload.version}"` } });
   }
 
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
 
-  // This is a discriminated-union editor (action -> a different op, each with its own
-  // pre-existing field checks and optimistic-concurrency guard below) -- readJsonBody adds the
-  // size cap and uniform malformed-JSON handling; each action's own field validation is unchanged.
+  // This is a discriminated-union editor (action -> a different op). readJsonBody adds the size cap
+  // and uniform malformed-JSON handling; the edit's own validation lives in planEdits.ts.
   const parsedPlan = await readJsonBody(req);
   if (!parsedPlan.ok) return parsedPlan.response;
   const body = parsedPlan.body as Record<string, unknown>;
@@ -212,317 +231,44 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
   // Resolve the target plan owner (self or a trainer's client).
   let owner: UserDoc = user;
   if (body.clientId !== undefined) {
-    if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
+    if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
     const client = await getClientForTrainer(env.DB, user._id, Number(body.clientId));
-    if (!client) return Response.json({ error: "not found" }, { status: 404 });
+    if (!client) return typedFailure(404, "not_found", "not found");
     owner = client;
   }
 
   const plan = await getActivePlan(env.DB, owner._id);
-  if (!plan) return Response.json({ error: "no_plan" }, { status: 404 });
+  if (!plan) return typedFailure(404, "not_found", "no_plan");
   // Coarse concurrency guard: a full replan (new generatedAt) invalidates in-flight edits. v2
   // accepts the standard If-Match header; the JSON version remains for the legacy client.
   const ifMatch = req.headers.get("if-match")?.replace(/^W\//, "").replace(/^"|"$/g, "");
   const expectedVersion = ifMatch && ifMatch !== "*" ? ifMatch : typeof body.version === "string" ? body.version : undefined;
-  if (expectedVersion && expectedVersion !== plan.generatedAt.toISOString()) {
-    return Response.json({ error: "stale" }, { status: 409 });
-  }
 
-  // Mesocycle on/off is a whole-plan toggle, not a per-exercise edit -- it has no weekday/index
-  // to resolve, so it's handled before the day-scoped actions below (which all require one).
+  // Mesocycle on/off is a whole-plan toggle, not a plan edit: no weekday or index to resolve.
   if (body.action === "meso") {
+    if (!planVersionMatches(plan, expectedVersion)) return typedFailure(409, "conflict", "stale");
     await updatePlanMesocycle(env.DB, owner._id, body.on ? defaultMesocycle() : null);
     return Response.json({ ok: true });
   }
 
-  // Fit the whole plan to the owner's equipment (optionally changing it first): every exercise
-  // needing gear they don't have becomes a same-muscle one they can do (domain/equipmentFit.ts).
-  if (body.action === "fitkit") {
-    const EQUIPMENT = ["full gym", "home basics (dumbbells, bands)", "dumbbells only", "bodyweight only"];
-    if (typeof body.equipment === "string" && EQUIPMENT.includes(body.equipment) && body.equipment !== owner.profile.equipment) {
-      owner.profile = { ...owner.profile, equipment: body.equipment };
-      await updateUser(env.DB, owner._id, { profile: owner.profile });
-    }
-    const { split, swaps, dropped } = fitSplitToKit(plan.split, kitFromEquipment(owner.profile.equipment), owner.lang === "en" ? "en" : "uk");
-    if (swaps.length || dropped.length) {
-      await updateActivePlanSplit(env.DB, owner._id, split);
-      await recordPlanChange(env.DB, owner._id, owner._id === user._id ? "manual" : "trainer", `fitted to equipment: ${swaps.length} swapped, ${dropped.length} removed`).catch(() => {});
-    }
-    const fitVideos = await resolveVideos(env, owner._id, split);
-    const fitChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
-    return Response.json({
-      ok: true,
-      days: toView(split, fitVideos, owner.lang),
-      version: plan.generatedAt.toISOString(),
-      changes: fitChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
-      swapped: swaps.length + dropped.length,
-    });
-  }
-
-  // Two days trade weekdays (the recovery-swap suggestion on the Today screen, or a manual
-  // reorder): the set of training weekdays is unchanged, so reminders need no resync.
-  if (body.action === "dayswap") {
-    const a = Number(body.weekday);
-    const b = Number(body.other);
-    const valid = (n: number) => Number.isInteger(n) && n >= 1 && n <= 7;
-    if (!valid(a) || !valid(b)) return Response.json({ error: "bad request" }, { status: 400 });
-    const split = swapPlanDays(plan.split, a as Weekday, b as Weekday);
-    if (!split) return Response.json({ error: "not found" }, { status: 404 });
-    await updateActivePlanSplit(env.DB, owner._id, split);
-    await recordPlanChange(
-      env.DB,
-      owner._id,
-      owner._id === user._id ? "manual" : "trainer",
-      `swapped days: ${weekdayName(owner.lang, a as Weekday)} ↔ ${weekdayName(owner.lang, b as Weekday)}`,
-    ).catch(() => {});
-    const swapVideos = await resolveVideos(env, owner._id, split);
-    const swapChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
-    return Response.json({
-      ok: true,
-      days: toView(split, swapVideos, owner.lang),
-      version: plan.generatedAt.toISOString(),
-      changes: swapChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
-    });
-  }
-
-  // Whole-day add/delete. Mirrors the bot's day manager (createPlanDay/deletePlanDay in
-  // src/bot/planDays.ts) and shares its DAY_GROUPS table (src/domain/dayGroups.ts), so the two surfaces build the same
-  // day. Handled before the per-exercise actions below: like `meso`, they address a DAY, not an
-  // exercise within one, so the index/expectName resolution underneath does not apply.
-  if (body.action === "dayadd" || body.action === "daydel") {
-    const raw = Number(body.weekday);
-    if (!Number.isInteger(raw) || raw < 1 || raw > 7) {
-      return Response.json({ error: "bad request" }, { status: 400 });
-    }
-    const targetWeekday = raw as Weekday;
-    let split: PlanDay[];
-    if (body.action === "daydel") {
-      // Same guard as the bot: a plan with no training days at all is not a plan.
-      if (plan.split.length <= 1) return Response.json({ error: "last" }, { status: 400 });
-      if (!plan.split.some((d) => d.weekday === targetWeekday)) return Response.json({ error: "not found" }, { status: 404 });
-      split = plan.split.filter((d) => d.weekday !== targetWeekday);
-    } else {
-      if (plan.split.length >= 7) return Response.json({ error: "full" }, { status: 400 });
-      if (plan.split.some((d) => d.weekday === targetWeekday)) return Response.json({ error: "conflict" }, { status: 409 });
-      const group = DAY_GROUPS.find((g) => g.id === String(body.group ?? ""));
-      if (!group) return Response.json({ error: "bad request" }, { status: 400 });
-      // Auto-fill from the catalog so the new day is usable immediately; the user then tweaks it
-      // with the per-exercise editor that already exists.
-      const candidates = await listCandidatesByMuscles(env.DB, group.muscles, {
-        level: owner.profile.level,
-        perMuscle: 2,
-        total: 5,
-      }).catch(() => []);
-      // The catalog is English; the day is written in the owner's language where a translation
-      // exists (canonicalName stays English for lookups).
-      const translated = owner.lang === "en"
-        ? new Map()
-        : await getExerciseTranslations(env.DB, candidates.map((c) => c.id), owner.lang).catch(() => new Map());
-      const exercises: PlanExercise[] = candidates.map((c) => ({
-        name: translated.get(c.id)?.name || c.name,
-        canonicalName: c.name,
-        exerciseId: c.id,
-        sets: "3 × 8–12",
-        startWeight: "—",
-        technique: translated.get(c.id)?.instructions || c.instructions || "",
-        muscles: c.muscle,
-      }));
-      split = [...plan.split, { weekday: targetWeekday, muscleGroup: dayGroupLabel(group.id, owner.lang), exercises }];
-    }
-    split.sort((a, b) => a.weekday - b.weekday);
-    await updateActivePlanSplit(env.DB, owner._id, split);
-    // Keep the owner's reminder/calendar weekdays in step with the plan's real days -- the bot's
-    // syncOwnerTrainingDays does exactly this, and skipping it would leave reminders firing on a
-    // day that no longer has a session (or silent on a newly added one).
-    const weekdays = [...new Set(split.map((d) => d.weekday))].sort((a, b) => a - b);
-    // NOT best-effort, unlike the audit write below: if this fails the plan and the reminder
-    // schedule disagree, which is a silent, user-visible wrong (a nudge on a rest day, or none
-    // on a training day). Let it throw to the handler's catch, same as the bot's own sync.
-    await updateUser(env.DB, owner._id, {
-      profile: { ...owner.profile, trainingWeekdays: weekdays as Weekday[], daysPerWeek: weekdays.length },
-    });
-    await recordPlanChange(
-      env.DB,
-      owner._id,
-      owner._id === user._id ? "manual" : "trainer",
-      body.action === "daydel" ? `removed day: ${weekdayName(owner.lang, targetWeekday)}` : `added day: ${weekdayName(owner.lang, targetWeekday)}`,
-    ).catch(() => {});
-    const dayVideos = await resolveVideos(env, owner._id, split);
-    const dayChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
-    return Response.json({
-      ok: true,
-      days: toView(split, dayVideos, owner.lang),
-      version: plan.generatedAt.toISOString(),
-      changes: dayChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
-    });
-  }
-
-  // Whole-day difficulty step (one notch harder or easier): the same swap the bot's buttons run.
-  // Day-scoped with no exercise index, so it is handled before the per-exercise actions below.
-  if (body.action === "difficulty") {
-    const wd = Number(body.weekday);
-    if (!Number.isInteger(wd) || wd < 1 || wd > 7 || (body.dir !== "up" && body.dir !== "down")) {
-      return Response.json({ error: "bad request" }, { status: 400 });
-    }
-    const result = await adjustDayDifficulty(env, {
-      db: env.DB, ownerId: owner._id, actorId: user._id, lang: owner.lang, split: plan.split, weekday: wd, direction: body.dir,
-    });
-    if (!result) return Response.json({ error: "not found" }, { status: 404 });
-    const diffVideos = await resolveVideos(env, owner._id, result.split);
-    const diffChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
-    return Response.json({
-      ok: true,
-      swapped: result.swappedCount,
-      days: toView(result.split, diffVideos, owner.lang),
-      version: plan.generatedAt.toISOString(),
-      changes: diffChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
-    });
-  }
-
-  const weekday = Number(body.weekday);
-  const day = plan.split.find((d) => d.weekday === weekday);
-  if (!day) return Response.json({ error: "bad request" }, { status: 400 });
+  const edit = toPlanEdit(body);
+  if (!edit) return typedFailure(400, "validation_error", "bad request");
   const action = String(body.action);
-  // The logger's "overwrite the plan" sends the plan exercise's name, not a position: its list
-  // can be reordered, so a name is the reliable reference there.
-  const byName = typeof body.expectName === "string" && !(Number(body.index) >= 0)
-    ? day.exercises.findIndex((e) => e.name === body.expectName)
-    : -1;
-  const index = byName >= 0 ? byName : Number(body.index);
-  const ex = day.exercises[index];
-  const beforeName = ex?.name ?? "";
-  // Optimistic target check for ops that reference an existing exercise (avoid editing the wrong
-  // one if the plan shifted between load and tap).
-  if (["weight", "sets", "del", "move", "swap", "video", "wmode", "link", "note", "technique"].includes(action)) {
-    if (!ex) return Response.json({ error: "bad request" }, { status: 400 });
-    if (typeof body.expectName === "string" && body.expectName !== ex.name) {
-      return Response.json({ error: "stale" }, { status: 409 });
-    }
-  }
-
   try {
-    if (action === "weight") {
-      const raw = String(body.value ?? "").trim();
-      const kg = parseFloat(raw.replace(",", ".").replace(/[^\d.]/g, ""));
-      // Keep EXACTLY what the user typed (rounded only to 0.5 kg to avoid float noise). The old
-      // 2.5 kg snapping turned "3" into "2.5" — plates are the calculator's job, not the plan's.
-      ex!.startWeight = Number.isFinite(kg) && kg > 0 && kg <= 1000 ? `${Math.round(kg * 2) / 2} kg` : raw.slice(0, 24) || ex!.startWeight;
-    } else if (action === "wmode") {
-      // Explicit weight-entry mode from the picker: total (cleared) | perSide | perHand.
-      const v = String(body.value ?? "");
-      ex!.weightMode = v === "perSide" || v === "perHand" ? v : undefined;
-    } else if (action === "sets") {
-      const norm = String(body.value ?? "").trim().replace(/\s+/g, " ").replace(/[xх*]/gi, "×");
-      if (!/^\d+\s*×\s*\d+(?:\s*[-–]\s*\d+)?$/.test(norm)) return Response.json({ error: "bad request" }, { status: 400 });
-      ex!.sets = norm.replace(/\s*×\s*/g, " × ");
-    } else if (action === "video") {
-      // Personal video override for this exercise (the plan OWNER's override, so a trainer
-      // setting it for a client changes what the client sees — same as the bot's 🎥 flow).
-      const videoId = parseYouTubeId(String(body.value ?? "").trim());
-      if (!videoId) return Response.json({ error: "bad request" }, { status: 400 });
-      await setUserVideo(env.DB, owner._id, exerciseVideoKey(ex!), ex!.name, { videoId, url: `https://youtu.be/${videoId}` });
-    } else if (action === "note") {
-      // The plan author's comment for this exercise ("keep the elbows in", "stop at RPE 8"); a
-      // trainer writes it for a client, who sees it in the logger. Empty clears it.
-      const note = String(body.value ?? "").replace(/\s+/g, " ").trim().slice(0, NOTE_MAX);
-      if (note) ex!.note = note;
-      else delete ex!.note;
-    } else if (action === "technique") {
-      // The technique text shown in the logger's info panel; replaces the catalog/AI text.
-      const technique = String(body.value ?? "").trim().slice(0, TECHNIQUE_MAX);
-      if (!technique) return Response.json({ error: "bad request" }, { status: 400 });
-      ex!.technique = technique;
-    } else if (action === "link") {
-      // Superset toggle with the NEXT exercise, on the existing supersetGroup letters (the
-      // same field AI-generated plans use, so the bot's superset/circuit render just works).
-      if (index >= day.exercises.length - 1) return Response.json({ error: "bad request" }, { status: 400 });
-      const next = day.exercises[index + 1];
-      if (ex!.supersetGroup && ex!.supersetGroup === next.supersetGroup) {
-        // unlink: drop this exercise from the group; dissolve a group left with one member
-        const g = ex!.supersetGroup;
-        delete ex!.supersetGroup;
-        const left = day.exercises.filter((e2) => e2.supersetGroup === g);
-        if (left.length === 1) delete left[0].supersetGroup;
-      } else if (next.supersetGroup) {
-        ex!.supersetGroup = next.supersetGroup;
-      } else if (ex!.supersetGroup) {
-        next.supersetGroup = ex!.supersetGroup;
-      } else {
-        const used = new Set(day.exercises.map((e2) => e2.supersetGroup).filter(Boolean));
-        const letter = "ABCDEFGH".split("").find((c) => !used.has(c)) ?? "A";
-        ex!.supersetGroup = letter;
-        next.supersetGroup = letter;
-      }
-    } else if (action === "del") {
-      if (day.exercises.length <= 1) return Response.json({ error: "last" }, { status: 400 });
-      day.exercises.splice(index, 1);
-    } else if (action === "move") {
-      const j = body.dir === "up" ? index - 1 : index + 1;
-      if (j < 0 || j >= day.exercises.length) return Response.json({ ok: true }); // no-op at the edge
-      [day.exercises[index], day.exercises[j]] = [day.exercises[j], day.exercises[index]];
-    } else if (action === "swap" || action === "add") {
-      // `value` is what the Mini App's shared edit() helper sends for EVERY action (App.tsx);
-      // `name` is the older spelling the bot-era payload and the existing tests use. Reading
-      // only `name` here silently 400'd every catalog swap and add-exercise from the app --
-      // for a trainer editing a client's plan and for a solo user alike -- while the other
-      // actions (weight/sets/wmode/video), which read `value`, kept working. Accept both.
-      const name = String(body.value ?? body.name ?? "").trim().slice(0, 80);
-      if (name.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
-      const catalogId = body.catalogId ? String(body.catalogId) : undefined;
-      const cat = catalogId ? await getCatalogExercise(env.DB, catalogId).catch(() => null) : null;
-      // Picked from the Mini App's exercise library (free-exercise-db): keep its English name as the
-      // canonical one (technique pictures match it exactly) and reuse the cached translated steps.
-      const libId = typeof body.freeExerciseId === "string" && FREE_EXERCISE_ID_SET.has(body.freeExerciseId) ? body.freeExerciseId : undefined;
-      const libSteps = libId
-        ? await env.DB.prepare("SELECT steps FROM v2_technique_steps WHERE exerciseId = ? AND lang = ?").bind(libId, owner.lang === "en" ? "en" : "uk").first<{ steps: string }>().catch(() => null)
-        : null;
-      let localName = cat?.name ?? name;
-      if (cat && owner.lang !== "en") {
-        const tr = await getExerciseTranslation(env.DB, cat.id, owner.lang).catch(() => null);
-        if (tr?.name) localName = tr.name;
-      }
-      const built: PlanExercise = {
-        name: cat ? localName : name,
-        sets: action === "add" ? "3 × 8–12" : ex!.sets,
-        startWeight: action === "add" ? "—" : (ex!.startWeight || "—"),
-        technique: cat?.instructions ?? (libSteps ? (JSON.parse(libSteps.steps) as string[]).join(" ") : ""),
-        ...(cat ? { exerciseId: cat.id, canonicalName: cat.name, muscles: cat.muscle } : {}),
-        ...(!cat && libId ? { canonicalName: libId.replace(/_/g, " ") } : {}),
-      };
-      if (libId && action === "add" && owner._id === user._id) await awardAchievement(env.DB, user._id, "library_first").catch(() => {});
-      if (action === "add") {
-        if (day.exercises.length >= MAX_EX_PER_DAY) return Response.json({ error: "full" }, { status: 400 });
-        day.exercises.push(built);
-      } else {
-        day.exercises[index] = { ...built, isKeyLift: ex!.isKeyLift };
-      }
-    } else {
-      return Response.json({ error: "bad request" }, { status: 400 });
-    }
-    await updateActivePlanSplit(env.DB, owner._id, plan.split);
-    // Parity with the bot's editor (src/bot/planExerciseEdit.ts), which records every one of
-    // these: without it an edit made in the Mini App left no audit trail while the identical
-    // edit made in chat did. A trainer editing a client's plan is logged as "trainer", not
-    // "manual", so the client can tell who changed what. Best-effort -- a failed audit write
-    // must not fail the edit the user already saw succeed.
-    const after = action === "add" ? day.exercises[day.exercises.length - 1] : action === "del" ? undefined : day.exercises[index];
-    await recordPlanChange(
-      env.DB,
-      owner._id,
-      owner._id === user._id ? "manual" : "trainer",
-      changeSummary(action, beforeName, after),
-    ).catch(() => {});
-    const videos = await resolveVideos(env, owner._id, plan.split);
+    const result = await applyPlanEdit({ env, owner, actorId: user._id, plan, expectedVersion }, edit);
+    const videos = await resolveVideos(env, owner._id, result.split);
     // Return the refreshed log with the edit, so the client's history panel can't show a list
     // that's missing the change the user just made.
-    const freshChanges = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
+    const changes = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
     return Response.json({
       ok: true,
-      days: toView(plan.split, videos, owner.lang),
+      days: toView(result.split, videos, owner.lang),
       version: plan.generatedAt.toISOString(),
-      changes: freshChanges.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
+      changes: changes.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
+      ...(NON_DAY_ACTIONS_WITH_SWAPPED.has(action) ? { swapped: result.swapped } : {}),
     });
   } catch (err) {
+    if (err instanceof PlanEditError) return typedFailure(planEditStatus(err.code), PLAN_EDIT_CODE[err.code], err.code);
     return apiFailure(env, "api_plan", err, { userId: user._id, action });
   }
 }

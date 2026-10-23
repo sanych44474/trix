@@ -36,7 +36,7 @@ export interface V2Envelope<T> {
 }
 
 export interface V2Failure {
-  error: { code: string; message: string; requestId?: string };
+  error: { code: string; message: string; requestId?: string; retryable?: boolean };
 }
 
 export type Dashboard = Schemas["Dashboard"];

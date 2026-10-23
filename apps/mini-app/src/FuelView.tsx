@@ -177,7 +177,7 @@ export function FuelView({ lang }: { lang: Lang }) {
             const editKey = { dayIndex, mealIndex, itemIndex };
             const isEditing = planEditing && planEditing.dayIndex === dayIndex && planEditing.mealIndex === mealIndex && planEditing.itemIndex === itemIndex;
             return <div className="plan-row" key={item.food}>
-              <button className="text-button" onClick={() => { setPlanEditing(isEditing ? null : editKey); setPlanGrams(String(item.grams)); }}>{item.food} {item.grams}g</button>
+              <button className="text-button" onClick={() => { setPlanEditing(isEditing ? null : editKey); setPlanGrams(String(item.grams)); }}>{item.food} {item.grams} {t(lang, "unit_g")}</button>
               {isEditing && <div className="meal-editor">
                 <div className="button-row">
                   {([0.5, 1.5, 2] as const).map((f) => <button className="button button-ghost" key={f} disabled={saving} onClick={() => void mutateMealPlanItem("mealplan_item_scale", { factor: f })}>×{f}</button>)}
@@ -199,8 +199,8 @@ export function FuelView({ lang }: { lang: Lang }) {
     </>}
     {tab === "grocery" && hasPlan && <>
       <Card>
-        <div className="section-head"><div><span className="eyebrow">{t(lang, "grocery_eyebrow")}</span><h2>{t(lang, "grocery_title")}</h2></div><div className="button-row">{[3, 5, 7].map((days) => <button key={days} className={groceryDays === days ? "button button-primary" : "button button-ghost"} onClick={() => void loadGrocery(days)}>{days}d</button>)}</div></div>
-        {grocery ? <div className="grocery-list">{grocery.length ? grocery.map((line) => <div className="record-row" key={`${line.category}-${line.food}`}><strong>{line.food}</strong><span>{line.grams} g</span></div>) : <p className="muted">{t(lang, "grocery_empty")}</p>}</div> : <p className="muted">{t(lang, "grocery_hint")}</p>}
+        <div className="section-head"><div><span className="eyebrow">{t(lang, "grocery_eyebrow")}</span><h2>{t(lang, "grocery_title")}</h2></div><div className="button-row">{[3, 5, 7].map((days) => <button key={days} className={groceryDays === days ? "button button-primary" : "button button-ghost"} onClick={() => void loadGrocery(days)}>{t(lang, "grocery_days", { n: days })}</button>)}</div></div>
+        {grocery ? <div className="grocery-list">{grocery.length ? grocery.map((line) => <div className="record-row" key={`${line.category}-${line.food}`}><strong>{line.food}</strong><span>{line.grams} {t(lang, "unit_g")}</span></div>) : <p className="muted">{t(lang, "grocery_empty")}</p>}</div> : <p className="muted">{t(lang, "grocery_hint")}</p>}
         {grocery?.length ? <div className="button-row" style={{ marginTop: 10 }}>
           <button className="button button-primary" disabled={grocerySendBusy} onClick={() => void sendGrocery()}>{grocerySendBusy ? t(lang, "saving_ellipsis") : t(lang, "grocery_send_btn")}</button>
         </div> : null}

@@ -21,6 +21,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 
 val AppJson = Json {
@@ -30,7 +31,8 @@ val AppJson = Json {
 }
 
 /** A failed call: the HTTP status and the server's error code ("invalid_code", "rate_limited", ...). */
-class ApiException(val status: Int, val code: String, message: String?) : Exception(message ?: code)
+/** [retryable] is the server's verdict from the error envelope; null when the server didn't say. */
+class ApiException(val status: Int, val code: String, message: String?, val retryable: Boolean? = null) : Exception(message ?: code)
 
 /**
  * The one HTTP client. Every request identifies itself as the native app (the server then returns
@@ -98,7 +100,8 @@ class ApiClient(
         // v2 routes put the legacy handler's specific code (e.g. "no_telegram_chat") in `message`
         // under a generic `code` ("conflict"); the specific one is what the screen needs.
         val specific = message?.takeIf { code in GENERIC_CODES && SPECIFIC.matches(it) }
-        return ApiException(response.status.value, specific ?: code ?: "http_${response.status.value}", message)
+        val retryable = ((body?.get("error") as? JsonObject)?.get("retryable") as? JsonPrimitive)?.booleanOrNull
+        return ApiException(response.status.value, specific ?: code ?: "http_${response.status.value}", message, retryable)
     }
 
     private companion object {

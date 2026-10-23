@@ -52,9 +52,21 @@ export function isNetworkError(err: unknown, online = true): boolean {
 export type FlushResult = { sent: number; dropped: number; remaining: number };
 
 /**
+ * Whether a failed save stays queued. The server's `retryable` flag decides when it is present
+ * (a 401/403 from a session not there yet, a 409 for a key still in flight, a 5xx: retryable; a day
+ * more than 14 days back: not). Without the flag: no network, 429 and 5xx stay queued, other 4xx drop.
+ */
+export function shouldRetry(err: unknown): boolean {
+  if (isNetworkError(err)) return true;
+  const retryable = (err as { retryable?: unknown }).retryable;
+  if (typeof retryable === "boolean") return retryable;
+  const status = (err as { status?: number }).status ?? 0;
+  return status === 429 || status >= 500;
+}
+
+/**
  * Send queued saves oldest first. Stops at the first network error (still offline) and keeps the
- * rest. A 401/403 (opened offline, no login data yet), 409 (the same key still in flight) or a
- * 5xx/429 stays queued for the next try; any other 4xx can never succeed and is dropped.
+ * rest. Any other failure stays queued only when shouldRetry says so.
  */
 export async function flushQueue(store: Store, send: (q: QueuedSave) => Promise<void>): Promise<FlushResult> {
   const queue = readQueue(store);
@@ -67,11 +79,7 @@ export async function flushQueue(store: Store, send: (q: QueuedSave) => Promise<
       sent++;
     } catch (err) {
       if (isNetworkError(err)) { keep.push(...queue.slice(i)); break; }
-      const status = (err as { status?: number }).status ?? 0;
-      // 401/403: the app was opened without signal, so Telegram never handed it the login data;
-      // the next open (with it) sends the save. Only a request the server rejected on its merits
-      // (400, e.g. a day now more than 14 days back) is dropped.
-      if (status === 401 || status === 403 || status === 409 || status === 429 || status >= 500) keep.push(q);
+      if (shouldRetry(err)) keep.push(q);
       else dropped++;
     }
   }

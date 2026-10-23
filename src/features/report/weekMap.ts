@@ -4,11 +4,11 @@
 // sends the digest as text. The link carries everything to draw (sex + one zone per muscle), so
 // no database read; the HMAC (keyed on the bot token, like videoLink.ts) keeps it to links the bot
 // minted. The image is deterministic, so it's cached as immutable.
-import type { Env } from "../types";
-import { TRACKED_MUSCLES } from "../domain/muscleLoad";
-import { zonesToColors } from "../domain/weeklyReport";
-import { renderBodyMapPng } from "../render/bodyMapPng";
-import { macHex, verifyMac } from "../domain/secrets";
+import type { Env } from "../../types";
+import { TRACKED_MUSCLES } from "../../domain/muscleLoad";
+import { zonesToColors } from "../../domain/weeklyReport";
+import { renderBodyMapPng } from "../../render/bodyMapPng";
+import { macHex, verifyMac } from "../../domain/secrets";
 
 const ZONES = new RegExp(`^[nboa]{${TRACKED_MUSCLES.length}}$`);
 

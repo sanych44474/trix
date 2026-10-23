@@ -6,7 +6,7 @@
 import type { Env, Lang, UserDoc } from "../types";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
-import { FREE_EXERCISE_DB_COMMIT, FREE_EXERCISE_IDS } from "../../apps/mini-app/src/data/freeExerciseIds";
+import { FREE_EXERCISE_DB_COMMIT, FREE_EXERCISE_IDS } from "../domain/data/freeExerciseIds";
 
 const KNOWN = new Set(FREE_EXERCISE_IDS);
 

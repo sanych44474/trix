@@ -7,7 +7,8 @@ import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import { getSquad, isAppSquad, squadsForUser } from "../src/adapters/d1/v2Gamification";
 import { announceSquadPr } from "../src/features/squad/prAnnounce";
 import { postSquadDigest } from "../src/features/squad/digest";
-import { handleSquadsApi, joinByInviteCode, MAX_SQUAD_MEMBERS } from "../src/webapp/squadApi";
+import { handleSquadsApi } from "../src/webapp/squadApi";
+import { joinByInviteCode, MAX_SQUAD_MEMBERS } from "../src/features/squad/join";
 import { inviteCodeFrom } from "../apps/mini-app/src/Squads";
 
 const env = (db: ReturnType<typeof newDb>) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t", BOT_USERNAME: "trixbot" }) as never;

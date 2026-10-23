@@ -12,27 +12,13 @@
 // too or creating a web of tiny mutually-dependent files — left as their own, larger, future
 // pass rather than forced into boundaries the code doesn't actually have.
 import { InlineKeyboard } from "grammy";
-import type { PlanDay, PlanExercise, Weekday } from "../types";
-import { updateActivePlanSplit } from "../adapters/d1/v2Plans";
-import { listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
-import { getUser, updateUser } from "../adapters/d1/v2Users";
+import type { Weekday } from "../types";
 import { t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { DAY_GROUPS } from "../domain/dayGroups";
-import { translatePlanExercises } from "../features/plan/planBuild";
-import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply } from "../adapters/telegram/context";
+import { runPlanEdit } from "./planEditRun";
+import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, reply } from "../adapters/telegram/context";
 
-
-// Keep the owner's reminder/calendar weekdays in step with the plan's actual days.
-async function syncOwnerTrainingDays(ctx: MyContext, split: PlanDay[]) {
-  const ownerId = planOwnerId(ctx);
-  const owner = ownerId === ctx.user._id ? ctx.user : await getUser(ctx.db, ownerId);
-  if (!owner) return;
-  const weekdays = [...new Set(split.map((d) => d.weekday))].sort((a, b) => a - b) as Weekday[];
-  const profile = { ...owner.profile, trainingWeekdays: weekdays, daysPerWeek: weekdays.length };
-  await updateUser(ctx.db, ownerId, { profile });
-  if (ownerId === ctx.user._id) ctx.user.profile = profile;
-}
 
 export async function showDayManager(ctx: MyContext) {
   const lang = ctx.user.lang;
@@ -93,30 +79,14 @@ export async function createPlanDay(ctx: MyContext, weekday: Weekday, groupId: s
     await showDayManager(ctx);
     return;
   }
-  const ownerId = planOwnerId(ctx);
-  const owner = ownerId === ctx.user._id ? ctx.user : await getUser(ctx.db, ownerId);
-  const candidates = await listCandidatesByMuscles(ctx.db, group.muscles, {
-    level: owner?.profile.level,
-    perMuscle: 2,
-    total: 5,
-  });
-  const oLang = await planOwnerLang(ctx);
-  const groupLabel = t(oLang, `pday_g_${groupId}` as Parameters<typeof t>[1]);
-  const exercises: PlanExercise[] = candidates.map((c) => ({
-    name: c.name,
-    canonicalName: c.name,
-    exerciseId: c.id,
-    sets: "3 × 8–12",
-    startWeight: "—",
-    technique: c.instructions ?? "",
-    muscles: c.muscle,
-  }));
-  let split = [...plan.split, { weekday, muscleGroup: groupLabel, exercises }];
-  if (oLang !== "en") split = await translatePlanExercises(ctx.env, oLang, split, ctx.db, ownerId);
-  split.sort((a, b) => a.weekday - b.weekday);
-  await updateActivePlanSplit(ctx.db, ownerId, split);
-  await syncOwnerTrainingDays(ctx, split);
-  await reply(ctx, t(lang, "pday_added", { day: weekdayName(lang, weekday), group: groupLabel, n: exercises.length }));
+  const out = await runPlanEdit(ctx, planOwnerId(ctx), { kind: "dayadd", weekday, group: groupId });
+  if (!out.ok) {
+    await reply(ctx, t(lang, "error_generic"));
+    await showDayManager(ctx);
+    return;
+  }
+  const added = out.split.find((d) => d.weekday === weekday);
+  await reply(ctx, t(lang, "pday_added", { day: weekdayName(lang, weekday), group: added?.muscleGroup ?? "", n: added?.exercises.length ?? 0 }));
   await showDayManager(ctx);
 }
 
@@ -149,9 +119,12 @@ export async function deletePlanDay(ctx: MyContext, weekday: Weekday) {
     await showDayManager(ctx);
     return;
   }
-  const split = plan.split.filter((d) => d.weekday !== weekday);
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), split);
-  await syncOwnerTrainingDays(ctx, split);
+  const out = await runPlanEdit(ctx, planOwnerId(ctx), { kind: "daydel", weekday });
+  if (!out.ok) {
+    await reply(ctx, t(lang, "error_generic"));
+    await showDayManager(ctx);
+    return;
+  }
   await reply(ctx, t(lang, "pday_deleted"));
   await showDayManager(ctx);
 }

@@ -21,7 +21,7 @@ export interface ExerciseMuscles {
 
 type Rule = [RegExp, Slug[], Slug[]];
 
-const RULES: Rule[] = [
+export const RULES: Rule[] = [
   // ---- cardio (whole-name first, so "Barbell Rowing" stays a row) ----
   [/^\s*(rowing|веслування|гребля)\s*$|rowing machine|row(ing)? erg|\brower\b|ергометр|гребн/iu, ["upper-back", "quadriceps"], ["biceps", "hamstring", "gluteal"]],
   [/\b(run|running|jog|jogging|treadmill|sprints?)\b|біг|бег|пробіжк|доріжк|спринт/iu, ["quadriceps", "calves", "hamstring"], ["gluteal"]],
@@ -152,7 +152,7 @@ const RULES: Rule[] = [
 
 // Last resort: the coarse region a name mentions ("вправа на груди", "leg day finisher").
 // English words need word boundaries: "arm" is inside "warm-up" and "One-Arm Row".
-const REGION_FALLBACK: Array<[RegExp, Slug[]]> = [
+export const REGION_FALLBACK: Array<[RegExp, Slug[]]> = [
   [/груд|\bchest\b/iu, ["chest"]],
   [/спин|\bback\b|широч/iu, ["upper-back"]],
   [/ног|\blegs?\b|стегн|бедр/iu, ["quadriceps", "hamstring", "gluteal"]],
@@ -211,6 +211,14 @@ export function registerLearnedMuscles(entries: Array<{ name: string; primary: u
 export function knownByRules(name: string): boolean {
   const n = name.toLowerCase();
   return RULES.some(([re]) => re.test(n)) || REGION_FALLBACK.some(([re]) => re.test(n));
+}
+
+/** Learned classifications for the given exercise names that the rules don't know, for the app to
+ * register (dashboard calendar.learnedMuscles, plan payload learnedMuscles). */
+export function learnedMusclesFor(names: Iterable<string>): { name: string; primary: string[]; secondary: string[] }[] {
+  return [...new Set(names)]
+    .filter((n) => !knownByRules(n))
+    .flatMap((n) => { const m = musclesForExercise(n); return m ? [{ name: n, primary: [...m.primary], secondary: [...m.secondary] }] : []; });
 }
 
 // free-exercise-db / catalog muscle enum → body-map muscle.

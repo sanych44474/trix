@@ -15,7 +15,7 @@ import app.hacklimits.shared.platform.RestAlarm
 import app.hacklimits.shared.workout.logic.DEFAULT_REST_SEC
 import app.hacklimits.shared.workout.logic.DENSITY_MIN_SESSION_SEC
 import app.hacklimits.shared.workout.logic.DRAFT_KEY
-import app.hacklimits.shared.workout.logic.ExerciseMuscleTable
+import app.hacklimits.shared.muscles.MuscleLearning
 import app.hacklimits.shared.workout.logic.LoggerDraft
 import app.hacklimits.shared.workout.logic.LoggerExercise
 import app.hacklimits.shared.workout.logic.LoggerSet
@@ -54,6 +54,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlin.math.max
@@ -68,6 +69,11 @@ private const val TODAY_CACHE_KEY = "workout_today_cache"
 private const val REST_PREFS_KEY = "workout_rest_prefs"
 private const val REST_BY_EXERCISE_KEY = "workout_rest_by_exercise"
 private const val REST_CHOSEN_KEY = "workout_rest_chosen"
+private const val REST_RUNNING_KEY = "workout_rest_running"
+
+/** The rest that is counting down, kept on the device so reopening the app picks it up where it is. */
+@Serializable
+private data class RunningRest(val endAtMs: Long, val startedAtMs: Long, val target: Int, val label: String)
 private const val DRAFT_PUSH_DELAY_MS = 2_500L
 private const val MAX_PLATES_KG = 600.0
 
@@ -108,6 +114,7 @@ class LoggerViewModel(
                 AppJson.decodeFromString(MapSerializer(String.serializer(), Int.serializer()), store.get(REST_CHOSEN_KEY) ?: "{}")
             }.getOrDefault(emptyMap()).filterValues { it > 0 }
             _ui.value = _ui.value.copy(restPrefs = parseRestPrefs(store.get(REST_PREFS_KEY)), restOverrides = overrides, restChosen = chosen)
+            resumeRest()
         }
         load()
     }
@@ -257,14 +264,18 @@ class LoggerViewModel(
 
     fun removeSet(index: Int, setIndex: Int) = mapExercise(index) { ex -> removeLoggerSet(ex, setIndex) }
 
-    fun moveExercise(index: Int, direction: Int) = mutate { list ->
+    /** Indexes are renumbered after a move, so focus follows the exercise that was on screen. */
+    fun moveExercise(index: Int, direction: Int) {
+        val list = _ui.value.exercises
         val at = list.indexOfFirst { it.index == index }
         val to = at + direction
-        if (at < 0 || to < 0 || to >= list.size) return@mutate list
+        if (at < 0 || to < 0 || to >= list.size) return
         val next = list.toMutableList()
         next[at] = list[to]
         next[to] = list[at]
-        next.mapIndexed { i, ex -> ex.copy(index = i) }
+        val focused = _ui.value.focusIndex?.let { f -> list.indexOfFirst { it.index == f } }
+        mutate { next.mapIndexed { i, ex -> ex.copy(index = i) } }
+        if (focused != null) edit { it.copy(focusIndex = if (focused == at) to else if (focused == to) at else focused) }
     }
 
     /** Asks first when the exercise has typed numbers in it. */
@@ -278,8 +289,18 @@ class LoggerViewModel(
     }
 
     fun confirmRemove(index: Int) {
-        mutate { list -> list.filter { it.index != index }.mapIndexed { i, ex -> ex.copy(index = i) } }
-        edit { it.copy(removeConfirm = null, menuOpen = false) }
+        val list = _ui.value.exercises
+        val at = list.indexOfFirst { it.index == index }
+        val focused = _ui.value.focusIndex?.let { f -> list.indexOfFirst { it.index == f } }
+        mutate { l -> l.filter { it.index != index }.mapIndexed { i, ex -> ex.copy(index = i) } }
+        // The removed one's neighbour takes its place on screen; one further down shifts up with the list.
+        val left = list.size - 1
+        val nextFocus = when {
+            focused == null || at < 0 || left <= 0 -> focused
+            focused > at -> focused - 1
+            else -> minOf(focused, left - 1)
+        }
+        edit { it.copy(focusIndex = nextFocus, removeConfirm = null, menuOpen = false) }
     }
 
     fun dismissRemove() = edit { it.copy(removeConfirm = null) }
@@ -402,6 +423,28 @@ class LoggerViewModel(
         // App's and arrives as a Telegram bot message, which made the app send both.
         restAlarm.schedule(seconds, restAlarmTitle, restAlarmBody)
         startTicker(now + seconds * 1000L)
+        persistRest()
+    }
+
+    private fun persistRest() {
+        val rest = _ui.value.rest
+        val endAt = rest.endAtMs
+        val startedAt = restStartedAtMs
+        viewModelScope.launch {
+            if (endAt == null || startedAt == null) store.remove(REST_RUNNING_KEY)
+            else store.put(REST_RUNNING_KEY, AppJson.encodeToString(RunningRest.serializer(), RunningRest(endAt, startedAt, restTarget, rest.label)))
+        }
+    }
+
+    /** A rest still running (or within its overrun window) when the app was closed comes back as it is now. */
+    private suspend fun resumeRest() {
+        if (_ui.value.rest.endAtMs != null) return
+        val saved = runCatching { AppJson.decodeFromString(RunningRest.serializer(), store.get(REST_RUNNING_KEY) ?: return) }.getOrNull() ?: return
+        if (restProgress(saved.endAtMs, nowMs()).over >= REST_OVERRUN_CAP_SEC) { store.remove(REST_RUNNING_KEY); return }
+        restStartedAtMs = saved.startedAtMs
+        restTarget = saved.target
+        edit { it.copy(rest = RestUi(endAtMs = saved.endAtMs, target = saved.target, label = saved.label)) }
+        startTicker(saved.endAtMs)
     }
 
     private fun startTicker(endAtMs: Long) {
@@ -413,6 +456,7 @@ class LoggerViewModel(
                     _ui.value = _ui.value.let { s -> if (s.rest.endAtMs == endAtMs) s.copy(rest = s.rest.copy(left = tick.left, over = 0)) else s }
                 } else if (tick.over >= REST_OVERRUN_CAP_SEC) {
                     _ui.value = _ui.value.let { s -> if (s.rest.endAtMs == endAtMs) s.copy(rest = RestUi(target = s.rest.target)) else s }
+                    persistRest()
                     break
                 } else {
                     _ui.value = _ui.value.let { s ->
@@ -439,6 +483,7 @@ class LoggerViewModel(
         restJob = null
         restAlarm.cancel()
         _ui.value = _ui.value.let { s -> s.copy(rest = RestUi(target = s.rest.target)) }
+        persistRest()
         viewModelScope.launch { runCatching { api.cancelRestTimer() } }
     }
 
@@ -466,6 +511,7 @@ class LoggerViewModel(
         }
         restAlarm.schedule(next, restAlarmTitle, restAlarmBody)
         startTicker(now + next * 1000L)
+        persistRest()
     }
 
     private fun finalClock(clock: SessionClock?, now: Long): SessionClock? {
@@ -717,7 +763,7 @@ class LoggerViewModel(
                     return@launch
                 }
                 val own = api.addCustom(q, Uuid.random().toString())
-                own.muscles?.let { ExerciseMuscleTable.learn(own.name, it.primary, it.secondary) }
+                own.muscles?.let { MuscleLearning.remember(own.name, it.primary, it.secondary) }
                 applySwap(SwapChoice(name = own.name), own.videoUrl, own.videoTitle)
             } catch (e: CancellationException) {
                 throw e
@@ -780,7 +826,7 @@ class LoggerViewModel(
         viewModelScope.launch {
             try {
                 val result = api.addCustom(name, Uuid.random().toString())
-                result.muscles?.let { ExerciseMuscleTable.learn(result.name, it.primary, it.secondary) }
+                result.muscles?.let { MuscleLearning.remember(result.name, it.primary, it.secondary) }
                 mutate { list ->
                     list + LoggerExercise(
                         index = list.size,

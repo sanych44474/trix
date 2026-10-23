@@ -74,10 +74,22 @@ fun OnboardingScreen(
                 val programs: ProgramsViewModel = koinViewModel()
                 ReadyProgramsSection(programs, onApplied = onDone)
             }
+            s.questions == null -> QuestionsUnavailable(failed = s.failure == OnboardingViewModel.Failure.LOAD, onRetry = vm::loadQuestions)
             s.index < 0 -> Welcome(vm, onFindTrainer, onBecomeCoach, onClose)
             else -> Question(vm)
         }
     }
+}
+
+/** Shown until the question set loads; a failed load offers a retry. */
+@Composable
+private fun QuestionsUnavailable(failed: Boolean, onRetry: () -> Unit) {
+    if (!failed) {
+        LinearProgressIndicator(Modifier.fillMaxWidth())
+        return
+    }
+    Text(stringResource(Res.string.ob_load_error), color = MaterialTheme.colorScheme.error)
+    OutlinedButton(onClick = onRetry) { Text(stringResource(Res.string.retry)) }
 }
 
 @Composable

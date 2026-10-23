@@ -73,7 +73,9 @@ import app.hacklimits.shared.resources.wk_train_rest_for
 import app.hacklimits.shared.workout.LoggerUi
 import app.hacklimits.shared.workout.LoggerViewModel
 import app.hacklimits.shared.workout.RowDraft
-import app.hacklimits.shared.workout.logic.ExerciseMuscleTable
+import app.hacklimits.shared.muscles.ExerciseMuscles
+import app.hacklimits.shared.muscles.classify
+import app.hacklimits.shared.workout.logic.Slug
 import app.hacklimits.shared.workout.logic.LoggerExercise
 import app.hacklimits.shared.workout.logic.LoggerSet
 import app.hacklimits.shared.workout.logic.isSetFilled
@@ -126,10 +128,12 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
 
     fun commit(i: Int, value: LoggerSet) {
         if (!(amount(value) > 0)) return
+        val newlyDone = !isDone(i)
         vm.writeSet(ex.index, i, value)
         vm.setRowDraft(key, null)
         rpeOpen = false
-        if (s.restPrefs.auto) vm.startRest(restSec, rowRestLabels[i], ex.name)
+        // Only a set finished just now starts the rest; fixing an earlier set leaves the running one alone.
+        if (s.restPrefs.auto && newlyDone) vm.startRest(restSec, rowRestLabels[i], ex.name)
     }
 
     fun undo(i: Int) {
@@ -178,7 +182,7 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
         ex.sets,
         stringResource(if (reps) Res.string.wk_controlled_reps else Res.string.wk_measured_effort),
     )
-    val muscles = ExerciseMuscleTable.musclesFor(ex.name) ?: ex.planName?.let { ExerciseMuscleTable.musclesFor(it) }
+    val muscles = classify(ex.name) ?: ex.planName?.let { classify(it) }
     val cue = techniqueCue(ex.technique)
     val next = exercises.getOrNull(at + 1)
     val prev = exercises.getOrNull(at - 1)
@@ -374,9 +378,9 @@ private fun SetField(
 }
 
 @Composable
-private fun MusclesLine(muscles: app.hacklimits.shared.workout.logic.ExerciseMuscles, open: Boolean, onToggle: () -> Unit) {
-    val primaryNames = muscles.primary.map { stringResource(muscleRes(it)) }.joinToString(", ")
-    val secondaryNames = muscles.secondary.map { stringResource(muscleRes(it)) }.joinToString(", ")
+private fun MusclesLine(muscles: ExerciseMuscles, open: Boolean, onToggle: () -> Unit) {
+    val primaryNames = muscles.primary.mapNotNull(Slug::ofKey).map { stringResource(muscleRes(it)) }.joinToString(", ")
+    val secondaryNames = muscles.secondary.mapNotNull(Slug::ofKey).map { stringResource(muscleRes(it)) }.joinToString(", ")
     Column(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 4.dp)) {
         Text(stringResource(Res.string.wk_focus_muscles_label), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(

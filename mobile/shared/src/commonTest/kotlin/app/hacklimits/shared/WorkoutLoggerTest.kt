@@ -41,4 +41,41 @@ class WorkoutLoggerTest {
         assertEquals(0, queue.count())
         assertEquals(listOf("key-one-12345"), keys, "the original idempotency key, so a late first success can't double-save")
     }
+
+    @Test
+    fun theServersRetryableFlagDecidesWhatIsKeptAndWhatIsDropped() = runTest {
+        var status = HttpStatusCode.Forbidden
+        var retryable = false
+        val engine = MockEngine {
+            respond(
+                """{"error":{"code":"x","message":"m","retryable":$retryable}}""",
+                status,
+                headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val api = WorkoutApi(ApiClient("https://api.example.test", InMemorySessionStore("t".repeat(64)), HttpClient(engine)))
+        val queue = PendingSaves(InMemoryKeyValueStore(), api)
+        val request = SaveWorkoutRequest(entries = listOf(SaveWorkoutRequest.Entry("Squat", listOf(SaveWorkoutRequest.SetDone(5.0, 80.0)))))
+        queue.add(PendingSaves.Pending("refused", request))
+        queue.flush()
+        assertEquals(0, queue.count(), "retryable false: 403 is dropped")
+
+        status = HttpStatusCode.Conflict
+        retryable = true
+        queue.add(PendingSaves.Pending("in-flight", request))
+        queue.flush()
+        assertEquals(1, queue.count(), "retryable true: 409 is kept even though it is a 4xx")
+    }
+
+    @Test
+    fun theQueueKeepsTheNewestTwentySaves() = runTest {
+        val engine = MockEngine { respondError(HttpStatusCode.ServiceUnavailable) }
+        val api = WorkoutApi(ApiClient("https://api.example.test", InMemorySessionStore("t".repeat(64)), HttpClient(engine)))
+        val queue = PendingSaves(InMemoryKeyValueStore(), api)
+        val request = SaveWorkoutRequest(entries = listOf(SaveWorkoutRequest.Entry("Squat", listOf(SaveWorkoutRequest.SetDone(5.0, 80.0)))))
+        repeat(21) { queue.add(PendingSaves.Pending("key-$it", request)) }
+        assertEquals(20, queue.count())
+        assertEquals(0, queue.flush())
+        assertEquals(20, queue.count())
+    }
 }

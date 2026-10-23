@@ -11,7 +11,7 @@ import app.hacklimits.shared.progress.muscle.LoggedExercise
 import app.hacklimits.shared.progress.muscle.MUSCLE_LANDMARKS
 import app.hacklimits.shared.progress.muscle.lopsidedPairs
 import app.hacklimits.shared.progress.muscle.muscleRecovery
-import app.hacklimits.shared.progress.muscle.musclesForExercise
+import app.hacklimits.shared.muscles.classify
 import app.hacklimits.shared.progress.muscle.registerLearnedMuscles
 import app.hacklimits.shared.progress.muscle.weeklyMuscleSeries
 import app.hacklimits.shared.progress.muscle.weeklyMuscleSets
@@ -28,15 +28,15 @@ class ProgressLogicTest {
 
     @Test
     fun squatLoadsQuadsAndGlutesAndUnknownNamesLoadNothing() {
-        assertTrue("quadriceps" in assertNotNull(musclesForExercise("Squat")).primary)
-        assertTrue("chest" in assertNotNull(musclesForExercise("Bench press")).primary)
-        assertNull(musclesForExercise("zzqqxx"))
+        assertTrue("quadriceps" in assertNotNull(classify("Squat")).primary)
+        assertTrue("chest" in assertNotNull(classify("Bench press")).primary)
+        assertNull(classify("zzqqxx"))
     }
 
     @Test
     fun learnedMusclesFillOnlyWhatTheRulesMiss() {
         registerLearnedMuscles(listOf(LearnedMuscles("Club Gizmo", primary = listOf("forearm", "not-a-slug"))))
-        assertEquals(listOf("forearm"), assertNotNull(musclesForExercise("club gizmo")).primary)
+        assertEquals(listOf("forearm"), assertNotNull(classify("club gizmo")).primary)
     }
 
     @Test
@@ -88,7 +88,7 @@ class ProgressLogicTest {
 
     @Test
     fun dayMusclesKeepUnknownNamesAndDropSecondariesThatArePrimary() {
-        val day = dayMuscles(listOf("Squat", "zzqqxx")) { musclesForExercise(it) }
+        val day = dayMuscles(listOf("Squat", "zzqqxx")) { classify(it) }
         assertEquals(listOf("zzqqxx"), day.unknown)
         assertTrue("quadriceps" in day.primary)
         assertFalse(day.secondary.any { it in day.primary })

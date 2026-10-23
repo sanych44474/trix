@@ -234,18 +234,31 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
     : prefillFromLast(exercise));
   const addSet = (index: number) => mapExercise(index, (exercise) => ({ ...exercise, setsDone: [...(exercise.setsDone ?? []), emptyLoggerSet(exercise.metric)] }));
   const removeSet = (index: number, setIndex: number) => mapExercise(index, (exercise) => removeLoggerSet(exercise, setIndex));
-  const moveExercise = (index: number, direction: -1 | 1) => mutate((exercises) => {
-    const at = exercises.findIndex((exercise) => exercise.index === index);
+  // Indexes are renumbered after a move, so focus follows the exercise that was on screen.
+  const moveExercise = (index: number, direction: -1 | 1) => {
+    const list = workout?.exercises ?? [];
+    const at = list.findIndex((exercise) => exercise.index === index);
     const to = at + direction;
-    if (at < 0 || to < 0 || to >= exercises.length) return exercises;
-    const next = [...exercises];
-    [next[at], next[to]] = [next[to], next[at]];
-    return next.map((exercise, i) => ({ ...exercise, index: i }));
-  });
+    if (at < 0 || to < 0 || to >= list.length) return;
+    const focused = focusIndex === null ? -1 : list.findIndex((exercise) => exercise.index === focusIndex);
+    mutate((exercises) => {
+      const next = [...exercises];
+      [next[at], next[to]] = [next[to], next[at]];
+      return next.map((exercise, i) => ({ ...exercise, index: i }));
+    });
+    if (focused === at) setFocusIndex(to);
+    else if (focused === to) setFocusIndex(at);
+  };
   const removeExercise = (index: number) => {
     const exercise = workout?.exercises.find((item) => item.index === index);
     if (exercise?.setsDone?.some((set) => set.reps || set.seconds || set.meters || set.weight) && !window.confirm(t(lang, "train_delete_typed_confirm"))) return;
+    const list = workout?.exercises ?? [];
+    const at = list.findIndex((item) => item.index === index);
+    const focused = focusIndex === null ? -1 : list.findIndex((item) => item.index === focusIndex);
     mutate((exercises) => exercises.filter((item) => item.index !== index).map((item, i) => ({ ...item, index: i })));
+    // The removed one's neighbour takes its place on screen; one further down shifts up with the list.
+    if (focused > at && at >= 0) setFocusIndex(focused - 1);
+    else if (focused >= 0 && focused >= list.length - 1) setFocusIndex(Math.max(0, list.length - 2));
   };
 
   const loadHistory = () => { setHistoryError(null); api<{ logs: WorkoutHistoryItem[] }>("/api/v2/workout/history").then((data) => setHistory(data.logs)).catch(setHistoryError); };

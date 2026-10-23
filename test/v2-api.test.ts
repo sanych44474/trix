@@ -3,6 +3,7 @@ import test from "node:test";
 import { handleV2Api } from "../src/webapp/v2Api";
 import { isV2Failure } from "../src/contracts/v2";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
+import { claimIdempotencyKey } from "../src/adapters/d1/v2Idempotency";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
 
@@ -21,21 +22,21 @@ test("v2 unknown routes return a stable not_found error", async () => {
   const request = new Request("https://example.test/api/v2/does-not-exist");
   const response = await handleV2Api(request, new URL(request.url), env);
   assert.equal(response.status, 404);
-  assert.deepEqual(await response.json(), { error: { code: "not_found", message: "Route not found" } });
+  assert.deepEqual(await response.json(), { error: { code: "not_found", message: "Route not found", retryable: false } });
 });
 
 test("v2 rejects malformed idempotency headers before touching a handler", async () => {
   const request = new Request("https://example.test/api/v2/log", { method: "POST", headers: { "Idempotency-Key": "short" } });
   const response = await handleV2Api(request, new URL(request.url), env);
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { error: { code: "validation_error", message: "Idempotency-Key must be 8-128 characters" } });
+  assert.deepEqual(await response.json(), { error: { code: "validation_error", message: "Idempotency-Key must be 8-128 characters", retryable: false } });
 });
 
 test("v2 long-tail adapters use the same unauthorized envelope", async () => {
   const request = new Request("https://example.test/api/v2/challenges");
   const response = await handleV2Api(request, new URL(request.url), env);
   assert.equal(response.status, 401);
-  assert.deepEqual(await response.json(), { error: { code: "unauthorized", message: "unauthorized" } });
+  assert.deepEqual(await response.json(), { error: { code: "unauthorized", message: "unauthorized", retryable: true } });
 });
 
 test("v2 failure detection rejects success envelopes", () => {
@@ -100,4 +101,24 @@ test("v2 workout rest: DELETE cancels the pending timer so the cron can't still 
   // Stop tap without knowing whether a row exists.
   const again = new Request(`https://example.test/api/v2/workout/rest?debugUser=${userId}`, { method: "DELETE" });
   assert.equal((await handleV2Api(again, new URL(again.url), testEnv)).status, 200);
+});
+
+// The offline queues (Mini App offlineSaves.ts, native PendingSaves.kt) keep a save only when the
+// envelope says retryable: a key still in flight and a missing session must keep it, a real
+// conflict must not.
+test("v2 envelope: a save whose Idempotency-Key is still in flight is retryable", async () => {
+  const db = newDb();
+  const userId = 9003;
+  await getOrCreateUser(db, userId, userId, "en", "Test");
+  const testEnv = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+  await claimIdempotencyKey(db, userId, "inflight-test-0002");
+
+  const request = new Request(`https://example.test/api/v2/workout/save?debugUser=${userId}`, {
+    method: "POST",
+    headers: { "Idempotency-Key": "inflight-test-0002" },
+    body: JSON.stringify({ entries: [{ name: "Bench Press", sets: [{ reps: 8, weight: 60 }] }] }),
+  });
+  const response = await handleV2Api(request, new URL(request.url), testEnv);
+  assert.equal(response.status, 409);
+  assert.equal(((await response.json()) as { error: { retryable: boolean } }).error.retryable, true);
 });

@@ -1,0 +1,1116 @@
+{
+  "source": "src/domain/exerciseMuscles.ts",
+  "cases": [
+    {
+      "name": "Bench Press",
+      "expected": {
+        "primary": [
+          "chest"
+        ],
+        "secondary": [
+          "triceps",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Жим лежачи",
+      "expected": {
+        "primary": [
+          "chest"
+        ],
+        "secondary": [
+          "triceps",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Жим штанги лежачи вузьким хватом",
+      "expected": {
+        "primary": [
+          "triceps",
+          "chest"
+        ],
+        "secondary": [
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Французький жим лежачи",
+      "expected": {
+        "primary": [
+          "triceps"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Розгинання рук на блоці",
+      "expected": {
+        "primary": [
+          "triceps"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Розгинання гантелі з-за голови",
+      "expected": {
+        "primary": [
+          "triceps"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Triceps pushdown",
+      "expected": {
+        "primary": [
+          "triceps"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Skull crusher",
+      "expected": {
+        "primary": [
+          "triceps"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Tate press",
+      "expected": {
+        "primary": [
+          "triceps"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Розгинання ніг",
+      "expected": {
+        "primary": [
+          "quadriceps"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Leg extension",
+      "expected": {
+        "primary": [
+          "quadriceps"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Згинання ніг лежачи",
+      "expected": {
+        "primary": [
+          "hamstring"
+        ],
+        "secondary": [
+          "calves"
+        ]
+      }
+    },
+    {
+      "name": "Сгибание ног лежа",
+      "expected": {
+        "primary": [
+          "hamstring"
+        ],
+        "secondary": [
+          "calves"
+        ]
+      }
+    },
+    {
+      "name": "Leg curl",
+      "expected": {
+        "primary": [
+          "hamstring"
+        ],
+        "secondary": [
+          "calves"
+        ]
+      }
+    },
+    {
+      "name": "Nordic curl",
+      "expected": {
+        "primary": [
+          "hamstring"
+        ],
+        "secondary": [
+          "calves"
+        ]
+      }
+    },
+    {
+      "name": "Згинання рук зі штангою",
+      "expected": {
+        "primary": [
+          "biceps"
+        ],
+        "secondary": [
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Згинання гантелей сидячи",
+      "expected": {
+        "primary": [
+          "biceps"
+        ],
+        "secondary": [
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Dumbbell curl",
+      "expected": {
+        "primary": [
+          "biceps"
+        ],
+        "secondary": [
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Concentration curl",
+      "expected": {
+        "primary": [
+          "biceps"
+        ],
+        "secondary": [
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Zottman curl",
+      "expected": {
+        "primary": [
+          "biceps"
+        ],
+        "secondary": [
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Hammer curl",
+      "expected": {
+        "primary": [
+          "biceps",
+          "forearm"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Wrist curl",
+      "expected": {
+        "primary": [
+          "forearm"
+        ],
+        "secondary": [
+          "trapezius"
+        ]
+      }
+    },
+    {
+      "name": "Румунська тяга",
+      "expected": {
+        "primary": [
+          "hamstring",
+          "gluteal"
+        ],
+        "secondary": [
+          "lower-back",
+          "adductors",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Romanian deadlift",
+      "expected": {
+        "primary": [
+          "hamstring",
+          "gluteal"
+        ],
+        "secondary": [
+          "lower-back",
+          "adductors",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Deadlift",
+      "expected": {
+        "primary": [
+          "gluteal",
+          "hamstring",
+          "lower-back"
+        ],
+        "secondary": [
+          "quadriceps",
+          "trapezius",
+          "upper-back",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Sumo deadlift",
+      "expected": {
+        "primary": [
+          "gluteal",
+          "hamstring",
+          "lower-back"
+        ],
+        "secondary": [
+          "quadriceps",
+          "trapezius",
+          "upper-back",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Тяга сумо",
+      "expected": {
+        "primary": [
+          "gluteal",
+          "hamstring",
+          "lower-back"
+        ],
+        "secondary": [
+          "quadriceps",
+          "trapezius",
+          "upper-back",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Станова тяга",
+      "expected": {
+        "primary": [
+          "gluteal",
+          "hamstring",
+          "lower-back"
+        ],
+        "secondary": [
+          "quadriceps",
+          "trapezius",
+          "upper-back",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Ривкова тяга",
+      "expected": {
+        "primary": [
+          "gluteal",
+          "hamstring",
+          "lower-back"
+        ],
+        "secondary": [
+          "quadriceps",
+          "trapezius",
+          "upper-back",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Power clean",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal",
+          "hamstring"
+        ],
+        "secondary": [
+          "trapezius",
+          "deltoids",
+          "lower-back"
+        ]
+      }
+    },
+    {
+      "name": "Power snatch",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal",
+          "hamstring"
+        ],
+        "secondary": [
+          "trapezius",
+          "deltoids",
+          "lower-back"
+        ]
+      }
+    },
+    {
+      "name": "Clean and press",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal",
+          "hamstring"
+        ],
+        "secondary": [
+          "trapezius",
+          "deltoids",
+          "lower-back"
+        ]
+      }
+    },
+    {
+      "name": "Crunch",
+      "expected": {
+        "primary": [
+          "abs"
+        ],
+        "secondary": [
+          "obliques"
+        ]
+      }
+    },
+    {
+      "name": "Скручування на підлозі",
+      "expected": {
+        "primary": [
+          "abs"
+        ],
+        "secondary": [
+          "obliques"
+        ]
+      }
+    },
+    {
+      "name": "Скручування з млинцем",
+      "expected": {
+        "primary": [
+          "obliques"
+        ],
+        "secondary": [
+          "abs",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Russian twist",
+      "expected": {
+        "primary": [
+          "obliques"
+        ],
+        "secondary": [
+          "abs"
+        ]
+      }
+    },
+    {
+      "name": "Hanging leg raise",
+      "expected": {
+        "primary": [
+          "abs"
+        ],
+        "secondary": [
+          "obliques"
+        ]
+      }
+    },
+    {
+      "name": "Підйом колін у висі",
+      "expected": {
+        "primary": [
+          "abs"
+        ],
+        "secondary": [
+          "obliques"
+        ]
+      }
+    },
+    {
+      "name": "Squat",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal"
+        ],
+        "secondary": [
+          "adductors",
+          "hamstring",
+          "lower-back"
+        ]
+      }
+    },
+    {
+      "name": "Присідання з штангою",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal"
+        ],
+        "secondary": [
+          "adductors",
+          "hamstring",
+          "lower-back"
+        ]
+      }
+    },
+    {
+      "name": "Hack squat",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal"
+        ],
+        "secondary": [
+          "adductors",
+          "hamstring",
+          "lower-back"
+        ]
+      }
+    },
+    {
+      "name": "Жим ногами",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal"
+        ],
+        "secondary": [
+          "adductors",
+          "hamstring"
+        ]
+      }
+    },
+    {
+      "name": "Lunges",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal"
+        ],
+        "secondary": [
+          "adductors",
+          "hamstring",
+          "calves"
+        ]
+      }
+    },
+    {
+      "name": "Болгарські спліт присідання",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal"
+        ],
+        "secondary": [
+          "adductors",
+          "hamstring",
+          "calves"
+        ]
+      }
+    },
+    {
+      "name": "Hip thrust",
+      "expected": {
+        "primary": [
+          "gluteal"
+        ],
+        "secondary": [
+          "hamstring",
+          "adductors"
+        ]
+      }
+    },
+    {
+      "name": "Ягодичний міст",
+      "expected": null
+    },
+    {
+      "name": "Calf raise",
+      "expected": {
+        "primary": [
+          "calves"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Підйом на носки стоячи",
+      "expected": {
+        "primary": [
+          "calves"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Pull-up",
+      "expected": {
+        "primary": [
+          "upper-back"
+        ],
+        "secondary": [
+          "biceps",
+          "forearm",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Підтягування",
+      "expected": {
+        "primary": [
+          "upper-back"
+        ],
+        "secondary": [
+          "biceps",
+          "forearm",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Lat pulldown",
+      "expected": {
+        "primary": [
+          "upper-back"
+        ],
+        "secondary": [
+          "biceps",
+          "forearm",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Тяга верхнього блоку",
+      "expected": {
+        "primary": [
+          "upper-back"
+        ],
+        "secondary": [
+          "biceps",
+          "forearm",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Barbell Row",
+      "expected": {
+        "primary": [
+          "upper-back"
+        ],
+        "secondary": [
+          "biceps",
+          "deltoids",
+          "trapezius",
+          "lower-back",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Тяга штанги в нахилі",
+      "expected": {
+        "primary": [
+          "upper-back"
+        ],
+        "secondary": [
+          "biceps",
+          "deltoids",
+          "trapezius",
+          "lower-back",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "One-Arm Row",
+      "expected": {
+        "primary": [
+          "upper-back"
+        ],
+        "secondary": [
+          "biceps",
+          "deltoids",
+          "trapezius",
+          "lower-back",
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Rowing",
+      "expected": {
+        "primary": [
+          "upper-back",
+          "quadriceps"
+        ],
+        "secondary": [
+          "biceps",
+          "hamstring",
+          "gluteal"
+        ]
+      }
+    },
+    {
+      "name": "Веслування на тренажері",
+      "expected": null
+    },
+    {
+      "name": "Running",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "calves",
+          "hamstring"
+        ],
+        "secondary": [
+          "gluteal"
+        ]
+      }
+    },
+    {
+      "name": "Біг на доріжці",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "calves",
+          "hamstring"
+        ],
+        "secondary": [
+          "gluteal"
+        ]
+      }
+    },
+    {
+      "name": "Велосипед",
+      "expected": {
+        "primary": [
+          "quadriceps"
+        ],
+        "secondary": [
+          "calves",
+          "gluteal",
+          "hamstring"
+        ]
+      }
+    },
+    {
+      "name": "Скакалка",
+      "expected": {
+        "primary": [
+          "calves"
+        ],
+        "secondary": [
+          "quadriceps",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Планка",
+      "expected": {
+        "primary": [
+          "abs"
+        ],
+        "secondary": [
+          "obliques",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Plank",
+      "expected": {
+        "primary": [
+          "abs"
+        ],
+        "secondary": [
+          "obliques",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Бічна планка",
+      "expected": {
+        "primary": [
+          "obliques"
+        ],
+        "secondary": [
+          "abs"
+        ]
+      }
+    },
+    {
+      "name": "Жим гантелей над головою",
+      "expected": {
+        "primary": [
+          "deltoids"
+        ],
+        "secondary": [
+          "triceps",
+          "trapezius"
+        ]
+      }
+    },
+    {
+      "name": "Махи гантелями в сторони",
+      "expected": {
+        "primary": [
+          "deltoids"
+        ],
+        "secondary": [
+          "trapezius"
+        ]
+      }
+    },
+    {
+      "name": "Face pull",
+      "expected": {
+        "primary": [
+          "deltoids",
+          "upper-back"
+        ],
+        "secondary": [
+          "trapezius"
+        ]
+      }
+    },
+    {
+      "name": "Шраги зі штангою",
+      "expected": {
+        "primary": [
+          "trapezius"
+        ],
+        "secondary": [
+          "forearm"
+        ]
+      }
+    },
+    {
+      "name": "Молотки",
+      "expected": {
+        "primary": [
+          "biceps",
+          "forearm"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Farmer's walk",
+      "expected": {
+        "primary": [
+          "forearm"
+        ],
+        "secondary": [
+          "trapezius"
+        ]
+      }
+    },
+    {
+      "name": "Ходьба фермера",
+      "expected": {
+        "primary": [
+          "forearm"
+        ],
+        "secondary": [
+          "trapezius"
+        ]
+      }
+    },
+    {
+      "name": "Ходьба",
+      "expected": {
+        "primary": [
+          "calves",
+          "quadriceps"
+        ],
+        "secondary": [
+          "gluteal"
+        ]
+      }
+    },
+    {
+      "name": "Гіперекстензія",
+      "expected": {
+        "primary": [
+          "lower-back"
+        ],
+        "secondary": [
+          "gluteal",
+          "hamstring"
+        ]
+      }
+    },
+    {
+      "name": "Dips",
+      "expected": {
+        "primary": [
+          "chest",
+          "triceps"
+        ],
+        "secondary": [
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Брусья",
+      "expected": {
+        "primary": [
+          "chest",
+          "triceps"
+        ],
+        "secondary": [
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Отжимания",
+      "expected": {
+        "primary": [
+          "chest",
+          "triceps"
+        ],
+        "secondary": [
+          "deltoids",
+          "abs"
+        ]
+      }
+    },
+    {
+      "name": "Push-ups",
+      "expected": {
+        "primary": [
+          "chest",
+          "triceps"
+        ],
+        "secondary": [
+          "deltoids",
+          "abs"
+        ]
+      }
+    },
+    {
+      "name": "Burpees",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "chest"
+        ],
+        "secondary": [
+          "deltoids",
+          "triceps",
+          "abs"
+        ]
+      }
+    },
+    {
+      "name": "Mountain climbers",
+      "expected": {
+        "primary": [
+          "abs"
+        ],
+        "secondary": [
+          "quadriceps",
+          "deltoids",
+          "obliques"
+        ]
+      }
+    },
+    {
+      "name": "Hip circles",
+      "expected": {
+        "primary": [
+          "gluteal"
+        ],
+        "secondary": [
+          "adductors",
+          "obliques"
+        ]
+      }
+    },
+    {
+      "name": "Knee circles",
+      "expected": {
+        "primary": [
+          "quadriceps"
+        ],
+        "secondary": [
+          "calves"
+        ]
+      }
+    },
+    {
+      "name": "Neck extension",
+      "expected": {
+        "primary": [
+          "neck"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Пуловер",
+      "expected": {
+        "primary": [
+          "upper-back",
+          "chest"
+        ],
+        "secondary": [
+          "triceps"
+        ]
+      }
+    },
+    {
+      "name": "Kettlebell swing",
+      "expected": {
+        "primary": [
+          "gluteal",
+          "hamstring"
+        ],
+        "secondary": [
+          "lower-back",
+          "deltoids"
+        ]
+      }
+    },
+    {
+      "name": "Вправа на груди",
+      "expected": {
+        "primary": [
+          "chest"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Leg day finisher",
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "hamstring",
+          "gluteal"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Arm circles",
+      "expected": {
+        "primary": [
+          "biceps",
+          "triceps"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Warm-up",
+      "expected": null
+    },
+    {
+      "name": "Zumba Party",
+      "expected": null
+    },
+    {
+      "name": "Yoga flow",
+      "expected": null
+    },
+    {
+      "name": "Club Gizmo",
+      "learned": {
+        "primary": [
+          "forearm",
+          "not-a-slug"
+        ],
+        "secondary": [
+          "abs"
+        ]
+      },
+      "expected": {
+        "primary": [
+          "forearm"
+        ],
+        "secondary": [
+          "abs"
+        ]
+      }
+    },
+    {
+      "name": "Odd machine",
+      "learned": {
+        "primary": [
+          "chest"
+        ],
+        "secondary": []
+      },
+      "expected": {
+        "primary": [
+          "chest"
+        ],
+        "secondary": []
+      }
+    },
+    {
+      "name": "Squat Gizmo",
+      "learned": {
+        "primary": [
+          "chest"
+        ],
+        "secondary": []
+      },
+      "expected": {
+        "primary": [
+          "quadriceps",
+          "gluteal"
+        ],
+        "secondary": [
+          "adductors",
+          "hamstring",
+          "lower-back"
+        ]
+      }
+    },
+    {
+      "name": "Mystery lever",
+      "learned": {
+        "primary": [
+          "not-a-slug"
+        ],
+        "secondary": [
+          "calves"
+        ]
+      },
+      "expected": null
+    }
+  ]
+}

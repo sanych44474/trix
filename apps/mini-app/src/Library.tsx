@@ -9,8 +9,8 @@ import { api, typedBody } from "./api";
 import { Icon } from "./icons";
 import { t, type Key, type Lang } from "./i18n";
 import type { Plan } from "./types";
-import { FREE_EXERCISE_LIB } from "./data/freeExerciseLib";
-import { FREE_EXERCISE_DB_COMMIT } from "./data/freeExerciseIds";
+import { FREE_EXERCISE_LIB } from "../../../src/domain/data/freeExerciseLib";
+import { FREE_EXERCISE_DB_COMMIT } from "../../../src/domain/data/freeExerciseIds";
 import { exerciseImageUrls } from "./logic/exerciseImages";
 import { filterLibrary, parseLibrary, type LibraryEntry } from "./logic/library";
 

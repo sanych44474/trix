@@ -12,6 +12,7 @@ import type { View } from "./logic/navigation";
 import { Icon, type IconName } from "./icons";
 import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
 import { ReleaseItems } from "./WhatsNew";
+import type { ReleaseItem } from "./logic/releaseDelivery";
 import { BecomeTrainerCard } from "./BecomeTrainer";
 import { formatNumber, Metric, Empty, ErrorState, photoUrl, apiUpload, composeCompare, drawWeekCard } from "./App";
 
@@ -111,8 +112,8 @@ export function ExtrasView({ lang, role, links = [], onOpen }: { lang: Lang; rol
   // /api/v2/whatsnew was registered in v2Api.ts but nothing ever called it -- the release note
   // was reachable only through the bot's /whatsnew command. It's Telegram-HTML, so it's stripped
   // to plain text the same way the owner report is.
-  const [whatsnew, setWhatsnew] = useState<{ version: string; html: string; text?: string } | null>(null);
-  useEffect(() => { api<{ version: string; html: string; text?: string }>("/api/v2/whatsnew").then(setWhatsnew).catch(() => setWhatsnew(null)); }, []);
+  const [whatsnew, setWhatsnew] = useState<{ version: string; html: string; text?: string; items?: ReleaseItem[] } | null>(null);
+  useEffect(() => { api<{ version: string; html: string; text?: string; items?: ReleaseItem[] }>("/api/v2/whatsnew").then(setWhatsnew).catch(() => setWhatsnew(null)); }, []);
 
 
   if (findTrainer) return <FindTrainer lang={lang} onBack={() => setFindTrainer(false)} onAccepted={() => window.location.reload()} />;
@@ -183,8 +184,8 @@ export function ExtrasView({ lang, role, links = [], onOpen }: { lang: Lang; rol
         <button className="button button-ghost" onClick={() => void calcPlates()} disabled={platesBusy}>{platesBusy ? "…" : t(lang, "plates_calc_btn")}</button>
       </div>
       {plates && <div style={{ marginTop: 10 }}>
-        {plates.plan ? <p className="muted"><strong>{plates.plan.loaded} kg</strong> · {t(lang, "plates_per_side")}: {plates.plan.perSide.length ? plates.plan.perSide.join(" + ") : "—"}{plates.plan.leftover ? ` · ${t(lang, "plates_leftover", { n: plates.plan.leftover })}` : ""}</p> : null}
-        {plates.ramp.length > 0 && <><p className="muted" style={{ marginTop: 8 }}>{t(lang, "plates_warmup_title")}</p><ul className="factor-list">{plates.ramp.map((w, i) => <li key={i}>{w.weight} kg × {w.reps}{w.pct ? ` (${w.pct}%)` : ""}</li>)}</ul></>}
+        {plates.plan ? <p className="muted"><strong>{plates.plan.loaded} {t(lang, "unit_kg")}</strong> · {t(lang, "plates_per_side")}: {plates.plan.perSide.length ? plates.plan.perSide.join(" + ") : "—"}{plates.plan.leftover ? ` · ${t(lang, "plates_leftover", { n: plates.plan.leftover })}` : ""}</p> : null}
+        {plates.ramp.length > 0 && <><p className="muted" style={{ marginTop: 8 }}>{t(lang, "plates_warmup_title")}</p><ul className="factor-list">{plates.ramp.map((w, i) => <li key={i}>{w.weight} {t(lang, "unit_kg")} × {w.reps}{w.pct ? ` (${w.pct}%)` : ""}</li>)}</ul></>}
       </div>}
     </Fold>
 
@@ -199,7 +200,7 @@ export function ExtrasView({ lang, role, links = [], onOpen }: { lang: Lang; rol
     </Fold>}
 
     {whatsnew && <Fold title={t(lang, "whatsnew_eyebrow")} open={fold === "whatsnew_title"} onToggle={() => toggleFold("whatsnew_title")}>
-      {whatsnew.text ? <ReleaseItems text={whatsnew.text} /> : <pre className="owner-report">{whatsnew.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")}</pre>}
+      {whatsnew.items || whatsnew.text ? <ReleaseItems items={whatsnew.items} text={whatsnew.text} /> : <pre className="owner-report">{whatsnew.html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")}</pre>}
     </Fold>}
 
     <Fold title={t(lang, "import_app_title")} open={fold === "import_app_title"} onToggle={() => toggleFold("import_app_title")}>

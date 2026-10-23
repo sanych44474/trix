@@ -6,6 +6,7 @@
 // log keeps everything in it and gets the new cardio appended; imported ids are remembered, so a
 // run is never added twice. A day created only from Strava is a completed session, same as cardio
 // logged from the bot's own menu.
+import type { Env } from "../../types";
 import { planImport, type StravaActivity } from "../../domain/strava";
 import { getWorkoutLog, upsertWorkoutLog } from "../../adapters/d1/v2Workouts";
 import {
@@ -19,6 +20,13 @@ export interface StravaConfig {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
+}
+
+/** The OAuth app settings from the Worker secrets; null until Strava is configured. */
+export function stravaConfig(env: Env, origin: string): StravaConfig | null {
+  if (!env.STRAVA_CLIENT_ID || !env.STRAVA_CLIENT_SECRET) return null;
+  const base = (env.WORKER_URL || origin).replace(/\/$/, "");
+  return { clientId: env.STRAVA_CLIENT_ID, clientSecret: env.STRAVA_CLIENT_SECRET, redirectUri: `${base}/strava/callback` };
 }
 
 type Fetch = typeof fetch;

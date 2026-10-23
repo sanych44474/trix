@@ -11,11 +11,12 @@ import { getTrainer, listClients } from "../../adapters/d1/v2Trainer";
 import { getTrainerTemplate, listTrainerTemplates, createSharedProgram, getSharedProgram, listPublicPrograms, bumpSharedTaken } from "../../adapters/d1/v2TrainerPrograms";
 import { stampOnboardedAt, updateUser } from "../../adapters/d1/v2Users";
 import { botDeepLink } from "../../notify/links";
+import { notifySafely } from "../../notify";
 import { isOwnerOf } from "../owner/ownerAccess";
 import type { DB } from "../../adapters/d1/shared";
 import { adaptPlan } from "../../domain/planAdapt";
 import { formatRecordBest } from "../../domain/setFormat";
-import { escapeHtml, t } from "../../locales/i18n";
+import { t } from "../../locales/i18n";
 import { type MyContext, HTML, reply, setMode } from "../../adapters/telegram/context";
 import { localizePlanNames, type LocalizedName } from "../exercise/catalog";
 import { mainMenu, menuBtn } from "../../adapters/telegram/keyboards";
@@ -80,7 +81,7 @@ export async function shareTemplateMenu(ctx: MyContext, templateId: number) {
     .text(t(lang, "share_to_library"), `shr:pub:${templateId}`)
     .row()
     .text(t(lang, "tr_back_hub"), "menu:share");
-  await reply(ctx, t(lang, "share_how", { name: escapeHtml(tpl.name) }), kb);
+  await reply(ctx, t(lang, "share_how", { name: tpl.name }), kb);
 }
 
 // --- Mode 1: assign to SELECTED clients (multi-select) ---
@@ -145,13 +146,20 @@ export async function shareAssignToClients(ctx: MyContext) {
   let ok = 0;
   const assigned: UserDoc[] = [];
   const names = new Map<string, LocalizedName>(); // one localization per exercise, not per client
+  // One share action = one event: every client's outbox row shares this id, a later share is new.
+  const shareId = crypto.randomUUID();
   for (const c of clients) {
     try {
       const prs = await recentPrs(ctx.db, c._id);
       const draft = adaptPlan(tpl.plan, c.profile, c._id, { prs, authoredBy: ctx.user._id });
       await localizePlanNames(ctx, draft, c.lang, names);
       await activateClientPlan(ctx.db, c._id, draft);
-      await ctx.api.sendMessage(c.chatId, t(c.lang, "share_client_got", { name: escapeHtml(tpl.name) }), { ...HTML, reply_markup: mainMenu(c.lang) }).catch(() => {});
+      await notifySafely(ctx.env, { api: ctx.api }, { userId: c._id, chatId: c.chatId }, {
+        kind: "program_shared",
+        key: `program_shared:${shareId}`,
+        text: t(c.lang, "share_client_got", { name: tpl.name }),
+        extra: { ...HTML, reply_markup: mainMenu(c.lang) },
+      });
       ok++;
       assigned.push(c);
     } catch (err) {
@@ -183,10 +191,10 @@ export async function publishShared(ctx: MyContext, templateId: number, isPublic
   if (!tpl) { await reply(ctx, t(lang, "error_generic")); return; }
   const code = await publishProgram(ctx.db, ctx.user._id, tpl.name, tpl.plan, isPublic);
   if (isPublic) {
-    await reply(ctx, t(lang, "share_published", { name: escapeHtml(tpl.name) }), menuBtn(lang));
+    await reply(ctx, t(lang, "share_published", { name: tpl.name }), menuBtn(lang));
   } else {
     const link = botDeepLink(ctx.env, `prog_${code}`);
-    await reply(ctx, t(lang, "share_link_ready", { name: escapeHtml(tpl.name), link }), menuBtn(lang));
+    await reply(ctx, t(lang, "share_link_ready", { name: tpl.name, link }), menuBtn(lang));
   }
 }
 
@@ -200,7 +208,7 @@ export async function showSharedProgram(ctx: MyContext, code: string) {
   const sp = await getSharedProgram(ctx.db, code);
   if (!sp) { await reply(ctx, t(lang, "share_gone"), menuBtn(lang)); return; }
   const kb = new InlineKeyboard().text(t(lang, "share_take"), `prog:take:${code}`).row().text(t(lang, "menu_open"), "menu:open");
-  await reply(ctx, t(lang, "share_preview", { name: escapeHtml(sp.name), days: sp.plan.split.length }), kb);
+  await reply(ctx, t(lang, "share_preview", { name: sp.name, days: sp.plan.split.length }), kb);
 }
 
 export async function takeSharedProgram(ctx: MyContext, code: string) {
@@ -221,7 +229,7 @@ export async function takeSharedProgram(ctx: MyContext, code: string) {
   await updateUser(ctx.db, ctx.user._id, { onboarded: true, nutrition: plan.nutrition });
   ctx.user.onboarded = true;
   await bumpSharedTaken(ctx.db, code).catch(() => {});
-  await reply(ctx, t(lang, "share_taken", { name: escapeHtml(sp.name) }), new InlineKeyboard().text(t(lang, "menu_plan"), "menu:plan").row().text(t(lang, "menu_open"), "menu:open"));
+  await reply(ctx, t(lang, "share_taken", { name: sp.name }), new InlineKeyboard().text(t(lang, "menu_plan"), "menu:plan").row().text(t(lang, "menu_open"), "menu:open"));
 }
 
 // --- Public library: browse and take. ---
@@ -269,5 +277,5 @@ export async function handleShareMyPlanName(ctx: MyContext, text: string) {
   if (!plan || !plan.split.length) { await reply(ctx, t(lang, "share_myplan_noplan"), menuBtn(lang)); return; }
   await publishProgram(ctx.db, ctx.user._id, name, planToBank(plan), true);
   await recordAudit(ctx.db, ctx.user._id, "share_myplan", undefined, name).catch(() => {});
-  await reply(ctx, t(lang, "share_published", { name: escapeHtml(name) }), menuBtn(lang));
+  await reply(ctx, t(lang, "share_published", { name }), menuBtn(lang));
 }

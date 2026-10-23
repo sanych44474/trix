@@ -1,6 +1,6 @@
 // Guided workout logger backend for the Mini App (roadmap P2): today's session payload and the save
-// route's body. The save is completeWorkout (bot/workoutSave.ts), the same call the chat's
-// finalizeWorkoutLog makes, so both surfaces share one set of side effects. Assembly and validation
+// route's body. The save is completeWorkout (features/workout/completeWorkout.ts), the same call the
+// chat's finalizeWorkoutLog (bot/workoutSave.ts) makes, so both surfaces share one set of side effects. Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
 import { parseRestSec } from "../domain/restTime";
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";

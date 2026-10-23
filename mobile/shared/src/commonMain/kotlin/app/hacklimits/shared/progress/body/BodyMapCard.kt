@@ -15,14 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.hacklimits.shared.data.TrainingPlanDay
-import app.hacklimits.shared.progress.muscle.ExerciseMuscles
+import app.hacklimits.shared.muscles.ExerciseMuscles
+import app.hacklimits.shared.muscles.classify
 import app.hacklimits.shared.progress.muscle.LoggedDay
 import app.hacklimits.shared.progress.muscle.MuscleRecovery
 import app.hacklimits.shared.progress.muscle.MuscleWeek
 import app.hacklimits.shared.progress.muscle.isoPlusDays
 import app.hacklimits.shared.progress.muscle.lopsidedPairs
 import app.hacklimits.shared.progress.muscle.muscleRecovery
-import app.hacklimits.shared.progress.muscle.musclesForExercise
 import app.hacklimits.shared.progress.muscle.weekBalance
 import app.hacklimits.shared.progress.muscle.weeklyMuscleSets
 import app.hacklimits.shared.progress.ui.SelectField
@@ -94,7 +94,7 @@ fun BodyMapCard(
     planDays: List<TrainingPlanDay>,
     recentNames: List<String>,
     uk: Boolean,
-    lookup: (String) -> ExerciseMuscles? = ::musclesForExercise,
+    lookup: (String) -> ExerciseMuscles? = { classify(it) },
 ) {
     var selectionKey by remember { mutableStateOf("") }
     var tapped by remember { mutableStateOf<String?>(null) }

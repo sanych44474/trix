@@ -15,37 +15,25 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class ReleaseNoteTest {
-    private val note = listOf(
-        "Hi, here is what changed:",
-        "🎯 *Smarter plans* — the plan adapts to your week.",
-        "plain paragraph without a title",
-        "Tap *Menu → Dashboard* to see more.",
-    ).joinToString("\n\n")
-
     @Test
-    fun parsesCardsAndDropsGreetingAndClosingLine() {
-        val items = parseReleaseNote(note)
-        assertEquals(2, items.size)
-        assertEquals("🎯", items[0].icon)
-        assertEquals("Smarter plans", items[0].title)
-        assertEquals("The plan adapts to your week.", items[0].body)
-        assertEquals("", items[1].title)
-        assertEquals("plain paragraph without a title", items[1].body)
+    fun latestCarriesTheServerParsedCards() = runTest {
+        val note = latestFrom(
+            """{"data":{"version":"2026.10.1","html":"<b>x</b>","text":"Hello\n\n✨ *New* — body",""" +
+                """"items":[{"icon":"✨","title":"New","body":"Body"},{"icon":"","title":"","body":"Plain"}]},"meta":{"version":2}}""",
+        )
+        assertEquals("2026.10.1", note.version)
+        assertEquals(
+            listOf(ReleaseItem("✨", "New", "Body"), ReleaseItem("", "", "Plain")),
+            note.items,
+        )
     }
 
     @Test
-    fun stripsEmphasisAndCapitalisesTheBody() {
-        val items = parseReleaseNote("Hello\n\n✨ *Title* — lowercase _emphasis_ text")
-        assertEquals("Lowercase emphasis text", items.single().body)
-    }
-
-    @Test
-    fun plainTextFallbackFromHtml() {
-        assertEquals("a & b", plainReleaseText("<b>a</b>&nbsp;&amp; b").replace(Regex(" +"), " ").trim())
-        assertTrue(!plainReleaseText("<b>x</b>").contains("<"))
+    fun cardsDefaultToEmptyWhenTheServerSendsNone() = runTest {
+        val note = latestFrom("""{"data":{"version":"2026.10.1","html":"","text":"Hello"},"meta":{"version":2}}""")
+        assertEquals(emptyList(), note.items)
     }
 
     @Test
@@ -59,7 +47,7 @@ class ReleaseNoteTest {
                     if (request.method == HttpMethod.Get) {
                         assertEquals("/api/v2/whatsnew", request.url.encodedPath)
                         respond(
-                            """{"data":{"version":"2026.10.1","html":"<b>x</b>","text":"Hello\n\n✨ *New* — body"},"meta":{"version":2}}""",
+                            """{"data":{"version":"2026.10.1","html":"<b>x</b>","text":"Hello","items":[]},"meta":{"version":2}}""",
                             HttpStatusCode.OK,
                             headersOf(HttpHeaders.ContentType, "application/json"),
                         )
@@ -75,10 +63,21 @@ class ReleaseNoteTest {
                 }),
             ),
         )
-        val note = api.latest()
-        assertEquals("2026.10.1", note.version)
-        assertEquals("New", releaseItems(note).single().title)
+        assertEquals("2026.10.1", api.latest().version)
         api.markSeen("2026.10.1")
+    }
+
+    private suspend fun latestFrom(json: String): WhatsNewNote {
+        val api = WhatsNewApi(
+            ApiClient(
+                "https://api.example.test",
+                InMemorySessionStore("t".repeat(64)),
+                HttpClient(MockEngine {
+                    respond(json, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                }),
+            ),
+        )
+        return api.latest()
     }
 
     private suspend fun body(request: HttpRequestData): String =

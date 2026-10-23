@@ -8,7 +8,7 @@ import type { ExerciseImageMatch } from "../logic/exerciseImages";
 type Matcher = { match: (name: string, canonicalName?: string) => ExerciseImageMatch | null; urls: (id: string) => string[] };
 let matcher: Promise<Matcher> | null = null;
 function loadMatcher(): Promise<Matcher> {
-  matcher ??= Promise.all([import("../data/freeExerciseIds"), import("../logic/exerciseImages")]).then(([data, lib]) => ({
+  matcher ??= Promise.all([import("../../../../src/domain/data/freeExerciseIds"), import("../logic/exerciseImages")]).then(([data, lib]) => ({
     match: lib.makeImageMatcher(data.FREE_EXERCISE_IDS),
     urls: (id: string) => lib.exerciseImageUrls(id, data.FREE_EXERCISE_DB_COMMIT),
   }));

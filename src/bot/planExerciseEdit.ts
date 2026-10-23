@@ -11,17 +11,15 @@
 // logging flow these hand off to) stayed in bot.ts; imported from there like everything else.
 import { InlineKeyboard } from "grammy";
 import type { CatalogExercise, Weekday } from "../types";
-import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
-import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
+import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getCatalogExercise, listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
 import { updateUser } from "../adapters/d1/v2Users";
-import { adjustDayDifficulty } from "../features/plan/difficulty";
+import { runPlanEdit } from "./planEditRun";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { getPlanDay } from "../domain/progression";
 import { switchMode } from "../domain/session";
 import { cleanAi, t } from "../locales/i18n";
-import { translatePlanExercises } from "../features/plan/planBuild";
-import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, planOwnerLang, reply, setMode } from "../adapters/telegram/context";
+import { type MyContext, getActivePlanOrReply, isEditingOther, planOwnerId, reply, setMode } from "../adapters/telegram/context";
 import { decodePlanRef, encodePlanRef, reRenderEditDay } from "./planView";
 import { createExerciseCatalogEntry, exerciseInfoEntry, searchExerciseCatalog, translateExerciseQueryToEnglish } from "../features/exercise/catalog";
 import { swapTuneKb, promptExerciseConfirmation } from "./exerciseCatalog";
@@ -126,22 +124,16 @@ export async function swapFromCatalog(ctx: MyContext, weekday: Weekday, index: n
   const alt = await getCatalogExercise(ctx.db, catalogId);
   if (!alt) { await reply(ctx, t(lang, "error_generic")); return; }
   const fromName = current.name;
-  day.exercises[index] = {
-    exerciseId: alt.id,
-    canonicalName: alt.name,
+  const out = await runPlanEdit(ctx, planOwnerId(ctx), {
+    kind: "swap",
+    weekday,
+    index,
     name: alt.name,
-    sets: current.sets,
-    startWeight: current.startWeight || "—",
-    technique: alt.instructions ?? current.technique,
-    isKeyLift: current.isKeyLift,
-    muscles: alt.muscle,
-  };
-  // Translate if needed.
-  let split = plan.split;
-  const oLang = await planOwnerLang(ctx);
-  if (oLang !== "en") split = await translatePlanExercises(ctx.env, oLang, split, ctx.db, planOwnerId(ctx));
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), split);
-  const swapped = split.find((d) => d.weekday === weekday)?.exercises[index];
+    catalogId: alt.id,
+    overrides: { technique: alt.instructions ?? current.technique },
+  });
+  if (!out.ok) { await reply(ctx, t(lang, "error_generic")); return; }
+  const swapped = out.split.find((d) => d.weekday === weekday)?.exercises[index];
   await reply(ctx, t(lang, "swap_done", { from: fromName, to: swapped?.name ?? alt.name }), swapTuneKb(lang, weekday, index));
   // Re-show the full edit-day menu automatically (both surfaces).
   if (isEditingOther(ctx)) await reRenderEditDay(ctx, weekday);
@@ -192,31 +184,21 @@ export async function handleSwapCustom(ctx: MyContext, text: string) {
 // Set a specific exercise's weight (coach chat). Mirrors handleWeightEdit's normalization.
 export async function setExerciseWeight(ctx: MyContext, weekday: Weekday, index: number, value: string) {
   const lang = ctx.user.lang;
-  const plan = await getActivePlan(ctx.db, planOwnerId(ctx));
-  const day = plan ? getPlanDay(plan, weekday) : undefined;
-  const ex = day?.exercises[index];
-  if (!plan || !ex) { await reply(ctx, t(lang, "error_generic"), menuBtn(lang)); return; }
-  const num = parseFloat(value.replace(",", ".").replace(/[^\d.]/g, ""));
-  if (Number.isFinite(num) && num > 0) ex.startWeight = `${Math.round(num * 2) / 2} kg`;
-  else ex.startWeight = value.trim() || ex.startWeight;
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), plan.split);
   // Only caller is the AI coach (handleCoachAction) — no manual UI path for this edit.
-  await recordPlanChange(ctx.db, planOwnerId(ctx), "ai_coach", `weight: ${ex.name} -> ${ex.startWeight}`).catch(() => {});
-  await reply(ctx, t(lang, "plan_diff_weight_saved", { name: ex.name, weight: ex.startWeight }), menuBtn(lang));
+  const out = await runPlanEdit(ctx, planOwnerId(ctx), { kind: "weight", weekday, index, value }, "ai_coach");
+  if (!out.ok) { await reply(ctx, t(lang, "error_generic"), menuBtn(lang)); return; }
+  const ex = out.split.find((d) => d.weekday === weekday)?.exercises[index];
+  await reply(ctx, t(lang, "plan_diff_weight_saved", { name: ex?.name ?? "", weight: ex?.startWeight ?? "" }), menuBtn(lang));
 }
 
 // Set a specific exercise's sets/reps (coach chat).
 export async function setExerciseSets(ctx: MyContext, weekday: Weekday, index: number, value: string) {
   const lang = ctx.user.lang;
-  const plan = await getActivePlan(ctx.db, planOwnerId(ctx));
-  const day = plan ? getPlanDay(plan, weekday) : undefined;
-  const ex = day?.exercises[index];
-  if (!plan || !ex) { await reply(ctx, t(lang, "error_generic"), menuBtn(lang)); return; }
-  ex.sets = cleanAi(value).replace(/x/i, "×").trim() || ex.sets;
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), plan.split);
   // Only caller is the AI coach (handleCoachAction) — no manual UI path for this edit.
-  await recordPlanChange(ctx.db, planOwnerId(ctx), "ai_coach", `sets: ${ex.name} -> ${ex.sets}`).catch(() => {});
-  await reply(ctx, t(lang, "plan_diff_sets_saved", { name: ex.name, sets: ex.sets }), menuBtn(lang));
+  const out = await runPlanEdit(ctx, planOwnerId(ctx), { kind: "sets", weekday, index, value: cleanAi(value) }, "ai_coach");
+  if (!out.ok) { await reply(ctx, t(lang, "error_generic"), menuBtn(lang)); return; }
+  const ex = out.split.find((d) => d.weekday === weekday)?.exercises[index];
+  await reply(ctx, t(lang, "plan_diff_sets_saved", { name: ex?.name ?? "", sets: ex?.sets ?? "" }), menuBtn(lang));
 }
 
 export async function adjustDifficulty(ctx: MyContext, direction: "ok" | "up" | "down", weekday?: number) {
@@ -231,16 +213,9 @@ export async function adjustDifficulty(ctx: MyContext, direction: "ok" | "up" | 
   const targetDay = plan.split.find((d) => d.weekday === wd);
   if (!targetDay) { await reply(ctx, t(lang, "no_plan"), menuBtn(lang)); return; }
 
-  // The swap rules live in features/plan/difficulty.ts, shared with the Mini App's plan action.
-  const { swappedCount } = (await adjustDayDifficulty(ctx.env, {
-    db: ctx.db,
-    ownerId: planOwnerId(ctx),
-    actorId: ctx.user._id,
-    lang,
-    split: plan.split,
-    weekday: wd,
-    direction,
-  })) ?? { swappedCount: 0 };
+  const out = await runPlanEdit(ctx, planOwnerId(ctx), { kind: "difficulty", weekday: wd, dir: direction });
+  if (!out.ok) { await reply(ctx, t(lang, "error_generic"), menuBtn(lang)); return; }
+  const swappedCount = out.swapped;
 
   if (swappedCount === 0) {
     await reply(ctx, t(lang, "plan_diff_no_swap"), menuBtn(lang));
@@ -349,10 +324,10 @@ export async function handleWeightEdit(ctx: MyContext, text: string) {
     await reply(ctx, t(lang, "plan_diff_invalid_kg"));
     return;
   }
-  const rounded = Math.max(2.5, Math.round(kg / 2.5) * 2.5);
-  ex.startWeight = `${rounded} kg`;
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), plan.split);
-  await reply(ctx, t(lang, "plan_diff_weight_saved", { name: ex.name, weight: ex.startWeight }));
+  const out = await runPlanEdit(ctx, planOwnerId(ctx), { kind: "weight", weekday, index: idx, value: String(kg) });
+  if (!out.ok) { await reply(ctx, t(lang, "error_generic")); return; }
+  const saved = out.split.find((d) => d.weekday === weekday)?.exercises[idx];
+  await reply(ctx, t(lang, "plan_diff_weight_saved", { name: ex.name, weight: saved?.startWeight ?? "" }));
   // Re-show the full edit-day menu automatically (both surfaces), so the next action is a glance
   // away — trainer/owner get the client's edit-day view, a self-edit gets its own edit hub.
   if (isEditingOther(ctx)) await reRenderEditDay(ctx, weekday as Weekday);
@@ -373,9 +348,10 @@ export async function handleSetsEdit(ctx: MyContext, text: string) {
     await reply(ctx, t(lang, "plan_diff_invalid_sets"));
     return;
   }
-  ex.sets = normalized.replace(/\s*×\s*/g, " × ");
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), plan.split);
-  await reply(ctx, t(lang, "plan_diff_sets_saved", { name: ex.name, sets: ex.sets }));
+  const out = await runPlanEdit(ctx, planOwnerId(ctx), { kind: "sets", weekday, index: idx, value: normalized });
+  if (!out.ok) { await reply(ctx, t(lang, "error_generic")); return; }
+  const saved = out.split.find((d) => d.weekday === weekday)?.exercises[idx];
+  await reply(ctx, t(lang, "plan_diff_sets_saved", { name: ex.name, sets: saved?.sets ?? "" }));
   // Re-show the full edit-day menu automatically — same continuity as handleWeightEdit above.
   if (isEditingOther(ctx)) await reRenderEditDay(ctx, weekday as Weekday);
   else await endSelfEdit(ctx, String(weekday));
