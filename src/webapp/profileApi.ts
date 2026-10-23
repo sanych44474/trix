@@ -16,18 +16,16 @@ import { botDeepLink } from "../notify/links";
 import { t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
-import type { Env, Lang, UserProfile, Weekday } from "../types";
+import type { Env, Lang, UserProfile } from "../types";
+import type { TKey } from "../adapters/telegram/context";
 import { finalizeOnboardingPlan } from "../features/plan/planService";
+import { OB_OPTION_LABELS } from "../features/onboarding/questions";
+import { DIETS, EQUIPMENT, GOALS, LEVELS, QUESTIONS } from "../domain/onboardingQuestions";
+import { missingCoreFields, validateAnswers } from "../domain/onboardingAnswers";
 
-// Canonical value → i18n label key. Values MUST match the bot's obSteps() so a plan built from
-// either surface reads the same profile.
-const GOALS: [string, string][] = [["fat loss", "ob_goal_fatloss"], ["muscle gain", "ob_goal_muscle"], ["recomposition", "ob_goal_recomp"], ["strength", "ob_goal_strength"], ["endurance", "ob_goal_endurance"]];
-const LEVELS: [string, string][] = [["beginner", "ob_level_beginner"], ["intermediate", "ob_level_intermediate"], ["advanced", "ob_level_advanced"]];
-const EQUIP: [string, string][] = [["full gym", "ob_eq_gym"], ["home basics (dumbbells, bands)", "ob_eq_home"], ["dumbbells only", "ob_eq_dumbbells"], ["bodyweight only", "ob_eq_bodyweight"]];
-const DIET: [string, string][] = [["none", "ob_diet_none"], ["vegetarian", "ob_diet_vegetarian"], ["vegan", "ob_diet_vegan"]];
 const WD_KEYS = ["", "wd_mon", "wd_tue", "wd_wed", "wd_thu", "wd_fri", "wd_sat", "wd_sun"];
 
-const opts = (lang: Lang, list: [string, string][]) => list.map(([value, key]) => ({ value, label: t(lang, key as Parameters<typeof t>[1]) }));
+const opts = <V extends string>(lang: Lang, values: readonly V[], labels: Record<V, TKey>) => values.map((value) => ({ value, label: t(lang, labels[value]) }));
 
 export async function handleProfileApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
@@ -64,7 +62,7 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
           trainingWeekdays: p.trainingWeekdays ?? [],
           share: user.role === "client" ? { body: !!p.shareWithTrainer?.body, health: !!p.shareWithTrainer?.health } : null,
         },
-        options: { goal: opts(lang, GOALS), level: opts(lang, LEVELS), equipment: opts(lang, EQUIP), diet: opts(lang, DIET) },
+        options: { goal: opts(lang, GOALS, OB_OPTION_LABELS.goal), level: opts(lang, LEVELS, OB_OPTION_LABELS.level), equipment: opts(lang, EQUIPMENT, OB_OPTION_LABELS.equipment), diet: opts(lang, DIETS, OB_OPTION_LABELS.dietPrefs) },
         weekdays: [1, 2, 3, 4, 5, 6, 7].map((w) => ({ value: w, label: t(lang, WD_KEYS[w] as Parameters<typeof t>[1]) })),
       },
       { headers: { "cache-control": "no-store" } },
@@ -81,21 +79,12 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
   if (!parsedProfile.ok) return parsedProfile.response;
   const body = parsedProfile.body as Record<string, unknown>;
 
-  const patch: Partial<UserProfile> = {};
-  const inSet = (v: unknown, list: [string, string][]) => typeof v === "string" && list.some(([val]) => val === v);
+  // The answer fields are shared with the onboarding submit (domain/onboardingAnswers.ts). This is a
+  // partial update: an invalid value is dropped and keeps its previous value, so the per-field errors
+  // are not returned here.
+  const { patch: answers } = validateAnswers(body, { mode: "patch", isClient: user.role === "client" });
+  const patch: Partial<UserProfile> = { ...answers };
   if (typeof body.name === "string") patch.name = body.name.trim().slice(0, 60) || undefined;
-  if (inSet(body.goal, GOALS)) patch.goal = body.goal as string;
-  if (inSet(body.level, LEVELS)) patch.level = body.level as UserProfile["level"];
-  if (inSet(body.equipment, EQUIP)) patch.equipment = body.equipment as string;
-  if (inSet(body.dietPrefs, DIET)) patch.dietPrefs = body.dietPrefs as string;
-  if (typeof body.limitations === "string") patch.limitations = body.limitations.trim().slice(0, 500);
-  // Body data and lifestyle (the Today fine-tune card), same ranges as onboarding.
-  if (body.sex === "male" || body.sex === "female") patch.sex = body.sex;
-  if (typeof body.age === "number" && body.age >= 13 && body.age <= 120) patch.age = Math.round(body.age);
-  if (typeof body.heightCm === "number" && body.heightCm >= 100 && body.heightCm <= 250) patch.heightCm = Math.round(body.heightCm);
-  if (typeof body.weightKg === "number" && body.weightKg >= 30 && body.weightKg <= 300) patch.weightKg = Math.round(body.weightKg * 10) / 10;
-  if (body.lifestyle === "sedentary" || body.lifestyle === "moderate" || body.lifestyle === "active") patch.lifestyle = body.lifestyle;
-  if (body.sessionMinutes === 30 || body.sessionMinutes === 45 || body.sessionMinutes === 60 || body.sessionMinutes === 90) patch.sessionMinutes = body.sessionMinutes;
   if (body.goalWeight === null || body.goalWeight === "") patch.goalWeight = undefined;
   else if (typeof body.goalWeight === "number" && body.goalWeight >= 30 && body.goalWeight <= 300) patch.goalWeight = Math.round(body.goalWeight * 10) / 10;
   if (typeof body.reminderHour === "number" && Number.isInteger(body.reminderHour) && body.reminderHour >= 0 && body.reminderHour <= 23) patch.reminderHour = body.reminderHour;
@@ -115,16 +104,6 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
     patch.quietFrom = qHour(body.quietFrom) as number;
     patch.quietTo = qHour(body.quietTo) as number;
   }
-  if (Array.isArray(body.trainingWeekdays)) {
-    const wd = [...new Set(body.trainingWeekdays.map(Number).filter((n) => n >= 1 && n <= 7))].sort((a, b) => a - b) as Weekday[];
-    if (wd.length) { patch.trainingWeekdays = wd; patch.daysPerWeek = wd.length; }
-  }
-  // Client-owned trainer-sharing consent (only clients).
-  if (user.role === "client" && body.share && typeof body.share === "object") {
-    const s = body.share as { body?: unknown; health?: unknown };
-    patch.shareWithTrainer = { body: s.body === true, health: s.health === true };
-  }
-
   const profile = { ...user.profile, ...patch };
   // A calorie input that was missing (defaults were in use) and is now known: recompute the
   // targets from the real numbers. Changing a value that was already set leaves the targets alone
@@ -144,16 +123,18 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
 // button wizard collects and parks the session in plan_pending — the every-minute scheduler's
 // recovery sweep then generates the plan (bank-first, AI when available) and pushes "plan ready"
 // to the chat, exactly like a wizard finish that hit a Worker timeout. No new AI plumbing.
-function validTimeZone(tz: string): boolean {
-  try { new Intl.DateTimeFormat("en", { timeZone: tz }); return true; } catch { return false; }
-}
-
 const funnelEvent = (env: Env, userId: number, event: string, timezone?: string) =>
   bumpEvent(env.DB, userId, event, localParts(timezone).date).catch(() => {});
 
 export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+
+  // The question set both apps render (domain/onboardingQuestions.ts); they evaluate showWhen themselves.
+  if (url.pathname.endsWith("/onboarding/questions")) {
+    if (req.method !== "GET") return Response.json({ error: "method not allowed" }, { status: 405 });
+    return Response.json({ questions: QUESTIONS }, { headers: { "cache-control": "no-store" } });
+  }
 
   // The questionnaire's draft: saved while the person answers, read back on another device.
   if (url.pathname.endsWith("/onboarding/draft")) {
@@ -187,39 +168,12 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?
   if (!parsedOb.ok) return parsedOb.response;
   const body = parsedOb.body as Record<string, unknown>;
 
-  const patch: Partial<UserProfile> = {};
-  if (body.sex === "male" || body.sex === "female") patch.sex = body.sex;
-  if (typeof body.age === "number" && body.age > 0 && body.age <= 120) patch.age = Math.round(body.age);
-  if (typeof body.heightCm === "number" && body.heightCm >= 100 && body.heightCm <= 250) patch.heightCm = Math.round(body.heightCm);
-  if (typeof body.weightKg === "number" && body.weightKg >= 30 && body.weightKg <= 300) patch.weightKg = Math.round(body.weightKg * 10) / 10;
-  const inSet = (v: unknown, list: [string, string][]) => typeof v === "string" && list.some(([val]) => val === v);
-  if (inSet(body.goal, GOALS)) patch.goal = body.goal as string;
-  if (inSet(body.level, LEVELS)) patch.level = body.level as UserProfile["level"];
-  if (inSet(body.equipment, EQUIP)) patch.equipment = body.equipment as string;
-  if (inSet(body.dietPrefs, DIET)) patch.dietPrefs = body.dietPrefs as string;
-  if (body.lifestyle === "sedentary" || body.lifestyle === "moderate" || body.lifestyle === "active") patch.lifestyle = body.lifestyle;
-  if (body.sleepSchedule === "morning" || body.sleepSchedule === "evening") patch.sleepSchedule = body.sleepSchedule;
-  if (body.sessionMinutes === 30 || body.sessionMinutes === 45 || body.sessionMinutes === 60 || body.sessionMinutes === 90) patch.sessionMinutes = body.sessionMinutes;
-  // The phone's IANA zone, so reminders land at local time; only when the profile has none yet.
-  if (!user.profile.timezone && typeof body.timezone === "string" && body.timezone.length <= 64 && validTimeZone(body.timezone)) patch.timezone = body.timezone;
-  // A trainer's client answers the sharing question inside the wizard (body data / health).
-  if (user.role === "client" && body.share && typeof body.share === "object") {
-    const s = body.share as { body?: unknown; health?: unknown };
-    patch.shareWithTrainer = { body: s.body === true, health: s.health === true };
-  }
-  if (typeof body.limitations === "string") patch.limitations = body.limitations.trim().slice(0, 500) || "none";
-  // Current lifts (optional, non-beginners): starting weights are calibrated from them (domain/startWeights.ts).
-  if (typeof body.baselineLifts === "string") patch.baselineLifts = body.baselineLifts.trim().slice(0, 200) || "none";
-  else if (patch.level === "beginner") patch.baselineLifts = "none";
-  if (Array.isArray(body.trainingWeekdays)) {
-    const wd = [...new Set(body.trainingWeekdays.map(Number).filter((n) => n >= 1 && n <= 7))].sort((a, b) => a - b) as Weekday[];
-    if (wd.length) { patch.trainingWeekdays = wd; patch.daysPerWeek = wd.length; }
-  }
+  // The same answer fields the Mini App's PATCH takes, plus the onboarding-only ones (domain/onboardingAnswers.ts).
+  // An invalid optional answer is dropped, as before; `fields` names the answers that were not accepted.
+  const { patch, errors } = validateAnswers(body, { mode: "onboarding", isClient: user.role === "client", currentTimezone: user.profile.timezone });
   // The wizard's required core: without these the plan generator can't do a decent job.
   const merged = { ...user.profile, ...patch };
-  if (!merged.sex || !merged.age || !merged.goal || !merged.level || !(merged.trainingWeekdays ?? []).length || !merged.equipment) {
-    return Response.json({ error: "incomplete" }, { status: 400 });
-  }
+  if (missingCoreFields(merged).length) return Response.json({ error: "incomplete", fields: errors }, { status: 400 });
   if (merged.limitations === undefined) merged.limitations = "none";
   await updateUser(env.DB, user._id, { profile: merged, session: { mode: "plan_pending" } });
   await deleteOnboardingDraft(env.DB, user._id).catch(() => {});

@@ -1,7 +1,7 @@
-// The onboarding questionnaire as data: one question per screen. Which steps appear depends on
-// the answers so far (current lifts only past beginner) and on the role (a trainer's client is
-// also asked what the trainer may see). Pure, so the order, validation and request are tested
-// without rendering.
+// The onboarding questionnaire flow: one question per screen. The questions (ids, options, ranges,
+// which ones show) come from GET /api/v2/onboarding/questions; this module decides the order for
+// this person, validates answers against the server's ranges and builds the request. Pure, so the
+// order, validation and request are tested without rendering.
 import type { Key } from "../i18n";
 
 export type Sex = "male" | "female";
@@ -30,6 +30,18 @@ export type StepId =
   | "sex" | "age" | "height" | "weight" | "goal" | "level" | "lifts" | "days" | "duration"
   | "equipment" | "lifestyle" | "sleep" | "diet" | "limits" | "share";
 
+/** One question as the server sends it (labels are catalog keys). */
+export interface ServerQuestion {
+  id: StepId;
+  kind: "choice" | "number" | "lifts" | "days" | "text";
+  q: string;
+  hint?: string;
+  options?: { value: string; label: string }[];
+  number?: { min: number; max: number; step: number; unit: string; placeholder: string };
+  showWhen: "always" | "nonBeginner" | "trainerClient";
+  basics?: boolean;
+}
+
 export type Option = { value: string; label: Key };
 
 export interface Step {
@@ -38,73 +50,46 @@ export interface Step {
   hint?: Key;
   kind: "choice" | "number" | "lifts" | "days" | "text";
   options?: Option[];
-  number?: { min: number; max: number; step?: number; unit: Key; placeholder: string };
+  number?: { min: number; max: number; step: number; unit: Key; placeholder: string };
+  showWhen: ServerQuestion["showWhen"];
+  basics: boolean;
 }
 
-const STEPS: Record<StepId, Step> = {
-  sex: { id: "sex", q: "obq_sex", kind: "choice", options: [{ value: "male", label: "sex_male" }, { value: "female", label: "sex_female" }] },
-  age: { id: "age", q: "obq_age", kind: "number", number: { min: 13, max: 100, unit: "obu_years", placeholder: "30" } },
-  height: { id: "height", q: "obq_height", kind: "number", number: { min: 100, max: 250, unit: "obu_cm", placeholder: "175" } },
-  weight: { id: "weight", q: "obq_weight", kind: "number", number: { min: 30, max: 300, step: 0.1, unit: "obu_kg", placeholder: "75" } },
-  goal: {
-    id: "goal", q: "obq_goal", kind: "choice",
-    options: [
-      { value: "fat loss", label: "goal_fat_loss" }, { value: "muscle gain", label: "goal_muscle_gain" },
-      { value: "recomposition", label: "goal_recomposition" }, { value: "strength", label: "goal_strength" },
-      { value: "endurance", label: "goal_endurance" },
-    ],
-  },
-  level: {
-    id: "level", q: "obq_level", hint: "obh_level", kind: "choice",
-    options: [{ value: "beginner", label: "level_beginner" }, { value: "intermediate", label: "level_intermediate" }, { value: "advanced", label: "level_advanced" }],
-  },
-  lifts: { id: "lifts", q: "obq_lifts", hint: "ob_lifts_hint", kind: "lifts" },
-  days: { id: "days", q: "obq_days", hint: "obh_days", kind: "days" },
-  duration: {
-    id: "duration", q: "obq_duration", kind: "choice",
-    options: [{ value: "30", label: "obo_min_30" }, { value: "45", label: "obo_min_45" }, { value: "60", label: "obo_min_60" }, { value: "90", label: "obo_min_90" }],
-  },
-  equipment: {
-    id: "equipment", q: "obq_equipment", kind: "choice",
-    options: [
-      { value: "full gym", label: "equip_full_gym" }, { value: "home basics (dumbbells, bands)", label: "equip_home_basics" },
-      { value: "dumbbells only", label: "equip_dumbbells_only" }, { value: "bodyweight only", label: "equip_bodyweight_only" },
-    ],
-  },
-  lifestyle: {
-    id: "lifestyle", q: "obq_lifestyle", kind: "choice",
-    options: [{ value: "sedentary", label: "obo_life_sedentary" }, { value: "moderate", label: "obo_life_moderate" }, { value: "active", label: "obo_life_active" }],
-  },
-  sleep: { id: "sleep", q: "obq_sleep", kind: "choice", options: [{ value: "morning", label: "obo_sleep_morning" }, { value: "evening", label: "obo_sleep_evening" }] },
-  diet: {
-    id: "diet", q: "obq_diet", kind: "choice",
-    options: [{ value: "none", label: "diet_everything" }, { value: "vegetarian", label: "diet_vegetarian" }, { value: "vegan", label: "diet_vegan" }],
-  },
-  limits: { id: "limits", q: "obq_limits", hint: "obh_limits", kind: "text" },
-  share: {
-    id: "share", q: "obq_share", hint: "obh_share", kind: "choice",
-    options: [{ value: "both", label: "obo_share_both" }, { value: "body", label: "obo_share_body" }, { value: "health", label: "obo_share_health" }, { value: "none", label: "obo_share_none" }],
-  },
-};
+/**
+ * Turns the server's question set into steps. The label keys are the Mini App catalog's; a test
+ * (test/mini-app-onboarding-wizard.test.ts) checks that every one of them exists, so the cast is safe.
+ */
+export function stepsFrom(questions: ServerQuestion[]): Step[] {
+  return questions.map((s) => ({
+    id: s.id,
+    q: s.q as Key,
+    hint: s.hint as Key | undefined,
+    kind: s.kind,
+    options: s.options?.map((o) => ({ value: o.value, label: o.label as Key })),
+    number: s.number && { ...s.number, unit: s.number.unit as Key },
+    showWhen: s.showWhen,
+    basics: s.basics === true,
+  }));
+}
 
 /** The steps for this person, in order. Lifts appear only past beginner; sharing only for a client. */
-export function stepsFor(answers: Answers, isClient: boolean): Step[] {
-  const ids: StepId[] = ["sex", "age", "height", "weight", "goal", "level"];
-  if (answers.level && answers.level !== "beginner") ids.push("lifts");
-  ids.push("days", "duration", "equipment", "lifestyle", "sleep", "diet", "limits");
-  if (isClient) ids.push("share");
-  return ids.map((id) => STEPS[id]);
+export function stepsFor(all: Step[], answers: Answers, isClient: boolean): Step[] {
+  return all.filter((s) => {
+    if (s.showWhen === "nonBeginner") return answers.level !== undefined && answers.level !== "beginner";
+    if (s.showWhen === "trainerClient") return isClient;
+    return true;
+  });
 }
 
 /** The body-data questions asked before a ready program is applied (the no-questionnaire entry):
  *  the program's start weights and calorie targets need them. */
-export function basicSteps(): Step[] {
-  return (["sex", "age", "height", "weight"] as StepId[]).map((id) => STEPS[id]);
+export function basicSteps(all: Step[]): Step[] {
+  return all.filter((s) => s.basics);
 }
 
 /** The profile patch for the basics (POST /api/v2/profile); null while one is missing. */
-export function basicsRequest(a: Answers) {
-  if (!basicSteps().every((s) => isAnswered(s, a))) return null;
+export function basicsRequest(all: Step[], a: Answers) {
+  if (!basicSteps(all).every((s) => isAnswered(s, a))) return null;
   return { sex: a.sex!, age: Math.round(a.age!), heightCm: Math.round(a.heightCm!), weightKg: Math.round(a.weightKg! * 10) / 10 };
 }
 
@@ -163,8 +148,8 @@ export function chosen(step: Step, a: Answers): string | undefined {
 }
 
 /** Index of the first unanswered step (where a restored draft resumes). */
-export function firstOpenStep(a: Answers, isClient: boolean): number {
-  const steps = stepsFor(a, isClient);
+export function firstOpenStep(all: Step[], a: Answers, isClient: boolean): number {
+  const steps = stepsFor(all, a, isClient);
   const i = steps.findIndex((s) => !isAnswered(s, a));
   return i === -1 ? steps.length - 1 : i;
 }
@@ -176,8 +161,8 @@ const liftsText = (l: Answers["lifts"]) =>
     .join(", ") || "none";
 
 /** The /api/v2/onboarding body; null while a required answer is missing. */
-export function toRequest(a: Answers, isClient: boolean, timezone?: string) {
-  const steps = stepsFor(a, isClient);
+export function toRequest(all: Step[], a: Answers, isClient: boolean, timezone?: string) {
+  const steps = stepsFor(all, a, isClient);
   if (!steps.every((s) => isAnswered(s, a))) return null;
   return {
     sex: a.sex!,

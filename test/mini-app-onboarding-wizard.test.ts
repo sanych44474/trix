@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { basicSteps, basicsRequest, choose, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers } from "../apps/mini-app/src/logic/onboardingWizard";
+import { QUESTIONS } from "../src/domain/onboardingQuestions";
+import { basicSteps, basicsRequest, choose, firstOpenStep, isAnswered, parseDraft, stepsFor, stepsFrom, toRequest, type Answers, type ServerQuestion } from "../apps/mini-app/src/logic/onboardingWizard";
 import { en } from "../apps/mini-app/src/i18n/en";
+
+// The question set as the wire carries it: the server's list after a JSON round trip.
+const all = stepsFrom(JSON.parse(JSON.stringify(QUESTIONS)) as ServerQuestion[]);
 
 const full: Answers = {
   sex: "female", age: 27, heightCm: 168, weightKg: 58.4, goal: "recomposition", level: "beginner",
@@ -10,16 +14,16 @@ const full: Answers = {
 };
 
 test("onboarding steps: one question each, lifts only past beginner, sharing only for a trainer's client", () => {
-  const ids = (a: Answers, client: boolean) => stepsFor(a, client).map((s) => s.id);
+  const ids = (a: Answers, client: boolean) => stepsFor(all, a, client).map((s) => s.id);
   assert.deepEqual(ids({}, false), ["sex", "age", "height", "weight", "goal", "level", "days", "duration", "equipment", "lifestyle", "sleep", "diet", "limits"]);
   assert.ok(ids({ level: "intermediate" }, false).includes("lifts"));
   assert.ok(!ids({ level: "beginner" }, false).includes("lifts"));
   assert.equal(ids({}, true).at(-1), "share");
 });
 
-test("onboarding steps: every label and question key exists in the catalog", () => {
+test("onboarding steps: every question and option label is a key of the Mini App catalog", () => {
   const keys = new Set(Object.keys(en));
-  for (const step of stepsFor({ level: "advanced" }, true)) {
+  for (const step of all) {
     assert.ok(keys.has(step.q), step.q);
     if (step.hint) assert.ok(keys.has(step.hint), step.hint);
     if (step.number) assert.ok(keys.has(step.number.unit), step.number.unit);
@@ -27,30 +31,38 @@ test("onboarding steps: every label and question key exists in the catalog", () 
   }
 });
 
-test("numbers must be inside the range the API accepts", () => {
-  const age = stepsFor({}, false).find((s) => s.id === "age")!;
+test("numbers must be inside the range the server accepts (age 13-100)", () => {
+  const age = all.find((s) => s.id === "age")!;
+  assert.deepEqual([age.number!.min, age.number!.max], [13, 100]);
   assert.equal(isAnswered(age, { age: 12 }), false);
+  assert.equal(isAnswered(age, { age: 101 }), false);
   assert.equal(isAnswered(age, { age: 30 }), true);
   assert.equal(isAnswered(age, { age: Number.NaN }), false);
-  const weight = stepsFor({}, false).find((s) => s.id === "weight")!;
+  const weight = all.find((s) => s.id === "weight")!;
   assert.equal(isAnswered(weight, { weightKg: 301 }), false);
 });
 
+test("the question set's options drive the choices; duration values stay strings on the wire", () => {
+  const duration = all.find((s) => s.id === "duration")!;
+  assert.deepEqual(duration.options!.map((o) => o.value), ["30", "45", "60", "90"]);
+  assert.equal(choose(duration, {}, "45").sessionMinutes, 45);
+});
+
 test("switching to beginner drops lifts typed earlier", () => {
-  const level = stepsFor({}, false).find((s) => s.id === "level")!;
+  const level = all.find((s) => s.id === "level")!;
   const a = choose(level, { level: "advanced", lifts: { bench: 100 } }, "beginner");
   assert.equal(a.lifts, undefined);
 });
 
 test("a draft resumes at the first unanswered question", () => {
-  assert.equal(firstOpenStep({}, false), 0);
-  assert.equal(firstOpenStep({ sex: "male", age: 30 }, false), 2);
-  assert.equal(firstOpenStep(full, true), stepsFor(full, true).length - 1); // only the sharing question left
+  assert.equal(firstOpenStep(all, {}, false), 0);
+  assert.equal(firstOpenStep(all, { sex: "male", age: 30 }, false), 2);
+  assert.equal(firstOpenStep(all, full, true), stepsFor(all, full, true).length - 1); // only the sharing question left
 });
 
 test("request: null until complete; sorted days, rounded numbers, 'none' lifts for beginners", () => {
-  assert.equal(toRequest({ ...full, sessionMinutes: undefined }, false), null);
-  const body = toRequest(full, false, "Europe/Kyiv")!;
+  assert.equal(toRequest(all, { ...full, sessionMinutes: undefined }, false), null);
+  const body = toRequest(all, full, false, "Europe/Kyiv")!;
   assert.deepEqual(body.trainingWeekdays, [1, 3, 5]);
   assert.equal(body.weightKg, 58.4);
   assert.equal(body.baselineLifts, "none");
@@ -59,12 +71,12 @@ test("request: null until complete; sorted days, rounded numbers, 'none' lifts f
 });
 
 test("request: lifts become text, and a client's sharing choice maps to body/health flags", () => {
-  const body = toRequest({ ...full, level: "intermediate", lifts: { bench: 60, deadlift: 100 }, share: "body" }, true)!;
+  const body = toRequest(all, { ...full, level: "intermediate", lifts: { bench: 60, deadlift: 100 }, share: "body" }, true)!;
   assert.equal(body.baselineLifts, "bench 60kg, deadlift 100kg");
   assert.deepEqual(body.share, { body: true, health: false });
-  assert.deepEqual(toRequest({ ...full, share: "both" }, true)!.share, { body: true, health: true });
-  assert.deepEqual(toRequest({ ...full, share: "none" }, true)!.share, { body: false, health: false });
-  assert.equal(toRequest(full, true), null); // the sharing question is required for a client
+  assert.deepEqual(toRequest(all, { ...full, share: "both" }, true)!.share, { body: true, health: true });
+  assert.deepEqual(toRequest(all, { ...full, share: "none" }, true)!.share, { body: false, health: false });
+  assert.equal(toRequest(all, full, true), null); // the sharing question is required for a client
 });
 
 test("a malformed draft is ignored", () => {
@@ -75,7 +87,7 @@ test("a malformed draft is ignored", () => {
 });
 
 test("ready-program entry asks the four basics, all required", () => {
-  assert.deepEqual(basicSteps().map((s) => s.id), ["sex", "age", "height", "weight"]);
-  assert.equal(basicsRequest({ sex: "male", age: 30, heightCm: 180 }), null);
-  assert.deepEqual(basicsRequest({ sex: "female", age: 27.4, heightCm: 168.2, weightKg: 58.44 }), { sex: "female", age: 27, heightCm: 168, weightKg: 58.4 });
+  assert.deepEqual(basicSteps(all).map((s) => s.id), ["sex", "age", "height", "weight"]);
+  assert.equal(basicsRequest(all, { sex: "male", age: 30, heightCm: 180 }), null);
+  assert.deepEqual(basicsRequest(all, { sex: "female", age: 27.4, heightCm: 168.2, weightKg: 58.44 }), { sex: "female", age: 27, heightCm: 168, weightKg: 58.4 });
 });
