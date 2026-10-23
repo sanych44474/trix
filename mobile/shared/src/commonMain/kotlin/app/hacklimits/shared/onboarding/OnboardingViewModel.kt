@@ -23,7 +23,7 @@ import kotlinx.datetime.TimeZone
 class OnboardingViewModel(private val api: OnboardingApi, val isClient: Boolean = false) : ViewModel() {
     enum class Mode { QUESTIONS, BASICS, PICK }
 
-    enum class Failure { SAVE, VALIDATION }
+    enum class Failure { SAVE, VALIDATION, LOAD }
 
     data class State(
         val answers: Answers = Answers(),
@@ -35,6 +35,8 @@ class OnboardingViewModel(private val api: OnboardingApi, val isClient: Boolean 
         val submitted: Boolean = false,
         /** A draft was found on the server; the welcome screen offers to resume it. */
         val hasDraft: Boolean = false,
+        /** The question set from the server; null until it loads (a LOAD failure leaves it null). */
+        val questions: List<Step>? = null,
     )
 
     private val _state = MutableStateFlow(State())
@@ -43,18 +45,29 @@ class OnboardingViewModel(private val api: OnboardingApi, val isClient: Boolean 
     private var advanceJob: Job? = null
 
     init {
+        loadQuestions()
         viewModelScope.launch {
             val draft = api.loadDraft()
             if (draft != null && draft != Answers()) _state.update { it.copy(answers = draft, hasDraft = true) }
         }
     }
 
-    fun stepsOf(s: State): List<Step> = if (s.mode == Mode.BASICS) basicSteps() else stepsFor(s.answers, isClient)
+    /** Fetches the question set; a failure (or a question this app cannot show) sets [Failure.LOAD]. */
+    fun loadQuestions() {
+        viewModelScope.launch {
+            val steps = try { stepsFrom(api.questions()) } catch (e: Exception) { null }
+            _state.update { if (steps == null) it.copy(failure = Failure.LOAD) else it.copy(questions = steps, failure = null) }
+        }
+    }
+
+    private val allSteps: List<Step> get() = _state.value.questions.orEmpty()
+
+    fun stepsOf(s: State): List<Step> = if (s.mode == Mode.BASICS) basicSteps(s.questions.orEmpty()) else stepsFor(s.questions.orEmpty(), s.answers, isClient)
 
     fun answeredCount(s: State): Int = stepsOf(s).count { isAnswered(it, s.answers) }
 
     /** Welcome -> the first open question (a resumed draft continues where it stopped). */
-    fun start() = _state.update { it.copy(index = firstOpenStep(it.answers, isClient), mode = Mode.QUESTIONS, failure = null) }
+    fun start() = _state.update { it.copy(index = firstOpenStep(it.questions.orEmpty(), it.answers, isClient), mode = Mode.QUESTIONS, failure = null) }
 
     /** Welcome -> the ready-program path: body basics first. */
     fun startReady() = _state.update { it.copy(mode = Mode.BASICS, index = 0, failure = null) }
@@ -143,7 +156,7 @@ class OnboardingViewModel(private val api: OnboardingApi, val isClient: Boolean 
     }
 
     private fun saveBasics(final: Answers) {
-        val body = basicsRequest(final) ?: return
+        val body = basicsRequest(allSteps, final) ?: return
         viewModelScope.launch {
             _state.update { it.copy(saving = true, failure = null) }
             try {
@@ -158,9 +171,9 @@ class OnboardingViewModel(private val api: OnboardingApi, val isClient: Boolean 
     }
 
     private fun submit(final: Answers) {
-        val request = toRequest(final, isClient, TimeZone.currentSystemDefault().id)
+        val request = toRequest(allSteps, final, isClient, TimeZone.currentSystemDefault().id)
         if (request == null) {
-            _state.update { it.copy(index = firstOpenStep(final, isClient)) }
+            _state.update { it.copy(index = firstOpenStep(allSteps, final, isClient)) }
             return
         }
         viewModelScope.launch {
@@ -186,7 +199,7 @@ class OnboardingViewModel(private val api: OnboardingApi, val isClient: Boolean 
         draftJob = viewModelScope.launch {
             delay(800)
             val current = _state.value
-            runCatching { api.saveDraft(current.answers, answeredCount(current), stepsFor(current.answers, isClient).size) }
+            runCatching { api.saveDraft(current.answers, answeredCount(current), stepsFor(allSteps, current.answers, isClient).size) }
         }
     }
 }

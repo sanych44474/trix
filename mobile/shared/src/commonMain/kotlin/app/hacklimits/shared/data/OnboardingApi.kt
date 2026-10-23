@@ -1,6 +1,8 @@
 package app.hacklimits.shared.data
 
 import app.hacklimits.shared.onboarding.Answers
+import app.hacklimits.shared.onboarding.QuestionDto
+import app.hacklimits.shared.onboarding.QuestionsResponse
 import app.hacklimits.shared.plan.newIdempotencyKey
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -42,6 +44,10 @@ data class OnboardingRequest(
 @Serializable private data class DraftResponse(val answers: Answers? = null)
 
 class OnboardingApi(private val api: ApiClient) {
+    /** The question set both wizards render, in order (GET /api/v2/onboarding/questions). */
+    suspend fun questions(): List<QuestionDto> =
+        api.unwrap<QuestionsResponse>(api.http.get("api/v2/onboarding/questions") { api.authorize(this) }).questions
+
     /** The questionnaire draft saved on the server (another device may have started it), or null. */
     suspend fun loadDraft(): Answers? = runCatching {
         api.unwrap<DraftResponse>(api.http.get("api/v2/onboarding/draft") { api.authorize(this) }).answers

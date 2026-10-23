@@ -1359,6 +1359,37 @@ paths:
                           type: array
                           items: {$ref: '#/components/schemas/CatalogExercise'}
                   required: [data]
+  /api/v2/onboarding/questions:
+    get:
+      operationId: getOnboardingQuestions
+      summary: The questionnaire both wizards render (one source for options and ranges)
+      description: |
+        Option values, numeric ranges and the question order. Labels are keys of the Mini App catalog
+        (apps/mini-app/src/i18n); the native app maps the same keys to its own strings. A question with
+        showWhen "nonBeginner" is asked only when the answered level is not beginner; "trainerClient" only
+        for a trainer's client. Basics (basics: true) are the body-data questions asked before a ready program.
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: The question set, in order
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [questions]
+                      properties:
+                        questions:
+                          type: array
+                          items: {$ref: '#/components/schemas/OnboardingQuestion'}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/onboarding/draft:
     get:
       operationId: getOnboardingDraft
@@ -4586,6 +4617,33 @@ components:
         energy: {type: number, minimum: 1, maximum: 5, description: 'kind=checkin'}
         sleep: {type: number, minimum: 1, maximum: 5, description: 'kind=checkin'}
         stress: {type: number, minimum: 1, maximum: 5, description: 'kind=checkin'}
+    OnboardingQuestion:
+      type: object
+      required: [id, kind, q, showWhen]
+      properties:
+        id: {type: string, enum: [sex, age, height, weight, goal, level, lifts, days, duration, equipment, lifestyle, sleep, diet, limits, share]}
+        kind: {type: string, enum: [choice, number, lifts, days, text]}
+        q: {type: string, description: Catalog key of the question}
+        hint: {type: string, description: Catalog key of the hint}
+        options:
+          type: array
+          items:
+            type: object
+            required: [value, label]
+            properties:
+              value: {type: string, description: 'Sent back as-is (durations are "30", "45", "60", "90")'}
+              label: {type: string, description: Catalog key of the option label}
+        number:
+          type: object
+          required: [min, max, step, unit, placeholder]
+          properties:
+            min: {type: number}
+            max: {type: number}
+            step: {type: number}
+            unit: {type: string, description: Catalog key of the unit}
+            placeholder: {type: string}
+        showWhen: {type: string, enum: [always, nonBeginner, trainerClient]}
+        basics: {type: boolean}
     OnboardingRequest:
       type: object
       required: [sex, age, heightCm, weightKg, goal, level, equipment, dietPrefs, trainingWeekdays, limitations]
@@ -4593,7 +4651,7 @@ components:
         sex:
           type: string
           enum: [male, female]
-        age: {type: integer, minimum: 13, maximum: 120}
+        age: {type: integer, minimum: 13, maximum: 100}
         heightCm: {type: number, minimum: 100, maximum: 250}
         weightKg: {type: number, minimum: 30, maximum: 300}
         goal: {type: string}

@@ -4,7 +4,7 @@ import { t, type Key, type Lang } from "./i18n";
 import { BecomeTrainerCard } from "./BecomeTrainer";
 import { FindTrainer } from "./FindTrainer";
 import { ReadyPrograms } from "./ReadyPrograms";
-import { DRAFT_KEY, basicSteps, basicsRequest, choose, chosen, firstOpenStep, isAnswered, parseDraft, stepsFor, toRequest, type Answers, type Step } from "./logic/onboardingWizard";
+import { DRAFT_KEY, basicSteps, basicsRequest, choose, chosen, firstOpenStep, isAnswered, parseDraft, stepsFor, stepsFrom, toRequest, type Answers, type ServerQuestion, type Step } from "./logic/onboardingWizard";
 
 type Props = { lang: Lang; isClient: boolean; onComplete: () => void; onLangChange: (lang: Lang) => void; onReload?: () => void };
 
@@ -27,8 +27,12 @@ const deviceTimeZone = () => { try { return Intl.DateTimeFormat().resolvedOption
  */
 export function OnboardingView({ lang, isClient, onComplete, onLangChange, onReload }: Props) {
   const [answers, setAnswers] = useState<Answers>(readDraft);
-  // -1 is the welcome screen; a returning user with a draft resumes at the first open question.
-  const [index, setIndex] = useState(() => (Object.keys(readDraft()).length ? firstOpenStep(readDraft(), isClient) : -1));
+  // The question set from the server; null until it loads (or while it failed to).
+  const [questions, setQuestions] = useState<Step[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  // -1 is the welcome screen; a returning user with a draft resumes at the first open question
+  // (set once the questions have loaded).
+  const [index, setIndex] = useState(-1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [langBusy, setLangBusy] = useState(false);
@@ -39,22 +43,37 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
   // "A ready program": the basics, then the program list ("pick" once the basics are saved).
   const [ready, setReady] = useState<"off" | "basics" | "pick">("off");
   const advanceTimer = useRef<number | undefined>(undefined);
-  const steps = ready === "basics" ? basicSteps() : stepsFor(answers, isClient);
+  const all = questions ?? [];
+  const steps = ready === "basics" ? basicSteps(all) : stepsFor(all, answers, isClient);
   const step = index >= 0 ? steps[Math.min(index, steps.length - 1)] : undefined;
   const isLast = index === steps.length - 1;
+
+  const loadQuestions = () => {
+    setLoadFailed(false);
+    api<{ questions: ServerQuestion[] }>("/api/v2/onboarding/questions")
+      .then((r) => {
+        const set = stepsFrom(r.questions);
+        setQuestions(set);
+        // A returning user with a draft resumes at the first open question.
+        const draft = readDraft();
+        if (Object.keys(draft).length) setIndex(firstOpenStep(set, draft, isClient));
+      })
+      .catch(() => setLoadFailed(true));
+  };
+  useEffect(() => { loadQuestions(); }, []);
 
   useEffect(() => { saveDraft(answers); }, [answers]);
   // The server keeps a copy too (owner console shows how far people got; another device resumes).
   // Debounced, only for the questionnaire, best-effort.
   useEffect(() => {
     if (ready !== "off" || index < 0) return;
-    const all = stepsFor(answers, isClient);
-    const answered = all.filter((s) => isAnswered(s, answers)).length;
+    const shown = stepsFor(all, answers, isClient);
+    const answered = shown.filter((s) => isAnswered(s, answers)).length;
     const timer = window.setTimeout(() => {
-      void api("/api/v2/onboarding/draft", { method: "POST", body: typedBody<"saveOnboardingDraft">({ answers: answers as Record<string, unknown>, answered, total: all.length }) }).catch(() => {});
+      void api("/api/v2/onboarding/draft", { method: "POST", body: typedBody<"saveOnboardingDraft">({ answers: answers as Record<string, unknown>, answered, total: shown.length }) }).catch(() => {});
     }, 800);
     return () => window.clearTimeout(timer);
-  }, [answers, index, ready, isClient]);
+  }, [answers, index, ready, isClient, questions]);
   // Nothing on this phone yet: pick up a draft started on another device.
   useEffect(() => {
     if (Object.keys(readDraft()).length) return;
@@ -82,7 +101,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
 
   // Ready-program path: store the basics on the profile, then show the programs.
   const saveBasics = async (final: Answers) => {
-    const body = basicsRequest(final);
+    const body = basicsRequest(all, final);
     if (!body) return;
     setSaving(true); setError(null);
     try {
@@ -96,8 +115,8 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
   const back = () => { if (ready === "basics" && index === 0) { setReady("off"); setIndex(-1); } else setIndex(index - 1); };
 
   const submit = async (final: Answers) => {
-    const body = toRequest(final, isClient, deviceTimeZone());
-    if (!body) { setIndex(firstOpenStep(final, isClient)); return; }
+    const body = toRequest(all, final, isClient, deviceTimeZone());
+    if (!body) { setIndex(firstOpenStep(all, final, isClient)); return; }
     setSaving(true); setError(null);
     try {
       await api("/api/v2/onboarding", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"completeOnboarding">(body) });
@@ -114,7 +133,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
     window.clearTimeout(advanceTimer.current);
     // A short beat so the tap visibly lands before the next question slides in.
     advanceTimer.current = window.setTimeout(() => {
-      const nextSteps = ready === "basics" ? basicSteps() : stepsFor(next, isClient);
+      const nextSteps = ready === "basics" ? basicSteps(all) : stepsFor(all, next, isClient);
       if (index >= nextSteps.length - 1) void finish(next);
       else setIndex(index + 1);
     }, 180);
@@ -128,6 +147,12 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
       onLangChange(next);
     } catch { /* keep the current language */ } finally { setLangBusy(false); }
   };
+
+  if (!questions) {
+    return <div className="ob-wizard view-stack" aria-busy={!loadFailed}>
+      {loadFailed && <div className="error-state"><strong>{t(lang, "onboarding_load_error")}</strong><button type="button" className="button button-ghost" onClick={loadQuestions}>{t(lang, "retry")}</button></div>}
+    </div>;
+  }
 
   if (!step && findTrainer && !isClient) {
     return <FindTrainer lang={lang} onBack={() => setFindTrainer(false)} onAccepted={() => { setFindTrainer(false); onReload?.(); }} />;
@@ -158,7 +183,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
         {(["uk", "en"] as const).map((l) => <button key={l} type="button" className={lang === l ? "ob-chip selected" : "ob-chip"} disabled={langBusy} onClick={() => void switchLang(l)}>{t(lang, l === "uk" ? "lang_uk_label" : "lang_en_label")}</button>)}
       </div>
       <div className="ob-options">
-        <button type="button" className="ob-option selected" onClick={() => setIndex(firstOpenStep(answers, isClient))}>{t(lang, isClient ? "ob_start_btn" : "ob_role_athlete_btn")}</button>
+        <button type="button" className="ob-option selected" onClick={() => setIndex(firstOpenStep(all, answers, isClient))}>{t(lang, isClient ? "ob_start_btn" : "ob_role_athlete_btn")}</button>
         {!isClient && <button type="button" className="ob-option" onClick={() => { setReady("basics"); setIndex(0); }}>{t(lang, "ob_ready_btn")}</button>}
         {!isClient && <button type="button" className="ob-option" onClick={() => setFindTrainer(true)}>{t(lang, "ob_role_trainer_btn")}</button>}
         {!isClient && <button type="button" className="ob-option" onClick={() => setCoach(true)}>{t(lang, "ob_role_coach_btn")}</button>}

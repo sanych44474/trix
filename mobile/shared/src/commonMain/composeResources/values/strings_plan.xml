@@ -250,6 +250,7 @@
     <string name="ob_limitations_ph">Anything your plan should respect</string>
     <string name="ob_validation_error_hint">Check the required fields and try again.</string>
     <string name="ob_onboarding_save_error">Could not save onboarding. Try again.</string>
+    <string name="ob_load_error">Could not load the questions. Check your connection and try again.</string>
     <string name="ob_building_plan_ellipsis">Building your plan…</string>
     <string name="pl_exlib_lang">en</string>
 </resources>

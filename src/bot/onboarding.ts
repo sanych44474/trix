@@ -7,6 +7,7 @@ import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingA
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import { parseHeightWeight } from "../domain/workoutText";
+import { AGE_RANGE } from "../domain/onboardingQuestions";
 import { listIncompleteOnboarding, updateUser } from "../adapters/d1/v2Users";
 import { FUNNEL_FINISHED, FUNNEL_STARTED, bumpEvent } from "../adapters/d1/v2Analytics";
 import { localParts } from "../domain/localTime";
@@ -169,7 +170,7 @@ export async function onboardingStep(ctx: MyContext, userText?: string) {
   const text = userText.trim();
   if (step.input === "number") {
     const n = parseInt(text.replace(/[^\d]/g, ""), 10);
-    if (!Number.isFinite(n) || n <= 0 || n > 120) {
+    if (!Number.isFinite(n) || n < AGE_RANGE.min || n > AGE_RANGE.max) {
       await reply(ctx, t(lang, "ob_invalid_number"));
       return;
     }

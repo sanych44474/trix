@@ -250,6 +250,7 @@
     <string name="ob_limitations_ph">Що план має враховувати</string>
     <string name="ob_validation_error_hint">Перевір обов\'язкові поля і спробуй ще раз.</string>
     <string name="ob_onboarding_save_error">Не вдалося зберегти дані. Спробуй ще раз.</string>
+    <string name="ob_load_error">Не вдалося завантажити питання. Перевір з'єднання і спробуй ще раз.</string>
     <string name="ob_building_plan_ellipsis">Створюємо твій план…</string>
     <string name="pl_exlib_lang">uk</string>
 </resources>

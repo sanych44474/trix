@@ -1,6 +1,8 @@
 package app.hacklimits.shared.onboarding
 
+import app.hacklimits.shared.QUESTIONS_JSON
 import app.hacklimits.shared.data.ApiClient
+import app.hacklimits.shared.data.AppJson
 import app.hacklimits.shared.data.BasicsRequest
 import app.hacklimits.shared.data.InMemorySessionStore
 import app.hacklimits.shared.data.OnboardingApi
@@ -54,7 +56,9 @@ class OnboardingApiTest {
             body = (request.body as TextContent).text
             respond("""{"data":{"ok":true},"meta":{}}""", HttpStatusCode.OK, json)
         }
+        val all = stepsFrom(AppJson.decodeFromString<QuestionsResponse>(QUESTIONS_JSON).questions)!!
         val request = toRequest(
+            all,
             Answers(
                 sex = "male", age = 30, heightCm = 180, weightKg = 80.0, goal = "muscle gain", level = "beginner",
                 trainingWeekdays = listOf(1, 3), sessionMinutes = 60, equipment = "full gym", lifestyle = "moderate",
@@ -67,6 +71,23 @@ class OnboardingApiTest {
         assertTrue(body.contains("\"goal\":\"muscle gain\""))
         assertTrue(body.contains("\"baselineLifts\":\"none\""))
         assertTrue(!body.contains("timezone"), "no timezone key when none was sent")
+    }
+
+    @Test
+    fun theQuestionSetIsReadFromTheServer() = runTest {
+        var path = ""
+        val api = api { request ->
+            path = request.url.encodedPath
+            respond(
+                """{"data":{"questions":[{"id":"sex","kind":"choice","q":"obq_sex","showWhen":"always","options":[{"value":"male","label":"sex_male"}]}]},"meta":{}}""",
+                HttpStatusCode.OK,
+                json,
+            )
+        }
+        val questions = api.questions()
+        assertEquals("/api/v2/onboarding/questions", path)
+        assertEquals("sex", questions.single().id)
+        assertEquals("male", questions.single().options.single().value)
     }
 
     @Test
