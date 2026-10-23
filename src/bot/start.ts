@@ -1,5 +1,5 @@
 // /start and the onboarding interview entry points.
-import { joinByInviteCode } from "../webapp/squadApi";
+import { joinByInviteCode } from "../features/squad/join";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { UserDoc } from "../types";

@@ -1,6 +1,6 @@
 // Mini App links and the timezone shortlist: leaf data every keyboard builder needs, kept out of
 // bot.ts so keyboards (and through them the Telegram context) do not import the whole bot.
-import { APP_VERSION } from "../webapp/appVersion";
+import { APP_VERSION } from "../appVersion";
 
 export const COMMON_TZ = [
   "Europe/Kyiv",

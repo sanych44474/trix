@@ -8,7 +8,7 @@
 // (src/bot/squad.ts) use -- squadWeek/squadMedal from src/domain/squad.ts -- rather than
 // recomputing the standings a different way. Membership is derived entirely from the
 // authenticated user's own row (squadsForUser); no client-supplied squad id is ever trusted.
-import { createAppSquad, deleteSquad, getSquad, isAppSquad, joinSquad, leaveSquad, squadByInviteCode, squadCompletedDates, squadMembers, squadsForUser } from "../adapters/d1/v2Gamification";
+import { createAppSquad, deleteSquad, getSquad, isAppSquad, leaveSquad, squadCompletedDates, squadMembers, squadsForUser } from "../adapters/d1/v2Gamification";
 import { botDeepLink } from "../notify/links";
 import { logInfo } from "../log";
 import { readJsonBody } from "./validate";
@@ -16,25 +16,13 @@ import { localParts } from "../domain/localTime";
 import { weekStartStr } from "../domain/records";
 import { squadMedal, squadWeek } from "../domain/squad";
 import { miniAppUser } from "./auth";
+import { MAX_SQUADS_PER_USER, joinByInviteCode } from "../features/squad/join";
 import type { Env } from "../types";
 
-export const MAX_SQUAD_MEMBERS = 12;
-export const MAX_SQUADS_PER_USER = 5;
 
 const displayName = (m: { userId: number; name: string | null; alias: string | null }): string =>
   (m.alias || m.name || `id ${m.userId}`).trim() || `id ${m.userId}`;
 
-/** Join an app squad by its invite code. Shared by the app (POST join) and the bot's sq_ deep link. */
-export async function joinByInviteCode(db: D1Database, userId: number, code: string): Promise<"joined" | "already" | "not_found" | "full" | "too_many"> {
-  const squad = await squadByInviteCode(db, code.trim().toLowerCase().slice(0, 16));
-  if (!squad) return "not_found";
-  const members = await squadMembers(db, squad.chatId);
-  if (members.some((m) => m.userId === userId)) return "already";
-  if (members.length >= MAX_SQUAD_MEMBERS) return "full";
-  if ((await squadsForUser(db, userId)).length >= MAX_SQUADS_PER_USER) return "too_many";
-  await joinSquad(db, squad.chatId, userId);
-  return "joined";
-}
 
 export async function handleSquadsApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);

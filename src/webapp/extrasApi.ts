@@ -26,7 +26,7 @@ import { miniAppUser } from "./auth";
 import { logInfo } from "../log";
 import { num, object, oneOf, optional, readJsonBody, str, validateBody } from "./validate";
 import type { Env } from "../types";
-import { putStoryImage } from "./storyMedia";
+import { putStoryImage } from "../adapters/r2/storyMedia";
 import { isSupportAmount } from "../adapters/d1/v2Support";
 import { supportInvoice } from "../features/support/invoice";
 import { botDeepLink } from "../notify/links";

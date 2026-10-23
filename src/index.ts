@@ -17,7 +17,7 @@ import { healthcheckDue, pingHealthcheck } from "./adapters/monitoring/healthche
 import { handleBroadcastBatch, type BroadcastMessage } from "./features/owner/broadcastQueue";
 import { activityRaw } from "./adapters/d1/activityMetrics";
 import { buildActivityMetrics } from "./domain/activityMetrics";
-import { serveWeekMap } from "./webapp/weekMap";
+import { serveWeekMap } from "./features/report/weekMap";
 import { bumpEvent } from "./adapters/d1/v2Analytics";
 import { deleteSetting, getSetting, markUpdateSeen, pingDb, setSetting } from "./adapters/d1/v2Admin";
 import { setActivePlan } from "./adapters/d1/v2Plans";
@@ -36,7 +36,7 @@ import { handleNutritionApi } from "./webapp/nutritionApi";
 import { handleBuddyApi } from "./webapp/buddyApi";
 import { handleChallengesApi, handleInjuriesApi, handleBoardsApi, handleClientErrorApi, handlePhotoApi } from "./webapp/miscApi";
 import { handleOwnerApi } from "./webapp/ownerApi";
-import { serveStoryImage } from "./webapp/storyMedia";
+import { serveStoryImage } from "./adapters/r2/storyMedia";
 import { handleStravaCallback } from "./webapp/stravaApi";
 import { handleQuickLogApi } from "./webapp/quickLogApi";
 import { handleV2Api } from "./webapp/v2Api";
@@ -184,7 +184,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
 
     // Video-open tracking: count the click, then 302 to the real (YouTube-only) target.
     // GET /v?u=<encoded youtube url>&uid=<user id>&sig=<HMAC over uid+u, videoLink.ts>
-    // Public, short-lived story images for Telegram's shareToStory (webapp/storyMedia.ts).
+    // Public, short-lived story images for Telegram's shareToStory (adapters/r2/storyMedia.ts).
     if (req.method === "GET" && url.pathname.startsWith("/story/")) {
       return (await serveStoryImage(env, url.pathname)) ?? new Response("Not found", { status: 404 });
     }

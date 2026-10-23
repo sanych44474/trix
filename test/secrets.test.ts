@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { macHex, safeEqual, secretMatches, verifyMac } from "../src/domain/secrets";
 import { buildVideoOpenLink, signVideoOpen, verifyVideoOpen } from "../src/domain/videoLink";
-import { weekMapUrl } from "../src/webapp/weekMap";
+import { weekMapUrl } from "../src/features/report/weekMap";
 import { signState, verifyState } from "../src/adapters/d1/v2Strava";
 import { validateInitData } from "../src/webapp/initData";
 import { TRACKED_MUSCLES } from "../src/domain/muscleLoad";

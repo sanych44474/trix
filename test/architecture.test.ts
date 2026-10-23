@@ -41,7 +41,9 @@ function violates(from: string, to: string): boolean {
   const b = layerOf(join(ROOT, `${to}.ts`));
   if (a === "domain") return !["domain", "(root)", "locales"].includes(b); // pure: no I/O layers
   if (a === "adapters") return ["bot", "webapp", "features"].includes(b); // infrastructure stays below
-  if (["webapp", "features", "schedulerJobs", "ai", "knowledge"].includes(a)) return b === "bot"; // the bot is a UI
+  if (["webapp", "features", "schedulerJobs", "ai", "knowledge"].includes(a) && b === "bot") return true; // the bot is a UI
+  // The Mini App API is an interface too: only the composition root (index.ts) wires it in.
+  if (b === "webapp" && a !== "webapp" && from !== "src/index.ts") return true;
   return false;
 }
 

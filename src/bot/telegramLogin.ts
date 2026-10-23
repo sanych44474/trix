@@ -5,7 +5,7 @@
 import { InlineKeyboard } from "grammy";
 import { t } from "../locales/i18n";
 import { HTML, reply, type MyContext } from "../adapters/telegram/context";
-import { confirmTelegramLogin, pendingTelegramLogin, rejectTelegramLogin } from "../webapp/providerAuth";
+import { confirmTelegramLogin, pendingTelegramLogin, rejectTelegramLogin } from "../adapters/d1/v2TelegramLogin";
 
 export async function promptTelegramLogin(ctx: MyContext, challengeId: string): Promise<void> {
   const lang = ctx.user.lang;

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Env } from "../src/types";
-import { confirmTelegramLogin, handleProviderAuth } from "../src/webapp/providerAuth";
+import { handleProviderAuth } from "../src/webapp/providerAuth";
+import { confirmTelegramLogin } from "../src/adapters/d1/v2TelegramLogin";
 import { makeCtx, newDb } from "./harness";
 import { getOrCreateUser, getUser } from "../src/adapters/d1/v2Users";
 import { answerTelegramLogin, promptTelegramLogin } from "../src/bot/telegramLogin";
