@@ -1,7 +1,8 @@
 // Editing today's workout in the bot: add an exercise by name, delete one, undo the delete.
 import { InlineKeyboard } from "grammy";
 import type { Weekday } from "../types";
-import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import { runPlanEdit } from "./planEditRun";
 import { updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { getPlanDay } from "../domain/progression";
@@ -50,8 +51,11 @@ export async function deleteExerciseFromToday(ctx: MyContext, weekday: Weekday, 
     return;
   }
   const owner = planOwnerId(ctx);
-  day.exercises.splice(index, 1);
-  await updateActivePlanSplit(ctx.db, owner, plan.split);
+  const out = await runPlanEdit(ctx, owner, { kind: "del", weekday, index });
+  if (!out.ok) {
+    await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
+    return;
+  }
   // Stash for one-tap undo.
   const session = { ...ctx.user.session, lastDeleted: { ownerId: owner, weekday, index, exercise: current } };
   await updateUser(ctx.db, ctx.user._id, { session });
@@ -74,14 +78,11 @@ export async function undoDelete(ctx: MyContext) {
     await reply(ctx, t(lang, "nothing_to_undo"), menuBtn(lang));
     return;
   }
-  const plan = await getActivePlan(ctx.db, d.ownerId);
-  const day = plan ? getPlanDay(plan, d.weekday as Weekday) : undefined;
-  if (!plan || !day) {
+  const out = await runPlanEdit(ctx, d.ownerId, { kind: "restore", weekday: d.weekday, index: d.index, exercise: d.exercise });
+  if (!out.ok) {
     await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
     return;
   }
-  day.exercises.splice(Math.min(d.index, day.exercises.length), 0, d.exercise);
-  await updateActivePlanSplit(ctx.db, d.ownerId, plan.split);
   const session = { ...ctx.user.session };
   delete session.lastDeleted;
   await updateUser(ctx.db, ctx.user._id, { session });

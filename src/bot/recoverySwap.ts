@@ -3,12 +3,11 @@
 // later one. The Mini App shows the same suggestion on its Today screen (dashboard.recoverySwap).
 import { InlineKeyboard } from "grammy";
 import type { PlanDoc, Weekday, WorkoutLogDoc } from "../types";
-import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
-import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
 import { t } from "../locales/i18n";
 import { weekdayName } from "../render";
-import { recoverySwapFor, swapPlanDays } from "../domain/recoverySwap";
+import { recoverySwapFor } from "../domain/recoverySwap";
 import { type MyContext, reply } from "../adapters/telegram/context";
+import { runPlanEdit } from "./planEditRun";
 
 /** Sent right after today's workout when a swap is worth offering; silent otherwise. */
 export async function offerRecoverySwap(ctx: MyContext, plan: PlanDoc, workouts: WorkoutLogDoc[], today: string, weekday: Weekday): Promise<void> {
@@ -26,14 +25,11 @@ export async function applyRecoverySwap(ctx: MyContext, a: number, b: number): P
   await ctx.answerCallbackQuery().catch(() => {});
   const lang = ctx.user.lang;
   if (ctx.user.role === "client") return;
-  const plan = await getActivePlan(ctx.db, ctx.user._id);
-  const split = plan ? swapPlanDays(plan.split, a as Weekday, b as Weekday) : null;
-  if (!split) {
+  const out = await runPlanEdit(ctx, ctx.user._id, { kind: "dayswap", weekday: a, other: b });
+  if (!out.ok) {
     await reply(ctx, t(lang, "rswap_stale"));
     return;
   }
-  await updateActivePlanSplit(ctx.db, ctx.user._id, split);
-  await recordPlanChange(ctx.db, ctx.user._id, "manual", `swapped days: ${weekdayName(lang, a as Weekday)} ↔ ${weekdayName(lang, b as Weekday)}`).catch(() => {});
   await ctx.editMessageReplyMarkup().catch(() => {});
   await reply(ctx, t(lang, "rswap_done", { a: weekdayName(lang, a as Weekday), b: weekdayName(lang, b as Weekday) }));
 }
