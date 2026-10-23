@@ -302,7 +302,7 @@ private fun SessionCard(row: SessionRow, busy: Boolean, onStatus: (Int, String) 
             // The session price has no currency from the server, so it is shown as given.
             val details = listOfNotNull(
                 stringResource(sessionStatusName(row.status)),
-                "${row.durationMin} min",
+                stringResource(Res.string.tr_minutes, row.durationMin.toString()),
                 row.price?.let { formatAmount(it) },
             )
             Text(details.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)

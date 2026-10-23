@@ -736,6 +736,7 @@ export const uk: Record<keyof typeof en, string> = {
   grocery_title: "Список покупок",
   grocery_empty: "У плані ще немає продуктів.",
   grocery_hint: "Оберіть 3, 5 або 7 днів для списку покупок.",
+  grocery_days: "{n} дн",
   activity_rings_eyebrow: "Навантаження сьогодні",
   activity_calendar_title: "Календар тренувань",
   missed_label: "Пропущено",

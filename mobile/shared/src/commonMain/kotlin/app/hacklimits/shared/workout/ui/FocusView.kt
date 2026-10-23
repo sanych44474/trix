@@ -128,10 +128,12 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
 
     fun commit(i: Int, value: LoggerSet) {
         if (!(amount(value) > 0)) return
+        val newlyDone = !isDone(i)
         vm.writeSet(ex.index, i, value)
         vm.setRowDraft(key, null)
         rpeOpen = false
-        if (s.restPrefs.auto) vm.startRest(restSec, rowRestLabels[i], ex.name)
+        // Only a set finished just now starts the rest; fixing an earlier set leaves the running one alone.
+        if (s.restPrefs.auto && newlyDone) vm.startRest(restSec, rowRestLabels[i], ex.name)
     }
 
     fun undo(i: Int) {

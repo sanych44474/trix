@@ -164,6 +164,7 @@
     <string name="fd_grocery_title">Grocery list</string>
     <string name="fd_grocery_empty">No foods in the meal plan yet.</string>
     <string name="fd_grocery_hint">Choose 3, 5 or 7 days to build a shopping list.</string>
+    <string name="fd_grocery_days">%1$sd</string>
     <string name="fd_grocery_send">Send to Telegram</string>
     <string name="fd_grocery_sent">Sent! Check your Telegram chat.</string>
     <string name="fd_retry">Retry</string>

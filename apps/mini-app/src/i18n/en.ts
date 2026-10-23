@@ -735,6 +735,7 @@ export const en = {
   grocery_title: "Grocery list",
   grocery_empty: "No foods in the meal plan yet.",
   grocery_hint: "Choose 3, 5 or 7 days to build a shopping list.",
+  grocery_days: "{n}d",
   activity_rings_eyebrow: "Today's load",
   activity_calendar_title: "Workout calendar",
   missed_label: "Missed",
