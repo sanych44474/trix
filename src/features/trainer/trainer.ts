@@ -57,7 +57,8 @@ export async function notifyTrainerOfClient(ctx: MyContext, trainer: UserDoc, cl
   }
   await notifySafely(ctx.env, { api: ctx.api }, { userId: trainer._id, chatId: trainer.chatId }, {
     kind: "trainer_client_joined",
-    key: `client_joined:${trainer._id}:${client._id}`,
+    // Per day: a retried join is one message, but re-pairing after an unlink is news again.
+    key: `client_joined:${trainer._id}:${client._id}:${new Date().toISOString().slice(0, 10)}`,
     text: body,
     extra: { ...HTML, reply_markup: kb },
   });
