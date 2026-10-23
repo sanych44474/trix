@@ -24,7 +24,7 @@ import { botDeepLink } from "../notify/links";
 import { logInfo } from "../log";
 import { adaptPlan } from "../domain/planAdapt";
 import { escapeHtml, t } from "../locales/i18n";
-import { nudgeOnboarding } from "./onboardingNudge";
+import { nudgeOnboarding } from "../features/onboarding/nudge";
 import { miniAppUser } from "./auth";
 import { buildClientCardPayload } from "./clientCard";
 import { readJsonBody } from "./validate";
@@ -342,7 +342,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     // interview transcript if one is in progress, else resume/restart the button wizard at the
     // first unanswered step. A no-op (ok:true, alreadyOnboarded:true) once the client is done —
     // the bot's own action just shows the summary at that point, nothing to nudge.
-    const nudged = await nudgeOnboarding(env, client, "cc_intv_remind_text");
+    const nudged = await nudgeOnboarding(env, client, t(client.lang, "cc_intv_remind_text"));
     if (nudged.alreadyOnboarded) return Response.json({ ok: true, alreadyOnboarded: true });
     return Response.json({ ok: true });
   } catch (err) {

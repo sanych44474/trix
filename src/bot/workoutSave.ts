@@ -14,6 +14,7 @@ import { nextTargetGuidance } from "../domain/progression";
 import { normalizeExercise, parseWorkoutText } from "../domain/workoutText";
 import { rankOf, weekStartStr, weekStreak } from "../domain/records";
 import { cleanAi, escapeHtml, t } from "../locales/i18n";
+import { notifySafely } from "../notify";
 import { upcomingSessions } from "../render";
 import { badgeLabel, computeBoards } from "../features/gamification/boards";
 
@@ -213,7 +214,14 @@ export async function notifyTrainerWorkout(ctx: MyContext, done: boolean, exerci
   if (ctx.user.role !== "client" || !ctx.user.trainerId) return;
   const trainer = await getUser(ctx.db, ctx.user.trainerId);
   if (!trainer) return;
-  const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`);
-  const key = done ? "trainer_notify_done" : "trainer_notify_skip";
-  await ctx.api.sendMessage(trainer.chatId, t(trainer.lang, key, { name: who, n: exerciseCount }), HTML).catch(() => {});
+  const who = ctx.user.profile.name ?? `id ${ctx.user._id}`;
+  const outcome = done ? "done" : "skip";
+  const { date } = localParts(ctx.user.profile.timezone);
+  // One verdict per client per day: re-logging the same outcome is the same event.
+  await notifySafely(ctx.env, { api: ctx.api }, { userId: trainer._id, chatId: trainer.chatId }, {
+    kind: `trainer_workout_${outcome}`,
+    key: `trainer_workout:${ctx.user._id}:${date}:${outcome}`,
+    text: t(trainer.lang, done ? "trainer_notify_done" : "trainer_notify_skip", { name: who, n: exerciseCount }),
+    extra: HTML,
+  });
 }
