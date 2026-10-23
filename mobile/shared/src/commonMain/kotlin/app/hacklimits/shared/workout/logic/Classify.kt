@@ -2,9 +2,9 @@ package app.hacklimits.shared.workout.logic
 
 import io.ktor.http.encodeURLPathPart
 
-// Name-based classifiers for the logger: how an exercise is measured, which muscles it works, and
-// which technique pictures match it. Ports of src/domain/metricNames.ts, src/domain/exerciseMuscles.ts
-// and apps/mini-app/src/logic/exerciseImages.ts.
+// Name-based classifiers for the logger: how an exercise is measured and which technique pictures
+// match it. Ports of src/domain/metricNames.ts and apps/mini-app/src/logic/exerciseImages.ts.
+// Muscles come from app.hacklimits.shared.muscles.classify.
 
 private val TIME_NAME_RE = Regex(
     """планк|вис(?![а-яії])|утриман|статичн|холлоу|\b(?:plank|dead ?hang|bar hang|hang|wall ?sit|hollow ?hold|l-?sit|iso(?:metric)? ?hold)\b""",
@@ -35,36 +35,6 @@ enum class Slug(val key: String) {
     companion object {
         fun ofKey(key: String): Slug? = entries.firstOrNull { it.key == key }
     }
-}
-
-data class ExerciseMuscles(val primary: List<Slug>, val secondary: List<Slug>)
-
-/** Muscles per exercise: the curated rules, then exercises the server or AI classified (learned),
- * then a coarse region word. The rules always win; a learned entry only fills a gap. */
-object ExerciseMuscleTable {
-    private val learned = mutableMapOf<String, ExerciseMuscles>()
-
-    /** Remembers a classification the server returned for an exercise the rules don't know. */
-    fun learn(name: String, primary: List<String>, secondary: List<String>) {
-        val p = primary.mapNotNull(Slug::ofKey).distinct()
-        if (p.isEmpty()) return // a "couldn't classify" marker teaches nothing
-        val s = secondary.mapNotNull(Slug::ofKey).distinct().filter { it !in p }
-        learned[normalize(name)] = ExerciseMuscles(p, s)
-    }
-
-    fun musclesFor(name: String): ExerciseMuscles? {
-        val n = name.lowercase()
-        for ((re, primary, secondary) in MUSCLE_RULES) {
-            if (re.containsMatchIn(n)) return ExerciseMuscles(primary, secondary.filter { it !in primary })
-        }
-        learned[normalize(name)]?.let { return it }
-        for ((re, primary) in REGION_RULES) {
-            if (re.containsMatchIn(n)) return ExerciseMuscles(primary, emptyList())
-        }
-        return null
-    }
-
-    private fun normalize(name: String): String = name.trim().lowercase().replace(Regex("\\s+"), " ")
 }
 
 data class ExerciseImageMatch(val id: String, val title: String, val exact: Boolean)

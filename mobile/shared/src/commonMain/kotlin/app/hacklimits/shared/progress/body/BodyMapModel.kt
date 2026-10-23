@@ -2,7 +2,7 @@ package app.hacklimits.shared.progress.body
 
 import androidx.compose.ui.graphics.Color
 import app.hacklimits.shared.data.TrainingPlanDay
-import app.hacklimits.shared.progress.muscle.ExerciseMuscles
+import app.hacklimits.shared.muscles.ExerciseMuscles
 
 // Body-map data: which muscles each selection colours, and the exercise picker's groups.
 // Port of logic/bodyMap.ts (the parts the Progress screen uses).

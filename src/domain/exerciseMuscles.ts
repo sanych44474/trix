@@ -21,7 +21,7 @@ export interface ExerciseMuscles {
 
 type Rule = [RegExp, Slug[], Slug[]];
 
-const RULES: Rule[] = [
+export const RULES: Rule[] = [
   // ---- cardio (whole-name first, so "Barbell Rowing" stays a row) ----
   [/^\s*(rowing|веслування|гребля)\s*$|rowing machine|row(ing)? erg|\brower\b|ергометр|гребн/iu, ["upper-back", "quadriceps"], ["biceps", "hamstring", "gluteal"]],
   [/\b(run|running|jog|jogging|treadmill|sprints?)\b|біг|бег|пробіжк|доріжк|спринт/iu, ["quadriceps", "calves", "hamstring"], ["gluteal"]],
@@ -152,7 +152,7 @@ const RULES: Rule[] = [
 
 // Last resort: the coarse region a name mentions ("вправа на груди", "leg day finisher").
 // English words need word boundaries: "arm" is inside "warm-up" and "One-Arm Row".
-const REGION_FALLBACK: Array<[RegExp, Slug[]]> = [
+export const REGION_FALLBACK: Array<[RegExp, Slug[]]> = [
   [/груд|\bchest\b/iu, ["chest"]],
   [/спин|\bback\b|широч/iu, ["upper-back"]],
   [/ног|\blegs?\b|стегн|бедр/iu, ["quadriceps", "hamstring", "gluteal"]],

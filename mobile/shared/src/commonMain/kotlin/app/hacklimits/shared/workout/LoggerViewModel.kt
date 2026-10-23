@@ -15,7 +15,7 @@ import app.hacklimits.shared.platform.RestAlarm
 import app.hacklimits.shared.workout.logic.DEFAULT_REST_SEC
 import app.hacklimits.shared.workout.logic.DENSITY_MIN_SESSION_SEC
 import app.hacklimits.shared.workout.logic.DRAFT_KEY
-import app.hacklimits.shared.workout.logic.ExerciseMuscleTable
+import app.hacklimits.shared.muscles.MuscleLearning
 import app.hacklimits.shared.workout.logic.LoggerDraft
 import app.hacklimits.shared.workout.logic.LoggerExercise
 import app.hacklimits.shared.workout.logic.LoggerSet
@@ -717,7 +717,7 @@ class LoggerViewModel(
                     return@launch
                 }
                 val own = api.addCustom(q, Uuid.random().toString())
-                own.muscles?.let { ExerciseMuscleTable.learn(own.name, it.primary, it.secondary) }
+                own.muscles?.let { MuscleLearning.remember(own.name, it.primary, it.secondary) }
                 applySwap(SwapChoice(name = own.name), own.videoUrl, own.videoTitle)
             } catch (e: CancellationException) {
                 throw e
@@ -780,7 +780,7 @@ class LoggerViewModel(
         viewModelScope.launch {
             try {
                 val result = api.addCustom(name, Uuid.random().toString())
-                result.muscles?.let { ExerciseMuscleTable.learn(result.name, it.primary, it.secondary) }
+                result.muscles?.let { MuscleLearning.remember(result.name, it.primary, it.secondary) }
                 mutate { list ->
                     list + LoggerExercise(
                         index = list.size,
