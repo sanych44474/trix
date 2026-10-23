@@ -392,6 +392,7 @@ export async function finishTrainerWizard(ctx: MyContext) {
       .text("✅ Approve", `trainer:approve:${ctx.user._id}`)
       .text("❌ Reject", `trainer:reject:${ctx.user._id}`);
     if (draft.photoFileId) await ctx.api.sendPhoto(ownerChatId, draft.photoFileId).catch(() => {});
+    // Direct on purpose: the owner's approval card (Approve/Reject buttons) is the owner alert channel.
     await ctx.api
       .sendMessage(ownerChatId, `🧑‍🏫 <b>Trainer application</b>\n\n${trainerCardText(lang, draftToTrainerLike(draft))}`, { ...HTML, reply_markup: kb })
       .catch(() => {});

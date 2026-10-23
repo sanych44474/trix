@@ -20,7 +20,7 @@ import { switchMode } from "../domain/session";
 import { escapeHtml, t } from "../locales/i18n";
 import { ImageBudgetError, generateImage } from "../ai/image";
 import { miniAppUser } from "./auth";
-import { nudgeOnboarding } from "./onboardingNudge";
+import { nudgeOnboarding } from "../features/onboarding/nudge";
 import { INACTIVE_DAYS, listCleanupCandidates, purgeCleanupCandidates } from "../features/owner/inactiveCleanup";
 import type { Env } from "../types";
 
@@ -212,7 +212,7 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     // Push someone stuck in onboarding back to the first unanswered question (same message the
     // trainer's client card sends, worded as coming from trix rather than a trainer).
     if (action === "nudge") {
-      const r = await nudgeOnboarding(env, target, "owner_intv_remind_text");
+      const r = await nudgeOnboarding(env, target, t(target.lang, "owner_intv_remind_text"));
       if (r.alreadyOnboarded) return Response.json({ error: "already onboarded" }, { status: 409 });
       return Response.json({ ok: true, sent: r.sent });
     }

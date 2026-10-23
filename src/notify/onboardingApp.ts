@@ -8,7 +8,7 @@ import { InlineKeyboard } from "grammy";
 import type { Env, Lang } from "../types";
 import { t } from "../locales/i18n";
 import { appViewUrlFromEnv, dashboardUrl } from "./appLinks";
-import { HTML, reply, type MyContext, type TKey } from "../adapters/telegram/context";
+import { reply, type MyContext, type TKey } from "../adapters/telegram/context";
 
 /** Mini App onboarding link inside a bot update (the app URL is captured in createBot). */
 export function onboardingUrl(): string | undefined {
@@ -35,15 +35,5 @@ export async function sendOnboardingPrompt(ctx: MyContext, key: TKey = "ob_app_p
   const url = onboardingUrl();
   if (!url) return false;
   await reply(ctx, prefix + t(ctx.user.lang, key), onboardingAppKb(ctx.user.lang, url));
-  return true;
-}
-
-/** Push the app button into another user's chat (e.g. a trainer just accepted them). */
-export async function sendOnboardingPromptTo(ctx: MyContext, chatId: number, lang: Lang, prefix: string): Promise<boolean> {
-  const url = onboardingUrl();
-  if (!url) return false;
-  await ctx.api
-    .sendMessage(chatId, `${prefix}\n\n${t(lang, "ob_app_prompt")}`, { ...HTML, reply_markup: onboardingAppKb(lang, url) })
-    .catch(() => {});
   return true;
 }

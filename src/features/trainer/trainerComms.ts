@@ -4,7 +4,7 @@
 import { localCutoff } from "../../domain/localTime";
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
-import { notify } from "../../notify";
+import { notify, notifySafely } from "../../notify";
 import { type DeliveryResult } from "../../schedulerOutbox";
 import type { SetEntry } from "../../types";
 import { recordAudit } from "../../adapters/d1/v2Admin";
@@ -44,8 +44,8 @@ export async function showClientLogDay(ctx: MyContext, clientId: number, date: s
   const client = await getClientForTrainer(ctx.db, ctx.user._id, clientId);
   if (!client) { await reply(ctx, t(lang, "client_not_found")); return; }
   const log = await getWorkoutLog(ctx.db, clientId, date);
-  const cname = escapeHtml(client.profile.name ?? `id ${clientId}`);
-  const done = (log?.exercises ?? []).filter((e) => !e.skipped);
+  const cname = client.profile.name ?? `id ${clientId}`;
+  const done =(log?.exercises ?? []).filter((e) => !e.skipped);
   let body = t(lang, "clog_day_title", { name: cname, date });
   body += done.length
     ? "\n" + done.map((e) => `• ${escapeHtml(e.name)}: ${e.setsDone.map(formatSetEntry).join(", ") || "—"}`).join("\n")
@@ -139,15 +139,15 @@ export async function handleTrainerMessage(ctx: MyContext, text: string) {
   if (!clientId) return;
   const client = await getClientForTrainer(ctx.db, ctx.user._id, clientId);
   if (!client) { await reply(ctx, t(lang, "client_not_found")); return; }
-  await insertMessage(ctx.db, ctx.user._id, clientId, text);
+  const msgId = await insertMessage(ctx.db, ctx.user._id, clientId, text);
   // Give the client a one-tap reply back to this trainer (threaded messaging).
   const replyKb = new InlineKeyboard().text(t(client.lang, "msg_reply_btn"), `msg:reply:${ctx.user._id}`);
   // Through the outbox: a failed send now retries instead of vanishing, and the trainer is told
   // what actually happened instead of an unconditional "Sent."
   const result: DeliveryResult = await notify(ctx.env, { api: ctx.api }, { userId: clientId, chatId: client.chatId }, {
     kind: "trainer_msg",
-    key: `trainer_msg:${ctx.user._id}:${Date.now()}`,
-    text: t(client.lang, "msg_from_trainer", { text: escapeHtml(text) }),
+    key: `trainer_msg:${msgId}`,
+    text: t(client.lang, "msg_from_trainer", { text }),
     extra: { ...HTML, reply_markup: replyKb },
   }).catch((e) => { console.error("trainer msg enqueue", e); return "failed" as const; });
   await reply(ctx, await messageDeliveryFeedback(ctx, result, clientId, client.profile.name ?? `id ${clientId}`), menuBtn(lang));
@@ -165,13 +165,13 @@ export async function handleClientReply(ctx: MyContext, text: string) {
   if (ctx.user.trainerId !== trainerId) { await reply(ctx, t(lang, "client_not_found")); return; }
   const trainer = await getUser(ctx.db, trainerId);
   if (!trainer) { await reply(ctx, t(lang, "error_generic")); return; }
-  await insertMessage(ctx.db, ctx.user._id, trainerId, text);
-  const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`);
+  const msgId = await insertMessage(ctx.db, ctx.user._id, trainerId, text);
+  const who = ctx.user.profile.name ?? `id ${ctx.user._id}`;
   const kb = new InlineKeyboard().text(t(trainer.lang, "msg_reply_btn"), `cl:${ctx.user._id}:msg`);
   const result: DeliveryResult = await notify(ctx.env, { api: ctx.api }, { userId: trainerId, chatId: trainer.chatId }, {
     kind: "client_reply",
-    key: `client_reply:${ctx.user._id}:${Date.now()}`,
-    text: t(trainer.lang, "msg_from_client", { name: who, text: escapeHtml(text) }),
+    key: `client_reply:${msgId}`,
+    text: t(trainer.lang, "msg_from_client", { name: who, text }),
     extra: { ...HTML, reply_markup: kb },
   }).catch((e) => { console.error("client reply enqueue", e); return "failed" as const; });
   await reply(ctx, await messageDeliveryFeedback(ctx, result, trainerId, trainer.profile.name ?? `id ${trainerId}`), menuBtn(lang));
@@ -184,7 +184,7 @@ export async function onQuestionSend(ctx: MyContext, qid: number) {
   const q = await getQuestion(ctx.db, qid);
   if (!q || q.trainerId !== ctx.user._id || q.status !== "pending") { await reply(ctx, t(lang, "request_gone")); return; }
   if (!q.aiDraft) { await reply(ctx, t(lang, "q_no_draft")); return; }
-  await deliverTrainerAnswer(ctx, q.clientId, q.aiDraft);
+  await deliverTrainerAnswer(ctx, q.clientId, q.aiDraft, qid);
   await setQuestionStatus(ctx.db, qid, "answered");
   await reply(ctx, t(lang, "q_done"));
 }
@@ -212,15 +212,20 @@ export async function handleAnswerQuestion(ctx: MyContext, text: string) {
   if (!qid) return;
   const q = await getQuestion(ctx.db, qid);
   if (!q || q.trainerId !== ctx.user._id) { await reply(ctx, t(lang, "request_gone")); return; }
-  await deliverTrainerAnswer(ctx, q.clientId, text);
+  await deliverTrainerAnswer(ctx, q.clientId, text, qid);
   await setQuestionStatus(ctx.db, qid, "answered");
   await reply(ctx, t(lang, "q_done"), menuBtn(lang));
 }
 
-export async function deliverTrainerAnswer(ctx: MyContext, clientId: number, text: string) {
+export async function deliverTrainerAnswer(ctx: MyContext, clientId: number, text: string, questionId: number) {
   const client = await getUser(ctx.db, clientId);
   if (!client) return;
   await insertMessage(ctx.db, ctx.user._id, clientId, text);
-  await ctx.api.sendMessage(client.chatId, t(client.lang, "answer_from_trainer", { text: escapeHtml(text) }), HTML).catch(() => {});
+  await notifySafely(ctx.env, { api: ctx.api }, { userId: clientId, chatId: client.chatId }, {
+    kind: "trainer_answer",
+    key: `trainer_answer:${questionId}`,
+    text: t(client.lang, "answer_from_trainer", { text }),
+    extra: HTML,
+  });
   logInfo("trainer_question_answered", {}); // only caller of this function is the question-answer flow (both its callers)
 }

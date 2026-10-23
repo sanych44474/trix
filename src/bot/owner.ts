@@ -15,6 +15,7 @@ import { getTrainer, updateTrainer } from "../adapters/d1/v2Trainer";
 import { countActiveSince, getUser, listOnboardedUsers, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
 import { formatRecordBest } from "../domain/setFormat";
 import { escapeHtml, t } from "../locales/i18n";
+import { notifySafely } from "../notify";
 import { latestRelease, releaseBody } from "../releaseNotes";
 import { chunkReport, renderPlan } from "../render";
 import { aiJSON } from "../ai/index";
@@ -136,13 +137,17 @@ export async function handleAnnounce(ctx: MyContext, text: string) {
   const recipients = (await listOnboardedUsers(ctx.db)).filter((u) => !u.blocked && !u.botBlocked);
   let ok = 0;
   let fail = 0;
+  // One announcement = one event: every recipient's outbox row shares this id.
+  const announceId = crypto.randomUUID();
   for (const u of recipients) {
-    try {
-      await ctx.api.sendMessage(u.chatId, `📢 ${escapeHtml(body)}`, HTML);
-      ok++;
-    } catch {
-      fail++;
-    }
+    const result = await notifySafely(ctx.env, { api: ctx.api }, { userId: u._id, chatId: u.chatId }, {
+      kind: "announcement",
+      key: `announcement:${announceId}`,
+      text: `📢 ${escapeHtml(body)}`,
+      extra: HTML,
+    });
+    if (result === "sent" || result === "retrying") ok++;
+    else fail++;
   }
   await recordAudit(ctx.db, ctx.user._id, "broadcast", undefined, `${ok}/${recipients.length}: ${body.slice(0, 80)}`);
   await reply(ctx, t(lang, "announce_done", { ok, total: recipients.length, fail }), menuBtn(lang));
@@ -257,7 +262,13 @@ async function sendInterviewTo(ctx: MyContext, target: UserDoc, restart: boolean
       profile: { ...target.profile, ...result.profile },
       session: { mode: "onboarding", transcript },
     });
-    await ctx.api.sendMessage(target.chatId, escapeHtml(result.message), HTML);
+    // Keyed by the question itself at its position: the same question is never sent twice.
+    await notifySafely(ctx.env, { api: ctx.api }, { userId: target._id, chatId: target.chatId }, {
+      kind: "interview_question",
+      key: `interview_question:${target._id}:${transcript.length}:${result.message}`,
+      text: escapeHtml(result.message),
+      extra: HTML,
+    });
     return true;
   } catch (err) {
     console.error("sendInterviewTo failed", target._id, err);
@@ -274,7 +285,7 @@ export async function ownerUserAction(ctx: MyContext, userId: number, action: st
   }
   const target = await getUser(ctx.db, userId);
   if (!target) { await reply(ctx, t(lang, "client_not_found")); return; }
-  const uname = escapeHtml(target.profile.name ?? `id ${userId}`);
+  const uname = target.profile.name ?? `id ${userId}`;
   if (action === "card") {
     await clearEditOwner(ctx);
     const info = t(lang, "owner_user_card", {
@@ -297,7 +308,13 @@ export async function ownerUserAction(ctx: MyContext, userId: number, action: st
     await recordAudit(ctx.db, ctx.user._id, tr.isInstructor ? "instructor_off" : "instructor_on", userId).catch(() => {});
     await reply(ctx, t(lang, tr.isInstructor ? "owner_instr_revoked" : "owner_instr_granted", { name: uname }));
     // Notify the trainer they gained/lost the capability.
-    await ctx.api.sendMessage(target.chatId, t(target.lang, tr.isInstructor ? "instr_revoked_you" : "instr_granted_you"), HTML).catch(() => {});
+    // Each owner toggle is its own occurrence (no retry to dedupe), so the key is per toggle.
+    await notifySafely(ctx.env, { api: ctx.api }, { userId, chatId: target.chatId }, {
+      kind: "instructor_changed",
+      key: `instructor_changed:${userId}:${crypto.randomUUID()}`,
+      text: t(target.lang, tr.isInstructor ? "instr_revoked_you" : "instr_granted_you"),
+      extra: HTML,
+    });
     await ownerUserAction(ctx, userId, "card");
   } else if (action === "block" || action === "unblock") {
     const blocked = action === "block";
@@ -331,13 +348,26 @@ export async function ownerUserAction(ctx: MyContext, userId: number, action: st
       }
       await updateUser(ctx.db, userId, { onboarded: true, nutrition: plan.nutrition, session: { mode: "idle" } });
       await reply(ctx, t(lang, "owner_regen_done", { name: uname }), ownerUserKb(lang, userId, false, !!target.blocked));
-      await ctx.api.sendMessage(target.chatId, t(target.lang, "plan_ready"), { ...HTML, reply_markup: mainMenu(target.lang) }).catch(() => {});
+      await notifySafely(ctx.env, { api: ctx.api }, { userId, chatId: target.chatId }, {
+        kind: "plan_ready",
+        key: `plan_ready:${userId}:${plan.generatedAt.getTime()}`,
+        text: t(target.lang, "plan_ready"),
+        extra: { ...HTML, reply_markup: mainMenu(target.lang) },
+      });
     });
   } else if (action === "assign") {
+    const draft = await getDraftPlan(ctx.db, userId);
     const ok = await assignDraftPlan(ctx.db, userId);
     if (ok) await recordAudit(ctx.db, ctx.user._id, "assign_plan", userId);
     await reply(ctx, t(lang, ok ? "owner_assign_done" : "no_draft", { name: uname }), ownerUserKb(lang, userId, false, !!target.blocked));
-    if (ok) await ctx.api.sendMessage(target.chatId, t(target.lang, "plan_ready"), { ...HTML, reply_markup: mainMenu(target.lang) }).catch(() => {});
+    if (ok) {
+      await notifySafely(ctx.env, { api: ctx.api }, { userId, chatId: target.chatId }, {
+        kind: "plan_ready",
+        key: `plan_ready:${userId}:${draft?.generatedAt.getTime() ?? 0}`,
+        text: t(target.lang, "plan_ready"),
+        extra: { ...HTML, reply_markup: mainMenu(target.lang) },
+      });
+    }
   } else if (action === "edit") {
     await showPlanEditPicker(ctx, userId, "ou", uname);
   } else if (action === "eday") {
