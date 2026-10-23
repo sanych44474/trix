@@ -49,9 +49,6 @@ import { createDashboardApplication, type DashboardReader } from "../../applicat
 import type { UserDoc, WorkoutLogDoc } from "../../types";
 import { estimateSessionMinutes } from "../../domain/sessionLength";
 
-// Free-tier subrequest cap: the section must stay O(1) in queries, not O(clients).
-const TRAINER_SECTION_MAX_CLIENTS = 30;
-
 /** Trainer portfolio: per-client 7-day compliance + at-risk (2 consecutive planned misses).
  * Three bulk queries — NOT per-client fan-out (subrequest cap). */
 async function buildTrainerSection(
@@ -59,13 +56,11 @@ async function buildTrainerSection(
   trainerId: number,
   today: string,
 ): Promise<NonNullable<DashboardPayload["trainer"]>> {
-  // Flagged-first BEFORE the cap so a flagged client past position 30 still survives the
-  // O(1) truncation below. atRisk needs the bulk queries below, so it can only reorder AFTER
-  // they run (see the final sort on `rows`) — this pre-slice pass only uses the free `flagged`
-  // column already loaded on every UserDoc row.
-  const allClients = (await listClients(db, trainerId).catch(() => [] as UserDoc[]))
-    .sort((a, b) => Number(b.flagged) - Number(a.flagged));
-  const clients = allClients.slice(0, TRAINER_SECTION_MAX_CLIENTS);
+  // Every client, no cap: the queries below are bulk reads whose count does not grow with the
+  // roster, so a cap saved nothing. It used to keep the first 30 of a least-recently-active-first
+  // list, which hid whoever had just been active: a trainer with more than 30 clients saw one
+  // client vanish each time another opened the app.
+  const clients = await listClients(db, trainerId).catch(() => [] as UserDoc[]);
   if (!clients.length) return { clients: [] };
   const ids = new Set(clients.map((c) => c._id));
   const cutoff = isoDaysBefore(today, 6);
