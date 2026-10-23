@@ -298,7 +298,7 @@ private fun FineTuneSlot(gaps: List<String>, onSaved: () -> Unit) {
 private fun WhatsNewSlot(whatsnew: Dashboard.WhatsNew?) {
     if (whatsnew == null) return
     val api = koinInject<WhatsNewApi>()
-    WhatsNewCard(note = WhatsNewNote(whatsnew.version, text = whatsnew.text), onGotIt = api::markSeen)
+    WhatsNewCard(note = WhatsNewNote(whatsnew.version, text = whatsnew.text, items = whatsnew.items), onGotIt = api::markSeen)
 }
 
 /** After a vacation the server holds a short "welcome back" interview; offer it until it's answered. */

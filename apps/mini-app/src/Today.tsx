@@ -147,7 +147,7 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
 
     <EveningChecklistCard lang={lang} dashboard={dashboard} onOpen={onOpen} onWaterSteps={openWaterSteps} />
     {dashboard.viewer.profileGaps && dashboard.viewer.profileGaps.length > 0 && <FineTuneCard lang={lang} gaps={dashboard.viewer.profileGaps} onSaved={onReload} />}
-    {dashboard.whatsnew && <WhatsNewCard lang={lang} version={dashboard.whatsnew.version} text={dashboard.whatsnew.text} />}
+    {dashboard.whatsnew && <WhatsNewCard lang={lang} version={dashboard.whatsnew.version} text={dashboard.whatsnew.text} items={dashboard.whatsnew.items} />}
 
     <div className="list">
       <button type="button" className="list-item" aria-expanded={more} aria-controls="today-more" onClick={toggleMore}>

@@ -6,6 +6,7 @@
 import { rebuildPlan, replanRunning } from "../features/plan/planService";
 import { PlanEditError, applyPlanEdit, planEditStatus, planVersionMatches, type PlanEdit } from "../features/plan/planEdits";
 import { kitMismatches, kitFromEquipment } from "../domain/equipmentFit";
+import { learnedMusclesFor } from "../domain/exerciseMuscles";
 import { getActivePlan, updatePlanMesocycle } from "../adapters/d1/v2Plans";
 import { listPlanChanges } from "../adapters/d1/v2PlanHistory";
 import { defaultMesocycle, type Mesocycle } from "../domain/mesocycle";
@@ -51,6 +52,9 @@ export interface PlanPayload {
   // The owner's equipment and how many plan exercises need gear outside it (domain/equipmentFit.ts);
   // > 0 shows the "fit my plan to my equipment" offer.
   kit: { equipment: string; mismatches: number };
+  // Plan exercises the body map's rules don't know, with their learned classification
+  // (domain/exerciseMuscles.ts); the native app registers them before computing the plan balance.
+  learnedMuscles?: { name: string; primary: string[]; secondary: string[] }[];
 }
 
 interface PlanChangeView {
@@ -188,6 +192,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
     const plan = await getActivePlan(env.DB, owner._id);
     if (!plan) return Response.json({ error: "no_plan" }, { status: 404 });
     const videos = await resolveVideos(env, owner._id, plan.split);
+    const learned = learnedMusclesFor(plan.split.flatMap((d) => d.exercises.map((e) => e.name)));
     // The change log serves both audiences off one endpoint: an athlete seeing what their coach
     // changed, and a trainer seeing a client's plan history.
     const changes = await listPlanChanges(env.DB, owner._id, 10).catch(() => []);
@@ -199,6 +204,7 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
       mesocycle: plan.mesocycle ?? null,
       changes: changes.map((c) => ({ source: c.source, summary: c.summary, at: c.createdAt.toISOString() })),
       kit: { equipment: owner.profile.equipment ?? "", mismatches: kitMismatches(plan.split, kitFromEquipment(owner.profile.equipment)) },
+      ...(learned.length ? { learnedMuscles: learned } : {}),
     };
     return Response.json(payload, { headers: { "cache-control": "no-store", etag: `"${payload.version}"` } });
   }

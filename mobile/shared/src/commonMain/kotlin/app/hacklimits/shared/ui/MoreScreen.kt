@@ -28,7 +28,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.hacklimits.shared.account.releaseItems
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.ib_title
 import app.hacklimits.shared.resources.ac_tool_owner
@@ -141,7 +140,7 @@ fun MoreScreen(
             )
         }
 
-        p.whatsNew?.let { note -> WhatsNewSection(note.version, releaseItems(note)) }
+        p.whatsNew?.let { note -> WhatsNewSection(note.version, note.items) }
 
         ProfileSection(profile)
 

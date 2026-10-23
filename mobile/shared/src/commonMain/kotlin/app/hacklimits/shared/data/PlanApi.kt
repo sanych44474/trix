@@ -1,6 +1,8 @@
 package app.hacklimits.shared.data
 
 import app.hacklimits.shared.plan.newIdempotencyKey
+import app.hacklimits.shared.progress.muscle.LearnedMuscles
+import app.hacklimits.shared.progress.muscle.registerLearnedMuscles
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -20,6 +22,8 @@ data class Plan(
     val mesocycle: Mesocycle? = null,
     val changes: List<Change> = emptyList(),
     val kit: Kit? = null,
+    /** Learned muscles of the plan's own exercises (the rules don't know them); load() registers them. */
+    val learnedMuscles: List<LearnedMuscles> = emptyList(),
 ) {
     @Serializable data class Owner(val id: Long = 0, val name: String = "")
     @Serializable data class Day(val weekday: Int, val name: String = "", val muscleGroup: String = "", val exercises: List<Exercise> = emptyList())
@@ -86,8 +90,10 @@ data class PlanEdit(
 )
 
 class PlanApi(private val api: ApiClient) {
+    /** Registers the learned muscles before returning, so the plan balance counts those exercises. */
     suspend fun load(clientId: Long? = null): Plan =
-        api.unwrap(api.http.get("api/v2/plan") { api.authorize(this); clientId?.let { parameter("clientId", it) } })
+        api.unwrap<Plan>(api.http.get("api/v2/plan") { api.authorize(this); clientId?.let { parameter("clientId", it) } })
+            .also { registerLearnedMuscles(it.learnedMuscles) }
 
     suspend fun edit(edit: PlanEdit, version: String): PlanEditResult =
         api.unwrap(api.http.post("api/v2/plan") {

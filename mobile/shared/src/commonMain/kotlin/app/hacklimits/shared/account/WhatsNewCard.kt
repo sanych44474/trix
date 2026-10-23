@@ -32,7 +32,6 @@ fun WhatsNewCard(note: WhatsNewNote, onGotIt: suspend (version: String) -> Unit,
     var hidden by remember(note.version) { mutableStateOf(false) }
     var open by remember(note.version) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val items = remember(note.version, note.text, note.html) { releaseItems(note) }
     if (hidden) return
 
     Card(modifier = modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
@@ -43,7 +42,7 @@ fun WhatsNewCard(note: WhatsNewNote, onGotIt: suspend (version: String) -> Unit,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(stringResource(Res.string.ex_whatsnew_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            ReleaseItems(items, compact = !open)
+            ReleaseItems(note.items, compact = !open)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = {
                     hidden = true
@@ -70,7 +69,3 @@ fun ReleaseItems(items: List<ReleaseItem>, compact: Boolean = false, modifier: M
         }
     }
 }
-
-/** Items for a note: the plain text when the server sent it, else the stripped HTML. */
-fun releaseItems(note: WhatsNewNote): List<ReleaseItem> =
-    parseReleaseNote(note.text ?: plainReleaseText(note.html))

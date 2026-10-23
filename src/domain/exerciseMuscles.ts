@@ -213,6 +213,14 @@ export function knownByRules(name: string): boolean {
   return RULES.some(([re]) => re.test(n)) || REGION_FALLBACK.some(([re]) => re.test(n));
 }
 
+/** Learned classifications for the given exercise names that the rules don't know, for the app to
+ * register (dashboard calendar.learnedMuscles, plan payload learnedMuscles). */
+export function learnedMusclesFor(names: Iterable<string>): { name: string; primary: string[]; secondary: string[] }[] {
+  return [...new Set(names)]
+    .filter((n) => !knownByRules(n))
+    .flatMap((n) => { const m = musclesForExercise(n); return m ? [{ name: n, primary: [...m.primary], secondary: [...m.secondary] }] : []; });
+}
+
 // free-exercise-db / catalog muscle enum → body-map muscle.
 const CATALOG_TO_SLUG: Record<string, Slug> = {
   chest: "chest", lats: "upper-back", "middle back": "upper-back", "lower back": "lower-back",

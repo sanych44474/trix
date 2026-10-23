@@ -7,7 +7,7 @@
 //                                   macros per 100 g and per typical portion
 // Pure and deterministic: the same inputs give byte-identical documents, so sync.ts can skip
 // everything that didn't change (re-indexing only what changed keeps AI Search ingest small).
-import { FREE_EXERCISE_LIB } from "../../apps/mini-app/src/data/freeExerciseLib";
+import { FREE_EXERCISE_LIB } from "../domain/data/freeExerciseLib";
 import { catalogFoods } from "../domain/foodCatalog";
 import { PROGRAMS, buildProgram } from "../domain/programCatalog";
 import { GUIDES } from "./guides";

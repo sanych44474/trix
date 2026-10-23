@@ -6,8 +6,8 @@
 // file — now lives in src/adapters/d1/dashboardReader.ts, the concrete v2-native adapter for the
 // `DashboardReader` application seam (src/application/dashboard.ts, Domain 10 of the v2 cutover —
 // see docs/adr/0001-v2-seams-and-staged-cutover.md). This file has no D1 access at all.
-import { knownByRules, musclesForExercise } from "./exerciseMuscles";
-import { releaseDueInApp } from "./releaseDelivery";
+import { learnedMusclesFor } from "./exerciseMuscles";
+import { parseReleaseNote, releaseDueInApp, type ReleaseItem } from "./releaseDelivery";
 import { latestRelease } from "../releaseNotes";
 import { projectWeight, weeklyVolume } from "./analysis";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "./conditioning";
@@ -54,7 +54,7 @@ export interface DashboardPayload {
   // Today's planned muscles are still recovering and a later plan day's are ready: offer to swap
   // the two days (domain/recoverySwap.ts). Absent when there's nothing to suggest.
   // The latest release note, until the user dismisses it or already got it in the chat.
-  whatsnew?: { version: string; text: string };
+  whatsnew?: { version: string; text: string; items: ReleaseItem[] };
   recoverySwap?: { weekday: number; other: number; todayGroup: string; otherGroup: string; tired: string[]; because: string[] };
   // This week so far: the muscle balance score (domain/weeklyReport.ts), the run of balanced weeks
   // towards the balance_streak_4 badge, and the week's quests with live progress (domain/quests.ts).
@@ -182,10 +182,9 @@ export function assemblePayload(
   // Weekly volume vs MEV/MAV (last 7 days of completed sets).
   const volume = weeklyVolume(workouts, isoDaysBefore(today, 6)).map((v) => ({ ...v }));
   // Logged names only the learned table knows (registered at request start, exerciseMuscleLearning.ts).
-  const learnedMuscles = [...new Set(workouts.flatMap((w) => w.exercises.map((e) => e.name)))]
-    .filter((n) => !knownByRules(n))
-    .flatMap((n) => { const m = musclesForExercise(n); return m ? [{ name: n, primary: [...m.primary], secondary: [...m.secondary] }] : []; });
+  const learnedMuscles = learnedMusclesFor(workouts.flatMap((w) => w.exercises.map((e) => e.name)));
   const release = latestRelease();
+  const releaseText = user.lang === "en" ? release.en : release.uk;
   const swap = recoverySwapFor(plan, workouts, today, isoWeekdayOf(today));
   const cw = conditioningWeek(workouts, isoDaysBefore(today, 6));
 
@@ -284,7 +283,7 @@ export function assemblePayload(
     },
     volume,
     ...(swap ? { recoverySwap: swap } : {}),
-    ...(releaseDueInApp(user, release.version) ? { whatsnew: { version: release.version, text: user.lang === "en" ? release.en : release.uk } } : {}),
+    ...(releaseDueInApp(user, release.version) ? { whatsnew: { version: release.version, text: releaseText, items: parseReleaseNote(releaseText) } } : {}),
     conditioning,
     recovery,
     ...(measurements.length ? { measurements } : {}),

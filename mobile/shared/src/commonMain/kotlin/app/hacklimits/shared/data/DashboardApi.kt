@@ -1,5 +1,6 @@
 package app.hacklimits.shared.data
 
+import app.hacklimits.shared.account.ReleaseItem
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -60,7 +61,7 @@ data class Dashboard(
         }
     }
 
-    @Serializable data class WhatsNew(val version: String, val text: String)
+    @Serializable data class WhatsNew(val version: String, val text: String, val items: List<ReleaseItem> = emptyList())
 
     /** Today's planned muscles are still recovering and a later plan day's are ready. */
     @Serializable data class RecoverySwap(

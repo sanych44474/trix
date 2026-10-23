@@ -22,6 +22,7 @@ import { BADGES, e1rm } from "../domain/records";
 import { formatRecordBest } from "../domain/setFormat";
 import { escapeHtml, t } from "../locales/i18n";
 import { latestRelease, releaseBody } from "../releaseNotes";
+import { parseReleaseNote } from "../domain/releaseDelivery";
 import { miniAppUser } from "./auth";
 import { logInfo } from "../log";
 import { num, object, oneOf, optional, readJsonBody, str, validateBody } from "./validate";
@@ -160,7 +161,8 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
   // ---- What's new ----
   if (req.method === "GET" && path === "/api/whatsnew") {
     const note = latestRelease();
-    return Response.json({ version: note.version, html: releaseBody(lang, note), text: lang === "en" ? note.en : note.uk }, noStore);
+    const text = lang === "en" ? note.en : note.uk;
+    return Response.json({ version: note.version, html: releaseBody(lang, note), text, items: parseReleaseNote(text) }, noStore);
   }
   // The in-app "What's new" card was dismissed: remember the version so it shows only once, on
   // any device (domain/releaseDelivery.ts). Read-modify-write of the fresh row, since the
