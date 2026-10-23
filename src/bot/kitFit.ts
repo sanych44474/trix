@@ -5,10 +5,10 @@
 // action=fitkit), which shares the pure core (domain/equipmentFit.ts).
 import { InlineKeyboard } from "grammy";
 import type { UserDoc } from "../types";
-import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
-import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
-import { getUser, updateUser } from "../adapters/d1/v2Users";
-import { fitSplitToKit, kitFromEquipment, kitMismatches, type Kit } from "../domain/equipmentFit";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import { getUser } from "../adapters/d1/v2Users";
+import { kitFromEquipment, kitMismatches, type Kit } from "../domain/equipmentFit";
+import { runPlanEdit } from "./planEditRun";
 import { escapeHtml, t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { type MyContext, planOwnerId, reply } from "../adapters/telegram/context";
@@ -93,14 +93,13 @@ export async function applyKitFit(ctx: MyContext, kitArg: string) {
   const owner = await ownerOf(ctx);
   const plan = owner ? await getActivePlan(ctx.db, owner._id).catch(() => null) : null;
   if (!kit || !owner || !plan) { await reply(ctx, t(lang, "no_plan"), menuBtn(lang)); return; }
-  if (kitFromEquipment(owner.profile.equipment) !== kit) {
-    owner.profile = { ...owner.profile, equipment: KIT_EQUIPMENT[kit] };
-    await updateUser(ctx.db, owner._id, { profile: owner.profile });
-  }
-  const { split, swaps, dropped } = fitSplitToKit(plan.split, kit, owner.lang === "en" ? "en" : "uk");
+  const out = await runPlanEdit(ctx, owner._id, {
+    kind: "fitkit",
+    equipment: kitFromEquipment(owner.profile.equipment) !== kit ? KIT_EQUIPMENT[kit] : undefined,
+  });
+  if (!out.ok) { await reply(ctx, t(lang, "error_generic"), menuBtn(lang)); return; }
+  const { swaps = [], dropped = [] } = out.fit ?? {};
   if (!swaps.length && !dropped.length) { await reply(ctx, t(lang, "kitfit_nothing"), menuBtn(lang)); return; }
-  await updateActivePlanSplit(ctx.db, owner._id, split);
-  await recordPlanChange(ctx.db, owner._id, owner._id === ctx.user._id ? "manual" : "trainer", `fitted to equipment: ${swaps.length} swapped, ${dropped.length} removed`).catch(() => {});
   const lines = [...swaps, ...dropped].slice(0, 12).map((s) =>
     `• ${weekdayName(lang, s.weekday as 1)}: ${escapeHtml(s.from)} → ${s.to ? `<b>${escapeHtml(s.to)}</b>` : t(lang, "kitfit_removed")}`);
   const more = swaps.length + dropped.length > 12 ? `\n… +${swaps.length + dropped.length - 12}` : "";

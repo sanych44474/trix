@@ -2,8 +2,9 @@
 // plus the self-edit day keyboard and its exit, which the reorder screen shares with the editors.
 import { InlineKeyboard } from "grammy";
 import type { Lang, Weekday } from "../types";
-import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
+import { getActivePlan } from "../adapters/d1/v2Plans";
 import { getPlanDay } from "../domain/progression";
+import { runPlanEdit } from "./planEditRun";
 import { t } from "../locales/i18n";
 import { renderToday } from "../render";
 import { weekdayName } from "../render";
@@ -75,6 +76,7 @@ export async function showReorder(ctx: MyContext, weekday: Weekday) {
 }
 
 export async function moveExercise(ctx: MyContext, weekday: Weekday, index: number, dir: "up" | "down") {
+  const lang = ctx.user.lang;
   const plan = await getActivePlanOrReply(ctx);
   if (!plan) return;
   const day = getPlanDay(plan, weekday);
@@ -84,8 +86,8 @@ export async function moveExercise(ctx: MyContext, weekday: Weekday, index: numb
     await showReorder(ctx, weekday);
     return;
   }
-  [day.exercises[index], day.exercises[j]] = [day.exercises[j], day.exercises[index]];
-  await updateActivePlanSplit(ctx.db, planOwnerId(ctx), plan.split);
+  const out = await runPlanEdit(ctx, planOwnerId(ctx), { kind: "move", weekday, index, dir });
+  if (!out.ok) await reply(ctx, t(lang, "error_generic"));
   await showReorder(ctx, weekday);
 }
 

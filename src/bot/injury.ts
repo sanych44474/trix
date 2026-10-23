@@ -2,9 +2,9 @@
 // safe ones, scheduled pain-score follow-ups, and the recovery/restore flow. Extracted from
 // bot.ts (god-file split; same barrel seam via bot.ts's `export * from "./bot/injury"`).
 import { InlineKeyboard } from "grammy";
-import type { InjurySwap } from "../types";
-import { getActivePlan, updateActivePlanSplit } from "../adapters/d1/v2Plans";
-import { recordPlanChange } from "../adapters/d1/v2PlanHistory";
+import type { InjurySwap, PlanExercise } from "../types";
+import { getActivePlan } from "../adapters/d1/v2Plans";
+import { runPlanEdit } from "./planEditRun";
 import { appendInjuryCheckin, createInjury, extendInjury, getActiveInjuryByArea, getInjury, listActiveInjuries, resolveInjury, updateInjury } from "../adapters/d1/v2Tracking";
 import { getExerciseTranslation, listCandidatesByMuscles } from "../adapters/d1/v2Catalog";
 import { getUser } from "../adapters/d1/v2Users";
@@ -101,6 +101,7 @@ export async function reportInjury(ctx: MyContext, area: InjuryArea, severity: S
     .filter((c) => isSafeCandidate(c, area) && !used.has(c.name.toLowerCase()));
 
   const swaps: InjurySwap[] = [];
+  const changes: Array<{ weekday: number; index: number; exercise: PlanExercise }> = [];
   const swappedLines: string[] = [];
   const leftLines: string[] = [];
   let ci = 0;
@@ -118,19 +119,26 @@ export async function reportInjury(ctx: MyContext, area: InjuryArea, severity: S
       const tr = await getExerciseTranslation(ctx.db, alt.id, "uk").catch(() => null);
       if (tr) { name = tr.name; technique = cleanAi(tr.instructions); }
     }
-    day.exercises[slot.index] = {
-      name, sets: original.sets, startWeight: "—", technique,
-      exerciseId: alt.id, canonicalName: alt.name, muscles: alt.muscle,
-      role: original.role, rest: original.rest,
-    };
+    changes.push({
+      weekday: slot.weekday,
+      index: slot.index,
+      exercise: {
+        name, sets: original.sets, startWeight: "—", technique,
+        exerciseId: alt.id, canonicalName: alt.name, muscles: alt.muscle,
+        role: original.role, rest: original.rest,
+      },
+    });
     swaps.push({ weekday: slot.weekday, index: slot.index, original, replacementCanonical: name });
     swappedLines.push(t(lang, "inj_swap_line", { from: original.name, to: name }));
   }
 
   if (swaps.length) {
-    await updateActivePlanSplit(ctx.db, uid, plan.split);
     const summary = swaps.map((s) => `${s.original.name} -> ${s.replacementCanonical}`).join(", ");
-    await recordPlanChange(ctx.db, uid, "injury_swap", `${areaLabel}: ${summary}`).catch(() => {});
+    const out = await runPlanEdit(ctx, uid, { kind: "replace", summary: `${areaLabel}: ${summary}`, changes }, "injury_swap");
+    if (!out.ok) {
+      await reply(ctx, t(lang, "error_generic"), menuBtn(lang));
+      return;
+    }
   }
   await saveInjury(ctx, area, severity, checkAfter, swaps);
 
@@ -150,15 +158,19 @@ export async function onInjuryRecovered(ctx: MyContext, id: number) {
   if (inj.swaps.length && ctx.user.role !== "client") {
     const plan = await getActivePlan(ctx.db, ctx.user._id);
     if (plan) {
+      const changes: Array<{ weekday: number; index: number; exercise: PlanExercise }> = [];
       for (const s of inj.swaps) {
         const day = plan.split.find((d) => d.weekday === s.weekday);
         const cur = day?.exercises[s.index];
         if (day && cur && restorable(cur.canonicalName ?? cur.name, s.replacementCanonical)) {
-          day.exercises[s.index] = s.original;
-          restored++;
+          changes.push({ weekday: s.weekday, index: s.index, exercise: s.original });
         }
       }
-      if (restored) await updateActivePlanSplit(ctx.db, ctx.user._id, plan.split);
+      if (changes.length) {
+        const summary = `restored after recovery: ${changes.map((c) => c.exercise.name).join(", ")}`;
+        const out = await runPlanEdit(ctx, ctx.user._id, { kind: "replace", summary, changes }, "injury_swap");
+        if (out.ok) restored = changes.length;
+      }
     }
   }
   await resolveInjury(ctx.db, id);
