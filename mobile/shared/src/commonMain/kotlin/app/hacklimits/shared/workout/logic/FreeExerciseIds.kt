@@ -1,6 +1,6 @@
 package app.hacklimits.shared.workout.logic
 
-// Generated from apps/mini-app/src/data/freeExerciseIds.ts (750 ids, free-exercise-db f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5).
+// Generated from src/domain/data/freeExerciseIds.ts (750 ids, free-exercise-db f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5).
 // Image folders of the Unlicense exercise database; the names are matched in ExerciseImages.kt.
 internal object FreeExerciseIds {
     const val COMMIT = "f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5"

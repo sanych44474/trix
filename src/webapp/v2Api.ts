@@ -70,9 +70,9 @@ function validateV2Headers(req: Request): Response | null {
 }
 
 /** The same envelope every v2 failure uses. */
-function failure(req: Request, status: number, code: V2ErrorCode, message: string, headers?: Record<string, string>): Response {
+function failure(req: Request, status: number, code: V2ErrorCode, message: string, headers?: Record<string, string>, retryable = retryableFor(code)): Response {
   const requestId = req.headers.get("x-request-id") ?? undefined;
-  return Response.json({ error: { code, message, retryable: retryableFor(code), ...(requestId ? { requestId } : {}) } }, { status, ...(headers ? { headers } : {}) });
+  return Response.json({ error: { code, message, retryable, ...(requestId ? { requestId } : {}) } }, { status, ...(headers ? { headers } : {}) });
 }
 
 /** How long a replayed Idempotency-Key is honoured. Only a workout save outlives the default. */
@@ -152,7 +152,10 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
           : undefined)
       : undefined;
     const explicit = body && typeof body === "object" ? (body as { code?: unknown }).code : undefined;
-    return failure(req, result.status, codeFor(result.status, legacyError, explicit), legacyError ?? "Request failed");
+    // "processing": another attempt with this Idempotency-Key is in flight -- a conflict, but the same
+    // request succeeds (or replays) once that attempt ends.
+    const code = codeFor(result.status, legacyError, explicit);
+    return failure(req, result.status, code, legacyError ?? "Request failed", undefined, legacyError === "processing" || retryableFor(code));
   }
   return withMeta(body, req);
 }
@@ -178,7 +181,7 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: Executio
   if (url.pathname === "/api/v2/dashboard" && req.method === "GET") {
     const user = await miniAppUser(req, url, env);
     if (!user) {
-      return Response.json({ error: { code: "unauthorized", message: "Authentication required", retryable: false } }, { status: 401 });
+      return Response.json({ error: { code: "unauthorized", message: "Authentication required", retryable: retryableFor("unauthorized") } }, { status: 401 });
     }
     // Dead-man switch for the cron rides the hottest fetch path (detached, never blocks). The
     // legacy /api/dashboard branch in index.ts has always done this, but every user is on the v2

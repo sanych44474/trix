@@ -4374,9 +4374,11 @@ components:
             retryable:
               type: boolean
               description: >-
-                true when the same request may succeed unchanged later (rate_limited,
-                dependency_unavailable, and a 5xx). false for validation_error, unauthorized,
-                forbidden, not_found and conflict: the request or the session must change first.
+                true when the same request may succeed unchanged later: rate_limited,
+                dependency_unavailable (and any 5xx), unauthorized (a save queued before the app
+                had a session goes through once it has one) and the conflict for an Idempotency-Key
+                still in flight (error "processing"). false for validation_error, forbidden,
+                not_found and any other conflict: the request must change first.
                 Set from the code, never guessed from the message (src/contracts/v2.ts retryableFor).
             requestId: {type: string}
             details: {type: object}

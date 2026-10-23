@@ -59,14 +59,14 @@ test("v2 mutating call: a typed validation failure reaches the envelope with cod
   assert.equal(body.error.message, "bad request");
 });
 
-test("v2 unauthenticated read: unauthorized, not retryable", async () => {
+test("v2 unauthenticated read: unauthorized, retryable once a session exists", async () => {
   const db = newDb();
   const url = new URL("https://x/api/v2/plan");
   const res = await handleV2Api(new Request(url), url, ENV(db));
   assert.equal(res.status, 401);
   const body = (await res.json()) as { error: { code: string; retryable: boolean } };
   assert.equal(body.error.code, "unauthorized");
-  assert.equal(body.error.retryable, false);
+  assert.equal(body.error.retryable, true);
 });
 
 test("codeFor: an explicit code wins; the status guess is only the fallback", () => {
@@ -76,10 +76,9 @@ test("codeFor: an explicit code wins; the status guess is only the fallback", ()
   assert.equal(codeFor(400, "bad request", "not-a-code"), "validation_error");
 });
 
-test("retryableFor: throttling and outages retry, request errors do not", () => {
-  assert.equal(retryableFor("rate_limited"), true);
-  assert.equal(retryableFor("dependency_unavailable"), true);
-  for (const code of ["validation_error", "unauthorized", "forbidden", "not_found", "conflict"] as const) {
+test("retryableFor: throttling, outages and a missing session retry, request errors do not", () => {
+  for (const code of ["rate_limited", "dependency_unavailable", "unauthorized"] as const) assert.equal(retryableFor(code), true, code);
+  for (const code of ["validation_error", "forbidden", "not_found", "conflict"] as const) {
     assert.equal(retryableFor(code), false, code);
   }
 });
