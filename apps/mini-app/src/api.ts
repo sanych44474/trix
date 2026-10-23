@@ -2,7 +2,7 @@ import type { operations } from "../../../packages/contracts/generated";
 import type { RequestBody, V2Envelope, V2Failure } from "./types";
 
 export class ApiError extends Error {
-  constructor(public readonly code: string, message: string, public readonly status: number) {
+  constructor(public readonly code: string, message: string, public readonly status: number, public readonly retryable?: boolean) {
     super(message);
     this.name = "ApiError";
   }
@@ -43,7 +43,7 @@ export async function api<T>(path: string, init: RequestInit & { idempotencyKey?
   try { body = await response.json(); } catch { /* empty response */ }
   if (!response.ok) {
     const failure = body as V2Failure | null;
-    throw new ApiError(failure?.error?.code ?? "dependency_unavailable", failure?.error?.message ?? "Request failed", response.status);
+    throw new ApiError(failure?.error?.code ?? "dependency_unavailable", failure?.error?.message ?? "Request failed", response.status, failure?.error?.retryable);
   }
   if (body && typeof body === "object" && "data" in body) return (body as V2Envelope<T>).data;
   return body as T;
@@ -79,7 +79,7 @@ export async function apiForm<T>(path: string, form: FormData): Promise<T> {
   try { body = await response.json(); } catch { /* empty response */ }
   if (!response.ok) {
     const failure = body as V2Failure | null;
-    throw new ApiError(failure?.error?.code ?? "dependency_unavailable", failure?.error?.message ?? "Request failed", response.status);
+    throw new ApiError(failure?.error?.code ?? "dependency_unavailable", failure?.error?.message ?? "Request failed", response.status, failure?.error?.retryable);
   }
   if (body && typeof body === "object" && "data" in body) return (body as V2Envelope<T>).data;
   return body as T;

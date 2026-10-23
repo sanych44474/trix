@@ -3,7 +3,7 @@
 // weights, writes the split, keeps training weekdays in step with the day list, translates new
 // exercises, checks the plan version and appends the plan-history row. Callers only translate
 // user input into a PlanEdit and render the result.
-import { FREE_EXERCISE_IDS } from "../../../apps/mini-app/src/data/freeExerciseIds";
+import { FREE_EXERCISE_IDS } from "../../domain/data/freeExerciseIds";
 import { updateActivePlanSplit } from "../../adapters/d1/v2Plans";
 import { recordPlanChange, type PlanChangeSource } from "../../adapters/d1/v2PlanHistory";
 import {

@@ -774,7 +774,7 @@ paths:
       - appSession: []
       responses:
         '200':
-          description: Release note as Telegram HTML and as plain text
+          description: Release note as Telegram HTML, as plain text and as parsed cards
           content:
             application/json:
               schema:
@@ -784,11 +784,21 @@ paths:
                   properties:
                     data:
                       type: object
-                      required: [version, html, text]
+                      required: [version, html, text, items]
                       properties:
                         version: {type: string}
                         html: {type: string}
                         text: {type: string}
+                        items:
+                          type: array
+                          description: One card per paragraph of the plain text, parsed on the server (greeting and bot-only closing line dropped). A paragraph without an "emoji *Title* text" shape has an empty icon and title.
+                          items:
+                            type: object
+                            required: [icon, title, body]
+                            properties:
+                              icon: {type: string}
+                              title: {type: string}
+                              body: {type: string}
                   required: [data]
         '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/whatsnew/seen:
@@ -4927,7 +4937,17 @@ components:
           properties:
             version: {type: string}
             text: {type: string}
-          required: [version, text]
+            items:
+              type: array
+              description: The same note parsed into cards (see GET /api/v2/whatsnew).
+              items:
+                type: object
+                required: [icon, title, body]
+                properties:
+                  icon: {type: string}
+                  title: {type: string}
+                  body: {type: string}
+          required: [version, text, items]
         recoverySwap:
           type: object
           description: Today's planned muscles are still recovering and a later plan day's are ready -- offer swapping the two days.
@@ -5283,6 +5303,16 @@ components:
             equipment: {type: string}
             mismatches: {type: integer}
           required: [equipment, mismatches]
+        learnedMuscles:
+          type: array
+          description: Learned muscles of the plan's own exercises that the body map's rules don't know (same source as the dashboard's calendar.learnedMuscles). Absent when there are none. The app registers them before computing the plan balance.
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              primary: {type: array, items: {type: string}}
+              secondary: {type: array, items: {type: string}}
+            required: [name, primary, secondary]
         owner:
           type: object
           properties:

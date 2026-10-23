@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { exerciseImageUrls, makeImageMatcher, RULE_TARGETS } from "../apps/mini-app/src/logic/exerciseImages";
-import { FREE_EXERCISE_DB_COMMIT, FREE_EXERCISE_IDS } from "../apps/mini-app/src/data/freeExerciseIds";
+import { FREE_EXERCISE_DB_COMMIT, FREE_EXERCISE_IDS } from "../src/domain/data/freeExerciseIds";
 
 const match = makeImageMatcher(FREE_EXERCISE_IDS);
 const id = (name: string, canonical?: string) => match(name, canonical)?.id;

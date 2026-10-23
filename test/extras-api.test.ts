@@ -6,6 +6,7 @@ import { applyTrainer, approveTrainer, getTrainer } from "../src/adapters/d1/v2T
 import { createSharedProgram } from "../src/adapters/d1/v2TrainerPrograms";
 import { handleExtrasApi } from "../src/webapp/extrasApi";
 import type { UserDoc } from "../src/types";
+import { parseReleaseNote } from "../src/domain/releaseDelivery";
 
 function req(method: string, path: string, body?: unknown) {
   return new Request(`https://x${path}`, {
@@ -147,6 +148,14 @@ test("/api/weekcard and /api/whatsnew respond ok for any authenticated user", as
   await getOrCreateUser(db, 9, 9, "en", "Ann");
   assert.equal((await asUser(db, 9, "GET", "/api/weekcard")).status, 200);
   assert.equal((await asUser(db, 9, "GET", "/api/whatsnew")).status, 200);
+});
+
+test("/api/whatsnew: returns the note as parsed cards, the same ones the dashboard sends", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 12, 12, "en", "Ann");
+  const body = (await (await asUser(db, 12, "GET", "/api/whatsnew")).json()) as { version: string; text: string; items: { icon: string; title: string; body: string }[] };
+  assert.deepEqual(body.items, parseReleaseNote(body.text));
+  assert.ok(body.items.some((i) => i.title !== ""), "cards keep their titles");
 });
 
 test("/api/photocompare: sends the composed PNG to the user's chat, rejects bad input", async () => {

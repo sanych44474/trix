@@ -5,6 +5,7 @@ import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import { upsertExercise, upsertExerciseTranslation } from "../src/adapters/d1/v2Catalog";
 import { handlePlanApi } from "../src/webapp/planApi";
+import { loadLearnedMuscles } from "../src/exerciseMuscleLearning";
 import type { Env, PlanDoc } from "../src/types";
 
 function env(db: ReturnType<typeof newDb>): Env {
@@ -360,4 +361,19 @@ test("plan editor: a trainer adds a comment and technique to a client's exercise
   const changes = await db.prepare("SELECT summary FROM v2_plan_changes WHERE accountId = 2 ORDER BY id").all<{ summary: string }>();
   assert.ok(changes.results.some((c) => c.summary.startsWith("comment: Bench Press")));
   assert.ok(changes.results.some((c) => c.summary.startsWith("technique: Bench Press")));
+});
+
+test("plan API: GET sends the learned muscles of the plan's own exercises that the rules don't know", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 3, 3, "en", "Ann");
+  const doc = plan(3);
+  doc.split[0]!.exercises.push({ name: "Xyzzy Thing", sets: "3 × 10", startWeight: "20 kg", technique: "slow", metric: "reps" });
+  await setActivePlan(db, doc);
+  const before = (await (await call(db, 3, "GET", "/api/v2/plan")).json()) as { learnedMuscles?: unknown };
+  assert.equal(before.learnedMuscles, undefined, "nothing learned yet: the field is absent");
+  await db.prepare("INSERT INTO v2_exercise_muscles (normalizedName, name, primaryMuscles, secondaryMuscles, source, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind("xyzzy thing", "Xyzzy Thing", '["upper-back"]', '["biceps"]', "ai", new Date().toISOString()).run();
+  await loadLearnedMuscles(db as unknown as D1Database, true);
+  const after = (await (await call(db, 3, "GET", "/api/v2/plan")).json()) as { learnedMuscles: { name: string; primary: string[]; secondary: string[] }[] };
+  assert.deepEqual(after.learnedMuscles, [{ name: "Xyzzy Thing", primary: ["upper-back"], secondary: ["biceps"] }]);
 });

@@ -1,8 +1,6 @@
-// Workout logging core: parse free-text sets, the shared save pipeline (log write + PR
-// detection + workout/PR-count badges — also used by the Mini App's save route via
-// applyWorkoutSave), and the post-save UX (momentum recap, PR/badge celebration, trainer
-// notify, next-session preview). Extracted from bot.ts (god-file split; same barrel seam via
-// bot.ts's `export * from "./bot/workoutSave"`).
+// Chat side of workout logging: parse free-text sets, then the post-save UX (momentum recap,
+// PR/badge celebration, trainer notify, next-session preview). The save itself is
+// features/workout/completeWorkout.ts, shared with the Mini App's save route (webapp/workout.ts).
 import { InlineKeyboard } from "grammy";
 import type { Lang, PlanDay, SetEntry, Weekday } from "../types";
 import { getActivePlan } from "../adapters/d1/v2Plans";

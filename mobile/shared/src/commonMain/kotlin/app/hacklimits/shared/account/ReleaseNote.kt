@@ -11,10 +11,19 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** GET /api/v2/whatsnew: the latest release, in the account's language. [text] is plain text
- * (paragraphs of "emoji *Title* — body"); [html] is the Telegram version. */
+/** GET /api/v2/whatsnew: the latest release, in the account's language. [items] are the cards parsed
+ * by the server; [text] is the plain text and [html] the Telegram version. */
 @Serializable
-data class WhatsNewNote(val version: String, val html: String = "", val text: String? = null)
+data class WhatsNewNote(
+    val version: String,
+    val html: String = "",
+    val text: String? = null,
+    val items: List<ReleaseItem> = emptyList(),
+)
+
+/** One card of a release note: "icon Title" plus body. Icon and title may be empty. */
+@Serializable
+data class ReleaseItem(val icon: String = "", val title: String = "", val body: String = "")
 
 class WhatsNewApi(private val api: ApiClient) {
     suspend fun latest(): WhatsNewNote = api.unwrap(api.http.get("api/v2/whatsnew") { api.authorize(this) })
@@ -28,43 +37,3 @@ class WhatsNewApi(private val api: ApiClient) {
         })
     }
 }
-
-data class ReleaseItem(val icon: String, val title: String, val body: String)
-
-private val GREETING_SKIP = Regex("""(Menu|Меню)\s*→""")
-private val CLOSING_LINE = Regex("""^(Tap|Тисни)\s""")
-private val ITEM_SHAPE = Regex("""^(\S+)\s+\*([^*]+)\*\s*[—–-]?\s*([\s\S]*)$""")
-private val BOLD = Regex("""\*([^*]+)\*""")
-private val ITALIC = Regex("""_([^_]+)_""")
-private val BLANK_LINE = Regex("""\n\s*\n""")
-
-/** A release note as cards: one per paragraph shaped "emoji *Title* — text". The greeting (first
- * paragraph) and the bot-only closing line are dropped; a paragraph without that shape keeps its text
- * as the body. Port of apps/mini-app and src/domain/releaseDelivery.ts parseReleaseNote. */
-fun parseReleaseNote(text: String): List<ReleaseItem> =
-    text.split(BLANK_LINE)
-        .map { it.trim() }
-        .filter { it.isNotEmpty() }
-        .drop(1)
-        .filterNot { GREETING_SKIP.containsMatchIn(it) || CLOSING_LINE.containsMatchIn(it) }
-        .map { p ->
-            val m = ITEM_SHAPE.find(p)
-            if (m != null) {
-                ReleaseItem(
-                    icon = m.groupValues[1],
-                    title = stripMarkup(m.groupValues[2]),
-                    body = capitalize(stripMarkup(m.groupValues[3])),
-                )
-            } else {
-                ReleaseItem("", "", stripMarkup(p))
-            }
-        }
-
-/** Plain text from the Telegram HTML version, for a client that has no plain text. */
-fun plainReleaseText(html: String): String =
-    html.replace(Regex("<[^>]+>"), " ").replace("&nbsp;", " ").replace("&amp;", "&")
-
-private fun stripMarkup(s: String): String =
-    s.replace(BOLD, "$1").replace(ITALIC, "$1").trim()
-
-private fun capitalize(s: String): String = s.replaceFirstChar { it.uppercaseChar() }

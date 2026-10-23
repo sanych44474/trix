@@ -22,10 +22,12 @@ class PendingSaves(private val store: KeyValueStore, private val api: WorkoutApi
 
     suspend fun count(): Int = lock.withLock { load().size }
 
-    suspend fun add(pending: Pending) = lock.withLock { persist(load() + pending) }
+    /** The newest [MAX_QUEUED] saves; past that the oldest is dropped. Same cap as the Mini App queue. */
+    suspend fun add(pending: Pending) = lock.withLock { persist((load() + pending).takeLast(MAX_QUEUED)) }
 
-    /** Sends what it can, oldest first. A rejection that will never succeed (4xx other than 401/429)
-     * drops the item so one bad save can't block the rest; a network error stops and keeps it. */
+    /** Sends what it can, oldest first. A save the server says is not retryable is dropped so one bad
+     * save can't block the rest; a retryable rejection or a network error stops and keeps it. Without
+     * the server's `retryable` flag, 5xx, 429 and no-connection retry and any other 4xx is dropped. */
     suspend fun flush(): Int = lock.withLock {
         val queue = load().toMutableList()
         var sent = 0
@@ -34,7 +36,8 @@ class PendingSaves(private val store: KeyValueStore, private val api: WorkoutApi
             try {
                 api.save(next.request, next.key)
             } catch (e: ApiException) {
-                if (e.status == 401 || e.status == 429 || e.status >= 500 || e.status == 0) break
+                val retry = e.retryable ?: (e.status == 0 || e.status == 429 || e.status >= 500)
+                if (retry) break
             } catch (e: Exception) {
                 break
             }
@@ -52,5 +55,8 @@ class PendingSaves(private val store: KeyValueStore, private val api: WorkoutApi
         if (items.isEmpty()) store.remove(KEY) else store.put(KEY, AppJson.encodeToString(items))
     }
 
-    private companion object { const val KEY = "pending_workout_saves" }
+    private companion object {
+        const val KEY = "pending_workout_saves"
+        const val MAX_QUEUED = 20
+    }
 }

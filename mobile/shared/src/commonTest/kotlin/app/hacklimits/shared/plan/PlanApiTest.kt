@@ -4,6 +4,8 @@ import app.hacklimits.shared.data.ApiClient
 import app.hacklimits.shared.data.InMemorySessionStore
 import app.hacklimits.shared.data.PlanApi
 import app.hacklimits.shared.data.PlanEdit
+import app.hacklimits.shared.muscles.ExerciseMuscles
+import app.hacklimits.shared.muscles.classify
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandler
@@ -83,6 +85,15 @@ class PlanApiTest {
         assertEquals("""{"action":"weight","weekday":1,"index":0,"value":"62.5 kg","expectName":"Bench Press"}""", body)
         assertEquals("v2", result.version)
         assertNull(result.days)
+    }
+
+    @Test
+    fun loadRegistersTheLearnedMusclesOfThePlanExercises() = runTest {
+        val withLearned = planJson.replace("\"changes\":", "\"learnedMuscles\":[{\"name\":\"Xyzzy Thing\",\"primary\":[\"upper-back\"],\"secondary\":[\"biceps\"]}],\"changes\":")
+        val api = plans { respond(withLearned, HttpStatusCode.OK, json) }
+        assertEquals(null, classify("Xyzzy Thing"), "unknown until the plan is loaded")
+        api.load()
+        assertEquals(ExerciseMuscles(listOf("upper-back"), listOf("biceps")), classify("Xyzzy Thing"))
     }
 
     @Test
