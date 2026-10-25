@@ -38,9 +38,8 @@ scripts/patch_*.sql
 scripts/.*-tmp.sql
 scripts/migrations_rebaseline.sql
 
-# Agent tooling and private project instructions
+# Agent tooling (CLAUDE.md files are shared project instructions and are committed)
 .claude/
-CLAUDE.md
 skills-lock.json
 
 # Private working material (personal plans, master prompt, generated catalogs)
