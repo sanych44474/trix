@@ -22,6 +22,7 @@ import { finalizeOnboardingPlan } from "../features/plan/planService";
 import { OB_OPTION_LABELS } from "../features/onboarding/questions";
 import { DIETS, EQUIPMENT, GOALS, LEVELS, QUESTIONS } from "../domain/onboardingQuestions";
 import { missingCoreFields, validateAnswers } from "../domain/onboardingAnswers";
+import { typedFailure } from "./failure";
 
 const WD_KEYS = ["", "wd_mon", "wd_tue", "wd_wed", "wd_thu", "wd_fri", "wd_sat", "wd_sun"];
 
@@ -29,7 +30,7 @@ const opts = <V extends string>(lang: Lang, values: readonly V[], labels: Record
 
 export async function handleProfileApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const lang = user.lang;
   const p = user.profile;
 
@@ -68,7 +69,7 @@ export async function handleProfileApi(req: Request, url: URL, env: Env): Promis
       { headers: { "cache-control": "no-store" } },
     );
   }
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
 
   // This is a partial-update PATCH -- each field is independently optional and an
   // invalid/out-of-range value is silently dropped (kept at its previous value) rather than
@@ -128,11 +129,11 @@ const funnelEvent = (env: Env, userId: number, event: string, timezone?: string)
 
 export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
 
   // The question set both apps render (domain/onboardingQuestions.ts); they evaluate showWhen themselves.
   if (url.pathname.endsWith("/onboarding/questions")) {
-    if (req.method !== "GET") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "GET") return typedFailure(405, "validation_error", "method not allowed");
     return Response.json({ questions: QUESTIONS }, { headers: { "cache-control": "no-store" } });
   }
 
@@ -142,7 +143,7 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?
       const draft = user.onboarded ? null : await getOnboardingDraft(env.DB, user._id).catch(() => null);
       return Response.json({ answers: draft ? safeJsonParse<Record<string, unknown>>(draft.answers, {}) : null }, { headers: { "cache-control": "no-store" } });
     }
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     if (user.onboarded) return Response.json({ ok: true });
     const parsedDraft = await readJsonBody(req);
     if (!parsedDraft.ok) return parsedDraft.response;
@@ -151,7 +152,7 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?
     const total = Number(d.total);
     const answered = Number(d.answered);
     if (!answers || answers.length > 4096 || !Number.isInteger(total) || total < 1 || total > 30 || !Number.isInteger(answered) || answered < 0 || answered > total) {
-      return Response.json({ error: "bad request" }, { status: 400 });
+      return typedFailure(400, "validation_error", "bad request");
     }
     // The first saved answer is the form's funnel "started" (the bot wizard counts its own); later
     // saves of the same draft are not.
@@ -161,8 +162,8 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?
     return Response.json({ ok: true });
   }
 
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
-  if (user.onboarded) return Response.json({ error: "already onboarded" }, { status: 400 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
+  if (user.onboarded) return typedFailure(400, "validation_error", "already onboarded");
 
   const parsedOb = await readJsonBody(req);
   if (!parsedOb.ok) return parsedOb.response;
@@ -173,7 +174,7 @@ export async function handleOnboardingApi(req: Request, url: URL, env: Env, ctx?
   const { patch, errors } = validateAnswers(body, { mode: "onboarding", isClient: user.role === "client", currentTimezone: user.profile.timezone });
   // The wizard's required core: without these the plan generator can't do a decent job.
   const merged = { ...user.profile, ...patch };
-  if (missingCoreFields(merged).length) return Response.json({ error: "incomplete", fields: errors }, { status: 400 });
+  if (missingCoreFields(merged).length) return typedFailure(400, "validation_error", "incomplete", { fields: errors });
   if (merged.limitations === undefined) merged.limitations = "none";
   await updateUser(env.DB, user._id, { profile: merged, session: { mode: "plan_pending" } });
   await deleteOnboardingDraft(env.DB, user._id).catch(() => {});

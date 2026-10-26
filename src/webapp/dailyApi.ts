@@ -6,13 +6,14 @@ import { localCutoff, localParts } from "../domain/localTime";
 import { wellbeingAverages, wellbeingTrend } from "../domain/wellbeing";
 import { miniAppUser } from "./auth";
 import type { Env } from "../types";
+import { typedFailure } from "./failure";
 
 const NO_STORE = { "cache-control": "no-store" };
 
 export async function handleDailyApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (req.method !== "GET") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
+  if (req.method !== "GET") return typedFailure(405, "validation_error", "method not allowed");
 
   // GET /api/wellbeing: 90-day averages (1-5) and the first-half vs second-half change, as /well shows.
   if (url.pathname === "/api/wellbeing") {
@@ -38,5 +39,5 @@ export async function handleDailyApi(req: Request, url: URL, env: Env): Promise<
     return Response.json({ date, items: items.map(({ key, label }) => ({ key, label })) }, { headers: NO_STORE });
   }
 
-  return Response.json({ error: "not found" }, { status: 404 });
+  return typedFailure(404, "not_found", "not found");
 }

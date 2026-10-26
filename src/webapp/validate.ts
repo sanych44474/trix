@@ -13,6 +13,8 @@
 //   if (!parsed.ok) return parsed.response; // already a 400 Response.json({ error, field })
 //   parsed.value.weekday; // typed number, in range
 
+import { typedFailure } from "./failure";
+
 export interface FieldSchema<T> {
   parse(value: unknown, path: string): { ok: true; value: T } | { ok: false; error: string };
 }
@@ -153,5 +155,5 @@ export async function readJsonBody(req: Request): Promise<{ ok: true; body: unkn
 export function validateBody<T>(body: unknown, schema: FieldSchema<T>): { ok: true; value: T } | { ok: false; response: Response } {
   const r = schema.parse(body, "$");
   if (r.ok) return r;
-  return { ok: false, response: Response.json({ error: "invalid request", detail: r.error }, { status: 400 }) };
+  return { ok: false, response: typedFailure(400, "validation_error", "invalid request", { detail: r.error }) };
 }

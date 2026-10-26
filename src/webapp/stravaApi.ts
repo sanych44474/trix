@@ -12,10 +12,11 @@ import { authorizeUrl, connectStrava, disconnectStrava, stravaConfig, syncStrava
 import { getUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
 import type { Env } from "../types";
+import { typedFailure } from "./failure";
 
 export async function handleStravaApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const cfg = stravaConfig(env, url.origin);
   const noStore = { headers: { "cache-control": "no-store" } };
   if (req.method === "GET" && url.pathname === "/api/strava") {
@@ -23,7 +24,7 @@ export async function handleStravaApi(req: Request, url: URL, env: Env): Promise
     const link = await getStravaLink(env.DB, user._id, cfg.clientSecret);
     return Response.json({ available: true, connected: !!link, lastSyncAt: link?.lastSyncAt ?? null, lastError: link?.lastError ?? null }, noStore);
   }
-  if (!cfg) return Response.json({ error: "not found" }, { status: 404 });
+  if (!cfg) return typedFailure(404, "not_found", "not found");
   if (req.method === "POST" && url.pathname === "/api/strava/connect") {
     return Response.json({ url: authorizeUrl(cfg, await signState(user._id, cfg.clientSecret)) });
   }
@@ -39,7 +40,7 @@ export async function handleStravaApi(req: Request, url: URL, env: Env): Promise
     await disconnectStrava(env.DB, cfg, user._id);
     return Response.json({ ok: true });
   }
-  return Response.json({ error: "not found" }, { status: 404 });
+  return typedFailure(404, "not_found", "not found");
 }
 
 function page(title: string, body: string, botUsername?: string): Response {

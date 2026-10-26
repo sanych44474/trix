@@ -114,22 +114,47 @@ class FakeD1 {
 // (duplicate ADD COLUMN across files) by ignoring "already exists" errors.
 const DDL_RE = /(?:CREATE(?:\s+UNIQUE)?\s+(?:TABLE|INDEX)(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+TABLE|DROP\s+(?:TABLE|INDEX)(?:\s+IF\s+EXISTS)?)[\s\S]*?;/gi;
 
-export function newDb(): FakeD1 {
-  const raw = new DatabaseSync(":memory:");
+// Read and split the migrations once per process: every test builds a fresh database, and
+// re-reading the files (the seeds among them are megabytes) was most of `npm test`'s run time.
+let migrationDdl: Array<{ file: string; stmt: string }> | null = null;
+function migrationsDdl(): Array<{ file: string; stmt: string }> {
+  if (migrationDdl) return migrationDdl;
   const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-  for (const f of files) {
+  migrationDdl = files.flatMap((file) => {
     // Strip `-- line comments` first: a ";" inside a comment would otherwise truncate the
     // lazy DDL match (0014 has "...trainer/owner; never..." mid-CREATE).
-    const sql = readFileSync(join(MIGRATIONS_DIR, f), "utf8").replace(/--[^\n]*/g, "");
-    for (const stmt of sql.match(DDL_RE) ?? []) {
-      try {
-        raw.exec(stmt);
-      } catch (e) {
-        const msg = String(e);
-        if (!/already exists|duplicate column/i.test(msg)) throw new Error(`${f}: ${msg}\n${stmt.slice(0, 120)}`);
-      }
+    const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8").replace(/--[^\n]*/g, "");
+    return (sql.match(DDL_RE) ?? []).map((stmt) => ({ file, stmt }));
+  });
+  return migrationDdl;
+}
+
+function migrate(raw: DatabaseSync): void {
+  for (const { file, stmt } of migrationsDdl()) {
+    try {
+      raw.exec(stmt);
+    } catch (e) {
+      const msg = String(e);
+      if (!/already exists|duplicate column/i.test(msg)) throw new Error(`${file}: ${msg}\n${stmt.slice(0, 120)}`);
     }
   }
+}
+
+// The schema the migrations end in, as CREATE statements in creation order: built once, then every
+// newDb() replays it instead of walking every ALTER/DROP again.
+let finalSchema: string[] | null = null;
+function schema(): string[] {
+  if (finalSchema) return finalSchema;
+  const raw = new DatabaseSync(":memory:");
+  migrate(raw);
+  finalSchema = (raw.prepare("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY rowid").all() as Array<{ sql: string }>).map((r) => r.sql);
+  raw.close();
+  return finalSchema;
+}
+
+export function newDb(): FakeD1 {
+  const raw = new DatabaseSync(":memory:");
+  raw.exec(schema().join(";\n"));
   return new FakeD1(raw);
 }
 

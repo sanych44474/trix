@@ -979,6 +979,11 @@ paths:
   /api/v2/workout/rest:
     post:
       operationId: startRestTimer
+      description: >-
+        Starts a rest. The client that starts it owns the "rest is over" notification (ADR-0011):
+        from the Mini App the server schedules a Telegram message (delivery "telegram"); from the
+        native app (X-Client: native, no Origin) it schedules nothing and clears any pending
+        server timer, because the app rings its own alarm (delivery "device").
       security:
       - telegramInitData: []
       - appSession: []
@@ -995,7 +1000,7 @@ paths:
                 seconds: {type: number, minimum: 30, maximum: 900}
       responses:
         '200':
-          description: Rest timer scheduled
+          description: Rest started; `delivery` says who announces its end
           content:
             application/json:
               schema:
@@ -1005,8 +1010,10 @@ paths:
                   properties:
                     data:
                       type: object
+                      required: [ok, delivery]
                       properties:
                         ok: {const: true}
+                        delivery: {type: string, enum: [telegram, device]}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
     delete:

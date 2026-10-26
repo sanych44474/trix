@@ -14,6 +14,7 @@ import { logInfo } from "../log";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env, Weekday } from "../types";
+import { typedFailure } from "./failure";
 
 const noStore = { headers: { "cache-control": "no-store" } };
 
@@ -25,7 +26,7 @@ export function programWeekdays(own: Weekday[] | undefined, programDays: Weekday
 
 export async function handleProgramsApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const lang = user.lang === "en" ? "en" : "uk";
 
   if (req.method === "GET") {
@@ -47,15 +48,15 @@ export async function handleProgramsApi(req: Request, url: URL, env: Env): Promi
     return Response.json({ role: user.role, programs }, noStore);
   }
 
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
   // A trainer's client follows the trainer's plan.
-  if (user.role === "client" && user.trainerId) return Response.json({ error: "trainer_managed" }, { status: 403 });
+  if (user.role === "client" && user.trainerId) return typedFailure(403, "forbidden", "trainer_managed");
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return parsed.response;
   const id = typeof (parsed.body as { id?: unknown }).id === "string" ? (parsed.body as { id: string }).id : "";
   const meta = findProgram(id);
   const base = meta ? buildProgram(meta.id, lang) : null;
-  if (!meta || !base) return Response.json({ error: "not found" }, { status: 404 });
+  if (!meta || !base) return typedFailure(404, "not_found", "not found");
 
   const weekdays = programWeekdays(user.profile.trainingWeekdays, base.split.map((d) => d.weekday));
   const profile = { ...user.profile, trainingWeekdays: weekdays, daysPerWeek: weekdays.length };

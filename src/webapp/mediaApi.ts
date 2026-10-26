@@ -13,12 +13,13 @@ import { cleanAi } from "../locales/i18n";
 import { logError, logInfo } from "../log";
 import { miniAppUser } from "./auth";
 import type { Env } from "../types";
+import { failureCode, typedFailure } from "./failure";
 
 export const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 export const MAX_AUDIO_BYTES = 4 * 1024 * 1024; // ~4 min of opus; the app stops at 60 s
 export const MEAL_PHOTOS_PER_DAY = 30;
 
-const bad = (reason: string, status = 400) => Response.json({ error: reason }, { status });
+const bad = (reason: string, status = 400) => typedFailure(status, failureCode(status), reason);
 
 function blobOf(form: FormData | null, field: string): Blob | null {
   const v = form?.get(field);

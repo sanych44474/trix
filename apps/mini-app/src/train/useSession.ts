@@ -5,6 +5,7 @@ import {
   DEFAULT_REST_PREFS, DEFAULT_REST_SEC, type RestPrefs,
 } from "../logic/rest";
 import type { SessionClock } from "../logic/logger";
+import { resumableRest, type RunningRest } from "../logic/loggerOrder";
 
 function loadRestPrefs(): RestPrefs {
   try { return parseRestPrefs(localStorage.getItem(REST_PREFS_KEY)); } catch { return DEFAULT_REST_PREFS; }
@@ -16,15 +17,9 @@ function saveRestPrefs(prefs: RestPrefs): void {
 
 // The rest that is counting down, kept on the device so reopening the Mini App picks it up where it is.
 const REST_RUNNING_KEY = "rest_running";
-interface RunningRest { endAt: number; startedAt: number; target: number; label: string }
 
 function loadRunningRest(now: number): RunningRest | null {
-  try {
-    const saved = JSON.parse(localStorage.getItem(REST_RUNNING_KEY) ?? "null") as Partial<RunningRest> | null;
-    if (!saved || typeof saved.endAt !== "number" || typeof saved.startedAt !== "number") return null;
-    if (restProgress(saved.endAt, now).over >= REST_OVERRUN_CAP_SEC) return null;
-    return { endAt: saved.endAt, startedAt: saved.startedAt, target: Number(saved.target) || DEFAULT_REST_SEC, label: String(saved.label ?? "") };
-  } catch { return null; }
+  try { return resumableRest(JSON.parse(localStorage.getItem(REST_RUNNING_KEY) ?? "null"), now, DEFAULT_REST_SEC); } catch { return null; }
 }
 
 function saveRunningRest(rest: RunningRest | null): void {

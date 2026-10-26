@@ -36,16 +36,17 @@ import { readJsonBody } from "./validate";
 import type { Env } from "../types";
 
 import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
+import { typedFailure } from "./failure";
 const MAX_QUESTION = 500;
 
 export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
 
   // The client's own view of the Q&A: what they asked, plus the trainer's replies (the answer
   // route writes each one into v2_messages, which was otherwise only readable by the trainer).
   if (url.pathname === "/api/coach/thread") {
-    if (req.method !== "GET") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "GET") return typedFailure(405, "validation_error", "method not allowed");
     if (!user.trainerId) return Response.json({ trainer: null, questions: [], messages: [] }, { headers: { "cache-control": "no-store" } });
     const [trainerUser, questions, messages] = await Promise.all([
       getUser(env.DB, user.trainerId).catch(() => null),
@@ -62,13 +63,13 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
   // The coach's "send to the team" button: the AI summary plus the user's own message, to the
   // feedback table and the owner (same store as /feedback and the bot coach's button).
   if (url.pathname === "/api/coach/feedback") {
-    if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+    if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
     const parsed = await readJsonBody(req);
     if (!parsed.ok) return parsed.response;
     const b = parsed.body as Record<string, unknown>;
     const summary = typeof b.summary === "string" ? b.summary.trim().slice(0, 600) : "";
     const original = typeof b.original === "string" ? b.original.trim().slice(0, 1000) : "";
-    if (summary.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
+    if (summary.length < 2) return typedFailure(400, "validation_error", "bad request");
     const res = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
       await storeFeedback(env.DB, (chatId, html, replyMarkup) => tgSend(env, chatId, html, replyMarkup), { userId: user._id, username: user.username, timezone: user.profile.timezone }, summary, { original });
       return { status: 200, body: { ok: true } };
@@ -76,14 +77,14 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     return Response.json(res.body, { status: res.status });
   }
 
-  if (url.pathname !== "/api/coach/ask") return Response.json({ error: "not found" }, { status: 404 });
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (url.pathname !== "/api/coach/ask") return typedFailure(404, "not_found", "not found");
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
 
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return parsed.response;
   const body = parsed.body as Record<string, unknown>;
   const question = typeof body.question === "string" ? body.question.trim() : "";
-  if (!question || question.length > MAX_QUESTION) return Response.json({ error: "bad request" }, { status: 400 });
+  if (!question || question.length > MAX_QUESTION) return typedFailure(400, "validation_error", "bad request");
 
   const [plan, recent] = await Promise.all([
     getActivePlan(env.DB, user._id).catch(() => null),
@@ -110,7 +111,7 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
   // bot's routeClientQuestion uses); the AI draft and the trainer push are both best-effort.
   if (user.role === "client" && user.trainerId) {
     const trainerUser = await getUser(env.DB, user.trainerId).catch(() => null);
-    if (!trainerUser) return Response.json({ error: "not found" }, { status: 404 });
+    if (!trainerUser) return typedFailure(404, "not_found", "not found");
     const qid = await createQuestion(env.DB, user._id, user.trainerId, question, undefined);
     const trainerDoc = await getTrainer(env.DB, user.trainerId).catch(() => null);
     const style = trainerDoc

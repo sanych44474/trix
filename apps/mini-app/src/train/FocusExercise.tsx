@@ -11,6 +11,7 @@ import { t, type Lang } from "../i18n";
 import type { RestPrefs } from "../logic/rest";
 import { isSetFilled, plannedSetsFor, type LoggerExercise, type LoggerSet } from "../logic/logger";
 import { Icon } from "../icons";
+import { startsRest } from "../logic/loggerOrder";
 
 const REST_CHOICES = [45, 60, 90, 120, 180];
 const RPE_CHOICES = [6, 7, 8, 9, 10];
@@ -95,12 +96,11 @@ export function FocusExercise(props: FocusExerciseProps) {
   const seed = (i: number): LoggerSet => (done(i) ? { ...sets[i] } : { ...suggestion(exercise, i), ...(sets[i]?.weight ? { weight: sets[i].weight } : {}) });
   const commit = (i: number, value: LoggerSet) => {
     if (!(Number(value[main] ?? 0) > 0)) return;
-    const newlyDone = !done(i);
+    const wasDone = done(i);
     props.onWriteSet(i, value);
     props.onDraft(null);
     setRpeOpen(false);
-    // Only a set finished just now starts the rest; fixing an earlier set leaves the running one alone.
-    if (restPrefs.auto && newlyDone) props.onStartRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: i + 1 }));
+    if (startsRest(restPrefs.auto, wasDone)) props.onStartRest(restSec, t(lang, "train_rest_for", { name: exercise.name, n: i + 1 }));
     window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success");
   };
   const undo = (i: number) => {

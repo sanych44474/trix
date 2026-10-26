@@ -18,6 +18,7 @@ import { squadMedal, squadWeek } from "../domain/squad";
 import { miniAppUser } from "./auth";
 import { MAX_SQUADS_PER_USER, joinByInviteCode } from "../features/squad/join";
 import type { Env } from "../types";
+import { typedFailure } from "./failure";
 
 
 const displayName = (m: { userId: number; name: string | null; alias: string | null }): string =>
@@ -26,7 +27,7 @@ const displayName = (m: { userId: number; name: string | null; alias: string | n
 
 export async function handleSquadsApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
 
   if (req.method === "POST") {
     const parsed = await readJsonBody(req);
@@ -34,7 +35,7 @@ export async function handleSquadsApi(req: Request, url: URL, env: Env): Promise
     const b = parsed.body as Record<string, unknown>;
     if (b.action === "create") {
       const title = typeof b.title === "string" ? b.title.trim().slice(0, 40) : "";
-      if (!title) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!title) return typedFailure(400, "validation_error", "bad request");
       if ((await squadsForUser(env.DB, user._id)).length >= MAX_SQUADS_PER_USER) return Response.json({ ok: false, reason: "too_many" });
       const squad = await createAppSquad(env.DB, title, user._id);
       logInfo("squad_created", { source: "webapp" });
@@ -47,13 +48,13 @@ export async function handleSquadsApi(req: Request, url: URL, env: Env): Promise
     }
     if (b.action === "leave") {
       const id = Number(b.id);
-      if (!Number.isFinite(id) || !(await leaveSquad(env.DB, id, user._id))) return Response.json({ error: "not found" }, { status: 404 });
+      if (!Number.isFinite(id) || !(await leaveSquad(env.DB, id, user._id))) return typedFailure(404, "not_found", "not found");
       if (!(await squadMembers(env.DB, id)).length) await deleteSquad(env.DB, id); // last one out closes it
       return Response.json({ ok: true });
     }
-    return Response.json({ error: "bad request" }, { status: 400 });
+    return typedFailure(400, "validation_error", "bad request");
   }
-  if (req.method !== "GET") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "GET") return typedFailure(405, "validation_error", "method not allowed");
 
   const today = localParts(user.profile.timezone).date;
   const weekStart = weekStartStr(today);

@@ -78,6 +78,7 @@ import app.hacklimits.shared.muscles.classify
 import app.hacklimits.shared.workout.logic.Slug
 import app.hacklimits.shared.workout.logic.LoggerExercise
 import app.hacklimits.shared.workout.logic.LoggerSet
+import app.hacklimits.shared.workout.logic.startsRest
 import app.hacklimits.shared.workout.logic.isSetFilled
 import app.hacklimits.shared.workout.logic.plannedSetsFor
 import app.hacklimits.shared.workout.logic.suggestionFor
@@ -128,12 +129,11 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
 
     fun commit(i: Int, value: LoggerSet) {
         if (!(amount(value) > 0)) return
-        val newlyDone = !isDone(i)
+        val wasDone = isDone(i)
         vm.writeSet(ex.index, i, value)
         vm.setRowDraft(key, null)
         rpeOpen = false
-        // Only a set finished just now starts the rest; fixing an earlier set leaves the running one alone.
-        if (s.restPrefs.auto && newlyDone) vm.startRest(restSec, rowRestLabels[i], ex.name)
+        if (startsRest(s.restPrefs.auto, wasDone)) vm.startRest(restSec, rowRestLabels[i], ex.name)
     }
 
     fun undo(i: Int) {

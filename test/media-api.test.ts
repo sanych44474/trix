@@ -37,7 +37,7 @@ test("meal photo: a missing or oversized photo is rejected before any AI call", 
   const big = new Blob([new Uint8Array(MAX_PHOTO_BYTES + 1)], { type: "image/jpeg" });
   const res = await upload(db, 1, "/api/media/meal-photo", { photo: big });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "too_big" });
+  assert.deepEqual(await res.json(), { error: "too_big", code: "validation_error", retryable: false });
 });
 
 test("form check: a clip over 60 s is turned away with its reason", async () => {

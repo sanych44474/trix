@@ -122,3 +122,29 @@ test("v2 envelope: a save whose Idempotency-Key is still in flight is retryable"
   assert.equal(response.status, 409);
   assert.equal(((await response.json()) as { error: { retryable: boolean } }).error.retryable, true);
 });
+
+// ADR-0011: the client that starts a rest owns its notification. The native app rings its own
+// alarm, so its rest must never also produce a Telegram "rest is over" -- including from app builds
+// up to 0.3.1, which still ask the server for one.
+test("v2 workout rest: the native app's rest schedules no Telegram message and replaces a pending one", async () => {
+  const db = newDb();
+  const userId = 9004;
+  await getOrCreateUser(db, userId, userId, "en", "Test");
+  const testEnv = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+  const pending = () => db.prepare("SELECT COUNT(*) AS n FROM v2_rest_timers WHERE accountId = ?").bind(userId).first<{ n: number }>();
+  const start = async (headers: Record<string, string>) => {
+    const req = new Request(`https://example.test/api/v2/workout/rest?debugUser=${userId}`, { method: "POST", headers, body: JSON.stringify({ seconds: 90 }) });
+    const res = await handleV2Api(req, new URL(req.url), testEnv);
+    assert.equal(res.status, 200, await res.clone().text());
+    return ((await res.json()) as { data: { delivery: string } }).data.delivery;
+  };
+
+  assert.equal(await start({}), "telegram", "the Mini App's rest is announced by the bot");
+  assert.equal((await pending())?.n, 1);
+
+  assert.equal(await start({ "X-Client": "native" }), "device", "the app announces its own rest");
+  assert.equal((await pending())?.n, 0, "and the Mini App rest still pending is not announced on top");
+
+  // A browser can't pass for the app: X-Client with an Origin is a web request.
+  assert.equal(await start({ "X-Client": "native", Origin: "https://example.test" }), "telegram");
+});
