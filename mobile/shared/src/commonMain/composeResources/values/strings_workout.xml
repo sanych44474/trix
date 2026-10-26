@@ -59,6 +59,8 @@
     <string name="wk_session_saved">Session saved. Nice work.</string>
     <string name="wk_session_saved_for_date">Saved for %1$s. Nice work.</string>
     <string name="wk_set_edit_aria">Edit set %1$s</string>
+    <string name="wk_set_done_aria">Mark set %1$s as done</string>
+    <string name="wk_set_undo_aria">Mark set %1$s as not done</string>
     <string name="wk_set_remove_btn">Remove set</string>
     <string name="wk_set_rpe_label">Effort (RPE)</string>
     <string name="wk_start_blank_btn">Start blank</string>
