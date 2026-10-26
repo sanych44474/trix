@@ -18,7 +18,8 @@
       },
       "complexity": {
         "useLiteralKeys": "off",
-        "useOptionalChain": "off"
+        "useOptionalChain": "off",
+        "useMathMinMax": "off"
       },
       "correctness": {
         "useExhaustiveDependencies": "off"
