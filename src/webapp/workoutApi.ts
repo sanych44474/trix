@@ -26,6 +26,7 @@ import { localParts } from "../domain/localTime";
 import type { Env, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 import { typedFailure } from "./failure";
+import { isNativeClient } from "./appSessions";
 
 export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
@@ -145,9 +146,16 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
       // Same bounds as the bot's rest buttons (onRestTimer): 30s..15min.
       const v = validateBody(parsed.body, object({ seconds: num({ min: 30, max: 900 }) }));
       if (!v.ok) return v.response;
+      // The client that starts a rest owns its notification (ADR-0011). The native app rings its own
+      // alarm, so a Telegram message would be a duplicate -- and app builds up to 0.3.1 still ask for
+      // one, so the server decides. Its rest also replaces any Mini App rest still pending.
+      if (isNativeClient(req)) {
+        await deleteRestTimers(env.DB, [user._id]);
+        return Response.json({ ok: true, delivery: "device" });
+      }
       const dueAt = new Date(Date.now() + Math.round(v.value.seconds) * 1000).toISOString();
       await setRestTimer(env.DB, user._id, user.chatId, dueAt, user.lang);
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, delivery: "telegram" });
     }
     if (req.method === "POST" && path === "/api/workout/save") {
       // validateSaveBody does its own lenient, filtering parse (skips an untouched exercise row

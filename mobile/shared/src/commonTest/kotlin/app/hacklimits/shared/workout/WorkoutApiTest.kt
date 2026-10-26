@@ -186,19 +186,17 @@ class WorkoutApiTest {
         assertEquals(listOf("Brace the core", "Sit back"), api.steps("Barbell_Squat").steps)
     }
 
+    // The app never starts a server rest timer: its own alarm announces the end (ADR-0011). It only
+    // clears one, so a rest still pending from the Mini App can't ping Telegram for a skipped rest.
     @Test
-    fun restTimerIsStartedAndCancelledOnTheServer() = runTest {
+    fun restTimerIsOnlyCancelledOnTheServer() = runTest {
         val seen = mutableListOf<String>()
-        var body = ""
         val api = workout { request ->
             seen += "${request.method.value} ${request.url.encodedPath}"
-            if (request.method == HttpMethod.Post) body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
             respond(data("""{"ok":true}"""), HttpStatusCode.OK, json)
         }
-        api.startRestTimer(90)
         api.cancelRestTimer()
-        assertEquals(listOf("POST /api/v2/workout/rest", "DELETE /api/v2/workout/rest"), seen)
-        assertEquals("""{"seconds":90}""", body)
+        assertEquals(listOf("DELETE /api/v2/workout/rest"), seen)
     }
 
     @Test

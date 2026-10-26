@@ -204,15 +204,6 @@ class WorkoutApi(private val api: ApiClient) {
         parameter("id", id)
     })
 
-    /** Starts the server-side rest timer that sends the "rest is over" push. */
-    suspend fun startRestTimer(seconds: Int) {
-        val response = api.http.post("api/v2/workout/rest") {
-            api.authorize(this)
-            contentType(ContentType.Application.Json)
-            setBody(RestBody(seconds))
-        }
-        if (!response.status.isSuccess()) throw api.errorOf(response)
-    }
 
     suspend fun cancelRestTimer() {
         val response = api.http.delete("api/v2/workout/rest") { api.authorize(this) }
@@ -228,7 +219,6 @@ class WorkoutApi(private val api: ApiClient) {
     @Serializable private class NameBody(val name: String)
     @Serializable private class DraftBody(val body: String)
     @Serializable private class FeelBody(val date: String, val feel: String)
-    @Serializable private class RestBody(val seconds: Int)
     @Serializable private class PlanSwapBody(
         val action: String,
         val weekday: Int,
