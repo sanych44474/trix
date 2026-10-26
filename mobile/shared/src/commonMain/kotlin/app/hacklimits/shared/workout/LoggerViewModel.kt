@@ -21,6 +21,11 @@ import app.hacklimits.shared.workout.logic.LoggerExercise
 import app.hacklimits.shared.workout.logic.LoggerSet
 import app.hacklimits.shared.workout.logic.REST_OVERRUN_CAP_SEC
 import app.hacklimits.shared.workout.logic.RestPrefs
+import app.hacklimits.shared.workout.logic.Reordered
+import app.hacklimits.shared.workout.logic.RunningRest
+import app.hacklimits.shared.workout.logic.moveInList
+import app.hacklimits.shared.workout.logic.removeFromList
+import app.hacklimits.shared.workout.logic.resumableRest
 import app.hacklimits.shared.workout.logic.SessionClock
 import app.hacklimits.shared.workout.logic.SessionQuality
 import app.hacklimits.shared.workout.logic.buildSaveEntries
@@ -54,7 +59,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlin.math.max
@@ -69,11 +73,8 @@ private const val TODAY_CACHE_KEY = "workout_today_cache"
 private const val REST_PREFS_KEY = "workout_rest_prefs"
 private const val REST_BY_EXERCISE_KEY = "workout_rest_by_exercise"
 private const val REST_CHOSEN_KEY = "workout_rest_chosen"
+// The rest that is counting down, kept on the device so reopening the app picks it up where it is.
 private const val REST_RUNNING_KEY = "workout_rest_running"
-
-/** The rest that is counting down, kept on the device so reopening the app picks it up where it is. */
-@Serializable
-private data class RunningRest(val endAtMs: Long, val startedAtMs: Long, val target: Int, val label: String)
 private const val DRAFT_PUSH_DELAY_MS = 2_500L
 private const val MAX_PLATES_KG = 600.0
 
@@ -264,18 +265,19 @@ class LoggerViewModel(
 
     fun removeSet(index: Int, setIndex: Int) = mapExercise(index) { ex -> removeLoggerSet(ex, setIndex) }
 
-    /** Indexes are renumbered after a move, so focus follows the exercise that was on screen. */
-    fun moveExercise(index: Int, direction: Int) {
+    /** Indexes are renumbered after a reorder, so focus follows the exercise that was on screen (logic/LoggerOrder.kt). */
+    private fun applyReorder(index: Int, change: (length: Int, at: Int, focus: Int?) -> Reordered?): Boolean {
         val list = _ui.value.exercises
         val at = list.indexOfFirst { it.index == index }
-        val to = at + direction
-        if (at < 0 || to < 0 || to >= list.size) return
-        val next = list.toMutableList()
-        next[at] = list[to]
-        next[to] = list[at]
-        val focused = _ui.value.focusIndex?.let { f -> list.indexOfFirst { it.index == f } }
-        mutate { next.mapIndexed { i, ex -> ex.copy(index = i) } }
-        if (focused != null) edit { it.copy(focusIndex = if (focused == at) to else if (focused == to) at else focused) }
+        val focused = _ui.value.focusIndex?.let { f -> list.indexOfFirst { it.index == f } }?.takeIf { it >= 0 }
+        val result = change(list.size, at, focused) ?: return false
+        mutate { l -> result.order.mapIndexed { i, from -> l[from].copy(index = i) } }
+        if (_ui.value.focusIndex != null && result.focus != null) edit { it.copy(focusIndex = result.focus) }
+        return true
+    }
+
+    fun moveExercise(index: Int, direction: Int) {
+        applyReorder(index) { length, at, focus -> moveInList(length, at, direction, focus) }
     }
 
     /** Asks first when the exercise has typed numbers in it. */
@@ -289,18 +291,8 @@ class LoggerViewModel(
     }
 
     fun confirmRemove(index: Int) {
-        val list = _ui.value.exercises
-        val at = list.indexOfFirst { it.index == index }
-        val focused = _ui.value.focusIndex?.let { f -> list.indexOfFirst { it.index == f } }
-        mutate { l -> l.filter { it.index != index }.mapIndexed { i, ex -> ex.copy(index = i) } }
-        // The removed one's neighbour takes its place on screen; one further down shifts up with the list.
-        val left = list.size - 1
-        val nextFocus = when {
-            focused == null || at < 0 || left <= 0 -> focused
-            focused > at -> focused - 1
-            else -> minOf(focused, left - 1)
-        }
-        edit { it.copy(focusIndex = nextFocus, removeConfirm = null, menuOpen = false) }
+        applyReorder(index, ::removeFromList)
+        edit { it.copy(removeConfirm = null, menuOpen = false) }
     }
 
     fun dismissRemove() = edit { it.copy(removeConfirm = null) }
@@ -432,19 +424,20 @@ class LoggerViewModel(
         val startedAt = restStartedAtMs
         viewModelScope.launch {
             if (endAt == null || startedAt == null) store.remove(REST_RUNNING_KEY)
-            else store.put(REST_RUNNING_KEY, AppJson.encodeToString(RunningRest.serializer(), RunningRest(endAt, startedAt, restTarget, rest.label)))
+            else store.put(REST_RUNNING_KEY, AppJson.encodeToString(RunningRest.serializer(), RunningRest(endAt = endAt, startedAt = startedAt, target = restTarget, label = rest.label)))
         }
     }
 
     /** A rest still running (or within its overrun window) when the app was closed comes back as it is now. */
     private suspend fun resumeRest() {
         if (_ui.value.rest.endAtMs != null) return
-        val saved = runCatching { AppJson.decodeFromString(RunningRest.serializer(), store.get(REST_RUNNING_KEY) ?: return) }.getOrNull() ?: return
-        if (restProgress(saved.endAtMs, nowMs()).over >= REST_OVERRUN_CAP_SEC) { store.remove(REST_RUNNING_KEY); return }
-        restStartedAtMs = saved.startedAtMs
+        val raw = store.get(REST_RUNNING_KEY) ?: return
+        val saved = resumableRest(runCatching { AppJson.parseToJsonElement(raw) }.getOrNull(), nowMs(), DEFAULT_REST_SEC)
+        if (saved == null) { store.remove(REST_RUNNING_KEY); return }
+        restStartedAtMs = saved.startedAt
         restTarget = saved.target
-        edit { it.copy(rest = RestUi(endAtMs = saved.endAtMs, target = saved.target, label = saved.label)) }
-        startTicker(saved.endAtMs)
+        edit { it.copy(rest = RestUi(endAtMs = saved.endAt, target = saved.target, label = saved.label)) }
+        startTicker(saved.endAt)
     }
 
     private fun startTicker(endAtMs: Long) {
