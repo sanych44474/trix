@@ -19,6 +19,7 @@ import type { Env, UserDoc } from "../types";
 
 import { notify } from "../notify";
 import { rawTelegramApi } from "../adapters/telegram/rawApi";
+import { typedFailure } from "./failure";
 export const MAX_CHAT_TEXT = 2000;
 export const CHAT_PUSH_QUIET_MIN = 15;
 
@@ -49,7 +50,7 @@ async function push(env: Env, from: UserDoc, to: UserDoc, text: string, messageI
 
 export async function handleChatApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
 
   if (url.pathname === "/api/chat/unread") {
     return Response.json({ bySender: await unreadBySender(env.DB, user._id).catch(() => ({})) }, { headers: { "cache-control": "no-store" } });
@@ -57,7 +58,7 @@ export async function handleChatApi(req: Request, url: URL, env: Env): Promise<R
 
   if (url.pathname === "/api/chat" && req.method === "GET") {
     const peer = await chatPeer(env, user, Number(url.searchParams.get("with")) || undefined);
-    if (!peer) return Response.json({ error: "not found" }, { status: 404 });
+    if (!peer) return typedFailure(404, "not_found", "not found");
     const messages = await listMessages(env.DB, user._id, peer._id, 100);
     await markThreadRead(env.DB, user._id, peer._id).catch(() => {});
     return Response.json({
@@ -66,16 +67,16 @@ export async function handleChatApi(req: Request, url: URL, env: Env): Promise<R
     }, { headers: { "cache-control": "no-store" } });
   }
 
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return parsed.response;
   const body = parsed.body as Record<string, unknown>;
   const peer = await chatPeer(env, user, Number(body.with) || undefined);
-  if (!peer) return Response.json({ error: "not found" }, { status: 404 });
+  if (!peer) return typedFailure(404, "not_found", "not found");
 
   if (url.pathname === "/api/chat") {
     const text = typeof body.text === "string" ? body.text.trim().slice(0, MAX_CHAT_TEXT) : "";
-    if (!text) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!text) return typedFailure(400, "validation_error", "bad request");
     const res = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
       const quietSince = new Date(Date.now() - CHAT_PUSH_QUIET_MIN * 60_000).toISOString();
       const alreadyPinged = (await unreadFromSince(env.DB, peer._id, user._id, quietSince).catch(() => 0)) > 0;
@@ -89,7 +90,7 @@ export async function handleChatApi(req: Request, url: URL, env: Env): Promise<R
 
   // AI draft of the trainer's reply to the client's latest messages, in the trainer's own style.
   if (url.pathname === "/api/chat/draft") {
-    if (peer.trainerId !== user._id) return Response.json({ error: "forbidden" }, { status: 403 });
+    if (peer.trainerId !== user._id) return typedFailure(403, "forbidden", "forbidden");
     const thread = (await listMessages(env.DB, user._id, peer._id, 12)).map((m) => `${m.fromId === user._id ? "Trainer" : "Client"}: ${m.text}`).join("\n");
     if (!thread) return Response.json({ draft: "" });
     const trainer = await getTrainer(env.DB, user._id).catch(() => null);
@@ -109,5 +110,5 @@ export async function handleChatApi(req: Request, url: URL, env: Env): Promise<R
     return Response.json({ draft });
   }
 
-  return Response.json({ error: "not found" }, { status: 404 });
+  return typedFailure(404, "not_found", "not found");
 }

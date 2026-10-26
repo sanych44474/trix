@@ -21,6 +21,7 @@ import { apiFailure } from "./apiError";
 
 import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 import { hasTelegramChat } from "../domain/delivery";
+import { typedFailure } from "./failure";
 // Same "the webview can't offer a file download, so push it to the viewer's own Telegram chat"
 // pattern extrasApi.ts/settingsApi.ts/trainerApi.ts already each define locally -- this endpoint
 // gets its own copy rather than a shared import, matching that convention.
@@ -41,7 +42,7 @@ async function dayTargets(env: Env, user: UserDoc): Promise<{ targets: Nutrition
 
 export async function handleNutritionApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const { date } = localParts(user.profile.timezone);
 
   if (req.method === "GET") {
@@ -66,7 +67,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       { headers: { "cache-control": "no-store" } },
     );
   }
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
 
   // Each action below already bounds-checks its own fields (grams/kcal/macro ranges, factor
   // whitelist, index bounds) -- that per-action logic stays as-is; readJsonBody just adds the
@@ -90,9 +91,9 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     const repeat = Math.max(1, Math.min(14, Math.round(Number(body.days) || 1)));
     const menu = await getMealPlan(env.DB, user._id, 0).catch(() => null);
     const lines = menu?.days?.length ? groceryList(menu.days, repeat) : [];
-    if (!lines.length) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!lines.length) return typedFailure(400, "validation_error", "bad request");
     // No chat to send to: the client already has the list (GET above) and shares it itself.
-    if (!hasTelegramChat(user)) return Response.json({ error: "no_telegram_chat" }, { status: 409 });
+    if (!hasTelegramChat(user)) return typedFailure(409, "conflict", "no_telegram_chat");
     const ok = await tgSend(env, user.chatId, renderGroceryList(user.lang, lines, repeat));
     return Response.json({ ok });
   }
@@ -105,12 +106,12 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
   if (action === "mealplan_regen") {
     const plan = await getActivePlan(env.DB, user._id).catch(() => null);
     const targets = computeTargets(user.profile, plan?.nutrition);
-    if (!targets.calories) return Response.json({ error: "no targets" }, { status: 400 });
+    if (!targets.calories) return typedFailure(400, "validation_error", "no targets");
     const p = user.profile;
     const excluded = [p.allergies, p.dietPrefs, p.foodDislikes].filter((x) => x && x.toLowerCase() !== "none").join("; ");
     const likes = p.foodLikes ?? "";
     const display = await generateMealDayFor(env, env.DB, user.lang, p, user._id, targets, 4, excluded, likes, false, 0).catch(() => []);
-    if (!display.length) return Response.json({ error: "generation_failed" }, { status: 502 });
+    if (!display.length) return typedFailure(502, "dependency_unavailable", "generation_failed");
     const doc = { userId: user._id, week: 0, days: [{ label: date, meals: display }], targets, generatedAt: new Date() };
     await saveMealPlan(env.DB, doc);
     logInfo("mealplan_regenerated", { method: "miniapp" });
@@ -124,25 +125,25 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
   // no version/If-Match guard needed.
   if (action === "mealplan_item_del" || action === "mealplan_item_scale" || action === "mealplan_item_grams") {
     const mp = await getMealPlan(env.DB, user._id, 0).catch(() => null);
-    if (!mp) return Response.json({ error: "not found" }, { status: 404 });
+    if (!mp) return typedFailure(404, "not_found", "not found");
     const dayIndex = Number(body.dayIndex);
     const mealIndex = Number(body.mealIndex);
     const itemIndex = Number(body.itemIndex);
     const day = mp.days[dayIndex];
     const meal = day?.meals[mealIndex];
     const item = meal?.items[itemIndex];
-    if (!day || !meal || !item) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!day || !meal || !item) return typedFailure(400, "validation_error", "bad request");
 
     if (action === "mealplan_item_del") {
-      if (meal.items.length <= 1) return Response.json({ error: "last" }, { status: 400 });
+      if (meal.items.length <= 1) return typedFailure(400, "validation_error", "last");
       meal.items.splice(itemIndex, 1);
     } else if (action === "mealplan_item_scale") {
       const f = Number(body.factor);
-      if (![0.5, 1.5, 2].includes(f)) return Response.json({ error: "bad request" }, { status: 400 });
+      if (![0.5, 1.5, 2].includes(f)) return typedFailure(400, "validation_error", "bad request");
       meal.items[itemIndex] = scaleMealEntry(item, f);
     } else {
       const g = Number(body.grams);
-      if (!Number.isFinite(g) || g <= 0 || g > 5000 || item.grams <= 0) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!Number.isFinite(g) || g <= 0 || g > 5000 || item.grams <= 0) return typedFailure(400, "validation_error", "bad request");
       meal.items[itemIndex] = scaleMealEntry(item, g / item.grams);
     }
     const sums = sumItems(meal.items);
@@ -169,7 +170,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
   // fallback. Both proxied server-side. AI free-text stays the universal last resort (client).
   if (action === "dbsearch") {
     const q = typeof body.q === "string" ? body.q.trim().slice(0, 60) : "";
-    if (q.length < 2) return Response.json({ error: "bad request" }, { status: 400 });
+    if (q.length < 2) return typedFailure(400, "validation_error", "bad request");
     // The app's own food base first: the catalog (instant, in the user's language) plus foods
     // learned from earlier external lookups. Only a miss goes out to FatSecret / OFF / AI, and
     // whatever comes back is remembered, so the next person searching it stays local.
@@ -214,7 +215,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
   if (action === "barcode") {
     const code = typeof body.code === "string" ? body.code.replace(/\D/g, "") : "";
     // EAN-8 through GTIN-14 covers every retail food barcode; anything else is a misread.
-    if (code.length < 8 || code.length > 14) return Response.json({ error: "bad request" }, { status: 400 });
+    if (code.length < 8 || code.length > 14) return typedFailure(400, "validation_error", "bad request");
     const known = await learnedByBarcode(env.DB, code).catch(() => null);
     if (known) return Response.json({ items: [{ name: known.name, brand: known.brand, per100: known.per100 }], source: "trix" }, { headers: { "cache-control": "no-store" } });
     const offUrl = `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`;
@@ -244,11 +245,11 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       const desc = typeof r?.desc === "string" ? r.desc.trim().slice(0, 80) : "";
       const kcal = n(r?.kcal, 3000), protein = n(r?.protein, 300), fats = n(r?.fats, 300), carbs = n(r?.carbs, 500);
       const grams = r?.grams === undefined || r?.grams === null ? undefined : n(r.grams, 3000);
-      if (!desc || kcal === null || protein === null || fats === null || carbs === null || grams === null) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!desc || kcal === null || protein === null || fats === null || carbs === null || grams === null) return typedFailure(400, "validation_error", "bad request");
       const query = typeof r.query === "string" && r.query.trim() ? r.query.trim().slice(0, 60) : undefined;
       items.push({ desc, kcal: Math.round(kcal), protein, fats, carbs, ...(grams ? { grams } : {}), ...(query ? { query } : {}) });
     }
-    if (!items.length || items.every((i) => i.kcal <= 0)) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!items.length || items.every((i) => i.kcal <= 0)) return typedFailure(400, "validation_error", "bad request");
     const cur = await getDayMeals(env.DB, user._id, date);
     cur.push(...items);
     await setDayMeals(env.DB, user._id, date, cur);
@@ -263,7 +264,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     const num = (v: unknown, max: number) => (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= max ? v : null);
     const kcal100 = num(per.kcal, 1000), p100 = num(per.p, 100), f100 = num(per.f, 100), c100 = num(per.c, 100);
     if (!name || !Number.isFinite(grams) || grams < 1 || grams > 3000 || kcal100 === null || p100 === null || f100 === null || c100 === null) {
-      return Response.json({ error: "bad request" }, { status: 400 });
+      return typedFailure(400, "validation_error", "bad request");
     }
     const f2 = grams / 100;
     const cur = await getDayMeals(env.DB, user._id, date);
@@ -293,7 +294,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     const recentSince = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const recent = await getRecentFoods(env.DB, user._id, recentSince, 12);
     const pick = recent[ri];
-    if (!pick) return Response.json({ error: "bad request" }, { status: 400 });
+    if (!pick) return typedFailure(400, "validation_error", "bad request");
     const cur = await getDayMeals(env.DB, user._id, date);
     cur.push({
       desc: pick.desc,
@@ -355,14 +356,14 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
 
   const index = Number(body.index);
   const meals = await getDayMeals(env.DB, user._id, date);
-  if (!Number.isInteger(index) || index < 0 || index >= meals.length) return Response.json({ error: "bad request" }, { status: 400 });
+  if (!Number.isInteger(index) || index < 0 || index >= meals.length) return typedFailure(400, "validation_error", "bad request");
 
   try {
     if (action === "macros") {
       const safeNum = (v: unknown, max: number) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= 0 && n <= max ? n : null; };
       const kcal = safeNum(body.kcal, 5000), protein = safeNum(body.protein, 500);
       const fats = safeNum(body.fats, 500), carbs = safeNum(body.carbs, 500);
-      if (kcal === null || protein === null || fats === null || carbs === null) return Response.json({ error: "bad request" }, { status: 400 });
+      if (kcal === null || protein === null || fats === null || carbs === null) return typedFailure(400, "validation_error", "bad request");
       const item = meals[index];
       meals[index] = { ...item, kcal, protein, fats, carbs };
       await setDayMeals(env.DB, user._id, date, meals);
@@ -382,16 +383,16 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
       meals.splice(index, 1);
     } else if (action === "scale") {
       const f = Number(body.factor);
-      if (![0.5, 1.5, 2].includes(f)) return Response.json({ error: "bad request" }, { status: 400 });
+      if (![0.5, 1.5, 2].includes(f)) return typedFailure(400, "validation_error", "bad request");
       const m = meals[index];
       meals[index] = scaleMealEntry(m, f);
     } else if (action === "grams") {
       const g = Number(body.grams);
       const m = meals[index];
-      if (!Number.isFinite(g) || g <= 0 || g > 5000 || m.grams == null || m.grams <= 0) return Response.json({ error: "bad request" }, { status: 400 });
+      if (!Number.isFinite(g) || g <= 0 || g > 5000 || m.grams == null || m.grams <= 0) return typedFailure(400, "validation_error", "bad request");
       meals[index] = scaleMealEntry(m, g / m.grams);
     } else {
-      return Response.json({ error: "bad request" }, { status: 400 });
+      return typedFailure(400, "validation_error", "bad request");
     }
     await setDayMeals(env.DB, user._id, date, meals);
     return Response.json({

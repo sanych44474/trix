@@ -34,6 +34,7 @@ import { cachePhoto, deleteStoredPhotos, getCachedPhoto, getStoredPhoto, storePh
 import { logError, logInfo } from "../log";
 import { object, oneOf, readJsonBody, str, validateBody } from "./validate";
 import type { Env, UserDoc } from "../types";
+import { typedFailure } from "./failure";
 
 type TKey = Parameters<typeof t>[1];
 
@@ -56,7 +57,7 @@ async function windowData(env: Env, user: UserDoc, start: string, end: string) {
 
 export async function handleChallengesApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const lang = user.lang;
   const { date } = localParts(user.profile.timezone);
 
@@ -91,24 +92,24 @@ export async function handleChallengesApi(req: Request, url: URL, env: Env): Pro
     const won = await countCompletedChallenges(env.DB, user._id).catch(() => 0);
     return Response.json({ active: activeOut, available, won }, { headers: { "cache-control": "no-store" } });
   }
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return parsed.response;
   const v = validateBody(parsed.body, object({ code: str({ max: 60 }) }));
   if (!v.ok) return v.response;
   const tpl = challengeByCode(v.value.code);
-  if (!tpl) return Response.json({ error: "bad request" }, { status: 400 });
+  if (!tpl) return typedFailure(400, "validation_error", "bad request");
   const active = await activeChallenges(env.DB, user._id, date).catch(() => []);
   if (active.some((c) => c.code === tpl.code)) return Response.json({ ok: true }); // already joined
   const win = challengeWindow(tpl, date); // a seasonal one runs over its calendar month
-  if (win.end < date) return Response.json({ error: "bad request" }, { status: 400 });
+  if (win.end < date) return typedFailure(400, "validation_error", "bad request");
   await joinChallenge(env.DB, user._id, tpl.code, win.start, win.end);
   return Response.json({ ok: true });
 }
 
 export async function handleInjuriesApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const lang = user.lang;
 
   if (req.method === "GET") {
@@ -125,7 +126,7 @@ export async function handleInjuriesApi(req: Request, url: URL, env: Env): Promi
       { headers: { "cache-control": "no-store" } },
     );
   }
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return parsed.response;
   const v = validateBody(parsed.body, object({ area: oneOf(Object.keys(AREA_KEY) as [string, ...string[]]), severity: oneOf(SEVERITIES as [string, ...string[]]) }));
@@ -144,9 +145,9 @@ export async function handleInjuriesApi(req: Request, url: URL, env: Env): Promi
 // and capped client-side). They land in error_logs, so the owner's error-spike alert covers
 // the Mini App too.
 export async function handleClientErrorApi(req: Request, url: URL, env: Env): Promise<Response> {
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   // Deliberately not run through the shared schema validator beyond the size cap: this endpoint's
   // whole job is reporting that something already went wrong client-side, so it stays maximally
   // tolerant of odd/partial metadata (source/line) rather than risk rejecting the very report a
@@ -155,7 +156,7 @@ export async function handleClientErrorApi(req: Request, url: URL, env: Env): Pr
   if (!parsed.ok) return parsed.response;
   const body = parsed.body as { message?: unknown; source?: unknown; line?: unknown; surface?: unknown };
   const message = typeof body.message === "string" ? body.message.trim().slice(0, 160) : "";
-  if (!message) return Response.json({ error: "bad request" }, { status: 400 });
+  if (!message) return typedFailure(400, "validation_error", "bad request");
   const where = typeof body.source === "string" && body.source ? ` @ ${body.source.slice(-40)}:${Number(body.line) || 0}` : "";
   await recordError(env.DB, { userId: user._id, kind: body.surface === "native" ? "native" : "webapp", errorType: body.surface === "native" ? "client_native" : "client_js", message: `${message}${where}` }).catch(() => {});
   return Response.json({ ok: true });
@@ -166,14 +167,14 @@ export async function handleClientErrorApi(req: Request, url: URL, env: Env): Pr
 // call, one bump each into v2_analytics_events — the owner console's "Events" tab lists them.
 export const APP_EVENT_RE = /^app_[a-z0-9_]{2,40}$/;
 export async function handleAppEventApi(req: Request, url: URL, env: Env): Promise<Response> {
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return parsed.response;
   const raw = (parsed.body as { events?: unknown }).events;
   const events = (Array.isArray(raw) ? raw : []).filter((e): e is string => typeof e === "string" && APP_EVENT_RE.test(e)).slice(0, 10);
-  if (!events.length) return Response.json({ error: "bad request" }, { status: 400 });
+  if (!events.length) return typedFailure(400, "validation_error", "bad request");
   const { date } = localParts(user.profile.timezone);
   await bumpEvents(env.DB, user._id, events, date).catch(() => {});
   return Response.json({ ok: true, counted: events.length });
@@ -187,17 +188,17 @@ export async function handleAppEventApi(req: Request, url: URL, env: Env): Promi
 async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise<Response> {
   const form = await req.formData().catch(() => null);
   const file = form?.get("photo");
-  if (!(file instanceof Blob)) return Response.json({ error: "bad request" }, { status: 400 });
-  if (file.size > MAX_PHOTO_BYTES) return Response.json({ error: "too_large" }, { status: 413 });
+  if (!(file instanceof Blob)) return typedFailure(400, "validation_error", "bad request");
+  if (file.size > MAX_PHOTO_BYTES) return typedFailure(413, "validation_error", "too_large");
   const bytes = await file.arrayBuffer();
   const type = sniffImage(new Uint8Array(bytes));
-  if (!type) return Response.json({ error: "unsupported_media_type" }, { status: 415 });
+  if (!type) return typedFailure(415, "validation_error", "unsupported_media_type");
 
   let telegramFileId: string | null = null;
   if (env.R2_PHOTOS) {
     let key: string;
     try { key = await storePhoto(env, user._id, bytes, type); }
-    catch (err) { logError("photo_store", err); return Response.json({ error: "dependency_unavailable" }, { status: 502 }); }
+    catch (err) { logError("photo_store", err); return typedFailure(502, "dependency_unavailable", "dependency_unavailable"); }
     try { await addStoredProgressPhoto(env.DB, user._id, key); }
     catch (err) { await deleteStoredPhotos(env, [key]).catch(() => {}); throw err; }
   } else if (hasTelegramChat(user)) {
@@ -207,10 +208,10 @@ async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise
     const sent = await telegramUpload<{ photo?: Array<{ file_id: string }> }>(env, "sendPhoto", tgForm);
     const photos = sent?.photo;
     telegramFileId = photos?.[photos.length - 1]?.file_id ?? null;
-    if (!telegramFileId) return Response.json({ error: "dependency_unavailable" }, { status: 502 });
+    if (!telegramFileId) return typedFailure(502, "dependency_unavailable", "dependency_unavailable");
     await addProgressPhoto(env.DB, user._id, telegramFileId);
   } else {
-    return Response.json({ error: "storage_unavailable" }, { status: 503 });
+    return typedFailure(503, "dependency_unavailable", "storage_unavailable");
   }
   logInfo("photo_uploaded", { source: "webapp" });
   // A trainer asked for a progress photo (photoReviewFor): the next upload goes to them too, with
@@ -290,7 +291,7 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: Exec
 
 export async function handleBoardsApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   if (!user.competeOptIn) return Response.json({ optedIn: false }, { headers: { "cache-control": "no-store" } });
   // Hourly cron-built cache (scheduler writes "boards_cache"); live compute is the fallback for
   // a cold/stale cache so the screen never breaks if the cron lags.

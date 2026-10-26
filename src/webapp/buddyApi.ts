@@ -11,10 +11,11 @@ import { weekStartStr, weekStreak } from "../domain/records";
 import { localParts } from "../domain/localTime";
 import { miniAppUser } from "./auth";
 import type { Env } from "../types";
+import { typedFailure } from "./failure";
 
 export async function handleBuddyApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
   const buddyId = user.profile.buddyId;
   if (!buddyId) return Response.json({ buddy: null }, { headers: { "cache-control": "no-store" } });
   const mate = await getUser(env.DB, buddyId).catch(() => null);

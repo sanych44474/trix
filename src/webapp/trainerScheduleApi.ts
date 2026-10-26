@@ -31,10 +31,11 @@ import { logInfo } from "../log";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env } from "../types";
+import { typedFailure } from "./failure";
 
 const noStore = { headers: { "cache-control": "no-store" } };
-const bad = () => Response.json({ error: "bad request" }, { status: 400 });
-const notFound = () => Response.json({ error: "not found" }, { status: 404 });
+const bad = () => typedFailure(400, "validation_error", "bad request");
+const notFound = () => typedFailure(404, "not_found", "not found");
 
 const MAX_NOTE = 300;
 const MAX_AMOUNT = 10_000_000;
@@ -78,8 +79,8 @@ function windowFrom(url: URL): { from: string; to: string } | null {
 
 export async function handleTrainerScheduleApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (user.role !== "trainer") return Response.json({ error: "forbidden" }, { status: 403 });
+  if (!user) return typedFailure(401, "unauthorized", "unauthorized");
+  if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
 
   const isSessions = url.pathname === "/api/trainer/sessions";
   const isFinance = url.pathname === "/api/trainer/finance";
@@ -123,7 +124,7 @@ export async function handleTrainerScheduleApi(req: Request, url: URL, env: Env)
     }, noStore);
   }
 
-  if (req.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return parsed.response;
   const body = parsed.body as Record<string, unknown>;
