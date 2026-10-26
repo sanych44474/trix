@@ -2,6 +2,56 @@
 
 What users were told in each release, newest first — the same text the bot broadcasts and shows in *What's new* (`/whatsnew`). The Worker bundle keeps only the latest two (`src/releaseNotes.ts`); this file is the full history.
 
+## 2026-10-26
+
+### English
+
+🎉 **What's new in trix**
+
+📲 **trix for Android** — a real app with the same account: an exact rest alarm, steps from Health Connect and push reminders. Download it in More → trix for Android; after that it updates itself.
+
+⏱ **A rest timer that keeps time** — it keeps counting when you close the app, and fixing a set you already did no longer restarts it.
+
+🔔 **One "rest is over"** — a rest started in the Android app rings on the phone only, not in this chat as well.
+
+↕️ **Reordering that stays put** — moving or removing an exercise keeps the one you're on in front of you.
+
+👟 **Steps on Android** — when Samsung Health doesn't sync to Health Connect, the app counts steps with the phone's own sensor.
+
+🔐 **Sign-in for everyone** — signing in to the app with Telegram works on every account.
+
+📵 **iPhone fix** — the blank white screen on older iPhones is gone.
+
+💬 **Answers to your feedback** — when you send feedback, the reply comes back right here in the bot.
+
+🌍 **Fully translated** — grams, kilos, minutes and days are no longer left in English.
+
+Tap **📱 Open trix** below.
+
+### Українською
+
+🎉 **Що нового в trix**
+
+📲 **trix для Android** — справжній застосунок з тим самим акаунтом: точний таймер відпочинку, кроки з Health Connect і push-нагадування. Завантаж у Ще → trix для Android; далі він оновлюється сам.
+
+⏱ **Таймер відпочинку, що не збивається** — рахує далі, коли закриваєш застосунок, а виправлення вже зробленого підходу більше не запускає його спочатку.
+
+🔔 **Одне «відпочинок завершено»** — відпочинок, запущений в Android-застосунку, дзвонить лише на телефоні, а не ще й у цьому чаті.
+
+↕️ **Перестановка без стрибків** — коли переміщуєш чи видаляєш вправу, перед тобою лишається та, на якій ти зараз.
+
+👟 **Кроки на Android** — коли Samsung Health не передає дані в Health Connect, застосунок рахує кроки датчиком телефона.
+
+🔐 **Вхід для всіх** — увійти в застосунок через Telegram тепер можна з будь-якого акаунта.
+
+📵 **Виправлено на iPhone** — білий екран на старіших iPhone зник.
+
+💬 **Відповіді на відгуки** — коли надсилаєш відгук, відповідь приходить просто сюди, у бот.
+
+🌍 **Повністю перекладено** — грами, кілограми, хвилини й дні більше не лишаються англійською.
+
+Тисни **📱 Відкрити trix** нижче.
+
 ## 2026-10-18
 
 ### English

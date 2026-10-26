@@ -116,6 +116,11 @@ export function showMainButton(state: MainButtonState, onClick: () => void): () 
   };
 }
 
+/** The Telegram client this runs in ("android", "ios", "tdesktop", ...); "unknown" outside Telegram. */
+export function telegramPlatform(): string {
+  return window.Telegram?.WebApp?.platform ?? "unknown";
+}
+
 /** Opens a URL in the external browser (an OAuth page must not run inside the webview). */
 export function openExternal(url: string): void {
   const tg = webApp();

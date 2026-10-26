@@ -8,7 +8,7 @@ import type { WeekCardResponse } from "./types";
 import { shareStoryCard } from "./storyCard";
 import {
   addToHomeScreen, canAddToHomeScreen, canFullscreen, canOpenInvoice, canShareStory, homeScreenStatus,
-  isFullscreen, onTelegramEvent, openInvoice, setFullscreen,
+  isFullscreen, onTelegramEvent, openExternal, openInvoice, setFullscreen, telegramPlatform,
 } from "./telegram";
 
 const SUPPORT_AMOUNTS = [50, 100, 250] as const;
@@ -61,6 +61,33 @@ export function AppShortcutsCard({ lang }: { lang: Lang }) {
           : <button type="button" className="button button-primary" onClick={addToHomeScreen}>{t(lang, "home_screen_btn")}</button>)}
         {canFullscreen() && <button type="button" className="button button-ghost" onClick={() => setFullscreen(!full)}>{full ? t(lang, "fullscreen_off_btn") : t(lang, "fullscreen_on_btn")}</button>}
       </div>
+    </section>
+  );
+}
+
+interface AndroidRelease { url: string; versionName: string }
+
+/** The native Android app, downloaded straight from us (the self-updating "direct" build). Hidden on
+ *  Apple devices, where an APK is no use. Opens in the browser: an APK can't download inside the webview. */
+export function AndroidAppCard({ lang }: { lang: Lang }) {
+  const [release, setRelease] = useState<AndroidRelease | null>(null);
+  const platform = telegramPlatform();
+  const apple = platform === "ios" || platform === "macos";
+  useEffect(() => {
+    if (apple) return;
+    api<{ android?: { download?: AndroidRelease } }>("/api/v2/app/config")
+      .then((config) => setRelease(config.android?.download ?? null))
+      .catch(() => setRelease(null));
+  }, [apple]);
+  if (apple || !release) return null;
+  return (
+    <section className="card card-default stack-card">
+      <div className="section-head"><div><span className="eyebrow">Android</span><h2>{t(lang, "android_app_title")}</h2></div></div>
+      <p className="muted">{t(lang, "android_app_detail")}</p>
+      <div className="button-row">
+        <button type="button" className="button button-primary" onClick={() => openExternal(release.url)}>{t(lang, "android_app_btn", { version: release.versionName })}</button>
+      </div>
+      <p className="muted">{t(lang, "android_app_hint")}</p>
     </section>
   );
 }

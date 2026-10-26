@@ -59,6 +59,8 @@
     <string name="wk_session_saved">Тренування збережено. Гарна робота!</string>
     <string name="wk_session_saved_for_date">Збережено за %1$s. Гарна робота!</string>
     <string name="wk_set_edit_aria">Змінити підхід %1$s</string>
+    <string name="wk_set_done_aria">Позначити підхід %1$s як зроблений</string>
+    <string name="wk_set_undo_aria">Позначити підхід %1$s як не зроблений</string>
     <string name="wk_set_remove_btn">Видалити підхід</string>
     <string name="wk_set_rpe_label">Зусилля (RPE)</string>
     <string name="wk_start_blank_btn">Почати з чистого аркуша</string>

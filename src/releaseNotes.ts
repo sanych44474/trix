@@ -14,6 +14,51 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "2026-10-26",
+    en: `🎉 *What's new in trix*
+
+📲 *trix for Android* — a real app with the same account: an exact rest alarm, steps from Health Connect and push reminders. Download it in More → trix for Android; after that it updates itself.
+
+⏱ *A rest timer that keeps time* — it keeps counting when you close the app, and fixing a set you already did no longer restarts it.
+
+🔔 *One "rest is over"* — a rest started in the Android app rings on the phone only, not in this chat as well.
+
+↕️ *Reordering that stays put* — moving or removing an exercise keeps the one you're on in front of you.
+
+👟 *Steps on Android* — when Samsung Health doesn't sync to Health Connect, the app counts steps with the phone's own sensor.
+
+🔐 *Sign-in for everyone* — signing in to the app with Telegram works on every account.
+
+📵 *iPhone fix* — the blank white screen on older iPhones is gone.
+
+💬 *Answers to your feedback* — when you send feedback, the reply comes back right here in the bot.
+
+🌍 *Fully translated* — grams, kilos, minutes and days are no longer left in English.
+
+Tap *📱 Open trix* below.`,
+    uk: `🎉 *Що нового в trix*
+
+📲 *trix для Android* — справжній застосунок з тим самим акаунтом: точний таймер відпочинку, кроки з Health Connect і push-нагадування. Завантаж у Ще → trix для Android; далі він оновлюється сам.
+
+⏱ *Таймер відпочинку, що не збивається* — рахує далі, коли закриваєш застосунок, а виправлення вже зробленого підходу більше не запускає його спочатку.
+
+🔔 *Одне «відпочинок завершено»* — відпочинок, запущений в Android-застосунку, дзвонить лише на телефоні, а не ще й у цьому чаті.
+
+↕️ *Перестановка без стрибків* — коли переміщуєш чи видаляєш вправу, перед тобою лишається та, на якій ти зараз.
+
+👟 *Кроки на Android* — коли Samsung Health не передає дані в Health Connect, застосунок рахує кроки датчиком телефона.
+
+🔐 *Вхід для всіх* — увійти в застосунок через Telegram тепер можна з будь-якого акаунта.
+
+📵 *Виправлено на iPhone* — білий екран на старіших iPhone зник.
+
+💬 *Відповіді на відгуки* — коли надсилаєш відгук, відповідь приходить просто сюди, у бот.
+
+🌍 *Повністю перекладено* — грами, кілограми, хвилини й дні більше не лишаються англійською.
+
+Тисни *📱 Відкрити trix* нижче.`,
+  },
+  {
     version: "2026-10-18",
     en: `🎉 *What's new in trix*
 
@@ -65,51 +110,6 @@ Tap *📱 Open trix* below.`,
 🔕 *Один перемикач сповіщень* — Налаштування → Які нагадування отримувати → Усі сповіщення в Telegram.
 
 Тисни *📱 Відкрити trix* нижче.`,
-  },
-  {
-    version: "2026-10-07",
-    en: `🎉 *What's new in trix*
-
-📱 *Everything in one app* — trix now lives in the Mini App: onboarding, workouts, food, the coach and your trainer. The bot just opens the app and sends reminders.
-
-📷 *Meal by photo* — snap your plate: trix finds the foods and portions, you fix the grams if needed and log it in one tap.
-
-🎥 *Form check in the app* — film a set (up to 60 s) right from an exercise and get 2–3 technique cues.
-
-🎙 *Voice notes* — dictate a meal, a question to the coach or a message to your trainer instead of typing.
-
-💬 *Chat with your trainer* — messages, read receipts and notifications, all in the app. Don't have a trainer? *Choose a trainer* from the list.
-
-👥 *Squads without a group* — create a squad, invite friends with a link and see who trained this week.
-
-🔁 *Rebuild my plan* — changed your goal, days or equipment? Get a fresh plan in a minute. Coming from Strong or Hevy? *Import your history* from a CSV.
-
-🔕 *Calmer reminders* — none at night (22:00–07:00 unless you set your own quiet hours) and at most 3 a day.
-
-🌗 *Easier to read* — higher-contrast colours and a high-contrast theme.
-
-Tap *📱 Open trix* below! 💪`,
-    uk: `🎉 *Що нового в trix*
-
-📱 *Усе в одному застосунку* — trix тепер живе в Mini App: анкета, тренування, харчування, коуч і твій тренер. Бот лише відкриває застосунок і надсилає нагадування.
-
-📷 *Їжа за фото* — сфотографуй тарілку: trix розпізнає продукти й порції, ти за потреби правиш грами й записуєш одним дотиком.
-
-🎥 *Перевірка техніки в застосунку* — зніми підхід (до 60 с) просто з вправи й отримай 2–3 підказки щодо техніки.
-
-🎙 *Голосом* — надиктуй прийом їжі, питання коучу чи повідомлення тренеру замість набору тексту.
-
-💬 *Чат із тренером* — повідомлення, позначки «прочитано» і сповіщення, усе в застосунку. Ще без тренера? *Обери тренера* зі списку.
-
-👥 *Сквади без групи* — створи сквад, запроси друзів посиланням і дивись, хто тренувався цього тижня.
-
-🔁 *Перебудувати план* — змінив ціль, дні чи обладнання? Новий план за хвилину. Переходиш зі Strong чи Hevy? *Імпортуй історію* з CSV.
-
-🔕 *Спокійніші нагадування* — жодних уночі (22:00–07:00, якщо не задав свої тихі години) і не більше 3 на день.
-
-🌗 *Легше читати* — контрастніші кольори та висококонтрастна тема.
-
-Тисни *📱 Відкрити trix* нижче! 💪`,
   },
 ];
 

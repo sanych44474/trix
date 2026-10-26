@@ -29,12 +29,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.wk_cancel_btn
+import app.hacklimits.shared.resources.wk_set_done_aria
+import app.hacklimits.shared.resources.wk_set_undo_aria
 import app.hacklimits.shared.resources.wk_controlled_reps
 import app.hacklimits.shared.resources.wk_exercise_sets_line
 import app.hacklimits.shared.resources.wk_field_load
@@ -314,16 +321,19 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
                                 Modifier.weight(1f),
                             )
                         }
+                        // An open set is an empty box; the check appears only once the set is done.
                         if (done) {
-                            OutlinedButton(
+                            val undoLabel = stringResource(Res.string.wk_set_undo_aria, i + 1)
+                            Button(
                                 onClick = { undo(i) },
-                                modifier = Modifier.width(48.dp),
+                                modifier = Modifier.width(48.dp).semantics { contentDescription = undoLabel },
                             ) { Text("✓", fontWeight = FontWeight.Bold) }
                         } else {
-                            Button(
+                            val doneLabel = stringResource(Res.string.wk_set_done_aria, i + 1)
+                            OutlinedButton(
                                 onClick = { commit(i, seed(i)) },
-                                modifier = Modifier.width(48.dp),
-                            ) { Text("✓") }
+                                modifier = Modifier.width(48.dp).semantics { contentDescription = doneLabel },
+                            ) {}
                         }
                     }
                 }
@@ -362,13 +372,29 @@ private fun SetField(
     onNext: () -> Unit = {},
     onDone: () -> Unit = {},
 ) {
+    // Every digit is selected when the field is tapped, so typing replaces the number. The tap places
+    // the caret right after focus arrives, so the selection is applied again to that first caret move.
+    var field by remember { mutableStateOf(TextFieldValue(value)) }
+    var selectOnTap by remember { mutableStateOf(false) }
+    if (field.text != value) field = TextFieldValue(value, TextRange(value.length))
     OutlinedTextField(
-        value = value,
-        onValueChange = { raw -> onChange(raw.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) }.take(7)) },
+        value = field,
+        onValueChange = { next ->
+            val text = next.text.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) }.take(7)
+            field = when {
+                selectOnTap && text == field.text -> TextFieldValue(text, TextRange(0, text.length)).also { selectOnTap = false }
+                text == next.text -> next
+                else -> TextFieldValue(text, TextRange(text.length))
+            }
+            if (text != value) onChange(text)
+        },
         label = { Text(label) },
         suffix = { if (suffix.isNotEmpty()) Text(suffix) },
         singleLine = true,
-        modifier = modifier,
+        modifier = modifier.onFocusChanged { state ->
+            selectOnTap = state.isFocused
+            if (state.isFocused) field = field.copy(selection = TextRange(0, field.text.length))
+        },
         keyboardOptions = KeyboardOptions(
             keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
             imeAction = imeAction,

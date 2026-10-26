@@ -10,7 +10,7 @@ import type { Dashboard, LibraryProgram, LibraryResponse, PlatesResponse, Profil
 import { t, type Lang } from "./i18n";
 import type { View } from "./logic/navigation";
 import { Icon, type IconName } from "./icons";
-import { AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
+import { AndroidAppCard, AppShortcutsCard, SupportCard, WeekStoryButton } from "./TelegramExtras";
 import { ReleaseItems } from "./WhatsNew";
 import type { ReleaseItem } from "./logic/releaseDelivery";
 import { BecomeTrainerCard } from "./BecomeTrainer";
@@ -213,6 +213,7 @@ export function ExtrasView({ lang, role, links = [], onOpen }: { lang: Lang; rol
     <SquadsCard lang={lang} />
 
     <AppShortcutsCard lang={lang} />
+    <AndroidAppCard lang={lang} />
     <SupportCard lang={lang} />
   </div>;
 }

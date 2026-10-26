@@ -93,6 +93,12 @@ export function FocusExercise(props: FocusExerciseProps) {
   const [rpeOpen, setRpeOpen] = useState(false);
   const mainInput = useRef<HTMLInputElement>(null);
 
+  // A tap focuses the field and then drops the caret where the finger was, undoing a select() made on
+  // focus. Selecting once the tap has landed leaves every digit selected, so typing replaces the number.
+  const selectAll = (e: { currentTarget: HTMLInputElement }) => {
+    const input = e.currentTarget;
+    setTimeout(() => input.select(), 0);
+  };
   const seed = (i: number): LoggerSet => (done(i) ? { ...sets[i] } : { ...suggestion(exercise, i), ...(sets[i]?.weight ? { weight: sets[i].weight } : {}) });
   const commit = (i: number, value: LoggerSet) => {
     if (!(Number(value[main] ?? 0) > 0)) return;
@@ -196,8 +202,8 @@ export function FocusExercise(props: FocusExerciseProps) {
             return (
               <div key={i} className="set-row-v2 editing" role="row">
                 <span className="set-n">{i + 1}</span>
-                {reps && <label className="set-field"><input type="text" inputMode="decimal" name="set-load" enterKeyHint="next" {...noAutofill} onKeyDown={onEnter("weight")} aria-label={t(lang, "field_load")} value={editing.text?.weight ?? fmt(lang, v.weight ?? 0)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => type("weight", e.target.value)} /><span>{t(lang, "ph_kg")}</span></label>}
-                <label className="set-field"><input ref={mainInput} type="text" inputMode={main === "meters" ? "decimal" : "numeric"} name={`set-${main}`} enterKeyHint="done" {...noAutofill} onKeyDown={onEnter(main)} aria-label={mainHead} value={editing.text?.[main] ?? fmt(lang, v[main] ?? 0)} onFocus={(e) => e.currentTarget.select()} onChange={(e) => type(main, e.target.value)} />{unitMain && <span>{unitMain}</span>}</label>
+                {reps && <label className="set-field"><input type="text" inputMode="decimal" name="set-load" enterKeyHint="next" {...noAutofill} onKeyDown={onEnter("weight")} aria-label={t(lang, "field_load")} value={editing.text?.weight ?? fmt(lang, v.weight ?? 0)} onFocus={selectAll} onClick={selectAll} onChange={(e) => type("weight", e.target.value)} /><span>{t(lang, "ph_kg")}</span></label>}
+                <label className="set-field"><input ref={mainInput} type="text" inputMode={main === "meters" ? "decimal" : "numeric"} name={`set-${main}`} enterKeyHint="done" {...noAutofill} onKeyDown={onEnter(main)} aria-label={mainHead} value={editing.text?.[main] ?? fmt(lang, v[main] ?? 0)} onFocus={selectAll} onClick={selectAll} onChange={(e) => type(main, e.target.value)} />{unitMain && <span>{unitMain}</span>}</label>
                 <button type="button" className="set-ok primary" disabled={!(v[main] ?? 0)} onClick={() => commit(i, v)} aria-label={t(lang, "set_done_btn")}><Icon name="check" /></button>
               </div>
             );
@@ -209,7 +215,7 @@ export function FocusExercise(props: FocusExerciseProps) {
                 {reps && <span className="num">{shown.weight ? <>{fmt(lang, shown.weight)}<small>{t(lang, "ph_kg")}</small></> : <small>BW</small>}</span>}
                 <span className="num">{fmt(lang, shown[main] ?? 0)}{unitMain && <small>{unitMain}</small>}{isDone && shown.rpe ? <small> · RPE {shown.rpe}</small> : null}</span>
               </button>
-              <button type="button" className={isDone ? "set-ok on" : "set-ok"} onClick={() => (isDone ? undo(i) : commit(i, seed(i)))} aria-label={isDone ? t(lang, "set_undo_aria", { n: i + 1 }) : t(lang, "set_done_btn")} aria-pressed={isDone}><Icon name="check" /></button>
+              <button type="button" className={isDone ? "set-ok on" : "set-ok"} onClick={() => (isDone ? undo(i) : commit(i, seed(i)))} aria-label={isDone ? t(lang, "set_undo_aria", { n: i + 1 }) : t(lang, "set_done_btn")} aria-pressed={isDone}>{isDone && <Icon name="check" />}</button>
             </div>
           );
         })}
