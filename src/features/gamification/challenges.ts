@@ -2,7 +2,7 @@
 // gamification feature slice (roadmap item 1), moved here from bot/challenges.ts. bot.ts's
 // barrel seam still applies: `export * from "./features/gamification/challenges"`.
 // The "Challenges" banner in bot.ts also held an unrelated cmdFeedback and the reminder on/off
-// settings (REMINDER_TYPES/showReminderSettings/onReminderToggle) — those stayed in bot.ts,
+// settings (REMINDER_KEYS/showReminderSettings/onReminderToggle) — those stayed in bot.ts,
 // they aren't challenges code and moving them here would just relocate the same drift.
 import { InlineKeyboard } from "grammy";
 import type { Lang } from "../../types";
