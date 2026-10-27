@@ -1,4 +1,4 @@
-import { CURATED, foodCategory, type FoodCategory, type Per100g } from "./curatedFoods";
+import { CURATED, foodCategory, type FoodCategory } from "./curatedFoods";
 import type { GoalBucket, Lang } from "../types";
 
 // Deterministic meal-plan builder: picks whole foods from the curated catalog to assemble a
@@ -245,9 +245,4 @@ export function buildTemplateMealDay(
   const meals = (mealsPerDay >= 4 ? all : mealsPerDay === 3 ? all.slice(0, 3) : all.slice(0, Math.max(1, mealsPerDay)))
     .filter((m) => m.items.length);
   return { meals };
-}
-
-/** Per-100g for a curated food (used by the builder's own callers/tests). */
-export function curatedMacros(name: string): Per100g | null {
-  return CURATED[name.toLowerCase().trim()] ?? null;
 }

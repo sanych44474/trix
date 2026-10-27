@@ -358,14 +358,6 @@ export async function workoutLogsSince(db: DB, userId: number, cutoff: string): 
   return loadWorkoutLogs(db, r.results ?? []);
 }
 
-export async function countWorkoutsSince(db: DB, cutoff: string): Promise<number> {
-  const r = await db
-    .prepare("SELECT COUNT(*) AS c FROM v2_workout_sessions WHERE date >= ?")
-    .bind(cutoff)
-    .first<{ c: number }>();
-  return r?.c ?? 0;
-}
-
 export async function countCompletedWorkouts(db: DB, userId: number): Promise<number> {
   const r = await db
     .prepare("SELECT COUNT(*) AS c FROM v2_workout_sessions WHERE accountId = ? AND completed = 1")

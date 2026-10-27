@@ -10,8 +10,8 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { acquireScheduleLock, deleteRestTimers, deleteSetting, dueRestTimers, getAlertState, getOwnerChatId, getSetting, markUpdateSeen, pingDb, pruneOldLogs, pruneSeenUpdates, recentAudit, recordAudit, releaseScheduleLock, setAlertState, setOwnerChatId, setRestTimer, setSetting, setUserFlag } from "../src/adapters/d1/v2Admin";
 import { aiAndErrorStatsBetween, aiAttemptCountForUserSince, aiCacheStmt, aiCallStatsSince, aiCallStmt, aiTokensByKindSince, aiUsageSince, aiUsageStmt, errorStatsSince, getAiCache, pruneAiCache, recentErrors, recordError } from "../src/adapters/d1/v2AiTelemetry";
-import { bumpEvent, countAdjustmentsSince, countPlanSourcesSince, dailyActiveUsers, engagementSince, eventCountsByUser, eventStatsSince, listUsersBrief, recentEventsForUser, recordPlanSource, setLastSeen, userStatCounts } from "../src/adapters/d1/v2Analytics";
-import { countFeedbackSince, insertFeedback, recentFeedback } from "../src/adapters/d1/v2Feedback";
+import { bumpEvent, countAdjustmentsSince, countPlanSourcesSince, dailyActiveUsers, engagementSince, eventCountsByUser, eventStatsSince, listUsersBrief, recentEventsForUser, recordPlanSource, userStatCounts } from "../src/adapters/d1/v2Analytics";
+import { insertFeedback, recentFeedback } from "../src/adapters/d1/v2Feedback";
 import { dueNotifications, enqueueNotification, markPermanentFailure, markRetry, markSent, pruneNotificationOutbox } from "../src/adapters/d1/v2Notifications";
 import { getDailyMetrics, pruneDailyMetricsBefore, upsertDailyMetric, upsertDailyMetrics } from "../src/adapters/d1/v2DailyMetrics";
 import { claimIdempotencyKey, completeIdempotencyClaim, pruneIdempotencyKeys, runIdempotent } from "../src/adapters/d1/v2Idempotency";
@@ -28,11 +28,10 @@ function seedAccount(db: ReturnType<typeof newDb>, id: number): void {
 
 // ---------- feedback ----------
 
-test("insertFeedback/countFeedbackSince/recentFeedback round-trip via v2_feedback", async () => {
+test("insertFeedback/recentFeedback round-trip via v2_feedback", async () => {
   const db = newDb();
   seedAccount(db, 1);
   await insertFeedback(db, { userId: 1, username: "alex", text: "love the bot", date: "2026-09-01" });
-  assert.equal(await countFeedbackSince(db, "2026-01-01T00:00:00.000Z"), 1);
   const recent = await recentFeedback(db, 5);
   assert.equal(recent.length, 1);
   assert.equal(recent[0].userId, 1);
@@ -276,14 +275,6 @@ test("bumpEvent increments in place (not append) — eventStatsSince/dailyActive
   const forUser1 = await recentEventsForUser(db, 1);
   assert.equal(forUser1.length, 1);
   assert.equal(forUser1[0].n, 2);
-});
-
-test("setLastSeen writes v2_accounts.lastSeenAt", async () => {
-  const db = newDb();
-  seedAccount(db, 1);
-  await setLastSeen(db, 1, "2026-09-10T00:00:00.000Z");
-  const r = db.prepare("SELECT lastSeenAt FROM v2_accounts WHERE id = 1").first<{ lastSeenAt: string }>();
-  assert.equal(r?.lastSeenAt, "2026-09-10T00:00:00.000Z");
 });
 
 test("userStatCounts aggregates across v2_workout_sessions/v2_step_logs/v2_achievements", async () => {

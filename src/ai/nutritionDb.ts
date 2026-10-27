@@ -27,22 +27,6 @@ export function curatedPer100g(query: string): Per100g | null {
 // USDA descriptions that mean the WRONG form for a generic whole-food query.
 const BAD_FORM = /dried|dehydrated|powder|chips?|juice|sauce|breaded|infant|baby food|candied|fried/i;
 
-/** Look up reference macros per 100g for a food name.
- * Primary: USDA FoodData Central. Fallback: Gemini (replaces the flaky OFF search).
- * Returns null if no confident match — verification is best-effort. */
-export async function lookupPer100g(env: Env, query: string): Promise<Per100g | null> {
-  const q = query.trim();
-  if (!q) return null;
-  const curated = curatedPer100g(q);
-  if (curated) return curated;
-  const key = env.USDA_FDC_API_KEY || "DEMO_KEY";
-  try {
-    const usda = await usdaLookup(key, q);
-    if (usda) return usda;
-  } catch { /* fall through to Gemini */ }
-  return null; // no DB available here — Gemini fallback requires D1, use lookupPer100gCached
-}
-
 /** Cached per-100g lookup (D1 `food_cache`).
  * Order: CURATED → cache → USDA → Gemini.
  * Caches the result so subsequent calls (same food, same session) are free. */

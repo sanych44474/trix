@@ -9,7 +9,6 @@ import type { LoggedExercise, Weekday } from "../src/types";
 import {
   countCompletedWorkouts,
   countCompletedWorkoutsBetween,
-  countWorkoutsSince,
   deleteWorkoutDraft,
   getWorkoutDraft,
   getWorkoutLog,
@@ -142,7 +141,7 @@ test("workoutLogsSince: scoped to one user, date >= cutoff", async () => {
 
 // ---------- counters ----------
 
-test("countWorkoutsSince / countCompletedWorkouts / countCompletedWorkoutsBetween", async () => {
+test("countCompletedWorkouts / countCompletedWorkoutsBetween", async () => {
   const db = newDb();
   seedAccount(db, 50);
   seedAccount(db, 51);
@@ -150,8 +149,6 @@ test("countWorkoutsSince / countCompletedWorkouts / countCompletedWorkoutsBetwee
   await upsertWorkoutLog(db, 50, "2026-04-02", 2 as Weekday, [], false);
   await upsertWorkoutLog(db, 51, "2026-04-03", 3 as Weekday, [], true);
 
-  assert.equal(await countWorkoutsSince(db, "2026-04-01"), 3);
-  assert.equal(await countWorkoutsSince(db, "2026-04-02"), 2);
   assert.equal(await countCompletedWorkouts(db, 50), 1);
   assert.equal(await countCompletedWorkoutsBetween(db, "2026-04-01", "2026-04-03"), 1);
   assert.equal(await countCompletedWorkoutsBetween(db, "2026-04-01", "2026-04-04"), 2);

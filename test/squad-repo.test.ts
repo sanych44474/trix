@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
-import { deleteSquad, getSquad, joinSquad, leaveSquad, listSquads, squadCompletedDates, squadMembers, markSquadRecapped, squadsDueForRecap, squadsForUser, upsertSquad } from "../src/adapters/d1/v2Gamification";
+import { deleteSquad, getSquad, joinSquad, leaveSquad, squadCompletedDates, squadMembers, markSquadRecapped, squadsDueForRecap, squadsForUser, upsertSquad } from "../src/adapters/d1/v2Gamification";
 import { deleteUserData } from "../src/adapters/d1/v2Account";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
@@ -48,7 +48,6 @@ test("leaveSquad removes only that member; deleteSquad clears the whole chat", a
   assert.deepEqual((await squadMembers(db, CHAT)).map((m) => m.userId), [1]);
   await deleteSquad(db, CHAT);
   assert.equal(await getSquad(db, CHAT), null);
-  assert.deepEqual(await listSquads(db), []);
 });
 
 test("squadCompletedDates: members only, completed only, inside the window only", async () => {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { challengeByCode, challengeWindow, isSeasonCode, seasonalChallenge, seasonMilestones, CHALLENGES } from "../src/domain/challenges";
+import { challengeByCode, challengeWindow, seasonalChallenge, seasonMilestones, CHALLENGES } from "../src/domain/challenges";
 import { challengeTitleText } from "../src/render";
 
 test("seasonal challenge: one per calendar month, rotating, resolvable from its code", () => {
@@ -14,7 +14,6 @@ test("seasonal challenge: one per calendar month, rotating, resolvable from its 
   assert.equal(metrics.size, 4, "four consecutive months, four different goals");
   assert.deepEqual(challengeByCode("season_2026_10"), oct);
   assert.equal(challengeByCode("season_2026_13"), undefined);
-  assert.ok(isSeasonCode(oct.code) && !isSeasonCode("w4"));
   assert.ok(CHALLENGES.every((c) => challengeByCode(c.code) === c), "fixed templates unchanged");
 });
 
