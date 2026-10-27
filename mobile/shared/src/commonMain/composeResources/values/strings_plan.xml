@@ -50,7 +50,7 @@
     <string name="pl_plan_note_ph">A reminder to yourself: tempo, grip, what to watch</string>
     <string name="pl_plan_change_src_manual">Edited here</string>
     <string name="pl_plan_change_src_trainer">Your coach</string>
-    <string name="pl_plan_change_src_ai_coach">AI coach</string>
+    <string name="pl_plan_change_src_ai_coach">trix</string>
     <string name="pl_plan_change_src_injury_swap">Injury swap</string>
     <string name="pl_plan_day_g_chest">Chest</string>
     <string name="pl_plan_day_g_back">Back</string>

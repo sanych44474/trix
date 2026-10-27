@@ -37,7 +37,7 @@ test("parseReleaseNote: one card per paragraph, greeting and bot-only closing li
     assert.ok(!items.some((i) => /\*/.test(i.title + i.body)), "markers stripped");
     assert.ok(!items.some((i) => /trix\*? (below|нижче)/.test(i.body)), "the closing button line is not a card");
   }
-  assert.equal(parseReleaseNote(note.uk)[0]!.title, "trix для Android");
+  assert.equal(parseReleaseNote(note.uk)[0]!.title, "Hack Limits для Android");
   assert.equal(latestRelease().version, "2026-10-26");
   assert.deepEqual(parseReleaseNote("Hi\n\nPlain paragraph with no title."), [{ icon: "", title: "", body: "Plain paragraph with no title." }]);
 });

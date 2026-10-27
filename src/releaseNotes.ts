@@ -15,9 +15,9 @@ export interface ReleaseNote {
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
     version: "2026-10-26",
-    en: `🎉 *What's new in trix*
+    en: `🎉 *What's new in Hack Limits*
 
-📲 *trix for Android* — a real app with the same account: an exact rest alarm, steps from Health Connect and push reminders. Download it in More → trix for Android; after that it updates itself.
+📲 *Hack Limits for Android* — a real app with the same account: an exact rest alarm, steps from Health Connect and push reminders. Download it in More → Hack Limits for Android; after that it updates itself.
 
 ⏱ *A rest timer that keeps time* — it keeps counting when you close the app, and fixing a set you already did no longer restarts it.
 
@@ -35,10 +35,10 @@ export const RELEASE_NOTES: ReleaseNote[] = [
 
 🌍 *Fully translated* — grams, kilos, minutes and days are no longer left in English.
 
-Tap *📱 Open trix* below.`,
-    uk: `🎉 *Що нового в trix*
+Tap *📱 Open Hack Limits* below.`,
+    uk: `🎉 *Що нового в Hack Limits*
 
-📲 *trix для Android* — справжній застосунок з тим самим акаунтом: точний таймер відпочинку, кроки з Health Connect і push-нагадування. Завантаж у Ще → trix для Android; далі він оновлюється сам.
+📲 *Hack Limits для Android* — справжній застосунок з тим самим акаунтом: точний таймер відпочинку, кроки з Health Connect і push-нагадування. Завантаж у Ще → Hack Limits для Android; далі він оновлюється сам.
 
 ⏱ *Таймер відпочинку, що не збивається* — рахує далі, коли закриваєш застосунок, а виправлення вже зробленого підходу більше не запускає його спочатку.
 
@@ -56,7 +56,7 @@ Tap *📱 Open trix* below.`,
 
 🌍 *Повністю перекладено* — грами, кілограми, хвилини й дні більше не лишаються англійською.
 
-Тисни *📱 Відкрити trix* нижче.`,
+Тисни *📱 Відкрити Hack Limits* нижче.`,
   },
   {
     version: "2026-10-18",

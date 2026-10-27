@@ -4,7 +4,7 @@
     <string name="tr_title">Клієнти</string>
     <string name="tr_clients_count">%1$s клієнтів</string>
     <string name="tr_tab_at_risk">Звіт ризику (%1$s)</string>
-    <string name="tr_tab_coach">Запитати AI-тренера</string>
+    <string name="tr_tab_coach">Спитай trix</string>
     <string name="tr_tab_profile">Мій профіль</string>
     <string name="tr_tab_schedule">Розклад</string>
     <string name="tr_tab_finance">Фінанси</string>
@@ -63,7 +63,7 @@
     <string name="tr_invite_name_ph">Ім\'я клієнта</string>
     <string name="tr_invite_create">Створити</string>
     <string name="tr_invite_waiting">Ще не відкрили:</string>
-    <string name="tr_invite_personal_text">%1$s, це твоє особисте запрошення тренуватися зі мною в trix 💪</string>
+    <string name="tr_invite_personal_text">%1$s, це твоє особисте запрошення тренуватися зі мною в Hack Limits 💪</string>
     <string name="tr_card_eyebrow">Картка клієнта</string>
     <string name="tr_edit_plan">Редагувати план клієнта</string>
     <string name="tr_draft_eyebrow">Чекає на тебе</string>

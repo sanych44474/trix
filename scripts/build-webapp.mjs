@@ -18,11 +18,11 @@ const page = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>trix</title>
+<title>Hack Limits</title>
 <script>location.replace("/app-v2" + location.search + location.hash);</script>
 </head>
 <body>
-<p>This page has moved. <a href="/app-v2">Open trix</a>.</p>
+<p>This page has moved. <a href="/app-v2">Open Hack Limits</a>.</p>
 </body>
 </html>
 `;

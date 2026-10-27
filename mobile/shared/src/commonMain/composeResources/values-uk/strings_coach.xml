@@ -12,8 +12,8 @@
     <string name="coach_err_not_found">Коуч зараз недоступний для цього акаунта.</string>
     <string name="coach_err_generic">Щось пішло не так. Спробуй знову.</string>
 
-    <string name="co_ai_eyebrow">AI-тренер</string>
-    <string name="co_ai_title">Чат з AI-тренером</string>
+    <string name="co_ai_eyebrow">trix · AI-тренер</string>
+    <string name="co_ai_title">Чат із trix</string>
     <string name="co_intro">Питай про тренування, вагу, харчування чи план. Тренер бачить твій план і останні тренування й може одразу запропонувати зміну — натисни кнопку під відповіддю. Знайшов баг чи маєш ідею — напиши, тренер передасть команді.</string>
     <string name="co_action_done">Готово, план оновлено</string>
     <string name="co_feedback_sent">Передано команді</string>
