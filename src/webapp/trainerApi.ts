@@ -136,7 +136,7 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
           text: t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)),
           extra: { ...HTML, reply_markup: appMarkup(env, t(c.lang, "nb_reply"), "coach") },
         });
-        if (result === "sent") sent++;
+        if (result === "sent" || result === "retrying") sent++;
       }
       await recordAudit(env.DB, user._id, "broadcast", undefined, `${sent}/${clients.length}`).catch(() => {});
       return { status: 200, body: { ok: true, sent } };
