@@ -158,7 +158,7 @@ fun MoreScreen(
             onSignOut = onSignOut,
         )
 
-        DisplaySection(p.prefs, profile::setThemeMode, profile::setAccent, profile::setHighContrast)
+        DisplaySection(p.prefs, profile::setThemeMode, profile::setAccent, profile::setHighContrast, profile::setReducedMotion)
 
         if (settings == null) {
             if (s.message == null) CircularProgressIndicator()

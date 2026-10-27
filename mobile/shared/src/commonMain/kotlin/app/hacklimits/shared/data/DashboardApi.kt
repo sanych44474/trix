@@ -135,7 +135,8 @@ data class WeekCardStats(
 )
 
 class DashboardApi(private val api: ApiClient) {
-    suspend fun load(): Dashboard = api.unwrap(api.http.get("api/v2/dashboard") { api.authorize(this) })
+    suspend fun load(): Dashboard =
+        api.unwrap<Dashboard>(api.http.get("api/v2/dashboard") { api.authorize(this) }).also { api.adoptAccountId(it.viewer.id) }
 
     suspend fun weekCard(): WeekCardResponse = api.unwrap(api.http.get("api/v2/weekcard") { api.authorize(this) })
 

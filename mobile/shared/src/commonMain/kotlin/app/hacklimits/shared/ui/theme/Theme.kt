@@ -6,14 +6,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import app.hacklimits.shared.settings.Accent
 import app.hacklimits.shared.settings.DisplayPrefs
 import app.hacklimits.shared.settings.ResolvedTheme
 
+/** App-level accessibility preference consumed by animated screens and effects. */
+internal val LocalReducedMotion = compositionLocalOf { false }
+
 // Brand tokens shared with the Mini App: near-black ground, electric-lime accent.
 private val Lime = Color(0xFFA8FF46)
-private val LimeDeep = Color(0xFF4F7D12)
+private val LimeDeep = Color(0xFF4D7A10)
 private val Ink = Color(0xFF0B0D11)
 private val Panel = Color(0xFF171B22)
 private val PanelHigh = Color(0xFF1F242D)
@@ -28,7 +33,7 @@ private val Dark = darkColorScheme(
     tertiary = Lime, onTertiary = Ink, tertiaryContainer = LimeDeep, onTertiaryContainer = TextHigh,
     background = Ink, onBackground = TextHigh, surface = Ink, onSurface = TextHigh,
     surfaceContainer = Panel, surfaceContainerHigh = PanelHigh, surfaceVariant = PanelHigh,
-    onSurfaceVariant = TextMuted, outline = Color(0xFF3A414D), error = Danger, onError = Ink,
+    onSurfaceVariant = TextMuted, outline = Color(0xFF667080), error = Danger, onError = Ink,
 )
 
 private val Light = lightColorScheme(
@@ -40,18 +45,38 @@ private val Light = lightColorScheme(
     error = Color(0xFFB3261E),
 )
 
-// The Mini App's red accent and its fixed high-contrast scheme (styles.css), same values.
-private val Ember = Color(0xFFFF5F3D)
-private val EmberInk = Color(0xFFC02C04)
-
 private fun ColorScheme.withAccent(accent: Color, onAccent: Color, container: Color, onContainer: Color) = copy(
     primary = accent, onPrimary = onAccent, primaryContainer = container, onPrimaryContainer = onContainer,
     secondary = accent, onSecondary = onAccent, secondaryContainer = container, onSecondaryContainer = onContainer,
     tertiary = accent, onTertiary = onAccent, tertiaryContainer = container, onTertiaryContainer = onContainer,
 )
 
-private val DarkRed = Dark.withAccent(Ember, Ink, Color(0xFF5C1F12), TextHigh)
-private val LightRed = Light.withAccent(EmberInk, Color.White, Color(0xFFFFDDD4), Color(0xFF3A0B00))
+private data class AccentRoles(val primary: Color, val onPrimary: Color, val container: Color, val onContainer: Color)
+private data class AccentPalette(val dark: AccentRoles, val light: AccentRoles)
+
+private val AccentPalettes = mapOf(
+    Accent.GREEN to AccentPalette(
+        dark = AccentRoles(Lime, Ink, LimeDeep, TextHigh),
+        light = AccentRoles(LimeDeep, Color.White, Color(0xFFDDF8B9), Color(0xFF1C2A06)),
+    ),
+    Accent.RED to AccentPalette(
+        dark = AccentRoles(Color(0xFFFF5F3D), Ink, Color(0xFF5C1F12), TextHigh),
+        light = AccentRoles(Color(0xFFC02C04), Color.White, Color(0xFFFFDDD4), Color(0xFF3A0B00)),
+    ),
+    Accent.BLUE to AccentPalette(
+        dark = AccentRoles(Color(0xFF65D6FF), Ink, Color(0xFF16465E), Color(0xFFEAF7FF)),
+        light = AccentRoles(Color(0xFF005A7D), Color.White, Color(0xFFCBEAFF), Color(0xFF001E2B)),
+    ),
+    Accent.VIOLET to AccentPalette(
+        dark = AccentRoles(Color(0xFFD0BCFF), Ink, Color(0xFF4B3E70), TextHigh),
+        light = AccentRoles(Color(0xFF6750A4), Color.White, Color(0xFFEADDFF), Color(0xFF21005D)),
+    ),
+)
+
+private fun accentScheme(base: ColorScheme, accent: Accent, dark: Boolean): ColorScheme {
+    val roles = AccentPalettes.getValue(accent).let { if (dark) it.dark else it.light }
+    return base.withAccent(roles.primary, roles.onPrimary, roles.container, roles.onContainer)
+}
 
 private val Contrast = lightColorScheme(
     primary = Color(0xFF7A1500), onPrimary = Color.White, primaryContainer = Color(0xFFFFDAD2), onPrimaryContainer = Color(0xFF0B0D11),
@@ -65,11 +90,13 @@ private val Contrast = lightColorScheme(
 /** The user's display choice (More -> Display) applied over the device's dark/light setting. */
 @Composable
 fun HackLimitsTheme(prefs: DisplayPrefs = DisplayPrefs(), content: @Composable () -> Unit) {
-    val red = prefs.effectiveAccent() == Accent.RED
+    val accent = prefs.effectiveAccent() ?: Accent.GREEN
     val scheme = when (prefs.resolvedTheme(isSystemInDarkTheme())) {
         ResolvedTheme.CONTRAST -> Contrast
-        ResolvedTheme.DARK -> if (red) DarkRed else Dark
-        ResolvedTheme.LIGHT -> if (red) LightRed else Light
+        ResolvedTheme.DARK -> accentScheme(Dark, accent, dark = true)
+        ResolvedTheme.LIGHT -> accentScheme(Light, accent, dark = false)
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    MaterialTheme(colorScheme = scheme) {
+        CompositionLocalProvider(LocalReducedMotion provides prefs.reducedMotion, content = content)
+    }
 }

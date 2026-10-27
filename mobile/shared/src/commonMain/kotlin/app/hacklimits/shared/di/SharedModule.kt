@@ -5,6 +5,7 @@ import app.hacklimits.shared.trainingextras.trainingExtrasModule
 import app.hacklimits.shared.trainertools.trainerToolsModule
 import app.hacklimits.shared.auth.SignInViewModel
 import app.hacklimits.shared.data.ApiClient
+import app.hacklimits.shared.data.AccountCache
 import app.hacklimits.shared.data.ClientErrorApi
 import app.hacklimits.shared.data.AuthApi
 import app.hacklimits.shared.data.DashboardApi
@@ -46,6 +47,7 @@ import app.hacklimits.shared.trainer.clients.trainerClientsModule
 fun sharedModule(baseUrl: String) = module {
     includes(dailyModule, trainingExtrasModule, trainerToolsModule, telemetryModule, workoutModule, ownerModule, settingsModule, planModule, chatModule, inboxModule, coachModule, socialModule, trainerClientsModule, trainerBusinessModule, mediaModule, integrationsModule)
     single { ApiClient(baseUrl, get(), reporter = getOrNull<ErrorReporter>() ?: ErrorReporter.None) }
+    single { AccountCache(get(), get()) }
     single { AppConfigApi(get()) }
     single { ClientErrorApi(get()) }
     viewModel { UpdateViewModel(get(), get(), get()) }
@@ -59,11 +61,11 @@ fun sharedModule(baseUrl: String) = module {
     single { TrackingApi(get()) }
     single { OnboardingApi(get()) }
     viewModel { SignInViewModel(get(), get(), get()) }
-    viewModel { TodayViewModel(get()) }
-    viewModel { params -> PlanViewModel(get(), params.getOrNull<Long>()) }
-    viewModel { NutritionViewModel(get()) }
+    viewModel { TodayViewModel(get(), get(), get()) }
+    viewModel { params -> PlanViewModel(get(), params.getOrNull<Long>(), get()) }
+    viewModel { NutritionViewModel(get(), get(), get()) }
     viewModel { QuickLogViewModel(get()) }
-    viewModel { ProgressViewModel(get(), get(), get(), get()) }
+    viewModel { ProgressViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { MoreViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { OnboardingViewModel(get()) }
 }

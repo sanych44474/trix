@@ -18,7 +18,7 @@ const SETTING_KEY = "telegram_setup_version";
 // The chat is retired (src/bot/launcher.ts): the command list is just /start (the Open-app button).
 export const COMMANDS = [{ command: "start", en: "Open trix", uk: "Відкрити trix" }];
 
-// Bot profile texts (also in marketing/botfather.md). description: the empty chat before Start
+// Bot profile texts. description: the empty chat before Start
 // (max 512); short: profile page, shares and search (max 120).
 export const PROFILE = {
   en: {

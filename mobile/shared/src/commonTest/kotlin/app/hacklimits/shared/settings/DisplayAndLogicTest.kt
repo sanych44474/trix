@@ -11,8 +11,10 @@ class DisplayAndLogicTest {
     @Test
     fun unknownStoredValuesFallBackToDefaults() {
         assertEquals(DisplayPrefs(), parseDisplayPrefs(null, null, null))
-        assertEquals(DisplayPrefs(ThemeMode.SYSTEM, Accent.GREEN, false), parseDisplayPrefs("purple", "blue", "0"))
+        assertEquals(DisplayPrefs(), parseDisplayPrefs("purple", "cyan", "0", "sometimes"))
         assertEquals(DisplayPrefs(ThemeMode.DARK, Accent.RED, true), parseDisplayPrefs("dark", "red", "1"))
+        assertEquals(DisplayPrefs(accent = Accent.BLUE, reducedMotion = true), parseDisplayPrefs("system", "blue", "0", "1"))
+        assertEquals(DisplayPrefs(accent = Accent.VIOLET), parseDisplayPrefs("system", "violet", "0", "0"))
     }
 
     @Test
@@ -24,9 +26,11 @@ class DisplayAndLogicTest {
     }
 
     @Test
-    fun redAccentDoesNotApplyUnderHighContrast() {
-        assertEquals(Accent.RED, DisplayPrefs(accent = Accent.RED).effectiveAccent())
-        assertNull(DisplayPrefs(accent = Accent.RED, highContrast = true).effectiveAccent())
+    fun customAccentsDoNotApplyUnderHighContrast() {
+        listOf(Accent.RED, Accent.BLUE, Accent.VIOLET).forEach { accent ->
+            assertEquals(accent, DisplayPrefs(accent = accent).effectiveAccent())
+            assertNull(DisplayPrefs(accent = accent, highContrast = true).effectiveAccent())
+        }
         assertNull(DisplayPrefs(accent = Accent.GREEN).effectiveAccent())
     }
 
@@ -34,11 +38,11 @@ class DisplayAndLogicTest {
     fun preferencesSurviveAReload() = runTest {
         val store = InMemoryKeyValueStore()
         val first = DisplayPreferences(store)
-        first.update(DisplayPrefs(ThemeMode.DARK, Accent.RED, highContrast = true))
+        first.update(DisplayPrefs(ThemeMode.DARK, Accent.BLUE, highContrast = true, reducedMotion = true))
 
         val second = DisplayPreferences(store)
         second.load()
-        assertEquals(DisplayPrefs(ThemeMode.DARK, Accent.RED, highContrast = true), second.prefs.value)
+        assertEquals(DisplayPrefs(ThemeMode.DARK, Accent.BLUE, highContrast = true, reducedMotion = true), second.prefs.value)
     }
 
     @Test

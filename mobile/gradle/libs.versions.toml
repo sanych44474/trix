@@ -20,6 +20,9 @@ firebase-bom = "35.0.2"
 google-services = "4.5.0"
 androidx-work = "2.12.0"
 androidx-datastore = "1.2.1"
+room3 = "3.0.3"
+sqlite = "2.7.1"
+ksp = "2.3.12"
 androidx-health-connect = "1.1.0"
 firebase-crashlytics-plugin = "3.0.8"
 play-app-update = "2.1.0"
@@ -65,6 +68,9 @@ leakcanary = { module = "com.squareup.leakcanary:leakcanary-android", version.re
 androidx-work = { module = "androidx.work:work-runtime-ktx", version.ref = "androidx-work" }
 androidx-health-connect = { module = "androidx.health.connect:connect-client", version.ref = "androidx-health-connect" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences-core", version.ref = "androidx-datastore" }
+androidx-room3-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room3" }
+androidx-room3-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room3" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 
 [plugins]
@@ -76,3 +82,5 @@ compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 google-services = { id = "com.google.gms.google-services", version.ref = "google-services" }
 firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebase-crashlytics-plugin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+androidx-room3 = { id = "androidx.room3", version.ref = "room3" }

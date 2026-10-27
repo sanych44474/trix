@@ -71,6 +71,10 @@ data class LoggerUi(
     val drafted: Boolean = false, // there is unsaved work
     val savedAtMs: Long? = null,
     val queued: Boolean = false, // saved on the phone, waiting for the network
+    val pendingSyncCount: Int = 0,
+    val needsAttentionCount: Int = 0,
+    val legacyDataNeedsReview: Boolean = false,
+    val legacyDataOwnerId: Long? = null,
     val editedAtMs: Long = 0,
     val restoredFromServer: Boolean = false,
     val sync: SyncState = SyncState.IDLE,

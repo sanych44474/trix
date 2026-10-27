@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Workout slice (Mini App parity). Copy from apps/mini-app/src/i18n. -->
 <resources>
+    <string name="wk_legacy_title">Знайдено офлайн-дані тренування</string>
+    <string name="wk_legacy_detail">Ці дані збережені до розділення сховища за акаунтами. Відновити стару чергу й чернетку для акаунта %1$d? Вони синхронізуються лише з ним.</string>
+    <string name="wk_legacy_restore">Відновити для цього акаунта</string>
+    <string name="wk_legacy_keep">Залишити окремо</string>
     <string name="wk_back_to_today">Назад до сьогодні</string>
     <string name="wk_cancel_btn">Скасувати</string>
     <string name="wk_close">Закрити</string>

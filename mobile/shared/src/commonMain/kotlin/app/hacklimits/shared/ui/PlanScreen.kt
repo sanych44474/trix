@@ -92,6 +92,7 @@ fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Uni
             TextButton(onClick = onClose) { Text(stringResource(Res.string.back)) }
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
+        OfflineStatusNotice(s.offline, lastUpdatedAtMs = s.lastUpdatedAtMs)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when {
                 plan == null && s.loading -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
@@ -121,7 +122,11 @@ fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Uni
                             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                                 Row(Modifier.padding(12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        stringResource(if (code == "last_exercise") Res.string.pl_plan_last_exercise else Res.string.pl_generic_error),
+                                        stringResource(when (code) {
+                                            "last_exercise" -> Res.string.pl_plan_last_exercise
+                                            "offline_read_only" -> Res.string.pl_offline_read_only
+                                            else -> Res.string.pl_generic_error
+                                        }),
                                         modifier = Modifier.weight(1f),
                                     )
                                     TextButton(onClick = vm::dismissActionError) { Text(stringResource(Res.string.pl_close)) }

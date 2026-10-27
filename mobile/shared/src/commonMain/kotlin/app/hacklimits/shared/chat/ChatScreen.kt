@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
+import app.hacklimits.shared.ui.theme.LocalReducedMotion
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -68,7 +69,13 @@ fun ChatContent(peerId: Long?, modifier: Modifier = Modifier) {
     val thread = s.thread
     val count = thread?.messages?.size ?: 0
     val listState = rememberLazyListState()
-    LaunchedEffect(count) { if (count > 0) listState.animateScrollToItem(count - 1) }
+    val reducedMotion = LocalReducedMotion.current
+    LaunchedEffect(count, reducedMotion) {
+        if (count > 0) {
+            if (reducedMotion) listState.scrollToItem(count - 1)
+            else listState.animateScrollToItem(count - 1)
+        }
+    }
 
     Column(modifier) {
         Box(Modifier.weight(1f).fillMaxWidth()) {

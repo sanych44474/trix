@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Workout slice (Mini App parity). Copy from apps/mini-app/src/i18n. -->
 <resources>
+    <string name="wk_legacy_title">Offline workout data found</string>
+    <string name="wk_legacy_detail">This data was saved before account separation. Restore the old workout queue and draft to account %1$d? It will sync only to this account.</string>
+    <string name="wk_legacy_restore">Restore to this account</string>
+    <string name="wk_legacy_keep">Keep separate</string>
     <string name="wk_back_to_today">Back to today</string>
     <string name="wk_cancel_btn">Cancel</string>
     <string name="wk_close">Close</string>

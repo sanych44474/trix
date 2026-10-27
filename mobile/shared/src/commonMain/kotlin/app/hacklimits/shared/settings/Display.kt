@@ -6,13 +6,14 @@ import kotlinx.coroutines.flow.StateFlow
 
 /** Device-local display preferences (the Mini App's theme.ts, plus a system/light/dark choice). */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
-enum class Accent { GREEN, RED }
+enum class Accent { GREEN, RED, BLUE, VIOLET }
 enum class ResolvedTheme { LIGHT, DARK, CONTRAST }
 
 data class DisplayPrefs(
     val mode: ThemeMode = ThemeMode.SYSTEM,
     val accent: Accent = Accent.GREEN,
     val highContrast: Boolean = false,
+    val reducedMotion: Boolean = false,
 ) {
     /** High contrast wins over the chosen scheme; SYSTEM follows the device. */
     fun resolvedTheme(systemDark: Boolean): ResolvedTheme = when {
@@ -22,15 +23,16 @@ data class DisplayPrefs(
         else -> ResolvedTheme.DARK
     }
 
-    /** The red accent applies to light and dark; high contrast keeps its fixed colours. Null = default green. */
-    fun effectiveAccent(): Accent? = if (accent == Accent.RED && !highContrast) Accent.RED else null
+    /** High contrast keeps its fixed colours; null selects Trix's default lime palette. */
+    fun effectiveAccent(): Accent? = if (accent == Accent.GREEN || highContrast) null else accent
 }
 
 /** Parses the stored values; anything unknown falls back to the default. */
-fun parseDisplayPrefs(mode: String?, accent: String?, contrast: String?): DisplayPrefs = DisplayPrefs(
+fun parseDisplayPrefs(mode: String?, accent: String?, contrast: String?, reducedMotion: String? = null): DisplayPrefs = DisplayPrefs(
     mode = ThemeMode.entries.firstOrNull { it.name.lowercase() == mode } ?: ThemeMode.SYSTEM,
-    accent = if (accent == "red") Accent.RED else Accent.GREEN,
+    accent = Accent.entries.firstOrNull { it.name.lowercase() == accent } ?: Accent.GREEN,
     highContrast = contrast == "1",
+    reducedMotion = reducedMotion == "1",
 )
 
 /** Holds the display preferences and persists them in the platform key-value store. Call [load] once
@@ -40,13 +42,19 @@ class DisplayPreferences(private val store: KeyValueStore) {
     val prefs: StateFlow<DisplayPrefs> = state
 
     suspend fun load() {
-        state.value = parseDisplayPrefs(store.get(KEY_MODE), store.get(KEY_ACCENT), store.get(KEY_CONTRAST))
+        state.value = parseDisplayPrefs(
+            store.get(KEY_MODE),
+            store.get(KEY_ACCENT),
+            store.get(KEY_CONTRAST),
+            store.get(KEY_REDUCED_MOTION),
+        )
     }
 
     suspend fun update(next: DisplayPrefs) {
         store.put(KEY_MODE, next.mode.name.lowercase())
         store.put(KEY_ACCENT, next.accent.name.lowercase())
         store.put(KEY_CONTRAST, if (next.highContrast) "1" else "0")
+        store.put(KEY_REDUCED_MOTION, if (next.reducedMotion) "1" else "0")
         state.value = next
     }
 
@@ -54,5 +62,6 @@ class DisplayPreferences(private val store: KeyValueStore) {
         const val KEY_MODE = "ac_theme_mode"
         const val KEY_ACCENT = "ac_accent"
         const val KEY_CONTRAST = "ac_contrast"
+        const val KEY_REDUCED_MOTION = "ac_reduced_motion"
     }
 }

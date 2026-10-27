@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.hacklimits.shared.chat.ChatContent
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
+import app.hacklimits.shared.ui.theme.LocalReducedMotion
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import app.hacklimits.shared.telemetry.Telemetry
@@ -64,7 +65,13 @@ fun CoachScreen(onBack: () -> Unit) {
     LaunchedEffect(Unit) { telemetry.track("app_coach_open_today") }
     val listState = rememberLazyListState()
     val itemCount = s.lines.size + if (s.sending) 1 else 0
-    LaunchedEffect(itemCount) { if (itemCount > 0) listState.animateScrollToItem(itemCount - 1) }
+    val reducedMotion = LocalReducedMotion.current
+    LaunchedEffect(itemCount, reducedMotion) {
+        if (itemCount > 0) {
+            if (reducedMotion) listState.scrollToItem(itemCount - 1)
+            else listState.animateScrollToItem(itemCount - 1)
+        }
+    }
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(horizontal = 16.dp)) {
         TextButton(onClick = onBack) { Text(stringResource(Res.string.back)) }

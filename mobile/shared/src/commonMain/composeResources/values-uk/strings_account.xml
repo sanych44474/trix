@@ -35,17 +35,21 @@
     <string name="ac_auth_verify">Підтвердити пошту</string>
 
     <string name="ac_display_eyebrow">Відображення</string>
-    <string name="ac_display_title">Читабельність</string>
+    <string name="ac_display_title">Зовнішній вигляд</string>
     <string name="ac_theme_label">Тема</string>
     <string name="ac_theme_system">Системна</string>
     <string name="ac_theme_light">Світла</string>
     <string name="ac_theme_dark">Темна</string>
-    <string name="ac_accent_label">Колір</string>
-    <string name="ac_accent_green">Зелений</string>
-    <string name="ac_accent_red">Червоний</string>
+    <string name="ac_accent_label">Палітра акцентів</string>
+    <string name="ac_accent_green">Лайм</string>
+    <string name="ac_accent_red">Кораловий</string>
+    <string name="ac_accent_blue">Океан</string>
+    <string name="ac_accent_violet">Фіолетовий</string>
     <string name="ac_accent_contrast_note">Висока контрастність використовує власні фіксовані кольори.</string>
     <string name="ac_contrast_toggle">Висока контрастність</string>
     <string name="ac_contrast_hint">Темніші кольори та чіткіші межі для яскравого світла або слабкого зору. Зберігається на цьому пристрої.</string>
+    <string name="ac_reduce_motion">Зменшити анімацію</string>
+    <string name="ac_reduce_motion_hint">Вимкнути рух екранів і святкові ефекти. Зберігається на цьому пристрої.</string>
 
     <string name="ac_retry">Повторити</string>
     <string name="ac_language_eyebrow">Мова</string>

@@ -70,7 +70,7 @@ await post("setWebhook", {
 await post("setMyCommands", { commands: toList(COMMANDS, "en") });
 await post("setMyCommands", { commands: toList(COMMANDS, "uk"), language_code: "uk" });
 
-// Bot profile texts (also in marketing/botfather.md): the description is what a new user sees
+// Bot profile texts: the description is what a new user sees
 // in the empty chat before tapping Start (max 512 chars), the short description shows on the
 // profile page and in shares/search (max 120). English default plus a Ukrainian override.
 const PROFILE = {

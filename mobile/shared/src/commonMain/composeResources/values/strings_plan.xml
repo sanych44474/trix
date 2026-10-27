@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Plan, programs and onboarding copy (Mini App parity). Generated from apps/mini-app/src/i18n. -->
 <resources>
+    <string name="pl_offline_read_only">Plan edits need an internet connection. Your saved plan is still available offline.</string>
     <string name="pl_plan_add_btn">Add</string>
     <string name="pl_plan_add_exercise_btn">Add an exercise</string>
     <string name="pl_plan_add_ph">New exercise</string>

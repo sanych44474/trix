@@ -3,23 +3,34 @@ package app.hacklimits.shared.nutrition
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hacklimits.shared.data.ApiException
+import app.hacklimits.shared.data.AccountCache
+import app.hacklimits.shared.data.AppJson
+import app.hacklimits.shared.data.canFallbackToCache
 import app.hacklimits.shared.data.FoodItem
 import app.hacklimits.shared.data.GroceryLine
 import app.hacklimits.shared.data.MealPlan
 import app.hacklimits.shared.data.NutritionApi
 import app.hacklimits.shared.data.NutritionDay
 import app.hacklimits.shared.data.MealPlanDay
+import app.hacklimits.shared.workout.PendingSaves
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.builtins.ListSerializer
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /** Food: the day's totals against targets, the log, the four ways to add, the meal plan and the
  * grocery list. Port of the Mini App's FuelView.tsx; every action reloads or patches the day. */
 @OptIn(ExperimentalUuidApi::class)
-class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
+class NutritionViewModel(
+    private val api: NutritionApi,
+    private val cache: AccountCache,
+    private val pending: PendingSaves,
+) : ViewModel() {
     enum class Tab { Day, Plan, Grocery }
     /** The add panels under the quick tiles. The photo tile opens its own screen instead. */
     enum class Panel { Search, Text, Barcode }
@@ -32,6 +43,10 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
 
     data class State(
         val day: NutritionDay? = null,
+        val offline: Boolean = false,
+        val lastUpdatedAtMs: Long? = null,
+        val pendingSync: Int = 0,
+        val needsAttention: Int = 0,
         /** The load failed and there is nothing to show: the whole screen is the error state. */
         val loadError: String? = null,
         /** A single action failed; shown as a dismissible note over the loaded day. */
@@ -64,20 +79,42 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
 
+    init {
+        viewModelScope.launch {
+            pending.observeCounts().collect { counts ->
+                _state.update { it.copy(pendingSync = counts.pending, needsAttention = counts.needsAttention) }
+            }
+        }
+    }
+
     /** First load and retry: a failure replaces the screen with the error state. */
     fun refresh() {
         viewModelScope.launch {
             _state.update { it.copy(loadError = null) }
+            cachedDay()?.let { cached -> _state.update { it.copy(day = cached, offline = true, lastUpdatedAtMs = cache.lastUpdatedAt(DAY_CACHE_KEY)) } }
             try {
                 val day = api.day()
-                _state.update { it.copy(day = day, loadError = null) }
+                cache.write(DAY_CACHE_KEY, AppJson.encodeToString(NutritionDay.serializer(), day))
+                val queued = pending.count()
+                val attention = pending.needsAttentionCount()
+                _state.update { it.copy(day = day, loadError = null, offline = false, lastUpdatedAtMs = cache.lastUpdatedAt(DAY_CACHE_KEY), pendingSync = queued, needsAttention = attention) }
             } catch (e: ApiException) {
-                _state.update { it.copy(loadError = e.code) }
+                val cached = if (e.canFallbackToCache()) cachedDay() else null
+                val queued = pending.count()
+                val attention = pending.needsAttentionCount()
+                _state.update { it.copy(day = cached, loadError = if (cached == null) e.code else null, offline = cached != null, lastUpdatedAtMs = cache.lastUpdatedAt(DAY_CACHE_KEY), pendingSync = queued, needsAttention = attention) }
             } catch (e: Exception) {
-                _state.update { it.copy(loadError = "network") }
+                val cached = cachedDay()
+                val queued = pending.count()
+                val attention = pending.needsAttentionCount()
+                _state.update { it.copy(day = cached, loadError = if (cached == null) "network" else null, offline = cached != null, lastUpdatedAtMs = cache.lastUpdatedAt(DAY_CACHE_KEY), pendingSync = queued, needsAttention = attention) }
             }
         }
     }
+
+    private suspend fun cachedDay(): NutritionDay? = runCatching {
+        cache.read(DAY_CACHE_KEY)?.let { AppJson.decodeFromString(NutritionDay.serializer(), it) }
+    }.getOrNull()
 
     fun setTab(tab: Tab) = _state.update { it.copy(tab = tab) }
 
@@ -99,25 +136,27 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
     fun search() {
         val q = _state.value.query.trim()
         if (q.length < 2) return
-        lookup { api.search(q, key()) }
+        lookup("nutrition.search.v1.${q.lowercase()}") { api.search(q, key()) }
     }
 
     fun searchBarcode() {
         val code = _state.value.barcode.filter(Char::isDigit)
         if (code.length < 2) return
-        lookup { api.barcode(code, key()) }
+        lookup("nutrition.barcode.v1.$code") { api.barcode(code, key()) }
     }
 
-    private fun lookup(block: suspend () -> List<FoodItem>) {
+    private fun lookup(cacheKey: String, block: suspend () -> List<FoodItem>) {
         viewModelScope.launch {
             _state.update { it.copy(searching = true, actionError = null) }
             try {
                 val items = block()
+                cache.write(cacheKey, AppJson.encodeToString(ListSerializer(FoodItem.serializer()), items))
                 _state.update { it.copy(results = items) }
             } catch (e: ApiException) {
-                _state.update { it.copy(actionError = e.code) }
+                if (e.canFallbackToCache()) showCachedFoods(cacheKey, e.code)
+                else _state.update { it.copy(actionError = e.code) }
             } catch (e: Exception) {
-                _state.update { it.copy(actionError = "network") }
+                showCachedFoods(cacheKey, "network")
             } finally {
                 _state.update { it.copy(searching = false) }
             }
@@ -133,13 +172,108 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
         val s = _state.value
         val item = s.selected ?: return
         val amount = s.grams.toDoubleOrNull()?.takeIf { it in 1.0..3000.0 } ?: return
-        act {
-            api.addFromDb(item, amount, key())
+        val actionKey = key()
+        queueStructuredAction(actionKey, api.addFromDbPayload(item, amount), localChange = { day ->
+            val scale = amount / 100.0
+            val meal = NutritionDay.Meal(
+                index = (day.meals.maxOfOrNull { it.index } ?: -1) + 1,
+                desc = item.name,
+                kcal = item.per100.kcal * scale,
+                protein = item.per100.p * scale,
+                fats = item.per100.f * scale,
+                carbs = item.per100.c * scale,
+                grams = amount,
+            )
+            day.copy(
+                meals = day.meals + meal,
+                totals = day.totals.copy(
+                    kcal = day.totals.kcal + meal.kcal,
+                    protein = day.totals.protein + meal.protein,
+                    fats = day.totals.fats + meal.fats,
+                    carbs = day.totals.carbs + meal.carbs,
+                ),
+            )
+        }, onQueued = {
             _state.update { it.copy(selected = null, results = emptyList(), query = "", barcode = "") }
+        })
+    }
+
+    fun readd(ri: Int) {
+        val actionKey = key()
+        val recent = _state.value.day?.recent?.firstOrNull { it.ri == ri }
+        queueStructuredAction(actionKey, api.readdPayload(ri), localChange = { day ->
+            if (recent == null) day else {
+                val meal = NutritionDay.Meal(
+                    index = (day.meals.maxOfOrNull { it.index } ?: -1) + 1,
+                    desc = recent.desc,
+                    kcal = recent.kcal,
+                    protein = recent.protein,
+                    fats = 0.0,
+                    carbs = 0.0,
+                )
+                day.copy(meals = day.meals + meal, totals = day.totals.copy(kcal = day.totals.kcal + meal.kcal, protein = day.totals.protein + meal.protein))
+            }
+        })
+    }
+
+    private fun queueStructuredAction(
+        actionKey: String,
+        payload: String,
+        localChange: (NutritionDay) -> NutritionDay,
+        onQueued: () -> Unit = {},
+    ) {
+        if (_state.value.busy) return
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, actionError = null) }
+            try {
+                val optimistic = _state.value.day?.let(localChange)
+                val localRecord = optimistic?.let { DAY_CACHE_KEY to AppJson.encodeToString(NutritionDay.serializer(), it) }
+                if (!pending.addOperation(PendingSaves.NUTRITION_KIND, actionKey, payload, localRecord)) {
+                    throw ApiException(0, "offline_save_failed", "No account is available for safe offline storage")
+                }
+                onQueued()
+                val result = pending.syncPending()
+                val canonical = runCatching { api.day() }.getOrNull()
+                if (canonical != null) cache.write(DAY_CACHE_KEY, AppJson.encodeToString(NutritionDay.serializer(), canonical))
+                val queued = pending.count()
+                val attention = pending.needsAttentionCount()
+                _state.update {
+                    it.copy(
+                        day = canonical ?: optimistic ?: it.day,
+                        offline = result.shouldRetry || canonical == null,
+                        lastUpdatedAtMs = cache.lastUpdatedAt(DAY_CACHE_KEY),
+                        pendingSync = queued,
+                        needsAttention = attention,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ApiException) {
+                val queued = pending.count()
+                val attention = pending.needsAttentionCount()
+                _state.update { it.copy(actionError = e.code, pendingSync = queued, needsAttention = attention) }
+            } catch (_: Exception) {
+                val queued = pending.count()
+                val attention = pending.needsAttentionCount()
+                _state.update { it.copy(actionError = "offline_save_failed", pendingSync = queued, needsAttention = attention) }
+            } finally {
+                _state.update { it.copy(busy = false) }
+            }
         }
     }
 
-    fun readd(ri: Int) = act { api.readd(ri, key()) }
+    private fun showCachedFoods(cacheKey: String, error: String) {
+        viewModelScope.launch {
+            val cached = runCatching {
+                cache.read(cacheKey)?.let { AppJson.decodeFromString(ListSerializer(FoodItem.serializer()), it) }
+            }.getOrNull()
+            if (cached != null) {
+                _state.update { it.copy(results = cached, offline = true) }
+            } else {
+                _state.update { it.copy(actionError = error) }
+            }
+        }
+    }
 
     fun sendText() {
         val text = _state.value.freeText.trim().ifEmpty { return }
@@ -196,6 +330,7 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
     }
 
     fun askAdvice(recipe: Boolean) {
+        if (!requireOnline()) return
         viewModelScope.launch {
             _state.update { it.copy(adviceBusy = true, actionError = null) }
             try {
@@ -212,6 +347,7 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
     }
 
     fun loadGrocery(days: Int) {
+        if (!requireOnline()) return
         viewModelScope.launch {
             _state.update { it.copy(groceryDays = days, grocerySent = false, actionError = null) }
             try {
@@ -226,6 +362,7 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
     }
 
     fun sendGrocery() {
+        if (!requireOnline()) return
         viewModelScope.launch {
             _state.update { it.copy(grocerySending = true, grocerySent = false, actionError = null) }
             try {
@@ -243,6 +380,7 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
 
     /** A fresh day built from the saved allergen, likes and dislikes (the bot's "use previous" action). */
     fun regenerateMealPlan() {
+        if (!requireOnline()) return
         viewModelScope.launch {
             _state.update { it.copy(regenerating = true, regenerated = false, actionError = null) }
             try {
@@ -282,12 +420,15 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
     }
 
     private fun planAct(block: suspend () -> List<MealPlanDay>) {
+        if (!requireOnline()) return
         if (_state.value.busy) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, actionError = null) }
             try {
                 val days = block()
-                _state.update { it.copy(day = it.day.withPlan(days), planEditing = null) }
+                val updatedDay = _state.value.day.withPlan(days)
+                updatedDay?.let { cache.write(DAY_CACHE_KEY, AppJson.encodeToString(NutritionDay.serializer(), it)) }
+                _state.update { it.copy(day = updatedDay, lastUpdatedAtMs = cache.lastUpdatedAt(DAY_CACHE_KEY), planEditing = null) }
             } catch (e: ApiException) {
                 _state.update { it.copy(actionError = e.code) }
             } catch (e: Exception) {
@@ -300,6 +441,7 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
 
     /** A write that changes the day: runs, then reloads the day. */
     private fun act(closeEditor: Boolean = false, block: suspend () -> Unit) {
+        if (!requireOnline()) return
         if (_state.value.busy) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, actionError = null) }
@@ -307,7 +449,8 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
                 block()
                 if (closeEditor) _state.update { it.copy(editingMeal = null) }
                 val day = api.day()
-                _state.update { it.copy(day = day) }
+                cache.write(DAY_CACHE_KEY, AppJson.encodeToString(NutritionDay.serializer(), day))
+                _state.update { it.copy(day = day, offline = false, lastUpdatedAtMs = cache.lastUpdatedAt(DAY_CACHE_KEY)) }
             } catch (e: ApiException) {
                 _state.update { it.copy(actionError = e.code) }
             } catch (e: Exception) {
@@ -320,7 +463,15 @@ class NutritionViewModel(private val api: NutritionApi) : ViewModel() {
 
     private fun NutritionDay?.withPlan(days: List<MealPlanDay>): NutritionDay? = this?.copy(mealPlan = MealPlan(days))
 
+    private fun requireOnline(): Boolean {
+        if (!_state.value.offline) return true
+        _state.update { it.copy(actionError = "offline_requires_internet") }
+        return false
+    }
+
     private fun key() = Uuid.random().toString()
+
+    private companion object { const val DAY_CACHE_KEY = "nutrition.day.v1" }
 }
 
 /** Grams as the Mini App shows them: whole numbers without a decimal point. */

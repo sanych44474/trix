@@ -73,7 +73,19 @@ class NutritionApi(private val api: ApiClient) {
         putJsonObject("per100") { put("kcal", item.per100.kcal); put("p", item.per100.p); put("f", item.per100.f); put("c", item.per100.c) }
     })
 
+    fun addFromDbPayload(item: FoodItem, grams: Double): String = AppJson.encodeToString(JsonElement.serializer(), buildJsonObject {
+        put("action", "dbadd"); put("name", item.name.take(80)); item.brand?.let { put("brand", it.take(40)) }; put("grams", grams)
+        putJsonObject("per100") { put("kcal", item.per100.kcal); put("p", item.per100.p); put("f", item.per100.f); put("c", item.per100.c) }
+    })
+
     suspend fun readd(ri: Int, key: String) = act(key, buildJsonObject { put("action", "readd"); put("ri", ri) })
+
+    fun readdPayload(ri: Int): String = AppJson.encodeToString(JsonElement.serializer(), buildJsonObject { put("action", "readd"); put("ri", ri) })
+
+    suspend fun performQueued(payload: String, key: String) {
+        val body = AppJson.decodeFromString(JsonObject.serializer(), payload)
+        act(key, body)
+    }
 
     suspend fun delete(index: Int, key: String) = act(key, buildJsonObject { put("action", "del"); put("index", index) })
 

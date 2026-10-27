@@ -69,7 +69,7 @@ class AuthApi(private val api: ApiClient, private val sessions: SessionStore) {
 
     private suspend fun signedIn(session: AuthSession): AuthSession {
         val token = session.sessionToken ?: throw ApiException(500, "no_session_token", "The server did not return a session")
-        sessions.save(token)
+        sessions.save(token, session.accountId)
         return session.copy(sessionToken = null)
     }
 }

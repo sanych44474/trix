@@ -164,6 +164,7 @@ fun ProgressScreen(vm: ProgressViewModel, trainExtras: @Composable () -> Unit = 
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { Text(stringResource(Res.string.pr_progress_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
+        item { OfflineStatusNotice(s.offline, s.pendingSync, s.needsAttention, s.lastUpdatedAtMs) }
         when {
             d == null && s.error != null -> item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -3,14 +3,17 @@ package app.hacklimits.shared.workout
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hacklimits.shared.data.ApiException
+import app.hacklimits.shared.data.canFallbackToCache
 import app.hacklimits.shared.data.AppJson
 import app.hacklimits.shared.data.ExerciseInfo
-import app.hacklimits.shared.data.KeyValueStore
+import app.hacklimits.shared.data.AccountCache
 import app.hacklimits.shared.data.SaveWorkoutRequest
 import app.hacklimits.shared.data.SaveWorkoutResult
 import app.hacklimits.shared.data.SwapChoice
 import app.hacklimits.shared.data.WorkoutApi
 import app.hacklimits.shared.data.WorkoutToday
+import app.hacklimits.shared.data.WorkoutCopyExercise
+import app.hacklimits.shared.data.WorkoutHistoryItem
 import app.hacklimits.shared.platform.RestAlarm
 import app.hacklimits.shared.workout.logic.DEFAULT_REST_SEC
 import app.hacklimits.shared.workout.logic.DENSITY_MIN_SESSION_SEC
@@ -58,8 +61,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlin.math.max
 import kotlin.math.min
@@ -70,6 +75,7 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 private const val TODAY_CACHE_KEY = "workout_today_cache"
+private const val HISTORY_CACHE_KEY = "workout.history.v1"
 private const val REST_PREFS_KEY = "workout_rest_prefs"
 private const val REST_BY_EXERCISE_KEY = "workout_rest_by_exercise"
 private const val REST_CHOSEN_KEY = "workout_rest_chosen"
@@ -86,8 +92,8 @@ private const val MAX_PLATES_KG = 600.0
 @OptIn(ExperimentalTime::class, ExperimentalUuidApi::class)
 class LoggerViewModel(
     private val api: WorkoutApi,
-    private val store: KeyValueStore,
     private val pending: PendingSaves,
+    private val cache: AccountCache,
     private val restAlarm: RestAlarm,
     private val telemetry: Telemetry,
 ) : ViewModel() {
@@ -108,13 +114,23 @@ class LoggerViewModel(
 
     init {
         viewModelScope.launch {
+            pending.observeCounts().collect { counts ->
+                val current = _ui.value
+                _ui.value = current.copy(
+                    pendingSyncCount = counts.pending,
+                    needsAttentionCount = counts.needsAttention,
+                    queued = current.queued && counts.pending > 0,
+                )
+            }
+        }
+        viewModelScope.launch {
             val overrides = runCatching {
-                AppJson.decodeFromString(MapSerializer(String.serializer(), Int.serializer()), store.get(REST_BY_EXERCISE_KEY) ?: "{}")
+                AppJson.decodeFromString(MapSerializer(String.serializer(), Int.serializer()), cache.read(REST_BY_EXERCISE_KEY) ?: "{}")
             }.getOrDefault(emptyMap()).filterValues { it > 0 }
             val chosen = runCatching {
-                AppJson.decodeFromString(MapSerializer(String.serializer(), Int.serializer()), store.get(REST_CHOSEN_KEY) ?: "{}")
+                AppJson.decodeFromString(MapSerializer(String.serializer(), Int.serializer()), cache.read(REST_CHOSEN_KEY) ?: "{}")
             }.getOrDefault(emptyMap()).filterValues { it > 0 }
-            _ui.value = _ui.value.copy(restPrefs = parseRestPrefs(store.get(REST_PREFS_KEY)), restOverrides = overrides, restChosen = chosen)
+            _ui.value = _ui.value.copy(restPrefs = parseRestPrefs(cache.read(REST_PREFS_KEY)), restOverrides = overrides, restChosen = chosen)
             resumeRest()
         }
         load()
@@ -134,15 +150,22 @@ class LoggerViewModel(
     /** Opens today's logger, or the cached plan when there is no signal in the gym. */
     fun load(quiet: Boolean = false) {
         viewModelScope.launch {
+            _ui.value = _ui.value.copy(
+                legacyDataNeedsReview = pending.legacyCount() > 0,
+                legacyDataOwnerId = cache.accountId(),
+            )
+            val cached = cachedToday()
+            if (cached != null) applyToday(cached)
+            else if (!quiet) edit { it.copy(loading = true, error = null) }
             runCatching { pending.flush() }
-            if (!quiet) edit { it.copy(loading = true, error = null) }
             val raw = try {
-                api.today().also { store.put(TODAY_CACHE_KEY, AppJson.encodeToString(WorkoutToday.serializer(), it)) }
+                api.today().also { cache.write(TODAY_CACHE_KEY, AppJson.encodeToString(WorkoutToday.serializer(), it)) }
             } catch (e: ApiException) {
-                edit { it.copy(loading = false, error = e.code) }
-                return@launch
+                if (e.canFallbackToCache() && cached != null) cached else {
+                    edit { it.copy(loading = false, error = e.code) }
+                    return@launch
+                }
             } catch (e: Exception) {
-                val cached = cachedToday()
                 if (cached == null) {
                     edit { it.copy(loading = false, error = "network") }
                     return@launch
@@ -178,7 +201,7 @@ class LoggerViewModel(
     }
 
     private suspend fun cachedToday(): WorkoutToday? = runCatching {
-        store.get(TODAY_CACHE_KEY)?.let { AppJson.decodeFromString(WorkoutToday.serializer(), it) }
+        cache.read(TODAY_CACHE_KEY)?.let { AppJson.decodeFromString(WorkoutToday.serializer(), it) }
     }.getOrNull()?.takeIf { it.date == localDateOf(nowMs()) }
 
     /** Back from the background with nothing typed: today's workout again, so a plan change shows up. */
@@ -189,7 +212,7 @@ class LoggerViewModel(
 
     // ---- draft ----
 
-    private suspend fun readLocalDraft(): LoggerDraft? = parseDraft(store.get(DRAFT_KEY))
+    private suspend fun readLocalDraft(): LoggerDraft? = parseDraft(cache.read(DRAFT_KEY))
 
     private fun persistDraft(s: LoggerUi) {
         if (s.loading || s.error != null || s.date.isEmpty()) return
@@ -198,7 +221,7 @@ class LoggerViewModel(
             editedAt = s.editedAtMs, savedAt = s.savedAtMs, clock = s.clock,
         )
         val body = AppJson.encodeToString(LoggerDraft.serializer(), draft)
-        viewModelScope.launch { store.put(DRAFT_KEY, body) }
+        viewModelScope.launch { cache.write(DRAFT_KEY, body) }
         draftJob?.cancel()
         // Only today's unsaved work goes to the server; a back-filled past day stays on the device.
         if (!s.drafted || s.logDate != null) {
@@ -216,8 +239,19 @@ class LoggerViewModel(
     private suspend fun pushDraft() {
         val (date, body) = pendingDraft ?: return
         pendingDraft = null
-        val synced = runCatching { api.putDraft(date, body) }.isSuccess
-        _ui.value = _ui.value.copy(sync = if (synced) SyncState.SYNCED else SyncState.OFFLINE)
+        val queued = runCatching { pending.queueDraft(date, body) }.getOrDefault(false)
+        if (!queued) {
+            _ui.value = _ui.value.copy(sync = SyncState.OFFLINE, actionError = "offline_save_failed")
+            return
+        }
+        pending.syncPending()
+        val queuedCount = pending.count()
+        val attentionCount = pending.needsAttentionCount()
+        _ui.value = _ui.value.copy(
+            sync = if (queuedCount == 0 && attentionCount == 0) SyncState.SYNCED else SyncState.OFFLINE,
+            pendingSyncCount = queuedCount,
+            needsAttentionCount = attentionCount,
+        )
     }
 
     // ---- editing the session ----
@@ -360,19 +394,19 @@ class LoggerViewModel(
         val chosen = _ui.value.restChosen + (restMetricKey(metric) to seconds)
         edit { it.copy(restChosen = chosen) }
         viewModelScope.launch {
-            store.put(REST_CHOSEN_KEY, AppJson.encodeToString(MapSerializer(String.serializer(), Int.serializer()), chosen))
+            cache.write(REST_CHOSEN_KEY, AppJson.encodeToString(MapSerializer(String.serializer(), Int.serializer()), chosen))
         }
     }
 
     fun patchRestPrefs(auto: Boolean? = null, sound: Boolean? = null) {
         val prefs = _ui.value.restPrefs.copy(auto = auto ?: _ui.value.restPrefs.auto, sound = sound ?: _ui.value.restPrefs.sound)
         edit { it.copy(restPrefs = prefs) }
-        viewModelScope.launch { store.put(REST_PREFS_KEY, AppJson.encodeToString(RestPrefs.serializer(), prefs)) }
+        viewModelScope.launch { cache.write(REST_PREFS_KEY, AppJson.encodeToString(RestPrefs.serializer(), prefs)) }
     }
 
     private fun persistOverrides(overrides: Map<String, Int>) {
         viewModelScope.launch {
-            store.put(REST_BY_EXERCISE_KEY, AppJson.encodeToString(MapSerializer(String.serializer(), Int.serializer()), overrides))
+            cache.write(REST_BY_EXERCISE_KEY, AppJson.encodeToString(MapSerializer(String.serializer(), Int.serializer()), overrides))
         }
     }
 
@@ -423,17 +457,17 @@ class LoggerViewModel(
         val endAt = rest.endAtMs
         val startedAt = restStartedAtMs
         viewModelScope.launch {
-            if (endAt == null || startedAt == null) store.remove(REST_RUNNING_KEY)
-            else store.put(REST_RUNNING_KEY, AppJson.encodeToString(RunningRest.serializer(), RunningRest(endAt = endAt, startedAt = startedAt, target = restTarget, label = rest.label)))
+            if (endAt == null || startedAt == null) cache.remove(REST_RUNNING_KEY)
+            else cache.write(REST_RUNNING_KEY, AppJson.encodeToString(RunningRest.serializer(), RunningRest(endAt = endAt, startedAt = startedAt, target = restTarget, label = rest.label)))
         }
     }
 
     /** A rest still running (or within its overrun window) when the app was closed comes back as it is now. */
     private suspend fun resumeRest() {
         if (_ui.value.rest.endAtMs != null) return
-        val raw = store.get(REST_RUNNING_KEY) ?: return
+        val raw = cache.read(REST_RUNNING_KEY) ?: return
         val saved = resumableRest(runCatching { AppJson.parseToJsonElement(raw) }.getOrNull(), nowMs(), DEFAULT_REST_SEC)
-        if (saved == null) { store.remove(REST_RUNNING_KEY); return }
+        if (saved == null) { cache.remove(REST_RUNNING_KEY); return }
         restStartedAtMs = saved.startedAt
         restTarget = saved.target
         edit { it.copy(rest = RestUi(endAtMs = saved.endAt, target = saved.target, label = saved.label)) }
@@ -568,6 +602,7 @@ class LoggerViewModel(
             draftJob?.cancel()
             pendingDraft = null
             try {
+                pending.removeDraft(targetDate ?: s.date)
                 val result = api.save(request, key)
                 val doneAt = nowMs()
                 if (action == DockAction.Finish) restStartedAtMs = null
@@ -582,10 +617,8 @@ class LoggerViewModel(
                         feel = null, feelState = FeelState.IDLE,
                     )
                 }
-                if (targetDate != null) {
-                    store.remove(DRAFT_KEY)
-                    load()
-                }
+                cache.remove(DRAFT_KEY)
+                if (targetDate != null) load()
             } catch (e: ApiException) {
                 if (e.status >= 500 || e.status == 429) queueOffline(key, request, action, final)
                 else _ui.value = _ui.value.copy(saving = false, actionError = e.code)
@@ -599,15 +632,25 @@ class LoggerViewModel(
 
     /** No signal: the save stays on the phone with its key and date, and goes out when the network is back. */
     private suspend fun queueOffline(key: String, request: SaveWorkoutRequest, action: DockAction, final: SessionClock?) {
-        pending.add(PendingSaves.Pending(key, request))
+        val safelyQueued = runCatching { pending.add(PendingSaves.Pending(key, request)) }.getOrDefault(false)
+        if (!safelyQueued) {
+            edit { it.copy(saving = false, actionError = "offline_save_failed") }
+            return
+        }
+        pending.removeDraft(request.date ?: _ui.value.date)
+        val queuedCount = pending.count()
+        val attentionCount = pending.needsAttentionCount()
         val now = nowMs()
         edit { s ->
             s.copy(
-                saving = false, saved = true, drafted = false, savedAtMs = now, queued = true,
+                saving = false, saved = true, drafted = false, savedAtMs = now, queued = queuedCount > 0,
+                pendingSyncCount = queuedCount,
+                needsAttentionCount = attentionCount,
                 clock = if (action == DockAction.Finish) final else s.clock,
                 restoredFromServer = false,
             )
         }
+        if (queuedCount == 0 && attentionCount == 0) load(quiet = true)
         if (action == DockAction.Finish) restStartedAtMs = null
         if (_ui.value.rest.endAtMs != null) clearRest()
     }
@@ -649,6 +692,20 @@ class LoggerViewModel(
 
     fun dismissActionError() = edit { it.copy(actionError = null) }
 
+    fun dismissLegacyDataReview() { _ui.value = _ui.value.copy(legacyDataNeedsReview = false) }
+
+    fun claimLegacyDataForCurrentAccount() {
+        viewModelScope.launch {
+            val claimed = runCatching { pending.claimLegacyForCurrentAccount() }.getOrDefault(false)
+            if (claimed) {
+                _ui.value = _ui.value.copy(legacyDataNeedsReview = false)
+                load()
+            } else {
+                _ui.value = _ui.value.copy(actionError = "legacy_restore_failed")
+            }
+        }
+    }
+
     fun dismissPlanNotice() = edit { it.copy(planNoticeName = null) }
 
     // ---- history ----
@@ -658,13 +715,16 @@ class LoggerViewModel(
         viewModelScope.launch {
             try {
                 val logs = api.history()
+                cache.write(HISTORY_CACHE_KEY, AppJson.encodeToString(ListSerializer(WorkoutHistoryItem.serializer()), logs))
                 edit { it.copy(history = logs) }
             } catch (e: ApiException) {
-                edit { it.copy(historyError = e.code) }
+                val cached = cachedHistory()
+                edit { it.copy(history = cached, historyError = if (cached == null) e.code else null) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                edit { it.copy(historyError = "network") }
+                val cached = cachedHistory()
+                edit { it.copy(history = cached, historyError = if (cached == null) "network" else null) }
             }
         }
     }
@@ -688,7 +748,7 @@ class LoggerViewModel(
 
     /** "Repeat": the exercises and sets of a past day, copied into today's logger. */
     fun repeatDay(date: String) = withHistoryBusy("repeat:$date") {
-        replaceWith(copyToLoggerExercises(api.past(date)), null, date)
+        replaceWith(copyToLoggerExercises(cachedPast(date)), null, date)
     }
 
     /** "Edit this saved day": that day's sets, saved back onto the same date. */
@@ -696,8 +756,26 @@ class LoggerViewModel(
 
     /** Log a missed day from another day's exercises. */
     fun fillFromPast(targetDate: String, sourceDate: String) = withHistoryBusy("fill:$sourceDate") {
-        val exercises = copyToLoggerExercises(api.past(sourceDate))
+        val exercises = copyToLoggerExercises(cachedPast(sourceDate))
         replaceWith(exercises, targetDate, sourceDate)
+    }
+
+    private suspend fun cachedHistory(): List<WorkoutHistoryItem>? = runCatching {
+        cache.read(HISTORY_CACHE_KEY)?.let { AppJson.decodeFromString(ListSerializer(WorkoutHistoryItem.serializer()), it) }
+    }.getOrNull()
+
+    private suspend fun cachedPast(date: String): List<WorkoutCopyExercise> {
+        val key = "workout.past.v1.$date"
+        try {
+            val exercises = api.past(date)
+            cache.write(key, AppJson.encodeToString(ListSerializer(WorkoutCopyExercise.serializer()), exercises))
+            return exercises
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val raw = cache.read(key) ?: throw e
+            return AppJson.decodeFromString(ListSerializer(WorkoutCopyExercise.serializer()), raw)
+        }
     }
 
     /** Log a missed day from scratch: the plan for that weekday. */
@@ -713,8 +791,9 @@ class LoggerViewModel(
         val s = _ui.value
         viewModelScope.launch {
             if (s.copiedFrom != null && s.logDate == null) runCatching { api.deleteDraft(s.date) }
+            pending.removeDraft(s.date)
             pendingDraft = null
-            store.remove(DRAFT_KEY)
+            cache.remove(DRAFT_KEY)
             restStartedAtMs = null
             edit { it.copy(summary = null, clock = null, copiedFrom = null) }
             load()

@@ -26,6 +26,27 @@ class TodayApiTest {
     private fun client(handler: MockRequestHandler): ApiClient =
         ApiClient("https://api.example.test", InMemorySessionStore(token), HttpClient(MockEngine(handler)))
 
+    // Sessions saved before 0.5 have no account id, which hides every account-keyed cache and the
+    // offline queue; the first dashboard load adopts the viewer's id. Ids made without Telegram are negative.
+    @Test
+    fun aSessionWithoutAnAccountIdAdoptsTheViewersOneEvenWhenNegative() = runTest {
+        val sessions = InMemorySessionStore(token)
+        val negative = DASHBOARD.replace(""""id": 7,""", """"id": -1234567890,""")
+        val api = DashboardApi(ApiClient("https://api.example.test", sessions, HttpClient(MockEngine { respond(negative, HttpStatusCode.OK, json) })))
+        assertNull(sessions.accountId())
+        api.load()
+        assertEquals(-1234567890L, sessions.accountId())
+        assertEquals(token, sessions.token(), "the token is kept")
+    }
+
+    @Test
+    fun aStoredAccountIdIsNeverReplacedByTheDashboard() = runTest {
+        val sessions = InMemorySessionStore(token, ownerId = 42L)
+        val api = DashboardApi(ApiClient("https://api.example.test", sessions, HttpClient(MockEngine { respond(DASHBOARD, HttpStatusCode.OK, json) })))
+        api.load()
+        assertEquals(42L, sessions.accountId())
+    }
+
     @Test
     fun theDashboardDecodesEveryFieldTodayReads() = runTest {
         val api = DashboardApi(client { request ->

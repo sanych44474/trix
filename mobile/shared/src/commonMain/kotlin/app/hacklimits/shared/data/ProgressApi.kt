@@ -117,12 +117,28 @@ class ProgressApi(private val api: ApiClient) {
     /** Logs a free-text body measurement through the same parser the bot uses ("waist 82, neck 38"). */
     suspend fun logMeasure(text: String, idempotencyKey: String) = log(idempotencyKey, buildJsonObject { put("kind", "measure"); put("text", text) })
 
+    fun measurePayload(text: String): String = AppJson.encodeToString(JsonElement.serializer(), buildJsonObject { put("kind", "measure"); put("text", text) })
+
     /** Logs today's energy / sleep / stress check-in (1 to 5 each). */
     suspend fun logCheckin(energy: Int, sleep: Int, stress: Int, idempotencyKey: String) = log(idempotencyKey, buildJsonObject {
         put("kind", "checkin"); put("energy", energy); put("sleep", sleep); put("stress", stress)
     })
 
+    fun checkinPayload(energy: Int, sleep: Int, stress: Int): String = AppJson.encodeToString(JsonElement.serializer(), buildJsonObject {
+        put("kind", "checkin"); put("energy", energy); put("sleep", sleep); put("stress", stress)
+    })
+
     private suspend fun log(idempotencyKey: String, body: JsonElement) {
+        api.unwrap<JsonElement>(api.http.post("api/v2/log") {
+            api.authorize(this)
+            header("Idempotency-Key", idempotencyKey)
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        })
+    }
+
+    suspend fun performQueued(payload: String, idempotencyKey: String) {
+        val body = AppJson.decodeFromString(JsonElement.serializer(), payload)
         api.unwrap<JsonElement>(api.http.post("api/v2/log") {
             api.authorize(this)
             header("Idempotency-Key", idempotencyKey)

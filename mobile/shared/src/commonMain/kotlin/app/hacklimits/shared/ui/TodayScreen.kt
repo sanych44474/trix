@@ -111,6 +111,7 @@ fun TodayScreen(
             }
             is TodayViewModel.State.Ready -> {
                 val d = s.dashboard
+                  OfflineStatusNotice(s.offline, s.pendingSync, s.needsAttention, s.lastUpdatedAtMs)
                 d.name?.let { Text(stringResource(Res.string.td_hello, it), style = MaterialTheme.typography.titleLarge) }
                 when {
                     d.viewer.planPending -> Notice(stringResource(Res.string.td_plan_pending))
