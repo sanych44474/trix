@@ -82,13 +82,6 @@ export interface ProfilePhoto {
   takenAt: string;
 }
 
-export interface WorkoutCopySet {
-  w: number;
-  r: number;
-  sec: number;
-  m: number;
-}
-
 export type FoodSearchItem = Schemas["FoodSearchItem"];
 export type GroceryLine = Schemas["GroceryLine"];
 export type MealPlanDay = Schemas["MealPlanDay"];

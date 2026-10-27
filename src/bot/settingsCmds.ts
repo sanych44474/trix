@@ -7,6 +7,7 @@ import { updateUser } from "../adapters/d1/v2Users";
 import { LANG_NAME, t } from "../locales/i18n";
 import { computeTargets } from "../domain/mealplan";
 import { localParts } from "../domain/localTime";
+import { REMINDER_KEYS } from "../domain/reminderTypes";
 import { parseMeasurements, parseHeightWeight } from "../domain/workoutText";
 import { weekdayName } from "../render";
 import { cmdReplan } from "./exportData";
@@ -19,24 +20,14 @@ export async function cmdMeasure(ctx: MyContext) {
   await reply(ctx, t(ctx.user.lang, "measure_prompt"));
 }
 
-// Reminder types the user can switch on/off (the daily/weekly nudges).
-export const REMINDER_TYPES = ["all", "workout", "nutrition", "steps", "water", "checkin", "wellbeing", "tomorrow", "measure", "digest", "plateau", "session", "weighin"] as const;
-
-const REMINDER_LABEL: Record<string, TKey> = {
-  all: "rem_all",
-  workout: "rem_workout", nutrition: "rem_nutrition", steps: "rem_steps", water: "rem_water", checkin: "rem_checkin",
-  wellbeing: "rem_wellbeing", tomorrow: "rem_tomorrow", measure: "rem_measure", digest: "rem_digest", plateau: "rem_plateau",
-  session: "rem_session", weighin: "rem_weighin",
-};
-
 export async function showReminderSettings(ctx: MyContext) {
   const lang = ctx.user.lang;
   const off = new Set(ctx.user.profile.remindersOff ?? []);
   const kb = new InlineKeyboard();
-  REMINDER_TYPES.forEach((key, i) => {
+  REMINDER_KEYS.forEach(([key, label], i) => {
     // While "all" is off, every type reads as off: none of them is sent (the outbox drops it).
     const on = !off.has(key) && (key === "all" || !off.has("all"));
-    kb.text(`${on ? "🔔" : "🔕"} ${t(lang, REMINDER_LABEL[key])}`, `remtog:${key}`);
+    kb.text(`${on ? "🔔" : "🔕"} ${t(lang, label as TKey)}`, `remtog:${key}`);
     if ((i + 1) % 2 === 0) kb.row();
   });
   kb.row().text(t(lang, "back"), "menu:settings");
@@ -63,7 +54,7 @@ export async function onWeighInAction(ctx: MyContext, action: string) {
 }
 
 export async function onReminderToggle(ctx: MyContext, key: string) {
-  if (!REMINDER_TYPES.includes(key as (typeof REMINDER_TYPES)[number])) return;
+  if (!REMINDER_KEYS.some(([k]) => k === key)) return;
   const off = new Set(ctx.user.profile.remindersOff ?? []);
   off.has(key) ? off.delete(key) : off.add(key);
   ctx.user.profile = { ...ctx.user.profile, remindersOff: [...off] };

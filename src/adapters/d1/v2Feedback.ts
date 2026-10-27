@@ -80,14 +80,6 @@ export async function saveFeedbackReply(db: DB, id: number, reply: string): Prom
   return row ? { ...row, repliedAt } : null;
 }
 
-export async function countFeedbackSince(db: DB, sinceIso: string): Promise<number> {
-  const r = await db
-    .prepare("SELECT COUNT(*) AS c FROM v2_feedback WHERE createdAt >= ?")
-    .bind(sinceIso)
-    .first<{ c: number }>();
-  return r?.c ?? 0;
-}
-
 export async function recentFeedback(
   db: DB,
   limit: number,
