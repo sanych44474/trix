@@ -22,15 +22,6 @@ export const SECONDARY_COLOR = "#ffb4a1";
 
 export interface Part { slug: Slug; color: string }
 
-export function weekParts(volume: Array<{ group: string; sets: number; zone: string }>): Part[] {
-  return volume.flatMap((item) => {
-    const slugs = REGION_MUSCLES[item.group as Region];
-    const color = ZONE_COLORS[item.zone as Zone];
-    if (!slugs || !color || item.sets <= 0) return [];
-    return slugs.map((slug) => ({ slug, color }));
-  });
-}
-
 /** Week mode: each muscle by where its fractional weekly sets sit against its own MEV/MAV. */
 export function muscleWeekParts(week: MuscleWeek[]): Part[] {
   return week.flatMap((m) => (m.sets > 0 && m.zone !== "none" ? [{ slug: m.slug, color: ZONE_COLORS[m.zone] }] : []));
@@ -63,13 +54,6 @@ export function dayMuscles(names: string[], lookup: (name: string) => ExerciseMu
     for (const slug of m.secondary) if (!secondary.includes(slug)) secondary.push(slug);
   }
   return { primary, secondary: secondary.filter((slug) => !primary.includes(slug)), unknown };
-}
-
-export function regionOfMuscle(slug: string): Region | null {
-  for (const [region, slugs] of Object.entries(REGION_MUSCLES) as Array<[Region, Slug[]]>) {
-    if (slugs.includes(slug as Slug)) return region;
-  }
-  return null;
 }
 
 /** Distinct exercise names from the calendar's logged days, newest first. */

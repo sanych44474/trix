@@ -355,12 +355,6 @@ export interface UserDoc {
   updatedAt: Date;
 }
 
-export interface AchievementDoc {
-  userId: number;
-  code: string;
-  earnedAt: Date;
-}
-
 /** One plan swap made to accommodate an injury (so it can be restored on recovery). */
 export interface InjurySwap {
   weekday: number;
@@ -685,24 +679,6 @@ export interface ExerciseVideo {
   locked: boolean;
 }
 
-export interface ConfigDoc {
-  _id: string; // "config"
-  ownerChatId?: number;
-}
-
-export interface SeenUpdateDoc {
-  _id: number; // telegram update_id
-  createdAt: Date;
-}
-
-export interface FeedbackDoc {
-  userId: number;
-  username?: string;
-  text: string;
-  date: string;
-  createdAt: Date;
-}
-
 export type AiProvider = "gemini" | "groq" | "ollama" | "openrouter" | "workersai";
 export type AiKind = "interview" | "plan" | "translate" | "nutrition" | "nutrition_photo" | "coach" | "progress" | "report" | "meal_plan" | "form_check";
 
@@ -741,12 +717,3 @@ export interface AiUsageDoc {
   ts: Date;
 }
 
-export interface AiCallLogDoc {
-  userId?: number;
-  provider: AiProvider;
-  kind: AiKind;
-  latencyMs: number;
-  tokens?: number; // null until providers expose usage metadata
-  wasFallback: boolean; // true for any attempt after the first provider in the chain
-  ts: Date;
-}

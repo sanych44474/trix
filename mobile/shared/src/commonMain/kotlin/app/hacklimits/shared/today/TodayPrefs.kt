@@ -3,6 +3,7 @@ package app.hacklimits.shared.today
 import app.hacklimits.shared.data.AppJson
 import app.hacklimits.shared.data.KeyValueStore
 import app.hacklimits.shared.workout.logic.DRAFT_KEY
+import app.hacklimits.shared.workout.logic.isSetFilled
 import app.hacklimits.shared.workout.logic.parseDraft
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -24,10 +25,10 @@ class TodayPrefs(private val store: KeyValueStore) {
     suspend fun setWeekSummarySeen(weekStart: String) = write(SUMMARY_KEY, weekStart)
 
     suspend fun session(): SessionProgress? {
-        val draft = parseDraft(read(DRAFT_KEY)) ?: return null
+        val draft = parseDraft(read(DRAFT_KEY))?.takeIf { it.logDate == null } ?: return null
         return SessionProgress(
             draft.date,
-            draft.exercises.map { SessionProgress.SessionExercise(it.name, it.setsDone.orEmpty().size) },
+            draft.exercises.map { SessionProgress.SessionExercise(it.name, it.done.count(::isSetFilled)) },
         )
     }
 

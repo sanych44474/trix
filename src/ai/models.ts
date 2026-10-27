@@ -45,7 +45,6 @@ export const WORKERSAI_TIER_MODELS: Record<AiTier, string[]> = {
 };
 
 export const WORKERSAI_IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell";
-export const WORKERSAI_TRANSCRIBE_DEFAULT = "@cf/openai/whisper-large-v3-turbo";
 
 /** Estimated neurons per 1M input / output tokens (rounded up from the published rates). */
 const NEURONS_PER_M: Record<string, { in: number; out: number }> = {

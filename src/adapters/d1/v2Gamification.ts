@@ -422,13 +422,6 @@ export async function getSquad(db: DB, chatId: number): Promise<SquadRow | null>
   return row ?? null;
 }
 
-export async function listSquads(db: DB): Promise<SquadRow[]> {
-  const res = await db
-    .prepare("SELECT chatId, title, createdByAccountId AS createdBy FROM v2_squads ORDER BY chatId")
-    .all<SquadRow>();
-  return res.results ?? [];
-}
-
 /** Squads that have not had their recap for `weekKey` yet, oldest first, capped at `limit`.
  * The cap is the whole point: each recap is one external subrequest, and the Workers Free plan
  * allows 50 per invocation — the sweep runs in small batches across consecutive cron ticks

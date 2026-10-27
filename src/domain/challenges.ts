@@ -54,10 +54,6 @@ export function seasonalChallenge(date: string): ChallengeTemplate {
   };
 }
 
-export function isSeasonCode(code: string): boolean {
-  return SEASON_CODE.test(code);
-}
-
 export function challengeByCode(code: string): ChallengeTemplate | undefined {
   const season = SEASON_CODE.exec(code);
   if (season) {

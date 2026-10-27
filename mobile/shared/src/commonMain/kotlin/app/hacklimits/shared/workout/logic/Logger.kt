@@ -99,7 +99,10 @@ fun emptyLoggerSet(metric: String): LoggerSet = when (metric) {
     else -> LoggerSet()
 }
 
-fun isSetFilled(set: LoggerSet): Boolean = set.reps != 0.0 || (set.seconds ?: 0.0) != 0.0 || (set.meters ?: 0.0) != 0.0
+fun isSetFilled(set: LoggerSet): Boolean = truthy(set.reps) || truthy(set.seconds) || truthy(set.meters)
+
+/** JS truthiness, as the Mini App uses: null, 0 and NaN are empty. */
+private fun truthy(n: Double?): Boolean = n != null && n != 0.0 && !n.isNaN()
 
 fun isExerciseFilled(exercise: LoggerExercise): Boolean = exercise.done.any(::isSetFilled)
 
@@ -334,6 +337,3 @@ fun targetUse(exercises: List<LoggerExercise>): Pair<Int, Int> {
     }
     return kept to edited
 }
-
-/** Milliseconds from an ISO timestamp, or null when it does not parse. */
-fun parseIsoMs(value: String?): Long? = value?.let { runCatching { Instant.parse(it).toEpochMilliseconds() }.getOrNull() }
