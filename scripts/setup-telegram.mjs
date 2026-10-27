@@ -39,7 +39,7 @@ const webhookUrl = `${base.replace(/\/$/, "")}/webhook`;
 // The chat is retired (src/bot/launcher.ts): everything happens in the Mini App, so the command
 // list is just /start, which answers with the Open-app button.
 const COMMANDS = [
-  { command: "start", en: "Open trix", uk: "Відкрити trix" },
+  { command: "start", en: "Open Hack Limits", uk: "Відкрити Hack Limits" },
 ];
 
 // Alphabetical by command, with /start pinned first by convention.
@@ -75,22 +75,22 @@ await post("setMyCommands", { commands: toList(COMMANDS, "uk"), language_code: "
 // profile page and in shares/search (max 120). English default plus a Ukrainian override.
 const PROFILE = {
   en: {
-    short: "Free AI personal trainer: a workout plan for your days and gear, progression, macros from a photo. 💪",
+    short: "Hack Limits: trix, your free AI trainer. A plan for your days and gear, progression, macros from a photo. 💪",
     description:
-      "🏋️ trix is a free AI personal trainer in Telegram.\n\n" +
+      "🏋️ Hack Limits is a free app with trix, your AI personal trainer, in Telegram.\n\n" +
       "• A workout plan for your days, equipment and injuries — at home or in the gym\n" +
-      "• Log sets in one tap; it decides when to add weight\n" +
+      "• Log sets in one tap; trix decides when to add weight\n" +
       "• Body map: weekly load, recovery and 12-week trend per muscle\n" +
       "• Technique pictures and a form check from a video\n" +
       "• Macros from a photo of your plate\n\n" +
       "No subscription, no ads. Tap Start — a 2-minute interview and your plan is ready.",
   },
   uk: {
-    short: "Безкоштовний AI-тренер: програма під твої дні й обладнання, прогресія, КБЖУ за фото. 💪",
+    short: "Hack Limits: trix, безкоштовний AI-тренер. Програма під твої дні й обладнання, прогресія, КБЖУ за фото. 💪",
     description:
-      "🏋️ trix — безкоштовний AI-тренер у Telegram.\n\n" +
+      "🏋️ Hack Limits — безкоштовний застосунок із trix, твоїм AI-тренером, у Telegram.\n\n" +
       "• Програма під твої дні, обладнання й травми — вдома чи в залі\n" +
-      "• Запис підходів в один дотик, сам вирішує, коли додати вагу\n" +
+      "• Запис підходів в один дотик, trix сам вирішує, коли додати вагу\n" +
       "• Карта тіла: навантаження, відновлення і тренд кожного м'яза\n" +
       "• Фото техніки й перевірка техніки за відео\n" +
       "• КБЖУ за фото тарілки\n\n" +
@@ -111,7 +111,7 @@ for (const [lang, p] of Object.entries(PROFILE)) {
 const miniAppPath =
   process.env.MINI_APP_PATH || (process.env.V2_APP_ENABLED === "1" ? "/app-v2" : "/app");
 await post("setChatMenuButton", {
-  menu_button: { type: "web_app", text: "trix", web_app: { url: `${base}${miniAppPath}` } },
+  menu_button: { type: "web_app", text: "Hack Limits", web_app: { url: `${base}${miniAppPath}` } },
 });
 
 // Owner chat scope: a per-chat command list OVERRIDES the default, so an old run that

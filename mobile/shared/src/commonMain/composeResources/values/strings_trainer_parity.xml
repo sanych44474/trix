@@ -4,7 +4,7 @@
     <string name="tr_title">Clients</string>
     <string name="tr_clients_count">%1$s clients</string>
     <string name="tr_tab_at_risk">At-risk report (%1$s)</string>
-    <string name="tr_tab_coach">Ask the AI coach</string>
+    <string name="tr_tab_coach">Ask trix</string>
     <string name="tr_tab_profile">My profile</string>
     <string name="tr_tab_schedule">Schedule</string>
     <string name="tr_tab_finance">Finance</string>
@@ -63,7 +63,7 @@
     <string name="tr_invite_name_ph">Client\'s name</string>
     <string name="tr_invite_create">Create</string>
     <string name="tr_invite_waiting">Not opened yet:</string>
-    <string name="tr_invite_personal_text">%1$s, here\'s your personal invite to train with me in trix 💪</string>
+    <string name="tr_invite_personal_text">%1$s, here\'s your personal invite to train with me in Hack Limits 💪</string>
     <string name="tr_card_eyebrow">Client card</string>
     <string name="tr_edit_plan">Edit client plan</string>
     <string name="tr_draft_eyebrow">Waiting for you</string>

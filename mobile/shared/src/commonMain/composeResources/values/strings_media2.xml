@@ -11,7 +11,7 @@
     <string name="md_voice_no_mic">No microphone access. Allow it for Telegram in your phone settings.</string>
     <string name="md_voice_unclear">Couldn\'t make out the words. Try again closer to the mic.</string>
     <string name="md_form_check_title">Form check from a video</string>
-    <string name="md_form_check_intro">Film one set from the side, the whole body in frame, up to %1$d s. The AI coach replies with 2–3 cues for the next set.</string>
+    <string name="md_form_check_intro">Film one set from the side, the whole body in frame, up to %1$d s. trix replies with 2–3 cues for the next set.</string>
     <string name="md_form_check_caption_ph">Exercise (optional), e.g. back squat</string>
     <string name="md_form_check_btn">Film or pick a video</string>
     <string name="md_form_check_watching">Watching your set…</string>
@@ -21,7 +21,7 @@
     <string name="md_form_check_limit">That\'s today\'s %1$d checks. More tomorrow.</string>
     <string name="md_form_check_failed">Couldn\'t check this video. Try again with better light and the whole body in frame.</string>
     <string name="md_import_title">History from Strong or Hevy</string>
-    <string name="md_import_detail">In Strong or Hevy, export your workouts as CSV (Settings → Export data), then pick the file here. Days you already logged in trix are kept as they are.</string>
+    <string name="md_import_detail">In Strong or Hevy, export your workouts as CSV (Settings → Export data), then pick the file here. Days you already logged in Hack Limits are kept as they are.</string>
     <string name="md_import_btn">Choose CSV file</string>
     <string name="md_import_done">Imported %1$d workout day(s), skipped %2$d already logged.</string>
     <string name="md_import_done_capped">Imported %1$d workout day(s) (the latest %3$d), skipped %2$d already logged.</string>

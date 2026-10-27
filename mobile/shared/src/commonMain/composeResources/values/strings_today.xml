@@ -39,7 +39,7 @@
     <string name="td_error">Something went wrong. Try again.</string>
 
     <string name="td_coach_trainer">Ask your trainer</string>
-    <string name="td_coach">Ask the AI coach</string>
+    <string name="td_coach">Ask trix</string>
     <string name="td_metric_recovery">Recovery</string>
     <string name="td_water_steps">Water and steps</string>
     <string name="td_water_steps_value">%1$s %2$s · %3$s</string>

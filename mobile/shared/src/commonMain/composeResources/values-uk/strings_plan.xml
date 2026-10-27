@@ -50,7 +50,7 @@
     <string name="pl_plan_note_ph">Нагадування собі: темп, хват, на що зважати</string>
     <string name="pl_plan_change_src_manual">Змінено тут</string>
     <string name="pl_plan_change_src_trainer">Твій тренер</string>
-    <string name="pl_plan_change_src_ai_coach">AI-тренер</string>
+    <string name="pl_plan_change_src_ai_coach">trix</string>
     <string name="pl_plan_change_src_injury_swap">Заміна через травму</string>
     <string name="pl_plan_day_g_chest">Груди</string>
     <string name="pl_plan_day_g_back">Спина</string>

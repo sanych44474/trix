@@ -9,10 +9,10 @@ import { ensureTelegramSetup, PROFILE, setupCalls, TELEGRAM_SETUP_VERSION } from
 test("setup calls: /start only, both languages, menu button to the Mini App", () => {
   const calls = setupCalls("https://trix.example/app-v2");
   assert.deepEqual(calls.filter((c) => c.method === "setMyCommands").map((c) => c.body.commands), [
-    [{ command: "start", description: "Open trix" }],
-    [{ command: "start", description: "Відкрити trix" }],
+    [{ command: "start", description: "Open Hack Limits" }],
+    [{ command: "start", description: "Відкрити Hack Limits" }],
   ]);
-  assert.deepEqual(calls.at(-1), { method: "setChatMenuButton", body: { menu_button: { type: "web_app", text: "trix", web_app: { url: "https://trix.example/app-v2" } } } });
+  assert.deepEqual(calls.at(-1), { method: "setChatMenuButton", body: { menu_button: { type: "web_app", text: "Hack Limits", web_app: { url: "https://trix.example/app-v2" } } } });
   assert.equal(setupCalls("u", 42).filter((c) => (c.body.scope as { chat_id?: number } | undefined)?.chat_id === 42).length, 2, "the owner's chat scope is reset too");
 });
 

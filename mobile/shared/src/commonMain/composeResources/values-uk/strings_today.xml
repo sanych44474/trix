@@ -39,7 +39,7 @@
     <string name="td_error">Щось пішло не так. Спробуй ще раз.</string>
 
     <string name="td_coach_trainer">Запитати тренера</string>
-    <string name="td_coach">Спитати AI-тренера</string>
+    <string name="td_coach">Спитай trix</string>
     <string name="td_metric_recovery">Відновлення</string>
     <string name="td_water_steps">Вода і кроки</string>
     <string name="td_water_steps_value">%1$s %2$s · %3$s</string>
