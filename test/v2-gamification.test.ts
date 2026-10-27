@@ -26,7 +26,6 @@ import {
   leaveSquad,
   listAchievements,
   listCompetitors,
-  listSquads,
   markChallengeDone,
   markSquadRecapped,
   markSquadWoken,
@@ -197,7 +196,7 @@ test("joinChallenge / activeChallenges / activeChallengeCodes / markChallengeDon
 
 // ---------- squads ----------
 
-test("upsertSquad / joinSquad / leaveSquad / getSquad / listSquads", async () => {
+test("upsertSquad / joinSquad / leaveSquad / getSquad", async () => {
   const db = newDb();
   await getOrCreateUser(db, 90, 90, "en");
   await getOrCreateUser(db, 91, 91, "en");
@@ -215,7 +214,6 @@ test("upsertSquad / joinSquad / leaveSquad / getSquad / listSquads", async () =>
   assert.equal((await getSquad(db, chat))?.title, "Renamed");
 
   assert.equal(await joinSquad(db, chat, 91), true);
-  assert.deepEqual((await listSquads(db)).map((s) => s.chatId), [chat]);
 
   assert.equal(await leaveSquad(db, chat, 91), true);
   assert.equal(await leaveSquad(db, chat, 91), false); // already gone

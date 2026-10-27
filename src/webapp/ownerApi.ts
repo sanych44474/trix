@@ -1,8 +1,9 @@
 // Owner console in the Mini App: the /ownerreport sections rendered in-app (they're already
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
-import { pingOther } from "../notify";
+import { notifySafely, pingOther } from "../notify";
 import { rawTelegramApi, telegramUpload } from "../adapters/telegram/rawApi";
+import { HTML } from "../adapters/telegram/context";
 import { MAX_FEEDBACK_REPLY, replyToFeedback } from "../features/feedback/replyFeedback";
 import { broadcastRelease, pendingReleaseRecipients } from "../features/owner/releaseBroadcast";
 import { broadcastQueue, queueAnnouncement, queueReleaseBroadcast } from "../features/owner/broadcastQueue";
@@ -89,9 +90,21 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     const batch = all.filter((u) => u._id > after).slice(0, RELEASE_BATCH);
     let sent = 0;
     let failed = 0;
+    // The same text on the same day is one announcement: a retried batch is deduplicated per
+    // recipient (the outbox key is unique per user), and the key stays short whatever the text.
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    const textId = [...new Uint8Array(digest).slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const day = new Date().toISOString().slice(0, 10);
     for (const u of batch) {
       const markup = appMarkup(env, t(u.lang, "launch_open_btn"), "today");
-      if (await pingOther(env, u.chatId, `📢 ${escapeHtml(text)}`, markup)) sent++; else failed++;
+      const result = await notifySafely(env, { api: rawTelegramApi(env) }, { userId: u._id, chatId: u.chatId }, {
+        kind: "owner_announce",
+        key: `owner_announce:${day}:${textId}`,
+        text: `📢 ${escapeHtml(text)}`,
+        extra: { ...HTML, reply_markup: markup },
+      });
+      // Queued for a retry is on its way, as on the bot path; only a refused send is a failure.
+      if (result === "sent" || result === "retrying") sent++; else failed++;
     }
     const last = batch.at(-1)?._id ?? after;
     const remaining = all.filter((u) => u._id > last).length;

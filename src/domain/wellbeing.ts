@@ -3,7 +3,6 @@
 import type { DailyCheckinDoc } from "../types";
 
 export type WellbeingMetric = "energy" | "sleep" | "stress";
-export const WELLBEING_METRICS: readonly WellbeingMetric[] = ["energy", "sleep", "stress"];
 
 type Averages = Record<WellbeingMetric, number>;
 

@@ -505,7 +505,7 @@ export const en = {
   cal_day_done: "✅ Workout logged.",
   cal_day_skipped: "✖️ Marked skipped.",
   cal_back: "⬅️ Calendar",
-  rem_session: "Sessions",
+  rem_quality: "Rating and feedback",
   cc_logs: "✏️ Fix logs",
   // --- trainer program templates ---
   menu_share_program: "📤 Share a program",

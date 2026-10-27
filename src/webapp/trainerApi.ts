@@ -4,8 +4,10 @@
 //   /api/trainer/question/:id/answer (POST)   — answer a client question
 // Same initData auth as the dashboard, plus a trainer-role gate; per-client ops also run the
 // ownership check (getClientForTrainer — missing and not-yours both 404).
-import { pingOther } from "../notify";
+import { notifySafely, pingOther } from "../notify";
 import { appMarkup } from "../notify/appKeyboard";
+import { rawTelegramApi } from "../adapters/telegram/rawApi";
+import { HTML } from "../adapters/telegram/context";
 import {
   recordAudit,
   setUserFlag,
@@ -124,10 +126,17 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     const bc = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
       const clients = await listClients(env.DB, user._id).catch(() => [] as UserDoc[]);
       const who = user.profile.name ?? "trainer";
+      // Same event and outbox path as the bot's broadcast: one id shared by every recipient's row.
+      const broadcastId = crypto.randomUUID();
       let sent = 0;
       for (const c of clients) {
-        await pingOther(env, c.chatId, t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)), appMarkup(env, t(c.lang, "nb_reply"), "coach"));
-        sent++;
+        const result = await notifySafely(env, { api: rawTelegramApi(env) }, { userId: c._id, chatId: c.chatId }, {
+          kind: "trainer_broadcast",
+          key: `trainer_broadcast:${broadcastId}`,
+          text: t(c.lang, "tr_broadcast_from", { name: who }) + "\n\n" + escapeHtml(text.slice(0, 1500)),
+          extra: { ...HTML, reply_markup: appMarkup(env, t(c.lang, "nb_reply"), "coach") },
+        });
+        if (result === "sent" || result === "retrying") sent++;
       }
       await recordAudit(env.DB, user._id, "broadcast", undefined, `${sent}/${clients.length}`).catch(() => {});
       return { status: 200, body: { ok: true, sent } };
@@ -240,7 +249,13 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
       const client = await getUser(env.DB, q.clientId).catch(() => null);
       if (client) {
         await insertMessage(env.DB, user._id, q.clientId, text).catch(() => {});
-        await pingOther(env, client.chatId, t(client.lang, "answer_from_trainer", { text }), appMarkup(env, t(client.lang, "nb_reply"), "coach"));
+        // Keyed per call, not per question: a trainer may amend an answer, and runIdempotent already covers a retry.
+        await notifySafely(env, { api: rawTelegramApi(env) }, { userId: client._id, chatId: client.chatId }, {
+          kind: "trainer_answer",
+          key: `trainer_answer:${qid}:${crypto.randomUUID()}`,
+          text: t(client.lang, "answer_from_trainer", { text }),
+          extra: { ...HTML, reply_markup: appMarkup(env, t(client.lang, "nb_reply"), "coach") },
+        });
       }
       await setQuestionStatus(env.DB, qid, "answered");
       logInfo("trainer_question_answered", {});
