@@ -510,7 +510,7 @@ export const uk: Dict = {
   cal_day_done: "✅ Тренування залоговане.",
   cal_day_skipped: "✖️ Позначено пропущеним.",
   cal_back: "⬅️ Календар",
-  rem_session: "Сесії",
+  rem_quality: "Оцінка та фідбек",
   cc_logs: "✏️ Виправити лог",
   // --- trainer program templates ---
   menu_share_program: "📤 Поділитися програмою",

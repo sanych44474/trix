@@ -14,6 +14,7 @@ import { unlinkClient } from "../adapters/d1/v2Trainer";
 import { clearVacation, getUser, setVacation, updateUser } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { localParts } from "../domain/localTime";
+import { REMINDER_KEYS } from "../domain/reminderTypes";
 import { escapeHtml, t } from "../locales/i18n";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
@@ -25,16 +26,6 @@ import { sendBestEffort as tgSend, telegramUpload } from "../adapters/telegram/r
 import { typedFailure } from "./failure";
 type TKey = Parameters<typeof t>[1];
 
-// Same toggleable reminder keys the bot's settings screen exposes (REM map in bot.ts), plus the
-// bi-weekly quality ask.
-// "all" comes first: the master switch -- off means no background message of any kind (the outbox
-// enforces it, schedulerOutbox.ts), whatever the per-type rows say.
-const REM_KEYS: [string, string][] = [
-  ["all", "rem_all"],
-  ["workout", "rem_workout"], ["nutrition", "rem_nutrition"], ["steps", "rem_steps"], ["water", "rem_water"],
-  ["checkin", "rem_checkin"], ["wellbeing", "rem_wellbeing"], ["tomorrow", "rem_tomorrow"], ["measure", "rem_measure"], ["weighin", "rem_weighin"],
-  ["plateau", "rem_plateau"], ["digest", "rem_digest"],
-];
 
 // Push the markdown export as a document (multipart) — the app can't download files (CSP), so
 // delivery goes to the user's Telegram chat, same as /export in the bot.
@@ -50,7 +41,7 @@ function state(user: UserDoc, lang: Lang) {
   const off = new Set(user.profile.remindersOff ?? []);
   return {
     onboarded: user.onboarded,
-    reminders: REM_KEYS.map(([key, label]) => ({ key, label: t(lang, label as TKey), on: !off.has(key) })),
+    reminders: REMINDER_KEYS.map(([key, label]) => ({ key, label: t(lang, label as TKey), on: !off.has(key) })),
     vacationUntil: user.vacationUntil && user.vacationUntil > new Date() ? user.vacationUntil.toISOString().slice(0, 10) : null,
     lang: user.lang,
     role: user.role,
@@ -93,7 +84,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
   try {
     if (action === "remToggle") {
       const key = String(body.key);
-      if (!REM_KEYS.some(([k]) => k === key)) return typedFailure(400, "validation_error", "bad request");
+      if (!REMINDER_KEYS.some(([k]) => k === key)) return typedFailure(400, "validation_error", "bad request");
       const off = new Set(user.profile.remindersOff ?? []);
       if (off.has(key)) off.delete(key);
       else off.add(key);
