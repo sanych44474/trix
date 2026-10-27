@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_cached">Офлайн · показано збережені дані</string>
+    <string name="offline_last_updated">Останнє оновлення: %1$s</string>
+    <string name="offline_requires_internet">Для цієї дії потрібен інтернет. Збережені дані доступні офлайн.</string>
+    <string name="offline_review">Переглянути</string>
+    <string name="offline_attention_title">Зміни, що потребують уваги</string>
+    <string name="offline_attention_hint">Спробуй надіслати зміни ще раз або видали їх із пристрою.</string>
+    <string name="offline_operation">%1$s · %2$s</string>
+    <string name="offline_more">І ще: %1$d</string>
+    <string name="offline_retry_all">Повторити всі</string>
+    <string name="offline_discard_all">Видалити всі</string>
+    <string name="offline_remove_confirm_title">Видалити зміни з помилкою?</string>
+    <string name="offline_remove_confirm_message">Ці збережені зміни буде видалено з пристрою, їх не буде синхронізовано.</string>
+    <string name="offline_remove">Видалити</string>
+    <string name="offline_cancel">Скасувати</string>
+    <string name="offline_kind_workout">Тренування</string>
+    <string name="offline_kind_draft">Чернетка тренування</string>
+    <string name="offline_kind_nutrition">Запис про їжу</string>
+    <string name="offline_kind_progress">Запис прогресу</string>
+    <string name="offline_error_network">Не вдалося підключитися</string>
+    <string name="offline_error_rejected">Сервер відхилив збережені дані</string>
+    <string name="offline_error_generic">Не вдалося синхронізувати</string>
+    <string name="offline_pending">Очікують синхронізації: %1$d</string>
+    <string name="offline_attention">Потребують уваги: %1$d</string>
+</resources>

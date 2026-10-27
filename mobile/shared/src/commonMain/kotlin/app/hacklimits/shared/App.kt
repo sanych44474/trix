@@ -6,6 +6,13 @@ import app.hacklimits.shared.trainingextras.ComebackScreen
 import app.hacklimits.shared.trainingextras.StandardsCard
 import app.hacklimits.shared.trainertools.TrainerReportScreen
 import app.hacklimits.shared.trainertools.ProgramSharingScreen
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -155,10 +162,12 @@ fun App(
                 return@Surface
             }
             val signedIn by sessions.signedIn.collectAsStateWithLifecycle()
+            val accountId by sessions.account.collectAsStateWithLifecycle()
             LaunchedEffect(api) { api.sessionExpired.collect { sessions.clear() } }
-            LaunchedEffect(signedIn) {
+            LaunchedEffect(signedIn, accountId) {
                 if (signedIn) {
                     onSignedIn()
+                    pending.scheduleIfPending()
                     runCatching { pending.flush() } // workouts saved offline last time
                 }
             }
@@ -200,7 +209,27 @@ fun App(
                 },
             ) { padding ->
                 // Scaffold supplies the system-bar insets; consuming them stops a screen's imePadding counting them twice.
-                NavHost(nav, startDestination = TodayRoute, modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
+                NavHost(
+                    nav,
+                    startDestination = TodayRoute,
+                    modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+                    enterTransition = {
+                        if (displayPrefs.reducedMotion) EnterTransition.None
+                        else fadeIn(tween(190)) + slideInHorizontally(tween(250)) { it / 24 }
+                    },
+                    exitTransition = {
+                        if (displayPrefs.reducedMotion) ExitTransition.None
+                        else fadeOut(tween(150)) + slideOutHorizontally(tween(180)) { -it / 32 }
+                    },
+                    popEnterTransition = {
+                        if (displayPrefs.reducedMotion) EnterTransition.None
+                        else fadeIn(tween(190)) + slideInHorizontally(tween(250)) { -it / 24 }
+                    },
+                    popExitTransition = {
+                        if (displayPrefs.reducedMotion) ExitTransition.None
+                        else fadeOut(tween(150)) + slideOutHorizontally(tween(180)) { it / 32 }
+                    },
+                ) {
                     composable<TodayRoute> {
                         TodayScreen(
                             koinViewModel(),

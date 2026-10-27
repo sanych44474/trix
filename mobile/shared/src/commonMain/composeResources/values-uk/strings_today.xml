@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="td_offline_cached">Офлайн · показано збережені дані</string>
     <!-- Today (td_) -->
     <string name="td_title">Сьогодні</string>
     <string name="td_hello">Привіт, %1$s</string>

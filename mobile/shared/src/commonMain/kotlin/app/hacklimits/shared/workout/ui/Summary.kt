@@ -51,6 +51,7 @@ import app.hacklimits.shared.workout.LoggerUi
 import app.hacklimits.shared.workout.LoggerViewModel
 import app.hacklimits.shared.workout.SaveSummary
 import app.hacklimits.shared.workout.logic.fmtDuration
+import app.hacklimits.shared.ui.theme.LocalReducedMotion
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import org.jetbrains.compose.resources.stringResource
@@ -127,7 +128,7 @@ fun SummaryView(
                 Button(onClick = { vm.doneWithSummary() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.wk_summary_done_btn)) }
             }
         }
-        if (celebrate) Confetti()
+        if (celebrate && !LocalReducedMotion.current) Confetti()
     }
 }
 
@@ -162,8 +163,12 @@ private fun CountUp(value: String) {
         Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         return
     }
-    val progress = remember(value) { Animatable(0f) }
-    LaunchedEffect(value) { progress.animateTo(target.toFloat(), tween(durationMillis = 700)) }
+    val reducedMotion = LocalReducedMotion.current
+    val progress = remember(value, reducedMotion) { Animatable(if (reducedMotion) target.toFloat() else 0f) }
+    LaunchedEffect(value, reducedMotion) {
+        if (reducedMotion) progress.snapTo(target.toFloat())
+        else progress.animateTo(target.toFloat(), tween(durationMillis = 700))
+    }
     Text(progress.value.roundToInt().toString(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
 }
 

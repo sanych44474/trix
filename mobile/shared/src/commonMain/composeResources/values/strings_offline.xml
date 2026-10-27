@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_cached">Offline mode · showing saved data</string>
+    <string name="offline_last_updated">Last updated %1$s</string>
+    <string name="offline_requires_internet">This action needs an internet connection. Your saved data is still available offline.</string>
+    <string name="offline_review">Review</string>
+    <string name="offline_attention_title">Changes needing attention</string>
+    <string name="offline_attention_hint">Retry these changes, or remove them from this device.</string>
+    <string name="offline_operation">%1$s · %2$s</string>
+    <string name="offline_more">And %1$d more</string>
+    <string name="offline_retry_all">Retry all</string>
+    <string name="offline_discard_all">Remove all</string>
+    <string name="offline_remove_confirm_title">Remove failed changes?</string>
+    <string name="offline_remove_confirm_message">These saved changes will be deleted from this device and will not sync.</string>
+    <string name="offline_remove">Remove</string>
+    <string name="offline_cancel">Cancel</string>
+    <string name="offline_kind_workout">Workout</string>
+    <string name="offline_kind_draft">Workout draft</string>
+    <string name="offline_kind_nutrition">Food log</string>
+    <string name="offline_kind_progress">Progress entry</string>
+    <string name="offline_error_network">Could not connect</string>
+    <string name="offline_error_rejected">Server rejected the saved data</string>
+    <string name="offline_error_generic">Sync failed</string>
+    <string name="offline_pending">%1$d changes waiting to sync</string>
+    <string name="offline_attention">%1$d changes need your attention</string>
+</resources>

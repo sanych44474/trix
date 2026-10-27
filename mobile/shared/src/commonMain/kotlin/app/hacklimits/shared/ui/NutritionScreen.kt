@@ -74,6 +74,7 @@ fun NutritionScreen(vm: NutritionViewModel, onOpenMealPhoto: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { Text(stringResource(Res.string.fd_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
+        item { OfflineStatusNotice(s.offline, s.pendingSync, s.needsAttention, s.lastUpdatedAtMs) }
         if (day == null) {
             item {
                 if (loadError != null) {

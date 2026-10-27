@@ -178,7 +178,13 @@ internal fun AccountSection(
 // ---- Display: theme, accent, high contrast (theme.ts) ----
 
 @Composable
-internal fun DisplaySection(prefs: DisplayPrefs, onMode: (ThemeMode) -> Unit, onAccent: (Accent) -> Unit, onContrast: (Boolean) -> Unit) {
+internal fun DisplaySection(
+    prefs: DisplayPrefs,
+    onMode: (ThemeMode) -> Unit,
+    onAccent: (Accent) -> Unit,
+    onContrast: (Boolean) -> Unit,
+    onReducedMotion: (Boolean) -> Unit,
+) {
     SettingsCard(stringResource(Res.string.ac_display_title), stringResource(Res.string.ac_display_eyebrow)) {
         Text(stringResource(Res.string.ac_theme_label), style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -187,13 +193,17 @@ internal fun DisplaySection(prefs: DisplayPrefs, onMode: (ThemeMode) -> Unit, on
             FilterChip(prefs.mode == ThemeMode.DARK, { onMode(ThemeMode.DARK) }, label = { Text(stringResource(Res.string.ac_theme_dark)) })
         }
         Text(stringResource(Res.string.ac_accent_label), style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             FilterChip(prefs.accent == Accent.GREEN, { onAccent(Accent.GREEN) }, enabled = !prefs.highContrast, label = { Text(stringResource(Res.string.ac_accent_green)) })
             FilterChip(prefs.accent == Accent.RED, { onAccent(Accent.RED) }, enabled = !prefs.highContrast, label = { Text(stringResource(Res.string.ac_accent_red)) })
+            FilterChip(prefs.accent == Accent.BLUE, { onAccent(Accent.BLUE) }, enabled = !prefs.highContrast, label = { Text(stringResource(Res.string.ac_accent_blue)) })
+            FilterChip(prefs.accent == Accent.VIOLET, { onAccent(Accent.VIOLET) }, enabled = !prefs.highContrast, label = { Text(stringResource(Res.string.ac_accent_violet)) })
         }
         if (prefs.highContrast) MutedText(stringResource(Res.string.ac_accent_contrast_note))
         CheckRow(stringResource(Res.string.ac_contrast_toggle), prefs.highContrast, onContrast)
         MutedText(stringResource(Res.string.ac_contrast_hint))
+        CheckRow(stringResource(Res.string.ac_reduce_motion), prefs.reducedMotion, onReducedMotion)
+        MutedText(stringResource(Res.string.ac_reduce_motion_hint))
     }
 }
 

@@ -24,26 +24,35 @@ import kotlinx.coroutines.withContext
 class KeystoreSessionStore(context: Context) : SessionStore {
     private val prefs = context.getSharedPreferences("session", Context.MODE_PRIVATE)
     private val state = MutableStateFlow(prefs.contains(KEY_TOKEN))
+    // Accounts made without Telegram have negative ids, so presence (not sign) says there is one.
+    private val owner = MutableStateFlow(if (prefs.contains(KEY_ACCOUNT_ID)) prefs.getLong(KEY_ACCOUNT_ID, 0L).takeIf { it != 0L } else null)
     override val signedIn: StateFlow<Boolean> = state
+    override val account: StateFlow<Long?> = owner
 
     override suspend fun token(): String? = withContext(Dispatchers.IO) {
         val stored = prefs.getString(KEY_TOKEN, null) ?: return@withContext null
         runCatching { decrypt(stored) }.getOrElse {
             // Key gone (app data restored on another device, keystore reset): sign in again.
-            prefs.edit { remove(KEY_TOKEN) }
+            prefs.edit { remove(KEY_TOKEN); remove(KEY_ACCOUNT_ID) }
+            owner.value = null
             state.value = false
             null
         }
     }
 
-    override suspend fun save(token: String) = withContext(Dispatchers.IO) {
+    override suspend fun save(token: String, accountId: Long?) = withContext(Dispatchers.IO) {
         // commit, not apply: the token must be on disk before the app moves on as signed in.
-        prefs.edit(commit = true) { putString(KEY_TOKEN, encrypt(token)) }
+        prefs.edit(commit = true) {
+            putString(KEY_TOKEN, encrypt(token))
+            if (accountId != null && accountId != 0L) putLong(KEY_ACCOUNT_ID, accountId) else remove(KEY_ACCOUNT_ID)
+        }
+        owner.value = accountId?.takeIf { it != 0L }
         state.value = true
     }
 
     override suspend fun clear() = withContext(Dispatchers.IO) {
-        prefs.edit(commit = true) { remove(KEY_TOKEN) }
+        prefs.edit(commit = true) { remove(KEY_TOKEN); remove(KEY_ACCOUNT_ID) }
+        owner.value = null
         state.value = false
     }
 
@@ -79,6 +88,7 @@ class KeystoreSessionStore(context: Context) : SessionStore {
         const val KEYSTORE = "AndroidKeyStore"
         const val ALIAS = "hacklimits_session"
         const val KEY_TOKEN = "token"
+        const val KEY_ACCOUNT_ID = "account_id"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val IV_BYTES = 12
     }

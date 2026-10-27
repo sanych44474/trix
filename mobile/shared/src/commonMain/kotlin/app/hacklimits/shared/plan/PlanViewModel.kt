@@ -3,6 +3,9 @@ package app.hacklimits.shared.plan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hacklimits.shared.data.ApiException
+import app.hacklimits.shared.data.AccountCache
+import app.hacklimits.shared.data.AppJson
+import app.hacklimits.shared.data.canFallbackToCache
 import app.hacklimits.shared.data.CatalogExercise
 import app.hacklimits.shared.data.Plan
 import app.hacklimits.shared.data.PlanApi
@@ -23,10 +26,12 @@ import kotlinx.coroutines.launch
  *
  * [clientId] is set when a trainer opens a client's plan; null is the person's own plan.
  */
-class PlanViewModel(private val api: PlanApi, val clientId: Long? = null) : ViewModel() {
+class PlanViewModel(private val api: PlanApi, val clientId: Long? = null, private val cache: AccountCache) : ViewModel() {
     data class State(
         val plan: Plan? = null,
         val loading: Boolean = true,
+        val offline: Boolean = false,
+        val lastUpdatedAtMs: Long? = null,
         /** Error code of a failed load; the editor is replaced by a retry state. */
         val loadError: String? = null,
         /** An edit that failed: "generic" or "last_exercise". Shown inline and dismissable. */
@@ -54,16 +59,25 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null) : View
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(loading = true, loadError = null) }
+            val local = cachedPlan()
+            if (local != null) _state.update { it.copy(plan = local, loading = false, offline = true, lastUpdatedAtMs = cache.lastUpdatedAt(PLAN_CACHE_KEY)) }
             try {
                 val plan = api.load(clientId)
-                _state.update { it.copy(plan = plan, loading = false) }
+                if (clientId == null) cache.write(PLAN_CACHE_KEY, AppJson.encodeToString(Plan.serializer(), plan))
+                _state.update { it.copy(plan = plan, loading = false, offline = false, lastUpdatedAtMs = if (clientId == null) cache.lastUpdatedAt(PLAN_CACHE_KEY) else null) }
             } catch (e: ApiException) {
-                _state.update { it.copy(loading = false, loadError = e.code) }
+                val cached = if (e.canFallbackToCache()) cachedPlan() else null
+                _state.update { it.copy(plan = cached, loading = false, offline = cached != null, lastUpdatedAtMs = if (cached != null) cache.lastUpdatedAt(PLAN_CACHE_KEY) else null, loadError = if (cached == null) e.code else null) }
             } catch (e: Exception) {
-                _state.update { it.copy(loading = false, loadError = "network") }
+                val cached = cachedPlan()
+                _state.update { it.copy(plan = cached, loading = false, offline = cached != null, lastUpdatedAtMs = if (cached != null) cache.lastUpdatedAt(PLAN_CACHE_KEY) else null, loadError = if (cached == null) "network" else null) }
             }
         }
     }
+
+    private suspend fun cachedPlan(): Plan? = if (clientId != null) null else runCatching {
+        cache.read(PLAN_CACHE_KEY)?.let { AppJson.decodeFromString(Plan.serializer(), it) }
+    }.getOrNull()
 
     fun dismissActionError() = _state.update { it.copy(actionError = null) }
 
@@ -106,9 +120,16 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null) : View
             _state.update { it.copy(catalogBusy = key) }
             try {
                 val items = api.search(q)
+                cache.write(catalogCacheKey(q), AppJson.encodeToString(kotlinx.serialization.builtins.ListSerializer(CatalogExercise.serializer()), items))
                 _state.update { it.copy(catalog = it.catalog + (key to items)) }
             } catch (e: Exception) {
-                _state.update { it.copy(actionError = "generic") }
+                val cached = runCatching {
+                    cache.read(catalogCacheKey(q))?.let {
+                        AppJson.decodeFromString(kotlinx.serialization.builtins.ListSerializer(CatalogExercise.serializer()), it)
+                    }
+                }.getOrNull()
+                if (cached != null) _state.update { it.copy(catalog = it.catalog + (key to cached)) }
+                else _state.update { it.copy(actionError = "generic") }
             } finally {
                 _state.update { it.copy(catalogBusy = null) }
             }
@@ -166,6 +187,10 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null) : View
     ) {
         val current = _state.value
         val plan = current.plan ?: return
+        if (current.offline) {
+            _state.update { it.copy(actionError = "offline_read_only") }
+            return
+        }
         if (current.busy != null) return
         viewModelScope.launch {
             _state.update { it.copy(busy = key, saved = null, actionError = null) }
@@ -192,4 +217,8 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null) : View
         version = r.version ?: version,
         changes = r.changes ?: changes,
     )
+
+    private fun catalogCacheKey(query: String) = "plan.catalog.v1.${query.trim().lowercase()}"
+
+    private companion object { const val PLAN_CACHE_KEY = "plan.self.v1" }
 }

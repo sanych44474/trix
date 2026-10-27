@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="td_offline_cached">Offline mode · showing saved data</string>
     <!-- Today (td_) -->
     <string name="td_title">Today</string>
     <string name="td_hello">Hi, %1$s</string>

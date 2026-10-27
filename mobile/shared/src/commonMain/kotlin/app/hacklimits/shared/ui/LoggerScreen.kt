@@ -43,6 +43,10 @@ import app.hacklimits.shared.resources.wk_focus_close_aria
 import app.hacklimits.shared.resources.wk_focus_counter
 import app.hacklimits.shared.resources.wk_generic_error
 import app.hacklimits.shared.resources.wk_ok
+import app.hacklimits.shared.resources.wk_legacy_restore
+import app.hacklimits.shared.resources.wk_legacy_keep
+import app.hacklimits.shared.resources.wk_legacy_detail
+import app.hacklimits.shared.resources.wk_legacy_title
 import app.hacklimits.shared.resources.wk_rest_day_detail
 import app.hacklimits.shared.resources.wk_rest_day_title
 import app.hacklimits.shared.resources.wk_retry
@@ -154,6 +158,23 @@ fun LoggerScreen(
     FinishDialog(vm, s)
     RemoveDialog(vm, s)
     PlanSwapDialog(vm, s)
+    if (s.legacyDataNeedsReview) {
+        AlertDialog(
+            onDismissRequest = vm::dismissLegacyDataReview,
+            title = { Text(stringResource(Res.string.wk_legacy_title)) },
+            text = { Text(stringResource(Res.string.wk_legacy_detail, s.legacyDataOwnerId ?: 0L)) },
+            confirmButton = {
+                TextButton(onClick = vm::claimLegacyDataForCurrentAccount, enabled = s.legacyDataOwnerId != null) {
+                    Text(stringResource(Res.string.wk_legacy_restore))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = vm::dismissLegacyDataReview) {
+                    Text(stringResource(Res.string.wk_legacy_keep))
+                }
+            },
+        )
+    }
 }
 
 private fun complete(ex: app.hacklimits.shared.workout.logic.LoggerExercise): Boolean =

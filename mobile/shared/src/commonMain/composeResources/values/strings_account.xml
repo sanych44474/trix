@@ -35,17 +35,21 @@
     <string name="ac_auth_verify">Verify email</string>
 
     <string name="ac_display_eyebrow">Display</string>
-    <string name="ac_display_title">Readability</string>
+    <string name="ac_display_title">Appearance</string>
     <string name="ac_theme_label">Theme</string>
     <string name="ac_theme_system">System</string>
     <string name="ac_theme_light">Light</string>
     <string name="ac_theme_dark">Dark</string>
-    <string name="ac_accent_label">Colour</string>
-    <string name="ac_accent_green">Green</string>
-    <string name="ac_accent_red">Red</string>
+    <string name="ac_accent_label">Accent palette</string>
+    <string name="ac_accent_green">Lime</string>
+    <string name="ac_accent_red">Ember</string>
+    <string name="ac_accent_blue">Ocean</string>
+    <string name="ac_accent_violet">Violet</string>
     <string name="ac_accent_contrast_note">High contrast uses its own fixed colours.</string>
     <string name="ac_contrast_toggle">High contrast</string>
     <string name="ac_contrast_hint">Darker colours and stronger borders for bright light or low vision. Saved on this device.</string>
+    <string name="ac_reduce_motion">Reduce motion</string>
+    <string name="ac_reduce_motion_hint">Turn off screen movement and celebration effects. Saved on this device.</string>
 
     <string name="ac_retry">Retry</string>
     <string name="ac_language_eyebrow">Language</string>

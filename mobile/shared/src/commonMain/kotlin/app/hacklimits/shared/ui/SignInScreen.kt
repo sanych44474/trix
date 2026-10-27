@@ -117,6 +117,7 @@ fun SignInScreen(vm: SignInViewModel) {
 
 /** Server and client error codes to text; anything unknown is a generic message. */
 internal fun errorText(code: String): StringResource = when (code) {
+    "offline_requires_internet" -> Res.string.offline_requires_internet
     "network" -> Res.string.err_network
     "invalid_email" -> Res.string.err_invalid_email
     "invalid_code" -> Res.string.err_invalid_code

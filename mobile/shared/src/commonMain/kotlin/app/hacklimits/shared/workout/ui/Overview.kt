@@ -41,6 +41,8 @@ import app.hacklimits.shared.resources.wk_train_as_planned_all_btn
 import app.hacklimits.shared.resources.wk_train_custom_ph
 import app.hacklimits.shared.resources.wk_train_progress_line
 import app.hacklimits.shared.resources.wk_training_session_title
+import app.hacklimits.shared.resources.offline_pending
+import app.hacklimits.shared.resources.offline_attention
 import app.hacklimits.shared.workout.LoggerUi
 import app.hacklimits.shared.workout.LoggerViewModel
 import app.hacklimits.shared.workout.logic.LoggerExercise
@@ -52,6 +54,14 @@ import kotlin.math.max
 /** Notes above the session: a plan change saved, an error to dismiss, and which day or copy is open. */
 @Composable
 fun LoggerNotes(vm: LoggerViewModel, s: LoggerUi) {
+    if (s.pendingSyncCount > 0 || s.needsAttentionCount > 0) {
+        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (s.pendingSyncCount > 0) Text(stringResource(Res.string.offline_pending, s.pendingSyncCount))
+                if (s.needsAttentionCount > 0) Text(stringResource(Res.string.offline_attention, s.needsAttentionCount), color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
     s.planNoticeName?.let { name ->
         Card(Modifier.fillMaxWidth().clickable { vm.dismissPlanNotice() }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
             Text(stringResource(Res.string.wk_swap_plan_saved, name), Modifier.padding(12.dp))

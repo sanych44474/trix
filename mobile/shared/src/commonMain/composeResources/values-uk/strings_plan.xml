@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Plan, programs and onboarding copy (Mini App parity). Generated from apps/mini-app/src/i18n. -->
 <resources>
+    <string name="pl_offline_read_only">Щоб змінити план, потрібен інтернет. Збережений план доступний офлайн.</string>
     <string name="pl_plan_add_btn">Додати</string>
     <string name="pl_plan_add_exercise_btn">Додати вправу</string>
     <string name="pl_plan_add_ph">Нова вправа</string>

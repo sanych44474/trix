@@ -10,6 +10,9 @@ import android.os.Bundle
 import app.hacklimits.shared.auth.GoogleSignIn
 import app.hacklimits.shared.data.ClientErrorApi
 import app.hacklimits.shared.data.KeyValueStore
+import app.hacklimits.shared.data.OfflineStore
+import app.hacklimits.shared.data.OfflineSyncScheduler
+import app.hacklimits.shared.data.createOfflineStore
 import app.hacklimits.shared.platform.ErrorReporter
 import app.hacklimits.shared.media.MediaFilePicker
 import app.hacklimits.android.media.ActivityFilePicker
@@ -57,6 +60,8 @@ class HackLimitsApp : Application() {
                     single<AppPlatform> { platform }
                     single<SessionStore> { KeystoreSessionStore(get()) }
                     single<KeyValueStore> { PrefsKeyValueStore(get()) }
+                    single<OfflineStore> { createOfflineStore(get()) }
+                    single<OfflineSyncScheduler> { WorkManagerOfflineSyncScheduler(get()) }
                     single<RestAlarm> { WorkRestAlarm(get()) }
                     single { ActivityFileSaver(get()) }
                     single<FileSaver> { get<ActivityFileSaver>() }

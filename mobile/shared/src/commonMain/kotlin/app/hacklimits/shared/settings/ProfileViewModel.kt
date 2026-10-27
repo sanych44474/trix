@@ -188,6 +188,7 @@ class ProfileViewModel(
     fun setThemeMode(mode: ThemeMode) = updatePrefs { it.copy(mode = mode) }
     fun setAccent(accent: Accent) = updatePrefs { it.copy(accent = accent) }
     fun setHighContrast(on: Boolean) = updatePrefs { it.copy(highContrast = on) }
+    fun setReducedMotion(on: Boolean) = updatePrefs { it.copy(reducedMotion = on) }
 
     private fun editForm(transform: (Form) -> Form) = _state.update { current ->
         current.form?.let { current.copy(form = transform(it), saved = false, saveError = false) } ?: current

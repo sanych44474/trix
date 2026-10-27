@@ -61,6 +61,14 @@ class ApiClient(
         }
     }
 
+    /** A session saved before the app stored account ids has none, which locks its offline data away.
+     *  Adopt the id the server reports for the signed-in viewer; an id already stored is never replaced. */
+    suspend fun adoptAccountId(id: Long) {
+        if (id == 0L || sessions.accountId() != null) return
+        val token = sessions.token() ?: return
+        sessions.save(token, id)
+    }
+
     /** An absolute URL on the API origin, for things loaded outside Ktor (images). */
     fun url(path: String): String = baseUrl.trimEnd('/') + "/" + path.trimStart('/')
 

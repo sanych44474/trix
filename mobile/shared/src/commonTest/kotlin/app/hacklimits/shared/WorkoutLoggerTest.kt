@@ -2,7 +2,12 @@ package app.hacklimits.shared
 
 import app.hacklimits.shared.data.ApiClient
 import app.hacklimits.shared.data.InMemoryKeyValueStore
+import app.hacklimits.shared.data.InMemoryOfflineStore
 import app.hacklimits.shared.data.InMemorySessionStore
+import app.hacklimits.shared.data.AccountCache
+import app.hacklimits.shared.data.NoOfflineSyncScheduler
+import app.hacklimits.shared.data.NutritionApi
+import app.hacklimits.shared.data.ProgressApi
 import app.hacklimits.shared.data.SaveWorkoutRequest
 import app.hacklimits.shared.data.WorkoutApi
 import app.hacklimits.shared.workout.PendingSaves
@@ -18,6 +23,22 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class WorkoutLoggerTest {
+    private data class TestQueue(
+        val queue: PendingSaves,
+        val offline: InMemoryOfflineStore,
+        val sessions: InMemorySessionStore,
+    )
+
+    private fun queue(engine: MockEngine, sessions: InMemorySessionStore = InMemorySessionStore("t".repeat(64), 1L), legacy: InMemoryKeyValueStore = InMemoryKeyValueStore()): TestQueue {
+        val client = ApiClient("https://api.example.test", sessions, HttpClient(engine))
+        val offline = InMemoryOfflineStore()
+        return TestQueue(
+            PendingSaves(legacy, offline, WorkoutApi(client), NutritionApi(client), ProgressApi(client), sessions, NoOfflineSyncScheduler),
+            offline,
+            sessions,
+        )
+    }
+
     @Test
     fun offlineSavesAreRetriedWithTheirOriginalKeyAndKeptWhileTheNetworkIsDown() = runTest {
         var online = false
@@ -29,8 +50,7 @@ class WorkoutLoggerTest {
                 respond("""{"data":{"ok":true,"prExercises":[],"newBadges":[],"level":1,"leveledUp":false,"totalWorkouts":1}}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
             }
         }
-        val api = WorkoutApi(ApiClient("https://api.example.test", InMemorySessionStore("t".repeat(64)), HttpClient(engine)))
-        val queue = PendingSaves(InMemoryKeyValueStore(), api)
+        val queue = queue(engine).queue
         val request = SaveWorkoutRequest(entries = listOf(SaveWorkoutRequest.Entry("Squat", listOf(SaveWorkoutRequest.SetDone(5.0, 80.0)))))
         queue.add(PendingSaves.Pending("key-one-12345", request))
 
@@ -43,7 +63,7 @@ class WorkoutLoggerTest {
     }
 
     @Test
-    fun theServersRetryableFlagDecidesWhatIsKeptAndWhatIsDropped() = runTest {
+    fun permanentFailuresRemainVisibleAndRetryableFailuresStayQueued() = runTest {
         var status = HttpStatusCode.Forbidden
         var retryable = false
         val engine = MockEngine {
@@ -53,12 +73,20 @@ class WorkoutLoggerTest {
                 headersOf(HttpHeaders.ContentType, "application/json"),
             )
         }
-        val api = WorkoutApi(ApiClient("https://api.example.test", InMemorySessionStore("t".repeat(64)), HttpClient(engine)))
-        val queue = PendingSaves(InMemoryKeyValueStore(), api)
+        val queue = queue(engine).queue
         val request = SaveWorkoutRequest(entries = listOf(SaveWorkoutRequest.Entry("Squat", listOf(SaveWorkoutRequest.SetDone(5.0, 80.0)))))
         queue.add(PendingSaves.Pending("refused", request))
         queue.flush()
-        assertEquals(0, queue.count(), "retryable false: 403 is dropped")
+        assertEquals(0, queue.count(), "a permanent failure is no longer retried")
+        assertEquals(1, queue.needsAttentionCount(), "but it remains available for the user")
+        val attention = queue.needsAttentionOperations().single()
+        assertEquals(true, queue.retry(attention), "the user can explicitly retry a failed change")
+        assertEquals(1, queue.count())
+        assertEquals(0, queue.needsAttentionCount())
+        queue.flush()
+        assertEquals(1, queue.needsAttentionCount())
+        assertEquals(true, queue.discard(queue.needsAttentionOperations().single()), "discard is explicit and limited to a reviewed failure")
+        assertEquals(0, queue.needsAttentionCount())
 
         status = HttpStatusCode.Conflict
         retryable = true
@@ -68,14 +96,65 @@ class WorkoutLoggerTest {
     }
 
     @Test
-    fun theQueueKeepsTheNewestTwentySaves() = runTest {
+    fun theQueueDoesNotSilentlyDropSavesAtTheOldLimit() = runTest {
         val engine = MockEngine { respondError(HttpStatusCode.ServiceUnavailable) }
-        val api = WorkoutApi(ApiClient("https://api.example.test", InMemorySessionStore("t".repeat(64)), HttpClient(engine)))
-        val queue = PendingSaves(InMemoryKeyValueStore(), api)
+        val queue = queue(engine).queue
         val request = SaveWorkoutRequest(entries = listOf(SaveWorkoutRequest.Entry("Squat", listOf(SaveWorkoutRequest.SetDone(5.0, 80.0)))))
-        repeat(21) { queue.add(PendingSaves.Pending("key-$it", request)) }
-        assertEquals(20, queue.count())
+        repeat(25) { queue.add(PendingSaves.Pending("key-$it", request)) }
+        assertEquals(25, queue.count())
         assertEquals(0, queue.flush())
-        assertEquals(20, queue.count())
+        assertEquals(25, queue.count())
+    }
+
+    @Test
+    fun pendingWorkStaysWithItsOriginalAccountAcrossAccountSwitches() = runTest {
+        val engine = MockEngine { respondError(HttpStatusCode.ServiceUnavailable) }
+        val owner = InMemorySessionStore("first-token", 10L)
+        val setup = queue(engine, owner)
+        val request = SaveWorkoutRequest(entries = listOf(SaveWorkoutRequest.Entry("Squat", listOf(SaveWorkoutRequest.SetDone(5.0, 80.0)))))
+        setup.queue.add(PendingSaves.Pending("account-ten-save", request))
+
+        owner.save("second-token", 20L)
+
+        assertEquals(0, setup.queue.count())
+        assertEquals(1, setup.offline.pendingCount(10L))
+        assertEquals(0, setup.offline.pendingCount(20L))
+    }
+
+    @Test
+    fun oldDeviceGlobalQueueIsClaimedOnlyOnExplicitRequest() = runTest {
+        val engine = MockEngine { respondError(HttpStatusCode.ServiceUnavailable) }
+        val legacy = InMemoryKeyValueStore()
+        val old = PendingSaves.Pending("legacy-save", SaveWorkoutRequest(entries = emptyList()))
+        legacy.put("pending_workout_saves", app.hacklimits.shared.data.AppJson.encodeToString(listOf(old)))
+        val setup = queue(engine, legacy = legacy)
+
+        assertEquals(1, setup.queue.legacyCount())
+        assertEquals(0, setup.queue.count())
+        assertEquals(true, setup.queue.claimLegacyForCurrentAccount())
+        assertEquals(0, setup.queue.legacyCount())
+        assertEquals(1, setup.queue.count())
+    }
+
+    @Test
+    fun cachedRecordsAndDraftOperationsStayScopedToTheirAccount() = runTest {
+        val engine = MockEngine { respondError(HttpStatusCode.ServiceUnavailable) }
+        val owner = InMemorySessionStore("first-token", 10L)
+        val setup = queue(engine, owner)
+        val cache = AccountCache(setup.offline, owner)
+
+        setup.offline.write(10L, "dashboard", "account-ten", 1234L)
+        assertEquals(1234L, cache.lastUpdatedAt("dashboard"))
+        assertEquals("account-ten", cache.read("dashboard"))
+
+        setup.queue.queueDraft("2026-10-27", "old-draft")
+        setup.queue.queueDraft("2026-10-27", "latest-draft")
+        assertEquals(1, setup.offline.pendingCount(10L), "updating a draft replaces its stable outbox operation")
+        assertEquals(true, setup.offline.pending(10L).single().payload.contains("latest-draft"))
+
+        owner.save("second-token", 20L)
+        assertEquals(null, cache.read("dashboard"))
+        assertEquals(null, cache.lastUpdatedAt("dashboard"))
+        assertEquals(0, setup.queue.count())
     }
 }
