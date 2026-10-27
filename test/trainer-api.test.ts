@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, updateUser, getUser } from "../src/adapters/d1/v2Users";
 import { createQuestion } from "../src/adapters/d1/v2TrainerMessages";
+import { registerPushDevice } from "../src/adapters/d1/v2Push";
 import { saveTrainerTemplate } from "../src/adapters/d1/v2TrainerPrograms";
 import { handleTrainerApi } from "../src/webapp/trainerApi";
 import type { BankPlan, UserDoc } from "../src/types";
@@ -165,6 +166,36 @@ test("broadcast: notifies every client and records how many were reached", async
     assert.equal(body.sent, 2);
   } finally {
     unstub();
+  }
+});
+
+test("broadcast: an app-only client (chatId 0) with a push device gets it through the outbox, as the bot does", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 10, 10, "en", "Coach");
+  await updateUser(db, 10, { role: "trainer" });
+  await getOrCreateUser(db, 20, 0, "en", "AppOnly");
+  await updateUser(db, 20, { role: "client", trainerId: 10 });
+  await registerPushDevice(db, 20, "fcm-token-aaaaaaaaaaaaaaaaaaaaaaaa", "android", "1.0.0");
+  const res = await call(db, 10, "POST", "/api/trainer/broadcast", { text: "Push only" });
+  assert.equal(res.status, 200);
+  const rows = db.dump<{ chatId: number; lastError: string | null }>("SELECT chatId, lastError FROM v2_notifications WHERE kind = 'trainer_broadcast'");
+  assert.equal(rows.length, 1, "one outbox row for the app-only client");
+  assert.equal(rows[0].chatId, 0);
+  assert.equal(rows[0].lastError, "push_failed", "the push path ran (no FCM in tests)");
+});
+
+test("broadcast: a send Telegram refuses is not counted as sent", async () => {
+  const db = newDb();
+  await trainerAndClient(db, 10, 20);
+  await trainerAndClient(db, 10, 21);
+  const real = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ ok: false, error_code: 403, description: "Forbidden: bot was blocked by the user" }), { status: 403 })) as typeof fetch;
+  try {
+    const res = await call(db, 10, "POST", "/api/trainer/broadcast", { text: "Blocked" });
+    const body = (await res.json()) as { sent: number };
+    assert.equal(body.sent, 0, "both sends were refused, so none counts as sent");
+  } finally {
+    globalThis.fetch = real;
   }
 });
 

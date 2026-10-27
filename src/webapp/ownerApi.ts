@@ -1,8 +1,9 @@
 // Owner console in the Mini App: the /ownerreport sections rendered in-app (they're already
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
-import { pingOther } from "../notify";
+import { notifySafely, pingOther } from "../notify";
 import { rawTelegramApi, telegramUpload } from "../adapters/telegram/rawApi";
+import { HTML } from "../adapters/telegram/context";
 import { MAX_FEEDBACK_REPLY, replyToFeedback } from "../features/feedback/replyFeedback";
 import { broadcastRelease, pendingReleaseRecipients } from "../features/owner/releaseBroadcast";
 import { broadcastQueue, queueAnnouncement, queueReleaseBroadcast } from "../features/owner/broadcastQueue";
@@ -91,7 +92,14 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     let failed = 0;
     for (const u of batch) {
       const markup = appMarkup(env, t(u.lang, "launch_open_btn"), "today");
-      if (await pingOther(env, u.chatId, `📢 ${escapeHtml(text)}`, markup)) sent++; else failed++;
+      // Keyed by the batch cursor and text: a retried batch is deduplicated, a new announcement is not.
+      const result = await notifySafely(env, { api: rawTelegramApi(env) }, { userId: u._id, chatId: u.chatId }, {
+        kind: "owner_announce",
+        key: `owner_announce:${u._id}:${after}:${text}`,
+        text: `📢 ${escapeHtml(text)}`,
+        extra: { ...HTML, reply_markup: markup },
+      });
+      if (result === "sent") sent++; else failed++;
     }
     const last = batch.at(-1)?._id ?? after;
     const remaining = all.filter((u) => u._id > last).length;
