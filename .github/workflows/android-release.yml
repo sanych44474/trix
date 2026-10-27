@@ -1,12 +1,18 @@
 name: Android release
 
 # Builds the signed "direct" APK and publishes it for self-update (scripts/publish-apk.mjs: R2
-# releases/android/, read by /api/v2/app/config and /download/android). Started by hand from the
-# Actions tab with the version to ship; the `production` environment's required reviewer approves
-# it before anything is signed or uploaded, the same gate as deploy.yml.
+# releases/android/, read by /api/v2/app/config and /download/android).
 #
-# Publish only after the Worker this build talks to is deployed: an APK that calls a route the live
-# Worker doesn't have yet breaks for everyone it updates.
+# Two ways in:
+# - deploy.yml calls it after every successful Worker deploy, so the app never ships ahead of the
+#   Worker it talks to. That run releases only when mobile/ changed since the last release (the
+#   `android-vc<N>` tag this workflow pushes), so a server-only deploy ships no empty app update and
+#   asks for no approval.
+# - By hand from the Actions tab, usually with both fields empty; a manual run always builds.
+#
+# The version is derived from the published one: versionCode + 1, last part of versionName + 1
+# (0.4.1 -> 0.4.2). The `production` environment's required reviewer approves the release job
+# before anything is signed or uploaded.
 #
 # Secrets (production environment):
 #   ANDROID_KEYSTORE_BASE64    the upload keystore (.jks), base64-encoded
@@ -14,14 +20,17 @@ name: Android release
 #   GOOGLE_SERVICES_JSON_BASE64  mobile/androidApp/google-services.json, base64-encoded (push + Crashlytics)
 #   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID   already used by deploy.yml
 on:
+  workflow_call:
   workflow_dispatch:
     inputs:
       versionCode:
-        description: versionCode (must be higher than the published one)
-        required: true
+        description: versionCode. Leave empty for the published one + 1
+        required: false
+        default: ''
       versionName:
-        description: versionName, e.g. 0.4.1
-        required: true
+        description: versionName. Leave empty to bump the last part of the published one (0.4.1 -> 0.4.2)
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -31,10 +40,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    name: Has the app changed?
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # history and tags, to diff against the last release
+
+      - name: Compare mobile/ with the last release
+        id: check
+        env:
+          # Inside a called workflow github.workflow is the caller's name ("Deploy").
+          MANUAL: ${{ github.workflow == 'Android release' }}
+        run: |
+          set -euo pipefail
+          if [[ "$MANUAL" == "true" ]]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          last=$(git tag --list 'android-vc*' --sort=-v:refname | head -1)
+          if [[ -n "$last" ]] && git diff --quiet "$last" HEAD -- mobile/; then
+            echo "mobile/ unchanged since $last: nothing to release"
+            echo "### Android: no app changes since $last, nothing released" >> "$GITHUB_STEP_SUMMARY"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "mobile/ changed since ${last:-the start}: releasing"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
     name: Build, sign and publish
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    permissions:
+      contents: write # pushes the android-vc<N> tag the change check reads
     environment:
       name: production
       url: ${{ vars.WORKER_URL }}/download/android
@@ -44,16 +88,30 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check the version is newer than the published one
+      - name: Work out the version
+        id: version
         env:
           WORKER_URL: ${{ vars.WORKER_URL }}
-          VERSION_CODE: ${{ inputs.versionCode }}
+          INPUT_CODE: ${{ inputs.versionCode }}
+          INPUT_NAME: ${{ inputs.versionName }}
         run: |
           set -euo pipefail
-          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || { echo "versionCode must be a positive integer"; exit 1; }
-          current=$(curl -fsS "$WORKER_URL/api/v2/app/config" | jq -r '.data.android.latestVersionCode // 0')
-          echo "published: $current, building: $VERSION_CODE"
-          (( VERSION_CODE > current )) || { echo "versionCode must be higher than $current"; exit 1; }
+          config=$(curl -fsS "$WORKER_URL/api/v2/app/config")
+          current=$(jq -r '.data.android.latestVersionCode // 0' <<<"$config")
+          current_name=$(jq -r '.data.android.download.versionName // "0.0.0"' <<<"$config")
+          code="${INPUT_CODE:-$((current + 1))}"
+          if [[ -n "$INPUT_NAME" ]]; then
+            name="$INPUT_NAME"
+          elif [[ "$current_name" =~ ^(.*[^0-9])?([0-9]+)$ ]]; then
+            name="${BASH_REMATCH[1]}$((BASH_REMATCH[2] + 1))"
+          else
+            echo "can't bump the published versionName '$current_name'; run by hand and enter one"; exit 1
+          fi
+          [[ "$code" =~ ^[1-9][0-9]*$ ]] || { echo "versionCode must be a positive integer"; exit 1; }
+          (( code > current )) || { echo "versionCode must be higher than the published $current"; exit 1; }
+          echo "published: $current_name ($current), building: $name ($code)"
+          echo "### Android: building $name (versionCode $code); published was $current_name ($current)" >> "$GITHUB_STEP_SUMMARY"
+          { echo "code=$code"; echo "name=$name"; } >> "$GITHUB_OUTPUT"
 
       - name: Set up Java 17
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -73,8 +131,8 @@ jobs:
           HACKLIMITS_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           HACKLIMITS_KEY_ALIAS: upload
           WORKER_URL: ${{ vars.WORKER_URL }}
-          VERSION_CODE: ${{ inputs.versionCode }}
-          VERSION_NAME: ${{ inputs.versionName }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
           set -euo pipefail
           # Without google-services.json the build silently drops push and Crashlytics.
@@ -105,16 +163,27 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          VERSION_CODE: ${{ inputs.versionCode }}
-          VERSION_NAME: ${{ inputs.versionName }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         run: node scripts/publish-apk.mjs mobile/androidApp/build/outputs/apk/direct/release/androidApp-direct-release.apk "$VERSION_CODE" "$VERSION_NAME"
 
       - name: Check the Worker serves the new version
         env:
           WORKER_URL: ${{ vars.WORKER_URL }}
-          VERSION_CODE: ${{ inputs.versionCode }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
         run: |
           set -euo pipefail
           served=$(curl -fsS "$WORKER_URL/api/v2/app/config" | jq -r '.data.android.latestVersionCode')
           [[ "$served" == "$VERSION_CODE" ]] || { echo "config still says $served"; exit 1; }
           curl -fsSL -o /dev/null -w "download: %{http_code}, %{size_download} bytes\n" "$WORKER_URL/download/android"
+
+      # The tag is what the next deploy's change check diffs against.
+      - name: Tag the released commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/android-vc$VERSION_CODE" -f sha="$GITHUB_SHA" >/dev/null
+          echo "tagged android-vc$VERSION_CODE ($VERSION_NAME) at ${GITHUB_SHA:0:7}"

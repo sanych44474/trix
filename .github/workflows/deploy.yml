@@ -112,3 +112,13 @@ jobs:
         env:
           SMOKE_URL: ${{ vars.WORKER_URL }}
         run: node scripts/smoke.mjs
+
+  # The Android app ships after the Worker it talks to, never before. The called workflow builds and
+  # publishes only when mobile/ changed since the last android-vc<N> tag, so a server-only deploy is a no-op.
+  android:
+    name: Android release
+    needs: deploy
+    permissions:
+      contents: write # the release job tags the released commit
+    uses: ./.github/workflows/android-release.yml
+    secrets: inherit
