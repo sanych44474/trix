@@ -157,9 +157,6 @@ export async function getRecentContext(
 
 // ---------- config / owner ----------
 
-export async function setLastSeen(db: DB, userId: number, iso: string): Promise<void> {
-  await db.prepare("UPDATE v2_accounts SET lastSeenAt = ? WHERE id = ?").bind(iso, userId).run();
-}
 
 const BUMP_EVENT_SQL = `INSERT INTO v2_analytics_events (accountId, event, date, count) VALUES (?, ?, ?, 1)
        ON CONFLICT(accountId, event, date) DO UPDATE SET count = count + 1`;

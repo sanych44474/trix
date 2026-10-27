@@ -83,12 +83,6 @@ fun recentExerciseNames(logs: List<app.hacklimits.shared.progress.muscle.LoggedD
     return out
 }
 
-/** The figure's muscle slugs, in the order the asset draws them. */
-val FIGURE_SLUGS: List<String> = listOf(
-    "abs", "adductors", "biceps", "calves", "chest", "deltoids", "feet", "forearm", "gluteal", "hamstring",
-    "hands", "hair", "head", "knees", "lower-back", "neck", "obliques", "quadriceps", "tibialis", "trapezius", "triceps", "upper-back",
-)
-
 /** Slugs a tap on the figure reports (the ones with a label). */
 val TAPPABLE_SLUGS: Set<String> = setOf(
     "abs", "adductors", "biceps", "calves", "chest", "deltoids", "forearm", "gluteal", "hamstring", "lower-back",

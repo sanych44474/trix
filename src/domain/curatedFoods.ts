@@ -251,7 +251,6 @@ const CURATED: Record<string, Per100g> = {
 // Curated whole-food catalog (read-only) — exported so the deterministic meal builder can
 // pick foods by category without a network/AI call.
 export { CURATED };
-export const CURATED_NAMES = Object.keys(CURATED);
 
 // Coarse food categories used by the deterministic meal builder (src/domain/mealTemplate.ts)
 // to assemble a balanced plate (a protein + a carb + veg/fruit + a fat) per meal.

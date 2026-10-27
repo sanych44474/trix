@@ -88,4 +88,3 @@ export function buildActivityMetrics(raw: ActivityRaw, today: string, days: numb
   };
 }
 
-export type ActivityMetrics = ReturnType<typeof buildActivityMetrics>;

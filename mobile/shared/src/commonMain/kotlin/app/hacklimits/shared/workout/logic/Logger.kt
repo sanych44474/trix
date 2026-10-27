@@ -337,6 +337,3 @@ fun targetUse(exercises: List<LoggerExercise>): Pair<Int, Int> {
     }
     return kept to edited
 }
-
-/** Milliseconds from an ISO timestamp, or null when it does not parse. */
-fun parseIsoMs(value: String?): Long? = value?.let { runCatching { Instant.parse(it).toEpochMilliseconds() }.getOrNull() }
