@@ -1,5 +1,6 @@
 // Account-wide scheduler jobs (owner alerts, leaderboard cache, pruning, metrics rollup,
 // stale drafts, AI model watch) and the cron dead-man switch. Split out of scheduler.ts.
+import { pruneDryRunLog } from "../durable/dryrunLog";
 import { sendBestEffort } from "../adapters/telegram/rawApi";
 import { pruneInbox } from "../adapters/d1/v2Inbox";
 import { learnUnknownExercises } from "../exerciseMuscleLearning";
@@ -84,6 +85,8 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
     await pruneNotificationOutbox(db, cutoff.toISOString()).catch(() => {});
     // The Mini App feed keeps 60 days.
     await pruneInbox(db, new Date(Date.now() - 60 * 86_400_000).toISOString()).catch(() => {});
+    // The scheduler dry-run log is written every hour per user and read only for a recent window.
+    await pruneDryRunLog(db, new Date(Date.now() - 30 * 86_400_000).toISOString()).catch(() => {});
   });
 
   // Daily product-metrics rollup (roadmap item 4 / docs/slos.md §4) — once per day, for

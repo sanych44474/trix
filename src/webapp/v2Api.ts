@@ -176,6 +176,12 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: Executio
     const legacyUrl = new URL(url.toString());
     legacyUrl.pathname = "/api/photo";
     const execution = ctx ?? ({ waitUntil: () => {} } as unknown as ExecutionContext);
+    // The photo route skips forward(), so it takes the upload throttle here.
+    const bucket = expensiveBucket(req.method, url.pathname);
+    const actor = bucket ? await miniAppUser(req, url, env).catch(() => null) : null;
+    if (bucket && actor && !(await withinLimit(env, "expensive", `${bucket}:${actor._id}`))) {
+      return failure(req, 429, "rate_limited", "Too many requests, slow down", { "retry-after": "60" });
+    }
     return handlePhotoApi(req, legacyUrl, env, execution);
   }
   if (url.pathname === "/api/v2/dashboard" && req.method === "GET") {

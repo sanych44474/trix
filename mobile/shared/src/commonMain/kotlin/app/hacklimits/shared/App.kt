@@ -86,6 +86,7 @@ import app.hacklimits.shared.update.Gate
 import app.hacklimits.shared.update.UpdateReadyBar
 import app.hacklimits.shared.update.UpdateRequiredScreen
 import app.hacklimits.shared.update.UpdateViewModel
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import org.jetbrains.compose.resources.StringResource
@@ -163,7 +164,8 @@ fun App(
             }
             val signedIn by sessions.signedIn.collectAsStateWithLifecycle()
             val accountId by sessions.account.collectAsStateWithLifecycle()
-            LaunchedEffect(api) { api.sessionExpired.collect { sessions.clear() } }
+            // Signs out only if the rejected token is still the one stored, so a stale signal cannot end a newer sign-in.
+            LaunchedEffect(api) { api.sessionExpired.filterNotNull().collect { rejected -> if (sessions.token() == rejected) sessions.clear() } }
             LaunchedEffect(signedIn, accountId) {
                 if (signedIn) {
                     onSignedIn()

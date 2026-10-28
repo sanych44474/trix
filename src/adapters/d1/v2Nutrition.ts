@@ -9,7 +9,7 @@
 // tables their first v2 home (v2_meal_plans, v2_food_translations; v2_food_references and
 // v2_nutrition_corrections already existed, backfilled in 0070/0072).
 import type { MealEntry, MealPlanDoc, NutritionLogDoc } from "../../types";
-import { nowIso, safeJsonParse, type DB } from "./shared";
+import { allInChunks, nowIso, safeJsonParse, type DB } from "./shared";
 
 // ---------- nutrition logs (day meals) ----------
 
@@ -169,12 +169,8 @@ export async function getFoodTranslations(db: DB, names: string[], lang: string)
   const keys = [...new Set(names.map((n) => n.toLowerCase().trim()).filter(Boolean))];
   const map = new Map<string, string>();
   if (!keys.length) return map;
-  const placeholders = keys.map(() => "?").join(",");
-  const r = await db
-    .prepare(`SELECT en, name FROM v2_food_translations WHERE lang = ? AND en IN (${placeholders})`)
-    .bind(lang, ...keys)
-    .all<{ en: string; name: string }>();
-  for (const row of r.results ?? []) map.set(row.en, row.name);
+  const rows = await allInChunks<{ en: string; name: string }>(db, keys, [lang], (ph) => `SELECT en, name FROM v2_food_translations WHERE lang = ? AND en IN (${ph})`);
+  for (const row of rows) map.set(row.en, row.name);
   return map;
 }
 

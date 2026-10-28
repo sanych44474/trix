@@ -50,7 +50,7 @@ async function showFoodLog(ctx: MyContext) {
       const wt = g ? ` · ${g} ${t(lang, "unit_g")}` : "";
       const alc = alcoholKcalOf(m);
       const alcTag = alc > 0 ? ` · 🍷 ${alc} ${t(lang, "unit_kcal")}` : "";
-      return `${i + 1}. ${escapeHtml(cleanFoodName(m.desc))}${wt} — ${num(m.kcal)} ${t(lang, "unit_kcal")} (Б${num(m.protein)}/Ж${num(m.fats)}/В${num(m.carbs)})${alcTag}`;
+      return `${i + 1}. ${escapeHtml(cleanFoodName(m.desc))}${wt} — ${num(m.kcal)} ${t(lang, "unit_kcal")} (${t(lang, "foodlog_macros", { p: num(m.protein), f: num(m.fats), c: num(m.carbs) })})${alcTag}`;
     })
     .join("\n");
   const totAlc = meals.reduce((s, m) => s + alcoholKcalOf(m), 0);

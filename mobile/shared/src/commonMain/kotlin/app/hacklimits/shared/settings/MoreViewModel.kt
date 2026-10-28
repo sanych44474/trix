@@ -7,6 +7,7 @@ import app.hacklimits.shared.auth.GoogleSignIn
 import app.hacklimits.shared.data.ApiException
 import app.hacklimits.shared.data.AuthApi
 import app.hacklimits.shared.data.AuthSession
+import app.hacklimits.shared.data.OfflineStore
 import app.hacklimits.shared.data.SessionStore
 import app.hacklimits.shared.data.SettingsApi
 import app.hacklimits.shared.data.SettingsState
@@ -31,6 +32,7 @@ class MoreViewModel(
     private val google: GoogleSignIn,
     private val files: FileSaver,
     private val platform: AppPlatform,
+    private val offline: OfflineStore,
 ) : ViewModel() {
     data class State(
         val settings: SettingsState? = null,
@@ -165,9 +167,11 @@ class MoreViewModel(
 
     /** Permanent; the screen asks twice before calling this. */
     fun deleteAccount(beforeSignOut: suspend () -> Unit) = act {
+        val owner = sessions.accountId()
         settings.deleteAccount()
         runCatching { beforeSignOut() }
         sessions.clear()
+        owner?.let { offline.removeAccount(it) }
     }
 
     private fun act(block: suspend () -> Unit) {

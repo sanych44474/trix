@@ -56,7 +56,10 @@ class Stmt {
   private text(): string {
     return this.expanded ? this.expanded.sql : this.sql;
   }
+  // D1 rejects a statement with more than 100 bound parameters; node:sqlite allows thousands, so
+  // without this check an unchunked IN (...) passes every test and fails only in production.
   bind(...args: unknown[]) {
+    if (args.length > 100) throw new Error(`D1_ERROR: too many SQL variables (${args.length} > 100)`);
     return new Stmt(this.raw, this.sql, args);
   }
   first<T = unknown>(): T | null {

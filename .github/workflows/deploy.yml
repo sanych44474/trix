@@ -24,13 +24,13 @@ on:
 permissions:
   contents: read
 
-# A gated deploy sits in `waiting` until a reviewer approves it, so pushes during that window
-# pile up behind it. Without cancellation the reviewer is offered the OLDEST queued commit while
-# newer ones are stuck — the approval prompt then deploys superseded code. Cancelling supersedes
-# the stale run so the pending approval always refers to the current tip of main.
+# Never cancel a run in progress: an approved deploy cancelled between "Apply D1 migrations" and
+# "Deploy Worker" leaves the new schema under the old Worker. Without cancel-in-progress GitHub
+# keeps one running and one pending run per group, and a newer push replaces the pending one, so
+# the queue never holds more than the current deploy plus the tip of main.
 concurrency:
   group: deploy-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # The checks live in ci.yml and are CALLED here rather than copy-pasted, so a PR and a push to

@@ -2,10 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { activityKind, activityToExercise, planImport, type StravaActivity } from "../src/domain/strava";
-import { decryptTokens, encryptTokens, getStravaLink, signState, verifyState } from "../src/adapters/d1/v2Strava";
+import { decryptTokens, encryptTokens, getStravaLink, importedActivityIds, signState, verifyState } from "../src/adapters/d1/v2Strava";
 import { connectStrava, disconnectStrava, syncStrava, type StravaConfig } from "../src/features/strava/stravaSync";
 import { getWorkoutLog, upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { conditioningWeek } from "../src/domain/conditioning";
+import { deleteUserData } from "../src/adapters/d1/v2Account";
 import type { Weekday } from "../src/types";
 
 const cfg: StravaConfig = { clientId: "1", clientSecret: "s3cret", redirectUri: "https://w.example/strava/callback" };
@@ -121,4 +122,28 @@ test("callback page never puts an unvalidated bot username into an attribute", a
   assert.ok(!html.includes("onmouseover"), "a malformed username is dropped, not escaped into the href");
   const ok = await handleStravaCallback(new URL("https://w.example/strava/callback?state=bad&code=c"), { ...(env as object), BOT_USERNAME: "trix_bot" } as never);
   assert.ok((await ok.text()).includes('href="https://t.me/trix_bot"'));
+});
+
+test("importedActivityIds: a 300-activity first sync stays under D1's 100-parameter limit", async () => {
+  const db = newDb();
+  seedAccount(db, 1);
+  const ids = Array.from({ length: 300 }, (_, i) => i + 1);
+  const seen = await importedActivityIds(db as never, 1, ids);
+  assert.equal(seen.size, 0);
+});
+
+test("account erasure revokes the Strava grant before it forgets the tokens", async () => {
+  const db = newDb();
+  seedAccount(db, 503);
+  const strava = fakeStrava([]);
+  await connectStrava(db, cfg, 503, "code", "activity:read", strava.fetchImpl);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = strava.fetchImpl as typeof fetch;
+  try {
+    await deleteUserData({ DB: db, STRAVA_CLIENT_SECRET: cfg.clientSecret } as never, 503);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.ok(strava.calls.includes("POST https://www.strava.com/oauth/deauthorize"));
+  assert.equal(await getStravaLink(db, 503, cfg.clientSecret), null);
 });

@@ -74,17 +74,22 @@ export async function sendLong(ctx: MyContext, text: string, kb?: InlineKeyboard
     await replyWithEffect(ctx, text, { ...HTML, ...tail }, effect);
     return;
   }
+  // Cut at line breaks; a single line over the limit is cut inside the line. Never send an empty
+  // part (Telegram rejects it), and close a <pre> left open at a cut and reopen it in the next
+  // part, so every message parses as HTML on its own (the trainer roster is one long <pre>).
+  const lines = text.split("\n").flatMap((l) => (l.length > LIMIT ? (l.match(new RegExp(`[^]{1,${LIMIT}}`, "g")) ?? []) : [l]));
   const chunks: string[] = [];
   let buf = "";
-  for (const block of text.split("\n")) {
-    if ((buf + "\n" + block).length > LIMIT) {
-      chunks.push(buf);
-      buf = block;
-    } else {
-      buf = buf ? buf + "\n" + block : block;
-    }
+  const flush = () => {
+    const open = (buf.match(/<pre>/g) ?? []).length > (buf.match(/<\/pre>/g) ?? []).length;
+    chunks.push(open ? `${buf}</pre>` : buf);
+    buf = open ? "<pre>" : "";
+  };
+  for (const line of lines) {
+    if (buf && buf !== "<pre>" && (buf + "\n" + line).length > LIMIT) flush();
+    buf = buf && buf !== "<pre>" ? buf + "\n" + line : buf + line;
   }
-  if (buf) chunks.push(buf);
+  if (buf && buf !== "<pre>") flush();
   for (let i = 0; i < chunks.length; i++) {
     const last = i === chunks.length - 1;
     if (last) await replyWithEffect(ctx, chunks[i], { ...HTML, ...tail }, effect);

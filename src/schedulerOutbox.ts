@@ -15,6 +15,7 @@ import type { Env } from "./types";
 import { deletePushTokens, listPushTokens } from "./adapters/d1/v2Push";
 import { sendPush } from "./adapters/fcm/fcm";
 import { pushParts } from "./domain/plainText";
+import { logError } from "./log";
 
 export interface OutboxSender {
   api: { sendMessage: Bot["api"]["sendMessage"] };
@@ -42,7 +43,7 @@ async function attemptPush(env: Env, row: OutboxRow): Promise<DeliveryResult> {
   const results = await Promise.all(tokens.map((t) => sendPush(env, t, msg)));
   await deletePushTokens(db, tokens.filter((_, i) => results[i] === "unregistered").map((t) => t.token)).catch(() => {});
   if (results.includes("sent")) {
-    await markSent(db, row.id);
+    await markDelivered(db, row.id);
     return "sent";
   }
   if (results.includes("retry")) {
@@ -61,8 +62,6 @@ async function attemptDelivery(env: Env, bot: OutboxSender, row: OutboxRow): Pro
   if (row.chatId <= 0) return attemptPush(env, row);
   try {
     await bot.api.sendMessage(row.chatId, row.payload.text, row.payload.extra as Parameters<Bot["api"]["sendMessage"]>[2]);
-    await markSent(db, row.id);
-    return "sent";
   } catch (err) {
     const info = err instanceof GrammyError ? { errorCode: err.error_code, retryAfterSeconds: err.parameters?.retry_after } : {};
     const outcome = classifySendError(info, row.attempts);
@@ -81,6 +80,19 @@ async function attemptDelivery(env: Env, bot: OutboxSender, row: OutboxRow): Pro
     }
     await markPermanentFailure(db, row.id, "failed", message);
     return "failed";
+  }
+  await markDelivered(db, row.id);
+  return "sent";
+}
+
+// Telegram (or FCM) already accepted the message, so a failed write here must not look like a
+// failed send: that path scheduled a retry and the user got the message twice. Retry the write
+// once; if D1 is still down, the row stays leased and only a lease expiry can resend it.
+async function markDelivered(db: Env["DB"], id: number): Promise<void> {
+  try {
+    await markSent(db, id);
+  } catch {
+    await markSent(db, id).catch((e) => logError("outbox_mark_sent", e, { id }));
   }
 }
 

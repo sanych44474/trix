@@ -33,6 +33,21 @@ export function cleanAi(s: string | undefined): string {
     .trim();
 }
 
+// cleanAi for multi-line answers (coach replies, form check, chat drafts): the same cleanup, but
+// line breaks survive, so "•" bullets and paragraphs reach the user as written. Not for names or
+// set strings, which must stay on one line.
+export function cleanAiText(s: string | undefined): string {
+  if (!s) return "";
+  return s
+    .replaceAll(/\times/g, " × ")
+    .replaceAll("\r\n", "\n")
+    .replaceAll(/[\x00-\x09\x0B-\x1F]/g, " ")
+    .replaceAll(/ {2,}/g, " ")
+    .replaceAll(/ *\n */g, "\n")
+    .replaceAll(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // Convert our controlled template markers (*bold*, _italic_) to Telegram HTML.
 // Templates are author-controlled with balanced, non-nested markers and no raw <>&.
 export function mdToHtml(s: string): string {

@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.hacklimits.shared.data.AccountCache
 import app.hacklimits.shared.data.Dashboard
 import app.hacklimits.shared.data.KeyValueStore
 import app.hacklimits.shared.telemetry.Telemetry
@@ -94,7 +95,8 @@ fun TodayScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val store: KeyValueStore = koinInject()
-    val prefs = remember(store) { TodayPrefs(store) }
+    val cache: AccountCache = koinInject()
+    val prefs = remember(store, cache) { TodayPrefs(store, cache) }
     val quick: QuickLogViewModel = koinViewModel()
     // Refresh every time Today comes back into view (after a workout, the plan editor, the questionnaire).
     LaunchedEffect(Unit) { vm.refresh() }

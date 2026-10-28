@@ -29,7 +29,7 @@ import { getUser } from "../adapters/d1/v2Users";
 import { createQuestion, listMessages, listQuestionsForClient, setQuestionDraft } from "../adapters/d1/v2TrainerMessages";
 import { getTrainer } from "../adapters/d1/v2Trainer";
 import { localParts } from "../domain/localTime";
-import { cleanAi, escapeHtml, t } from "../locales/i18n";
+import { cleanAiText, escapeHtml, t } from "../locales/i18n";
 import { weekdayName } from "../render";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
@@ -117,7 +117,7 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     const style = trainerDoc
       ? `Match this trainer's own stated style: ${[trainerDoc.specialization, trainerDoc.approach, trainerDoc.bio].filter(Boolean).join(" | ")}. `
       : "";
-    const draft = cleanAi(await aiText(env, {
+    const draft = cleanAiText(await aiText(env, {
       system:
         `You are drafting a reply for a human fitness trainer to send to their own client. Write as the TRAINER ` +
         `speaking directly to the client, ready to send unedited. ${style}` +
@@ -168,12 +168,12 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
       validate: (parsed) => validateCoachEditResult(parsed),
     });
     return Response.json(
-      { answer: cleanAi(result.reply).slice(0, 1500), actions: miniAppCoachActions(result.actions, question) },
+      { answer: cleanAiText(result.reply).slice(0, 1500), actions: miniAppCoachActions(result.actions, question) },
       { headers: { "cache-control": "no-store" } },
     );
   } catch {
     // The structured call failed on every provider — still answer in plain text.
     const answer = await aiText(env, { system: system + knowledgeBlock(knowledge), user: userMsg, temperature: 0.6, kind: "coach", db: env.DB, userId: user._id }).catch(() => "");
-    return Response.json({ answer: cleanAi(answer).slice(0, 1500), actions: [] }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ answer: cleanAiText(answer).slice(0, 1500), actions: [] }, { headers: { "cache-control": "no-store" } });
   }
 }

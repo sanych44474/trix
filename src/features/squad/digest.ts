@@ -88,8 +88,9 @@ export async function postSquadDigest(db: D1Database, api: SquadApi, chatId: num
     return true;
   } catch (err) {
     if (isChatGone(err)) return false;
-    // Everything else is transient — keep the squad and let the next run try again rather
-    // than deleting a group's data over a network blip or an oversized message.
+    // Everything else is transient — keep the squad rather than deleting a group's data over a
+    // network blip or an oversized message. The callers mark the week recapped either way, so
+    // this week's board is skipped, not retried (a retry would run every minute all week).
     console.error("squad digest", chatId, err);
     return true;
   }

@@ -9,7 +9,7 @@ import { exerciseMetric, metricOfSets, formatSetEntry, formatRecordBest, fmtDura
 import type { DailyCheckinDoc, PlanDoc, PlanExercise, WorkoutLogDoc } from "../src/types";
 import { computeTargets, restDayTargets, splitMeals, solvePortions, isPlausiblePer100g, per100gCorrectionFrom, scaleMealEntry } from "../src/domain/mealplan";
 import { curatedPer100g } from "../src/ai/nutritionDb";
-import { cleanAi, t } from "../src/locales/i18n";
+import { cleanAi, cleanAiText, t } from "../src/locales/i18n";
 import { chunkReport } from "../src/render";
 
 test("parseWorkoutText: name + multiple sets", () => {
@@ -636,4 +636,18 @@ test("restDayTargets: same protein/fat, fewer carbs, calories that add up", () =
   assert.ok(r.carbs < 307 && r.carbs >= 153);
   assert.ok(Math.abs(r.protein * 4 + r.fats * 9 + r.carbs * 4 - r.calories) <= 5);
   assert.ok(Math.abs(r.calories - 2200) <= 20);
+});
+
+test("cleanAiText: keeps the line breaks of multi-line AI answers, still strips other control chars", () => {
+  assert.equal(cleanAiText("• Lower the elbows\n• Brace the core\n\n\n\nGood depth"), "• Lower the elbows\n• Brace the core\n\nGood depth");
+  assert.equal(cleanAiText("a\r\nb\u0000c  \n"), "a\nb c");
+  const corrupted = JSON.parse('{"s":"4 \\times 8-12\\nRest 90 s"}').s;
+  assert.equal(cleanAiText(corrupted), "4 × 8-12\nRest 90 s");
+  // cleanAi stays single-line: it also feeds names and set strings.
+  assert.equal(cleanAi("a\nb"), "a b");
+});
+
+test("i18n: the food-log macro label is localized (no Cyrillic letters for English users)", () => {
+  assert.equal(t("en", "foodlog_macros", { p: 30, f: 10, c: 50 }), "P30/F10/C50");
+  assert.equal(t("uk", "foodlog_macros", { p: 30, f: 10, c: 50 }), "Б30/Ж10/В50");
 });

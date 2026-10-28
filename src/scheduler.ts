@@ -91,17 +91,30 @@ export async function runSchedule(env: Env): Promise<void> {
   const db = env.DB;
   // Only one cron run at a time. Heavy runs detached via waitUntil can outlive their minute; without
   // this lock the next cron starts concurrently and re-sends the same reminders (identical-spam).
-  if (!(await acquireScheduleLock(db, Date.now(), 150_000).catch(() => true))) return;
+  // Fails closed: running without the lock is what double-sends; a skipped minute only delays.
+  if (!(await acquireScheduleLock(db, Date.now(), 150_000).catch(() => false))) return;
   // Heartbeat for the dead-man switch above (stamped after the lock so concurrent runs don't race).
   await setSetting(db, "cron_heartbeat", new Date().toISOString()).catch(() => {});
+  const claim: HourClaim = {};
   try {
-    await runScheduleInner(env);
+    await runScheduleInner(env, claim);
+  } catch (err) {
+    // The hourly pass claimed its hour up front (so a slow pass is not re-run every minute). If it
+    // then failed, give the hour back so the next tick retries it instead of losing it.
+    if (claim.hourKey) await setSetting(db, "last_user_pass", claim.previous ?? "").catch(() => {});
+    throw err;
   } finally {
     await releaseScheduleLock(db).catch(() => {});
   }
 }
 
-async function runScheduleInner(env: Env): Promise<void> {
+/** The hour the pass stamped as done, and the stamp it replaced. */
+interface HourClaim {
+  hourKey?: string;
+  previous?: string | null;
+}
+
+async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   const db = env.DB;
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN, botClientOptions);
 
@@ -116,11 +129,12 @@ async function runScheduleInner(env: Env): Promise<void> {
   // Deliberately DIRECT, not through the outbox: a "your rest is over" that arrives on a backoff
   // minutes later is worse than one that never arrives at all — the set it refers to is long done.
   const rests = await dueRestTimers(db, new Date().toISOString()).catch(() => []);
-  if (rests.length) {
+  // Delete first: a nudge is one-shot, so a failed delete must skip this tick's sends rather than
+  // re-send the same "rest over" every minute until the delete succeeds.
+  if (rests.length && (await deleteRestTimers(db, rests.map((r) => r.userId)).then(() => true, () => false))) {
     await Promise.allSettled(
       rests.map((r) => bot.api.sendMessage(r.chatId, t(r.lang as "en" | "uk", "rest_done"), HTML)),
     );
-    await deleteRestTimers(db, rests.map((r) => r.userId)).catch(() => {});
   }
 
   // The three onboarding-recovery sweeps below run every tick; a single cheap COUNT gates them
@@ -192,6 +206,8 @@ async function runScheduleInner(env: Env): Promise<void> {
   const lastPass = await getSetting(db, "last_user_pass").catch(() => null);
   if (lastPass === hourKey) return;
   await setSetting(db, "last_user_pass", hourKey).catch(() => {});
+  claim.hourKey = hourKey;
+  claim.previous = lastPass;
 
   // Housekeeping: drop dedup rows older than 1h (SQLite has no TTL). Moved out of the every-minute
   // path into the hourly pass — rows live at most ~2h instead of ~1h, which is harmless.
@@ -575,8 +591,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // Silent Monday work below; the progression, narrative and report steps still message the user
   // (or their trainer) and are not part of the one-reminder budget.
   if (weekday === 1 && hour >= reminderHour && !already("meso_advance")) {
-    markSent("meso_advance");
-    await advanceMesocycleWeek(p).catch((e) => logSchedulerError(db, "meso_advance", e, user._id));
+    // Marked only once the week really advanced, so a failed write is retried next hour.
+    await advanceMesocycleWeek(p).then(() => markSent("meso_advance"), (e) => logSchedulerError(db, "meso_advance", e, user._id));
   }
 
   // Weekly progression-rate re-evaluation — Monday, from the last 3 weeks of logs.
@@ -593,8 +609,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // Monday: record the quests finished last week, whether or not the Mini App was opened to see
   // them (questClose.ts). Silent; idempotent per week and code.
   if (weekday === 1 && !already("quest_close")) {
-    markSent("quest_close");
-    await closeQuestWeek(db, user, isoDateMinus(date, 7)).catch((e) => logSchedulerError(db, "quest_close", e, user._id));
+    await closeQuestWeek(db, user, isoDateMinus(date, 7)).then(() => markSent("quest_close"), (e) => logSchedulerError(db, "quest_close", e, user._id));
   }
 
   // Weekly dynamic progression — Monday, silent. Analyses the last 3 weeks of logs + recent

@@ -85,6 +85,18 @@ interface OfflineDao {
 
     @Query("DELETE FROM sync_outbox WHERE storageKey = :storageKey")
     suspend fun deleteOutbox(storageKey: String)
+
+    @Transaction
+    suspend fun deleteAccount(accountId: Long) {
+        deleteAccountRecords(accountId)
+        deleteAccountOutbox(accountId)
+    }
+
+    @Query("DELETE FROM cached_records WHERE accountId = :accountId")
+    suspend fun deleteAccountRecords(accountId: Long)
+
+    @Query("DELETE FROM sync_outbox WHERE accountId = :accountId")
+    suspend fun deleteAccountOutbox(accountId: Long)
 }
 
 data class SyncOperation(
@@ -109,6 +121,8 @@ interface OfflineStore {
     suspend fun lastUpdatedAt(accountId: Long, key: String): Long?
     suspend fun write(accountId: Long, key: String, payload: String, updatedAtMs: Long)
     suspend fun remove(accountId: Long, key: String)
+    /** Deletes every cached record and outbox row of one account. */
+    suspend fun removeAccount(accountId: Long)
     suspend fun enqueue(operation: SyncOperation): Boolean
     suspend fun enqueueAndWrite(operation: SyncOperation, key: String, payload: String, updatedAtMs: Long): Boolean
     suspend fun upsert(operation: SyncOperation)
@@ -142,6 +156,8 @@ class RoomOfflineStore(private val dao: OfflineDao) : OfflineStore {
     }
 
     override suspend fun remove(accountId: Long, key: String) = dao.deleteRecord(accountId, key)
+
+    override suspend fun removeAccount(accountId: Long) = dao.deleteAccount(accountId)
 
     override suspend fun enqueue(operation: SyncOperation): Boolean = dao.insertOutbox(operation.toEntity()) != -1L
 
@@ -234,6 +250,12 @@ class InMemoryOfflineStore : OfflineStore {
     override suspend fun remove(accountId: Long, key: String) {
         records.remove(accountId to key)
         recordUpdatedAt.remove(accountId to key)
+    }
+    override suspend fun removeAccount(accountId: Long) {
+        records.keys.removeAll { it.first == accountId }
+        recordUpdatedAt.keys.removeAll { it.first == accountId }
+        operations.values.removeAll { it.accountId == accountId }
+        updateCount(accountId)
     }
 
     override suspend fun enqueue(operation: SyncOperation): Boolean {

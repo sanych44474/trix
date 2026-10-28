@@ -78,3 +78,10 @@ test("the table row is called Australian pull-ups in Ukrainian", () => {
   assert.ok(names.includes("Австралійські підтягування (під столом)"));
   assert.ok(!names.some((n) => /Тяга лежачи під столом/.test(n)));
 });
+
+test("verifyItems: an absurd AI estimate is bounded before it can reach the log", async () => {
+  const db = newDb();
+  const env = { DB: db } as unknown as Env;
+  const { final } = await verifyItems(db as never, env, 1, [{ desc: "x", kcal: 15000, protein: -5, fats: 9999, carbs: 30, grams: -100 } as never]);
+  assert.deepEqual(final[0], { desc: "x", kcal: 5000, protein: 0, fats: 500, carbs: 30, grams: undefined, query: undefined });
+});

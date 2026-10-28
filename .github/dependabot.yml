@@ -16,8 +16,8 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
     ignore:
-      # The installed Workers test runner requires Vitest 4; a Vitest 5 bump currently fails
-      # `npm ci` with ERESOLVE. Remove this guard once the plugin supports Vitest 5.
+      # Vitest majors wait for @cloudflare/vitest-plugin to support them (a bump ahead of it fails
+      # `npm ci` with ERESOLVE). Bump both together by hand.
       - dependency-name: "vitest"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@vitest/*"
@@ -35,3 +35,16 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: "chore(ci)"
+
+  # The Android app (mobile/): Kotlin, Compose, AGP and the libraries in gradle/libs.versions.toml.
+  - package-ecosystem: gradle
+    directory: /mobile
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      android:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps-android)"

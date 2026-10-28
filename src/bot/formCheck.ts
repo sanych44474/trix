@@ -6,15 +6,16 @@
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import type { Lang } from "../types";
 import { aiVisionText } from "../ai/index";
-import { cleanAi, t } from "../locales/i18n";
+import { cleanAiText, escapeHtml, t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
 import { deferAi } from "../features/aiDefer";
 import { abToB64, downloadFile } from "../adapters/telegram/files";
 import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, MAX_VIDEO_SEC, aiCallsToday, formCheckGate, formCheckPrompt, formCheckSystem } from "../features/workout/formCheck";
 
-/** The form-check answer under its header and footer; the empty-answer text when the AI gave none. */
-function formCheckReply(lang: Lang, answer: string): string | null {
-  const text = cleanAi(answer).trim().slice(0, 1200);
+/** The form-check answer under its header and footer; null when the AI gave none. The reply is sent
+ *  as Telegram HTML, so the AI text is escaped. */
+export function formCheckReply(lang: Lang, answer: string): string | null {
+  const text = escapeHtml(cleanAiText(answer).slice(0, 1200));
   return text ? `${t(lang, "form_check_header")}\n\n${text}\n\n${t(lang, "form_check_footer")}` : null;
 }
 
@@ -46,7 +47,7 @@ export async function handleFormVideo(ctx: MyContext, video: { fileId: string; b
       kind: "form_check",
       db: ctx.db,
       userId: ctx.user._id,
-      onPartial: (so) => ctx.thinking?.update(cleanAi(so)),
+      onPartial: (so) => ctx.thinking?.update(cleanAiText(so)),
     });
     const text = formCheckReply(lang, answer);
     await reply(ctx, text ?? t(lang, "form_check_failed"));

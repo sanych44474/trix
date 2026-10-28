@@ -42,10 +42,12 @@ export function enqueueSave(store: Store, save: QueuedSave): void {
 }
 
 /** A failure that means "no network", not "the server said no". fetch() rejects with a TypeError
- *  when it can't reach the server; an HTTP error is an ApiError with a status. */
+ *  when it can't reach the server, and with a TimeoutError when api.ts's timeout fires; an HTTP
+ *  error is an ApiError with a status. */
 export function isNetworkError(err: unknown, online = true): boolean {
   if (!online) return true;
   if (err && typeof err === "object" && "status" in err && typeof (err as { status: unknown }).status === "number") return false;
+  if ((err as { name?: unknown } | null)?.name === "TimeoutError") return true;
   return err instanceof TypeError || (err instanceof Error && /network|failed to fetch|load failed|offline/i.test(err.message));
 }
 

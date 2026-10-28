@@ -19,6 +19,13 @@ export function num(x: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+// Hard bounds for one food item. A model can return anything that parses (15000 kcal, negative
+// grams); the user sees and confirms the meal, but nothing beyond these reaches the log.
+const MAX_ITEM_GRAMS = 3000;
+const MAX_ITEM_KCAL = 5000;
+const MAX_ITEM_MACRO_G = 500;
+const bound = (n: number, max: number) => Math.min(Math.max(n, 0), max);
+
 // Cross-check each estimated item against an open nutrition DB; when a product
 // matches and a portion (grams) is known, recompute macros from reference per-100g.
 export async function verifyItems(db: D1Database, env: Env, userId: number, items: P.NutritionItem[]) {
@@ -28,7 +35,7 @@ export async function verifyItems(db: D1Database, env: Env, userId: number, item
   // A weak/free fallback model in the AI chain only guarantees valid JSON *syntax*, not that
   // `items` is present — degrade to "nothing recognized" (logMeal below) instead of throwing.
   for (const it of items ?? []) {
-    const grams = num(it.grams);
+    const grams = bound(num(it.grams), MAX_ITEM_GRAMS);
     let kcal = num(it.kcal), p = num(it.protein), f = num(it.fats), c = num(it.carbs);
     if (grams > 0 && it.query) {
       // User's own correction takes precedence over any external DB.
@@ -65,7 +72,15 @@ export async function verifyItems(db: D1Database, env: Env, userId: number, item
         }
       }
     }
-    final.push({ desc: it.desc || "meal", kcal, protein: p, fats: f, carbs: c, grams: grams || undefined, query: it.query || undefined });
+    final.push({
+      desc: it.desc || "meal",
+      kcal: bound(kcal, MAX_ITEM_KCAL),
+      protein: bound(p, MAX_ITEM_MACRO_G),
+      fats: bound(f, MAX_ITEM_MACRO_G),
+      carbs: bound(c, MAX_ITEM_MACRO_G),
+      grams: grams || undefined,
+      query: it.query || undefined,
+    });
   }
   return { final, verified, source };
 }

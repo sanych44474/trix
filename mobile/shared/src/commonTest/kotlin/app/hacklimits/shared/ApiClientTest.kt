@@ -13,14 +13,11 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class ApiClientTest {
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
@@ -67,10 +64,9 @@ class ApiClientTest {
             assertEquals("Bearer ${"b".repeat(64)}", request.headers[HttpHeaders.Authorization])
             respond("""{"error":"unauthorized"}""", HttpStatusCode.Unauthorized, json)
         }
-        // Subscribe before the request: sessionExpired has no replay, so a late subscriber hangs.
-        val expired = async(start = CoroutineStart.UNDISPATCHED) { api.sessionExpired.first() }
         assertFailsWith<ApiException> { DashboardApi(api).load() }
-        expired.await()
-        assertTrue(true, "sessionExpired emitted")
+        // No collector yet (background work): the rejection is still there when the UI subscribes.
+        assertEquals("b".repeat(64), api.sessionExpired.value)
+        assertEquals("b".repeat(64), api.sessionExpired.first { it != null })
     }
 }

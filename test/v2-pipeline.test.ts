@@ -184,3 +184,21 @@ test("pipeline: a handler crash is a 500 envelope that reaches error_events once
     assert.equal(retry.status, 200, "the failed attempt did not poison the key");
   } finally { restore(); }
 });
+
+test("throttle: the photo upload and the unversioned /api twins take the same per-user limit", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 9305, 9305, "en", "T");
+  const l = limiter(() => false);
+  const env = envFor(db, { RL_EXPENSIVE: l.binding });
+  const ctx = { waitUntil: () => {}, passThroughOnException: () => {} } as unknown as ExecutionContext;
+  const legacy = (path: string) => worker.fetch(new Request(`https://example.test${path}?debugUser=9305`, { method: "POST", body: "{}" }), env, ctx);
+  const restore = quiet();
+  try {
+    assert.equal((await call(env, 9305, "POST", "/api/v2/photo", {})).status, 429);
+    assert.equal((await legacy("/api/settings")).status, 429);
+    assert.equal((await legacy("/api/photo")).status, 429);
+  } finally {
+    restore();
+  }
+  assert.deepEqual(l.keys, ["media:9305", "settings:9305", "media:9305"]);
+});

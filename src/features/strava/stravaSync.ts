@@ -10,7 +10,7 @@ import type { Env } from "../../types";
 import { planImport, type StravaActivity } from "../../domain/strava";
 import { getWorkoutLog, upsertWorkoutLog } from "../../adapters/d1/v2Workouts";
 import {
-  deleteStravaLink, getStravaLink, importedActivityIds, markStravaSync, recordImportedActivities,
+  deauthorizeStrava, deleteStravaLink, getStravaLink, importedActivityIds, markStravaSync, recordImportedActivities,
   saveStravaLink, updateStravaTokens, type StravaTokens,
 } from "../../adapters/d1/v2Strava";
 import type { DB } from "../../adapters/d1/shared";
@@ -127,9 +127,6 @@ export async function syncStrava(db: DB, cfg: StravaConfig, accountId: number, l
 
 /** Revokes the app's access on Strava's side (best effort) and forgets the tokens. */
 export async function disconnectStrava(db: DB, cfg: StravaConfig, accountId: number, fetchImpl: Fetch = fetch): Promise<void> {
-  const link = await getStravaLink(db, accountId, cfg.clientSecret).catch(() => null);
-  if (link) {
-    await fetchImpl(`${OAUTH}/deauthorize`, { method: "POST", headers: { Authorization: `Bearer ${link.tokens.access}` } }).catch(() => null);
-  }
+  await deauthorizeStrava(db, cfg.clientSecret, accountId, fetchImpl);
   await deleteStravaLink(db, accountId);
 }

@@ -66,6 +66,6 @@ fun sharedModule(baseUrl: String) = module {
     viewModel { NutritionViewModel(get(), get(), get()) }
     viewModel { QuickLogViewModel(get()) }
     viewModel { ProgressViewModel(get(), get(), get(), get(), get(), get()) }
-    viewModel { MoreViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { MoreViewModel(get(), get(), get(), get(), get(), get(), get()) }
     viewModel { OnboardingViewModel(get()) }
 }

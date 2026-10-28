@@ -55,8 +55,8 @@ export function viewForCommand(cmd: string): AppView | undefined {
 /** Answer with the Open-app button. New athletes get the welcome; the rest a short pointer. */
 export async function sendLauncher(ctx: MyContext, view?: AppView): Promise<boolean> {
   const u = ctx.user;
-  const athlete = u.role === "solo" || u.role === "client";
-  const target: AppView | undefined = athlete && !u.onboarded ? "onboarding" : view;
+  // Every role takes the questionnaire first: trainers train too.
+  const target: AppView | undefined = !u.onboarded ? "onboarding" : view;
   const url = appUrl(target);
   if (!url) return false;
   const lang = u.lang;
@@ -66,7 +66,7 @@ export async function sendLauncher(ctx: MyContext, view?: AppView): Promise<bool
     u.profile = { ...u.profile, chatRetired: true };
     await updateUser(ctx.db, u._id, { profile: u.profile }).catch(() => {});
   }
-  const fresh = athlete && !u.onboarded;
+  const fresh = !u.onboarded;
   const text = fresh ? `${t(lang, "ob_app_welcome")}\n\n${t(lang, "disclaimer")}` : t(lang, "launch_text");
   const kb = new InlineKeyboard().webApp(t(lang, fresh ? "ob_app_start_btn" : "launch_open_btn"), url);
   await reply(ctx, text, kb);

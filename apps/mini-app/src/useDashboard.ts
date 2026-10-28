@@ -62,6 +62,7 @@ export function useDashboard(setLang: (lang: Lang) => void) {
   useEffect(() => {
     if (!waitingForPlan) return;
     const id = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       api<Dashboard>("/api/v2/dashboard")
         .then((data) => { if (data.viewer.onboarded) { setOnboardingPending(false); setDashboard(data); } })
         .catch(() => {});

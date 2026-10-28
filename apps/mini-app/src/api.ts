@@ -8,6 +8,24 @@ export class ApiError extends Error {
   }
 }
 
+/** A request that gets no answer fails instead of hanging the screen (and the busy state). */
+export const REQUEST_TIMEOUT_MS = 20_000;
+export const UPLOAD_TIMEOUT_MS = 90_000;
+
+// A 401 on a route that needs a session: the session is gone (signed out elsewhere, expired).
+// AuthShell re-checks and shows sign-in. At most one event per 5 s, so a burst of failed calls
+// does not refresh the app over and over. /api/v2/auth/* is excluded: a wrong code is a 401 too,
+// and must not reset the screen the person is typing in.
+const AUTH_EVENT_GAP_MS = 5_000;
+let lastSessionLostAt = 0;
+function signalSessionLost(path: string): void {
+  if (path.startsWith("/api/v2/auth/")) return;
+  const now = Date.now();
+  if (now - lastSessionLostAt < AUTH_EVENT_GAP_MS) return;
+  lastSessionLostAt = now;
+  window.dispatchEvent(new Event("trix:auth-changed"));
+}
+
 function appendDebugQuery(path: string): string {
   if (window.Telegram?.WebApp?.initData) return path;
   const query = window.location.search.slice(1);
@@ -37,11 +55,12 @@ export async function api<T>(path: string, init: RequestInit & { idempotencyKey?
   const requestHeaders = headers(init.headers);
   if (init.body && !requestHeaders.has("Content-Type")) requestHeaders.set("Content-Type", "application/json");
   if (init.idempotencyKey) requestHeaders.set("Idempotency-Key", init.idempotencyKey);
-  const response = await fetch(appendDebugQuery(path), { ...init, headers: requestHeaders });
+  const response = await fetch(appendDebugQuery(path), { ...init, headers: requestHeaders, signal: init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   rememberBookmark(response);
   let body: unknown = null;
   try { body = await response.json(); } catch { /* empty response */ }
   if (!response.ok) {
+    if (response.status === 401) signalSessionLost(path);
     const failure = body as V2Failure | null;
     throw new ApiError(failure?.error?.code ?? "dependency_unavailable", failure?.error?.message ?? "Request failed", response.status, failure?.error?.retryable);
   }
@@ -73,7 +92,7 @@ export async function apiForm<T>(path: string, form: FormData): Promise<T> {
   const initData = window.Telegram?.WebApp?.initData ?? "";
   if (initData) requestHeaders.set("Authorization", `tma ${initData}`);
   requestHeaders.set("Accept", "application/json");
-  const response = await fetch(appendDebugQuery(path), { method: "POST", headers: requestHeaders, body: form });
+  const response = await fetch(appendDebugQuery(path), { method: "POST", headers: requestHeaders, body: form, signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS) });
   rememberBookmark(response);
   let body: unknown = null;
   try { body = await response.json(); } catch { /* empty response */ }
