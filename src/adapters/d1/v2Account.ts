@@ -7,6 +7,7 @@ import { deleteStoredPhotos, r2Key } from "../r2/photoStorage";
 import { logError } from "../../log";
 import { nowIso } from "./shared";
 import { deactivateActivePlan } from "./v2Plans";
+import { deauthorizeStrava } from "./v2Strava";
 
 export async function deleteUserData(env: Env, userId: number): Promise<void> {
   const db = env.DB;
@@ -35,6 +36,10 @@ export async function deleteUserData(env: Env, userId: number): Promise<void> {
       );
     }
   }
+
+  // The batch below drops the Strava link row; revoke the grant on Strava's side first, or the
+  // erased account's access token stays valid there.
+  if (env.STRAVA_CLIENT_SECRET) await deauthorizeStrava(db, env.STRAVA_CLIENT_SECRET, userId);
 
   const statements = [
     // Per-user telemetry — /deleteme means ALL personal rows, not just product data.

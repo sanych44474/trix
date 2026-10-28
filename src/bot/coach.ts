@@ -18,7 +18,7 @@ import { getTrainer } from "../adapters/d1/v2Trainer";
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { localParts, localCutoff } from "../domain/localTime";
 import { validateCoachActionForApply, validateCoachEditResult } from "../domain/coachActions";
-import { cleanAi, escapeHtml, t } from "../locales/i18n";
+import { cleanAiText, escapeHtml, t } from "../locales/i18n";
 import { upcomingSessions } from "../render";
 import { deferAi } from "../features/aiDefer";
 import { recordFeedback } from "./feedbackIntake";
@@ -68,7 +68,7 @@ export async function handleCoach(ctx: MyContext, text: string) {
       userId: ctx.user._id,
       validate: (parsed) => validateCoachEditResult(parsed),
       // Stream the "reply" field into the live draft while the JSON is still arriving.
-      onPartial: (raw) => { const so = partialJsonString(raw, "reply"); if (so) ctx.thinking?.update(cleanAi(so)); },
+      onPartial: (raw) => { const so = partialJsonString(raw, "reply"); if (so) ctx.thinking?.update(cleanAiText(so)); },
     });
     const actions = (result.actions ?? [])
       .filter((a) => a.kind !== "none")
@@ -93,7 +93,7 @@ export async function handleCoach(ctx: MyContext, text: string) {
       await updateUser(ctx.db, ctx.user._id, { session });
       ctx.user.session = session;
     }
-    await reply(ctx, escapeHtml(cleanAi(result.reply)), kb);
+    await reply(ctx, escapeHtml(cleanAiText(result.reply)), kb);
   });
 }
 

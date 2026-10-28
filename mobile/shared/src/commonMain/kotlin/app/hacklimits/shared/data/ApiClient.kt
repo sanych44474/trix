@@ -15,8 +15,8 @@ import io.ktor.serialization.ContentConvertException
 import app.hacklimits.shared.platform.ErrorReporter
 import io.ktor.client.statement.request
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -45,8 +45,9 @@ class ApiClient(
     engine: HttpClient? = null,
     val reporter: ErrorReporter = ErrorReporter.None,
 ) {
-    private val expired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val sessionExpired: SharedFlow<Unit> = expired
+    /** The token the server last rejected. A state, not an event: a background 401 waits for the UI to collect it. */
+    private val expired = MutableStateFlow<String?>(null)
+    val sessionExpired: StateFlow<String?> = expired
 
     val http: HttpClient = (engine ?: HttpClient()).config {
         expectSuccess = false
@@ -98,7 +99,7 @@ class ApiClient(
     }
 
     suspend fun errorOf(response: HttpResponse): ApiException {
-        if (response.status.value == 401 && sessions.token() != null) expired.tryEmit(Unit)
+        if (response.status.value == 401) sessions.token()?.let { expired.value = it }
         val body = runCatching { response.body<JsonObject>() }.getOrNull()
         val (code, message) = when (val e: JsonElement? = body?.get("error")) {
             is JsonObject -> (e["code"] as? JsonPrimitive)?.contentOrNull to (e["message"] as? JsonPrimitive)?.contentOrNull

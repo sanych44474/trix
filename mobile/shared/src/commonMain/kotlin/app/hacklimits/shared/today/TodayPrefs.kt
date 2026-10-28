@@ -1,5 +1,6 @@
 package app.hacklimits.shared.today
 
+import app.hacklimits.shared.data.AccountCache
 import app.hacklimits.shared.data.AppJson
 import app.hacklimits.shared.data.KeyValueStore
 import app.hacklimits.shared.workout.logic.DRAFT_KEY
@@ -10,9 +11,9 @@ import kotlinx.serialization.encodeToString
 import kotlin.math.roundToLong
 
 /** Today's per-device state: the "more" section, the badges already celebrated, the last-week card
- * dismissed, and the workout in progress (read only). Every access is optional: a failed read reads as
- * "nothing stored" and a failed write is dropped. */
-class TodayPrefs(private val store: KeyValueStore) {
+ * dismissed, and the workout in progress (read only, from the account cache the logger writes). Every access
+ * is optional: a failed read reads as "nothing stored" and a failed write is dropped. */
+class TodayPrefs(private val store: KeyValueStore, private val cache: AccountCache) {
     suspend fun moreOpen(): Boolean = read(MORE_KEY) == "1"
     suspend fun setMoreOpen(open: Boolean) = write(MORE_KEY, if (open) "1" else "0")
 
@@ -25,7 +26,7 @@ class TodayPrefs(private val store: KeyValueStore) {
     suspend fun setWeekSummarySeen(weekStart: String) = write(SUMMARY_KEY, weekStart)
 
     suspend fun session(): SessionProgress? {
-        val draft = parseDraft(read(DRAFT_KEY))?.takeIf { it.logDate == null } ?: return null
+        val draft = parseDraft(runCatching { cache.read(DRAFT_KEY) }.getOrNull())?.takeIf { it.logDate == null } ?: return null
         return SessionProgress(
             draft.date,
             draft.exercises.map { SessionProgress.SessionExercise(it.name, it.done.count(::isSetFilled)) },

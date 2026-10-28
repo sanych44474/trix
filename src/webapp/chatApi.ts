@@ -10,7 +10,7 @@ import { getUser } from "../adapters/d1/v2Users";
 import { getClientForTrainer, getTrainer } from "../adapters/d1/v2Trainer";
 import { insertMessage, listMessages, markThreadRead, unreadBySender, unreadFromSince } from "../adapters/d1/v2TrainerMessages";
 import { appMarkup } from "../notify/appKeyboard";
-import { cleanAi, escapeHtml, t } from "../locales/i18n";
+import { cleanAiText, escapeHtml, t } from "../locales/i18n";
 import { logInfo } from "../log";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
@@ -95,7 +95,7 @@ export async function handleChatApi(req: Request, url: URL, env: Env): Promise<R
     if (!thread) return Response.json({ draft: "" });
     const trainer = await getTrainer(env.DB, user._id).catch(() => null);
     const style = trainer ? `Match this trainer's own stated style: ${[trainer.specialization, trainer.approach, trainer.bio].filter(Boolean).join(" | ")}. ` : "";
-    const draft = cleanAi(await aiText(env, {
+    const draft = cleanAiText(await aiText(env, {
       system:
         "You are drafting the next chat message a human fitness trainer sends to their own client. Write as the TRAINER, " +
         `ready to send unedited, answering the client's latest messages. ${style}` +

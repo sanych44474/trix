@@ -37,7 +37,7 @@ import { handleProviderAuth } from "./webapp/providerAuth";
 import { handlePushApi } from "./webapp/pushApi";
 import { logError, logInfo, runWithRequestId, withHeader } from "./log";
 import { secretMatches } from "./domain/secrets";
-import { withinLimit } from "./limits";
+import { expensiveBucket, withinLimit } from "./limits";
 import type { Env } from "./types";
 
 
@@ -233,6 +233,16 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
     // Everything below under /api/ is the unversioned surface the retired legacy shell called.
     // ADR-0006 removes it after 2026-12-31 unless traffic remains; this line is that evidence.
     if (url.pathname.startsWith("/api/")) logInfo("legacy_api_hit", { path: url.pathname, method: req.method });
+
+    // The unversioned twins of the throttled v2 POSTs (settings exports, feedback, photo upload) get
+    // the same per-user limit; without it the old paths were an unthrottled way around it.
+    const legacyBucket = url.pathname.startsWith("/api/") ? expensiveBucket(req.method, `/api/v2${url.pathname.slice(4)}`) : null;
+    if (legacyBucket) {
+      const user = await miniAppUser(req, url, env).catch(() => null);
+      if (user && !(await withinLimit(env, "expensive", `${legacyBucket}:${user._id}`))) {
+        return new Response("too many requests", { status: 429, headers: { "retry-after": "60" } });
+      }
+    }
 
     // Mini App handlers: one table (webapp/routes.ts), the same one the /api/v2 seam reads.
     const miniAppRoute = legacyRouteFor(url.pathname);

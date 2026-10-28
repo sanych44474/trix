@@ -7,7 +7,7 @@
 
 export const MAX_REPORTS = 5;
 
-const NOISE = /ResizeObserver loop|Failed to fetch|NetworkError|Load failed|AbortError|The operation was aborted/i;
+const NOISE = /ResizeObserver loop|Failed to fetch|NetworkError|Load failed|AbortError|TimeoutError|timed out|The operation was aborted/i;
 // A cross-origin script error carries no detail at all — only that exact message is noise.
 const OPAQUE = /^Script error\.?$/i;
 
@@ -41,6 +41,7 @@ export function reportError(err: unknown, where?: { source?: string; line?: numb
       keepalive: true,
       headers: { "Content-Type": "application/json", ...(initData ? { Authorization: `tma ${initData}` } : {}) },
       body: JSON.stringify(report),
+      signal: AbortSignal.timeout(10_000),
     }).catch(() => {});
   } catch { /* reporting must never throw */ }
 }

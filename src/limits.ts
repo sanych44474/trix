@@ -52,6 +52,7 @@ export async function withinLimit(env: object, name: LimitName, key: string): Pr
  * data exports are POST actions inside it. */
 const EXPENSIVE_PREFIXES: Array<[prefix: string, bucket: string]> = [
   ["/api/v2/media", "media"],
+  ["/api/v2/photo", "media"],
   ["/api/v2/coach", "coach"],
   ["/api/v2/chat", "chat"],
   ["/api/v2/settings", "settings"],

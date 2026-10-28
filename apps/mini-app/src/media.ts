@@ -1,7 +1,7 @@
 // Photo URLs, multipart upload and the canvas compositions behind the week card and the photo
 // compare. Moved out of App.tsx verbatim; App.tsx re-exports the four public ones so every
 // existing `from "./App"` import keeps working.
-import { ApiError } from "./api";
+import { ApiError, UPLOAD_TIMEOUT_MS } from "./api";
 import { t, type Lang } from "./i18n";
 import type { WeekCardResponse } from "./types";
 
@@ -35,7 +35,7 @@ export async function apiUpload(path: string, form: FormData): Promise<{ ok: boo
   const initData = window.Telegram?.WebApp?.initData ?? "";
   if (initData) requestHeaders.set("Authorization", `tma ${initData}`);
   requestHeaders.set("Accept", "application/json");
-  const response = await fetch(debugAppend(path), { method: "POST", headers: requestHeaders, body: form });
+  const response = await fetch(debugAppend(path), { method: "POST", headers: requestHeaders, body: form, signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS) });
   let body: unknown = null;
   try { body = await response.json(); } catch { /* empty response */ }
   if (!response.ok) {

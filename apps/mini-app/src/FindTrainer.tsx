@@ -18,7 +18,7 @@ export function FindTrainer({ lang, onBack, onAccepted }: Props) {
   useEffect(() => { void load(); }, []);
   useEffect(() => {
     if (!data?.pending) return;
-    const id = setInterval(() => { void load(); }, 6000);
+    const id = setInterval(() => { if (document.visibilityState === "visible") void load(); }, 6000);
     return () => clearInterval(id);
   }, [data?.pending?.trainerId]);
 

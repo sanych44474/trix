@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.io.IOException
 import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -192,12 +193,24 @@ class PendingSaves(
             } catch (e: ApiException) {
                 val authExpired = e.status == 401
                 val retry = authExpired || (e.retryable ?: (e.status == 0 || e.status == 408 || e.status == 429 || e.status >= 500))
-                offline.markFailed(operation, retry, e.code)
-                if (authExpired) return@withLock FlushResult(sent, shouldRetry = false)
-                if (retry) return@withLock FlushResult(sent, shouldRetry = true)
-            } catch (_: Exception) {
+                if (authExpired) {
+                    offline.markFailed(operation, retry, e.code)
+                    return@withLock FlushResult(sent, shouldRetry = false)
+                }
+                // Past the cap the row needs a person, and the queue moves on instead of stalling behind it.
+                val giveUp = retry && operation.retryCount + 1 >= MAX_SYNC_ATTEMPTS
+                offline.markFailed(operation, retry && !giveUp, e.code)
+                if (retry && !giveUp) return@withLock FlushResult(sent, shouldRetry = true)
+            } catch (_: IOException) {
+                // No network: never counted toward the cap. A save made offline must wait for the
+                // network however long that takes, not be parked after ten tries in a basement.
                 offline.markFailed(operation, retryable = true, error = "network")
                 return@withLock FlushResult(sent, shouldRetry = true)
+            } catch (e: Exception) {
+                // Anything else (a payload that cannot be built or read) fails the same way every time.
+                val giveUp = operation.retryCount + 1 >= MAX_SYNC_ATTEMPTS
+                offline.markFailed(operation, retryable = !giveUp, error = e::class.simpleName ?: "error")
+                if (!giveUp) return@withLock FlushResult(sent, shouldRetry = true)
             }
         }
         FlushResult(sent, shouldRetry = false)
@@ -212,6 +225,8 @@ class PendingSaves(
     }
 
     companion object {
+        /** Failed attempts before a retryable row is parked as needs_attention. */
+        const val MAX_SYNC_ATTEMPTS = 10
         const val WORKOUT_KIND = "workout.save"
         const val DRAFT_KIND = "workout.draft"
         const val NUTRITION_KIND = "nutrition.action"

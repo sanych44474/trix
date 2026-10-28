@@ -135,3 +135,12 @@ test("/start for a brand-new user: the welcome with one Start button that opens 
   assert.equal(webAppUrls(last).length, 1);
   assert.match(webAppUrls(last)[0], /view=onboarding$/);
 });
+
+test("launcher: a trainer who has not finished the questionnaire is sent to it too (trainers also train)", async () => {
+  setAppUrl(APP, "/app-v2");
+  const db = newDb();
+  const { ctx, sent } = makeCtx(db, (await solo(db, 513, { role: "trainer" })) as never);
+  Object.assign(ctx, { message: { text: "привіт" } });
+  assert.equal(await launcherGate(ctx as never), true);
+  assert.match(webAppUrls(sent.at(-1)!)[0] ?? "", /view=onboarding$/);
+});

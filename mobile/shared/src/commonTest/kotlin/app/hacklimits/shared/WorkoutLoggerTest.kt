@@ -9,6 +9,7 @@ import app.hacklimits.shared.data.NoOfflineSyncScheduler
 import app.hacklimits.shared.data.NutritionApi
 import app.hacklimits.shared.data.ProgressApi
 import app.hacklimits.shared.data.SaveWorkoutRequest
+import app.hacklimits.shared.data.SyncOperation
 import app.hacklimits.shared.data.WorkoutApi
 import app.hacklimits.shared.workout.PendingSaves
 import io.ktor.client.HttpClient
@@ -156,5 +157,62 @@ class WorkoutLoggerTest {
         assertEquals(null, cache.read("dashboard"))
         assertEquals(null, cache.lastUpdatedAt("dashboard"))
         assertEquals(0, setup.queue.count())
+    }
+
+    @Test
+    fun aRetryableFailureIsParkedAfterTheAttemptCapAndTheQueueMovesOn() = runTest {
+        val sent = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            val key = request.headers["Idempotency-Key"]!!
+            if (key == "key-one-12345") respondError(HttpStatusCode.ServiceUnavailable)
+            else {
+                sent += key
+                respond("""{"data":{"ok":true,"prExercises":[],"newBadges":[],"level":1,"leveledUp":false,"totalWorkouts":1}}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+        }
+        val setup = queue(engine)
+        val request = SaveWorkoutRequest(entries = emptyList())
+        setup.queue.add(PendingSaves.Pending("key-one-12345", request))
+        setup.queue.add(PendingSaves.Pending("key-two-12345", request))
+
+        repeat(PendingSaves.MAX_SYNC_ATTEMPTS - 1) {
+            assertEquals(true, setup.queue.syncPending().shouldRetry, "still under the cap: the queue waits")
+        }
+        assertEquals(emptyList(), setup.offline.needsAttention(1L).map { it.id })
+
+        val last = setup.queue.syncPending()
+        assertEquals(listOf("key-two-12345"), sent, "the capped row no longer blocks the one behind it")
+        assertEquals(1, last.sent)
+        assertEquals(false, last.shouldRetry)
+        assertEquals(listOf("key-one-12345"), setup.offline.needsAttention(1L).map { it.id })
+        assertEquals(0, setup.queue.count())
+    }
+
+    @Test
+    fun anOfflineSaveIsNeverParkedHoweverManyTriesFail() = runTest {
+        val setup = queue(MockEngine { throw kotlinx.io.IOException("no network") })
+        setup.queue.add(PendingSaves.Pending("key-offline-1234", SaveWorkoutRequest(entries = emptyList())))
+
+        repeat(PendingSaves.MAX_SYNC_ATTEMPTS + 5) {
+            assertEquals(true, setup.queue.syncPending().shouldRetry)
+        }
+        assertEquals(emptyList(), setup.offline.needsAttention(1L).map { it.id })
+        assertEquals(1, setup.queue.count())
+    }
+
+    @Test
+    fun removingAnAccountWipesOnlyItsCacheAndOutbox() = runTest {
+        val setup = queue(MockEngine { respondError(HttpStatusCode.ServiceUnavailable) })
+        setup.offline.write(10L, "dashboard", "account-ten", 1L)
+        setup.offline.write(20L, "dashboard", "account-twenty", 1L)
+        setup.offline.enqueue(SyncOperation(10L, "op-ten", PendingSaves.WORKOUT_KIND, "{}", 1L))
+        setup.offline.enqueue(SyncOperation(20L, "op-twenty", PendingSaves.WORKOUT_KIND, "{}", 1L))
+
+        setup.offline.removeAccount(10L)
+
+        assertEquals(null, setup.offline.read(10L, "dashboard"))
+        assertEquals(0, setup.offline.pendingCount(10L))
+        assertEquals("account-twenty", setup.offline.read(20L, "dashboard"))
+        assertEquals(1, setup.offline.pendingCount(20L))
     }
 }

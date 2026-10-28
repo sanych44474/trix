@@ -327,3 +327,20 @@ test("text routing: every mode is classified exactly once (no overlap)", async (
     assert.ok(!(m in MODE_TEXT_HANDLERS), `mode "${m}" is both a text handler and a coach fallthrough`);
   }
 });
+
+test("non-onboarded trainer whose session drifted is pulled back into onboarding too (trainers also train)", async () => {
+  const db = newDb();
+  const user = (await getOrCreateUser(db, 115, 115, "uk", "Coach")) as unknown as UserDoc;
+  user.role = "trainer";
+  user.onboarded = false;
+  user.profile = { ...user.profile, sex: "male" };
+  user.session = { mode: "idle" };
+  await updateUser(db, 115, { role: "trainer", onboarded: false, profile: user.profile, session: user.session });
+  const { ctx } = makeCtx(db, user as unknown as Record<string, unknown>);
+
+  await routeUserText(ctx as never, "32");
+
+  const reloaded = await getUser(db, 115);
+  assert.equal(reloaded?.session.mode, "onboarding");
+  assert.equal(reloaded?.profile.age, 32);
+});

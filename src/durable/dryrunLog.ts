@@ -13,3 +13,8 @@ export async function logDryRun(db: DB, source: DryRunSource, entityId: number, 
     .bind(source, entityId, kind, JSON.stringify(detail), nowIso())
     .run();
 }
+
+/** Drops dry-run rows older than `cutoffIso`; the log is only ever read for a recent window. */
+export async function pruneDryRunLog(db: DB, cutoffIso: string): Promise<void> {
+  await db.prepare("DELETE FROM scheduler_dryrun_log WHERE createdAt < ?").bind(cutoffIso).run();
+}

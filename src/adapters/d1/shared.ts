@@ -3,6 +3,20 @@ export type DB = D1Database;
 
 export const nowIso = (): string => new Date().toISOString();
 
+/** SELECT ... IN (...) over any number of values: D1 binds at most 100 parameters per statement, so
+ * the query runs once per slice. `fixed` params (e.g. accountId, lang) are bound before each slice;
+ * `buildQuery` gets the slice's "?,?,..." list. Rows come back concatenated. */
+export async function allInChunks<T>(db: DB, values: unknown[], fixed: unknown[], buildQuery: (placeholders: string) => string): Promise<T[]> {
+  const size = 100 - fixed.length;
+  const out: T[] = [];
+  for (let i = 0; i < values.length; i += size) {
+    const chunk = values.slice(i, i + size);
+    const r = await db.prepare(buildQuery(chunk.map(() => "?").join(","))).bind(...fixed, ...chunk).all<T>();
+    out.push(...(r.results ?? []));
+  }
+  return out;
+}
+
 /** Build a partial-UPDATE SET clause from a patch and a column spec. Only keys present
  * (!== undefined) in `patch` are emitted; `[col, ser?]` maps a patch key to its SQL column
  * and an optional value serializer (e.g. bool→int, object→JSON). Returns SET fragments and

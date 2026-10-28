@@ -28,7 +28,8 @@ export async function advanceMesocycleWeek(p: UserPass): Promise<void> {
   if (nextMeso.phase !== prev.phase && nextMeso.phase !== "deload") {
     // A deload gets its own notice (scheduler "deload"); announce only a new training block.
     const g = phaseGuidance(nextMeso.phase);
-    await send(t(lang, "meso_advanced", { phase: t(lang, phaseKey(nextMeso.phase) as Parameters<typeof t>[1]), reps: g.reps, intensity: g.intensity }));
+    // The week has advanced; a failed notice must not make the scheduler retry (and advance twice).
+    await send(t(lang, "meso_advanced", { phase: t(lang, phaseKey(nextMeso.phase) as Parameters<typeof t>[1]), reps: g.reps, intensity: g.intensity })).catch(() => {});
   }
 }
 

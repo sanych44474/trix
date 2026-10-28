@@ -3,20 +3,15 @@ import { api } from "./api";
 import { AuthGate } from "./AuthGate";
 import { loadLang, type Lang } from "./i18n";
 import { App } from "./App";
+import { AUTH_ACCOUNT_KEY, clearAccountCache } from "./logic/accountCache";
 
 type AuthSession = { authenticated: boolean; accountId?: number; method?: "email" | "google" | "telegram" | "debug"; email?: string | null; googleLinked?: boolean };
-const AUTH_ACCOUNT_KEY = "trix:v2:auth-account";
-const THEME_KEYS = new Set(["trix:v2:contrast", "trix:v2:accent"]);
 
 function alignLocalAccount(accountId: number, method: string): void {
   try {
     const previous = localStorage.getItem(AUTH_ACCOUNT_KEY);
     const next = String(accountId);
-    if (previous !== next && (previous !== null || method === "email")) {
-      for (const key of Object.keys(localStorage)) {
-        if (key.startsWith("trix:v2:") && key !== AUTH_ACCOUNT_KEY && !THEME_KEYS.has(key)) localStorage.removeItem(key);
-      }
-    }
+    if (previous !== next && (previous !== null || method === "email")) clearAccountCache(localStorage, sessionStorage);
     localStorage.setItem(AUTH_ACCOUNT_KEY, next);
   } catch { /* local cache is optional */ }
 }

@@ -6,7 +6,7 @@ import { setActivePlan } from "../../adapters/d1/v2Plans";
 import { recordAdjustment } from "../../adapters/d1/v2PlanHistory";
 import { localParts } from "../../domain/localTime";
 import { weeksSincePlan } from "../../domain/deload";
-import { cleanAi } from "../../locales/i18n";
+import { cleanAi, cleanAiText } from "../../locales/i18n";
 import type { MyContext } from "../../adapters/telegram/context";
 import type { PlanDoc } from "../../types";
 import { coachContext } from "../coach/coachContext";
@@ -31,8 +31,9 @@ export async function applyAdaptiveCheckin(ctx: AdaptiveCtx, plan: PlanDoc, text
     const day = plan.split.find((d) => d.weekday === adj.weekday);
     const ex = day?.exercises[adj.index];
     if (!ex) continue;
-    if (adj.sets) ex.sets = cleanAi(adj.sets);
-    if (adj.startWeight) ex.startWeight = cleanAi(adj.startWeight);
+    // Short plan fields ("4 × 8-10", "60 kg"): a runaway answer must not land in the plan whole.
+    if (adj.sets) ex.sets = cleanAi(adj.sets).slice(0, 40);
+    if (adj.startWeight) ex.startWeight = cleanAi(adj.startWeight).slice(0, 40);
     if (adj.sets || adj.startWeight) {
       applied.push(`${ex.name}: ${ex.sets} · ${ex.startWeight}`);
     }
@@ -42,5 +43,5 @@ export async function applyAdaptiveCheckin(ctx: AdaptiveCtx, plan: PlanDoc, text
     const week = weeksSincePlan(plan.generatedAt.toISOString(), localParts(ctx.user.profile.timezone).date);
     await recordAdjustment(ctx.db, ctx.user._id, week, JSON.stringify(result.adjustments ?? []));
   }
-  return { reply: cleanAi(result.reply), applied };
+  return { reply: cleanAiText(result.reply), applied };
 }

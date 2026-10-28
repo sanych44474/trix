@@ -416,6 +416,7 @@ export const en = {
   foodlog_totals: "Σ {tkcal}/{goalkcal} kcal · P {tp}/{goalp} · F {tf}/{goalf} · C {tc}/{goalc}",
   foodlog_totals_notarget: "Σ {tkcal} kcal · P{tp}/F{tf}/C{tc}",
   foodlog_alcohol_line: "🍷 of which alcohol: {kcal} kcal (not in P/F/C)",
+  foodlog_macros: "P{p}/F{f}/C{c}",
   foodlog_hint: "Tap an item to edit weight / change product / remove. Or send food/photo to add.",
   foodlog_view_btn: "📋 Today's food / edit",
   food_recent_btn: "⭐ Frequent foods",

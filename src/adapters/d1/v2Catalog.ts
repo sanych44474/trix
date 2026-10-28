@@ -6,7 +6,7 @@
 // prior v2_* schema at all (unlike Domain 1), so 0074 creates it from scratch; see that file's
 // header comment for why the legacy 4-table split was kept as-is rather than denormalized.
 import type { CatalogExercise, ExerciseTranslation, ExerciseVideo } from "../../types";
-import { nowIso, safeJsonParse, type DB } from "./shared";
+import { allInChunks, nowIso, safeJsonParse, type DB } from "./shared";
 
 interface ExerciseRow {
   id: string;
@@ -47,9 +47,8 @@ export async function getCatalogExercise(db: DB, id: string): Promise<CatalogExe
 export async function existingCatalogIds(db: DB, ids: string[]): Promise<Set<string>> {
   if (!ids.length) return new Set();
   const unique = [...new Set(ids)];
-  const placeholders = unique.map(() => "?").join(",");
-  const r = await db.prepare(`SELECT id FROM v2_exercises WHERE id IN (${placeholders})`).bind(...unique).all<{ id: string }>();
-  return new Set((r.results ?? []).map((row) => row.id));
+  const rows = await allInChunks<{ id: string }>(db, unique, [], (ph) => `SELECT id FROM v2_exercises WHERE id IN (${ph})`);
+  return new Set(rows.map((row) => row.id));
 }
 
 // Returns a random exercise of higher difficulty for the given muscle, excluding excluded ids.
@@ -236,15 +235,13 @@ export async function getExerciseTranslations(
 ): Promise<Map<string, ExerciseTranslation>> {
   const out = new Map<string, ExerciseTranslation>();
   if (!exerciseIds.length) return out;
-  const placeholders = exerciseIds.map(() => "?").join(",");
-  const r = await db
-    .prepare(
-      `SELECT exerciseId, name, instructions, safetyInfo FROM v2_exercise_translations
-       WHERE lang = ? AND exerciseId IN (${placeholders})`,
-    )
-    .bind(lang, ...exerciseIds)
-    .all<{ exerciseId: string; name: string; instructions: string; safetyInfo: string }>();
-  for (const row of r.results ?? []) {
+  const rows = await allInChunks<{ exerciseId: string; name: string; instructions: string; safetyInfo: string }>(
+    db,
+    exerciseIds,
+    [lang],
+    (ph) => `SELECT exerciseId, name, instructions, safetyInfo FROM v2_exercise_translations WHERE lang = ? AND exerciseId IN (${ph})`,
+  );
+  for (const row of rows) {
     out.set(row.exerciseId, { name: row.name, instructions: row.instructions, safetyInfo: row.safetyInfo });
   }
   return out;
@@ -324,12 +321,8 @@ export async function getExerciseVideos(db: DB, keys: string[]): Promise<Map<str
   const out = new Map<string, ExerciseVideo>();
   const norm = [...new Set(keys.map((k) => k.trim().toLowerCase()).filter(Boolean))];
   if (!norm.length) return out;
-  const placeholders = norm.map(() => "?").join(",");
-  const r = await db
-    .prepare(`SELECT * FROM v2_exercise_videos WHERE normalizedName IN (${placeholders})`)
-    .bind(...norm)
-    .all<ExerciseVideoRow>();
-  for (const row of r.results ?? []) out.set(row.normalizedName, toExerciseVideo(row));
+  const rows = await allInChunks<ExerciseVideoRow>(db, norm, [], (ph) => `SELECT * FROM v2_exercise_videos WHERE normalizedName IN (${ph})`);
+  for (const row of rows) out.set(row.normalizedName, toExerciseVideo(row));
   return out;
 }
 
@@ -443,12 +436,8 @@ export async function getUserVideos(db: DB, userId: number, keys: string[]): Pro
   const out = new Map<string, ExerciseVideo>();
   const norm = [...new Set(keys.map((k) => k.trim().toLowerCase()).filter(Boolean))];
   if (!norm.length) return out;
-  const placeholders = norm.map(() => "?").join(",");
-  const r = await db
-    .prepare(`SELECT * FROM v2_user_exercise_videos WHERE accountId = ? AND normalizedName IN (${placeholders})`)
-    .bind(userId, ...norm)
-    .all<UserVideoRow>();
-  for (const row of r.results ?? []) {
+  const rows = await allInChunks<UserVideoRow>(db, norm, [userId], (ph) => `SELECT * FROM v2_user_exercise_videos WHERE accountId = ? AND normalizedName IN (${ph})`);
+  for (const row of rows) {
     out.set(row.normalizedName, {
       normalizedName: row.normalizedName,
       exerciseName: row.exerciseName,

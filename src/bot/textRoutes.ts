@@ -135,11 +135,12 @@ export async function routeUserText(ctx: MyContext, text: string) {
       return;
     }
   }
-  // Safety net: a non-onboarded athlete (solo/client) must finish the interview first. If their
+  // Safety net: a non-onboarded user (solo, client or trainer -- trainers train too) must finish
+  // the interview first. If their
   // session drifted into a non-onboarding conversational mode (e.g. they tapped "message trainer"
   // and never sent, then answered an onboarding question), their typed answer used to route to
   // that stale mode — so they could NEVER complete registration. Pull them back into the wizard.
-  if (!ctx.user.onboarded && (ctx.user.role === "solo" || ctx.user.role === "client") && !PRE_ONBOARD_MODES.has(mode)) {
+  if (!ctx.user.onboarded && !PRE_ONBOARD_MODES.has(mode)) {
     const step = obProgress(ctx.user.profile).next;
     ctx.user.session = { mode: "onboarding", step };
     await updateUser(ctx.db, ctx.user._id, { session: ctx.user.session });

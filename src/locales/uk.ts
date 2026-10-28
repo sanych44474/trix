@@ -421,6 +421,7 @@ export const uk: Dict = {
   foodlog_totals: "Σ {tkcal}/{goalkcal} ккал · Б {tp}/{goalp} · Ж {tf}/{goalf} · В {tc}/{goalc}",
   foodlog_totals_notarget: "Σ {tkcal} ккал · Б{tp}/Ж{tf}/В{tc}",
   foodlog_alcohol_line: "🍷 з них алкоголь: {kcal} ккал (поза Б/Ж/В)",
+  foodlog_macros: "Б{p}/Ж{f}/В{c}",
   foodlog_hint: "Тапни позицію, щоб змінити вагу / продукт / прибрати. Або надішли їжу/фото, щоб додати.",
   foodlog_view_btn: "📋 Список за день / правка",
   food_recent_btn: "⭐ Часті продукти",

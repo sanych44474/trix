@@ -16,7 +16,7 @@ User-facing text is Ukrainian and English. The owner writes in Ukrainian or Russ
 npx tsc --noEmit          # Worker typecheck
 npm run typecheck:webapp  # Mini App typecheck
 npm run lint              # Biome, warnings are errors
-npm test                  # node:test, ~1 min
+npm test                  # node:test, ~1 min in CI, ~6 min on a laptop
 npm run test:workers      # vitest in the Workers runtime (real D1)
 npm run build:webapp:all  # when apps/mini-app or src/webapp changed
 ```

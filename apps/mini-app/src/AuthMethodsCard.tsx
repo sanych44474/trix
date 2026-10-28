@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, jsonBody } from "./api";
 import type { Lang } from "./i18n";
+import { clearAccountCache } from "./logic/accountCache";
 
 type AuthSession = { authenticated: boolean; accountId?: number; method?: "email" | "google" | "telegram" | "debug"; email?: string | null; googleLinked?: boolean };
 const words = {
@@ -36,7 +37,11 @@ export function AuthMethodsCard({ lang }: { lang: Lang }) {
   };
   const logout = async () => {
     setBusy(true);
-    try { await api("/api/v2/auth/logout", { method: "POST", body: jsonBody({}) }); window.dispatchEvent(new Event("trix:auth-changed")); }
+    try {
+      await api("/api/v2/auth/logout", { method: "POST", body: jsonBody({}) });
+      try { clearAccountCache(localStorage, sessionStorage); } catch { /* storage is optional */ }
+      window.dispatchEvent(new Event("trix:auth-changed"));
+    }
     catch { setMessage(text.retry); } finally { setBusy(false); }
   };
 

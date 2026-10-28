@@ -146,3 +146,27 @@ test("all notifications off: nothing is queued or sent, and the event counts as 
   assert.deepEqual(sent, []);
   assert.deepEqual(await dueNotifications(db, new Date(Date.now() + 3_600_000).toISOString()), [], "no row left to retry");
 });
+
+test("enqueueAndDeliver: a D1 error AFTER Telegram accepted the message does not schedule a resend", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  // Every "mark sent" write fails, as during a D1 blip; everything else works.
+  const flaky = new Proxy(db, {
+    get(target, prop) {
+      if (prop !== "prepare") return Reflect.get(target, prop).bind?.(target) ?? Reflect.get(target, prop);
+      return (sql: string) => sql.includes("SET status = 'sent'")
+        ? { bind: () => ({ run: async () => { throw new Error("D1_ERROR: network"); } }) }
+        : target.prepare(sql);
+    },
+  });
+  let sendCount = 0;
+  const sender = fakeSender(() => { sendCount++; });
+
+  const result = await enqueueAndDeliver(fakeEnv(flaky as never), sender, { userId: 1, chatId: 1, kind: "reminder", idempotencyKey: "k1", text: "hi" });
+
+  assert.equal(result, "sent");
+  assert.equal(sendCount, 1);
+  // The bug: the failed write fell into the send-error path and scheduled a retry ~1 minute out.
+  const dueSoon = await dueNotifications(db, new Date(Date.now() + 90_000).toISOString());
+  assert.equal(dueSoon.length, 0);
+});

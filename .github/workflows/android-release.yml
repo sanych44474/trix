@@ -97,7 +97,8 @@ jobs:
         run: |
           set -euo pipefail
           config=$(curl -fsS "$WORKER_URL/api/v2/app/config")
-          current=$(jq -r '.data.android.latestVersionCode // 0' <<<"$config")
+          current=$(jq -r '.data.android.latestVersionCode' <<<"$config")
+          [[ "$current" =~ ^[0-9]+$ ]] || { echo "::error::latestVersionCode missing or not a number in $WORKER_URL/api/v2/app/config (got '$current')"; exit 1; }
           current_name=$(jq -r '.data.android.download.versionName // "0.0.0"' <<<"$config")
           code="${INPUT_CODE:-$((current + 1))}"
           if [[ -n "$INPUT_NAME" ]]; then

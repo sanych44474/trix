@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, formCheckGate, formCheckSystem } from "../src/features/workout/formCheck";
+import { formCheckReply } from "../src/bot/formCheck";
 
 test("form check gate: size and length before the daily quota", () => {
   assert.equal(formCheckGate({ bytes: 5_000_000, seconds: 20 }, 0), "ok");
@@ -15,4 +16,11 @@ test("form check prompt: user's language, visible-only remarks, no medical advic
   assert.match(formCheckSystem("en"), /English/);
   assert.match(formCheckSystem("uk"), /Never diagnose/);
   assert.match(formCheckSystem("uk"), /actually visible/);
+});
+
+test("form check reply: AI text is HTML-escaped (Telegram parse_mode HTML) and keeps its lines", () => {
+  const out = formCheckReply("en", "• Knees < toes & hips back\n• Brace") ?? "";
+  assert.match(out, /Knees &lt; toes &amp; hips back\n• Brace/);
+  assert.doesNotMatch(out, /< toes/);
+  assert.equal(formCheckReply("en", "  \n "), null);
 });

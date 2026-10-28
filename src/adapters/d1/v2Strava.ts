@@ -2,7 +2,7 @@
 // token encryption at rest and the signed OAuth `state`. Both are keyed off STRAVA_CLIENT_SECRET,
 // which only this Worker and Strava know. Rotating that secret invalidates stored tokens; the
 // affected users simply see "reconnect Strava".
-import { nowIso, type DB } from "./shared";
+import { allInChunks, nowIso, type DB } from "./shared";
 import { macHex, verifyMac } from "../../domain/secrets";
 
 export interface StravaTokens {
@@ -109,12 +109,9 @@ export async function stravaAccountsDue(db: DB, olderThanIso: string, limit: num
 }
 
 export async function importedActivityIds(db: DB, accountId: number, ids: number[]): Promise<Set<number>> {
-  if (!ids.length) return new Set();
-  const r = await db
-    .prepare(`SELECT activityId FROM v2_strava_imports WHERE accountId = ? AND activityId IN (${ids.map(() => "?").join(",")})`)
-    .bind(accountId, ...ids)
-    .all<{ activityId: number }>();
-  return new Set((r.results ?? []).map((x) => x.activityId));
+  // A first sync passes up to 300 ids.
+  const rows = await allInChunks<{ activityId: number }>(db, ids, [accountId], (ph) => `SELECT activityId FROM v2_strava_imports WHERE accountId = ? AND activityId IN (${ph})`);
+  return new Set(rows.map((x) => x.activityId));
 }
 
 export async function recordImportedActivities(db: DB, accountId: number, rows: Array<{ activityId: number; date: string }>): Promise<void> {
@@ -123,4 +120,12 @@ export async function recordImportedActivities(db: DB, accountId: number, rows: 
     await db.batch(rows.slice(i, i + 50).map((row) =>
       db.prepare("INSERT OR IGNORE INTO v2_strava_imports (accountId, activityId, date, createdAt) VALUES (?, ?, ?, ?)").bind(accountId, row.activityId, row.date, now)));
   }
+}
+
+/** Revokes the app's grant on Strava's side for this account (best effort: a failed call is
+ *  ignored). Shared by disconnect and account erasure, which both forget the tokens afterwards. */
+export async function deauthorizeStrava(db: DB, clientSecret: string, accountId: number, fetchImpl: typeof fetch = fetch): Promise<void> {
+  const link = await getStravaLink(db, accountId, clientSecret).catch(() => null);
+  if (!link) return;
+  await fetchImpl("https://www.strava.com/oauth/deauthorize", { method: "POST", headers: { Authorization: `Bearer ${link.tokens.access}` } }).catch(() => null);
 }
