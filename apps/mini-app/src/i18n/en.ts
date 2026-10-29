@@ -925,6 +925,9 @@ export const en = {
 
   // extras hub: week card, photo compare, plates, library, find a trainer, squads
   extras_title: "More",
+  more_group_training: "Training",
+  more_group_people: "People",
+  more_group_app: "App",
   weekcard_eyebrow: "Week card",
   weekcard_title: "Week card",
   weekcard_empty_title: "No activity yet",

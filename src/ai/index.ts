@@ -3,7 +3,7 @@ import { aiAttemptCountForUserSince, aiCacheStmt, aiCallStmt, aiUsageStmt, getAi
 import { GEMINI_DEFAULT_LIGHT_MODEL, geminiGenerate } from "./gemini";
 import { GROQ_DEFAULT_MODEL, groqGenerate } from "./groq";
 import { OLLAMA_DEFAULT_MODEL, ollamaGenerate } from "./ollama";
-import { OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_TRANSLATE_MODEL, OPENROUTER_DEFAULT_VISION_MODEL, openrouterGenerate } from "./openrouter";
+import { OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_TRANSLATE_MODEL, openrouterGenerate, openrouterVisionModels } from "./openrouter";
 import { workersaiGenerate, workersaiModels, workersaiTranscribe } from "./workersai";
 import { groqTranscribe } from "./groq";
 import { RateLimitError, type GenInput, type InlineImage } from "./errors";
@@ -134,7 +134,7 @@ export function chainFor(env: Env, tier: AiTier, geminiModel: string, opts: { wo
   const waiModels = tier === "standard" || tier === "heavy" ? workersaiModels(env) : WORKERSAI_TIER_MODELS[tier];
   const workersai: Provider | null = env.AI && opts.workersai ? { name: "workersai", model: waiModels[0], fn: workersaiGenerate } : null;
   const orModel = vision
-    ? env.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL
+    ? openrouterVisionModels(env)[0]
     : opts.translate
       ? env.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL
       : env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL;

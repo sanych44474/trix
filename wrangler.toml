@@ -227,9 +227,9 @@ GROQ_MODEL = "openai/gpt-oss-120b"
 GROQ_FALLBACK_MODELS = "qwen/qwen3.8-27b,qwen/qwen3.6-27b,openai/gpt-oss-20b"
 GROQ_VISION_MODEL = ""
 # Workers AI (on-platform, keyless): src/ai/workersai.ts tries WORKERSAI_MODEL (default
-# @cf/openai/gpt-oss-120b), then these. [2026-10-02] Llama 3.3 70B — the previous default — is the
-# fallback, so an unverified new primary can't take the tier down.
-WORKERSAI_FALLBACK_MODELS = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+# @cf/openai/gpt-oss-120b), then these, so an unverified new primary can't take the tier down.
+# [2026-10-29] GLM 4.7 Flash replaced Llama 3.3 70B (about a sixth of its neurons per output token).
+WORKERSAI_FALLBACK_MODELS = "@cf/zai-org/glm-4.7-flash"
 # Workers AI is free up to 10,000 neurons/day per account; the Worker stops using it for the day
 # at this estimated spend (src/ai/budget.ts). Kept below 10,000 because the spend is estimated.
 WORKERSAI_DAILY_NEURONS = "8000"
@@ -244,9 +244,11 @@ OLLAMA_FALLBACK_MODELS = "gpt-oss:20b"
 # meta-llama/llama-3.2-11b-vision-instruct:free) were 404, i.e. this whole fallback tier was
 # dead in production while looking configured. Values below verified live against
 # GET /api/v1/models; vision pick confirmed via architecture.input_modalities.
-OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
-OPENROUTER_TRANSLATE_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
-OPENROUTER_VISION_MODEL = "google/gemma-4-31b-it:free"
+# [2026-10-29] nemotron-3-super-120b-a12b lost its :free variant; see src/ai/openrouter.ts.
+# OPENROUTER_VISION_MODEL is left unset so the default vision list (Super VL, then Gemma) applies;
+# setting it pins one model with no fallback.
+OPENROUTER_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+OPENROUTER_TRANSLATE_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 # [2026-10-02] Text fallback inside the OpenRouter tier (src/ai/openrouter.ts walks primary →
 # these), so one :free model leaving the roster no longer takes the tier down.
-OPENROUTER_FALLBACK_MODELS = "google/gemma-4-31b-it:free"
+OPENROUTER_FALLBACK_MODELS = "nvidia/nemotron-3.5-lightning:free,google/gemma-4-31b-it:free"

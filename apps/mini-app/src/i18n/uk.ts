@@ -926,6 +926,9 @@ export const uk: Record<keyof typeof en, string> = {
 
   // extras hub: week card, photo compare, plates, library, find a trainer, squads
   extras_title: "Ще",
+  more_group_training: "Тренування",
+  more_group_people: "Люди",
+  more_group_app: "Застосунок",
   weekcard_eyebrow: "Картка тижня",
   weekcard_title: "Картка тижня",
   weekcard_empty_title: "Активності ще немає",

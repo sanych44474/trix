@@ -30,6 +30,7 @@ import { mirrorToDevice } from "./logic/deviceStorage";
 import { confirmDialog } from "./telegram";
 import { useResume } from "./useResume";
 import { CardioPanel } from "./TrainingExtras";
+import { PlatesTool } from "./PlatesCalc";
 import { moveInList, removeFromList, type Reordered } from "./logic/loggerOrder";
 
 // How long the logger waits after the last change before copying the draft to the server.
@@ -73,6 +74,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
   const session = useSession();
   const [subview, setSubview] = useState<TrainSegment>(initialSegment);
   const [cardioOpen, setCardioOpen] = useState(false);
+  const [platesOpen, setPlatesOpen] = useState(false); // plate calculator (moved here from More)
   // Focus mode: one exercise on screen, no tab bar; the row being edited per exercise survives
   // moving between exercises (keyed by position and name).
   const [focus, setFocusState] = useState(false);
@@ -452,7 +454,9 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
       </div>
       <div className="button-row">
         <button type="button" className="button button-ghost button-small" onClick={() => setCardioOpen(true)}>{t(lang, "tx_cardio_open")}</button>
+        <button type="button" className="button button-ghost button-small" aria-expanded={platesOpen} onClick={() => setPlatesOpen((open) => !open)}>{t(lang, "plates_title")}</button>
       </div>
+      {platesOpen && <Card><PlatesTool lang={lang} /></Card>}
     </>
   );
   if (cardioOpen) return <CardioPanel lang={lang} onBack={() => setCardioOpen(false)} />;

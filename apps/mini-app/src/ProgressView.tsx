@@ -12,6 +12,8 @@ import { track } from "./logic/track";
 import { todayPlan } from "./logic/todayPlan";
 import { Icon } from "./icons";
 import { StandardsCard } from "./TrainingExtras";
+import { Fold } from "./Fold";
+import { PhotoCompareTool, WeekCardTool } from "./ProgressShare";
 
 // The body-map figure is ~35 kB of SVG paths; loaded only when the Progress screen is opened.
 const BodyMap = lazy(() => import("./BodyMap").then((m) => ({ default: m.BodyMap })));
@@ -145,6 +147,9 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoNotice, setPhotoNotice] = useState("");
   const [photoReload, setPhotoReload] = useState(0);
+  // Week card / photo compare (moved here from More): folded, one open at a time.
+  const [tool, setTool] = useState<"weekcard" | "photocompare" | null>(null);
+  const toggleTool = (key: "weekcard" | "photocompare") => setTool((current) => current === key ? null : key);
   const uploadPhoto = async (file: File) => {
     setPhotoBusy(true); setPhotoNotice("");
     try {
@@ -230,6 +235,9 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
 
       {hasLogs && <Card><h2 className="card-title">{t(lang, "trend_title")}</h2><Suspense fallback={<div className="skeleton" />}><MuscleTrend lang={lang} logs={dashboard.calendar.logs ?? []} today={dashboard.today} /></Suspense></Card>}
       <StravaCard lang={lang} />
+      <div className="fold-group">
+        <Fold title={t(lang, "weekcard_title")} open={tool === "weekcard"} onToggle={() => toggleTool("weekcard")}><WeekCardTool lang={lang} /></Fold>
+      </div>
     </>}
 
     {section === "body" && <>
@@ -265,6 +273,9 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
         <button type="button" className="button button-secondary button-block" disabled={photoBusy} onClick={() => fileInputRef.current?.click()}><Icon name="camera" size={20} />{photoBusy ? t(lang, "saving_ellipsis") : t(lang, "progress_photo_upload_btn")}</button>
         {photoNotice && <div className="save-note">{photoNotice}</div>}
       </Card>
+      <div className="fold-group">
+        <Fold title={t(lang, "photocompare_title")} open={tool === "photocompare"} onToggle={() => toggleTool("photocompare")}><PhotoCompareTool lang={lang} /></Fold>
+      </div>
     </>}
 
     {section === "food" && <>

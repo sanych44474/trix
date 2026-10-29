@@ -1016,6 +1016,9 @@ button { cursor: pointer; }
 .fold-group { display: grid; border-radius: 20px; background: var(--surface); overflow: hidden; }
 .fold-group > .card.fold { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .fold-group > .card.fold + .card.fold { border-top: 1px solid var(--line); }
+.group-head { margin: 10px 4px -4px; } /* the label over a More group (Training / People / App) */
+/* A card inside an open fold drops its own box; :root and :not() match the theme rules' specificity so it wins. */
+:root .fold-body > .card:not(.card-accent):not(.card-muted) { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 
 /* Settings → Screen: the accent colour picker. */
 .segmented.accent-pick { grid-template-columns: 1fr 1fr; }
