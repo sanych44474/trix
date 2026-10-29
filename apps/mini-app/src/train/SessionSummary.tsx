@@ -7,6 +7,7 @@ import { canShareStory } from "../telegram";
 import { shareStoryCard } from "../storyCard";
 import { Icon } from "../icons";
 import { track } from "../logic/track";
+import type { RepDropoff } from "../logic/repDropoff";
 
 // What saveWorkout() returns (SaveResult, src/webapp/workout.ts) plus the locally measured
 // session quality.
@@ -22,6 +23,7 @@ export interface SaveSummary {
   bestStreak: number;
   volumeKg?: number; // load x reps over the logged sets
   plannedSets?: number;
+  dropoffs?: RepDropoff[]; // worst first; the summary shows at most two
 }
 
 const fmtNum = (lang: Lang, n: number, digits = 1) => new Intl.NumberFormat(lang === "uk" ? "uk-UA" : "en-GB", { maximumFractionDigits: digits }).format(n);
@@ -85,6 +87,10 @@ export function SessionSummary({ lang, summary, title, subtitle, date, onAskCoac
         <strong>{firstPr}</strong>
         {otherPrs.length > 0 && <small>{t(lang, "summary_pr_more", { n: otherPrs.length })}: {otherPrs.join(", ")}</small>}
       </div>}
+      {(summary.dropoffs ?? []).slice(0, 2).map((drop) => <div key={drop.name} className="dropoff-card">
+        <strong>{drop.name}</strong>
+        <small>{t(lang, "summary_dropoff", { reps: drop.reps.join(" → ") })}</small>
+      </div>)}
       {summary.leveledUp && <p className="summary-hit">{t(lang, "summary_level_up", { n: summary.level })}</p>}
       {summary.newBadges.length > 0 && <p className="summary-hit">{t(lang, "summary_badges", { names: summary.newBadges.join(", ") })}</p>}
       <div className="feel-block">

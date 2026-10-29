@@ -61,6 +61,7 @@ export const en = {
   training_session_title: "Training session",
   moves_count: "{n} moves",
   session_saved: "Session saved. Nice work.",
+  summary_dropoff: "Reps dropped sharply ({reps}). Next time rest longer between sets or cut the weight by 5–10%.",
   session_saved_for_date: "Saved for {date}. Nice work.",
   saved_btn: "✓ Saved",
   field_load: "Load",
