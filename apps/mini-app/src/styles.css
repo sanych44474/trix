@@ -100,6 +100,7 @@ button { cursor: pointer; }
 .page-title h1 { font-size: 32px; letter-spacing: -.06em; }
 .page-title > span { color: var(--muted); font-size: 12px; }
 .muted, small { color: var(--muted); font-size: 12px; }
+.set-warn { margin: 0 0 8px; color: var(--warn-ink); font-size: 13px; font-weight: 700; }
 .text-button, .icon-button { border: 0; background: transparent; color: var(--accent-ink); font-weight: 800; }
 .icon-button { position: relative; display: inline-grid; place-items: center; flex: 0 0 auto; min-width: 44px; min-height: 44px; padding: 0; border-radius: 12px; color: var(--text); font-size: 22px; }
 .icon-button:hover { background: var(--surface-2); }

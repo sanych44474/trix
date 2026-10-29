@@ -5,11 +5,11 @@
 // back doesn't lose them. Less frequent actions open from the top bar's "more" button.
 import { TechniqueFrames } from "./TechniqueFrames";
 import { FormCheck } from "../media/FormCheck";
-import { lazy, Suspense, useRef, useState, type KeyboardEvent } from "react";
+import { Fragment, lazy, Suspense, useRef, useState, type KeyboardEvent } from "react";
 import { musclesForExercise } from "../logic/exerciseMuscles";
 import { t, type Lang } from "../i18n";
 import type { RestPrefs } from "../logic/rest";
-import { isSetFilled, plannedSetsFor, type LoggerExercise, type LoggerSet } from "../logic/logger";
+import { isOutlierWeight, isSetFilled, plannedSetsFor, type LoggerExercise, type LoggerSet } from "../logic/logger";
 import { Icon } from "../icons";
 import { startsRest } from "../logic/loggerOrder";
 
@@ -200,12 +200,15 @@ export function FocusExercise(props: FocusExerciseProps) {
           if (isEditing) {
             const v = editing.set;
             return (
-              <div key={i} className="set-row-v2 editing" role="row">
+              <Fragment key={i}>
+              <div className="set-row-v2 editing" role="row">
                 <span className="set-n">{i + 1}</span>
                 {reps && <label className="set-field"><input type="text" inputMode="decimal" name="set-load" enterKeyHint="next" {...noAutofill} onKeyDown={onEnter("weight")} aria-label={t(lang, "field_load")} value={editing.text?.weight ?? fmt(lang, v.weight ?? 0)} onFocus={selectAll} onClick={selectAll} onChange={(e) => type("weight", e.target.value)} /><span>{t(lang, "ph_kg")}</span></label>}
                 <label className="set-field"><input ref={mainInput} type="text" inputMode={main === "meters" ? "decimal" : "numeric"} name={`set-${main}`} enterKeyHint="done" {...noAutofill} onKeyDown={onEnter(main)} aria-label={mainHead} value={editing.text?.[main] ?? fmt(lang, v[main] ?? 0)} onFocus={selectAll} onClick={selectAll} onChange={(e) => type(main, e.target.value)} />{unitMain && <span>{unitMain}</span>}</label>
                 <button type="button" className="set-ok primary" disabled={!(v[main] ?? 0)} onClick={() => commit(i, v)} aria-label={t(lang, "set_done_btn")}><Icon name="check" /></button>
               </div>
+              {reps && isOutlierWeight(exercise, v.weight ?? 0) && <p className="set-warn" role="status">{t(lang, "train_weight_outlier", { kg: fmt(lang, v.weight ?? 0) })}</p>}
+              </Fragment>
             );
           }
           return (

@@ -950,6 +950,7 @@ export const en = {
   photocompare_sent_note: "Sent — check this Telegram chat.",
   plates_eyebrow: "Plates calculator",
   plates_title: "Plate calculator",
+  train_weight_outlier: "{kg} kg? That's far above your usual. Check the weight.",
   plates_kg_ph: "Target weight, kg",
   plates_calc_btn: "Calculate",
   plates_per_side: "per side",

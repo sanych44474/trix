@@ -951,6 +951,7 @@ export const uk: Record<keyof typeof en, string> = {
   photocompare_sent_note: "Надіслано — перевір цей чат Telegram.",
   plates_eyebrow: "Калькулятор блинів",
   plates_title: "Калькулятор блинів",
+  train_weight_outlier: "{kg} кг? Це набагато більше, ніж зазвичай. Перевір вагу.",
   plates_kg_ph: "Цільова вага, кг",
   plates_calc_btn: "Порахувати",
   plates_per_side: "з кожного боку",

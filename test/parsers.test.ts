@@ -261,6 +261,13 @@ test("computePlanProgression: maximal RPE blocks the weight bump", () => {
   assert.equal(r.changes.length, 0);
 });
 
+test("computePlanProgression: a typo'd 800 kg set (80, 80, 800) does not become next week's weight", () => {
+  const plan = planWith({ name: "Bench Press", sets: "4 × 8–10", startWeight: "80 kg" });
+  const logs = [progLog("2026-02-10", "Bench Press", 10, 80), progLog("2026-02-12", "Bench Press", 10, 80), progLog("2026-02-14", "Bench Press", 10, 800)];
+  const r = computePlanProgression(plan, logs, []);
+  assert.deepEqual(r.changes.map((c) => c.to), ["82.5 kg"]);
+});
+
 test("computePlanProgression: poor wellbeing holds all increases", () => {
   const plan = planWith({ sets: "4 × 8–10", startWeight: "50 kg" });
   const logs = [progLog("2026-02-10", "Bench Press", 10, 50, 8), progLog("2026-02-12", "Bench Press", 10, 50, 8)];
