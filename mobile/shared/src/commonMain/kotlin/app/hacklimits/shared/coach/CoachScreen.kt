@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -35,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -56,9 +58,10 @@ import org.koin.compose.viewmodel.koinViewModel
  * The AI coach: a chat with plan-aware answers, buttons that apply a suggested change or send
  * feedback to the team, and the session's history. A client with a trainer gets the trainer chat
  * here instead, with their open questions on top.
+ * [onLogInjury] opens the injuries screen from an injury card under a reply.
  */
 @Composable
-fun CoachScreen(onBack: () -> Unit) {
+fun CoachScreen(onBack: () -> Unit, onLogInjury: () -> Unit) {
     val vm: CoachViewModel = koinViewModel()
     val s by vm.state.collectAsStateWithLifecycle()
     val telemetry = koinInject<Telemetry>()
@@ -104,7 +107,7 @@ fun CoachScreen(onBack: () -> Unit) {
                 }
             }
             s.routed -> RoutedBody(s)
-            else -> SoloBody(s, vm, listState)
+            else -> SoloBody(s, vm, listState, onLogInjury)
         }
     }
 }
@@ -136,7 +139,7 @@ private fun ColumnScope.RoutedBody(s: CoachState) {
 }
 
 @Composable
-private fun ColumnScope.SoloBody(s: CoachState, vm: CoachViewModel, listState: LazyListState) {
+private fun ColumnScope.SoloBody(s: CoachState, vm: CoachViewModel, listState: LazyListState, onLogInjury: () -> Unit) {
     Box(Modifier.weight(1f).fillMaxWidth()) {
         when {
             s.lines.isEmpty() && !s.sending -> Text(
@@ -150,7 +153,7 @@ private fun ColumnScope.SoloBody(s: CoachState, vm: CoachViewModel, listState: L
                 modifier = Modifier.fillMaxSize().semantics { liveRegion = LiveRegionMode.Polite },
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(s.lines, key = { it.id }) { line -> CoachBubble(line, s, vm) }
+                items(s.lines, key = { it.id }) { line -> CoachBubble(line, s, vm, onLogInjury) }
                 if (s.sending) item(key = "typing") {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -199,7 +202,7 @@ private fun ErrorRow(code: String, retry: () -> Unit, enabled: Boolean) {
 }
 
 @Composable
-private fun CoachBubble(line: CoachLine, s: CoachState, vm: CoachViewModel) {
+private fun CoachBubble(line: CoachLine, s: CoachState, vm: CoachViewModel, onLogInjury: () -> Unit) {
     if (line.role == CoachRole.Routed) {
         Text(
             stringResource(Res.string.coach_routed),
@@ -243,8 +246,46 @@ private fun CoachBubble(line: CoachLine, s: CoachState, vm: CoachViewModel) {
                 }
             }
         }
+        line.bodySignal?.let { BodySignalCard(it, onLogInjury) }
     }
 }
+
+/**
+ * Under a coach reply: an injury is a caution card with a way to log it; an urgent symptom is an
+ * error card with the doctor advice only. The fixed amber pair keeps the text readable in both themes.
+ */
+@Composable
+private fun BodySignalCard(alert: BodyAlert, onLogInjury: () -> Unit) {
+    val injury = alert == BodyAlert.Injury
+    val background = if (injury) CautionBackground else MaterialTheme.colorScheme.errorContainer
+    val content = if (injury) CautionText else MaterialTheme.colorScheme.onErrorContainer
+    Surface(
+        color = background,
+        contentColor = content,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.widthIn(max = 320.dp).padding(top = 6.dp),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(if (injury) Res.string.coach_body_injury_text else Res.string.coach_body_urgent_text),
+                color = content,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            if (injury) {
+                Button(
+                    onClick = onLogInjury,
+                    colors = ButtonDefaults.buttonColors(containerColor = CautionText, contentColor = CautionBackground),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(Res.string.coach_body_injury_btn), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+private val CautionBackground = Color(0xFFFFE08A)
+private val CautionText = Color(0xFF3D2E00)
 
 /** Maps the server's error code (or "network" for a failed transport) to the coach's message. */
 internal fun coachErrorText(code: String): StringResource = when (code) {

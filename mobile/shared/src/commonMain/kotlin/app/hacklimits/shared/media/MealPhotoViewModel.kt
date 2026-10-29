@@ -47,6 +47,8 @@ internal class MealPhotoViewModel(
         val text: String = "",
         val error: String? = null,
         val done: Boolean = false,
+        /** The server's localised reason when a photo gave no items (e.g. not food); shown instead of the generic unreadable line. */
+        val notFoodMessage: String? = null,
     )
 
     private val _state = MutableStateFlow(State())
@@ -67,12 +69,14 @@ internal class MealPhotoViewModel(
 
     fun choosePhoto() = call {
         val photo = photos.pick() ?: return@call
-        val items = api.estimateMealPhoto(photo.bytes, photo.mimeType, _state.value.caption).take(MAX_MEAL_ITEMS)
+        val estimate = api.estimateMealPhoto(photo.bytes, photo.mimeType, _state.value.caption)
+        val items = estimate.items.take(MAX_MEAL_ITEMS)
         logKey = null
         _state.update { s ->
             s.copy(
                 draft = items.map { DraftItem(it, it.grams?.let(::formatGrams).orEmpty()) },
                 estimated = true,
+                notFoodMessage = if (items.isEmpty()) estimate.message else null,
             )
         }
         telemetry.track("app_meal_photo")
@@ -86,7 +90,7 @@ internal class MealPhotoViewModel(
     /** Drops the photo estimate and its caption, as the Mini App's close does. */
     fun reset() {
         logKey = null
-        _state.update { it.copy(draft = emptyList(), estimated = false, caption = "", error = null) }
+        _state.update { it.copy(draft = emptyList(), estimated = false, caption = "", error = null, notFoodMessage = null) }
     }
 
     fun onGrams(index: Int, value: String) {
