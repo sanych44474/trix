@@ -42,6 +42,7 @@ import app.hacklimits.shared.data.TrainingSignals
 import app.hacklimits.shared.resources.sig_lift_progressing
 import app.hacklimits.shared.resources.sig_lift_regressing
 import app.hacklimits.shared.resources.sig_lift_stalled
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import app.hacklimits.shared.progress.muscle.LoggedDay
 import app.hacklimits.shared.progress.ProgressNotice
@@ -221,6 +222,7 @@ private fun ProgressDashboard.uk(): Boolean = lang == "uk"
 private val SIGNAL_STATUSES = setOf("progressing", "stalled", "regressing")
 
 /** One chip per lift with a clear trend ("Bench · stalled"), wrapping so small phones never overflow. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LiftSignalChips(lifts: List<TrainingSignals.LiftSignal>) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
