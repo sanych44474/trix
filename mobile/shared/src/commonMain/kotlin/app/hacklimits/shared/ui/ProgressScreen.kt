@@ -38,6 +38,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.hacklimits.shared.data.DayWorkout
 import app.hacklimits.shared.data.ProgressDashboard
+import app.hacklimits.shared.data.TrainingSignals
+import app.hacklimits.shared.resources.sig_lift_progressing
+import app.hacklimits.shared.resources.sig_lift_regressing
+import app.hacklimits.shared.resources.sig_lift_stalled
+import androidx.compose.foundation.layout.FlowRow
 import app.hacklimits.shared.progress.muscle.LoggedDay
 import app.hacklimits.shared.progress.ProgressNotice
 import app.hacklimits.shared.progress.ProgressSection
@@ -213,6 +218,32 @@ fun ProgressScreen(vm: ProgressViewModel, trainExtras: @Composable () -> Unit = 
 
 private fun ProgressDashboard.uk(): Boolean = lang == "uk"
 
+private val SIGNAL_STATUSES = setOf("progressing", "stalled", "regressing")
+
+/** One chip per lift with a clear trend ("Bench · stalled"), wrapping so small phones never overflow. */
+@Composable
+private fun LiftSignalChips(lifts: List<TrainingSignals.LiftSignal>) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        lifts.forEach { lift ->
+            val color = when (lift.status) {
+                "progressing" -> MaterialTheme.colorScheme.primaryContainer
+                "stalled" -> MaterialTheme.colorScheme.tertiaryContainer
+                else -> MaterialTheme.colorScheme.errorContainer
+            }
+            val status = stringResource(
+                when (lift.status) {
+                    "progressing" -> Res.string.sig_lift_progressing
+                    "stalled" -> Res.string.sig_lift_stalled
+                    else -> Res.string.sig_lift_regressing
+                },
+            )
+            Box(Modifier.clip(RoundedCornerShape(50)).background(color).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                Text("${lift.name} · $status", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
+
 @Composable
 private fun Summary(d: ProgressDashboard, weightPeriod: Int) {
     val uk = d.uk()
@@ -292,6 +323,8 @@ private fun LazyListScope.trainTab(vm: ProgressViewModel, s: ProgressViewModel.S
 
     item {
         ProgressCard(stringResource(Res.string.pr_strength_trend_title)) {
+            val lifts = s.signals?.exercises.orEmpty().filter { it.name.isNotBlank() && it.status in SIGNAL_STATUSES }
+            if (lifts.isNotEmpty()) LiftSignalChips(lifts)
             val exercises = d.exercises
             if (exercises.isEmpty()) {
                 MutedText(stringResource(Res.string.pr_strength_trend_empty))

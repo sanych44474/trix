@@ -44,6 +44,7 @@ import app.hacklimits.shared.telemetry.Telemetry
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
 import app.hacklimits.shared.today.BadgeCelebration
+import app.hacklimits.shared.today.DeloadHintCard
 import app.hacklimits.shared.today.DayMark
 import app.hacklimits.shared.today.QuickLogViewModel
 import app.hacklimits.shared.today.RecoveryDetailsCard
@@ -148,6 +149,7 @@ private fun TodayBody(
     onOpenComeback: () -> Unit,
 ) {
     val telemetry = koinInject<Telemetry>()
+    val signals by vm.signals.collectAsStateWithLifecycle()
     val plan: TodayPlan = remember(d, session) {
         todayPlan(
             TodayInput(
@@ -248,6 +250,8 @@ private fun TodayBody(
             }
         }
     }
+
+    if (signals?.deload?.suggested == true) DeloadHintCard()
 
     if (more) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {

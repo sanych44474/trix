@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sig_lift_progressing">росте</string>
+    <string name="sig_lift_stalled">стоїть</string>
+    <string name="sig_lift_regressing">падає</string>
+    <string name="sig_deload_title">Можливо, час для легшого тижня</string>
+    <string name="sig_deload_detail">Підказка за останніми RPE та самопочуттям, не медична порада. Легший тиждень може допомогти краще відновитися.</string>
+</resources>
