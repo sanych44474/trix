@@ -10,6 +10,7 @@ import { deleteUserData } from "../adapters/d1/v2Account";
 import { getOwnerChatId } from "../adapters/d1/v2Admin";
 import { insertFeedback } from "../adapters/d1/v2Feedback";
 import { feedbackReplyMarkup } from "../features/feedback/replyFeedback";
+import { triageFeedbackCategory } from "../features/feedback/triageFeedback";
 import { unlinkClient } from "../adapters/d1/v2Trainer";
 import { clearVacation, getUser, setVacation, updateUser } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
@@ -142,6 +143,7 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
           const who = user.username ? `@${user.username}` : `id ${user._id}`;
           await tgSend(env, ownerChatId, `✍️ <b>Feedback</b> from ${escapeHtml(who)}:\n${escapeHtml(text)}`, feedbackReplyMarkup(feedbackId));
         }
+        if (feedbackId) await triageFeedbackCategory(env, feedbackId, text);
         return { status: 200, body: { ok: true, state: state(user, user.lang) } };
       });
       return Response.json(fb.body, { status: fb.status });

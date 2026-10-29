@@ -21,3 +21,16 @@ export function classifyFeedback(text: string): FeedbackCategory {
   for (const [cat, re] of RULES) if (re.test(s)) return cat;
   return "other";
 }
+
+/** Clef's answer is taken only at or above this confidence; below it the row keeps "other". */
+export const CLEF_TRIAGE_MIN_CONFIDENCE = 0.6;
+
+/** The categories Clef may move a rule-less "other" into. "rating" is the ⭐ rule's alone, and
+ *  "other" is Clef's way of abstaining. */
+const CLEF_PICKABLE: readonly FeedbackCategory[] = ["bug", "idea", "complaint", "praise"];
+
+/** The category a Clef choice gives, or null when it is not confident or not a pickable category. */
+export function clefCategory(choice: { choice: string; confidence?: number } | null): FeedbackCategory | null {
+  if (!choice || (choice.confidence ?? 0) < CLEF_TRIAGE_MIN_CONFIDENCE) return null;
+  return CLEF_PICKABLE.find((c) => c === choice.choice) ?? null;
+}

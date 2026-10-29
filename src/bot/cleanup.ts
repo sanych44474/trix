@@ -6,6 +6,7 @@ import type { UserDoc } from "../types";
 import { getOwnerChatId, recordAudit } from "../adapters/d1/v2Admin";
 import { insertFeedback } from "../adapters/d1/v2Feedback";
 import { feedbackReplyMarkup } from "../features/feedback/replyFeedback";
+import { triageFeedbackCategory } from "../features/feedback/triageFeedback";
 import { clearInactiveAsk, getUser, listInactive, updateUser } from "../adapters/d1/v2Users";
 import { localParts } from "../domain/localTime";
 import { escapeHtml, t } from "../locales/i18n";
@@ -90,6 +91,7 @@ export async function handleInactiveFeedback(ctx: MyContext, text: string) {
     text: fb,
     date: localParts(ctx.user.profile.timezone).date,
   }).catch(() => null);
+  if (feedbackId) ctx.waitUntil(triageFeedbackCategory(ctx.env, feedbackId, fb));
   await forwardInactiveFeedbackToOwner(ctx, decision, fb, feedbackId);
   await setMode(ctx, "idle");
   await reply(ctx, t(lang, "inact_fb_thanks"), menuBtn(lang));
