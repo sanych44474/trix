@@ -6,6 +6,7 @@ import { InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
 import type { Weekday } from "../../types";
 import { type InlineImage } from "../../ai/errors";
+import { isNotFoodPhoto } from "./photoFood";
 import { aiJSON, aiVisionJSON } from "../../ai";
 import * as P from "../../ai/prompts";
 import { getActivePlan } from "../../adapters/d1/v2Plans";
@@ -130,6 +131,10 @@ export async function handlePhotoMeal(ctx: MyContext, images: InlineImage[]) {
   }
   await ctx.replyWithChatAction("typing").catch(() => {});
   deferAi(ctx, "nutrition", async () => {
+    if (images.length === 1 && (await isNotFoodPhoto(ctx.env, images[0]))) {
+      await reply(ctx, t(lang, "photo_not_food"));
+      return;
+    }
     const est = await aiVisionJSON<P.NutritionEstimate>(ctx.env, {
       system: P.nutritionVisionSystem(lang),
       user: ctx.message?.caption?.trim() || "Estimate the calories and macros of this meal.",

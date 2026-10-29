@@ -552,6 +552,7 @@ export const en = {
   // --- client billing (bookkeeping) ---
   // --- progress-photo review ---
   cc_photo: "📸 Request photo",
+  photo_not_food: "Looks like there's no food in this photo. Shoot your plate from above in good light.",
   photo_req_from: "📸 Coach *{name}* asks for a progress photo. Just send a photo here — it goes straight to them.",
   photo_req_skip_btn: "Not now",
   photo_req_skipped: "Okay — maybe later. 👌",

@@ -31,9 +31,9 @@ export function MealPhoto({ lang, onLogged }: { lang: Lang; onLogged: () => void
       const form = new FormData();
       form.append("photo", await shrinkImage(file), "meal.jpg");
       if (caption.trim()) form.append("caption", caption.trim());
-      const r = await apiForm<{ items: MealItem[] }>("/api/v2/media/meal-photo", form);
+      const r = await apiForm<{ items: MealItem[]; message?: string }>("/api/v2/media/meal-photo", form);
       setItems(r.items);
-      if (!r.items.length) setNote(t(lang, "meal_photo_unreadable"));
+      if (!r.items.length) setNote(r.message ?? t(lang, "meal_photo_unreadable"));
       track("app_meal_photo");
     } catch (err) {
       setNote(t(lang, (err as { status?: number }).status === 429 ? "meal_photo_limit" : "generic_error"));
