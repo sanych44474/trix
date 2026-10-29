@@ -138,6 +138,45 @@ class CoachApiTest {
     }
 
     @Test
+    fun askDecodesAnInjuryBodySignalAndKeepsTheReplyText() = runTest {
+        val coach = api {
+            respond(
+                """{"data":{"answer":"Rest the knee.","actions":[],"bodySignal":{"kind":"injury"}},"meta":{"version":2}}""",
+                HttpStatusCode.OK,
+                json,
+            )
+        }
+        val answer = coach.ask("My knee hurts", emptyList(), "k".repeat(16))
+        assertEquals("Rest the knee.", answer.answer)
+        assertEquals(BodyAlert.Injury, answer.bodySignal?.toAlert())
+    }
+
+    @Test
+    fun askDecodesAnUrgentBodySignal() = runTest {
+        val coach = api {
+            respond("""{"data":{"answer":"Stop training.","bodySignal":{"kind":"urgent"}},"meta":{"version":2}}""", HttpStatusCode.OK, json)
+        }
+        assertEquals(BodyAlert.Urgent, coach.ask("Chest pain", emptyList(), "k".repeat(16)).bodySignal?.toAlert())
+    }
+
+    @Test
+    fun askWithoutBodySignalLeavesItNull() = runTest {
+        val coach = api { respond("""{"data":{"answer":"Sure."},"meta":{"version":2}}""", HttpStatusCode.OK, json) }
+        assertNull(coach.ask("Hi", emptyList(), "k".repeat(16)).bodySignal)
+    }
+
+    @Test
+    fun anUnknownBodySignalKindDecodesAndMapsToNoCard() = runTest {
+        val coach = api {
+            respond("""{"data":{"answer":"Ok.","bodySignal":{"kind":"sleep"}},"meta":{"version":2}}""", HttpStatusCode.OK, json)
+        }
+        val answer = coach.ask("Hi", emptyList(), "k".repeat(16))
+        assertEquals("Ok.", answer.answer)
+        assertEquals("sleep", answer.bodySignal?.kind)
+        assertNull(answer.bodySignal?.toAlert(), "a kind the app does not know shows no card")
+    }
+
+    @Test
     fun plainCoachTextStripsTagsAndDecodesEntitiesOnce() {
         assertEquals("Drink water\nthen rest", plainCoachText("<p>Drink water<br>then rest</p>"))
         assertEquals("a & b <c>", plainCoachText("a &amp; b &lt;c&gt;"))

@@ -312,7 +312,9 @@ fun App(
                         ProgramsScreen(koinViewModel(), onBack = { nav.popBackStack() }, onApplied = { nav.popBackStack() })
                     }
                     composable<InjuriesRoute> { InjuriesScreen(koinViewModel(), onBack = { nav.popBackStack() }) }
-                    composable<CoachRoute> { CoachScreen(onBack = { nav.popBackStack() }) }
+                    composable<CoachRoute> {
+                        CoachScreen(onBack = { nav.popBackStack() }, onLogInjury = { nav.navigate(InjuriesRoute) })
+                    }
                     composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }, onOpenCoach = { nav.navigate(CoachRoute) }) }
                     composable<OwnerRoute> { OwnerScreen(onBack = { nav.popBackStack() }) }
                     composable<CardioRoute> { CardioScreen(onBack = { nav.popBackStack() }) }
