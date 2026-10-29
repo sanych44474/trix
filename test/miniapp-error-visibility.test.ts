@@ -12,6 +12,8 @@ import { errorStatsSince } from "../src/adapters/d1/v2AiTelemetry";
 import { apiFailure } from "../src/webapp/apiError";
 import type { Env } from "../src/types";
 
+const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 const SINCE = "2000-01-01T00:00:00.000Z";
 
 test("apiFailure records a handler exception where the owner report can see it", async () => {
@@ -55,7 +57,7 @@ test("a failing v2 dashboard is recorded, not just logged", async () => {
   const env = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env; // no WORKER_URL -> debugUser bypass
 
   const request = new Request(`https://example.test/api/v2/dashboard?debugUser=${userId}`);
-  const res = await handleV2Api(request, new URL(request.url), env);
+  const res = await handleV2Api(request, new URL(request.url), env, ctx);
 
   assert.equal(res.status, 503);
   const stats = await errorStatsSince(db, SINCE);

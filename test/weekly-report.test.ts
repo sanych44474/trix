@@ -102,6 +102,17 @@ test("weekmap link: signed, drawable, and a tampered link is refused", async () 
   assert.equal(await weekMapUrl(undefined, "male", zones, env.TELEGRAM_BOT_TOKEN), null, "no worker URL: no picture");
 });
 
+test("weekmap link: a legacy link signed with the raw bot token still draws (already sent in digests)", async () => {
+  const env = { TELEGRAM_BOT_TOKEN: "123:test" } as unknown as Env;
+  const zones = "o".repeat(TRACKED_MUSCLES.length);
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(env.TELEGRAM_BOT_TOKEN), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(`weekmap:m:${zones}`)));
+  const sig = [...mac.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const legacy = new URL(`https://w.example/weekmap.png?s=m&z=${zones}&sig=${sig}`);
+  assert.equal((await serveWeekMap(legacy, env)).status, 200);
+});
+
 test("rasterizer: packed arc flags parse without NaNs", () => {
   const polys = pathToPolygons("M10 10a5 5 0 01.5 10a5 5 0 1010 0z");
   const pts = polys.flat();

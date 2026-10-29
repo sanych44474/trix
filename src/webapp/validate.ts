@@ -147,6 +147,51 @@ export async function readJsonBody(req: Request): Promise<{ ok: true; body: unkn
   }
 }
 
+/** Room for multipart boundaries and text fields on top of a route's largest file. */
+export const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+
+/** Read a multipart/form-data body with a byte cap, before anything is buffered by the parser.
+ * `req.formData()` buffers the whole body first, so the per-file size check that runs after it
+ * comes too late: a single signed-in request could make the isolate hold 100 MB. Here the bytes
+ * are counted as they arrive and reading stops at the cap. A malformed body yields `form: null`,
+ * the same as the old `req.formData().catch(() => null)` callers relied on. */
+export async function readMultipartBody(req: Request, maxBytes: number): Promise<{ ok: true; form: FormData | null } | { ok: false; response: Response }> {
+  const tooLarge = { ok: false as const, response: Response.json({ error: "payload too large" }, { status: 413 }) };
+  const len = req.headers.get("content-length");
+  if (len && Number(len) > maxBytes) return tooLarge;
+  if (!req.body) return { ok: true, form: null };
+  // Content-Length can be absent or wrong (chunked encoding), so count the bytes actually read.
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        return tooLarge;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, response: Response.json({ error: "bad request" }, { status: 400 }) };
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    const form = await new Response(bytes, { headers: { "content-type": req.headers.get("content-type") ?? "" } }).formData();
+    return { ok: true, form };
+  } catch {
+    return { ok: true, form: null };
+  }
+}
+
 /** Validate an already-parsed body against a schema, returning a uniform 400 Response with the
  * offending field on failure. `validateBody(await readJsonBody(req), schema)`-style two-step
  * (read then validate) lets a handler size-cap and JSON-parse once for the whole request even

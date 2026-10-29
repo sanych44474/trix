@@ -14,7 +14,7 @@ import { HTML, type MyContext } from "../adapters/telegram/context";
 import { getUser } from "../adapters/d1/v2Users";
 import { deleteSquad, getSquad, joinSquad, leaveSquad, squadMembers, upsertSquad } from "../adapters/d1/v2Gamification";
 import { weekStartStr } from "../domain/records";
-import { wakeSquadScheduler } from "../durable/squadScheduler";
+import { wakeSquadScheduler } from "../durable/wake";
 import { t } from "../locales/i18n";
 import type { Lang } from "../types";
 import { postSquadDigest } from "../features/squad/digest";

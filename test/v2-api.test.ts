@@ -7,11 +7,13 @@ import { claimIdempotencyKey } from "../src/adapters/d1/v2Idempotency";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
 
+const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 const env = { WORKER_URL: "https://example.test", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
 
 test("v2 dashboard returns the unified unauthorized envelope", async () => {
   const request = new Request("https://example.test/api/v2/dashboard");
-  const response = await handleV2Api(request, new URL(request.url), env);
+  const response = await handleV2Api(request, new URL(request.url), env, ctx);
   assert.equal(response.status, 401);
   const body = await response.json() as unknown;
   assert.equal(isV2Failure(body), true);
@@ -20,21 +22,21 @@ test("v2 dashboard returns the unified unauthorized envelope", async () => {
 
 test("v2 unknown routes return a stable not_found error", async () => {
   const request = new Request("https://example.test/api/v2/does-not-exist");
-  const response = await handleV2Api(request, new URL(request.url), env);
+  const response = await handleV2Api(request, new URL(request.url), env, ctx);
   assert.equal(response.status, 404);
   assert.deepEqual(await response.json(), { error: { code: "not_found", message: "Route not found", retryable: false } });
 });
 
 test("v2 rejects malformed idempotency headers before touching a handler", async () => {
   const request = new Request("https://example.test/api/v2/log", { method: "POST", headers: { "Idempotency-Key": "short" } });
-  const response = await handleV2Api(request, new URL(request.url), env);
+  const response = await handleV2Api(request, new URL(request.url), env, ctx);
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: { code: "validation_error", message: "Idempotency-Key must be 8-128 characters", retryable: false } });
 });
 
 test("v2 long-tail adapters use the same unauthorized envelope", async () => {
   const request = new Request("https://example.test/api/v2/challenges");
-  const response = await handleV2Api(request, new URL(request.url), env);
+  const response = await handleV2Api(request, new URL(request.url), env, ctx);
   assert.equal(response.status, 401);
   assert.deepEqual(await response.json(), { error: { code: "unauthorized", message: "unauthorized", retryable: true } });
 });
@@ -65,7 +67,7 @@ test("v2 workout save is not double-claimed by forward()'s own idempotency wrap"
     headers: { "Idempotency-Key": "regression-test-0001" },
     body: JSON.stringify({ entries: [{ name: "Bench Press", sets: [{ reps: 8, weight: 60 }] }] }),
   });
-  const response = await handleV2Api(request, new URL(request.url), testEnv);
+  const response = await handleV2Api(request, new URL(request.url), testEnv, ctx);
   const body = await response.json() as unknown;
   assert.equal(response.status, 200, `expected a real save to succeed, got ${response.status}: ${JSON.stringify(body)}`);
 
@@ -86,13 +88,13 @@ test("v2 workout rest: DELETE cancels the pending timer so the cron can't still 
     method: "POST",
     body: JSON.stringify({ seconds: 90 }),
   });
-  const started = await handleV2Api(start, new URL(start.url), testEnv);
+  const started = await handleV2Api(start, new URL(start.url), testEnv, ctx);
   assert.equal(started.status, 200, `starting a rest should succeed: ${await started.clone().text()}`);
   const pending = await db.prepare("SELECT accountId FROM v2_rest_timers WHERE accountId = ?").bind(userId).first();
   assert.ok(pending, "POST /workout/rest must persist a pending timer row");
 
   const cancel = new Request(`https://example.test/api/v2/workout/rest?debugUser=${userId}`, { method: "DELETE" });
-  const cancelled = await handleV2Api(cancel, new URL(cancel.url), testEnv);
+  const cancelled = await handleV2Api(cancel, new URL(cancel.url), testEnv, ctx);
   assert.equal(cancelled.status, 200, `cancelling a rest should succeed: ${await cancelled.clone().text()}`);
   const after = await db.prepare("SELECT accountId FROM v2_rest_timers WHERE accountId = ?").bind(userId).first();
   assert.equal(after, null, "DELETE /workout/rest must remove the row the cron would have pushed");
@@ -100,7 +102,7 @@ test("v2 workout rest: DELETE cancels the pending timer so the cron can't still 
   // Cancelling with nothing pending is a no-op, not an error -- the client fires this on every
   // Stop tap without knowing whether a row exists.
   const again = new Request(`https://example.test/api/v2/workout/rest?debugUser=${userId}`, { method: "DELETE" });
-  assert.equal((await handleV2Api(again, new URL(again.url), testEnv)).status, 200);
+  assert.equal((await handleV2Api(again, new URL(again.url), testEnv, ctx)).status, 200);
 });
 
 // The offline queues (Mini App offlineSaves.ts, native PendingSaves.kt) keep a save only when the
@@ -118,7 +120,7 @@ test("v2 envelope: a save whose Idempotency-Key is still in flight is retryable"
     headers: { "Idempotency-Key": "inflight-test-0002" },
     body: JSON.stringify({ entries: [{ name: "Bench Press", sets: [{ reps: 8, weight: 60 }] }] }),
   });
-  const response = await handleV2Api(request, new URL(request.url), testEnv);
+  const response = await handleV2Api(request, new URL(request.url), testEnv, ctx);
   assert.equal(response.status, 409);
   assert.equal(((await response.json()) as { error: { retryable: boolean } }).error.retryable, true);
 });
@@ -134,7 +136,7 @@ test("v2 workout rest: the native app's rest schedules no Telegram message and r
   const pending = () => db.prepare("SELECT COUNT(*) AS n FROM v2_rest_timers WHERE accountId = ?").bind(userId).first<{ n: number }>();
   const start = async (headers: Record<string, string>) => {
     const req = new Request(`https://example.test/api/v2/workout/rest?debugUser=${userId}`, { method: "POST", headers, body: JSON.stringify({ seconds: 90 }) });
-    const res = await handleV2Api(req, new URL(req.url), testEnv);
+    const res = await handleV2Api(req, new URL(req.url), testEnv, ctx);
     assert.equal(res.status, 200, await res.clone().text());
     return ((await res.json()) as { data: { delivery: string } }).data.delivery;
   };

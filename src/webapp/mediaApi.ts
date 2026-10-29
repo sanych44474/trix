@@ -14,6 +14,7 @@ import { logError, logInfo } from "../log";
 import { miniAppUser } from "./auth";
 import type { Env } from "../types";
 import { failureCode, typedFailure } from "./failure";
+import { MULTIPART_OVERHEAD_BYTES, readMultipartBody } from "./validate";
 
 export const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 export const MAX_AUDIO_BYTES = 4 * 1024 * 1024; // ~4 min of opus; the app stops at 60 s
@@ -35,8 +36,12 @@ export async function handleMediaApi(req: Request, url: URL, env: Env): Promise<
   const user = await miniAppUser(req, url, env);
   if (!user) return bad("unauthorized", 401);
   if (req.method !== "POST") return bad("method not allowed", 405);
-  const form = await req.formData().catch(() => null);
   const path = url.pathname.replace(/^\/api\/media/, "");
+  // Body cap per route: that route's largest file plus multipart overhead. Read before parsing.
+  const fileCap = path === "/meal-photo" ? MAX_PHOTO_BYTES : path === "/form-check" ? MAX_VIDEO_BYTES : path === "/transcribe" ? MAX_AUDIO_BYTES : MAX_CSV_BYTES;
+  const parsed = await readMultipartBody(req, fileCap + MULTIPART_OVERHEAD_BYTES);
+  if (!parsed.ok) return parsed.response;
+  const form = parsed.form;
 
   if (path === "/meal-photo") {
     const photo = blobOf(form, "photo");

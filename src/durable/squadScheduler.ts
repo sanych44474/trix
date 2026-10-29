@@ -4,6 +4,7 @@
 // hourly, same as UserSchedulerDO, for like-for-like comparison against the cron path during
 // this phase; it only actually acts once the recap hour arrives and the week hasn't been
 // recapped yet, exactly the same gate scheduler.ts's own SQUAD_RECAP_HOUR_UTC uses.
+import { DurableObject } from "cloudflare:workers";
 import { Bot } from "grammy";
 import { botClientOptions } from "../adapters/telegram/rawApi";
 import { logDryRun } from "./dryrunLog";
@@ -23,30 +24,15 @@ const ALARM_INTERVAL_MS = 60 * 60 * 1000;
 // between them would show up as the two paths disagreeing during the dry-run comparison.
 const SQUAD_RECAP_HOUR_UTC = 9;
 
-export async function wakeSquadScheduler(env: Env, chatId: number): Promise<void> {
-  const id = env.SQUAD_SCHEDULER.idFromName(String(chatId));
-  const stub = env.SQUAD_SCHEDULER.get(id);
-  await stub.fetch(`https://do/wake?chatId=${chatId}`);
-}
-
-export class SquadSchedulerDO {
-  private readonly env: Env;
-
-  constructor(
-    private readonly state: DurableObjectState,
-    env: Env,
-  ) {
-    this.env = env;
-  }
-
+export class SquadSchedulerDO extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname !== "/wake") return new Response("not found", { status: 404 });
     const chatId = Number(url.searchParams.get("chatId"));
     if (!Number.isFinite(chatId)) return new Response("bad chatId", { status: 400 });
-    await this.state.storage.put("chatId", chatId);
-    if ((await this.state.storage.getAlarm()) === null) {
-      await this.state.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+    await this.ctx.storage.put("chatId", chatId);
+    if ((await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
     }
     return new Response("ok");
   }
@@ -58,11 +44,11 @@ export class SquadSchedulerDO {
   }
 
   private async runAlarm(): Promise<void> {
-    const chatId = await this.state.storage.get<number>("chatId");
+    const chatId = await this.ctx.storage.get<number>("chatId");
     if (typeof chatId !== "number") return;
     // Reschedule first — same reasoning as UserSchedulerDO: nothing below should be able to
     // silently stop this squad's recap forever by throwing before the next alarm is armed.
-    await this.state.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+    await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
 
     const today = new Date().toISOString().slice(0, 10);
     if (new Date().getUTCHours() < SQUAD_RECAP_HOUR_UTC) return; // not the recap hour yet today

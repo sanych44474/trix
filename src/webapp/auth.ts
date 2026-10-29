@@ -30,14 +30,19 @@ export function shareIdentity(from: Request, to: Request): void {
   if (cached) identityByRequest.set(to, cached);
 }
 
+// The photo proxy is the only route whose <img src> cannot send headers, so it is the only one that may take
+// initData from the query. Query strings reach invocation logs and WebView history, so everywhere else a
+// `tma` param is ignored and initData must come in the `authorization` header.
+const TMA_QUERY_PATHS = new Set(["/api/photo", "/api/v2/photo"]);
+
 /** Resolve the Mini-App user from Telegram initData or its HttpOnly app session (dev bypass via ?debugUser, gated
  * on the explicit ALLOW_DEBUG_USER opt-in — see wrangler.toml's comment on that var for why it is
- * not tied to WORKER_URL). Also accepts initData via the `tma` query param — <img src> can't send
- * headers, so the photo proxy authorizes through the URL (the initData HMAC is
+ * not tied to WORKER_URL). initData comes from the `authorization: tma …` header, or from the `tma` query
+ * param only on a GET to the photo proxy (`<img src>` cannot send headers; the initData HMAC is
  * self-authenticating). */
 async function resolveIdentity(req: Request, url: URL, env: Env): Promise<MiniAppIdentity | null> {
   const auth = req.headers.get("authorization") ?? "";
-  const tmaQ = url.searchParams.get("tma");
+  const tmaQ = req.method === "GET" && TMA_QUERY_PATHS.has(url.pathname) ? url.searchParams.get("tma") : null;
   let userId: number | null = null;
   let method: MiniAppAuthMethod | null = null;
   if (auth.startsWith("tma ")) {

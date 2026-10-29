@@ -6,6 +6,8 @@ import { listQuestionsForClient } from "../src/adapters/d1/v2TrainerMessages";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
 
+const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 const TRAINER_ID = 7001;
 const CLIENT_ID = 7002;
 
@@ -37,7 +39,7 @@ test("coach/ask routes a client's question to their trainer instead of 403ing th
     headers: { "Idempotency-Key": "coach-routing-test-0001" },
     body: JSON.stringify({ question: "My knee aches on squats, should I drop the weight?" }),
   });
-  const response = await withStubbedNetwork(() => handleV2Api(request, new URL(request.url), testEnv(db)));
+  const response = await withStubbedNetwork(() => handleV2Api(request, new URL(request.url), testEnv(db), ctx));
   const body = await response.json() as { data?: { routed?: boolean } };
   assert.equal(response.status, 200, `expected the question to be routed, got ${response.status}: ${JSON.stringify(body)}`);
   assert.equal(body.data?.routed, true);
@@ -56,10 +58,10 @@ test("coach/thread gives the client their own questions back", async () => {
     headers: { "Idempotency-Key": "coach-routing-test-0002" },
     body: JSON.stringify({ question: "Can I swap Wednesday for Thursday?" }),
   });
-  await withStubbedNetwork(() => handleV2Api(ask, new URL(ask.url), testEnv(db)));
+  await withStubbedNetwork(() => handleV2Api(ask, new URL(ask.url), testEnv(db), ctx));
 
   const request = new Request(`https://example.test/api/v2/coach/thread?debugUser=${CLIENT_ID}`);
-  const response = await handleV2Api(request, new URL(request.url), testEnv(db));
+  const response = await handleV2Api(request, new URL(request.url), testEnv(db), ctx);
   assert.equal(response.status, 200);
   const body = await response.json() as { data: { trainer: { name: string } | null; questions: Array<{ text: string }> } };
   assert.equal(body.data.trainer?.name, "Coach");
@@ -75,7 +77,7 @@ test("a solo user still gets a direct AI answer, not the routed flow", async () 
     headers: { "Idempotency-Key": "coach-routing-test-0003" },
     body: JSON.stringify({ question: "How many rest days do I need?" }),
   });
-  const response = await withStubbedNetwork(() => handleV2Api(request, new URL(request.url), testEnv(db)));
+  const response = await withStubbedNetwork(() => handleV2Api(request, new URL(request.url), testEnv(db), ctx));
   assert.equal(response.status, 200);
   const body = await response.json() as { data: { routed?: boolean; answer?: string } };
   assert.equal(body.data.routed, undefined);

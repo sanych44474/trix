@@ -9,6 +9,10 @@ main = "apps/worker/index.ts"
 # node:* modules. Re-check the flags page before the next bump.
 compatibility_date = "2026-09-10"
 compatibility_flags = ["nodejs_compat"]
+# A version uploaded without deploying (`wrangler versions upload`) would otherwise get a public
+# <version>-trix.<subdomain>.workers.dev URL running against production D1 and secrets. Nothing
+# here uses preview URLs, so they stay off explicitly rather than by whatever the default is.
+preview_urls = false
 # account_id is intentionally NOT committed — wrangler reads CLOUDFLARE_ACCOUNT_ID from the
 # environment (set it in .dev.vars for local work, or as a repo secret for CI deploys).
 

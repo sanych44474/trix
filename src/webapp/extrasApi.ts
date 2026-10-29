@@ -25,9 +25,9 @@ import { latestRelease, releaseBody } from "../releaseNotes";
 import { parseReleaseNote } from "../domain/releaseDelivery";
 import { miniAppUser } from "./auth";
 import { logInfo } from "../log";
-import { num, object, oneOf, optional, readJsonBody, str, validateBody } from "./validate";
+import { MULTIPART_OVERHEAD_BYTES, num, object, oneOf, optional, readJsonBody, readMultipartBody, str, validateBody } from "./validate";
 import type { Env } from "../types";
-import { putStoryImage } from "../adapters/r2/storyMedia";
+import { STORY_MAX_BYTES, putStoryImage } from "../adapters/r2/storyMedia";
 import { isSupportAmount } from "../adapters/d1/v2Support";
 import { supportInvoice } from "../features/support/invoice";
 import { botDeepLink } from "../notify/links";
@@ -36,7 +36,7 @@ import { appViewUrlFromEnv, webAppMarkup } from "../notify/appLinks";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingApp";
 
 import { sendBestEffort as tgSend, telegramTry, telegramUpload } from "../adapters/telegram/rawApi";
-import { hasTelegramChat } from "../domain/delivery";
+import { MAX_PHOTO_BYTES, hasTelegramChat } from "../domain/delivery";
 import { typedFailure } from "./failure";
 const bad = () => typedFailure(400, "validation_error", "bad request");
 const notFound = () => typedFailure(404, "not_found", "not found");
@@ -103,7 +103,9 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       // VIEWER's own chat via the Bot API, same as every other Mini-App-can't-download-files
       // export in this app (settingsApi.ts's tgSendDocument, e.g.). A trainer viewing a client's
       // card gets it in THEIR chat to review/forward, not auto-sent to the client.
-      const form = await req.formData().catch(() => null);
+      const parsed = await readMultipartBody(req, MAX_PHOTO_BYTES + MULTIPART_OVERHEAD_BYTES);
+      if (!parsed.ok) return parsed.response;
+      const form = parsed.form;
       const file = form?.get("photo");
       if (!(file instanceof Blob)) return typedFailure(400, "validation_error", "bad request");
       // The client rendered this PNG itself; with no chat to send it to, it saves or shares it.
@@ -123,7 +125,9 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
   // "the webview can't hand you a file, so the bot does" route as /api/weekcard above.
   if (path === "/api/photocompare") {
     if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
-    const form = await req.formData().catch(() => null);
+    const parsed = await readMultipartBody(req, MAX_PHOTO_BYTES + MULTIPART_OVERHEAD_BYTES);
+    if (!parsed.ok) return parsed.response;
+    const form = parsed.form;
     const file = form?.get("photo");
     if (!(file instanceof Blob)) return typedFailure(400, "validation_error", "bad request");
     const from = String(form?.get("from") ?? "");
@@ -139,7 +143,9 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
   // ---- Story image upload (shareToStory needs a public URL; see storyMedia.ts) ----
   if (path === "/api/story") {
     if (req.method !== "POST") return typedFailure(405, "validation_error", "method not allowed");
-    const form = await req.formData().catch(() => null);
+    const parsed = await readMultipartBody(req, STORY_MAX_BYTES + MULTIPART_OVERHEAD_BYTES);
+    if (!parsed.ok) return parsed.response;
+    const form = parsed.form;
     const file = form?.get("photo");
     if (!(file instanceof Blob)) return bad();
     const stored = await putStoryImage(env, user._id, await file.arrayBuffer(), file.type || "image/png").catch(() => null);

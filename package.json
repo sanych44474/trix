@@ -29,7 +29,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:webapp": "tsc -p apps/mini-app/tsconfig.json --noEmit",
     "lint": "biome lint --error-on-warnings",
-    "test": "node --import tsx --experimental-sqlite --test \"test/*.test.ts\"",
+    "test": "node --import tsx --import ./test/cloudflare-workers-stub.mjs --experimental-sqlite --test \"test/*.test.ts\"",
     "smoke": "node scripts/smoke.mjs",
     "verify-schema": "node scripts/verify-schema.mjs",
     "check:ai-models": "node --import tsx scripts/check-ai-models.mjs",

@@ -7,24 +7,33 @@
 // in a rendered message, or on an old client) keeps working -- only its tracking silently stops,
 // never the actual "open the video" UX this exists to make convenient.
 //
-// Same HMAC-SHA256 mechanism as initData.ts's Telegram signature check, keyed on the bot token
-// (already the shared secret every client of this bot proves knowledge of), but this is a
-// separate concern with a separate payload -- a fixed (uid, url) pair, not initData's whole field
-// set -- so it gets its own small module rather than overloading that one.
-import { macHex, verifyMac } from "./secrets";
+// Same HMAC-SHA256 mechanism as initData.ts's Telegram signature check, but this is a separate
+// concern with a separate payload -- a fixed (uid, url) pair, not initData's whole field set -- so
+// it gets its own small module rather than overloading that one.
+//
+// The MAC key is derived from the bot token with a purpose label, so this signature cannot be
+// replayed against any other link the bot mints (the weekly body map uses its own label).
+import { hmacSha256, macHex, toHex, verifyMac } from "./secrets";
 
 function payload(uid: number, targetUrl: string): string {
   return `${uid}:${targetUrl}`;
+}
+
+async function videoOpenKey(botToken: string): Promise<string> {
+  return toHex(await hmacSha256(botToken, "trix:video-open:v1"));
 }
 
 // Truncated to 8 bytes (16 hex chars): this MACs one fixed (uid, url) pair for the bot's own
 // redirect, not a bearer credential guarding anything sensitive -- 2^64 is far past what's worth
 // spending to forge a low-value analytics counter, and the short param keeps the link tidy.
 export async function signVideoOpen(uid: number, targetUrl: string, botToken: string): Promise<string> {
-  return macHex(botToken, payload(uid, targetUrl), 8);
+  return macHex(await videoOpenKey(botToken), payload(uid, targetUrl), 8);
 }
 
 export async function verifyVideoOpen(uid: number, targetUrl: string, sig: string, botToken: string): Promise<boolean> {
+  if (await verifyMac(await videoOpenKey(botToken), payload(uid, targetUrl), sig, 8)) return true;
+  // Legacy: links minted before the per-purpose key existed were MACed with the raw bot token and
+  // are already in Telegram chats. Keep accepting them so those still count. Remove once they age out.
   return verifyMac(botToken, payload(uid, targetUrl), sig, 8);
 }
 

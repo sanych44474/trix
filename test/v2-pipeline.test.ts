@@ -10,6 +10,8 @@ import { expensiveBucket } from "../src/limits";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
 
+const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 type Db = ReturnType<typeof newDb>;
 const quiet = () => {
   const e = console.error, l = console.log;
@@ -25,7 +27,7 @@ function limiter(allow: (key: string) => boolean) {
 async function call(env: Env, userId: number, method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
   const url = `https://example.test${path}${path.includes("?") ? "&" : "?"}debugUser=${userId}`;
   const req = new Request(url, { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
-  return handleV2Api(req, new URL(url), env);
+  return handleV2Api(req, new URL(url), env, ctx);
 }
 
 test("expensiveBucket: POST on the four costly surfaces only, whole path segments", () => {

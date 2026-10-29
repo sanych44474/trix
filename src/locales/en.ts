@@ -756,7 +756,6 @@ export const en = {
   owner_unblocked_done: "✅ Unblocked {name}.",
   owner_user_blocked: "🚫 <b>Blocked by owner</b> — the bot ignores their messages.",
   owner_bot_blocked: "🚫 This user blocked the bot.",
-  admin_taken: "An owner is already registered.",
   owner_report_header: "🛠 *Owner report*",
 
   disclaimer:
@@ -2068,6 +2067,10 @@ export const en = {
   strava_connect_failed_title: "Couldn't connect Strava",
   strava_connect_failed_body: "The link expired or access was declined. Open the app and try again from Progress → Strava.",
   strava_scope_missing: "Hack Limits needs permission to read your activities. Please try again and keep “View data about your activities” ticked.",
+  strava_confirm_title: "Connect Strava?",
+  strava_confirm_body: "This links Strava to the Hack Limits account of *{name}*. Continue only if it is your own account and you started this yourself.",
+  strava_confirm_button: "Connect Strava",
+  strava_confirm_fallback_name: "Athlete",
   support_paysupport: "Payments here are voluntary tips in Telegram Stars; nothing is sold or unlocked. If something went wrong with a payment, just reply in this chat and describe it — the owner will sort it out, including a refund.",
   tglogin_prompt: "🔐 *Sign in to the Hack Limits app?*\n\nCode: *{code}*. It must match the code on the screen where you started signing in.\n\nOnly confirm if you started this yourself, just now. If someone sent you this link, tap “This wasn't me”.",
   tglogin_confirm_btn: "✅ Confirm sign-in",

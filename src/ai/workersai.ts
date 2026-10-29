@@ -57,17 +57,16 @@ function abToB64(buf: ArrayBuffer): string {
 export async function workersaiTranscribe(env: Env, audio: ArrayBuffer, lang?: string, seconds?: number): Promise<{ text: string; neurons: number }> {
   if (!env.AI) throw new Error("Workers AI binding not configured");
   const model = env.WORKERSAI_TRANSCRIBE_MODEL || WORKERSAI_DEFAULT_TRANSCRIBE_MODEL;
-  // Loose cast: model-specific run() overloads; call on the binding so `this` is preserved.
-  const ai = env.AI as unknown as { run: (m: string, o: unknown) => Promise<{ text?: string }> };
+  // The model id comes from a [vars] string, so it can't pick a typed run() overload: cast the id only.
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const res = await Promise.race([
-      ai.run(model, { audio: abToB64(audio), ...(lang ? { language: lang } : {}) }),
+    const res: unknown = await Promise.race([
+      env.AI.run(model as keyof AiModels, { audio: abToB64(audio), ...(lang ? { language: lang } : {}) }),
       new Promise<never>((_, rej) => {
         timer = setTimeout(() => rej(new Error("Workers AI transcribe timeout")), 25000);
       }),
     ]);
-    const text = res.text?.trim();
+    const text = typeof res === "object" && res !== null && "text" in res && typeof res.text === "string" ? res.text.trim() : "";
     if (!text) throw new Error("Workers AI returned no transcript");
     // Opus voice is ~2 KB/s; without a known duration, estimate it from the size (at least 1 min).
     const minutes = Math.max(1, Math.ceil((seconds ?? audio.byteLength / 2_000) / 60));
@@ -100,17 +99,13 @@ export async function workersaiGenerate(env: Env, input: GenInput): Promise<stri
 }
 
 async function workersaiCall(env: Env, input: GenInput, model: string): Promise<string> {
-  // Loose cast: the typed `run` overloads are model-specific; we pass a dynamic model id.
-  // NOTE: call on `ai` (not a detached method) so `this` is preserved.
-  const ai = env.AI as unknown as { run: (m: string, o: unknown) => Promise<unknown> };
-
-  // `ai.run` doesn't accept an AbortSignal, so race it against a timer to bound the call —
+  // `env.AI.run` doesn't accept an AbortSignal, so race it against a timer to bound the call —
   // otherwise a hung Workers AI request could eat the whole fallback-chain budget.
   const timeoutMs = input.timeoutMs ?? 25000;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const res = await Promise.race([
-      ai.run(model, {
+      env.AI.run(model as keyof AiModels, {
         messages: [
           { role: "system", content: input.system },
           {

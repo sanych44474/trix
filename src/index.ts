@@ -28,7 +28,7 @@ import { buildDashboardPayload } from "./adapters/d1/dashboardReader";
 import { handlePhotoApi } from "./webapp/miscApi";
 import { legacyRouteFor } from "./webapp/routes";
 import { serveStoryImage } from "./adapters/r2/storyMedia";
-import { handleStravaCallback } from "./webapp/stravaApi";
+import { handleStravaCallback, handleStravaConnectPost } from "./webapp/stravaApi";
 import { handleQuickLogApi } from "./webapp/quickLogApi";
 import { handleV2Api } from "./webapp/v2Api";
 import { handleEmailAuth } from "./webapp/emailAuth";
@@ -185,6 +185,9 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
     }
     if (req.method === "GET" && url.pathname === "/strava/callback") {
       return handleStravaCallback(url, env);
+    }
+    if (req.method === "POST" && url.pathname === "/strava/callback") {
+      return handleStravaConnectPost(req, url, env);
     }
     if (req.method === "GET" && url.pathname === "/v") {
       const target = url.searchParams.get("u") ?? "";

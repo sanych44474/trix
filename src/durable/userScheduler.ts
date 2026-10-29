@@ -13,6 +13,7 @@
 // exactly like the cron path does, so the two paths can be compared like-for-like. Cutover
 // (making this the real sender, and giving it its own persisted dedup state) is a deliberate
 // later phase, not a flag flip — see the grilling transcript this design came out of.
+import { DurableObject } from "cloudflare:workers";
 import { loadLearnedMuscles } from "../exerciseMuscleLearning";
 import { Bot } from "grammy";
 import { botClientOptions } from "../adapters/telegram/rawApi";
@@ -30,23 +31,7 @@ import { logInfo, runWithRequestId } from "../log";
 // anything fires on a given hour, same as today.
 const ALARM_INTERVAL_MS = 60 * 60 * 1000;
 
-/** Wake (or re-wake) a user's scheduler DO. Idempotent — see the class's fetch() doc. */
-export async function wakeUserScheduler(env: Env, userId: number): Promise<void> {
-  const id = env.USER_SCHEDULER.idFromName(String(userId));
-  const stub = env.USER_SCHEDULER.get(id);
-  await stub.fetch(`https://do/wake?userId=${userId}`);
-}
-
-export class UserSchedulerDO {
-  private readonly env: Env;
-
-  constructor(
-    private readonly state: DurableObjectState,
-    env: Env,
-  ) {
-    this.env = env;
-  }
-
+export class UserSchedulerDO extends DurableObject<Env> {
   /** Wake (or re-wake) this DO for a specific user. Idempotent: safe to call again after a
    * settings change (timezone/reminder-hour) that needs the alarm cadence re-armed, or just to
    * make sure a DO that never got its first alarm (e.g. created before this code shipped) gets
@@ -57,9 +42,9 @@ export class UserSchedulerDO {
     if (url.pathname !== "/wake") return new Response("not found", { status: 404 });
     const userId = Number(url.searchParams.get("userId"));
     if (!Number.isFinite(userId)) return new Response("bad userId", { status: 400 });
-    await this.state.storage.put("userId", userId);
-    if ((await this.state.storage.getAlarm()) === null) {
-      await this.state.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+    await this.ctx.storage.put("userId", userId);
+    if ((await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
     }
     return new Response("ok");
   }
@@ -72,7 +57,7 @@ export class UserSchedulerDO {
   }
 
   private async runAlarm(): Promise<void> {
-    const userId = await this.state.storage.get<number>("userId");
+    const userId = await this.ctx.storage.get<number>("userId");
     if (typeof userId !== "number") return; // woken without an id somehow — nothing to do
 
     // Reschedule FIRST, before any work that could throw. This is deliberate: the bug that
@@ -80,7 +65,7 @@ export class UserSchedulerDO {
     // dedup key getting written independent of whether the thing it guards actually happened.
     // The equivalent failure mode here would be an alarm that silently stops recurring because
     // something downstream threw — reschedule can't be conditional on the rest of this succeeding.
-    await this.state.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+    await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
 
     const user = await getUser(this.env.DB, userId);
     if (!user) return; // account deleted since the last wake

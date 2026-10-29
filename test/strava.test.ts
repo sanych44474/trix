@@ -124,6 +124,82 @@ test("callback page never puts an unvalidated bot username into an attribute", a
   assert.ok((await ok.text()).includes('href="https://t.me/trix_bot"'));
 });
 
+// The redirect only asks for confirmation; the link is made by the POST from that page. A login-CSRF
+// attacker can send a victim the attacker's own authorize link, so the GET must never connect.
+test("GET callback shows a confirm page and links nothing until the form is posted", async () => {
+  const { handleStravaCallback, handleStravaConnectPost } = await import("../src/webapp/stravaApi");
+  const db = newDb();
+  seedAccount(db, 504);
+  db.prepare("INSERT INTO v2_profiles (accountId, lang, profile, updatedAt) VALUES (?, 'en', ?, ?)").bind(504, JSON.stringify({ name: "Anna <i>" }), new Date().toISOString()).run();
+  const env = { STRAVA_CLIENT_ID: "1", STRAVA_CLIENT_SECRET: cfg.clientSecret, WORKER_URL: "https://w.example", TELEGRAM_BOT_TOKEN: "test", DB: db } as never;
+  const state = await signState(504, cfg.clientSecret);
+  const strava = fakeStrava([run(1, "2026-09-25")]);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = strava.fetchImpl;
+  try {
+    const get = await handleStravaCallback(new URL(`https://w.example/strava/callback?state=${state}&code=abc123&scope=read,activity:read`), env);
+    const html = await get.text();
+    assert.ok(html.includes("Anna &lt;i&gt;"), "names the account, escaped");
+    assert.ok(html.includes(`<form method="post" action="/strava/callback">`));
+    for (const field of ["code", "state", "scope"]) assert.ok(html.includes(`name="${field}"`), `hidden ${field}`);
+    assert.deepEqual(strava.calls, [], "no token exchange on GET");
+    assert.equal(await getStravaLink(db, 504, cfg.clientSecret), null, "nothing linked on GET");
+
+    const form = new URLSearchParams({ code: "abc123", state, scope: "read,activity:read" }).toString();
+    const post = new Request("https://w.example/strava/callback", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "content-length": String(form.length) }, body: form });
+    const done = await handleStravaConnectPost(post, new URL(post.url), env);
+    assert.ok((await done.text()).includes("Strava connected"), "POST shows the success page");
+    assert.equal((await getStravaLink(db, 504, cfg.clientSecret))?.athleteId, 777, "POST connects");
+    assert.ok(strava.calls.includes("POST https://www.strava.com/oauth/token"));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("POST callback rejects a tampered state, a malformed code and an oversized body", async () => {
+  const { handleStravaCallback, handleStravaConnectPost } = await import("../src/webapp/stravaApi");
+  const db = newDb();
+  seedAccount(db, 505);
+  const env = { STRAVA_CLIENT_ID: "1", STRAVA_CLIENT_SECRET: cfg.clientSecret, WORKER_URL: "https://w.example", TELEGRAM_BOT_TOKEN: "test", DB: db } as never;
+  const state = await signState(505, cfg.clientSecret);
+  const strava = fakeStrava([]);
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = strava.fetchImpl;
+  const post = (fields: Record<string, string>, length?: string) => {
+    const form = new URLSearchParams(fields).toString();
+    return new Request("https://w.example/strava/callback", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "content-length": length ?? String(form.length) }, body: form });
+  };
+  try {
+    const tampered = state.slice(0, -1) + (state.endsWith("0") ? "1" : "0");
+    const r1 = await handleStravaConnectPost(post({ code: "abc123", state: tampered, scope: "read,activity:read" }), new URL("https://w.example/strava/callback"), env);
+    assert.ok(!(await r1.text()).includes("<form"), "tampered state fails");
+    const r2 = await handleStravaConnectPost(post({ code: `abc"onmouseover="x`, state, scope: "read,activity:read" }), new URL("https://w.example/strava/callback"), env);
+    assert.ok(!(await r2.text()).includes("onmouseover"), "malformed code fails");
+    const g = await handleStravaCallback(new URL(`https://w.example/strava/callback?state=${state}&code=bad"x&scope=read,activity:read`), env);
+    assert.ok(!(await g.text()).includes("<form"), "malformed code gets no confirm form");
+    const r3 = await handleStravaConnectPost(post({ code: "abc123", state, scope: "read,activity:read" }, "5000"), new URL("https://w.example/strava/callback"), env);
+    assert.ok(!(await r3.text()).includes("Strava connected"), "oversized body is rejected before parsing");
+    // No Content-Length (chunked): the route is public, so the body is counted as it is read and
+    // reading stops at the cap instead of buffering whatever the sender streams.
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(c) {
+        pulled += 1;
+        if (pulled > 1000) c.close();
+        else c.enqueue(new Uint8Array(1024).fill(97));
+      },
+    });
+    const chunked = new Request("https://w.example/strava/callback", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: endless, duplex: "half" } as RequestInit);
+    const r4 = await handleStravaConnectPost(chunked, new URL("https://w.example/strava/callback"), env);
+    assert.equal(r4.status, 413, "a streamed body over the cap is a 413");
+    assert.ok(pulled < 20, `reading stopped near the 4 KB cap (pulled ${pulled} KB)`);
+    assert.deepEqual(strava.calls, [], "no token exchange on any failure");
+    assert.equal(await getStravaLink(db, 505, cfg.clientSecret), null);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("importedActivityIds: a 300-activity first sync stays under D1's 100-parameter limit", async () => {
   const db = newDb();
   seedAccount(db, 1);

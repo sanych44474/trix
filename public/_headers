@@ -5,12 +5,18 @@
 /app
   Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'
   Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
 /app.html
   Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'
   Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
 /app-v2
   Content-Security-Policy: default-src 'none'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; img-src 'self' data: blob: https://cdn.jsdelivr.net; media-src 'self' blob:
   Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
 # The service worker must be re-checked on every open (a new build = a new file list), and may
 # control "/app-v2" itself, one level above its own folder.
 /app-v2/sw.js
@@ -19,6 +25,8 @@
 /app-v2/*
   Content-Security-Policy: default-src 'none'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; img-src 'self' data: blob: https://cdn.jsdelivr.net; media-src 'self' blob:
   Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
 # Hashed build files never change under the same name: cache for a year, no revalidation. ("!"
 # drops the no-cache the /app-v2/* rule above set, instead of joining the two values.)
 /app-v2/assets/*

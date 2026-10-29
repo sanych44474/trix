@@ -46,8 +46,12 @@ test("verifyMac rejects an empty and a tampered signature", async () => {
   assert.equal(await verifyMac("k2", "m", sig, 8), false);
 });
 
-test("compat: /v link signature is HMAC(token, 'uid:url') truncated to 8 bytes", async () => {
-  const expected = hex(await rawHmac("123:token", "42:https://youtu.be/x"), 8);
+// Per-purpose key: HMAC(botToken, label), hex-encoded, then used as the MAC key for the payload.
+const purposeKey = async (botToken: string, label: string) => hex(await rawHmac(botToken, label));
+
+test("compat: /v link signature is HMAC(HMAC(token, 'trix:video-open:v1') hex, 'uid:url') truncated to 8 bytes", async () => {
+  const key = await purposeKey("123:token", "trix:video-open:v1");
+  const expected = hex(await rawHmac(key, "42:https://youtu.be/x"), 8);
   assert.equal(await signVideoOpen(42, "https://youtu.be/x", "123:token"), expected);
   assert.equal(await verifyVideoOpen(42, "https://youtu.be/x", expected, "123:token"), true);
   assert.equal(await verifyVideoOpen(43, "https://youtu.be/x", expected, "123:token"), false);
@@ -55,11 +59,36 @@ test("compat: /v link signature is HMAC(token, 'uid:url') truncated to 8 bytes",
   assert.match(await buildVideoOpenLink("https://w.example", "https://youtu.be/x", 42, "123:token"), new RegExp(`sig=${expected}$`));
 });
 
-test("compat: weekly body-map link signature is HMAC(token, 'weekmap:sex:zones') truncated to 8 bytes", async () => {
+test("compat: legacy /v signature HMAC(raw token, 'uid:url') still verifies, so links already sent in chats keep counting", async () => {
+  const legacy = hex(await rawHmac("123:token", "42:https://youtu.be/x"), 8);
+  assert.equal(await verifyVideoOpen(42, "https://youtu.be/x", legacy, "123:token"), true);
+  assert.equal(await verifyVideoOpen(43, "https://youtu.be/x", legacy, "123:token"), false);
+});
+
+test("compat: weekly body-map link signature is HMAC(HMAC(token, 'trix:weekmap:v1') hex, 'weekmap:sex:zones') truncated to 8 bytes", async () => {
   const zones = "n".repeat(TRACKED_MUSCLES.length);
   const url = await weekMapUrl("https://w.example", "male", zones, "123:token");
   assert.ok(url, "a well-formed zone string produces a link");
-  assert.equal(new URL(url).searchParams.get("sig"), hex(await rawHmac("123:token", `weekmap:m:${zones}`), 8));
+  const key = await purposeKey("123:token", "trix:weekmap:v1");
+  assert.equal(new URL(url).searchParams.get("sig"), hex(await rawHmac(key, `weekmap:m:${zones}`), 8));
+});
+
+test("domain separation: a video-open signature never verifies as a weekmap signature, and vice versa", async () => {
+  const zones = "n".repeat(TRACKED_MUSCLES.length);
+  const videoKey = await purposeKey("123:token", "trix:video-open:v1");
+  const weekKey = await purposeKey("123:token", "trix:weekmap:v1");
+  const weekPayload = `weekmap:m:${zones}`;
+  const weekSig = new URL((await weekMapUrl("https://w.example", "male", zones, "123:token"))!).searchParams.get("sig")!;
+  const videoSig = await signVideoOpen(42, "https://youtu.be/x", "123:token");
+  assert.equal(await verifyMac(videoKey, weekPayload, weekSig, 8), false, "weekmap sig must not verify under the video key");
+  assert.equal(await verifyMac(weekKey, "42:https://youtu.be/x", videoSig, 8), false, "video sig must not verify under the weekmap key");
+  assert.notEqual(videoKey, weekKey);
+});
+
+test("tampered /v signature fails: one flipped hex digit", async () => {
+  const sig = await signVideoOpen(42, "https://youtu.be/x", "123:token");
+  const flipped = (sig[0] === "0" ? "1" : "0") + sig.slice(1);
+  assert.equal(await verifyVideoOpen(42, "https://youtu.be/x", flipped, "123:token"), false);
 });
 
 test("compat: Strava OAuth state is HMAC('strava-state:'+secret, 'id.exp') truncated to 16 bytes", async () => {

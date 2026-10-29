@@ -8,6 +8,7 @@ import { readAuthJson } from "./authHttp";
 
 const OTP_TTL_MS = 10 * 60_000;
 const MAX_ATTEMPTS = 5;
+const MAX_CODES_PER_HOUR = 5;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const enc = new TextEncoder();
 function json(data: unknown, status = 200, headers?: HeadersInit): Response {
@@ -132,6 +133,11 @@ async function startRoute(req: Request, url: URL, env: Env): Promise<Response> {
   const codeHash = await digestCode(env.AUTH_SECRET, id, email, code);
   await env.DB.prepare("DELETE FROM v2_auth_email_challenges WHERE createdAt < ?").bind(new Date(now.getTime() - 86_400_000).toISOString()).run();
   await env.DB.prepare("DELETE FROM v2_auth_sessions WHERE expiresAt <= ?").bind(nowIso).run();
+  // Durable per-email cap: the Rate Limiting binding counts per location and fails open, so it cannot
+  // be the only limit on how many codes one inbox receives.
+  const sentLastHour = await env.DB.prepare("SELECT COUNT(*) AS n FROM v2_auth_email_challenges WHERE email = ? COLLATE NOCASE AND createdAt > ?")
+    .bind(email, new Date(now.getTime() - 3_600_000).toISOString()).first<{ n: number }>();
+  if ((sentLastHour?.n ?? 0) >= MAX_CODES_PER_HOUR) return failure("rate_limited", "Too many attempts. Try again later.", 429);
   const inserted = await env.DB.prepare(
     `INSERT INTO v2_auth_email_challenges (id, email, codeHash, linkAccountId, createdAt, expiresAt)
      SELECT ?, ?, ?, ?, ?, ?

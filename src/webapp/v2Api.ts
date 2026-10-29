@@ -160,7 +160,7 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
   return withMeta(body, req);
 }
 
-export async function handleV2Api(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
+export async function handleV2Api(req: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   // Every Mini App call runs on a D1 session (adapters/d1/session): replica reads where enabled,
   // read-your-writes across calls via the bookmark the client echoes back.
   const session = openReadSession(env.DB, req.headers.get(BOOKMARK_HEADER));
@@ -169,20 +169,19 @@ export async function handleV2Api(req: Request, url: URL, env: Env, ctx?: Execut
   return bookmark ? withHeader(res, BOOKMARK_HEADER, bookmark) : res;
 }
 
-async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
+async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
   const headerError = validateV2Headers(req);
   if (headerError) return headerError;
   if (url.pathname === "/api/v2/photo" && (req.method === "GET" || req.method === "POST")) {
     const legacyUrl = new URL(url.toString());
     legacyUrl.pathname = "/api/photo";
-    const execution = ctx ?? ({ waitUntil: () => {} } as unknown as ExecutionContext);
     // The photo route skips forward(), so it takes the upload throttle here.
     const bucket = expensiveBucket(req.method, url.pathname);
     const actor = bucket ? await miniAppUser(req, url, env).catch(() => null) : null;
     if (bucket && actor && !(await withinLimit(env, "expensive", `${bucket}:${actor._id}`))) {
       return failure(req, 429, "rate_limited", "Too many requests, slow down", { "retry-after": "60" });
     }
-    return handlePhotoApi(req, legacyUrl, env, execution);
+    return handlePhotoApi(req, legacyUrl, env, ctx);
   }
   if (url.pathname === "/api/v2/dashboard" && req.method === "GET") {
     const user = await miniAppUser(req, url, env);
@@ -192,7 +191,7 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx?: Executio
     // Dead-man switch for the cron rides the hottest fetch path (detached, never blocks). The
     // legacy /api/dashboard branch in index.ts has always done this, but every user is on the v2
     // client now (V2_APP_ENABLED), so without this the alert could no longer fire at all.
-    if (ctx) ctx.waitUntil(checkCronHeartbeat(env));
+    ctx.waitUntil(checkCronHeartbeat(env));
     try {
       const payload = await createD1DashboardApplication(env.DB).getDashboard(user);
       return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded, planPending: !user.onboarded && user.session.mode === "plan_pending", ...(user.onboarded && user.role !== "trainer" ? { profileGaps: profileGaps(user.profile) } : {}) }, ...payload }, req);

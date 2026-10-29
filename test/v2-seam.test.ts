@@ -11,6 +11,8 @@ import { legacyRouteFor, v2RouteFor } from "../src/webapp/routes";
 import { retryableFor } from "../src/contracts/v2";
 import type { Env } from "../src/types";
 
+const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 const ENV = (db: ReturnType<typeof newDb>) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "123:TEST" }) as unknown as Env;
 
 test("miniAppIdentity: one resolution per Request object, shared with a derived Request", async () => {
@@ -51,7 +53,7 @@ test("v2 mutating call: a typed validation failure reaches the envelope with cod
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action: "remToggle", key: "not-a-real-key" }),
   });
-  const res = await handleV2Api(req, url, ENV(db));
+  const res = await handleV2Api(req, url, ENV(db), ctx);
   assert.equal(res.status, 400);
   const body = (await res.json()) as { error: { code: string; retryable: boolean; message: string } };
   assert.equal(body.error.code, "validation_error");
@@ -62,7 +64,7 @@ test("v2 mutating call: a typed validation failure reaches the envelope with cod
 test("v2 unauthenticated read: unauthorized, retryable once a session exists", async () => {
   const db = newDb();
   const url = new URL("https://x/api/v2/plan");
-  const res = await handleV2Api(new Request(url), url, ENV(db));
+  const res = await handleV2Api(new Request(url), url, ENV(db), ctx);
   assert.equal(res.status, 401);
   const body = (await res.json()) as { error: { code: string; retryable: boolean } };
   assert.equal(body.error.code, "unauthorized");

@@ -31,20 +31,25 @@ import { ownerReportWindows } from "../features/owner/ownerMetrics";
 import { orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "../features/owner/ownerReport";
 import { isOwner } from "../features/owner/ownerAccess";
 import { secretMatches } from "../domain/secrets";
+import { withinLimit } from "../limits";
 
 
 // ---------------- owner / admin ----------------
 
 export async function cmdAdmin(ctx: MyContext, secret: string) {
   const lang = ctx.user.lang;
-  if (!secretMatches(secret, ctx.env.ADMIN_SECRET)) {
+  // The secret is in this message: take it out of the chat whatever the outcome (best effort).
+  await ctx.deleteMessage().catch(() => {});
+  // Same secret as the HTTP /admin/* gate, so guesses are throttled per user.
+  if (!(await withinLimit(ctx.env, "admin", `bot:${ctx.user._id}`)) || !secretMatches(secret, ctx.env.ADMIN_SECRET)) {
     await reply(ctx, t(lang, "admin_bad"));
     return;
   }
-  // Lock owner after first claim (only the same chat may re-affirm).
+  // Lock owner after first claim (only the same chat may re-affirm). A taken owner answers like a
+  // wrong secret, so the reply does not reveal that the secret was right.
   const existing = await getOwnerChatId(ctx.db);
   if (existing && existing !== ctx.user.chatId) {
-    await reply(ctx, t(lang, "admin_taken"));
+    await reply(ctx, t(lang, "admin_bad"));
     return;
   }
   await setOwnerChatId(ctx.db, ctx.user.chatId);

@@ -761,7 +761,6 @@ export const uk: Dict = {
   owner_unblocked_done: "✅ Розблоковано {name}.",
   owner_user_blocked: "🚫 <b>Заблокований власником</b> — бот ігнорує його повідомлення.",
   owner_bot_blocked: "🚫 Цей користувач заблокував бота.",
-  admin_taken: "Власника вже зареєстровано.",
   owner_report_header: "🛠 *Звіт власнику*",
 
   disclaimer:
@@ -2072,6 +2071,10 @@ export const uk: Dict = {
   strava_connect_failed_title: "Не вдалося підключити Strava",
   strava_connect_failed_body: "Посилання застаріло або доступ не надано. Відкрий застосунок і спробуй ще раз: Прогрес → Strava.",
   strava_scope_missing: "Hack Limits потрібен дозвіл читати твої активності. Спробуй ще раз і залиш галочку «View data about your activities».",
+  strava_confirm_title: "Підключити Strava?",
+  strava_confirm_body: "Це з’єднає Strava з акаунтом Hack Limits користувача *{name}*. Продовжуй, лише якщо це твій акаунт і ти сам почав це підключення.",
+  strava_confirm_button: "Підключити Strava",
+  strava_confirm_fallback_name: "Спортсмен",
   support_paysupport: "Оплати тут — це добровільна підтримка в Telegram Stars, нічого не продається й не відкривається. Якщо з платежем щось пішло не так, просто напиши в цей чат, що сталося, — власник усе владнає, зокрема поверне кошти.",
   tglogin_prompt: "🔐 *Увійти в застосунок Hack Limits?*\n\nКод: *{code}*. Він має збігатися з кодом на екрані, де ти почав вхід.\n\nПідтверджуй, лише якщо щойно сам почав вхід. Якщо це посилання тобі хтось надіслав, натисни «Це не я».",
   tglogin_confirm_btn: "✅ Підтвердити вхід",

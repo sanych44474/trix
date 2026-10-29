@@ -5,6 +5,7 @@
 // this exists for design consistency with the other two DO types, not because it fixes a
 // problem specific to these jobs. Same dry-run posture as the others: runs the real
 // runGlobalJobs (scheduler.ts) against a shadowed D1 and a logging Sender.
+import { DurableObject } from "cloudflare:workers";
 import { loadLearnedMuscles } from "../exerciseMuscleLearning";
 import { Bot } from "grammy";
 import { botClientOptions } from "../adapters/telegram/rawApi";
@@ -17,34 +18,17 @@ import { shadowD1 } from "./shadowDb";
 import { logInfo, runWithRequestId } from "../log";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000; // hourly, matching the cron path's own cadence
-export const GLOBAL_SCHEDULER_NAME = "global";
 // A fixed entityId for the dry-run log — there is no real per-entity id for a singleton. 0 is
 // safe: user ids are positive Telegram ids and squad chat ids are negative, so it never collides
 // with either when deleteUserData/deleteSquad scope their cleanup by (source, entityId).
 const GLOBAL_LOG_ENTITY_ID = 0;
 
-/** Wake the singleton GlobalSchedulerDO. Idempotent — safe to call every health-check tick. */
-export async function wakeGlobalScheduler(env: Env): Promise<void> {
-  const id = env.GLOBAL_SCHEDULER.idFromName(GLOBAL_SCHEDULER_NAME);
-  const stub = env.GLOBAL_SCHEDULER.get(id);
-  await stub.fetch("https://do/wake");
-}
-
-export class GlobalSchedulerDO {
-  private readonly env: Env;
-
-  constructor(
-    private readonly state: DurableObjectState,
-    env: Env,
-  ) {
-    this.env = env;
-  }
-
+export class GlobalSchedulerDO extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname !== "/wake") return new Response("not found", { status: 404 });
-    if ((await this.state.storage.getAlarm()) === null) {
-      await this.state.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+    if ((await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
     }
     return new Response("ok");
   }
@@ -58,7 +42,7 @@ export class GlobalSchedulerDO {
 
   private async runAlarm(): Promise<void> {
     // Reschedule first — same reasoning as the other two DOs.
-    await this.state.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+    await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
 
     // Cut over? (durable/cutover.ts — default off.) Real bot, real db: the exact path
     // runGlobalJobs used to run in the cron loop (and now skips — see scheduler.ts).

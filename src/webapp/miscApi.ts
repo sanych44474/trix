@@ -32,7 +32,7 @@ import { MAX_PHOTO_BYTES, hasTelegramChat, sniffImage } from "../domain/delivery
 import { miniAppUser } from "./auth";
 import { cachePhoto, deleteStoredPhotos, getCachedPhoto, getStoredPhoto, storePhoto } from "../adapters/r2/photoStorage";
 import { logError, logInfo } from "../log";
-import { object, oneOf, readJsonBody, str, validateBody } from "./validate";
+import { MULTIPART_OVERHEAD_BYTES, object, oneOf, readJsonBody, readMultipartBody, str, validateBody } from "./validate";
 import type { Env, UserDoc } from "../types";
 import { typedFailure } from "./failure";
 
@@ -186,7 +186,9 @@ export async function handleAppEventApi(req: Request, url: URL, env: Env): Promi
 // the bucket, the old path remains for Telegram accounts: post the photo to the person's own chat
 // and keep the file_id Telegram hands back.
 async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise<Response> {
-  const form = await req.formData().catch(() => null);
+  const parsed = await readMultipartBody(req, MAX_PHOTO_BYTES + MULTIPART_OVERHEAD_BYTES);
+  if (!parsed.ok) return parsed.response;
+  const form = parsed.form;
   const file = form?.get("photo");
   if (!(file instanceof Blob)) return typedFailure(400, "validation_error", "bad request");
   if (file.size > MAX_PHOTO_BYTES) return typedFailure(413, "validation_error", "too_large");
@@ -262,7 +264,7 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: Exec
   if (photo.objectKey) {
     const stored = await getStoredPhoto(env, photo.objectKey);
     if (!stored) return new Response("gone", { status: 410 });
-    return new Response(stored.body, { headers: { "content-type": stored.contentType, "cache-control": "private, max-age=86400" } });
+    return new Response(stored.body, { headers: { "content-type": stored.contentType, "cache-control": "private, max-age=86400", "x-content-type-options": "nosniff" } });
   }
   if (!photo.fileId) return new Response("gone", { status: 410 });
   // Read-through cache: once R2_PHOTOS exists, most views never touch Telegram at all. Until
@@ -270,7 +272,7 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: Exec
   const cached = await getCachedPhoto(env, id);
   if (cached) {
     return new Response(cached.body, {
-      headers: { "content-type": cached.contentType, "cache-control": "private, max-age=86400" },
+      headers: { "content-type": cached.contentType, "cache-control": "private, max-age=86400", "x-content-type-options": "nosniff" },
     });
   }
   logInfo("telegram_photo_fallback", {}); // R2 miss or R2_PHOTOS unconfigured -- either way, falling through to Telegram
@@ -285,7 +287,7 @@ export async function handlePhotoApi(req: Request, url: URL, env: Env, ctx: Exec
   const [toClient, toCache] = bytes.body.tee();
   ctx.waitUntil(new Response(toCache).arrayBuffer().then((buf) => cachePhoto(env, id, buf, "image/jpeg")).catch(() => {}));
   return new Response(toClient, {
-    headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=86400" },
+    headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=86400", "x-content-type-options": "nosniff" },
   });
 }
 

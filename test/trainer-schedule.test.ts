@@ -5,6 +5,8 @@ import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
 
+const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 const TRAINER = 8001;
 const CLIENT = 8002;
 const OUTSIDER = 8003;
@@ -30,10 +32,11 @@ const post = (db: unknown, who: number, path: string, body: unknown) =>
     new Request(`https://example.test${path}?debugUser=${who}`, { method: "POST", headers: { "Idempotency-Key": nextKey() }, body: JSON.stringify(body) }),
     new URL(`https://example.test${path}?debugUser=${who}`),
     testEnv(db),
+    ctx,
   );
 
 const get = (db: unknown, who: number, path: string) =>
-  handleV2Api(new Request(`https://example.test${path}${path.includes("?") ? "&" : "?"}debugUser=${who}`), new URL(`https://example.test${path}${path.includes("?") ? "&" : "?"}debugUser=${who}`), testEnv(db));
+  handleV2Api(new Request(`https://example.test${path}${path.includes("?") ? "&" : "?"}debugUser=${who}`), new URL(`https://example.test${path}${path.includes("?") ? "&" : "?"}debugUser=${who}`), testEnv(db), ctx);
 
 const soon = () => new Date(Date.now() + 86_400_000).toISOString();
 

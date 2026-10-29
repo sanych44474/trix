@@ -8,6 +8,8 @@ import { handleSettingsApi } from "../src/webapp/settingsApi";
 import { handleExtrasApi } from "../src/webapp/extrasApi";
 import { handleV2Api } from "../src/webapp/v2Api";
 
+const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 type Db = ReturnType<typeof newDb>;
 const env = (db: Db) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" }) as never;
 
@@ -59,7 +61,7 @@ test("export through /api/v2/settings arrives as the file, not wrapped in { data
   const db = newDb();
   await seed(db, 44, false);
   const p = "/api/v2/settings?debugUser=44";
-  const res = await handleV2Api(new Request(`https://x${p}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "export" }) }), new URL(`https://x${p}`), env(db));
+  const res = await handleV2Api(new Request(`https://x${p}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "export" }) }), new URL(`https://x${p}`), env(db), ctx);
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-disposition") ?? "", /attachment; filename="hack-limits-export.md"/);
   const text = await res.text();
