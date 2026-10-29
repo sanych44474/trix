@@ -491,6 +491,25 @@ paths:
                     data: {$ref: '#/components/schemas/Dashboard'}
                   required: [data]
         '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v2/training-signals:
+    get:
+      operationId: getTrainingSignals
+      security:
+      - telegramInitData: []
+      - appSession: []
+      responses:
+        '200':
+          description: Advisory Clef training signals, cached per user per UTC day
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/TrainingSignals'}
+                  required: [data]
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v2/workout/today:
     get:
       operationId: getTodayWorkout
@@ -4847,6 +4866,29 @@ components:
           type: string
           enum: [active, draft, none]
           description: An assigned plan, only a draft waiting for the trainer, or nothing yet.
+    TrainingSignals:
+      type: object
+      description: Advisory only. Never changes the plan; the Mini App shows a hint only when the server says so.
+      required: [exercises, deload, computedAt]
+      properties:
+        exercises:
+          type: array
+          description: One entry per lift Clef judged with confidence >= 0.6.
+          items:
+            type: object
+            required: [name, status, confidence]
+            properties:
+              name: {type: string}
+              status: {type: string, enum: [progressing, stalled, regressing]}
+              confidence: {type: number, minimum: 0, maximum: 1}
+        deload:
+          description: null when no deload question was asked or Clef gave no answer.
+          type: [object, 'null']
+          required: [probability, suggested]
+          properties:
+            probability: {type: number, minimum: 0, maximum: 1}
+            suggested: {type: boolean, description: True at probability 0.7 or more.}
+        computedAt: {type: string, format: date-time}
     Dashboard:
       type: object
       required: [viewer, lang, today, weight, calendar, volume, conditioning, recovery, exercises, macros]
