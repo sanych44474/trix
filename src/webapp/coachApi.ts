@@ -86,7 +86,7 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     const original = typeof b.original === "string" ? b.original.trim().slice(0, 1000) : "";
     if (summary.length < 2) return typedFailure(400, "validation_error", "bad request");
     const res = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
-      await storeFeedback(env.DB, (chatId, html, replyMarkup) => tgSend(env, chatId, html, replyMarkup), { userId: user._id, username: user.username, timezone: user.profile.timezone }, summary, { original });
+      await storeFeedback(env, (chatId, html, replyMarkup) => tgSend(env, chatId, html, replyMarkup), { userId: user._id, username: user.username, timezone: user.profile.timezone }, summary, { original });
       return { status: 200, body: { ok: true } };
     });
     return Response.json(res.body, { status: res.status });
