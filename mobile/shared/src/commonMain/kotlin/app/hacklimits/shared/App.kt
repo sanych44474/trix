@@ -275,16 +275,12 @@ fun App(
                                     MoreTool.FindTrainer -> nav.navigate(FindTrainerRoute)
                                     MoreTool.Programs -> nav.navigate(ProgramsRoute)
                                     MoreTool.Library -> nav.navigate(ExerciseLibraryRoute)
-                                    MoreTool.Photos -> nav.navigate(ProgressRoute)
-                                    MoreTool.WeekCard -> nav.navigate(TodayRoute)
                                     MoreTool.Owner -> nav.navigate(OwnerRoute)
                                     MoreTool.Cardio -> nav.navigate(CardioRoute)
                                     MoreTool.TrainerReport -> nav.navigate(TrainerReportRoute)
                                     MoreTool.ProgramSharing -> nav.navigate(ProgramSharingRoute)
                                     MoreTool.FormCheck -> nav.navigate(FormCheckRoute)
                                     MoreTool.ImportCsv -> nav.navigate(ImportCsvRoute)
-                                    // The plate calculator sits in the workout overview, as in the Mini App.
-                                    MoreTool.Plates -> nav.navigate(LoggerRoute)
                                 }
                             },
                         )

@@ -60,7 +60,7 @@ enum class MoreDestination { Coach, Social, Integrations, TrainerClients, Traine
 
 /** Tools other slices own (and Choose a trainer, which is this slice's FindTrainerScreen). Kept apart from
  * [MoreDestination] so the App's exhaustive `when` does not have to change to build; the lead routes them via [onOpenTool]. */
-enum class MoreTool { Owner, Cardio, TrainerReport, ProgramSharing, Inbox, Injuries, FindTrainer, Programs, Library, Plates, WeekCard, Photos, FormCheck, ImportCsv }
+enum class MoreTool { Owner, Cardio, TrainerReport, ProgramSharing, Inbox, Injuries, FindTrainer, Programs, Library, FormCheck, ImportCsv }
 
 @Composable
 fun MoreScreen(
@@ -97,32 +97,29 @@ fun MoreScreen(
         }
 
         val settings = s.settings
-        SettingsCard(stringResource(Res.string.more_features)) {
+        SettingsCard(stringResource(Res.string.more_group_training)) {
             Entry(stringResource(Res.string.more_coach)) { onOpen(MoreDestination.Coach) }
-            Entry(stringResource(Res.string.more_social)) { onOpen(MoreDestination.Social) }
-            Entry(stringResource(Res.string.more_integrations)) { onOpen(MoreDestination.Integrations) }
+            Entry(stringResource(Res.string.ac_tool_programs)) { onOpenTool(MoreTool.Programs) }
+            Entry(stringResource(Res.string.ac_tool_library)) { onOpenTool(MoreTool.Library) }
+            Entry(stringResource(Res.string.ac_tool_formcheck)) { onOpenTool(MoreTool.FormCheck) }
+            Entry(stringResource(Res.string.tx_cardio_title)) { onOpenTool(MoreTool.Cardio) }
+            Entry(stringResource(Res.string.pl_report_injury_title)) { onOpenTool(MoreTool.Injuries) }
             if (settings?.role == "trainer") {
-                Entry(stringResource(Res.string.more_trainer_clients)) { onOpen(MoreDestination.TrainerClients) }
-                Entry(stringResource(Res.string.more_trainer_business)) { onOpen(MoreDestination.TrainerBusiness) }
+                Entry(stringResource(Res.string.tt_share_title)) { onOpenTool(MoreTool.ProgramSharing) }
             }
+        }
+
+        SettingsCard(stringResource(Res.string.more_group_people)) {
+            Entry(stringResource(Res.string.more_social)) { onOpen(MoreDestination.Social) }
             if (settings?.role == "solo") {
                 Entry(stringResource(Res.string.ex_find_btn)) { onOpenTool(MoreTool.FindTrainer) }
             }
-            if (isOwner) Entry(stringResource(Res.string.ac_tool_owner)) { onOpenTool(MoreTool.Owner) }
             Entry(stringResource(Res.string.ib_title)) { onOpenTool(MoreTool.Inbox) }
-            Entry(stringResource(Res.string.tx_cardio_title)) { onOpenTool(MoreTool.Cardio) }
             if (settings?.role == "trainer") {
+                Entry(stringResource(Res.string.more_trainer_clients)) { onOpen(MoreDestination.TrainerClients) }
+                Entry(stringResource(Res.string.more_trainer_business)) { onOpen(MoreDestination.TrainerBusiness) }
                 Entry(stringResource(Res.string.tt_report_title)) { onOpenTool(MoreTool.TrainerReport) }
-                Entry(stringResource(Res.string.tt_share_title)) { onOpenTool(MoreTool.ProgramSharing) }
             }
-            Entry(stringResource(Res.string.pl_report_injury_title)) { onOpenTool(MoreTool.Injuries) }
-            Entry(stringResource(Res.string.ac_tool_programs)) { onOpenTool(MoreTool.Programs) }
-            Entry(stringResource(Res.string.ac_tool_library)) { onOpenTool(MoreTool.Library) }
-            Entry(stringResource(Res.string.ac_tool_plates)) { onOpenTool(MoreTool.Plates) }
-            Entry(stringResource(Res.string.ac_tool_weekcard)) { onOpenTool(MoreTool.WeekCard) }
-            Entry(stringResource(Res.string.ac_tool_photos)) { onOpenTool(MoreTool.Photos) }
-            Entry(stringResource(Res.string.ac_tool_formcheck)) { onOpenTool(MoreTool.FormCheck) }
-            Entry(stringResource(Res.string.ac_tool_import)) { onOpenTool(MoreTool.ImportCsv) }
         }
 
         if (p.referralLink.isNotBlank()) InviteSection(p.referralLink, p.referredCount)
@@ -140,7 +137,15 @@ fun MoreScreen(
             )
         }
 
+        SettingsCard(stringResource(Res.string.more_group_app)) {
+            Entry(stringResource(Res.string.more_integrations)) { onOpen(MoreDestination.Integrations) }
+            if (isOwner) Entry(stringResource(Res.string.ac_tool_owner)) { onOpenTool(MoreTool.Owner) }
+            Entry(stringResource(Res.string.ac_tool_import)) { onOpenTool(MoreTool.ImportCsv) }
+        }
+
         p.whatsNew?.let { note -> WhatsNewSection(note.version, note.items) }
+
+        FeedbackSection(s.feedback, s.busy, vm::onFeedback, vm::sendFeedback)
 
         ProfileSection(profile)
 
@@ -201,7 +206,6 @@ fun MoreScreen(
             }
         }
 
-        FeedbackSection(s.feedback, s.busy, vm::onFeedback, vm::sendFeedback)
         ExportSection(s.busy, onMarkdown = { vm.export(false) }, onJson = { vm.export(true) })
 
         privacyUrl?.let { url -> TextButton(onClick = { uri.openUri(url) }) { Text(stringResource(Res.string.more_privacy)) } }
