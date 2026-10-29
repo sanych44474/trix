@@ -266,6 +266,9 @@ export const en = {
   // workspace: trainer
   trainer_workspace_eyebrow: "Trainer workspace",
   coach_right_thing_title: "Clients",
+  coach_body_injury_text: "Sounds like something hurts. Log the injury — trix will adjust the plan and skip exercises that load that spot.",
+  coach_body_injury_btn: "Log the injury",
+  coach_body_urgent_text: "If the pain is strong, sudden or you have warning signs, see a doctor or call an ambulance.",
   n_clients: "{n} clients",
   client_pulse_eyebrow: "Client pulse",
   needs_attention_title: "Need attention",

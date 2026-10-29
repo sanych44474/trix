@@ -267,6 +267,9 @@ export const uk: Record<keyof typeof en, string> = {
   // workspace: trainer
   trainer_workspace_eyebrow: "Простір тренера",
   coach_right_thing_title: "Клієнти",
+  coach_body_injury_text: "Схоже, щось болить. Запиши травму — trix підлаштує план і не даватиме вправ, що навантажують це місце.",
+  coach_body_injury_btn: "Записати травму",
+  coach_body_urgent_text: "Якщо біль сильний, раптовий або є тривожні симптоми — звернись до лікаря або виклич швидку.",
   n_clients: "{n} клієнтів",
   client_pulse_eyebrow: "Пульс клієнтів",
   needs_attention_title: "Потребують уваги",

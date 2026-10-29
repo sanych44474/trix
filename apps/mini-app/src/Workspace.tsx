@@ -6,9 +6,11 @@ import { OwnerWorkspace } from "./workspace/OwnerWorkspace";
 import { SocialWorkspace } from "./workspace/SocialWorkspace";
 import { TrainerWorkspace } from "./workspace/TrainerWorkspace";
 
-export function WorkspaceView({ dashboard, lang, onOpenPlan, initialClientId }: WorkspaceProps) {
+export function WorkspaceView({ dashboard, lang, onOpenPlan, initialClientId, initialSpace }: WorkspaceProps) {
   const spaces = workspaceSpaces(dashboard.viewer.role, !!dashboard.owner);
-  const [space, setSpace] = useState<Space>(initialClientId && spaces.some((s) => s.id === "trainer") ? "trainer" : spaces[0].id);
+  const [space, setSpace] = useState<Space>(
+    initialSpace && spaces.some((s) => s.id === initialSpace) ? initialSpace : initialClientId && spaces.some((s) => s.id === "trainer") ? "trainer" : spaces[0].id,
+  );
   const active = spaces.some((s) => s.id === space) ? space : spaces[0].id;
   return <div className="view-stack">
     {spaces.length > 1 && <div className="button-row tabs">

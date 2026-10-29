@@ -10,7 +10,7 @@ import { track } from "./logic/track";
 import { VoiceButton } from "./media/VoiceButton";
 
 type Action = { label: string; kind: string; weekday?: number; index?: number; exercise?: string; value?: string; note?: string };
-type Turn = { role: "user" | "coach"; text: string; actions?: Action[]; done?: number[] };
+type Turn = { role: "user" | "coach"; text: string; actions?: Action[]; done?: number[]; bodySignal?: { kind: "injury" | "urgent" } };
 
 const KEY = "trix:v2:coach-chat";
 const load = (): Turn[] => { try { return JSON.parse(sessionStorage.getItem(KEY) ?? "[]") as Turn[]; } catch { return []; } };
@@ -18,7 +18,7 @@ const store = (turns: Turn[]) => { try { sessionStorage.setItem(KEY, JSON.string
 
 const PLAN_ACTION: Record<string, "weight" | "sets" | "del" | "swap" | "add"> = { weight: "weight", sets: "sets", delete: "del", swap: "swap", add: "add" };
 
-export function CoachChat({ lang, prefill }: { lang: Lang; prefill?: string }) {
+export function CoachChat({ lang, prefill, onReportInjury }: { lang: Lang; prefill?: string; onReportInjury?: () => void }) {
   const [turns, setTurns] = useState<Turn[]>(load);
   const [question, setQuestion] = useState(prefill ?? "");
   const [busy, setBusy] = useState<string | null>(null);
@@ -35,8 +35,8 @@ export function CoachChat({ lang, prefill }: { lang: Lang; prefill?: string }) {
     setQuestion(""); setBusy("ask"); setError(false);
     track(turns.length ? "app_coach_followup" : "app_coach_ask");
     try {
-      const r = await api<{ answer?: string; actions?: Action[] }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"askCoach">({ question: q, history }) });
-      setTurns((prev) => [...prev, { role: "coach", text: r.answer || t(lang, "generic_error"), actions: r.actions ?? [] }]);
+      const r = await api<{ answer?: string; actions?: Action[]; bodySignal?: { kind: "injury" | "urgent" } }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"askCoach">({ question: q, history }) });
+      setTurns((prev) => [...prev, { role: "coach", text: r.answer || t(lang, "generic_error"), actions: r.actions ?? [], ...(r.bodySignal ? { bodySignal: r.bodySignal } : {}) }]);
     } catch {
       setError(true);
     } finally { setBusy(null); }
@@ -69,6 +69,10 @@ export function CoachChat({ lang, prefill }: { lang: Lang; prefill?: string }) {
             {done ? `✓ ${a.kind === "feedback" ? t(lang, "coach_feedback_sent") : t(lang, "coach_action_done")}` : busy === `${ti}:${i}` ? "…" : a.label}
           </button>;
         })}</div> : null}
+        {x.bodySignal && <div className="save-note body-signal-card">
+          <p>{t(lang, x.bodySignal.kind === "urgent" ? "coach_body_urgent_text" : "coach_body_injury_text")}</p>
+          {x.bodySignal.kind === "injury" && onReportInjury && <button type="button" className="button button-ghost" onClick={onReportInjury}>{t(lang, "coach_body_injury_btn")}</button>}
+        </div>}
       </div>)}
       {busy === "ask" && <div className="message-row typing"><p>…</p></div>}
       <div ref={endRef} />
