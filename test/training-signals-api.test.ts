@@ -78,6 +78,19 @@ test("loadTrainingSignals returns empty signals, not an error, when Clef fails",
   assert.equal(out.deload, null);
 });
 
+test("a failed Clef call is not cached: the next load the same day asks again", async () => {
+  const db = newDb();
+  await seed(db, NOON);
+  const calls: Array<{ model: string; input: { questions: Record<string, { type: string }> } }> = [];
+  const failing = { AI: { run: clefStub(calls, true) }, DB: db } as unknown as Env;
+  await loadTrainingSignals(failing, 1, NOON);
+
+  const working = { AI: { run: clefStub(calls) }, DB: db } as unknown as Env;
+  const later = await loadTrainingSignals(working, 1, new Date("2026-10-29T20:00:00Z"));
+  assert.equal(calls.length, 2);
+  assert.deepEqual(later.exercises, [{ name: "Squat", status: "stalled", confidence: 0.75 }]);
+});
+
 test("loadTrainingSignals does not call Clef for a user with no usable history", async () => {
   const db = newDb();
   await account(db, 1);

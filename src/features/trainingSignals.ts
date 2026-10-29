@@ -43,6 +43,8 @@ export async function loadTrainingSignals(env: Env, userId: number, now: Date = 
   const answers = Object.keys(signals.questions).length ? await clefAsk(env, signals.state, signals.questions) : null;
 
   const payload: TrainingSignalsPayload = { ...readSignals(answers, signals), computedAt: now.toISOString() };
-  await setSetting(db, cacheKey(userId), JSON.stringify({ day: today, payload }));
+  // A failed Clef call (budget spent, timeout) is not cached, so a later load the same day retries.
+  const asked = Object.keys(signals.questions).length > 0;
+  if (!asked || answers) await setSetting(db, cacheKey(userId), JSON.stringify({ day: today, payload }));
   return payload;
 }
