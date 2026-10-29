@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Картка сигналу тіла під відповіддю коуча. Паритет з Mini App (apps/mini-app/src/i18n). -->
+<resources>
+    <string name="coach_body_injury_text">Схоже, щось болить. Запиши травму — trix підлаштує план і не даватиме вправ, що навантажують це місце.</string>
+    <string name="coach_body_injury_btn">Записати травму</string>
+    <string name="coach_body_urgent_text">Якщо біль сильний, раптовий або є тривожні симптоми — звернись до лікаря або виклич швидку.</string>
+</resources>

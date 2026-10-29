@@ -13,9 +13,30 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** POST /api/v2/coach/ask. A solo or trainer caller gets [answer] and [actions]; a client with a trainer gets [routed]. */
+/**
+ * POST /api/v2/coach/ask. A solo or trainer caller gets [answer] and [actions]; a client with a trainer gets [routed].
+ * [bodySignal] is set when the question reads as an injury or an urgent symptom.
+ */
 @Serializable
-data class CoachAnswer(val answer: String? = null, val routed: Boolean = false, val actions: List<CoachAction> = emptyList())
+data class CoachAnswer(
+    val answer: String? = null,
+    val routed: Boolean = false,
+    val actions: List<CoachAction> = emptyList(),
+    val bodySignal: BodySignal? = null,
+)
+
+/** The server's read of the question. [kind] is a String so a kind added later decodes and is then ignored. */
+@Serializable
+data class BodySignal(val kind: String = "")
+
+/** What a body signal asks the app to show under the reply. */
+enum class BodyAlert { Injury, Urgent }
+
+internal fun BodySignal.toAlert(): BodyAlert? = when (kind) {
+    "injury" -> BodyAlert.Injury
+    "urgent" -> BodyAlert.Urgent
+    else -> null
+}
 
 /**
  * A button under an answer (src/domain/coachActions.ts). [kind] is a plan edit (weight, sets,
