@@ -1020,6 +1020,7 @@ button { cursor: pointer; }
 .fold-group { display: grid; border-radius: 20px; background: var(--surface); overflow: hidden; }
 .fold-group > .card.fold { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .fold-group > .card.fold + .card.fold { border-top: 1px solid var(--line); }
+.save-note.warn-note { background: rgba(255,200,87,.14); color: var(--warn-ink); } /* amber note: a caution, not a success (coach body signal) */
 .group-head { margin: 10px 4px -4px; } /* the label over a More group (Training / People / App) */
 /* A card inside an open fold drops its own box; :root and :not() match the theme rules' specificity so it wins. */
 :root .fold-body > .card:not(.card-accent):not(.card-muted) { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }

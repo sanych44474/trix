@@ -69,7 +69,7 @@ export function CoachChat({ lang, prefill, onReportInjury }: { lang: Lang; prefi
             {done ? `✓ ${a.kind === "feedback" ? t(lang, "coach_feedback_sent") : t(lang, "coach_action_done")}` : busy === `${ti}:${i}` ? "…" : a.label}
           </button>;
         })}</div> : null}
-        {x.bodySignal && <div className="save-note body-signal-card">
+        {x.bodySignal && <div className={x.bodySignal.kind === "urgent" ? "save-note error-note body-signal-card" : "save-note warn-note body-signal-card"} role="status">
           <p>{t(lang, x.bodySignal.kind === "urgent" ? "coach_body_urgent_text" : "coach_body_injury_text")}</p>
           {x.bodySignal.kind === "injury" && onReportInjury && <button type="button" className="button button-ghost" onClick={onReportInjury}>{t(lang, "coach_body_injury_btn")}</button>}
         </div>}
