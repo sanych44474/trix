@@ -54,6 +54,7 @@ export interface Env extends Omit<Cloudflare.Env, SecretKey | "AUTH_EMAIL_FROM">
   GROQ_TRANSCRIBE_MODEL?: string; // Whisper model for voice messages — wrangler.toml has no [vars] entry for it
   OLLAMA_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
+  OPENROUTER_VISION_MODEL?: string; // unset in wrangler.toml so the default vision list (with its fallback) applies
   WORKERSAI_MODEL?: string; // wrangler.toml has no [vars] entry for it
   WORKERSAI_TRANSCRIBE_MODEL?: string; // Whisper model for voice (default @cf/openai/whisper-large-v3-turbo)
   ADMIN_SECRET?: string;

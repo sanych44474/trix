@@ -55,6 +55,12 @@ export async function listFeedback(db: DB, status: FeedbackStatus | "all", limit
   };
 }
 
+/** Move a row still marked "other" to a second-opinion category. A row the owner has already
+ *  re-sorted (or that another opinion moved) is left as it is. */
+export async function setFeedbackCategoryIfOther(db: DB, id: number, category: FeedbackCategory): Promise<void> {
+  await db.prepare("UPDATE v2_feedback SET category = ? WHERE id = ? AND category = 'other'").bind(category, id).run();
+}
+
 /** Set a feedback row's status and/or category; returns the row's author and text (null if gone). */
 export async function updateFeedback(
   db: DB,

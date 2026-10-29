@@ -9,8 +9,9 @@ import { abToB64 } from "../adapters/telegram/files";
 import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, aiCallsToday, formCheckGate, formCheckPrompt, formCheckSystem } from "../features/workout/formCheck";
 import { MAX_DAYS_IMPORTED, MAX_FILE_BYTES as MAX_CSV_BYTES, importWorkoutCsv } from "../features/workout/importCsv";
 import { verifyItems } from "../features/nutrition/verifyItems";
-import { cleanAi } from "../locales/i18n";
+import { cleanAi, t } from "../locales/i18n";
 import { logError, logInfo } from "../log";
+import { isNotFoodPhoto } from "../features/nutrition/photoFood";
 import { miniAppUser } from "./auth";
 import type { Env } from "../types";
 import { failureCode, typedFailure } from "./failure";
@@ -49,10 +50,14 @@ export async function handleMediaApi(req: Request, url: URL, env: Env): Promise<
     if (photo.size > MAX_PHOTO_BYTES) return bad("too_big");
     if ((await aiCallsToday(env.DB, user._id, "nutrition_photo")) >= MEAL_PHOTOS_PER_DAY) return bad("limit", 429);
     try {
+      const image = { mimeType: photo.type.startsWith("image/") ? photo.type : "image/jpeg", dataBase64: abToB64(await photo.arrayBuffer()) };
+      if (await isNotFoodPhoto(env, image)) {
+        return Response.json({ items: [], reason: "not_food", message: t(user.lang, "photo_not_food") });
+      }
       const est = await aiVisionJSON<P.NutritionEstimate>(env, {
         system: P.nutritionVisionSystem(user.lang),
         user: captionOf(form) ?? "Estimate the calories and macros of this meal.",
-        images: [{ mimeType: photo.type.startsWith("image/") ? photo.type : "image/jpeg", dataBase64: abToB64(await photo.arrayBuffer()) }],
+        images: [image],
         schema: P.NUTRITION_SCHEMA,
         temperature: 0.3,
         kind: "nutrition_photo",

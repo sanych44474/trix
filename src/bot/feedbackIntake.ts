@@ -13,11 +13,12 @@ import { feedbackReplyMarkup } from "../features/feedback/replyFeedback";
 
 export async function recordFeedback(ctx: MyContext, text: string, viaCoach?: { original?: string }) {
   await storeFeedback(
-    ctx.db,
+    ctx.env,
     (chatId, html, replyMarkup) => ctx.api.sendMessage(chatId, html, { ...HTML, ...(replyMarkup ? { reply_markup: replyMarkup as InlineKeyboard } : {}) }),
     { userId: ctx.user._id, username: ctx.from?.username, timezone: ctx.user.profile.timezone },
     text,
     viaCoach,
+    (p) => ctx.waitUntil(p),
   );
 }
 

@@ -3,7 +3,7 @@ import { aiAttemptCountForUserSince, aiCacheStmt, aiCallStmt, aiUsageStmt, getAi
 import { GEMINI_DEFAULT_LIGHT_MODEL, geminiGenerate } from "./gemini";
 import { GROQ_DEFAULT_MODEL, groqGenerate } from "./groq";
 import { OLLAMA_DEFAULT_MODEL, ollamaGenerate } from "./ollama";
-import { OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_TRANSLATE_MODEL, OPENROUTER_DEFAULT_VISION_MODEL, openrouterGenerate } from "./openrouter";
+import { OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_TRANSLATE_MODEL, openrouterGenerate, openrouterVisionModels } from "./openrouter";
 import { workersaiGenerate, workersaiModels, workersaiTranscribe } from "./workersai";
 import { groqTranscribe } from "./groq";
 import { RateLimitError, type GenInput, type InlineImage } from "./errors";
@@ -122,8 +122,10 @@ interface Provider {
  * The provider order for a tier (see ai/models.ts for the reasoning per tier):
  *   light     Workers AI (small models) → Groq → Gemini → OpenRouter
  *   standard  Groq → Workers AI → Gemini → OpenRouter → Ollama
- *   heavy     Gemini → Groq → Workers AI → OpenRouter → Ollama   (translate: OpenRouter's translate model)
- *   vision    Gemini → Workers AI (vision models) → OpenRouter (vision model)
+ *   heavy     OpenRouter → Gemini → Groq → Workers AI → Ollama   (translate: OpenRouter's translate model, no Ollama)
+ *   vision    OpenRouter (vision model) → Gemini → Workers AI (vision models)
+ * [2026-10-29] OpenRouter's free NVIDIA models lead heavy and vision by owner decision. When its
+ * free daily quota is spent or a model 404s, the chain falls through to Gemini.
  * Workers AI is left out when today's neuron budget is spent (`workersai: false`); a provider
  * without a key is left out. Groq has had no vision model since 2026-07, so images skip it.
  */
@@ -134,7 +136,7 @@ export function chainFor(env: Env, tier: AiTier, geminiModel: string, opts: { wo
   const waiModels = tier === "standard" || tier === "heavy" ? workersaiModels(env) : WORKERSAI_TIER_MODELS[tier];
   const workersai: Provider | null = env.AI && opts.workersai ? { name: "workersai", model: waiModels[0], fn: workersaiGenerate } : null;
   const orModel = vision
-    ? env.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL
+    ? openrouterVisionModels(env)[0]
     : opts.translate
       ? env.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL
       : env.OPENROUTER_MODEL || OPENROUTER_DEFAULT_MODEL;
@@ -143,8 +145,8 @@ export function chainFor(env: Env, tier: AiTier, geminiModel: string, opts: { wo
   const order: Array<Provider | null> =
     tier === "light" ? [workersai, groq, gemini, openrouter]
     : tier === "standard" ? [groq, workersai, gemini, openrouter, ollama]
-    : tier === "heavy" ? [gemini, groq, workersai, openrouter, ...(opts.translate ? [] : [ollama])]
-    : [gemini, workersai, openrouter];
+    : tier === "heavy" ? [openrouter, gemini, groq, workersai, ...(opts.translate ? [] : [ollama])]
+    : [openrouter, gemini, workersai];
   return order.filter((p): p is Provider => p !== null);
 }
 
@@ -164,6 +166,17 @@ function workersaiModelsFor(env: Env, tier: AiTier): string[] {
 // this is sized to catch a runaway loop or deliberate spam, not normal back-and-forth use.
 const RATE_LIMIT_WINDOW_MS = 5 * 60_000;
 const RATE_LIMIT_MAX_ATTEMPTS = 20;
+
+/**
+ * Per-provider budget, computed when the provider STARTS. Gemini gets 60% of the budget still
+ * left; OpenRouter gets 35% only when it leads the chain (heavy/vision), so Gemini always runs.
+ * Every other provider gets no deadline. [2026-10-29] Added when OpenRouter moved to the front.
+ */
+export function providerDeadline(name: string, isFirst: boolean, now: number, chainDeadline: number): number | undefined {
+  if (name === "gemini") return now + Math.round((chainDeadline - now) * 0.6);
+  if (name === "openrouter" && isFirst) return now + Math.round((chainDeadline - now) * 0.35);
+  return undefined;
+}
 
 async function run(
   env: Env,
@@ -221,10 +234,6 @@ async function run(
   const attemptTimeoutMs = isPlanLike ? 10_000 : 8_000;
 
   let lastTokens: number | undefined; // set by the provider's onUsage on a successful generation
-  // Reserve ~40% of the chain budget for the fallback providers: Gemini's model×key ladder must
-  // yield with time to spare so a slow/degraded Gemini can't consume the whole budget and starve
-  // Groq/OpenRouter (the observed plan outage — gemini/plan ran 100-200 s and fallback never ran).
-  const geminiDeadlineMs = Date.now() + Math.round(totalDeadlineMs * 0.6);
   const baseInput: GenInput = {
     ...input,
     user: schemaUser,
@@ -233,14 +242,12 @@ async function run(
     attemptsPerKey: o.attemptsPerKey,
     maxModels: maxGeminiModels,
     timeoutMs: attemptTimeoutMs,
-    deadlineMs: geminiDeadlineMs,
     groqModel: o.groqModel,
     onPartial: o.onPartial,
     onUsage: (t) => {
       lastTokens = t;
     },
   };
-  const geminiInput: GenInput = { ...baseInput, user: input.user };
   // The kind's tier picks the provider order and the Workers AI models (ai/models.ts). Workers
   // AI joins only while today's neuron budget has room for this call (ai/budget.ts).
   const hasImages = !!(input.images && input.images.length);
@@ -294,8 +301,16 @@ async function run(
     attempt++;
     const startMs = Date.now();
     try {
+      // Gemini's model×key ladder gets 60% of the budget left when it starts, so a slow/degraded
+      // Gemini can't consume the whole budget and starve Groq/OpenRouter (the observed plan outage —
+      // gemini/plan ran 100-200 s and fallback never ran). The reservation is relative to when the
+      // provider starts, not the chain start.
+      const providerInput: GenInput = {
+        ...(p.name === "gemini" ? { ...baseInput, user: input.user } : baseInput),
+        deadlineMs: providerDeadline(p.name, p === chain[0], startMs, deadline),
+      };
       lastTokens = undefined;
-      const text = await withQuickRetry(() => p.fn(env, p.name === "gemini" ? geminiInput : baseInput), deadline);
+      const text = await withQuickRetry(() => p.fn(env, providerInput), deadline);
       if (validate) validate(text); // throws if the output is unusable → next provider
       telemetry.push(aiUsageStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, model: p.model, ok: true, date }));
       telemetry.push(aiCallStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, latencyMs: Date.now() - startMs, tokens: lastTokens, wasFallback }));

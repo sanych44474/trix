@@ -21,13 +21,28 @@ const URL = "https://openrouter.ai/api/v1/chat/completions";
 // and the OpenRouter API confirms `architecture.input_modalities` includes "image"). Re-run
 // `npm run check:ai-models` periodically — this free-tier roster has now visibly churned once
 // already and will again.
-export const OPENROUTER_DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
-export const OPENROUTER_DEFAULT_VISION_MODEL = "google/gemma-4-31b-it:free";
-export const OPENROUTER_DEFAULT_TRANSLATE_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
+//
+// [2026-10-29] It churned again: nemotron-3-super-120b-a12b lost its :free variant (paid only now,
+// per GET /api/v1/models), so every OpenRouter text call 404ed before reaching the Gemma fallback.
+// The text default is now Nemotron 3 Ultra (550B MoE, 55B active), the largest free model on the
+// roster; Nemotron 3.5 Lightning (30B, 3B active) is the fast fallback before Gemma. Vision is
+// Nemotron 3.5 Super VL, with Gemma 4 31B behind it. All NVIDIA :free endpoints are served by
+// NVIDIA alone: an account that turns on ZDR or blocks training on free models stops reaching
+// them, and the chain falls to Gemma.
+export const OPENROUTER_DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
+export const OPENROUTER_DEFAULT_VISION_MODEL = "nvidia/nemotron-3.5-super-vl:free";
+export const OPENROUTER_DEFAULT_TRANSLATE_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
 // [2026-10-02] A text fallback inside the tier: the :free roster churns (it has already lost every
-// model once), so one 404 no longer drops the whole OpenRouter tier. Gemma 4 31B is the verified
-// vision pick above and answers text just as well. OPENROUTER_FALLBACK_MODELS overrides.
-export const OPENROUTER_DEFAULT_FALLBACK_MODELS = ["google/gemma-4-31b-it:free"];
+// model once), so one 404 no longer drops the whole OpenRouter tier. OPENROUTER_FALLBACK_MODELS
+// overrides.
+export const OPENROUTER_DEFAULT_FALLBACK_MODELS = ["nvidia/nemotron-3.5-lightning:free", "google/gemma-4-31b-it:free"];
+/** Vision models tried after the default vision model. An explicit OPENROUTER_VISION_MODEL is used alone. */
+export const OPENROUTER_DEFAULT_VISION_FALLBACK_MODELS = ["google/gemma-4-31b-it:free"];
+
+/** Vision models to try in order. Exported for the model check script. */
+export function openrouterVisionModels(env: { OPENROUTER_VISION_MODEL?: string }): string[] {
+  return env.OPENROUTER_VISION_MODEL ? [env.OPENROUTER_VISION_MODEL] : [OPENROUTER_DEFAULT_VISION_MODEL, ...OPENROUTER_DEFAULT_VISION_FALLBACK_MODELS];
+}
 
 /** Text models to try in order (primary, then fallbacks). Exported for the model check script. */
 export function openrouterTextModels(env: { OPENROUTER_MODEL?: string; OPENROUTER_FALLBACK_MODELS?: string }): string[] {
@@ -39,16 +54,20 @@ export function openrouterTextModels(env: { OPENROUTER_MODEL?: string; OPENROUTE
 // vision-capable free model when images are present.
 export async function openrouterGenerate(env: Env, input: GenInput): Promise<string> {
   const hasImages = !!(input.images && input.images.length);
-  const models = hasImages ? [env.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL] : openrouterTextModels(env);
+  const models = hasImages ? openrouterVisionModels(env) : openrouterTextModels(env);
   let lastErr: unknown;
+  // Same budget rule as gemini.ts: once the provider's deadline passes, stop starting new models
+  // so a slow OpenRouter cannot starve the providers after it in the chain.
+  const overBudget = () => typeof input.deadlineMs === "number" && Date.now() >= input.deadlineMs;
   for (const model of models) {
+    if (overBudget()) break;
     try {
       return await openrouterCall(env, input, model);
     } catch (err) {
       lastErr = err; // gone from the free roster, rate-limited, or unusable output → next model
     }
   }
-  throw lastErr ?? new Error("no OpenRouter model available");
+  throw lastErr ?? new Error("OpenRouter: provider budget spent");
 }
 
 async function openrouterCall(env: Env, input: GenInput, model: string): Promise<string> {

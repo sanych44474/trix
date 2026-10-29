@@ -10,7 +10,7 @@ import { getOwnerChatId } from "./adapters/d1/v2Admin";
 import { runOncePer } from "./schedulerJobs/runOncePer";
 import { geminiFallbackModels } from "./ai/gemini";
 import { GROQ_DEFAULT_MODEL } from "./ai/groq";
-import { OPENROUTER_DEFAULT_TRANSLATE_MODEL, OPENROUTER_DEFAULT_VISION_MODEL, openrouterTextModels } from "./ai/openrouter";
+import { OPENROUTER_DEFAULT_TRANSLATE_MODEL, openrouterTextModels, openrouterVisionModels } from "./ai/openrouter";
 import { ollamaModels } from "./ai/ollama";
 import { splitKeys } from "./ai/errors";
 
@@ -24,7 +24,7 @@ export function configuredModels(env: Env): Partial<Record<Provider, string[]>> 
   const out: Partial<Record<Provider, string[]>> = {};
   if (env.GEMINI_API_KEY) out.gemini = geminiFallbackModels(env);
   if (env.GROQ_API_KEY) out.groq = [...new Set([env.GROQ_MODEL || GROQ_DEFAULT_MODEL, ...list(env.GROQ_FALLBACK_MODELS), ...list(env.GROQ_VISION_MODEL)])];
-  if (env.OPENROUTER_API_KEY) out.openrouter = [...new Set([...openrouterTextModels(env), env.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL, env.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL])];
+  if (env.OPENROUTER_API_KEY) out.openrouter = [...new Set([...openrouterTextModels(env), ...openrouterVisionModels(env), env.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL])];
   if (env.OLLAMA_API_KEY) out.ollama = ollamaModels(env);
   return out;
 }

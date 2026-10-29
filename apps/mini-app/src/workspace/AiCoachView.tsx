@@ -12,7 +12,7 @@ import { TrainerChat } from "./TrainerChat";
  * coach; a client with a human trainer gets the chat with that trainer (TrainerChat), plus any
  * questions still waiting from the older ask-a-question flow.
  */
-export function AiCoachView({ lang, onBack, routed, prefill }: { lang: Lang; onBack: () => void; routed: boolean; prefill?: string }) {
+export function AiCoachView({ lang, onBack, routed, prefill, onReportInjury }: { lang: Lang; onBack: () => void; routed: boolean; prefill?: string; onReportInjury?: () => void }) {
   const [thread, setThread] = useState<CoachThread | null>(null);
 
   const loadThread = () => { if (routed) api<CoachThread>("/api/v2/coach/thread").then(setThread).catch(() => setThread(null)); };
@@ -21,7 +21,7 @@ export function AiCoachView({ lang, onBack, routed, prefill }: { lang: Lang; onB
   return <div className="view-stack">
     <div className="eyebrow">{t(lang, routed ? "ask_trainer_eyebrow" : "ai_coach_eyebrow")}</div>
     <div className="page-title"><h1>{t(lang, routed ? "ask_trainer_title" : "ai_coach_title")}</h1><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div>
-    {!routed && <Panel><CoachChat lang={lang} prefill={prefill} /></Panel>}
+    {!routed && <Panel><CoachChat lang={lang} prefill={prefill} onReportInjury={onReportInjury} /></Panel>}
     {routed && <Panel>
       <p className="muted">{t(lang, "chat_with_trainer_detail", { name: thread?.trainer?.name || t(lang, "your_trainer_fallback") })}</p>
       <TrainerChat lang={lang} prefill={prefill} />

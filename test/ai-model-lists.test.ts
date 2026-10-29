@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GEMINI_DEFAULT_LIGHT_MODEL, geminiFallbackModels } from "../src/ai/gemini";
 import { workersaiModels, workersaiText, workersaiGenerate } from "../src/ai/workersai";
-import { openrouterTextModels } from "../src/ai/openrouter";
+import { openrouterTextModels, openrouterVisionModels } from "../src/ai/openrouter";
+import { WORKERSAI_TIER_MODELS, estimateNeurons } from "../src/ai/models";
 import { ollamaModels } from "../src/ai/ollama";
 import type { Env } from "../src/types";
 
@@ -15,9 +16,11 @@ test("Gemini: 3.5-flash-lite leads the light ladder; 2.5 models stay as the tail
 });
 
 test("model lists: primary then fallbacks, env overrides, no duplicates", () => {
-  assert.deepEqual(workersaiModels({}), ["@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"]);
+  assert.deepEqual(workersaiModels({}), ["@cf/openai/gpt-oss-120b", "@cf/zai-org/glm-4.7-flash"]);
   assert.deepEqual(workersaiModels({ WORKERSAI_MODEL: "@cf/x", WORKERSAI_FALLBACK_MODELS: "@cf/y, @cf/x" }), ["@cf/x", "@cf/y"]);
-  assert.deepEqual(openrouterTextModels({}), ["nvidia/nemotron-3-super-120b-a12b:free", "google/gemma-4-31b-it:free"]);
+  assert.deepEqual(openrouterTextModels({}), ["nvidia/nemotron-3-ultra-550b-a55b:free", "nvidia/nemotron-3.5-lightning:free", "google/gemma-4-31b-it:free"]);
+  assert.deepEqual(openrouterVisionModels({}), ["nvidia/nemotron-3.5-super-vl:free", "google/gemma-4-31b-it:free"]);
+  assert.deepEqual(openrouterVisionModels({ OPENROUTER_VISION_MODEL: "google/gemma-4-31b-it:free" }), ["google/gemma-4-31b-it:free"]);
   assert.deepEqual(ollamaModels({}), ["gpt-oss:120b", "gpt-oss:20b"]);
 });
 
@@ -35,5 +38,17 @@ test("Workers AI walks to the next model when the first returns nothing usable",
   } as unknown as Env;
   const text = await workersaiGenerate(env, { system: "s", user: "u" });
   assert.equal(text, "{\"ok\":true}");
-  assert.deepEqual(calls, ["@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"]);
+  assert.deepEqual(calls, ["@cf/openai/gpt-oss-120b", "@cf/zai-org/glm-4.7-flash"]);
+});
+
+test("Workers AI tiers: no Gemma 3 (left the catalog) and no Llama 3.3 70B (the costliest per output token)", () => {
+  const all = Object.values(WORKERSAI_TIER_MODELS).flat();
+  assert.ok(!all.includes("@cf/google/gemma-3-12b-it"));
+  assert.ok(!all.includes("@cf/meta/llama-3.3-70b-instruct-fp8-fast"));
+  assert.deepEqual(WORKERSAI_TIER_MODELS.light, ["@cf/qwen/qwen3-30b-a3b-fp8", "@cf/zai-org/glm-4.7-flash"]);
+});
+
+test("GLM 4.7 Flash has its own neuron rate and counts as a reasoning model", () => {
+  const text = "x".repeat(3_000_000); // 1M tokens in, 1M visible tokens out (doubled for reasoning)
+  assert.equal(estimateNeurons("@cf/zai-org/glm-4.7-flash", text, text), 6_000 + 2 * 37_000);
 });

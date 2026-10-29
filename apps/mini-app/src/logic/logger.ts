@@ -6,6 +6,12 @@ import type { WorkoutCopyExercise, WorkoutToday } from "../types";
 import { EMPTY_QUALITY, type SessionQuality } from "./rest";
 import { hydrateSaved } from "./hydrate";
 import { metricFromName } from "../../../../src/domain/metricNames";
+import { isImplausibleJump } from "../../../../src/domain/weightOutlier";
+
+/** A typed set weight that is an implausible jump over this exercise's recent sessions (a typo). */
+export function isOutlierWeight(exercise: LoggerExercise, weight: number): boolean {
+  return isImplausibleJump(weight, exercise.weightHistory ?? []);
+}
 
 /** One exercise in the logger. `planName` is set when the user swapped it in for a plan
  *  exercise; it is saved with the log so re-opening the day puts it back in the right slot. */

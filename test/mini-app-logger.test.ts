@@ -5,11 +5,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildSaveEntries, chooseStart, prefillFromLast, isDraftSaved, parseDraft, sessionElapsedSec, swapExercise,
+  buildSaveEntries, chooseStart, prefillFromLast, isDraftSaved, isOutlierWeight, parseDraft, sessionElapsedSec, swapExercise,
   type LoggerDraft, type LoggerExercise,
 } from "../apps/mini-app/src/logic/logger";
 import { EMPTY_QUALITY } from "../apps/mini-app/src/logic/rest";
 import type { WorkoutToday } from "../apps/mini-app/src/types";
+
+test("isOutlierWeight: flags a typed weight far above the exercise's recent sessions, not an ordinary PR", () => {
+  const ex = { weightHistory: [80, 80] } as LoggerExercise;
+  assert.equal(isOutlierWeight(ex, 800), true);
+  assert.equal(isOutlierWeight(ex, 90), false);
+  assert.equal(isOutlierWeight({} as LoggerExercise, 800), false);
+});
 
 const DAY = "2026-09-25";
 const T0 = Date.parse("2026-09-25T17:00:00Z");

@@ -100,6 +100,7 @@ button { cursor: pointer; }
 .page-title h1 { font-size: 32px; letter-spacing: -.06em; }
 .page-title > span { color: var(--muted); font-size: 12px; }
 .muted, small { color: var(--muted); font-size: 12px; }
+.set-warn { margin: 0 0 8px; color: var(--warn-ink); font-size: 13px; font-weight: 700; }
 .text-button, .icon-button { border: 0; background: transparent; color: var(--accent-ink); font-weight: 800; }
 .icon-button { position: relative; display: inline-grid; place-items: center; flex: 0 0 auto; min-width: 44px; min-height: 44px; padding: 0; border-radius: 12px; color: var(--text); font-size: 22px; }
 .icon-button:hover { background: var(--surface-2); }
@@ -909,6 +910,9 @@ button { cursor: pointer; }
 .pr-card { display: grid; gap: 6px; padding: 18px; border-radius: 20px; background: color-mix(in srgb, var(--coral) 18%, var(--surface)); }
 .pr-card .kicker { color: var(--coral-ink); }
 .pr-card strong { font-size: 20px; font-weight: 750; }
+.dropoff-card { display: grid; gap: 4px; padding: 14px 16px; border-radius: 16px; background: var(--surface); }
+.dropoff-card strong { font-size: 15px; font-weight: 700; }
+.dropoff-card small { color: var(--muted); }
 .pr-card small { color: var(--muted); font-size: 14px; }
 .summary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .summary-actions .button-block { margin-top: 8px; }
@@ -1016,6 +1020,10 @@ button { cursor: pointer; }
 .fold-group { display: grid; border-radius: 20px; background: var(--surface); overflow: hidden; }
 .fold-group > .card.fold { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .fold-group > .card.fold + .card.fold { border-top: 1px solid var(--line); }
+.save-note.warn-note { background: rgba(255,200,87,.14); color: var(--warn-ink); } /* amber note: a caution, not a success (coach body signal) */
+.group-head { margin: 10px 4px -4px; } /* the label over a More group (Training / People / App) */
+/* A card inside an open fold drops its own box; :root and :not() match the theme rules' specificity so it wins. */
+:root .fold-body > .card:not(.card-accent):not(.card-muted) { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 
 /* Settings → Screen: the accent colour picker. */
 .segmented.accent-pick { grid-template-columns: 1fr 1fr; }
@@ -1054,3 +1062,4 @@ button { cursor: pointer; }
 .check-row.muted { opacity: .5; }
 .fb-reply { margin: 6px 0; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 8px; }
 .search-ai { display: grid; gap: 6px; margin-top: 12px; }
+.signal-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }

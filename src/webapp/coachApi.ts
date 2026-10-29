@@ -17,6 +17,8 @@
 // client role mute in the Mini App: no AI coach, and no way to reach their trainer either.
 import { appMarkup } from "../notify/appKeyboard";
 import { aiJSON, aiText } from "../ai/index";
+import { choiceOf, clefAsk, noulProb, type ClefQuestion } from "../ai/clef";
+import { bodySignalFrom } from "../domain/bodySignal";
 import { knowledgeBlock, searchKnowledge } from "../knowledge/search";
 import * as P from "../ai/prompts";
 import { coachContext } from "../features/coach/coachContext";
@@ -38,6 +40,19 @@ import type { Env } from "../types";
 import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 import { typedFailure } from "./failure";
 const MAX_QUESTION = 500;
+const CLEF_TIMEOUT_MS = 2_000;
+const BODY_QUESTIONS: Record<string, ClefQuestion> = {
+  pain: { type: "noul", instructions: "The message reports physical pain, an injury or a worrying body symptom of the writer." },
+  severity: {
+    type: "choice",
+    instructions: "How serious is the body problem the message reports?",
+    criteria: {
+      mild: "soreness, DOMS or minor discomfort",
+      injury: "a specific injury or pain during a movement",
+      urgent: "chest pain, fainting, numbness, severe or sudden pain, or anything that sounds like an emergency",
+    },
+  },
+};
 
 export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<Response> {
   const user = await miniAppUser(req, url, env);
@@ -71,7 +86,7 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     const original = typeof b.original === "string" ? b.original.trim().slice(0, 1000) : "";
     if (summary.length < 2) return typedFailure(400, "validation_error", "bad request");
     const res = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
-      await storeFeedback(env.DB, (chatId, html, replyMarkup) => tgSend(env, chatId, html, replyMarkup), { userId: user._id, username: user.username, timezone: user.profile.timezone }, summary, { original });
+      await storeFeedback(env, (chatId, html, replyMarkup) => tgSend(env, chatId, html, replyMarkup), { userId: user._id, username: user.username, timezone: user.profile.timezone }, summary, { original });
       return { status: 200, body: { ok: true } };
     });
     return Response.json(res.body, { status: res.status });
@@ -156,24 +171,32 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     .map((h) => `${h.role === "coach" ? "Coach" : "User"}: ${h.text.slice(0, 600)}`);
   const userMsg = history.length ? `Earlier in this chat:\n${history.join("\n")}\n\nNow: ${question}` : question;
   const knowledge = await searchKnowledge(env, env.DB, question, user.lang === "en" ? "en" : "uk");
-  try {
-    const result = await aiJSON<P.CoachEditResult>(env, {
-      system: P.coachEditSystem(user.lang, user.profile, await coachContext({ db: env.DB }, user)) + knowledgeBlock(knowledge),
-      user: userMsg,
-      schema: P.COACH_EDIT_SCHEMA,
-      temperature: 0.35,
-      kind: "coach",
-      db: env.DB,
-      userId: user._id,
-      validate: (parsed) => validateCoachEditResult(parsed),
-    });
-    return Response.json(
-      { answer: cleanAiText(result.reply).slice(0, 1500), actions: miniAppCoachActions(result.actions, question) },
-      { headers: { "cache-control": "no-store" } },
-    );
-  } catch {
-    // The structured call failed on every provider — still answer in plain text.
-    const answer = await aiText(env, { system: system + knowledgeBlock(knowledge), user: userMsg, temperature: 0.6, kind: "coach", db: env.DB, userId: user._id }).catch(() => "");
-    return Response.json({ answer: cleanAiText(answer).slice(0, 1500), actions: [] }, { headers: { "cache-control": "no-store" } });
-  }
+  // Clef reads the message while the coach writes its reply. It only adds an optional bodySignal.
+  const clef = clefAsk(env, question, BODY_QUESTIONS, { timeoutMs: CLEF_TIMEOUT_MS });
+  const reply = (async () => {
+    try {
+      const result = await aiJSON<P.CoachEditResult>(env, {
+        system: P.coachEditSystem(user.lang, user.profile, await coachContext({ db: env.DB }, user)) + knowledgeBlock(knowledge),
+        user: userMsg,
+        schema: P.COACH_EDIT_SCHEMA,
+        temperature: 0.35,
+        kind: "coach",
+        db: env.DB,
+        userId: user._id,
+        validate: (parsed) => validateCoachEditResult(parsed),
+      });
+      return { answer: cleanAiText(result.reply).slice(0, 1500), actions: miniAppCoachActions(result.actions, question) };
+    } catch {
+      // The structured call failed on every provider — still answer in plain text.
+      const answer = await aiText(env, { system: system + knowledgeBlock(knowledge), user: userMsg, temperature: 0.6, kind: "coach", db: env.DB, userId: user._id }).catch(() => "");
+      return { answer: cleanAiText(answer).slice(0, 1500), actions: [] };
+    }
+  })();
+  const [replied, read] = await Promise.allSettled([reply, clef]);
+  if (replied.status === "rejected") throw replied.reason;
+  const signal = read.status === "fulfilled" ? bodySignalFrom(noulProb(read.value, "pain"), choiceOf(read.value, "severity")) : null;
+  return Response.json(
+    { ...replied.value, ...(signal ? { bodySignal: signal } : {}) },
+    { headers: { "cache-control": "no-store" } },
+  );
 }

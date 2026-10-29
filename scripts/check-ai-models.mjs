@@ -21,8 +21,8 @@ import { geminiFallbackModels } from "../src/ai/gemini.ts";
 import { GROQ_DEFAULT_MODEL } from "../src/ai/groq.ts";
 import {
   OPENROUTER_DEFAULT_TRANSLATE_MODEL,
-  OPENROUTER_DEFAULT_VISION_MODEL,
   openrouterTextModels,
+  openrouterVisionModels,
 } from "../src/ai/openrouter.ts";
 import { ollamaModels } from "../src/ai/ollama.ts";
 
@@ -102,7 +102,7 @@ if (GEMINI) {
 const list = (raw) => (raw ?? "").split(",").map((m) => m.trim()).filter(Boolean);
 const groqModels = [...new Set([vars.GROQ_MODEL || GROQ_DEFAULT_MODEL, ...list(vars.GROQ_FALLBACK_MODELS)])];
 const orText = openrouterTextModels(vars);
-const orVision = vars.OPENROUTER_VISION_MODEL || OPENROUTER_DEFAULT_VISION_MODEL;
+const orVision = openrouterVisionModels(vars);
 const orTranslate = vars.OPENROUTER_TRANSLATE_MODEL || OPENROUTER_DEFAULT_TRANSLATE_MODEL;
 const ollama = ollamaModels(vars);
 
@@ -113,7 +113,7 @@ if (GROQ) {
 if (OPENROUTER) {
   const chat = "https://openrouter.ai/api/v1/chat/completions";
   for (const m of orText) targets.push(["openrouter", m, () => checkOpenAiStyle(chat, OPENROUTER, m)]);
-  targets.push(["openrouter (vision)", orVision, () => checkOpenAiStyle(chat, OPENROUTER, orVision)]);
+  for (const m of orVision) targets.push(["openrouter (vision)", m, () => checkOpenAiStyle(chat, OPENROUTER, m)]);
   if (!orText.includes(orTranslate)) targets.push(["openrouter (translate)", orTranslate, () => checkOpenAiStyle(chat, OPENROUTER, orTranslate)]);
 } else console.log("skip: openrouter (no OPENROUTER_API_KEY)");
 

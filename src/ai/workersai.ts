@@ -7,8 +7,7 @@ import { NEURONS_PER_AUDIO_MINUTE, WORKERSAI_TIER_MODELS, estimateNeurons } from
 // duplicate WORKERSAI_DEFAULT_MODEL verbatim.
 export const WORKERSAI_DEFAULT_TRANSCRIBE_MODEL = "@cf/openai/whisper-large-v3-turbo";
 // [2026-10-02] gpt-oss-120b leads (Workers AI's strongest general model; it accepts Chat
-// Completions-style messages since 2026-02-17), the long-serving Llama 3.3 70B stays right behind
-// it — workersaiGenerate walks the list, so a model that errors or returns unusable output (e.g.
+// Completions-style messages since 2026-02-17), GLM 4.7 Flash stays right behind it — workersaiGenerate walks the list, so a model that errors or returns unusable output (e.g.
 // all of max_tokens spent on reasoning) falls to the next one instead of out of the provider.
 export const WORKERSAI_DEFAULT_MODEL = WORKERSAI_TIER_MODELS.standard[0];
 export const WORKERSAI_DEFAULT_FALLBACK_MODELS = WORKERSAI_TIER_MODELS.standard.slice(1);
@@ -22,7 +21,7 @@ export function workersaiModels(env: { WORKERSAI_MODEL?: string; WORKERSAI_FALLB
 
 /** The text out of a Workers AI response: classic `{response}`, Chat Completions `{choices}`, or
  *  the Responses-style `{output:[{content:[{text}]}]}` some OpenAI-family models return. */
-const REASONING = /gpt-oss|qwen3/;
+const REASONING = /gpt-oss|qwen3|glm/;
 
 /** Drop an inline `<think>…</think>` block some reasoning models (qwen3) put before the answer. */
 const stripThink = (t: string) => t.replace(/^\s*<think>[\s\S]*?<\/think>/, "").trim();
