@@ -2,7 +2,7 @@
 import type { Dashboard, TrainerProfile } from "../types";
 import { t, type Lang } from "../i18n";
 
-export type WorkspaceProps = { dashboard: Dashboard; lang: Lang; onOpenPlan?: (clientId?: number) => void; /** Deep link: open this client's card. */ initialClientId?: number | null };
+export type WorkspaceProps = { dashboard: Dashboard; lang: Lang; onOpenPlan?: (clientId?: number) => void; /** Deep link: open this client's card. */ initialClientId?: number | null; /** Deep link: open this space (e.g. the injury panel in "social"). */ initialSpace?: "social" | "trainer" | "owner" | null };
 
 export type Buddy = {
   buddy: null | {

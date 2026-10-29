@@ -8,6 +8,7 @@ import { BadgeCelebration } from "./Week";
 import { TodayView } from "./Today";
 import { Icon, type IconName } from "./icons";
 import { track } from "./logic/track";
+import type { Space } from "./logic/workspace";
 import { moreLinksFor, navigationFor, tabFor, viewFromSearch, type View } from "./logic/navigation";
 import { DASHBOARD_CACHE_KEY, useDashboard } from "./useDashboard";
 import { useTelegramChrome } from "./useTelegramChrome";
@@ -89,8 +90,8 @@ const linkParams = new URLSearchParams(window.location.search);
 const linkClientId = Number(linkParams.get("client")) > 0 ? Number(linkParams.get("client")) : null;
 const linkAsk = linkParams.get("ask")?.slice(0, 300) || undefined;
 
-function RoleView({ dashboard, lang, onOpenPlan }: { dashboard: Dashboard; lang: Lang; onOpenPlan: (clientId?: number) => void }) {
-  return <Suspense fallback={<Loading />}><WorkspaceView dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} initialClientId={linkClientId} /></Suspense>;
+function RoleView({ dashboard, lang, onOpenPlan, initialSpace }: { dashboard: Dashboard; lang: Lang; onOpenPlan: (clientId?: number) => void; initialSpace?: Space }) {
+  return <Suspense fallback={<Loading />}><WorkspaceView dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} initialClientId={linkClientId} initialSpace={initialSpace} /></Suspense>;
 }
 
 export { photoUrl, apiUpload, composeCompare, drawWeekCard } from "./media";
@@ -108,6 +109,9 @@ export function App() {
   const [view, setView] = useState<View>(() => viewFromSearch(window.location.search));
   const [planClientId, setPlanClientId] = useState<number | null>(null);
   const { dashboard, error, loading, onboardingPending, setOnboardingPending, load: loadDashboard } = useDashboard(setLang);
+  // The coach's injury card opens the workspace's injury panel (social space); the hint is cleared once the user leaves it.
+  const [workspaceSpace, setWorkspaceSpace] = useState<Space | undefined>(undefined);
+  useEffect(() => { if (view !== "role") setWorkspaceSpace(undefined); }, [view]);
   // The coach chat as its own screen, reachable from Today and the workout summary; a prefill
   // drops a ready question in the box (the user still taps send).
   const [coachPrefill, setCoachPrefill] = useState<string | undefined>(linkAsk);
@@ -129,6 +133,7 @@ export function App() {
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => { if (window.scrollY === 0) pullStart.current = event.touches[0]?.clientY ?? null; };
   const onTouchEnd = (event: React.TouchEvent<HTMLElement>) => { const start = pullStart.current; pullStart.current = null; const end = event.changedTouches[0]?.clientY ?? 0; if (start !== null && end - start > 72 && !loading) loadDashboard(); };
   const openPlan = (clientId?: number) => { setPlanClientId(clientId ?? null); setView("plan"); };
+  const openInjuries = () => { setWorkspaceSpace("social"); setView("role"); };
   const role = dashboard.viewer.role;
   // The plan without a client is the Training tab's "Plan" segment; a client's plan (trainer) is
   // its own screen with a back button.
@@ -140,13 +145,13 @@ export function App() {
     <div className="content"><OfflineSync lang={lang} />
       {view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onStart={startWorkout} onReload={loadDashboard} onAskCoach={() => openCoach()} />}
       {trainScreen && <Suspense fallback={<Loading />}><TrainView lang={lang} sex={dashboard?.sex} initialSegment={view === "plan" ? "plan" : "today"} startInFocus={focusOnOpen} planSlot={planSlot} onFocusChange={(on) => { setFocus(on); if (!on) setFocusOnOpen(false); }} onExit={() => { setFocus(false); setFocusOnOpen(false); setView("today"); }} onAskCoach={() => openCoach(t(lang, "coach_prefill_session"))} /></Suspense>}
-      {view === "coach" && <Suspense fallback={<Loading />}><CoachView lang={lang} routed={role === "client"} prefill={coachPrefill} onBack={() => { setCoachPrefill(undefined); setView("today"); }} /></Suspense>}
+      {view === "coach" && <Suspense fallback={<Loading />}><CoachView lang={lang} routed={role === "client"} prefill={coachPrefill} onReportInjury={openInjuries} onBack={() => { setCoachPrefill(undefined); setView("today"); }} /></Suspense>}
       {view === "plan" && planClientId !== null && <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={planClientId} canRebuild={role !== "client"} onOpenLibrary={() => setView("library")} onBack={() => { setPlanClientId(null); setView("role"); }} /></Suspense>}
       {view === "fuel" && <Suspense fallback={<Loading />}><FuelView lang={lang} /></Suspense>}
       {view === "progress" && <Suspense fallback={<Loading />}><ProgressView dashboard={dashboard} lang={lang} /></Suspense>}
       {view === "more" && <Suspense fallback={<Loading />}><ExtrasView lang={lang} role={role} links={moreLinksFor(role).map((target) => ({ view: target, label: navLabel(lang, target, target === "role" ? "solo" : role) }))} onOpen={setView} /></Suspense>}
       {view === "library" && <Suspense fallback={<Loading />}><LibraryView lang={lang} onBack={() => setView("more")} /></Suspense>}
-      {view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} />}
+      {view === "role" && <RoleView dashboard={dashboard} lang={lang} onOpenPlan={openPlan} initialSpace={workspaceSpace} />}
       {view === "inbox" && <InboxView lang={lang} onBack={() => setView("today")} onGo={(target) => setView(target)} />}
       {view === "settings" && <Suspense fallback={<Loading />}><ProfileView lang={lang} onBack={() => setView("today")} onLangChange={setLang} /></Suspense>}
     </div>
