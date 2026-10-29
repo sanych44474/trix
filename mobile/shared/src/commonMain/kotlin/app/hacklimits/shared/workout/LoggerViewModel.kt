@@ -673,6 +673,7 @@ class LoggerViewModel(
             bestStreak = final?.quality?.bestStreak ?: 0,
             volumeKg = volume,
             plannedSets = s.exercises.sumOf { max(it.sets, it.done.size) },
+            dropoffs = result.dropoffs.orEmpty(),
         )
     }
 
