@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="more_group_training">Тренування</string>
+    <string name="more_group_people">Люди</string>
+    <string name="more_group_app">Застосунок</string>
+</resources>
