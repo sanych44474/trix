@@ -9,7 +9,7 @@ import { getOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { cmdAdmin } from "../src/bot/owner";
 import { t } from "../src/locales/i18n";
 
-const SECRET = "owner-secret-for-tests-0123456789";
+const SECRET = "right";
 const OWNER = 1;
 const OTHER = 2;
 
