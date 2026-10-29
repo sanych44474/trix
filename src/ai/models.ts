@@ -7,8 +7,10 @@
 //   standard  conversation (coach, onboarding interview): Groq first (fastest), Workers AI's
 //             large model second, then Gemini, OpenRouter, Ollama.
 //   heavy     long structured output that must be fluent Ukrainian (plans, meal plans,
-//             translations): Gemini first (native JSON schema), then Groq, Workers AI, OpenRouter.
-//   vision    images (meal photos): Gemini, then Workers AI's vision models, then OpenRouter.
+//             translations): OpenRouter first (free NVIDIA models, owner decision 2026-10-29), then
+//             Gemini (native JSON schema), then Groq, Workers AI.
+//   vision    images (meal photos): OpenRouter first (free NVIDIA vision model), then Gemini, then
+//             Workers AI's vision models.
 //             Video (form check) stays Gemini-only -- nothing else in the chain accepts video.
 //
 // Workers AI is free up to 10,000 neurons a day per account (shared by every model); budget.ts

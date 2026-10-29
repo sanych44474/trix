@@ -56,14 +56,18 @@ export async function openrouterGenerate(env: Env, input: GenInput): Promise<str
   const hasImages = !!(input.images && input.images.length);
   const models = hasImages ? openrouterVisionModels(env) : openrouterTextModels(env);
   let lastErr: unknown;
+  // Same budget rule as gemini.ts: once the provider's deadline passes, stop starting new models
+  // so a slow OpenRouter cannot starve the providers after it in the chain.
+  const overBudget = () => typeof input.deadlineMs === "number" && Date.now() >= input.deadlineMs;
   for (const model of models) {
+    if (overBudget()) break;
     try {
       return await openrouterCall(env, input, model);
     } catch (err) {
       lastErr = err; // gone from the free roster, rate-limited, or unusable output → next model
     }
   }
-  throw lastErr ?? new Error("no OpenRouter model available");
+  throw lastErr ?? new Error("OpenRouter: provider budget spent");
 }
 
 async function openrouterCall(env: Env, input: GenInput, model: string): Promise<string> {

@@ -78,6 +78,9 @@ edge, so opening the app costs no Worker invocation.
 Every provider receives the **same input**, so falling back never loses the user's context.
 Non-Gemini providers get the JSON schema injected into the prompt.
 
+[2026-10-29] Plan generation, meal plans, translation (heavy tier) and meal-photo vision lead with
+OpenRouter's free NVIDIA models, then Gemini. The table below is the general order for the other tiers.
+
 | Order | Provider | Used for |
 |---|---|---|
 | 1 | **Gemini** (`responseSchema`) | plan generation, translation — most reliable structured JSON |

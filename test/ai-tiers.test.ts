@@ -23,14 +23,14 @@ test("tierFor: light / standard / heavy / vision", () => {
 test("chainFor: provider order per tier", () => {
   assert.deepEqual(names("light"), ["workersai", "groq", "gemini", "openrouter"]);
   assert.deepEqual(names("standard"), ["groq", "workersai", "gemini", "openrouter", "ollama"]);
-  assert.deepEqual(names("heavy"), ["gemini", "groq", "workersai", "openrouter", "ollama"]);
-  assert.deepEqual(names("heavy", true, true), ["gemini", "groq", "workersai", "openrouter"]);
-  assert.deepEqual(names("vision"), ["gemini", "workersai", "openrouter"]);
+  assert.deepEqual(names("heavy"), ["openrouter", "gemini", "groq", "workersai", "ollama"]);
+  assert.deepEqual(names("heavy", true, true), ["openrouter", "gemini", "groq", "workersai"]);
+  assert.deepEqual(names("vision"), ["openrouter", "gemini", "workersai"]);
 });
 
 test("chainFor: Workers AI drops out when the budget is spent; missing keys drop providers", () => {
   assert.deepEqual(names("light", false), ["groq", "gemini", "openrouter"]);
-  assert.deepEqual(names("vision", false), ["gemini", "openrouter"]);
+  assert.deepEqual(names("vision", false), ["openrouter", "gemini"]);
   const bare = chainFor({} as Env, "standard", "gemini-x", { workersai: true }).map((p) => p.name);
   assert.deepEqual(bare, ["gemini"]);
   const vision = chainFor(allKeys, "vision", "gemini-x", { workersai: true });
