@@ -50,6 +50,8 @@ export const WORKERSAI_TIER_MODELS: Record<AiTier, string[]> = {
 };
 
 export const WORKERSAI_IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell";
+/** Cloudflare Clef flash: yes/no, choice and score decisions (ai/clef.ts). Not a reasoning model. */
+export const CLEF_MODEL = "@cf/cloudflare/clef-flash";
 
 /** Estimated neurons per 1M input / output tokens (rounded up from the published rates). */
 const NEURONS_PER_M: Record<string, { in: number; out: number }> = {
@@ -58,6 +60,8 @@ const NEURONS_PER_M: Record<string, { in: number; out: number }> = {
   "@cf/openai/gpt-oss-120b": { in: 32_000, out: 69_000 },
   "@cf/meta/llama-4-scout-17b-16e-instruct": { in: 25_000, out: 78_000 },
   "@cf/mistralai/mistral-small-3.1-24b-instruct": { in: 32_000, out: 51_000 },
+  // Clef decision model ($0.038 per M input tokens, output free; $0.011 per 1,000 neurons).
+  [CLEF_MODEL]: { in: 3_500, out: 0 },
 };
 /** Unknown models are charged at a high rate (Llama 3.3 70B's output rate), never as free. */
 const UNKNOWN_RATE = { in: 32_000, out: 205_000 };
@@ -75,8 +79,13 @@ export function estimateTokens(text: string): number {
 /** Estimated neurons for one generation. Reasoning models (gpt-oss, qwen3, glm) think before
  *  answering, so their visible output is doubled to cover the hidden part. */
 export function estimateNeurons(model: string, inputText: string, outputText: string, images = 0): number {
-  const rate = NEURONS_PER_M[model] ?? UNKNOWN_RATE;
   const inTokens = estimateTokens(inputText) + images * IMAGE_TOKENS;
   const outTokens = estimateTokens(outputText) * (/gpt-oss|qwen3|glm/.test(model) ? 2 : 1);
+  return neuronsForTokens(model, inTokens, outTokens);
+}
+
+/** Neurons for known token counts (a provider's reported `usage`). */
+export function neuronsForTokens(model: string, inTokens: number, outTokens: number): number {
+  const rate = NEURONS_PER_M[model] ?? UNKNOWN_RATE;
   return Math.ceil((inTokens * rate.in + outTokens * rate.out) / 1_000_000);
 }
