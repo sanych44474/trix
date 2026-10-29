@@ -8,6 +8,8 @@ import app.hacklimits.shared.data.AppJson
 import app.hacklimits.shared.data.canFallbackToCache
 import app.hacklimits.shared.data.Dashboard
 import app.hacklimits.shared.data.DashboardApi
+import app.hacklimits.shared.data.TrainingSignals
+import app.hacklimits.shared.data.TrainingSignalsApi
 import app.hacklimits.shared.workout.PendingSaves
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -16,7 +18,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class TodayViewModel(private val api: DashboardApi, private val cache: AccountCache, private val pending: PendingSaves) : ViewModel() {
+class TodayViewModel(
+    private val api: DashboardApi,
+    private val cache: AccountCache,
+    private val pending: PendingSaves,
+    private val signalsApi: TrainingSignalsApi,
+) : ViewModel() {
     sealed interface State {
         data object Loading : State
         data class Ready(
@@ -31,6 +38,10 @@ class TodayViewModel(private val api: DashboardApi, private val cache: AccountCa
 
     private val _state = MutableStateFlow<State>(State.Loading)
     val state: StateFlow<State> = _state
+
+    /** Advisory lift and deload hints; null when none or the call failed. Independent of the dashboard. */
+    private val _signals = MutableStateFlow<TrainingSignals?>(null)
+    val signals: StateFlow<TrainingSignals?> = _signals
 
     private var job: Job? = null
 
@@ -49,6 +60,7 @@ class TodayViewModel(private val api: DashboardApi, private val cache: AccountCa
     /** Loads the dashboard; while the plan is still being built it checks again every few seconds. */
     fun refresh() {
         job?.cancel()
+        viewModelScope.launch { _signals.value = signalsApi.loadOrNull() }
         job = viewModelScope.launch {
             val cached = cachedDashboard()
             if (cached != null) _state.value = State.Ready(cached, offline = true, lastUpdatedAtMs = cache.lastUpdatedAt(CACHE_KEY))

@@ -11,6 +11,8 @@ import app.hacklimits.shared.data.DashboardApi
 import app.hacklimits.shared.data.DayWorkout
 import app.hacklimits.shared.data.PhotoRef
 import app.hacklimits.shared.data.TrainingPlanDay
+import app.hacklimits.shared.data.TrainingSignals
+import app.hacklimits.shared.data.TrainingSignalsApi
 import app.hacklimits.shared.data.ProgressApi
 import app.hacklimits.shared.data.ProgressDashboard
 import app.hacklimits.shared.data.Records
@@ -53,6 +55,7 @@ class ProgressViewModel(
     private val picker: PhotoPicker,
     private val cache: AccountCache,
     private val pending: PendingSaves,
+    private val signalsApi: TrainingSignalsApi,
 ) : ViewModel() {
     data class State(
         val loading: Boolean = true,
@@ -65,6 +68,7 @@ class ProgressViewModel(
         val records: Records = Records(),
         val planDays: List<TrainingPlanDay> = emptyList(),
         val photos: List<PhotoRef> = emptyList(),
+        val signals: TrainingSignals? = null,
         val bearer: String? = null,
         val section: ProgressSection = ProgressSection.TRAIN,
         val weightPeriod: Int = 30,
@@ -123,6 +127,7 @@ class ProgressViewModel(
                     val r = async { cachedOrDefault("progress.records.v1", Records.serializer(), Records()) { progress.records() } }
                     val p = async { cachedOrDefault("progress.plan.v1", ListSerializer(TrainingPlanDay.serializer()), emptyList()) { progress.plan() } }
                     val ph = async { cachedOrDefault("progress.photos.v1", ListSerializer(PhotoRef.serializer()), emptyList()) { progress.photos() } }
+                    val sig = async { signalsApi.loadOrNull() }
                     val dashboardResult = d.await()
                     val data = dashboardResult.value
                     val queued = pending.count()
@@ -140,6 +145,7 @@ class ProgressViewModel(
                             records = r.await().value,
                             planDays = p.await().value,
                             photos = ph.await().value,
+                            signals = sig.await(),
                             bearer = api.bearer(),
                             exercise = it.exercise ?: data.exercises.firstOrNull()?.name,
                             measureKey = it.measureKey ?: data.measurements.firstOrNull()?.key,
