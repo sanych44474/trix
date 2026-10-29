@@ -2,6 +2,7 @@ package app.hacklimits.shared.workout
 
 import app.hacklimits.shared.data.ExerciseInfo
 import app.hacklimits.shared.data.PlatesResponse
+import app.hacklimits.shared.data.RepDropoff
 import app.hacklimits.shared.data.SwapChoice
 import app.hacklimits.shared.data.WorkoutHistoryItem
 import app.hacklimits.shared.workout.logic.LoggerExercise
@@ -40,6 +41,7 @@ data class SaveSummary(
     val bestStreak: Int,
     val volumeKg: Double,
     val plannedSets: Int,
+    val dropoffs: List<RepDropoff> = emptyList(),
 )
 
 enum class SyncState { IDLE, PENDING, SYNCED, OFFLINE }

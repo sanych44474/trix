@@ -50,6 +50,8 @@ data class WorkoutToday(
         val restSec: Int? = null,
         val ssGroup: String? = null,
         val wmode: String? = null,
+        /** Above this typed set weight the app asks "is that right?". Null when the server has no threshold. */
+        val weightWarnAbove: Double? = null,
     )
 
     @Serializable data class Target(val w: Double, val r: Double, val lastW: Double, val lastR: Double, val step: String)
@@ -81,7 +83,12 @@ data class SaveWorkoutResult(
     val level: Int = 0,
     val leveledUp: Boolean = false,
     val totalWorkouts: Int = 0,
+    /** Exercises whose reps fell sharply across sets (at most 2, worst first). Absent on older servers. */
+    val dropoffs: List<RepDropoff>? = null,
 )
+
+@Serializable
+data class RepDropoff(val name: String, val reps: List<Int> = emptyList())
 
 /** GET /api/v2/workout/past: one finished session, shaped as the logger's copy source. */
 @Serializable

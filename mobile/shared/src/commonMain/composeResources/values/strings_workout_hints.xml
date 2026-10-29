@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Workout hints: implausible-weight warning in focus mode, rep drop-off advice on the summary. -->
+<resources>
+    <string name="wk_hint_weight_warn">%1$s kg? That\'s far above your usual. Check the weight.</string>
+    <string name="wk_hint_dropoff">Reps dropped sharply (%1$s). Next time rest longer between sets or cut the weight by 5–10%%.</string>
+</resources>
