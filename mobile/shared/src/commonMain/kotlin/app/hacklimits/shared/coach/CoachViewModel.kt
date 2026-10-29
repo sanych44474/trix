@@ -24,6 +24,8 @@ data class CoachLine(
     val text: String,
     val actions: List<CoachAction> = emptyList(),
     val done: Set<Int> = emptySet(),
+    /** A card under a coach line: an injury to log, or an urgent symptom. The reply text is never changed. */
+    val bodySignal: BodyAlert? = null,
 )
 
 data class CoachState(
@@ -146,7 +148,12 @@ class CoachViewModel(private val api: CoachApi, private val telemetry: Telemetry
                     val withQuestion = s.lines.append(CoachRole.User, text)
                     val lines = when {
                         answer.routed -> withQuestion.append(CoachRole.Routed, "")
-                        else -> withQuestion.append(CoachRole.Coach, plainCoachText(answer.answer.orEmpty()), answer.actions)
+                        else -> withQuestion.append(
+                            CoachRole.Coach,
+                            plainCoachText(answer.answer.orEmpty()),
+                            answer.actions,
+                            answer.bodySignal?.toAlert(),
+                        )
                     }
                     // Clear the box only if the user did not start typing a new question meanwhile.
                     val input = if (s.input.trim() == text) "" else s.input
@@ -175,5 +182,10 @@ internal fun CoachAction.toPlanEdit(): PlanEdit? {
 private fun markDone(s: CoachState, lineId: Long, index: Int): CoachState =
     s.copy(lines = s.lines.map { if (it.id == lineId) it.copy(done = it.done + index) else it })
 
-private fun List<CoachLine>.append(role: CoachRole, text: String, actions: List<CoachAction> = emptyList()): List<CoachLine> =
-    this + CoachLine(id = (maxOfOrNull { it.id } ?: 0L) + 1L, role = role, text = text, actions = actions)
+private fun List<CoachLine>.append(
+    role: CoachRole,
+    text: String,
+    actions: List<CoachAction> = emptyList(),
+    bodySignal: BodyAlert? = null,
+): List<CoachLine> =
+    this + CoachLine(id = (maxOfOrNull { it.id } ?: 0L) + 1L, role = role, text = text, actions = actions, bodySignal = bodySignal)

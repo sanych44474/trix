@@ -17,6 +17,7 @@ import app.hacklimits.shared.workout.logic.clampRest
 import app.hacklimits.shared.workout.logic.density
 import app.hacklimits.shared.workout.logic.fmtDuration
 import app.hacklimits.shared.workout.logic.fmtRest
+import app.hacklimits.shared.workout.logic.fromPlan
 import app.hacklimits.shared.workout.logic.hydrateSaved
 import app.hacklimits.shared.workout.logic.isoDateMinus
 import app.hacklimits.shared.workout.logic.isoWeekday
@@ -40,6 +41,13 @@ import kotlin.test.assertTrue
 
 class LoggerLogicTest {
     private fun exercise(index: Int, name: String, sets: Int = 3) = WorkoutToday.Exercise(index = index, name = name, sets = sets)
+
+    @Test
+    fun aPlanExerciseKeepsTheServersWeightWarningThreshold() {
+        val row = fromPlan(WorkoutToday.Exercise(index = 0, name = "Squat", sets = 3, weightWarnAbove = 140.0))
+        assertEquals(140.0, row.weightWarnAbove)
+        assertNull(fromPlan(exercise(index = 1, name = "Row")).weightWarnAbove)
+    }
 
     @Test
     fun restCountsDownFromTheDeadlineAndThenUp() {

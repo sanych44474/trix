@@ -59,6 +59,7 @@ data class LoggerExercise(
     val prefill: List<LoggerSet>? = null,
     val setsDone: List<LoggerSet>? = null,
     val rpe: Double? = null,
+    val weightWarnAbove: Double? = null,
 ) {
     val done: List<LoggerSet> get() = setsDone ?: emptyList()
 }
@@ -271,7 +272,7 @@ fun fromPlan(ex: WorkoutToday.Exercise): LoggerExercise = LoggerExercise(
     index = ex.index, name = ex.name, metric = ex.metric, sets = ex.sets, reps = ex.reps, weightKg = ex.weightKg,
     planSets = ex.planSets, planWeight = ex.planWeight, technique = ex.technique, note = ex.note,
     canonicalName = ex.canonicalName, videoUrl = ex.videoUrl, videoTitle = ex.videoTitle,
-    target = ex.target, last = ex.last, restSec = ex.restSec,
+    target = ex.target, last = ex.last, restSec = ex.restSec, weightWarnAbove = ex.weightWarnAbove,
 )
 
 /**

@@ -27,7 +27,13 @@ data class LoggedFood(
     val query: String? = null,
 )
 
-@Serializable private data class MealEstimate(val items: List<LoggedFood> = emptyList())
+/** Meal-photo verdict. Empty [items] with a [reason] (e.g. not_food) carries a localised [message] from the server. */
+@Serializable
+data class MealEstimate(
+    val items: List<LoggedFood> = emptyList(),
+    val reason: String? = null,
+    val message: String? = null,
+)
 @Serializable private class AddItemsBody(val action: String, val items: List<LoggedFood>)
 @Serializable private class FoodLogBody(val kind: String, val text: String)
 // The server answers 200 with ok=false when the text could not be read, so success is not implied.
@@ -58,7 +64,7 @@ private fun partHeaders(mimeType: String, fileName: String) = Headers.build {
 
 internal class MediaApi(private val api: ApiClient) {
     /** Nothing is logged here; the person confirms the items first. The caption is an optional hint for the AI. */
-    suspend fun estimateMealPhoto(jpeg: ByteArray, mimeType: String, caption: String? = null): List<LoggedFood> {
+    suspend fun estimateMealPhoto(jpeg: ByteArray, mimeType: String, caption: String? = null): MealEstimate {
         val response = api.http.submitFormWithBinaryData(
             url = "api/v2/media/meal-photo",
             formData = formData {
@@ -69,7 +75,7 @@ internal class MediaApi(private val api: ApiClient) {
             api.authorize(this)
             aiTimeout()
         }
-        return api.unwrap<MealEstimate>(response).items
+        return api.unwrap(response)
     }
 
     /** The key makes a retry after a dropped connection log the meal once. */

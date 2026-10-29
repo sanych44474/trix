@@ -8,9 +8,16 @@ export const IMPLAUSIBLE_RATIO = 1.5;
 export const IMPLAUSIBLE_ADD_KG = 20;
 const MIN_HISTORY = 2;
 
-export function isImplausibleJump(weight: number, history: number[]): boolean {
+/** The weight (kg) above which a typed set weight is implausible for this history, or null when
+ *  there is not enough history to judge. A weight strictly above it is the implausible one. */
+export function implausibleAbove(history: number[]): number | null {
   const prior = history.filter((w) => w > 0);
-  if (prior.length < MIN_HISTORY) return false;
+  if (prior.length < MIN_HISTORY) return null;
   const top = Math.max(...prior);
-  return weight > IMPLAUSIBLE_RATIO * top && weight > top + IMPLAUSIBLE_ADD_KG;
+  return Math.max(IMPLAUSIBLE_RATIO * top, top + IMPLAUSIBLE_ADD_KG);
+}
+
+export function isImplausibleJump(weight: number, history: number[]): boolean {
+  const threshold = implausibleAbove(history);
+  return threshold !== null && weight > threshold;
 }

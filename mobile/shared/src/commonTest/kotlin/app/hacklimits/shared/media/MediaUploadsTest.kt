@@ -81,7 +81,7 @@ class MediaUploadsTest {
             assertTrue(request.body.contentType?.match(ContentType.MultiPart.FormData) == true)
             respond("""{"data":{"items":[]},"meta":{"version":2}}""", HttpStatusCode.OK, json)
         }
-        assertTrue(api.estimateMealPhoto(byteArrayOf(1), "image/jpeg", caption = "200 g rice").isEmpty())
+        assertTrue(api.estimateMealPhoto(byteArrayOf(1), "image/jpeg", caption = "200 g rice").items.isEmpty())
     }
 
     @Test

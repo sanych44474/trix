@@ -86,7 +86,7 @@ fun MealPhotoScreen(onBack: () -> Unit, onLogged: () -> Unit) {
             item {
                 Panel {
                     Text(stringResource(Res.string.media_items_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    if (s.draft.isEmpty()) Text(stringResource(Res.string.md_meal_unreadable), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (s.draft.isEmpty()) Text(s.notFoodMessage ?: stringResource(Res.string.md_meal_unreadable), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     s.draft.forEachIndexed { index, d ->
                         val preview = d.toLogged()
                         Text(d.estimate.desc, fontWeight = FontWeight.SemiBold)

@@ -35,6 +35,7 @@ import app.hacklimits.shared.resources.wk_feel_hard
 import app.hacklimits.shared.resources.wk_feel_ok
 import app.hacklimits.shared.resources.wk_feel_question
 import app.hacklimits.shared.resources.wk_generic_error
+import app.hacklimits.shared.resources.wk_hint_dropoff
 import app.hacklimits.shared.resources.wk_ph_kg
 import app.hacklimits.shared.resources.wk_summary_ask_coach_btn
 import app.hacklimits.shared.resources.wk_summary_badges
@@ -111,6 +112,17 @@ fun SummaryView(
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
+                    }
+                }
+            }
+            summary.dropoffs.take(2).forEach { drop ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(drop.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(Res.string.wk_hint_dropoff, drop.reps.joinToString(" → ")),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
                 }
             }

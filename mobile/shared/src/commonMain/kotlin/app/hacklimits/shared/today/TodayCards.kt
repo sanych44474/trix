@@ -276,6 +276,21 @@ internal fun RecoveryPill(recovery: Dashboard.Recovery) {
     Pill(stringResource(recoveryLabelRes(recovery.label)), color)
 }
 
+/** Advisory deload hint: shown only when the server suggests it. No action, and it never changes the plan. */
+@Composable
+internal fun DeloadHintCard() {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(Res.string.sig_deload_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                stringResource(Res.string.sig_deload_detail),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 /** Recovery score, and up to three reasons it is not higher (the codes come from the server). */
 @Composable
 internal fun RecoveryDetailsCard(recovery: Dashboard.Recovery) {

@@ -37,10 +37,24 @@ class MediaApiTest {
                 HttpStatusCode.OK, json,
             )
         }
-        val items = api.estimateMealPhoto(byteArrayOf(1, 2, 3), "image/jpeg")
+        val items = api.estimateMealPhoto(byteArrayOf(1, 2, 3), "image/jpeg").items
         assertEquals(1, items.size)
         assertEquals("Rice", items[0].desc)
         assertEquals(150.0, items[0].grams)
+    }
+
+    @Test
+    fun aPhotoWithNoFoodCarriesTheServerReasonAndMessage() = runTest {
+        val api = api {
+            respond(
+                """{"data":{"items":[],"reason":"not_food","message":"No food in this photo."},"meta":{"version":2}}""",
+                HttpStatusCode.OK, json,
+            )
+        }
+        val estimate = api.estimateMealPhoto(byteArrayOf(1), "image/jpeg")
+        assertTrue(estimate.items.isEmpty())
+        assertEquals("not_food", estimate.reason)
+        assertEquals("No food in this photo.", estimate.message)
     }
 
     @Test

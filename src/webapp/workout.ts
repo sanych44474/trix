@@ -10,7 +10,9 @@ import { muscleGroupToEnum } from "../domain/exerciseDefaults";
 import { planRepsMid, planSetsCount, planWeight } from "../features/workout/planTargets";
 import { fitsEquipmentPreset, profileEquipmentToPreset } from "../domain/gymSwap";
 import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscles";
-import { exerciseMetric, formatSetEntry } from "../domain/setFormat";
+import { exerciseMetric, formatSetEntry, metricOfSets } from "../domain/setFormat";
+import { implausibleAbove } from "../domain/weightOutlier";
+import { repDropoffs } from "../domain/repDropoff";
 import { getPlanDay, nextTargetSet, workingSets, type TargetStep } from "../domain/progression";
 import { resolveWeightMode } from "../domain/exerciseClass";
 import { localParts } from "../domain/localTime";
@@ -53,6 +55,9 @@ export interface WorkoutTodayExercise {
   // The heaviest working weight of each of the last (up to 3) completed sessions, newest first —
   // the logger warns when a typed weight is an implausible jump over these (domain/weightOutlier.ts).
   weightHistory?: number[];
+  // The weight (kg) above which a typed set weight is an implausible jump: the logger's warning
+  // threshold (domain/weightOutlier.ts implausibleAbove). Absent when there is not enough history.
+  weightWarnAbove?: number;
   // The progression engine's target for today (domain/progression nextTargetSet) from the last
   // session's working sets — shown under the exercise and used as the weight/reps prefill.
   target?: { w: number; r: number; lastW: number; lastR: number; step: TargetStep };
@@ -228,6 +233,8 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
       if (!le) continue;
       ex.last = le.setsDone.map((s) => ({ w: s.weight || 0, r: s.reps || 0, sec: s.seconds || 0, m: s.meters || 0 }));
       ex.weightHistory = weightsByName.get(ex.name);
+      const warnAbove = implausibleAbove(ex.weightHistory ?? []);
+      if (warnAbove !== null) ex.weightWarnAbove = warnAbove;
       const target = todayTarget(ex, le);
       if (target) {
         ex.target = target;
@@ -348,6 +355,8 @@ export interface SaveResult {
   level: number;
   leveledUp: boolean;
   totalWorkouts: number;
+  // Up to two reps drop-offs in this session, worst first (domain/repDropoff.ts). Absent when none.
+  dropoffs?: { name: string; reps: number[] }[];
 }
 
 const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
@@ -366,6 +375,9 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
   // The unsaved-logger copy for this day is now superseded by the real log.
   await deleteWorkoutDraft(env.DB, user._id, date).catch(() => {});
   const fresh = done.levelBadge ? [...done.freshBadges, done.levelBadge] : done.freshBadges;
+  const dropoffs = repDropoffs(entries.map((e) => ({ name: e.name, metric: metricOfSets(e.sets), setsDone: e.sets })))
+    .slice(0, 2)
+    .map(({ name, reps }) => ({ name, reps }));
 
   return {
     ok: true,
@@ -374,6 +386,7 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
     level: done.level,
     leveledUp: done.leveledUp,
     totalWorkouts: done.totalWorkouts,
+    ...(dropoffs.length ? { dropoffs } : {}),
   };
 }
 

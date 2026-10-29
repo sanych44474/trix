@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
@@ -52,6 +54,7 @@ import app.hacklimits.shared.resources.wk_focus_muscles_label
 import app.hacklimits.shared.resources.wk_focus_next
 import app.hacklimits.shared.resources.wk_focus_note_label
 import app.hacklimits.shared.resources.wk_focus_prev
+import app.hacklimits.shared.resources.wk_hint_weight_warn
 import app.hacklimits.shared.resources.wk_measured_effort
 import app.hacklimits.shared.resources.wk_ph_kg
 import app.hacklimits.shared.resources.wk_ph_m
@@ -264,6 +267,14 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
                             enabled = amount(v) > 0,
                             modifier = Modifier.width(48.dp),
                         ) { Text("✓") }
+                    }
+                    val typedKg = if (reps) (draft.text["weight"]?.let(::parseTyped) ?: v.weight) else 0.0
+                    ex.weightWarnAbove?.takeIf { typedKg > it }?.let {
+                        Text(
+                            stringResource(Res.string.wk_hint_weight_warn, fmtNum(typedKg)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFFFFC857) else Color(0xFF8A6505),
+                        )
                     }
                     if (rows > 1 || rpeOpen || v.rpe != null) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {

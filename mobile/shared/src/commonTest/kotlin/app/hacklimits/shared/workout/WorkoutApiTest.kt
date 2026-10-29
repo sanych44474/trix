@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class WorkoutApiTest {
@@ -234,5 +235,45 @@ class WorkoutApiTest {
         val error = assertFailsWith<ApiException> { api.save(SaveWorkoutRequest(entries = emptyList()), "k".repeat(36)) }
         assertEquals(409, error.status)
         assertEquals("conflict", error.code)
+    }
+
+    @Test
+    fun todayDecodesTheWeightWarningThresholdWhenTheServerSendsIt() = runTest {
+        val api = workout {
+            respond(
+                data("""{"date":"2026-10-20","exercises":[{"index":0,"name":"Squat","sets":3,"weightWarnAbove":140.0}]}"""),
+                HttpStatusCode.OK, json,
+            )
+        }
+        assertEquals(140.0, api.today("2026-10-20").exercises.single().weightWarnAbove)
+    }
+
+    @Test
+    fun todayDecodesWithoutTheWeightWarningThresholdFromAnOlderServer() = runTest {
+        val api = workout {
+            respond(data("""{"date":"2026-10-20","exercises":[{"index":0,"name":"Squat","sets":3}]}"""), HttpStatusCode.OK, json)
+        }
+        assertNull(api.today("2026-10-20").exercises.single().weightWarnAbove)
+    }
+
+    @Test
+    fun saveResultDecodesDropoffsWhenTheServerSendsThem() = runTest {
+        val api = workout {
+            respond(
+                data("""{"ok":true,"dropoffs":[{"name":"Squat","reps":[8,6,4]},{"name":"Row","reps":[10,7]}]}"""),
+                HttpStatusCode.OK, json,
+            )
+        }
+        val dropoffs = api.save(SaveWorkoutRequest(entries = emptyList()), "k".repeat(36)).dropoffs
+        assertEquals(listOf("Squat", "Row"), dropoffs?.map { it.name })
+        assertEquals(listOf(8, 6, 4), dropoffs?.first()?.reps)
+    }
+
+    @Test
+    fun saveResultDecodesWithoutDropoffsFromAnOlderServer() = runTest {
+        val api = workout { respond(data("""{"ok":true,"prExercises":["Squat"]}"""), HttpStatusCode.OK, json) }
+        val result = api.save(SaveWorkoutRequest(entries = emptyList()), "k".repeat(36))
+        assertNull(result.dropoffs)
+        assertEquals(listOf("Squat"), result.prExercises)
     }
 }

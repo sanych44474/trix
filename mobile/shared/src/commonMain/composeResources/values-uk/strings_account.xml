@@ -131,9 +131,6 @@
 
     <string name="ac_tool_programs">Готові програми</string>
     <string name="ac_tool_library">Бібліотека програм</string>
-    <string name="ac_tool_plates">Калькулятор дисків</string>
-    <string name="ac_tool_weekcard">Картка тижня</string>
-    <string name="ac_tool_photos">Фото прогресу</string>
     <string name="ac_tool_formcheck">Перевірка техніки</string>
     <string name="ac_tool_import">Імпорт з CSV</string>
 

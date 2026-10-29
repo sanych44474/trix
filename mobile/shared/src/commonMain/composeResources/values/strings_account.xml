@@ -131,9 +131,6 @@
 
     <string name="ac_tool_programs">Ready programs</string>
     <string name="ac_tool_library">Program library</string>
-    <string name="ac_tool_plates">Plate calculator</string>
-    <string name="ac_tool_weekcard">Week card</string>
-    <string name="ac_tool_photos">Progress photos</string>
     <string name="ac_tool_formcheck">Form check</string>
     <string name="ac_tool_import">Import from CSV</string>
 
