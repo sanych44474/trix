@@ -557,6 +557,7 @@ export const uk: Dict = {
   // --- client billing (bookkeeping) ---
   // --- progress-photo review ---
   cc_photo: "📸 Запросити фото",
+  photo_not_food: "Схоже, на фото немає їжі. Сфотографуй тарілку зверху при доброму світлі.",
   photo_req_from: "📸 Тренер *{name}* просить фото прогресу. Просто надішли фото сюди — воно піде напряму тренеру.",
   photo_req_skip_btn: "Не зараз",
   photo_req_skipped: "Гаразд — можливо пізніше. 👌",

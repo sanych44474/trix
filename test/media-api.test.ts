@@ -8,16 +8,30 @@ import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { getDayMeals } from "../src/adapters/d1/v2Nutrition";
 import { localParts } from "../src/domain/localTime";
 import { handleMediaApi, MAX_PHOTO_BYTES } from "../src/webapp/mediaApi";
+import { CLEF_MODEL } from "../src/ai/models";
 import { handleNutritionApi } from "../src/webapp/nutritionApi";
 import { fitWithin, mp4Seconds, reweigh, sumMeal, videoCheck, pickAudioType, MAX_VIDEO_BYTES } from "../apps/mini-app/src/logic/media";
 
 const env = (db: ReturnType<typeof newDb>) => ({ DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" }) as never;
 
-async function upload(db: ReturnType<typeof newDb>, userId: number | null, path: string, fields: Record<string, Blob | string>) {
+async function upload(db: ReturnType<typeof newDb>, userId: number | null, path: string, fields: Record<string, Blob | string>, extra: Record<string, unknown> = {}) {
   const form = new FormData();
   for (const [k, v] of Object.entries(fields)) form.append(k, v);
   const full = `${path}${userId ? `?debugUser=${userId}` : ""}`;
-  return handleMediaApi(new Request(`https://x${full}`, { method: "POST", body: form }), new URL(`https://x${full}`), env(db));
+  return handleMediaApi(new Request(`https://x${full}`, { method: "POST", body: form }), new URL(`https://x${full}`), { ...env(db), ...extra } as never);
+}
+
+// An AI binding that answers the Clef food question with `noul`, or fails, and records every model
+// it is asked for. Any other model is the vision chain: it records the call and then fails.
+function aiStub(noul: number | "throw") {
+  const models: string[] = [];
+  const run = async (model: string) => {
+    models.push(model);
+    if (model !== CLEF_MODEL) throw new Error("vision stub");
+    if (noul === "throw") throw new Error("Clef down");
+    return { answers: { food: { type: "noul", noul } }, usage: { input_tokens: 500, output_tokens: 2 } };
+  };
+  return { binding: { AI: { run } }, models, visionCalls: () => models.filter((m) => m !== CLEF_MODEL).length };
 }
 
 async function nutrition(db: ReturnType<typeof newDb>, userId: number, body: unknown) {
@@ -38,6 +52,49 @@ test("meal photo: a missing or oversized photo is rejected before any AI call", 
   const res = await upload(db, 1, "/api/media/meal-photo", { photo: big });
   assert.equal(res.status, 400);
   assert.deepEqual(await res.json(), { error: "too_big", code: "validation_error", retryable: false });
+});
+
+test("meal photo: not food → a not_food reply and the vision chain never runs", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const ai = aiStub(0.05);
+  const res = await upload(db, 1, "/api/media/meal-photo", { photo: new Blob(["x"], { type: "image/jpeg" }) }, ai.binding);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), {
+    items: [],
+    reason: "not_food",
+    message: "Looks like there's no food in this photo. Shoot your plate from above in good light.",
+  });
+  assert.deepEqual(ai.models, [CLEF_MODEL]);
+});
+
+test("meal photo: food → the vision chain runs as before", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const ai = aiStub(0.9);
+  const res = await upload(db, 1, "/api/media/meal-photo", { photo: new Blob(["x"], { type: "image/jpeg" }) }, ai.binding);
+  assert.equal(res.status, 502);
+  assert.equal(ai.visionCalls() > 0, true);
+});
+
+test("meal photo: a Clef failure → the vision chain runs, the meal is not blocked", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const ai = aiStub("throw");
+  const res = await upload(db, 1, "/api/media/meal-photo", { photo: new Blob(["x"], { type: "image/jpeg" }) }, ai.binding);
+  assert.equal(res.status, 502);
+  assert.equal(ai.visionCalls() > 0, true);
+});
+
+test("meal photo: an image over 4 MiB skips Clef and goes straight to the vision chain", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const ai = aiStub(0.01);
+  const big = new Blob([new Uint8Array(4 * 1024 * 1024 + 1)], { type: "image/jpeg" });
+  const res = await upload(db, 1, "/api/media/meal-photo", { photo: big }, ai.binding);
+  assert.equal(res.status, 502);
+  assert.equal(ai.models.includes(CLEF_MODEL), false);
+  assert.equal(ai.visionCalls() > 0, true);
 });
 
 test("form check: a clip over 60 s is turned away with its reason", async () => {
