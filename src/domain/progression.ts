@@ -3,6 +3,7 @@ import { exerciseMetric, metricOfSets, bestSetForMetric } from "./setFormat";
 import { tokens } from "./workoutText";
 import { isLowerBody } from "./exerciseClass";
 import { poorWellbeing } from "./deload";
+import { isImplausibleJump } from "./weightOutlier";
 
 export function getPlanDay(plan: PlanDoc, weekday: Weekday): PlanDay | undefined {
   return plan.split.find((d) => d.weekday === weekday);
@@ -417,7 +418,7 @@ export function computePlanProgression(
       // Recent sessions where this exercise was actually trained (matched by name/canonical),
       // each reduced to its best set on the exercise's native axis.
       const range = parseRepRange(ex.sets);
-      const sessions: { date: string; weight: number; reps: number; seconds: number; meters: number; rpe?: number; count: number; total: number }[] = [];
+      let sessions: { date: string; weight: number; reps: number; seconds: number; meters: number; rpe?: number; count: number; total: number }[] = [];
       for (const log of logs) {
         for (const le of log.exercises) {
           if (le.skipped || !le.setsDone?.length) continue;
@@ -432,8 +433,11 @@ export function computePlanProgression(
           break;
         }
       }
-      if (sessions.length < MIN_SESSIONS) return;
       sessions.sort((a, b) => (a.date < b.date ? 1 : -1)); // most recent first
+      // A session whose weight is an implausible jump over the OLDER sessions (a typo: 800 for 80)
+      // is dropped before anything reads it: it can't set the demonstrated weight or count as ready.
+      sessions = sessions.filter((s, i) => !isImplausibleJump(s.weight, sessions.slice(i + 1).map((o) => o.weight)));
+      if (sessions.length < MIN_SESSIONS) return;
 
       if (metric === "time" || metric === "distance") {
         progressTimedExercise(result, ex, day.weekday, index, metric, sessions);

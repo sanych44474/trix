@@ -50,6 +50,9 @@ export interface WorkoutTodayExercise {
   // What the user actually did LAST time for this exercise (most recent completed log) —
   // powers the "repeat last workout" prefill in the logger.
   last?: { w: number; r: number; sec: number; m: number }[];
+  // The heaviest working weight of each of the last (up to 3) completed sessions, newest first —
+  // the logger warns when a typed weight is an implausible jump over these (domain/weightOutlier.ts).
+  weightHistory?: number[];
   // The progression engine's target for today (domain/progression nextTargetSet) from the last
   // session's working sets — shown under the exercise and used as the weight/reps prefill.
   target?: { w: number; r: number; lastW: number; lastR: number; step: TargetStep };
@@ -207,17 +210,24 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
   if (payload.exercises.length) {
     const logs = await workoutLogsSince(db, user._id, isoDateMinus(date, 60)).catch(() => [] as WorkoutLogDoc[]);
     const lastByName = new Map<string, LoggedExercise>();
+    const weightsByName = new Map<string, number[]>();
     for (const log of [...logs].sort((a, b) => (a.date < b.date ? 1 : -1))) {
       if (!log.completed || log.date >= date) continue;
       for (const ex of log.exercises) {
-        if (lastByName.has(ex.name) || ex.skipped || !ex.setsDone.length) continue;
-        lastByName.set(ex.name, ex);
+        if (ex.skipped || !ex.setsDone.length) continue;
+        if (!lastByName.has(ex.name)) lastByName.set(ex.name, ex);
+        const weights = weightsByName.get(ex.name) ?? [];
+        if (weights.length < 3) {
+          weights.push(Math.max(0, ...ex.setsDone.map((s) => s.weight || 0)));
+          weightsByName.set(ex.name, weights);
+        }
       }
     }
     for (const ex of payload.exercises) {
       const le = lastByName.get(ex.name);
       if (!le) continue;
       ex.last = le.setsDone.map((s) => ({ w: s.weight || 0, r: s.reps || 0, sec: s.seconds || 0, m: s.meters || 0 }));
+      ex.weightHistory = weightsByName.get(ex.name);
       const target = todayTarget(ex, le);
       if (target) {
         ex.target = target;
