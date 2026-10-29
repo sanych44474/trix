@@ -909,6 +909,9 @@ button { cursor: pointer; }
 .pr-card { display: grid; gap: 6px; padding: 18px; border-radius: 20px; background: color-mix(in srgb, var(--coral) 18%, var(--surface)); }
 .pr-card .kicker { color: var(--coral-ink); }
 .pr-card strong { font-size: 20px; font-weight: 750; }
+.dropoff-card { display: grid; gap: 4px; padding: 14px 16px; border-radius: 16px; background: var(--surface); }
+.dropoff-card strong { font-size: 15px; font-weight: 700; }
+.dropoff-card small { color: var(--muted); }
 .pr-card small { color: var(--muted); font-size: 14px; }
 .summary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .summary-actions .button-block { margin-top: 8px; }

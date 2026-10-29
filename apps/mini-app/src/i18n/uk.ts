@@ -62,6 +62,7 @@ export const uk: Record<keyof typeof en, string> = {
   training_session_title: "Тренувальна сесія",
   moves_count: "{n} вправ",
   session_saved: "Тренування збережено. Гарна робота!",
+  summary_dropoff: "Повтори сильно падали ({reps}). Наступного разу відпочинь довше між підходами або зменш вагу на 5–10%.",
   session_saved_for_date: "Збережено за {date}. Гарна робота!",
   saved_btn: "✓ Збережено",
   field_load: "Вага",

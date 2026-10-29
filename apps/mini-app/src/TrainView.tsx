@@ -7,6 +7,7 @@ import type { SaveResponse, WorkoutCopyExercise, WorkoutHistoryItem, WorkoutToda
 import { t, type Lang } from "./i18n";
 import { clampRest, density, fmtDuration, restMetricKey } from "./logic/rest";
 import { hydrateSaved } from "./logic/hydrate";
+import { repDropoffs } from "./logic/repDropoff";
 import {
   buildSaveEntries, chooseStart, copyToLoggerExercises, countFilledSets, DENSITY_MIN_SESSION_SEC, DRAFT_KEY,
   emptyLoggerSet, isExerciseFilled, isoDate, isoWeekday, parseDraft, plannedSetsFor, removeLoggerSet, sessionElapsedSec, swapExercise,
@@ -418,6 +419,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
           bestStreak: final?.quality.bestStreak ?? 0,
           volumeKg: workout.exercises.reduce((total, exercise) => exercise.metric !== "reps" ? total : total + (exercise.setsDone ?? []).filter(isSetFilled).reduce((v, set) => v + (set.weight || 0) * (set.reps || 0), 0), 0),
           plannedSets: workout.exercises.reduce((total, exercise) => total + Math.max(exercise.sets || 1, (exercise.setsDone ?? []).length), 0),
+          dropoffs: repDropoffs(workout.exercises),
         });
         // The summary renders at the top; the button that got pressed is at the bottom.
         scrollToTop();
