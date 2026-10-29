@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Workout hints: implausible-weight warning in focus mode, rep drop-off advice on the summary. -->
+<resources>
+    <string name="wk_hint_weight_warn">%1$s кг? Це набагато більше, ніж зазвичай. Перевір вагу.</string>
+    <string name="wk_hint_dropoff">Повтори сильно падали (%1$s). Наступного разу відпочинь довше між підходами або зменш вагу на 5–10%%.</string>
+</resources>
