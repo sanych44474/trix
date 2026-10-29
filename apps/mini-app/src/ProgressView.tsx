@@ -14,6 +14,7 @@ import { Icon } from "./icons";
 import { StandardsCard } from "./TrainingExtras";
 import { Fold } from "./Fold";
 import { PhotoCompareTool, WeekCardTool } from "./ProgressShare";
+import { LiftSignalBadges, useTrainingSignals } from "./TrainingSignals";
 
 // The body-map figure is ~35 kB of SVG paths; loaded only when the Progress screen is opened.
 const BodyMap = lazy(() => import("./BodyMap").then((m) => ({ default: m.BodyMap })));
@@ -92,6 +93,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
   const [section, setSection] = useState<"train" | "body" | "food">("train");
   const [measure, setMeasure] = useState(""); const [busy, setBusy] = useState<string | null>(null); const [notice, setNotice] = useState("");
   const [checkin, setCheckin] = useState({ energy: 3, sleep: 3, stress: 3 });
+  const signals = useTrainingSignals();
   const post = async (key: string, body: unknown) => { setBusy(key); setNotice(""); try { await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); setNotice(t(lang, "progress_saved_note")); if (key === "measure") setMeasure(""); } catch (err) { setNotice(err instanceof ApiError ? t(lang, "generic_error") : t(lang, "generic_error")); } finally { setBusy(null); } };
   const markerClass = (status: string) => status === "done" ? "activity-cell done" : status === "missed" ? "activity-cell missed" : "activity-cell recovery";
 
@@ -231,6 +233,7 @@ export function ProgressView({ dashboard, lang }: { dashboard: Dashboard; lang: 
           {activeExercise && <LineChart points={activeExercise.points.map((p) => ({ date: p.date, v: p.e1rm }))} color="var(--accent)" />}
           {activeExercise && activeExercise.points.length > 0 && <p className="muted num">{t(lang, "strength_latest", { n: formatNumber(activeExercise.points.at(-1)!.e1rm), unit: kg })}</p>}
         </>}
+        <LiftSignalBadges lang={lang} signals={signals} />
       </Card>
 
       {hasLogs && <Card><h2 className="card-title">{t(lang, "trend_title")}</h2><Suspense fallback={<div className="skeleton" />}><MuscleTrend lang={lang} logs={dashboard.calendar.logs ?? []} today={dashboard.today} /></Suspense></Card>}

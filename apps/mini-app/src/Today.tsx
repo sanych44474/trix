@@ -15,6 +15,7 @@ import { WhatsNewCard } from "./WhatsNew";
 import { EveningChecklistCard } from "./EveningChecklist";
 import { ComebackFlow } from "./TrainingExtras";
 import { WeekCard, WeekSummaryCard } from "./Week";
+import { DeloadHintCard, useTrainingSignals } from "./TrainingSignals";
 import { Icon } from "./icons";
 import { Card } from "./train/ui";
 
@@ -103,6 +104,7 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
   // Inside Telegram the main action is the native bottom button: where the thumb already is.
   // Start and continue only -- "open the log" and "log on a rest day" stay in the page.
   const [native] = useState(canUseMainButton);
+  const signals = useTrainingSignals();
   const goRef = useRef(go); goRef.current = go;
   useEffect(() => {
     if (!native || !primary) return;
@@ -148,6 +150,8 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
     <EveningChecklistCard lang={lang} dashboard={dashboard} onOpen={onOpen} onWaterSteps={openWaterSteps} />
     {dashboard.viewer.profileGaps && dashboard.viewer.profileGaps.length > 0 && <FineTuneCard lang={lang} gaps={dashboard.viewer.profileGaps} onSaved={onReload} />}
     {dashboard.whatsnew && <WhatsNewCard lang={lang} version={dashboard.whatsnew.version} text={dashboard.whatsnew.text} items={dashboard.whatsnew.items} />}
+
+    {signals?.deload?.suggested && <DeloadHintCard lang={lang} />}
 
     <div className="list">
       <button type="button" className="list-item" aria-expanded={more} aria-controls="today-more" onClick={toggleMore}>

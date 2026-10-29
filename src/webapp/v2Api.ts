@@ -12,6 +12,7 @@ import { expensiveBucket, withinLimit } from "../limits";
 import { apiFailure, ERROR_RECORDED_HEADER } from "./apiError";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { checkCronHeartbeat } from "../schedulerJobs/global";
+import { loadTrainingSignals } from "../features/trainingSignals";
 import { logError, withHeader } from "../log";
 import { isV2ErrorCode, retryableFor, type V2ErrorCode, type V2Response } from "../contracts/v2";
 import type { Env } from "../types";
@@ -206,6 +207,19 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx: Execution
         message: String(err).slice(0, 200),
       }).catch(() => {});
       return Response.json({ error: { code: "dependency_unavailable", message: "Dashboard unavailable", retryable: true } }, { status: 503 });
+    }
+  }
+
+  if (url.pathname === "/api/v2/training-signals" && req.method === "GET") {
+    const user = await miniAppUser(req, url, env);
+    if (!user) {
+      return Response.json({ error: { code: "unauthorized", message: "Authentication required", retryable: retryableFor("unauthorized") } }, { status: 401 });
+    }
+    try {
+      return withMeta(await loadTrainingSignals(env, user._id), req);
+    } catch (err) {
+      logError("v2_training_signals_failed", err, { userId: user._id });
+      return Response.json({ error: { code: "dependency_unavailable", message: "Training signals unavailable", retryable: true } }, { status: 503 });
     }
   }
 
