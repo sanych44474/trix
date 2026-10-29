@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sig_lift_progressing">Progressing</string>
+    <string name="sig_lift_stalled">Stalled</string>
+    <string name="sig_lift_regressing">Dropping</string>
+    <string name="sig_deload_title">Maybe time for an easier week</string>
+    <string name="sig_deload_detail">A hint from your recent RPE and how you feel, not a medical call. An easier week can help you come back stronger.</string>
+</resources>
