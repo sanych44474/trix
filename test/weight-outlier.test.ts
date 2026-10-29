@@ -1,6 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isImplausibleJump } from "../src/domain/weightOutlier";
+import { implausibleAbove, isImplausibleJump } from "../src/domain/weightOutlier";
+
+test("implausibleAbove: null with fewer than two prior sessions above 0 kg", () => {
+  assert.equal(implausibleAbove([]), null);
+  assert.equal(implausibleAbove([80]), null);
+  assert.equal(implausibleAbove([0, 0, 80]), null);
+});
+
+test("implausibleAbove: max(1.5 x heaviest, heaviest + 20)", () => {
+  assert.equal(implausibleAbove([80, 80]), 120);
+  assert.equal(implausibleAbove([10, 10]), 30);
+  assert.equal(implausibleAbove([80, 100]), 150);
+  assert.equal(implausibleAbove([0, 80, 80]), 120);
+});
+
+test("implausibleAbove: the threshold is exclusive, matching isImplausibleJump", () => {
+  assert.equal(implausibleAbove([10, 10]), 30);
+  assert.equal(isImplausibleJump(30, [10, 10]), false);
+  assert.equal(isImplausibleJump(31, [10, 10]), true);
+});
 
 test("isImplausibleJump: 80, 80 then 800 is a typo", () => {
   assert.equal(isImplausibleJump(800, [80, 80]), true);

@@ -569,6 +569,19 @@ paths:
                         level: {type: integer}
                         leveledUp: {type: boolean}
                         totalWorkouts: {type: integer}
+                        dropoffs:
+                          type: array
+                          description: Up to two exercises in this session where reps fell off steeply across same-weight working sets, worst first. Absent when there are none.
+                          maxItems: 2
+                          items:
+                            type: object
+                            required: [name, reps]
+                            properties:
+                              name: {type: string}
+                              reps:
+                                type: array
+                                description: Working-set reps in order.
+                                items: {type: integer}
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '409': {$ref: '#/components/responses/Conflict'}
@@ -5257,6 +5270,9 @@ components:
                 type: array
                 description: The heaviest working weight of each of the last (up to 3) completed sessions, newest first. Absent when there is no history. The logger warns on a typed weight that is an implausible jump over these.
                 items: {type: number}
+              weightWarnAbove:
+                type: number
+                description: The weight (kg) above which a typed set weight is an implausible jump over weightHistory (a likely typo). Absent when there is not enough history (fewer than two prior sessions above 0 kg). Warn when the typed weight is strictly above it.
               target:
                 type: object
                 description: The progression engine's target for today from the last session's working sets (also the weight/reps prefill).
