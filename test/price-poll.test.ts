@@ -1,16 +1,20 @@
 // Price poll: "would you pay about $4-5 a month?" sent by the owner through the broadcast queue,
 // answered in the bot (bot/pricePoll.ts), summarised for the owner (domain/pricePoll.ts).
-import { test } from "node:test";
+import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
-import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
+import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { listPollAnswers } from "../src/adapters/d1/v2PricePoll";
 import { parsePollPrice, summarizePoll } from "../src/domain/pricePoll";
 import { handleBroadcastBatch, type BroadcastMessage } from "../src/features/owner/broadcastQueue";
 import { queuePricePoll } from "../src/features/owner/pricePoll";
 import { cmdPricePoll, handlePollPrice, handlePollWish, onPollChoice, onPollSkip } from "../src/bot/pricePoll";
+import { launcherGate } from "../src/bot/launcher";
+import { setAppUrl } from "../src/notify/appLinks";
 import type { Env, UserDoc } from "../src/types";
+
+afterEach(() => setAppUrl(undefined));
 
 test("parsePollPrice reads a dollar amount from free text", () => {
   assert.equal(parsePollPrice("3"), 3);
@@ -124,4 +128,29 @@ test("/pricepoll is owner-only and reports the results", async () => {
   await cmdPricePoll(ctx as never);
   assert.match(sent[0]!.text, /Відповідей: 1/);
   assert.match(sent[0]!.text, /Готові платити від \$4: 100%/);
+});
+
+test("in production (chat retired) the poll's buttons and typed answers pass the launcher gate", async () => {
+  // The gate answers everything else with the Open-app button. The poll worked only for the owner,
+  // who skips the gate, until its buttons and its two text steps were let through.
+  setAppUrl("https://trix.example", "/app-v2");
+  const db = newDb();
+  await getOrCreateUser(db, 60, 60, "uk", "Denys");
+  await updateUser(db, 60, { onboarded: true, profile: { chatRetired: true } });
+  const u = (await getUser(db, 60)) as UserDoc;
+  const gate = async (extra: Record<string, unknown>) => {
+    const { ctx, sent } = makeCtx(db, u as unknown as Record<string, unknown>);
+    Object.assign(ctx, extra);
+    return { passed: !(await launcherGate(ctx as never)), sent };
+  };
+  for (const data of ["pp:yes", "pp:custom", "pp:no", "pp:skip"]) {
+    assert.equal((await gate({ callbackQuery: { data } })).passed, true, data);
+  }
+  assert.equal((await gate({ message: { text: "3" } })).passed, false, "idle: a number is not a poll answer");
+
+  u.session = { ...u.session, mode: "poll_price" };
+  assert.equal((await gate({ message: { text: "3" } })).passed, true);
+  u.session = { ...u.session, mode: "poll_wish" };
+  assert.equal((await gate({ message: { text: "Разовий внесок замість підписки" } })).passed, true);
+  assert.equal((await gate({ message: { text: "/plan" } })).passed, false, "commands still open the app");
 });
