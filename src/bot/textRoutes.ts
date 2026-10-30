@@ -1,5 +1,6 @@
 // Free-text routing: which handler gets a plain message, by the user's current session mode.
 import { handleAnnounce } from "./owner";
+import { handlePollPrice, handlePollWish } from "./pricePoll";
 import { handleFeedbackReply } from "./feedbackReply";
 import { handleVideoUrl } from "./ownerVideos";
 import { obProgress } from "../features/onboarding/questions";
@@ -95,6 +96,8 @@ export const MODE_TEXT_HANDLERS = {
   warmup_edit: (ctx, text) => handleWarmupEdit(ctx, text),
   video_url: (ctx, text) => handleVideoUrl(ctx, text),
   announce: (ctx, text) => handleAnnounce(ctx, text),
+  poll_price: (ctx, text) => handlePollPrice(ctx, text),
+  poll_wish: (ctx, text) => handlePollWish(ctx, text),
   checkin_adaptive: (ctx, text) => handleAdaptiveCheckin(ctx, text),
   mp_likes: (ctx, text) => mealIntakeText(ctx, text),
   mp_dislikes: (ctx, text) => mealIntakeText(ctx, text),

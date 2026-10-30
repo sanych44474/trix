@@ -17,6 +17,8 @@ import { telegramCall } from "../../adapters/telegram/rawApi";
 import { getUser, listOnboardedUsers, updateUser } from "../../adapters/d1/v2Users";
 import { recordAudit } from "../../adapters/d1/v2Admin";
 import { latestRelease, releaseBody } from "../../releaseNotes";
+import { hasAnsweredPoll } from "../../adapters/d1/v2PricePoll";
+import { pricePollKb, pricePollText } from "./pricePoll";
 import { releaseRecipients } from "../../domain/releaseDelivery";
 import { appMarkup } from "../../notify/appKeyboard";
 import { escapeHtml, t } from "../../locales/i18n";
@@ -24,7 +26,8 @@ import type { Env } from "../../types";
 
 export type BroadcastMessage =
   | { kind: "release"; userId: number; version: string }
-  | { kind: "announce"; userId: number; text: string };
+  | { kind: "announce"; userId: number; text: string }
+  | { kind: "poll"; userId: number };
 
 /** Queue.sendBatch accepts at most 100 messages per call. */
 const SEND_BATCH = 100;
@@ -65,8 +68,10 @@ async function deliver(env: Env, msg: BroadcastMessage): Promise<Outcome> {
   // Gone, banned or unreachable since it was queued: nothing to send.
   if (!user || user.blocked || user.botBlocked) return { ack: true };
   if (msg.kind === "release" && user.reminders?.releaseSent === msg.version) return { ack: true };
-  const markup = appMarkup(env, t(user.lang, "launch_open_btn"), "today");
-  const text = msg.kind === "release" ? releaseBody(user.lang, latestRelease()) : `📢 ${escapeHtml(msg.text)}`;
+  // The poll is sent once per person: a re-send (or a redelivery) skips whoever already answered.
+  if (msg.kind === "poll" && (await hasAnsweredPoll(env.DB, user._id))) return { ack: true };
+  const markup = msg.kind === "poll" ? pricePollKb(user.lang) : appMarkup(env, t(user.lang, "launch_open_btn"), "today");
+  const text = msg.kind === "release" ? releaseBody(user.lang, latestRelease()) : msg.kind === "poll" ? pricePollText(user.lang) : `📢 ${escapeHtml(msg.text)}`;
   try {
     await telegramCall(env, "sendMessage", { chat_id: user.chatId, text, parse_mode: "HTML", ...(markup ? { reply_markup: markup } : {}) });
   } catch (err) {

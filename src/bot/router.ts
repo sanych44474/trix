@@ -11,6 +11,7 @@ import { aiTranscribe } from "../ai";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { cmdImport, handleImportDocument } from "./importCsv";
 import { cmdAdmin, cmdAnnounce, cmdOwnerReport, cmdUsers, cmdWhatsNew, showOwnerHub } from "./owner";
+import { cmdPricePoll } from "./pricePoll";
 import { cmdRefreshVideos, cmdSetVideo } from "./ownerVideos";
 import { cmdBecomeTrainer, cmdClients, cmdLeaveTrainer, cmdRequests, cmdTrainer, cmdTrainerReport } from "../features/trainer/trainer";
 import { cmdLibrary, cmdShareProgram, startShareMyPlan } from "../features/trainer/programSharing";
@@ -245,6 +246,7 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
   });
   bot.command("users", cmdUsers);
   bot.command("announce", cmdAnnounce);
+  bot.command("pricepoll", cmdPricePoll);
 
   bot.on("callback_query:data", async (ctx) => {
     const data = ctx.callbackQuery.data;
