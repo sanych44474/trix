@@ -21,7 +21,8 @@ npm run test:workers      # vitest in the Workers runtime (real D1)
 npm run build:webapp:all  # when apps/mini-app or src/webapp changed
 ```
 Android has no SDK here: CI's "Mobile" workflow is the check (see `mobile/CLAUDE.md`).
-For a bug fix, add a test that fails before the fix, and show it failing.
+**Every change is covered by tests (owner's standing rule).** New code ships with tests, and a bug fix adds a test that fails before the fix (show it failing).
+- Test the path production takes. In a private chat every bot update first passes `launcherGate` (`src/bot/launcher.ts`), which answers everything except the owner with the Open-app button. A bot flow that non-owners answer in the chat (buttons or typed replies) needs a test through the gate with an app URL set (`setAppUrl`). Calling its handlers directly hid that the price poll worked only for the owner.
 
 ## Architecture (ADR-0010, enforced by `test/architecture.test.ts`)
 - Layers, inside out:

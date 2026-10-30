@@ -154,3 +154,24 @@ test("in production (chat retired) the poll's buttons and typed answers pass the
   assert.equal((await gate({ message: { text: "Разовий внесок замість підписки" } })).passed, true);
   assert.equal((await gate({ message: { text: "/plan" } })).passed, false, "commands still open the app");
 });
+
+test("the same holds for the inactive-user ask and the trainer-sharing consent", async () => {
+  // Both are sent by the bot (the owner's "still here?" ask, the consent prompt after pairing
+  // with a trainer) and answered in the chat; the gate used to swallow them like the poll.
+  setAppUrl("https://trix.example", "/app-v2");
+  const db = newDb();
+  await getOrCreateUser(db, 61, 61, "uk", "Olena");
+  await updateUser(db, 61, { onboarded: true, profile: { chatRetired: true } });
+  const u = (await getUser(db, 61)) as UserDoc;
+  const passes = async (extra: Record<string, unknown>) => {
+    const { ctx } = makeCtx(db, u as unknown as Record<string, unknown>);
+    Object.assign(ctx, extra);
+    return !(await launcherGate(ctx as never));
+  };
+  for (const data of ["inact:stay", "inact:leave", "inact:fbskip", "share:tog:body", "share:tog:health", "share:skip"]) {
+    assert.equal(await passes({ callbackQuery: { data } }), true, data);
+  }
+  assert.equal(await passes({ callbackQuery: { data: "share:week" } }), false, "other share: buttons still open the app");
+  u.session = { ...u.session, mode: "inact_feedback" };
+  assert.equal(await passes({ message: { text: "Не було часу" } }), true);
+});
