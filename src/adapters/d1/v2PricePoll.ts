@@ -26,6 +26,29 @@ export async function hasAnsweredPoll(db: DB, userId: number): Promise<boolean> 
   return !!(await db.prepare("SELECT 1 AS x FROM v2_price_poll WHERE accountId = ?").bind(userId).first());
 }
 
+/** Each answer with who gave it, newest first: the owner's "who answered what" list. */
+export async function listPollAnswersByUser(db: DB): Promise<(PollAnswer & { userId: number; username?: string; name?: string; wish?: string; updatedAt: string })[]> {
+  const r = await db
+    .prepare(
+      `SELECT pp.accountId AS userId, a.username AS username, json_extract(p.profile, '$.name') AS name,
+              pp.choice AS choice, pp.price AS price, pp.wish AS wish, pp.updatedAt AS updatedAt
+       FROM v2_price_poll pp
+       JOIN v2_accounts a ON a.id = pp.accountId
+       LEFT JOIN v2_profiles p ON p.accountId = pp.accountId
+       ORDER BY pp.updatedAt DESC`,
+    )
+    .all<{ userId: number; username: string | null; name: string | null; choice: PollChoice; price: number | null; wish: string | null; updatedAt: string }>();
+  return (r.results ?? []).map((row) => ({
+    userId: row.userId,
+    ...(row.username ? { username: row.username } : {}),
+    ...(row.name ? { name: row.name } : {}),
+    choice: row.choice,
+    ...(row.price !== null ? { price: row.price } : {}),
+    ...(row.wish ? { wish: row.wish } : {}),
+    updatedAt: row.updatedAt,
+  }));
+}
+
 export async function listPollAnswers(db: DB): Promise<(PollAnswer & { wish?: string; updatedAt: string })[]> {
   const r = await db
     .prepare("SELECT choice, price, wish, updatedAt FROM v2_price_poll ORDER BY updatedAt DESC")

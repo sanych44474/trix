@@ -73,6 +73,9 @@ export async function sendLauncher(ctx: MyContext, view?: AppView): Promise<bool
   return true;
 }
 
+const CHAT_ANSWERED_CALLBACKS = ["pp:", "inact:", "share:tog:", "share:skip"];
+const CHAT_ANSWERED_MODES = new Set<string>(["poll_price", "poll_wish", "inact_feedback"]);
+
 // login_: the native app's Telegram sign-in (telegramLogin.ts) must reach its confirm prompt.
 const START_PAYLOADS = ["tr_", "trp_", "ref_", "buddy_", "sq_", "login_"];
 
@@ -89,16 +92,18 @@ export async function launcherGate(ctx: MyContext): Promise<boolean> {
   if (data !== undefined) {
     // The app sign-in Confirm/Deny buttons are the one bot interaction the app still depends on.
     if (data.startsWith("tglogin:")) return false;
-    // The price poll is answered in the chat (bot/pricePoll.ts): its buttons must reach it.
-    if (data.startsWith("pp:")) return false;
+    // Asks the bot itself sends and that are answered in the chat must reach their handlers:
+    // the price poll (bot/pricePoll.ts), the owner's "still here?" ask to inactive users
+    // (bot/cleanup.ts) and the trainer-sharing consent sent after pairing (share:tog/skip).
+    if (CHAT_ANSWERED_CALLBACKS.some((p) => data.startsWith(p))) return false;
     await ctx.answerCallbackQuery().catch(() => {});
     return sendLauncher(ctx, viewForCallback(data));
   }
   const text = ctx.message?.text ?? "";
   const cmd = text.match(/^\/([A-Za-z_]+)(?:@\w+)?(?:\s+(\S+))?/);
-  // The poll's typed answers (own price, what to add or remove) go to the poll, not the launcher.
+  // Typed answers to those asks (own price, what to add or remove, why they left) go to them.
   const mode = ctx.user.session?.mode;
-  if (!cmd && text && (mode === "poll_price" || mode === "poll_wish")) return false;
+  if (!cmd && text && mode && CHAT_ANSWERED_MODES.has(mode)) return false;
   if (cmd?.[1].toLowerCase() === "start") {
     const payload = cmd[2] ?? "";
     if (START_PAYLOADS.some((p) => payload.startsWith(p))) return false; // pairing runs, then points to the app

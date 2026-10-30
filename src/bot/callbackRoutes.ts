@@ -6,7 +6,7 @@ import { onSupportAmount } from "./support";
 import { InlineKeyboard } from "grammy";
 import { aliasMenu, menuBtn, roleMenu } from "../adapters/telegram/keyboards";
 import { onWhatsNewSend, showWhatsNewConfirm } from "./owner";
-import { onPollAsk, onPollChoice, onPollSend, onPollSkip } from "./pricePoll";
+import { onPollAsk, onPollChoice, onPollSend, onPollSkip, onPollWho } from "./pricePoll";
 import { onPlanRegenAi } from "./plan";
 import { showCardioMenu } from "./survey";
 import { cmdBecomeTrainer, cmdTrainer, cmdTrainerBroadcast, onTrainerLimitCycle, openFindTrainer } from "../features/trainer/trainer";
@@ -284,6 +284,7 @@ export const CB_EXACT: Record<string, CbHandler> = {
   "pp:skip": (ctx) => onPollSkip(ctx),
   "pp:ask": (ctx) => onPollAsk(ctx),
   "pp:send": (ctx) => onPollSend(ctx),
+  "pp:who": (ctx) => onPollWho(ctx),
   "chal:new": (ctx) => showChallengePicker(ctx),
   "del:confirm": async (ctx) => {
     await deleteUserData(ctx.env, ctx.user._id);

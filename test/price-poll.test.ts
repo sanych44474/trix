@@ -9,7 +9,7 @@ import { listPollAnswers } from "../src/adapters/d1/v2PricePoll";
 import { parsePollPrice, summarizePoll } from "../src/domain/pricePoll";
 import { handleBroadcastBatch, type BroadcastMessage } from "../src/features/owner/broadcastQueue";
 import { queuePricePoll } from "../src/features/owner/pricePoll";
-import { cmdPricePoll, handlePollPrice, handlePollWish, onPollChoice, onPollSkip } from "../src/bot/pricePoll";
+import { cmdPricePoll, handlePollPrice, handlePollWish, onPollChoice, onPollSkip, onPollWho } from "../src/bot/pricePoll";
 import { launcherGate } from "../src/bot/launcher";
 import { setAppUrl } from "../src/notify/appLinks";
 import type { Env, UserDoc } from "../src/types";
@@ -153,4 +153,63 @@ test("in production (chat retired) the poll's buttons and typed answers pass the
   u.session = { ...u.session, mode: "poll_wish" };
   assert.equal((await gate({ message: { text: "Разовий внесок замість підписки" } })).passed, true);
   assert.equal((await gate({ message: { text: "/plan" } })).passed, false, "commands still open the app");
+});
+
+test("the same holds for the inactive-user ask and the trainer-sharing consent", async () => {
+  // Both are sent by the bot (the owner's "still here?" ask, the consent prompt after pairing
+  // with a trainer) and answered in the chat; the gate used to swallow them like the poll.
+  setAppUrl("https://trix.example", "/app-v2");
+  const db = newDb();
+  await getOrCreateUser(db, 61, 61, "uk", "Olena");
+  await updateUser(db, 61, { onboarded: true, profile: { chatRetired: true } });
+  const u = (await getUser(db, 61)) as UserDoc;
+  const passes = async (extra: Record<string, unknown>) => {
+    const { ctx } = makeCtx(db, u as unknown as Record<string, unknown>);
+    Object.assign(ctx, extra);
+    return !(await launcherGate(ctx as never));
+  };
+  for (const data of ["inact:stay", "inact:leave", "inact:fbskip", "share:tog:body", "share:tog:health", "share:skip"]) {
+    assert.equal(await passes({ callbackQuery: { data } }), true, data);
+  }
+  assert.equal(await passes({ callbackQuery: { data: "share:week" } }), false, "other share: buttons still open the app");
+  u.session = { ...u.session, mode: "inact_feedback" };
+  assert.equal(await passes({ message: { text: "Не було часу" } }), true);
+});
+
+test("owner's 'who answered what': name / @username, answer, price and wish; owner-only; passes the gate", async () => {
+  setAppUrl("https://trix.example", "/app-v2");
+  const db = newDb();
+  await setOwnerChatId(db, 70);
+  const owner = await user(db, 70);
+  await getOrCreateUser(db, 71, 71, "uk", "Denys");
+  await updateUser(db, 71, { username: "denys_fit", profile: { name: "Денис" } });
+  const denys = (await getUser(db, 71)) as UserDoc;
+  const d = makeCtx(db, denys as unknown as Record<string, unknown>).ctx;
+  await onPollChoice(d as never, "custom");
+  await handlePollPrice(d as never, "3");
+  await handlePollWish(d as never, "Разовий внесок <замість> підписки");
+  const olena = await user(db, 72);
+  await onPollChoice(makeCtx(db, olena as unknown as Record<string, unknown>).ctx as never, "no");
+
+  // The owner skips the launcher gate, so the button reaches the handler in production.
+  const tap = makeCtx(db, owner as unknown as Record<string, unknown>);
+  Object.assign(tap.ctx, { callbackQuery: { data: "pp:who" } });
+  assert.equal(await launcherGate(tap.ctx as never), false);
+
+  const { ctx, sent } = makeCtx(db, owner as unknown as Record<string, unknown>);
+  await onPollWho(ctx as never);
+  const text = sent[0]!.text;
+  assert.match(text, /Хто що відповів<\/b> \(2/);
+  assert.match(text, /<b>Денис @denys_fit<\/b> — 💬 своя ціна \$3/);
+  assert.match(text, /💬 Разовий внесок &lt;замість&gt; підписки/, "wishes are HTML-escaped");
+  assert.match(text, /<b>U72<\/b> — ❌ не готовий/);
+
+  const results = makeCtx(db, owner as unknown as Record<string, unknown>);
+  await cmdPricePoll(results.ctx as never);
+  const buttons = (results.sent[0]!.markup as { inline_keyboard: Array<Array<{ callback_data: string }>> }).inline_keyboard.flat().map((b) => b.callback_data);
+  assert.ok(buttons.includes("pp:who"));
+
+  const stranger = makeCtx(db, denys as unknown as Record<string, unknown>);
+  await onPollWho(stranger.ctx as never);
+  assert.doesNotMatch(stranger.sent[0]!.text, /Хто що відповів/);
 });
