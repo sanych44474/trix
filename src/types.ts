@@ -192,6 +192,8 @@ export type SessionMode =
   | "mp_dislikes"
   | "video_url"
   | "announce"
+  | "poll_price"
+  | "poll_wish"
   | "tpl_name"
   | "share_myplan_name"
   | "photo_review"
