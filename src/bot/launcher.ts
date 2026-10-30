@@ -89,11 +89,16 @@ export async function launcherGate(ctx: MyContext): Promise<boolean> {
   if (data !== undefined) {
     // The app sign-in Confirm/Deny buttons are the one bot interaction the app still depends on.
     if (data.startsWith("tglogin:")) return false;
+    // The price poll is answered in the chat (bot/pricePoll.ts): its buttons must reach it.
+    if (data.startsWith("pp:")) return false;
     await ctx.answerCallbackQuery().catch(() => {});
     return sendLauncher(ctx, viewForCallback(data));
   }
   const text = ctx.message?.text ?? "";
   const cmd = text.match(/^\/([A-Za-z_]+)(?:@\w+)?(?:\s+(\S+))?/);
+  // The poll's typed answers (own price, what to add or remove) go to the poll, not the launcher.
+  const mode = ctx.user.session?.mode;
+  if (!cmd && text && (mode === "poll_price" || mode === "poll_wish")) return false;
   if (cmd?.[1].toLowerCase() === "start") {
     const payload = cmd[2] ?? "";
     if (START_PAYLOADS.some((p) => payload.startsWith(p))) return false; // pairing runs, then points to the app
