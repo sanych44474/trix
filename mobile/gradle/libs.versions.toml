@@ -1,12 +1,12 @@
 # Versions checked against Maven/Google Maven metadata on 2026-10-20 (latest stable).
 [versions]
-agp = "9.4.1"
+agp = "9.5.0"
 kotlin = "2.4.21"
 compose-multiplatform = "1.12.2"
 compose-material3 = "1.9.0"
 androidx-lifecycle-cmp = "2.11.0"
 androidx-navigation-cmp = "2.10.0"
-ktor = "3.6.0"
+ktor = "3.6.1"
 kotlinx-serialization = "1.12.0"
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
