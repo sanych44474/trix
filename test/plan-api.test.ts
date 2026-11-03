@@ -377,3 +377,29 @@ test("plan API: GET sends the learned muscles of the plan's own exercises that t
   const after = (await (await call(db, 3, "GET", "/api/v2/plan")).json()) as { learnedMuscles: { name: string; primary: string[]; secondary: string[] }[] };
   assert.deepEqual(after.learnedMuscles, [{ name: "Xyzzy Thing", primary: ["upper-back"], secondary: ["biceps"] }]);
 });
+
+// A trainer (screenshot from a coach, 2026-11-03) found a day titled "Chest/Triceps" holding leg
+// and back work and had no way to fix the title. The rename goes through the same POST as every
+// other edit, for the trainer's client too, and every client reads the label back from GET.
+test("plan days: a trainer renames a client's day; the new label is what GET returns", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "uk", "Coach");
+  await getOrCreateUser(db, 2, 2, "uk", "Client");
+  const { updateUser } = await import("../src/adapters/d1/v2Users");
+  await updateUser(db, 1, { role: "trainer" });
+  await updateUser(db, 2, { role: "client", trainerId: 1 });
+  await setActivePlan(db, plan(2));
+
+  const before = await (await call(db, 1, "GET", "/api/plan?clientId=2")).json() as { version: string };
+  const renamed = await call(db, 1, "POST", "/api/plan", { clientId: 2, action: "dayname", weekday: 1, value: "Ноги/Спина" }, { "if-match": `"${before.version}"` });
+  assert.equal(renamed.status, 200, `rename should succeed: ${await renamed.clone().text()}`);
+  const body = await renamed.json() as { days: Array<{ weekday: number; muscleGroup: string }>; changes: Array<{ source: string }> };
+  assert.equal(body.days[0].muscleGroup, "Ноги/Спина");
+  assert.equal(body.changes[0].source, "trainer");
+
+  const after = await (await call(db, 2, "GET", "/api/plan")).json() as { days: Array<{ muscleGroup: string }>; version: string };
+  assert.equal(after.days[0].muscleGroup, "Ноги/Спина", "the client sees the trainer's label");
+
+  const blank = await call(db, 1, "POST", "/api/plan", { clientId: 2, action: "dayname", weekday: 1, value: " " }, { "if-match": `"${after.version}"` });
+  assert.equal(blank.status, 400);
+});

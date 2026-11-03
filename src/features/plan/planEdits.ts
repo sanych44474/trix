@@ -18,6 +18,7 @@ import { awardAchievement } from "../../adapters/d1/v2Gamification";
 import { fitSplitToKit, kitFromEquipment } from "../../domain/equipmentFit";
 import { swapPlanDays } from "../../domain/recoverySwap";
 import { DAY_GROUPS } from "../../domain/dayGroups";
+import { normalizeDayLabel } from "../../domain/dayLabel";
 import { t } from "../../locales/i18n";
 import { exerciseVideoKey, weekdayName } from "../../render";
 import { parseYouTubeId } from "../../youtube";
@@ -74,6 +75,7 @@ export type PlanEdit =
   | { kind: "replace"; summary: string; changes: Array<{ weekday: number; index: number; exercise: PlanExercise }> }
   | { kind: "dayadd"; weekday: number; group: string }
   | { kind: "daydel"; weekday: number }
+  | { kind: "dayname"; weekday: number; value: string }
   | { kind: "dayswap"; weekday: number; other: number }
   | { kind: "difficulty"; weekday: number; dir: "up" | "down" }
   | { kind: "fitkit"; equipment?: string };
@@ -370,6 +372,22 @@ export async function applyPlanEdit(target: PlanEditTarget, edit: PlanEdit): Pro
       if (!split.some((d) => d.weekday === wd)) throw new PlanEditError("not found");
       split = split.filter((d) => d.weekday !== wd);
       summary = `removed day: ${weekdayName(lang, wd as Weekday)}`;
+      break;
+    }
+    case "dayname": {
+      // The day's label only: its exercises, weekday and the reminder schedule stay as they are.
+      const wd = Number(edit.weekday);
+      if (!Number.isInteger(wd) || wd < 1 || wd > 7) badRequest();
+      const day = split.find((d) => d.weekday === wd);
+      if (!day) throw new PlanEditError("not found");
+      const label = normalizeDayLabel(edit.value);
+      if (!label) badRequest();
+      if (label === day.muscleGroup) {
+        splitChanged = false;
+        break;
+      }
+      summary = `renamed day: ${weekdayName(lang, wd as Weekday)}: ${day.muscleGroup} -> ${label}`;
+      day.muscleGroup = label;
       break;
     }
     case "dayswap": {

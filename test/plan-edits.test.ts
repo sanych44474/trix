@@ -129,3 +129,25 @@ test("translation: a catalog swap for a Ukrainian owner uses the catalog transla
   assert.equal(swapped.sets, "3 × 8–12", "a swap keeps the slot's rep scheme");
   assert.equal(swapped.startWeight, "50 kg", "a swap keeps the slot's load");
 });
+
+test("dayname: renames the day's label, logs it, and keeps the exercises", async () => {
+  const db = newDb();
+  const result = await apply(db, { kind: "dayname", weekday: 1, value: "  Груди /  Трицепс " }, { actorId: 99 });
+  assert.equal(result.split[0].muscleGroup, "Груди / Трицепс");
+  assert.deepEqual(result.split[0].exercises.map((e) => e.name), ["Bench Press", "Lat Pulldown"]);
+  assert.equal((await getActivePlan(db, 1))?.split[0].muscleGroup, "Груди / Трицепс");
+  const log = await listPlanChanges(db, 1, 10);
+  assert.deepEqual(log.map((c) => `${c.source}|${c.summary}`), ["trainer|renamed day: Mon: Push -> Груди / Трицепс"]);
+});
+
+test("dayname: the same label is a no-op; a blank label or a missing day is refused and changes nothing", async () => {
+  const db = newDb();
+  const same = await apply(db, { kind: "dayname", weekday: 1, value: "Push" });
+  assert.equal(same.summary, "");
+  assert.equal((await listPlanChanges(db, 1, 10)).length, 0);
+
+  await assert.rejects(apply(db, { kind: "dayname", weekday: 1, value: "   " }), (err: unknown) => err instanceof PlanEditError && err.code === "bad request");
+  await assert.rejects(apply(db, { kind: "dayname", weekday: 3, value: "Legs" }), (err: unknown) => err instanceof PlanEditError && err.code === "not found");
+  await assert.rejects(apply(db, { kind: "dayname", weekday: 9, value: "Legs" }), (err: unknown) => err instanceof PlanEditError && err.code === "bad request");
+  assert.equal((await getActivePlan(db, 1))?.split[0].muscleGroup, "Push");
+});

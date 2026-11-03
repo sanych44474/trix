@@ -36,7 +36,7 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null, privat
         val loadError: String? = null,
         /** An edit that failed: "generic" or "last_exercise". Shown inline and dismissable. */
         val actionError: String? = null,
-        /** The write in flight ("weekday:index:action", "day:add", "day:del:N", "fitkit", "meso"); blocks other writes. */
+        /** The write in flight ("weekday:index:action", "day:add", "day:del:N", "day:name:N", "fitkit", "meso"); blocks other writes. */
         val busy: String? = null,
         /** Key of the last write that succeeded, drives the "plan updated" note. */
         val saved: String? = null,
@@ -110,6 +110,13 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null, privat
 
     fun removeDay(weekday: Int) {
         write("day:del:$weekday", PlanEdit("daydel", weekday = weekday, index = 0))
+    }
+
+    /** Renames a day's label (its muscle groups); the exercises stay. The server trims and caps it. */
+    fun renameDay(weekday: Int, label: String, onDone: () -> Unit = {}) {
+        val value = label.trim()
+        if (value.isEmpty()) return
+        write("day:name:$weekday", PlanEdit("dayname", weekday = weekday, index = 0, value = value), onDone = onDone)
     }
 
     /** Debounced-free catalog search for the swap box; under two characters is ignored (as in the app). */

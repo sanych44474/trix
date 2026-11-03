@@ -47,6 +47,8 @@ import app.hacklimits.shared.data.PlanEdit
 import app.hacklimits.shared.telemetry.Telemetry
 import org.koin.compose.koinInject
 import app.hacklimits.shared.plan.BalanceCard
+import app.hacklimits.shared.plan.DAY_LABEL_MAX
+import app.hacklimits.shared.plan.addGroupToLabel
 import app.hacklimits.shared.plan.KitFitCard
 import app.hacklimits.shared.plan.LibraryBrowser
 import app.hacklimits.shared.plan.MesocycleCard
@@ -66,6 +68,7 @@ private sealed interface PlanSheet {
     data class Exercise(val weekday: Int, val index: Int) : PlanSheet
     data class Pick(val weekday: Int, val swapIndex: Int? = null, val swapName: String? = null) : PlanSheet
     data class AddDay(val weekday: Int) : PlanSheet
+    data class RenameDay(val weekday: Int, val current: String) : PlanSheet
 }
 
 /**
@@ -170,6 +173,12 @@ fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Uni
                                     }
                                     if (open) {
                                         Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            TextButton(
+                                                onClick = { sheet = PlanSheet.RenameDay(weekday, day.muscleGroup.ifBlank { day.name }) },
+                                                enabled = s.busy == null,
+                                            ) {
+                                                Text("✎ " + stringResource(Res.string.pl_plan_day_rename_btn), maxLines = 1)
+                                            }
                                             day.exercises.forEach { ex ->
                                                 Column(
                                                     Modifier.fillMaxWidth().clickable { sheet = PlanSheet.Exercise(weekday, ex.index) }.padding(vertical = 8.dp),
@@ -265,6 +274,7 @@ fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Uni
                 is PlanSheet.Exercise -> ExerciseSheet(vm, s, plan, current.weekday, current.index, onOpenPick = { sheet = it }, onClose = dismiss)
                 is PlanSheet.Pick -> PickSheet(vm, s.busy, current, onClose = dismiss, onAdded = { weekday -> openDay = weekday })
                 is PlanSheet.AddDay -> AddDaySheet(vm, s.busy, current.weekday, onClose = dismiss, onAdded = { weekday -> openDay = weekday })
+                is PlanSheet.RenameDay -> RenameDaySheet(vm, s.busy, current, onClose = dismiss)
             }
         }
     }
@@ -508,6 +518,44 @@ private fun AddDaySheet(vm: PlanViewModel, busy: String?, weekday: Int, onClose:
             Text(stringResource(if (busy == "day:add") Res.string.pl_saving_ellipsis else Res.string.pl_plan_day_add_btn))
         }
         Text(stringResource(Res.string.pl_plan_day_add_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun RenameDaySheet(vm: PlanViewModel, busy: String?, rename: PlanSheet.RenameDay, onClose: () -> Unit) {
+    var draft by rememberSaveable(rename.weekday) { mutableStateOf(rename.current) }
+    val trimmed = draft.trim()
+    Column(
+        Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp).imePadding().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            stringResource(Res.string.pl_plan_day_rename_title, stringResource(weekdayLabel(rename.weekday))),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it.take(DAY_LABEL_MAX) },
+            label = { Text(stringResource(Res.string.pl_plan_day_rename_label)) },
+            placeholder = { Text(stringResource(Res.string.pl_plan_day_rename_ph)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            DAY_GROUPS.forEach { g ->
+                val label = stringResource(dayGroupLabel(g))
+                FilterChip(selected = false, onClick = { draft = addGroupToLabel(draft, label).take(DAY_LABEL_MAX) }, label = { Text(label) })
+            }
+        }
+        Button(
+            onClick = { vm.renameDay(rename.weekday, trimmed) { onClose() } },
+            enabled = busy == null && trimmed.isNotEmpty() && trimmed != rename.current,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(if (busy == "day:name:${rename.weekday}") Res.string.pl_saving_ellipsis else Res.string.pl_save_btn), maxLines = 1)
+        }
+        Text(stringResource(Res.string.pl_plan_day_rename_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

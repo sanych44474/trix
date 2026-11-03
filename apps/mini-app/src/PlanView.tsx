@@ -7,6 +7,7 @@ import type { MesoPhase, Plan } from "./types";
 import { t, type Key, type Lang } from "./i18n";
 import { Icon } from "./icons";
 import type { LibraryEntry } from "./logic/library";
+import { addGroupToLabel, DAY_LABEL_MAX } from "./logic/dayLabel";
 
 // The 750-exercise library (data + pictures) loads only when the picker opens.
 const LibraryBrowser = lazy(() => import("./Library").then((m) => ({ default: m.LibraryBrowser })));
@@ -61,7 +62,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   const [dayBusy, setDayBusy] = useState<string | null>(null);
   const [openDay, setOpenDay] = useState<number | null>(null);
   // "pick" is the exercise library over the schedule: add to a day, or (with `swap`) replace one.
-  const [sheet, setSheet] = useState<{ kind: "exercise"; weekday: number; index: number } | { kind: "addday"; weekday: number } | { kind: "pick"; weekday: number; swap?: { index: number; name: string } } | null>(null);
+  const [sheet, setSheet] = useState<{ kind: "exercise"; weekday: number; index: number } | { kind: "addday"; weekday: number } | { kind: "dayname"; weekday: number } | { kind: "pick"; weekday: number; swap?: { index: number; name: string } } | null>(null);
   // Escape closes the editing sheet (keyboard and desktop Telegram).
   useEffect(() => {
     if (!sheet) return;
@@ -70,6 +71,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
     return () => document.removeEventListener("keydown", onKey);
   }, [sheet]);
   const [newDayGroup, setNewDayGroup] = useState<DayGroup>("chest");
+  const [dayNameDraft, setDayNameDraft] = useState("");
 
   const load = () => {
     setError(null);
@@ -108,8 +110,8 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
     }
   };
 
-  const mutateDay = async (key: string, body: Partial<PlanEditBody>) => {
-    if (!plan) return;
+  const mutateDay = async (key: string, body: Partial<PlanEditBody>): Promise<boolean> => {
+    if (!plan) return false;
     setDayBusy(key); setSaved(null); setActionError(null);
     try {
       const result = await api<{ ok: true; days: Plan["days"]; version: string; changes?: Plan["changes"] }>("/api/v2/plan", {
@@ -120,11 +122,17 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
       });
       setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}), ...(key === "fitkit" && plan.kit ? { kit: { equipment: body.equipment ?? plan.kit.equipment, mismatches: 0 } } : {}) });
       setSaved(key);
-    } catch (err) { setActionError(err); } finally { setDayBusy(null); }
+      return true;
+    } catch (err) { setActionError(err); return false; } finally { setDayBusy(null); }
   };
   // Only weekdays the plan does not already use -- adding a duplicate is a 409 server-side, so
   // don't offer it.
   const removeDay = (weekday: number) => mutateDay(`del:${weekday}`, { action: "daydel", weekday });
+  // The day's label (its muscle groups): free text, so "Chest/Triceps" can be written as one.
+  const openRename = (weekday: number, current: string) => { setDayNameDraft(current); setSheet({ kind: "dayname", weekday }); };
+  const renameDay = async (weekday: number) => {
+    if (await mutateDay(`name:${weekday}`, { action: "dayname", weekday, value: dayNameDraft.trim() })) setSheet(null);
+  };
 
   // Whole-day "easier / harder": swaps this day's exercises one difficulty tier (the bot's buttons).
   const stepDifficulty = async (weekday: number, dir: "up" | "down") => {
@@ -288,6 +296,28 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
     <p className="muted">{t(lang, "plan_day_add_hint")}</p>
   </> : null;
 
+  // A group chip adds its name to the draft ("Груди" then "Руки" gives "Груди/Руки"), skipping one
+  // already in it; the field stays editable for anything the chips don't cover.
+  const addGroupToName = (label: string) => setDayNameDraft((current) => addGroupToLabel(current, label));
+  const dayNameSheet = () => {
+    if (!sheet || sheet.kind !== "dayname") return null;
+    const { weekday } = sheet;
+    const current = plan.days.find((d) => d.weekday === weekday);
+    if (!current) return null;
+    const draft = dayNameDraft.trim();
+    return <>
+      <h2 className="sheet-title">{t(lang, "plan_day_rename_title", { day: t(lang, WEEKDAY_KEYS[weekday - 1]) })}</h2>
+      <label className="form-field"><span>{t(lang, "plan_day_rename_label")}</span>
+        <input value={dayNameDraft} maxLength={DAY_LABEL_MAX} placeholder={t(lang, "plan_day_rename_ph")} onChange={(event) => setDayNameDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && draft) void renameDay(weekday); }} />
+      </label>
+      <div className="action-sheet">
+        {DAY_GROUPS.map((g) => <button type="button" key={g} className="chip-button" onClick={() => addGroupToName(t(lang, `plan_day_g_${g}` as Key))}>{t(lang, `plan_day_g_${g}` as Key)}</button>)}
+      </div>
+      <button className="button button-primary button-block" disabled={dayBusy !== null || !draft || draft === (current.muscleGroup || current.name)} onClick={() => void renameDay(weekday)}>{dayBusy === `name:${weekday}` ? t(lang, "saving_ellipsis") : t(lang, "save_btn")}</button>
+      <p className="muted">{t(lang, "plan_day_rename_hint")}</p>
+    </>;
+  };
+
   return <div className="view-stack">
     <div className="screen-head"><h1>{clientId ? t(lang, "plan_owner_title", { name: plan.owner.name }) : t(lang, "plan_schedule_title")}</h1><span className="num">{t(lang, "days_count", { n: plan.days.length })}</span></div>
     {onBack && <button className="button button-quiet" onClick={onBack}><Icon name="chevron" size={20} className="flip" />{t(lang, "nav_clients")}</button>}
@@ -312,6 +342,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
             <Icon name="chevron" size={20} className={open ? "row-chevron open" : "row-chevron"} />
           </button>
           {open && <div className="day-body">
+            <button type="button" className="button button-quiet" onClick={() => openRename(weekday, day.muscleGroup || day.name)}><Icon name="pencil" size={20} />{t(lang, "plan_day_rename_btn")}</button>
             <ol className="day-exercises">
               {day.exercises.map((exercise) => <li key={`${exercise.index}-${exercise.name}`}>
                 <button type="button" className="ex-line" onClick={() => setSheet({ kind: "exercise", weekday, index: exercise.index })}>
@@ -369,9 +400,9 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
     {/* Portalled to <body>: the view stack is its own stacking context, so a fixed sheet inside
         it would sit under the bottom nav. */}
     {sheet && createPortal(<div className="sheet-backdrop" onClick={closeSheet}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={sheet.kind === "exercise" ? sheetExercise?.name : sheet.kind === "pick" ? t(lang, "plan_pick_title", { day: t(lang, WEEKDAY_KEYS[sheet.weekday - 1]) }) : t(lang, "plan_day_add_title")} onClick={(event) => event.stopPropagation()}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label={sheet.kind === "exercise" ? sheetExercise?.name : sheet.kind === "pick" ? t(lang, "plan_pick_title", { day: t(lang, WEEKDAY_KEYS[sheet.weekday - 1]) }) : sheet.kind === "dayname" ? t(lang, "plan_day_rename_title", { day: t(lang, WEEKDAY_KEYS[sheet.weekday - 1]) }) : t(lang, "plan_day_add_title")} onClick={(event) => event.stopPropagation()}>
         <div className="sheet-bar"><span className="sheet-handle" aria-hidden="true" /><button type="button" className="icon-button" onClick={closeSheet} aria-label={t(lang, "close")}><Icon name="close" /></button></div>
-        {sheet.kind === "exercise" ? exerciseSheet() : sheet.kind === "pick" ? pickSheet() : addDaySheet()}
+        {sheet.kind === "exercise" ? exerciseSheet() : sheet.kind === "pick" ? pickSheet() : sheet.kind === "dayname" ? dayNameSheet() : addDaySheet()}
       </div>
     </div>, document.body)}
   </div>;

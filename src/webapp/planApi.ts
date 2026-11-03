@@ -145,6 +145,8 @@ function toPlanEdit(body: Record<string, unknown>): PlanEdit | null {
       return { kind: "dayadd", weekday, group: String(body.group ?? "") };
     case "daydel":
       return { kind: "daydel", weekday };
+    case "dayname":
+      return { kind: "dayname", weekday, value: String(body.value ?? "") };
     case "dayswap":
       return { kind: "dayswap", weekday, other: Number(body.other) };
     case "difficulty":
