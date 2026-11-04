@@ -397,14 +397,18 @@ internal fun WeekCardView(lang: String, week: Dashboard.Week) {
 }
 
 @Composable
-private fun questText(q: Dashboard.Week.Quest): String = when (q.kind) {
-    "muscle_sets" -> stringResource(Res.string.td_quest_muscle_sets, muscleLabel(q.muscle ?: ""), q.target.toInt())
-    "workouts" -> stringResource(Res.string.td_quest_workouts, q.target.toInt())
-    "balance" -> stringResource(Res.string.td_quest_balance, q.target.toInt())
-    "water_days" -> stringResource(Res.string.td_quest_water_days, q.target.toInt())
-    "food_days" -> stringResource(Res.string.td_quest_food_days, q.target.toInt())
-    "steps_days" -> stringResource(Res.string.td_quest_steps_days, q.target.toInt())
-    else -> q.kind
+private fun questText(q: Dashboard.Week.Quest): String = questLabel(q.kind, q.muscle, q.target.toInt())
+
+/** One weekly quest as the athlete reads it. Also used by the trainer inbox for a client's finished quests. */
+@Composable
+internal fun questLabel(kind: String, muscle: String?, target: Int): String = when (kind) {
+    "muscle_sets" -> stringResource(Res.string.td_quest_muscle_sets, muscleLabel(muscle ?: ""), target)
+    "workouts" -> stringResource(Res.string.td_quest_workouts, target)
+    "balance" -> stringResource(Res.string.td_quest_balance, target)
+    "water_days" -> stringResource(Res.string.td_quest_water_days, target)
+    "food_days" -> stringResource(Res.string.td_quest_food_days, target)
+    "steps_days" -> stringResource(Res.string.td_quest_steps_days, target)
+    else -> kind
 }
 
 /** Last week in one card until dismissed (see lastWeekSummary). */

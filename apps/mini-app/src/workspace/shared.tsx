@@ -1,5 +1,5 @@
 // Building blocks and payload types shared by the Workspace screens.
-import type { Dashboard, TrainerProfile } from "../types";
+import type { ClientSnapshot, Dashboard, TrainerProfile } from "../types";
 import { t, type Lang } from "../i18n";
 
 export type WorkspaceProps = { dashboard: Dashboard; lang: Lang; onOpenPlan?: (clientId?: number) => void; /** Deep link: open this client's card. */ initialClientId?: number | null; /** Deep link: open this space (e.g. the injury panel in "social"). */ initialSpace?: "social" | "trainer" | "owner" | null };
@@ -35,7 +35,7 @@ export type Boards = {
   consistency?: { rank: number; total: number; top: Array<{ pos: number; name: string; value: number; detail: string; me: boolean }> };
 };
 
-export type TrainerQuestions = { questions: Array<{ id: number; clientId: number; client: string; text: string; draft: string; status: string }> };
+export type TrainerQuestions = { questions: Array<{ id: number; clientId: number; client: string; text: string; draft: string; status: string; context?: ClientSnapshot }> };
 
 export type TrainerRequests = { requests: Array<{ id: number; clientId: number; name: string; note: string }> };
 

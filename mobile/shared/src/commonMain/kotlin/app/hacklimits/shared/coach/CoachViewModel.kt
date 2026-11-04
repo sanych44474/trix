@@ -121,7 +121,7 @@ class CoachViewModel(private val api: CoachApi, private val telemetry: Telemetry
             _state.update { it.copy(applying = "$lineId:$index", actionError = null) }
             try {
                 if (edit == null) api.feedback(action.value.orEmpty(), action.note, key)
-                else api.planEdit(edit.action, edit.weekday, edit.index, edit.value, key)
+                else api.planEdit(edit.action, edit.weekday, edit.index, edit.value, key, edit.expectName)
                 _state.update { markDone(it, lineId, index) }
                 telemetry.track("app_coach_action_${action.kind}")
             } catch (e: ApiException) {
@@ -169,14 +169,14 @@ class CoachViewModel(private val api: CoachApi, private val telemetry: Telemetry
 }
 
 /** A plan edit as the plan API takes it. */
-internal data class PlanEdit(val action: String, val weekday: Int, val index: Int, val value: String?)
+internal data class PlanEdit(val action: String, val weekday: Int, val index: Int, val value: String?, val expectName: String? = null)
 
 /** The plan edit behind a coach action, or null when the app cannot apply it. Swap and add name an exercise; the rest use the value. */
 internal fun CoachAction.toPlanEdit(): PlanEdit? {
     val planAction = planActionFor(kind) ?: return null
     val day = weekday ?: return null
     val payload = if (kind == "swap" || kind == "add") exercise else value
-    return PlanEdit(planAction, day, index ?: -1, payload)
+    return PlanEdit(planAction, day, index ?: -1, payload, target)
 }
 
 private fun markDone(s: CoachState, lineId: Long, index: Int): CoachState =

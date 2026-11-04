@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { Icon, type IconName } from "./icons";
 import { api } from "./api";
 import { t, type Lang } from "./i18n";
+import type { InboxKind } from "./types";
 
-export type InboxKind = "plan_assigned" | "plan_changed" | "message" | "badge" | "progression" | "feedback_done" | "feedback_reply" | "squad_pr" | "squad_week";
 export interface InboxItem { id: number; kind: InboxKind; params: Record<string, unknown>; createdAt: string; read: boolean }
 type Target = "plan" | "progress" | "role" | "today" | "more";
 

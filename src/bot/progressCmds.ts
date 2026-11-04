@@ -2,7 +2,6 @@
 // wellbeing, macro suggestions and the lift charts. Split out of bot.ts (god-file split);
 // bot.ts re-exports everything here, so existing imports keep working.
 import { InlineKeyboard, InputFile } from "grammy";
-import type { Weekday } from "../types";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { userStatCounts } from "../adapters/d1/v2Analytics";
 import { countCompletedWorkouts, listStrength, workoutLogsSince } from "../adapters/d1/v2Workouts";
@@ -33,6 +32,7 @@ import { platePlan, warmupRamp } from "../domain/calc";
 import { progressBar } from "../domain/challenges";
 import { clearEditOwner, reply, setMode, type MyContext, type TKey } from "../adapters/telegram/context";
 import { dashboardUrl } from "../notify/appLinks";
+import { dayTargets } from "../domain/trainingDays";
 
 export async function cmdProgress(ctx: MyContext) {
   const lang = ctx.user.lang;
@@ -270,9 +270,7 @@ export async function onMacrosSuggest(ctx: MyContext) {
   const lang = ctx.user.lang;
   const { date, weekday } = localParts(ctx.user.profile.timezone);
   const plan = await getActivePlan(ctx.db, ctx.user._id);
-  const trainingDays = ctx.user.profile.trainingWeekdays ?? plan?.split.map((d) => d.weekday) ?? [];
-  const isTraining = trainingDays.includes(weekday as Weekday);
-  const targets = (!isTraining && plan?.restDayNutrition) || ctx.user.nutrition;
+  const { targets } = dayTargets({ profile: ctx.user.profile, plan, nutrition: ctx.user.nutrition }, weekday);
   if (!targets) { await reply(ctx, t(lang, "nutrition_no_targets")); return; }
   const meals = await getDayMeals(ctx.db, ctx.user._id, date);
   const tot = meals.reduce((a, m) => ({ k: a.k + num(m.kcal), p: a.p + num(m.protein), f: a.f + num(m.fats), c: a.c + num(m.carbs) }), { k: 0, p: 0, f: 0, c: 0 });

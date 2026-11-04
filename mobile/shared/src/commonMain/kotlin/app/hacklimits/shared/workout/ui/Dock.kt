@@ -46,6 +46,8 @@ import app.hacklimits.shared.workout.logic.REST_ADJUST_SEC
 import app.hacklimits.shared.workout.logic.fmtDuration
 import app.hacklimits.shared.workout.logic.fmtRest
 import app.hacklimits.shared.workout.logic.isExerciseFilled
+import app.hacklimits.shared.workout.logic.RestTick
+import app.hacklimits.shared.workout.logic.restProgress
 import app.hacklimits.shared.workout.logic.restRingPct
 import app.hacklimits.shared.workout.logic.sessionElapsedSec
 import kotlinx.coroutines.delay
@@ -58,9 +60,19 @@ import kotlin.time.ExperimentalTime
 
 /** The rest countdown pinned above the save dock: time left, −15 / +15, and "Next" to stop it. */
 @Composable
+@OptIn(ExperimentalTime::class)
 fun RestBar(vm: LoggerViewModel, rest: RestUi) {
-    val over = rest.done
-    val time = if (over) "+${fmtRest(rest.over)}" else fmtRest(rest.left)
+    // Its own clock: a running rest recomposes this bar only, not the logger screen.
+    var now by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
+    LaunchedEffect(rest.endAtMs) {
+        while (rest.endAtMs != null) {
+            now = Clock.System.now().toEpochMilliseconds()
+            delay(500)
+        }
+    }
+    val live = rest.endAtMs?.let { restProgress(it, now) } ?: RestTick(rest.left, rest.over, rest.done)
+    val over = rest.done || live.done
+    val time = if (over) "+${fmtRest(live.over)}" else fmtRest(live.left)
     val label = when {
         over -> stringResource(Res.string.wk_train_rest_over_label)
         rest.label.isNotBlank() -> rest.label
@@ -81,7 +93,7 @@ fun RestBar(vm: LoggerViewModel, rest: RestUi) {
                 }
                 Button(onClick = { vm.stopRest() }) { Text(stringResource(Res.string.wk_train_rest_next_btn)) }
             }
-            val fraction = (100 - restRingPct(rest.target, rest.left)) / 100f
+            val fraction = (100 - restRingPct(rest.target, live.left)) / 100f
             LinearProgressIndicator(progress = { fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
         }
     }

@@ -28,6 +28,7 @@ import type {
   Weekday,
   WorkoutLogDoc,
 } from "../types";
+import { trainingWeekdaysOf } from "./trainingDays";
 
 export const CALENDAR_DAYS = 84; // 12 weeks
 export const MACRO_DAYS = 7;
@@ -158,9 +159,7 @@ export function assemblePayload(
   const bodyFat = latestBodyFat(bodyLogs, { sex: user.profile.sex, heightCm: user.profile.heightCm });
 
   // 12-week calendar: done / missed (planned weekday in the past, no completed log) / rest.
-  const planned = new Set<Weekday>(
-    user.profile.trainingWeekdays ?? plan?.split.map((d) => d.weekday) ?? [],
-  );
+  const planned = new Set<Weekday>(trainingWeekdaysOf({ profile: user.profile, plan }));
   const doneDates = new Set(workouts.filter((w) => w.completed).map((w) => w.date));
   // Nothing can be "missed" before the person started: the earlier of sign-up and the first
   // logged workout (imports and back-fills can predate sign-up). Without this a new user's

@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.hacklimits.shared.plan.weekdayLabel
+import app.hacklimits.shared.today.questLabel
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.*
 import io.ktor.http.encodeURLParameter
@@ -288,6 +290,7 @@ private fun QuestionCard(question: TrainerQuestion, enabled: Boolean, onAnswer: 
     TrainerPanel {
         Text(question.client, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Text(question.text)
+        if (question.status != "answered") question.context?.let { ClientContextLines(it) }
         if (question.status == "answered") {
             MutedText(stringResource(Res.string.tr_answered))
         } else {
@@ -302,6 +305,34 @@ private fun QuestionCard(question: TrainerQuestion, enabled: Boolean, onAnswer: 
                 Button(onClick = { onAnswer(text.trim()) }, enabled = enabled && text.isNotBlank()) { Text(stringResource(Res.string.tr_send)) }
             }
         }
+    }
+}
+
+/** The client's week, finished quests and last workouts under their question (the Mini App's ClientContext). */
+@Composable
+private fun ClientContextLines(c: ClientSnapshot) {
+    val small = MaterialTheme.typography.bodySmall
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        val week = if (c.weekPlanned > 0) stringResource(Res.string.tr_ctx_week, c.weekDone, c.weekPlanned) else stringResource(Res.string.tr_ctx_week_noplan, c.weekDone)
+        val quests = if (c.quests.isNotEmpty()) " · " + stringResource(Res.string.tr_ctx_quests, c.questsDone, c.quests.size) else ""
+        Text(week + quests, style = small, fontWeight = FontWeight.SemiBold)
+        val done = c.quests.filter { it.done }
+        if (done.isNotEmpty()) Text(done.map { "✓ " + questLabel(it.kind, it.muscle, it.target.toInt()) }.joinToString(" · "), style = small, color = muted)
+        if (c.recent.isEmpty()) Text(stringResource(Res.string.tr_ctx_none), style = small, color = muted)
+        c.recent.forEach { w ->
+            val facts = buildList {
+                add(if (w.planned != null) stringResource(Res.string.tr_ctx_ex, w.done, w.planned) else stringResource(Res.string.tr_ctx_ex_noplan, w.done))
+                w.durationMin?.let { add(stringResource(Res.string.tr_ctx_min, it)) }
+                w.rpe?.let { add("RPE ${if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()}") }
+                if (!w.completed) add(stringResource(Res.string.tr_ctx_unfinished))
+            }.joinToString(", ")
+            val day = stringResource(weekdayLabel(w.weekday)) + " " + w.date.substring(8, 10) + "." + w.date.substring(5, 7)
+            val head = listOfNotNull(day, w.label).joinToString(" · ")
+            val top = if (w.top.isNotEmpty()) " · " + w.top.joinToString(", ") else ""
+            Text("$head — $facts$top", style = small, color = muted)
+        }
+        c.daysSinceLast?.takeIf { it >= 4 }?.let { Text(stringResource(Res.string.tr_ctx_gap, it), style = small, color = MaterialTheme.colorScheme.error) }
     }
 }
 

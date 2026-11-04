@@ -117,19 +117,19 @@ export async function pruneSeenUpdates(db: DB, beforeIso: string): Promise<void>
 
 // Telemetry tables grow unbounded (every AI call / error / button tap writes a row); D1 free
 // tier caps the DB at 5 GB. Weekly sweep drops rows older than the retention window. Same table
-// set as legacy pruneOldLogs, v2-native names: v2_ai_calls/v2_error_events/v2_ai_usage/
-// v2_analytics_events/v2_messages(Domain 7)/v2_audit_events/v2_feedback/v2_plan_source_logs/
-// v2_client_note_history(Domain 7, append-only journal of SUPERSEDED values — pruning old
-// entries loses history, not state, same as legacy).
+// set as legacy pruneOldLogs minus user content, v2-native names: v2_ai_calls/v2_error_events/
+// v2_ai_usage/v2_analytics_events/v2_audit_events/v2_plan_source_logs/v2_client_note_history
+// (Domain 7, append-only journal of SUPERSEDED values: pruning old entries loses history, not state).
+// NOT swept, by the owner's decision: v2_messages (the trainer <-> client conversation, which
+// listMessages serves as the thread) and v2_feedback (users' reports and poll wishes, triaged or
+// not). They are user content, kept until the account is deleted (deleteUserData).
 export async function pruneOldLogs(db: DB, beforeIso: string, beforeDay: string): Promise<void> {
   await db.batch([
     db.prepare("DELETE FROM v2_ai_calls WHERE createdAt < ?").bind(beforeIso),
     db.prepare("DELETE FROM v2_error_events WHERE createdAt < ?").bind(beforeIso),
     db.prepare("DELETE FROM v2_ai_usage WHERE createdAt < ?").bind(beforeIso),
     db.prepare("DELETE FROM v2_analytics_events WHERE date < ?").bind(beforeDay),
-    db.prepare("DELETE FROM v2_messages WHERE createdAt < ?").bind(beforeIso),
     db.prepare("DELETE FROM v2_audit_events WHERE createdAt < ?").bind(beforeIso),
-    db.prepare("DELETE FROM v2_feedback WHERE createdAt < ?").bind(beforeIso),
     db.prepare("DELETE FROM v2_plan_source_logs WHERE createdAt < ?").bind(beforeIso),
     db.prepare("DELETE FROM v2_client_note_history WHERE savedAt < ?").bind(beforeIso),
   ]);

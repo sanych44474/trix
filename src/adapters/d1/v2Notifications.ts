@@ -152,3 +152,12 @@ export async function countNotificationsSince(db: DB, sinceIso: string): Promise
 export async function pruneNotificationOutbox(db: DB, beforeIso: string): Promise<void> {
   await db.prepare("DELETE FROM v2_notifications WHERE createdAt < ? AND status != 'pending'").bind(beforeIso).run();
 }
+
+/** Status of the outbox row for (account, idempotencyKey), or null when there is none. */
+export async function notificationStatus(db: DB, userId: number, idempotencyKey: string): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT status FROM v2_notifications WHERE accountId = ? AND idempotencyKey = ?")
+    .bind(userId, idempotencyKey)
+    .first<{ status: string }>();
+  return row?.status ?? null;
+}

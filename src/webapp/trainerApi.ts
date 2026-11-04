@@ -33,6 +33,7 @@ import { readJsonBody } from "./validate";
 import type { BankPlan, Env, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 import { typedFailure } from "./failure";
+import { loadClientSnapshot } from "../features/trainer/clientSnapshot";
 
 const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|photo-request|interview-nudge|draft)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
@@ -57,7 +58,17 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     const clientIds = [...new Set(qs.map((q) => q.clientId))];
     const clients = await Promise.all(clientIds.map((id) => getUser(env.DB, id).catch(() => null)));
     const names = new Map(clientIds.map((id, i) => [id, clients[i]?.profile.name ?? `id ${id}`]));
-    const out = qs.map((q) => ({ id: q.id, clientId: q.clientId, client: names.get(q.clientId), text: q.text, draft: q.aiDraft ?? "", status: q.status }));
+    // Context for the questions still waiting: one snapshot per client, the same one the trainer's
+    // Telegram message carries. Answered questions don't need it and would only cost reads.
+    const waiting = [...new Set(qs.filter((q) => q.status === "pending").map((q) => q.clientId))];
+    const snapshots = new Map(await Promise.all(waiting.map(async (id) => {
+      const client = clients[clientIds.indexOf(id)];
+      return [id, client ? await loadClientSnapshot(env.DB, client).catch(() => null) : null] as const;
+    })));
+    const out = qs.map((q) => {
+      const context = q.status === "pending" ? snapshots.get(q.clientId) : null;
+      return { id: q.id, clientId: q.clientId, client: names.get(q.clientId), text: q.text, draft: q.aiDraft ?? "", status: q.status, ...(context ? { context } : {}) };
+    });
     return Response.json({ questions: out }, { headers: { "cache-control": "no-store" } });
   }
 
@@ -246,9 +257,12 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     // The question's own status doesn't gate a re-answer (a trainer might legitimately amend),
     // so a lost-response retry must not double-message the client -- idempotency key only.
     const ans = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
-      const client = await getUser(env.DB, q.clientId).catch(() => null);
+      // The answer must be stored before the question closes: a failed read or write throws, so
+      // runIdempotent releases the key (a retry runs again) and the question stays in the inbox.
+      // Only the Telegram ping is best-effort: the client also sees the answer in the app thread.
+      const client = await getUser(env.DB, q.clientId);
       if (client) {
-        await insertMessage(env.DB, user._id, q.clientId, text).catch(() => {});
+        await insertMessage(env.DB, user._id, q.clientId, text);
         // Keyed per call, not per question: a trainer may amend an answer, and runIdempotent already covers a retry.
         await notifySafely(env, { api: rawTelegramApi(env) }, { userId: client._id, chatId: client.chatId }, {
           kind: "trainer_answer",

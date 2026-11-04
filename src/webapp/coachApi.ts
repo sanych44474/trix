@@ -38,6 +38,8 @@ import { readJsonBody } from "./validate";
 import type { Env } from "../types";
 
 import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
+import { loadClientSnapshot, snapshotBlock } from "../features/trainer/clientSnapshot";
+import { snapshotPromptLines } from "../domain/clientSnapshot";
 import { typedFailure } from "./failure";
 const MAX_QUESTION = 500;
 const CLEF_TIMEOUT_MS = 2_000;
@@ -128,6 +130,8 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     const trainerUser = await getUser(env.DB, user.trainerId).catch(() => null);
     if (!trainerUser) return typedFailure(404, "not_found", "not found");
     const qid = await createQuestion(env.DB, user._id, user.trainerId, question, undefined);
+    // The client's week, last workouts and quests: for the AI draft, and under the question itself.
+    const snapshot = await loadClientSnapshot(env.DB, user).catch(() => null);
     const trainerDoc = await getTrainer(env.DB, user.trainerId).catch(() => null);
     const style = trainerDoc
       ? `Match this trainer's own stated style: ${[trainerDoc.specialization, trainerDoc.approach, trainerDoc.bio].filter(Boolean).join(" | ")}. `
@@ -139,7 +143,9 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
         `Never give a medical diagnosis -- for pain, injury, or medical concerns, suggest seeing a professional. ` +
         `Answer in ${trainerUser.lang === "uk" ? "Ukrainian" : "English"}. Plain text only -- no markdown, no LaTeX, no backslashes, max 10 short lines.\n\n` +
         `Client's plan: ${planText}\n` +
-        `Client's last 14 days: ${workoutsDone} workout(s) completed, ${nutritionDays} day(s) of nutrition logged.\n` +
+        (snapshot
+          ? `Client's recent training:\n${snapshotPromptLines(snapshot)}\nNutrition logged on ${nutritionDays} of the last 14 days.\n`
+          : `Client's last 14 days: ${workoutsDone} workout(s) completed, ${nutritionDays} day(s) of nutrition logged.\n`) +
         `Today: ${date}.`,
       user: question,
       temperature: 0.7,
@@ -151,7 +157,9 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
     await tgSend(
       env,
       trainerUser.chatId,
-      t(trainerUser.lang, "trainer_question", { name: user.profile.name ?? `id ${user._id}`, q: question }) + (draft ? `\n\n${escapeHtml(draft)}` : ""),
+      t(trainerUser.lang, "trainer_question", { name: user.profile.name ?? `id ${user._id}`, q: question }) +
+        (snapshot ? `\n\n${snapshotBlock(trainerUser.lang, snapshot)}` : "") +
+        (draft ? `\n\n${escapeHtml(draft)}` : ""),
       // The trainer answers in the app (Workspace → client questions), with the AI draft there.
       appMarkup(env, t(trainerUser.lang, "nb_reply"), "role") ?? {
         inline_keyboard: [
@@ -185,7 +193,7 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
         userId: user._id,
         validate: (parsed) => validateCoachEditResult(parsed),
       });
-      return { answer: cleanAiText(result.reply).slice(0, 1500), actions: miniAppCoachActions(result.actions, question) };
+      return { answer: cleanAiText(result.reply).slice(0, 1500), actions: miniAppCoachActions(result.actions, question, plan?.split ?? []) };
     } catch {
       // The structured call failed on every provider — still answer in plain text.
       const answer = await aiText(env, { system: system + knowledgeBlock(knowledge), user: userMsg, temperature: 0.6, kind: "coach", db: env.DB, userId: user._id }).catch(() => "");

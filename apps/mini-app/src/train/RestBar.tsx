@@ -1,5 +1,6 @@
 import { t, type Lang } from "../i18n";
-import { fmtRest, REST_ADJUST_SEC, restRingPct } from "../logic/rest";
+import { useEffect, useState } from "react";
+import { fmtRest, REST_ADJUST_SEC, restProgress, restRingPct } from "../logic/rest";
 import type { RestState } from "./useSession";
 
 /** The rest timer, pinned to the bottom of the focus screen: a large clock, −15 / +15 and "Next"
@@ -10,11 +11,24 @@ export function RestBar({ lang, rest, onAdjust, onSkip }: {
   onAdjust: (delta: number) => void;
   onSkip: () => void;
 }) {
-  const time = rest.done ? `+${fmtRest(rest.over)}` : fmtRest(rest.left);
+  // The bar keeps its own clock, so a running rest re-renders this bar and nothing else.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (rest.endAt == null) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [rest.endAt]);
+  const live = rest.endAt != null ? restProgress(rest.endAt, now) : { left: rest.left, over: rest.over, done: rest.done };
+  const done = rest.done || live.done;
+  const time = done ? `+${fmtRest(live.over)}` : fmtRest(live.left);
+  // transform, not width: a scaled bar is composited on the GPU; a width change re-lays out the
+  // pinned bar on every animation frame of every tick.
+  const fill = (100 - restRingPct(rest.target, live.left)) / 100;
   return (
-    <div className={rest.done ? "rest-bar over" : "rest-bar"} role="status" aria-live="polite">
+    <div className={done ? "rest-bar over" : "rest-bar"} role="status" aria-live="polite">
       <div className="rest-main">
-        <span className="rest-label">{rest.done ? t(lang, "train_rest_over_label") : rest.label || t(lang, "train_resting_label")}</span>
+        <span className="rest-label">{done ? t(lang, "train_rest_over_label") : rest.label || t(lang, "train_resting_label")}</span>
         <span className="rest-time num">{time}</span>
       </div>
       <div className="rest-actions">
@@ -22,7 +36,7 @@ export function RestBar({ lang, rest, onAdjust, onSkip }: {
         <button type="button" className="rest-adjust num" onClick={() => onAdjust(REST_ADJUST_SEC)} aria-label={t(lang, "train_rest_plus_aria", { sec: REST_ADJUST_SEC })}>+{REST_ADJUST_SEC}</button>
         <button type="button" className="rest-skip" onClick={onSkip}>{t(lang, "train_rest_next_btn")}</button>
       </div>
-      <div className="rest-track" aria-hidden="true"><span style={{ width: `${100 - restRingPct(rest.target, rest.left)}%` }} /></div>
+      <div className="rest-track" aria-hidden="true"><span style={{ transform: `scaleX(${fill})` }} /></div>
     </div>
   );
 }

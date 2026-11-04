@@ -22,6 +22,21 @@ data class RestUi(
     val label: String = "",
 )
 
+/**
+ * The rest state after a tick. Returns [current] itself unless the rest changed phase (counting
+ * down -> over, or over past REST_OVERRUN_CAP_SEC -> closed), so the logger's state flow does not
+ * emit on every tick. The seconds are the rest bar's own clock (RestBar). The view model used to
+ * write a new `left` every second, recomposing the whole logger screen and every exercise card.
+ * Mirrors nextRestState in apps/mini-app/src/logic/rest.ts.
+ */
+fun nextRestUi(current: RestUi, endAtMs: Long, nowMs: Long): RestUi {
+    if (current.endAtMs != endAtMs) return current
+    val tick = app.hacklimits.shared.workout.logic.restProgress(endAtMs, nowMs)
+    if (!tick.done) return if (current.done) current.copy(done = false, over = 0) else current
+    if (tick.over >= app.hacklimits.shared.workout.logic.REST_OVERRUN_CAP_SEC) return RestUi(target = current.target)
+    return if (current.done) current else current.copy(left = 0, done = true)
+}
+
 data class PlatesUi(
     val kgText: String = "",
     val result: PlatesResponse? = null,

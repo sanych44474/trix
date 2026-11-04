@@ -3,6 +3,7 @@ import { api, typedBody } from "../api";
 import {
   clampRest, EMPTY_QUALITY, parseRestPrefs, REST_OVERRUN_CAP_SEC, REST_PREFS_KEY, restProgress, scoreRest,
   DEFAULT_REST_PREFS, DEFAULT_REST_SEC, type RestPrefs,
+  nextRestState,
 } from "../logic/rest";
 import type { SessionClock } from "../logic/logger";
 import { resumableRest, type RunningRest } from "../logic/loggerOrder";
@@ -99,9 +100,12 @@ export function useSession() {
     let warned = -1;
     let fired = false;
     const tick = () => {
-      const { left, over, done } = restProgress(endAt, Date.now());
+      const now = Date.now();
+      const { left, over, done } = restProgress(endAt, now);
+      // State changes only when the rest changes phase; the seconds are RestBar's own clock.
+      // Writing `left` here re-rendered the whole workout screen twice a second.
+      setRest((current) => nextRestState(current, endAt, now));
       if (!done) {
-        setRest((current) => current.endAt === endAt ? { ...current, left, over: 0 } : current);
         // 3-2-1 countdown, one light tap per second, so the last seconds are felt not watched.
         if (left <= 3 && left !== warned) {
           warned = left;
@@ -109,8 +113,7 @@ export function useSession() {
         }
         return;
       }
-      if (over >= REST_OVERRUN_CAP_SEC) { setRest((current) => current.endAt === endAt ? { ...current, endAt: null, done: false, over: 0 } : current); return; }
-      setRest((current) => current.endAt === endAt ? { ...current, left: 0, over, done: true } : current);
+      if (over >= REST_OVERRUN_CAP_SEC) return;
       if (!fired) {
         fired = true;
         window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success");

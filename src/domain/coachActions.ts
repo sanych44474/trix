@@ -12,6 +12,9 @@ interface CoachAction {
   value?: string;
   /** feedback only: the user's own message, attached by the server (never by the model). */
   note?: string;
+  /** delete/swap/weight/sets in the app: the exercise's current name at (weekday, index), attached
+   *  by the server. Clients send it as expectName, so a target that moved is refused, not mis-edited. */
+  target?: string;
 }
 
 const actionSchema = z.object({
@@ -70,11 +73,18 @@ export function validateCoachActionForApply(raw: unknown, callbackKind: string):
   return result.data;
 }
 
+const TARGETED = new Set<CoachActionKind>(["delete", "swap", "weight", "sets"]);
+
 /** The coach actions the Mini App can apply itself (through its plan editor, /api/v2/plan, and
  *  the coach feedback route): concrete edits with every field they need. "harder"/"easier" and
  *  a swap without a named replacement need the bot's pickers, so they're left out there. The
  *  user's own message rides on a feedback action as its `note` (never the model's). */
-export function miniAppCoachActions(actions: CoachAction[] | undefined, userText: string): CoachAction[] {
+export function miniAppCoachActions(
+  actions: CoachAction[] | undefined,
+  userText: string,
+  split: Array<{ weekday: number; exercises: Array<{ name: string }> }> = [],
+): CoachAction[] {
+  const nameAt = (a: CoachAction) => split.find((d) => d.weekday === a.weekday)?.exercises[a.index ?? -1]?.name;
   return (actions ?? [])
     .filter((a) => {
       if (a.kind === "weight" || a.kind === "sets") return a.weekday !== undefined && a.index !== undefined && !!a.value;
@@ -83,6 +93,9 @@ export function miniAppCoachActions(actions: CoachAction[] | undefined, userText
       if (a.kind === "add") return a.weekday !== undefined && !!a.exercise;
       return a.kind === "feedback" && !!a.value;
     })
+    // A targeted edit names an exercise the plan has now; one that points past the day (or at a day
+    // the plan doesn't train) would only fail when tapped, so it is not offered.
+    .filter((a) => !TARGETED.has(a.kind) || nameAt(a) !== undefined)
     .slice(0, 4)
-    .map((a) => (a.kind === "feedback" ? { ...a, note: userText.slice(0, 1000) } : a));
+    .map((a) => (a.kind === "feedback" ? { ...a, note: userText.slice(0, 1000) } : TARGETED.has(a.kind) ? { ...a, target: nameAt(a) } : a));
 }

@@ -478,17 +478,14 @@ class LoggerViewModel(
         restJob?.cancel()
         restJob = viewModelScope.launch {
             while (true) {
-                val tick = restProgress(endAtMs, nowMs())
-                if (!tick.done) {
-                    _ui.value = _ui.value.let { s -> if (s.rest.endAtMs == endAtMs) s.copy(rest = s.rest.copy(left = tick.left, over = 0)) else s }
-                } else if (tick.over >= REST_OVERRUN_CAP_SEC) {
-                    _ui.value = _ui.value.let { s -> if (s.rest.endAtMs == endAtMs) s.copy(rest = RestUi(target = s.rest.target)) else s }
+                val now = nowMs()
+                val tick = restProgress(endAtMs, now)
+                // Only phase changes reach the state (the flow skips an equal value); RestBar runs
+                // its own clock for the seconds.
+                _ui.value = _ui.value.let { s -> s.copy(rest = nextRestUi(s.rest, endAtMs, now)) }
+                if (tick.done && tick.over >= REST_OVERRUN_CAP_SEC) {
                     persistRest()
                     break
-                } else {
-                    _ui.value = _ui.value.let { s ->
-                        if (s.rest.endAtMs == endAtMs) s.copy(rest = s.rest.copy(left = 0, over = tick.over, done = true)) else s
-                    }
                 }
                 delay(500)
             }

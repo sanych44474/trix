@@ -494,7 +494,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
       onPress={() => void save()} restBar={restBar}
     />
   );
-  const title = workout.title || workout.muscleGroup || t(lang, "training_session_title");
+  const title = workout.muscleGroup || t(lang, "training_session_title");
   const notes = <>
     {planNotice && <div className="offline-banner done" role="status" onClick={() => setPlanNotice(null)}>{planNotice}</div>}
     {actionError !== null && (

@@ -51,6 +51,8 @@ data class CoachAction(
     val exercise: String? = null,
     val value: String? = null,
     val note: String? = null,
+    /** delete/swap/weight/sets: the exercise's current name at (weekday, index), sent back as expectName. */
+    val target: String? = null,
 )
 
 /** One earlier turn, for the coach's short memory. The server reads the last six only. */
@@ -101,7 +103,7 @@ class CoachApi(private val api: ApiClient) {
     }
 
     /** One plan edit from a coach action. [action] is the plan API's word (see [planActionFor]). */
-    suspend fun planEdit(action: String, weekday: Int, index: Int, value: String?, key: String) {
+    suspend fun planEdit(action: String, weekday: Int, index: Int, value: String?, key: String, expectName: String? = null) {
         api.unwrap<JsonObject>(api.http.post("api/v2/plan") {
             api.authorize(this)
             header("Idempotency-Key", key)
@@ -111,6 +113,9 @@ class CoachApi(private val api: ApiClient) {
                 put("weekday", weekday)
                 put("index", index)
                 value?.let { put("value", it) }
+                // A target that moved since the answer (an earlier action, another edit) is refused
+                // with 409 stale instead of editing whatever exercise now sits at that index.
+                expectName?.let { put("expectName", it) }
             })
         })
     }

@@ -18,7 +18,7 @@ import { allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts"
 import { awardAchievement, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
 import { getActivePlan, listActivePlans, setProgressionRate } from "./adapters/d1/v2Plans";
 import { bodyLogsByUser, } from "./adapters/d1/v2Tracking";
-import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, listVacationEnded, markComebackDone, updateUser } from "./adapters/d1/v2Users";
+import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, updateUser } from "./adapters/d1/v2Users";
 import { evaluateProgressionRate, } from "./domain/progression";
 import { localParts } from "./domain/localTime";
 import { isoWeekKey, } from "./domain/records";
@@ -39,7 +39,7 @@ import { stravaConfig } from "./features/strava/stravaSync";
 import { runGlobalJobs } from "./schedulerJobs/global";
 import { postSquadRecaps, processBuddyDuels, SQUAD_RECAP_HOUR_UTC, SQUAD_RECAP_BATCH } from "./schedulerJobs/social";
 import { weeklyDigest } from "./schedulerJobs/weeklyDigest";
-import type { UserPass } from "./schedulerJobs/userPass";
+import { reminderKey, type UserPass } from "./schedulerJobs/userPass";
 import { adaptiveCalories } from "./schedulerJobs/adaptiveCalories";
 import { smartReminderHour } from "./schedulerJobs/smartReminderHour";
 import { trainerAtRiskAlert } from "./schedulerJobs/trainerAtRisk";
@@ -54,6 +54,8 @@ import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
 import { runOncePer } from "./schedulerJobs/runOncePer";
 // Public surface kept here so existing `from "./scheduler"` imports keep working.
 import type { Sender } from "./schedulerJobs/shared";
+import { isTrainingDay as trainsOnDay, trainingWeekdaysOf } from "./domain/trainingDays";
+import { runComebackOpeners } from "./schedulerJobs/comebackOpener";
 
 
 // The reminders of one pass in priority order (see the loop in processUser). `counted` ones use
@@ -354,37 +356,7 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
     logInfo("user_pass", { users: users.length, processed, failed, sends, durationMs: Date.now() - passStartMs });
   }
 
-  // Vacation ended → run the comeback interview once. Set the session and send the opener + first
-  // (free-text) question; the user's replies are then handled by the normal bot flow.
-  const nowIso = new Date().toISOString();
-  const ended = await listVacationEnded(db, nowIso).catch(() => [] as UserDoc[]);
-  for (const u of ended) {
-    if (u.blocked || u.botBlocked) {
-      await markComebackDone(db, u._id, nowIso).catch(() => {});
-      continue;
-    }
-    try {
-      // Deliver BEFORE committing the state change. The old order marked the interview done and
-      // put the user in `comeback` mode first, so a failed send left them parked in a mode whose
-      // opening question they never saw -- their next message was then read as an answer to a
-      // question the bot never asked. Enqueue-and-deliver also means a transient failure retries
-      // from the outbox instead of being lost, and an un-marked user is simply picked up again on
-      // the next tick (a duplicate opener being the worst case, not a silent dead end).
-      const delivered = await notify(env, bot, { userId: u._id, chatId: u.chatId }, {
-        kind: "comeback_opener",
-        key: `${nowIso.slice(0, 10)}:comeback:${u._id}`,
-        text: `${t(u.lang, "vacation_ended")}\n\n${t(u.lang, "comeback_q_feel")}`,
-        extra: HTML,
-      });
-      if (delivered === "failed" || delivered === "blocked") continue;
-      // All notifications off: no opener was shown, so don't park them in the interview.
-      if (delivered === "muted") { await markComebackDone(db, u._id, nowIso); continue; }
-      await updateUser(db, u._id, { session: { mode: "comeback", comeback: { step: 0, answers: {} } } });
-      await markComebackDone(db, u._id, nowIso);
-    } catch (err) {
-      logSchedulerError(db, "comeback_opener", err, u._id);
-    }
-  }
+  await runComebackOpeners(env, bot, db);
 }
 
 export interface SharedPass {
@@ -442,12 +414,12 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // silently dropped (roadmap item 3, see schedulerOutbox.ts). A 403 still means the user
   // blocked the bot → flag them so we stop trying for the rest of this invocation.
   let botBlocked = false;
-  const send = async (text: string, extra?: Parameters<typeof bot.api.sendMessage>[2]): Promise<DeliveryResult> => {
+  const send = async (text: string, extra?: Parameters<typeof bot.api.sendMessage>[2], key?: string): Promise<DeliveryResult> => {
     if (botBlocked) return "blocked";
     // Same message text to the same user on the same local day collapses to one outbox row —
     // defense in depth against a double-enqueue, not the primary dedup (that's the cutover
     // mutual-exclusion flag, durable/cutover.ts, which decides whether this call happens at all).
-    const idempotencyKey = `${date}:${text.slice(0, 200)}`;
+    const idempotencyKey = reminderKey(date, text, key);
     const result = await notify(env, bot, { userId: user._id, chatId: reachChatId }, {
       kind: "reminder",
       key: idempotencyKey,
@@ -498,9 +470,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // uses) — falling back to the profile's chosen weekdays only when there's no plan. This keeps
   // reminders consistent with the plan even if profile.trainingWeekdays drifts / is empty.
   const activePlan = pass.planByUser.get(user._id) ?? null;
-  const planDays = new Set((activePlan?.split ?? []).map((d) => d.weekday));
-  const trainsOn = (wd: Weekday) =>
-    planDays.size ? planDays.has(wd) : (user.profile.trainingWeekdays ?? []).includes(wd);
+  const planDays = new Set(trainingWeekdaysOf({ profile: { trainingWeekdays: [] }, plan: activePlan }));
+  const trainsOn = (wd: Weekday): boolean => trainsOnDay({ profile: user.profile, plan: activePlan }, wd);
   const isTrainingDay = trainsOn(weekday as Weekday);
   // Today's workout log — from the bulk prefetch, reused by the workout/checkin/wellbeing/
   // tomorrow gates (so the same day's training nudges agree and don't each re-query).

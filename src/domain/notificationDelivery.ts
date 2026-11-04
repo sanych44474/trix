@@ -44,3 +44,28 @@ export function classifySendError(info: SendErrorInfo, attemptsSoFar: number): D
   if (attempts >= MAX_DELIVERY_ATTEMPTS) return { kind: "permanent_failure" };
   return { kind: "retry", nextAttemptAt: new Date(Date.now() + computeBackoffMs(attempts)) };
 }
+
+/**
+ * What to do with a state change that must follow a delivered message (the comeback interview:
+ * its first question is in the message, so the user may only be put in the interview once they
+ * have it). `result` is the send's outcome; on "duplicate" the existing outbox row's status says
+ * what actually happened to the first attempt.
+ *   - commit:  the message reached them; change the state.
+ *   - wait:    still in flight (pending / retrying); decide on a later tick.
+ *   - give_up: it will never arrive; close the flow without the state change.
+ */
+export type AfterDelivery = "commit" | "wait" | "give_up";
+
+export function afterDelivery(
+  result: "sent" | "blocked" | "retrying" | "failed" | "duplicate" | "muted",
+  existingStatus?: string | null,
+): AfterDelivery {
+  if (result === "sent") return "commit";
+  if (result === "retrying") return "wait";
+  if (result === "duplicate") {
+    if (existingStatus === "sent") return "commit";
+    if (existingStatus === "pending") return "wait";
+    return "give_up";
+  }
+  return "give_up";
+}

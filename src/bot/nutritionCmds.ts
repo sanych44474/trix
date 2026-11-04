@@ -2,7 +2,6 @@
 // tracker. Split out of bot.ts (god-file split); bot.ts re-exports everything here.
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
-import type { Weekday } from "../types";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { addWater, getStepLog, getWater, setWater, upsertStepLog } from "../adapters/d1/v2Tracking";
 import { updateUser } from "../adapters/d1/v2Users";
@@ -20,6 +19,7 @@ import { deferAi } from "../features/aiDefer";
 import { progressBar, resolveWaterGoal } from "../domain/challenges";
 import { clearEditOwner, reply, setMode, type MyContext } from "../adapters/telegram/context";
 import { cleanFoodName } from "../domain/foodName";
+import { dayTargets } from "../domain/trainingDays";
 
 export async function cmdNutrition(ctx: MyContext) {
   await setMode(ctx, "nutrition");
@@ -41,9 +41,7 @@ async function showFoodLog(ctx: MyContext) {
     { kcal: 0, p: 0, f: 0, c: 0 },
   );
   const plan = await getActivePlan(ctx.db, ctx.user._id);
-  const trainingDays = ctx.user.profile.trainingWeekdays ?? plan?.split.map((d) => d.weekday) ?? [];
-  const isTraining = trainingDays.includes(weekday as Weekday);
-  const targets = (!isTraining && plan?.restDayNutrition) || ctx.user.nutrition;
+  const { targets } = dayTargets({ profile: ctx.user.profile, plan, nutrition: ctx.user.nutrition }, weekday);
   const lines = meals
     .map((m, i) => {
       const g = num(m.grams);

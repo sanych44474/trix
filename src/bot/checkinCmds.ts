@@ -12,6 +12,7 @@ import { escapeHtml, t } from "../locales/i18n";
 import { MyContext, reply, setMode } from "../adapters/telegram/context";
 import { maybeCelebrateLevel, deferAi } from "../features/aiDefer";
 import { applyAdaptiveCheckin } from "../features/checkin/adaptive";
+import { isTrainingDay } from "../domain/trainingDays";
 
 export async function cmdCheckin(ctx: MyContext) {
   const lang = ctx.user.lang;
@@ -53,7 +54,8 @@ export async function handleCheckinCallback(ctx: MyContext, data: string) {
     // ONLY when a session is still ahead today (training day, not yet logged) — else frame it as
     // recovery so we never tell someone to train on a rest day or after they've already trained.
     const low = [energy, sleep, stress].filter((v) => v <= 2).length >= 2;
-    const trainingToday = (ctx.user.profile.trainingWeekdays ?? []).includes(weekday);
+    const plan = await getActivePlan(ctx.db, ctx.user._id).catch(() => null);
+    const trainingToday = isTrainingDay({ profile: ctx.user.profile, plan }, weekday);
     const trainedAlready = trainingToday ? !!(await getWorkoutLog(ctx.db, ctx.user._id, date)) : false;
     const key = low ? "checkin_low" : trainingToday && !trainedAlready ? "checkin_ok" : "checkin_ok_rest";
     await reply(ctx, t(lang, key), menuBtn(lang));

@@ -15,6 +15,7 @@ import { isCutOver } from "./cutover";
 import { logDryRun } from "./dryrunLog";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
+import { dryRunEnv } from "./dryRunEnv";
 import { logInfo, runWithRequestId } from "../log";
 
 const ALARM_INTERVAL_MS = 60 * 60 * 1000; // hourly, matching the cron path's own cadence
@@ -59,7 +60,8 @@ export class GlobalSchedulerDO extends DurableObject<Env> {
     }
 
     const writes: { sql: string; params: unknown[] }[] = [];
-    const shadowEnv: Env = { ...this.env, DB: shadowD1(this.env.DB, (w) => writes.push(w)) };
+    // No outbound credentials: a dry run decides, it never pushes, calls AI or contacts anyone.
+    const shadowEnv: Env = dryRunEnv(this.env, shadowD1(this.env.DB, (w) => writes.push(w)));
 
     const sends: { chatId: number; text: string }[] = [];
     const sender: Sender = {
