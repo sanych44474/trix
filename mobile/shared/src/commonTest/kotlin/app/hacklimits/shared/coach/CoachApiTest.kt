@@ -129,6 +129,18 @@ class CoachApiTest {
     }
 
     @Test
+    fun planEditSendsTheTargetAsExpectName() = runTest {
+        var body = ""
+        val coach = api { request ->
+            body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+            respond("""{"data":{},"meta":{"version":2}}""", HttpStatusCode.OK, json)
+        }
+        coach.planEdit("del", weekday = 1, index = 2, value = null, key = "k".repeat(16), expectName = "Row")
+        assertContains(body, "\"expectName\":\"Row\"")
+        assertEquals(PlanEdit("del", 1, 2, null, "Row"), CoachAction("Remove", "delete", weekday = 1, index = 2, target = "Row").toPlanEdit())
+    }
+
+    @Test
     fun coachActionsMapToThePlanEditTheMiniAppSends() {
         assertEquals(PlanEdit("del", 2, 4, null), CoachAction("Remove", "delete", weekday = 2, index = 4).toPlanEdit())
         assertEquals(PlanEdit("swap", 1, -1, "Row"), CoachAction("Swap", "swap", weekday = 1, exercise = "Row", value = "ignored").toPlanEdit())

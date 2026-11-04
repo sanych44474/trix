@@ -100,3 +100,6 @@ export type RecoveryFactorCode = RecoveryFactor["code"];
 // Mirrors src/domain/mesocycle.ts.
 export type MesoPhase = NonNullable<Plan["mesocycle"]>["phase"];
 export type Mesocycle = NonNullable<Plan["mesocycle"]>;
+
+/** A plan edit or feedback the coach suggests; `target` is the exercise name to send as expectName. */
+export type CoachAction = Schemas["CoachAction"];

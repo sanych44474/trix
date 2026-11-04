@@ -8,8 +8,9 @@ import { api, typedBody } from "./api";
 import { t, type Lang } from "./i18n";
 import { track } from "./logic/track";
 import { VoiceButton } from "./media/VoiceButton";
+import type { CoachAction } from "./types";
 
-type Action = { label: string; kind: string; weekday?: number; index?: number; exercise?: string; value?: string; note?: string };
+type Action = CoachAction;
 type Turn = { role: "user" | "coach"; text: string; actions?: Action[]; done?: number[]; bodySignal?: { kind: "injury" | "urgent" } };
 
 const KEY = "trix:v2:coach-chat";
@@ -51,7 +52,7 @@ export function CoachChat({ lang, prefill, onReportInjury }: { lang: Lang; prefi
       } else {
         const action = PLAN_ACTION[a.kind];
         if (!action || !a.weekday) throw new Error("unsupported");
-        await api("/api/v2/plan", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editPlan">({ action, weekday: a.weekday, index: a.index ?? -1, value: a.kind === "swap" || a.kind === "add" ? a.exercise : a.value }) });
+        await api("/api/v2/plan", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editPlan">({ action, weekday: a.weekday, index: a.index ?? -1, value: a.kind === "swap" || a.kind === "add" ? a.exercise : a.value, ...(a.target ? { expectName: a.target } : {}) }) });
       }
       setTurns((prev) => prev.map((x, j) => (j === turnIdx ? { ...x, done: [...(x.done ?? []), i] } : x)));
       track(`app_coach_action_${a.kind}`);

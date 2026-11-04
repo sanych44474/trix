@@ -4392,6 +4392,11 @@ components:
         exercise: {type: string}
         value: {type: string}
         note: {type: string}
+        target:
+          type: string
+          description: >-
+            delete/swap/weight/sets: the exercise's current name at (weekday, index). Send it as
+            expectName on POST /api/v2/plan; a target that moved is refused with 409 stale.
     Envelope:
       type: object
       required: [data]

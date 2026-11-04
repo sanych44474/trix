@@ -185,7 +185,7 @@ export async function handleCoachApi(req: Request, url: URL, env: Env): Promise<
         userId: user._id,
         validate: (parsed) => validateCoachEditResult(parsed),
       });
-      return { answer: cleanAiText(result.reply).slice(0, 1500), actions: miniAppCoachActions(result.actions, question) };
+      return { answer: cleanAiText(result.reply).slice(0, 1500), actions: miniAppCoachActions(result.actions, question, plan?.split ?? []) };
     } catch {
       // The structured call failed on every provider — still answer in plain text.
       const answer = await aiText(env, { system: system + knowledgeBlock(knowledge), user: userMsg, temperature: 0.6, kind: "coach", db: env.DB, userId: user._id }).catch(() => "");

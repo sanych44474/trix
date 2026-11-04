@@ -57,7 +57,8 @@ test("miniAppCoachActions: only edits the app can apply, feedback carries the us
     { label: "Swap?", kind: "swap", weekday: 1, index: 1 },
     { label: "Swap to RDL", kind: "swap", weekday: 1, index: 1, exercise: "Romanian Deadlift" },
     { label: "Send", kind: "feedback", value: "Timer resets." },
-  ], "the timer resets, tell the devs");
+  ], "the timer resets, tell the devs", [{ weekday: 1, exercises: [{ name: "Squat" }, { name: "Leg Curl" }] }]);
   assert.deepEqual(out.map((a) => a.kind), ["weight", "swap", "feedback"]);
+  assert.deepEqual(out.map((a) => a.target), ["Squat", "Leg Curl", undefined], "targeted edits name the exercise they act on");
   assert.equal(out[2]!.note, "the timer resets, tell the devs");
 });
