@@ -59,6 +59,11 @@
     <string name="pl_plan_day_g_arms">Arms</string>
     <string name="pl_plan_day_g_full">Full body</string>
     <string name="pl_plan_day_g_core">Core</string>
+    <string name="pl_plan_day_rename_btn">Rename day</string>
+    <string name="pl_plan_day_rename_title">Day name · %1$s</string>
+    <string name="pl_plan_day_rename_label">Muscle groups</string>
+    <string name="pl_plan_day_rename_ph">e.g. Chest/Triceps</string>
+    <string name="pl_plan_day_rename_hint">Tap a group to add it. Exercises stay as they are; the name shows in the plan, the workout and reminders.</string>
     <string name="pl_kitfit_eyebrow">Equipment</string>
     <string name="pl_kitfit_title">%1$s exercises need equipment you don\'t have</string>
     <string name="pl_kitfit_body">Your equipment: %1$s. Swap them for exercises on the same muscles you can do — sets and days stay the same.</string>

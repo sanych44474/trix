@@ -59,6 +59,11 @@
     <string name="pl_plan_day_g_arms">Руки</string>
     <string name="pl_plan_day_g_full">Усе тіло</string>
     <string name="pl_plan_day_g_core">Кор</string>
+    <string name="pl_plan_day_rename_btn">Перейменувати день</string>
+    <string name="pl_plan_day_rename_title">Назва дня · %1$s</string>
+    <string name="pl_plan_day_rename_label">Групи м\'язів</string>
+    <string name="pl_plan_day_rename_ph">Напр. Груди/Трицепс</string>
+    <string name="pl_plan_day_rename_hint">Натисни групу, щоб додати її. Вправи не зміняться; назву видно в плані, на тренуванні й у нагадуваннях.</string>
     <string name="pl_kitfit_eyebrow">Обладнання</string>
     <string name="pl_kitfit_title">Вправ, для яких немає обладнання: %1$s</string>
     <string name="pl_kitfit_body">Твоє обладнання: %1$s. Заміни їх на вправи на ті самі м\'язи, які ти можеш зробити, — підходи й дні залишаться.</string>

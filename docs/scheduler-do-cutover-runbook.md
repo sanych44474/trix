@@ -1,9 +1,8 @@
 # Scheduler Durable-Object cutover — runbook
 
 Status: the code is complete and shipped; **all three flags are still off (dry-run)**. This file
-is the missing piece — the procedure was spread across `src/durable/cutover.ts`'s header,
-`scripts/verify-scheduler-dryrun.mjs`'s header and `docs/roadmap-next.md`'s P3 table, with the
-preconditions written down nowhere. Everything below is read from the code, with file references
+is the missing piece — the procedure was spread across `src/durable/cutover.ts`'s header and
+`scripts/verify-scheduler-dryrun.mjs`'s header, with the preconditions written down nowhere. Everything below is read from the code, with file references
 so it can be re-checked rather than trusted.
 
 **Every step marked LIVE mutates production and needs explicit per-session approval**, per the
@@ -65,8 +64,7 @@ npx wrangler d1 execute trix --remote --command \
 
 ## Order
 
-`global` → `squad` → `user`, i.e. smallest blast radius first — the reverse of the order the
-roadmap table happens to list them in. Global is one DO doing owner-facing jobs; squad touches
+`global` → `squad` → `user`, i.e. smallest blast radius first. Global is one DO doing owner-facing jobs; squad touches
 group chats; user touches every athlete's reminders and is the only one that can spam or silence
 the whole population. `cutover.ts` is deliberately per-type precisely so these are separate
 decisions.

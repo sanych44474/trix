@@ -1312,14 +1312,16 @@ paths:
                 index: {type: integer, minimum: -1, maximum: 12}
                 action:
                   type: string
-                  enum: [weight, sets, wmode, video, link, del, move, swap, add, note, technique, meso, dayadd, daydel, dayswap, fitkit, difficulty]
+                  enum: [weight, sets, wmode, video, link, del, move, swap, add, note, technique, meso, dayadd, daydel, dayname, dayswap, fitkit, difficulty]
                 value:
                   type: string
                   maxLength: 1000
                   description: >-
                     The edit's payload for every action, including the new exercise name for
                     swap/add, the comment for note (empty clears it; up to 300 characters kept)
-                    and the text for technique. This is what the Mini App sends; prefer it in new clients.
+                    and the text for technique. For dayname it is the day's new label (its muscle groups,
+                    e.g. "Chest/Triceps"): one line, cut to 40 characters, blank is refused.
+                    This is what the Mini App sends; prefer it in new clients.
                 name:
                   type: string
                   minLength: 2

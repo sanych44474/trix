@@ -102,7 +102,11 @@ test("weekmap link: signed, drawable, and a tampered link is refused", async () 
   assert.equal(await weekMapUrl(undefined, "male", zones, env.TELEGRAM_BOT_TOKEN), null, "no worker URL: no picture");
 });
 
-test("weekmap link: a legacy link signed with the raw bot token still draws (already sent in digests)", async () => {
+// Telegram downloads a sendPhoto URL once, at send time, and serves its own copy afterwards; the
+// digest builds the link and sends it in the same run (schedulerJobs/weeklyDigest.ts). So a link
+// MACed with the raw bot token is never fetched again and must not verify: that key is the bot
+// token itself, and accepting it is the cross-purpose replay the per-purpose key exists to stop.
+test("weekmap link: a link signed with the raw bot token is refused", async () => {
   const env = { TELEGRAM_BOT_TOKEN: "123:test" } as unknown as Env;
   const zones = "o".repeat(TRACKED_MUSCLES.length);
   const enc = new TextEncoder();
@@ -110,7 +114,7 @@ test("weekmap link: a legacy link signed with the raw bot token still draws (alr
   const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(`weekmap:m:${zones}`)));
   const sig = [...mac.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
   const legacy = new URL(`https://w.example/weekmap.png?s=m&z=${zones}&sig=${sig}`);
-  assert.equal((await serveWeekMap(legacy, env)).status, 200);
+  assert.equal((await serveWeekMap(legacy, env)).status, 404);
 });
 
 test("rasterizer: packed arc flags parse without NaNs", () => {

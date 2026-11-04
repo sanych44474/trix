@@ -28,12 +28,9 @@ export async function serveWeekMap(url: URL, env: Env): Promise<Response> {
   const s = url.searchParams.get("s") === "f" ? "f" : "m";
   const zones = url.searchParams.get("z") ?? "";
   const sig = url.searchParams.get("sig") ?? "";
-  const token = env.TELEGRAM_BOT_TOKEN;
-  const signed =
-    (await verifyMac(await weekMapKey(token), payload(s, zones), sig, 8)) ||
-    // Legacy: links sent in digests before the per-purpose key existed were MACed with the raw bot
-    // token. Keep accepting them so those pictures still load. Remove once they age out.
-    (await verifyMac(token, payload(s, zones), sig, 8));
+  // Only the per-purpose key. Telegram fetches a sendPhoto URL once, when the digest is sent, and
+  // keeps its own copy, so links signed with the older raw-token key are never requested again.
+  const signed = await verifyMac(await weekMapKey(env.TELEGRAM_BOT_TOKEN), payload(s, zones), sig, 8);
   if (!ZONES.test(zones) || !signed) return new Response("not found", { status: 404 });
   const png = await renderBodyMapPng({ colors: zonesToColors(zones), sex: s === "f" ? "female" : "male" });
   return new Response(png, { headers: { "content-type": "image/png", "cache-control": "public, max-age=31536000, immutable" } });
