@@ -136,3 +136,19 @@ export function restRingPct(targetSec: number, leftSec: number): number {
   if (targetSec <= 0) return 100;
   return Math.max(0, Math.min(100, ((targetSec - leftSec) / targetSec) * 100));
 }
+
+/**
+ * The rest timer's state after a tick, for the session hook. It returns `current` itself (same
+ * reference, so Preact skips the render) unless the rest changed phase: counting down -> over
+ * (done), or over for longer than REST_OVERRUN_CAP_SEC -> closed. The seconds themselves are not
+ * state: RestBar ticks its own clock from endAt. The hook used to write a fresh object with the
+ * new `left` twice a second, which re-rendered the whole workout screen (TrainView and every
+ * exercise card) on every tick of every rest, and made the screen's animations stutter.
+ */
+export function nextRestState<T extends { endAt: number | null; left: number; over: number; done: boolean }>(current: T, endAt: number, now: number): T {
+  if (current.endAt !== endAt) return current;
+  const p = restProgress(endAt, now);
+  if (!p.done) return current.done ? { ...current, done: false, over: 0 } : current;
+  if (p.over >= REST_OVERRUN_CAP_SEC) return { ...current, endAt: null, done: false, over: 0 };
+  return current.done ? current : { ...current, left: 0, done: true };
+}

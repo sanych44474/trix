@@ -149,3 +149,24 @@ test("fmtDuration switches to h:mm:ss past an hour", async () => {
   assert.equal(fmtDuration(3600), "1:00:00");
   assert.equal(fmtDuration(2 * 3600 + 5 * 60 + 7), "2:05:07");
 });
+
+test("nextRestState: ticks inside a phase keep the same state object, so the workout screen does not re-render", async () => {
+  const { nextRestState, REST_OVERRUN_CAP_SEC } = await import("../apps/mini-app/src/logic/rest");
+  const endAt = 1_000_000;
+  const counting = { endAt, left: 90, over: 0, done: false, target: 90, label: "Bench" };
+  // Every half-second tick of the countdown: the very same object.
+  for (const now of [endAt - 89_500, endAt - 60_000, endAt - 1_000, endAt - 1]) assert.equal(nextRestState(counting, endAt, now), counting);
+
+  // Countdown -> over: one new state, then the same object for every tick of the overrun.
+  const over = nextRestState(counting, endAt, endAt + 500);
+  assert.notEqual(over, counting);
+  assert.deepEqual({ done: over.done, left: over.left, endAt: over.endAt }, { done: true, left: 0, endAt });
+  assert.equal(nextRestState(over, endAt, endAt + 30_000), over);
+
+  // Past the overrun cap the rest closes.
+  const closed = nextRestState(over, endAt, endAt + REST_OVERRUN_CAP_SEC * 1000);
+  assert.deepEqual({ endAt: closed.endAt, done: closed.done }, { endAt: null, done: false });
+
+  // A tick from an older rest (the user already started a new one) changes nothing.
+  assert.equal(nextRestState(counting, endAt + 5, endAt + 10), counting);
+});
