@@ -18,6 +18,7 @@ import { WeekCard, WeekSummaryCard } from "./Week";
 import { DeloadHintCard, useTrainingSignals } from "./TrainingSignals";
 import { Icon } from "./icons";
 import { Card } from "./train/ui";
+import { useTyping } from "./useTyping";
 
 // Index 0 = Monday, same order as App.tsx's WEEKDAY_KEYS (kept local: App imports this file).
 const WEEKDAY_SHORT: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed", "weekday_thu", "weekday_fri", "weekday_sat", "weekday_sun"];
@@ -106,10 +107,13 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
   const [native] = useState(canUseMainButton);
   const signals = useTrainingSignals();
   const goRef = useRef(go); goRef.current = go;
+  // Hidden while a field on this screen (steps, fine-tune, comeback) has the keyboard up: the native
+  // button would sit above the keyboard, and a mis-tap there starts the workout.
+  const typing = useTyping();
   useEffect(() => {
-    if (!native || !primary) return;
+    if (!native || !primary || typing) return;
     return showMainButton({ text: action, active: true, progress: false }, () => goRef.current());
-  }, [native, primary, action]);
+  }, [native, primary, action, typing]);
 
   const n = plan.exercises.length;
   const minutes = dashboard.logForm?.minutes ?? 0;

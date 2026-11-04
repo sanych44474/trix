@@ -3,6 +3,7 @@ import { canUseMainButton, showMainButton } from "../telegram";
 import { t, type Lang } from "../i18n";
 import { fmtDuration } from "../logic/rest";
 import { sessionElapsedSec, type SessionClock } from "../logic/logger";
+import { useTyping } from "../useTyping";
 
 export type SyncState = "idle" | "pending" | "synced" | "offline";
 
@@ -11,20 +12,6 @@ export type DockAction =
   | { kind: "update" } // an already-saved day with edits
   | { kind: "backfill"; date: string } // logging a past day
   | { kind: "saved" }; // nothing to save
-
-/** True while a text field has focus, i.e. the on-screen keyboard is (or is about to be) up. */
-function useTyping(): boolean {
-  const [typing, setTyping] = useState(false);
-  useEffect(() => {
-    const isField = (el: EventTarget | null) => el instanceof HTMLElement && (el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el.tagName === "INPUT" && !["button", "checkbox", "radio", "range", "submit"].includes((el as HTMLInputElement).type)));
-    const onIn = (e: FocusEvent) => { if (isField(e.target)) setTyping(true); };
-    const onOut = () => setTimeout(() => setTyping(isField(document.activeElement)), 0);
-    document.addEventListener("focusin", onIn);
-    document.addEventListener("focusout", onOut);
-    return () => { document.removeEventListener("focusin", onIn); document.removeEventListener("focusout", onOut); };
-  }, []);
-  return typing;
-}
 
 function hhmm(epochMs: number): string {
   const d = new Date(epochMs);
