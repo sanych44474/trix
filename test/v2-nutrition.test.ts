@@ -271,3 +271,21 @@ test("getUserFoodCorrection / putUserFoodCorrection: per-user, per-query, upsert
   const other = await getUserFoodCorrection(db, 2, "oats");
   assert.equal(other, null);
 });
+
+// nutritionLogsSince used one query per day for the meals (8 queries for a week). It runs in 17
+// places, the hourly scheduler jobs among them; the meals now come in one query.
+test("nutritionLogsSince: a week of logs in two queries, meals grouped by day in order", async () => {
+  const db = newDb();
+  seedAccount(db, 1);
+  for (const d of ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05", "2026-01-06", "2026-01-07"]) {
+    await appendMeals(db, 1, d, [meal(`${d}-a`), meal(`${d}-b`)]);
+  }
+  let queries = 0;
+  const realPrepare = db.prepare.bind(db);
+  (db as { prepare: typeof db.prepare }).prepare = ((sql: string) => { queries++; return realPrepare(sql); }) as typeof db.prepare;
+  const logs = await nutritionLogsSince(db, 1, "2026-01-01");
+  assert.equal(queries, 2);
+  assert.equal(logs.length, 7);
+  const byDate = new Map(logs.map((l) => [l.date, l.meals.map((m) => m.desc)]));
+  assert.deepEqual(byDate.get("2026-01-03"), ["2026-01-03-a", "2026-01-03-b"]);
+});
