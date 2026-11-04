@@ -56,6 +56,7 @@ import { runOncePer } from "./schedulerJobs/runOncePer";
 import type { Sender } from "./schedulerJobs/shared";
 import { isTrainingDay as trainsOnDay, trainingWeekdaysOf } from "./domain/trainingDays";
 import { runComebackOpeners } from "./schedulerJobs/comebackOpener";
+import { rotateForHour } from "./domain/passOrder";
 
 
 // The reminders of one pass in priority order (see the loop in processUser). `counted` ones use
@@ -92,7 +93,8 @@ export async function runSchedule(env: Env): Promise<void> {
   // Only one cron run at a time. Heavy runs detached via waitUntil can outlive their minute; without
   // this lock the next cron starts concurrently and re-sends the same reminders (identical-spam).
   // Fails closed: running without the lock is what double-sends; a skipped minute only delays.
-  if (!(await acquireScheduleLock(db, Date.now(), 150_000).catch(() => false))) return;
+  const lockedAt = Date.now();
+  if (!(await acquireScheduleLock(db, lockedAt, 150_000).catch(() => false))) return;
   // Heartbeat for the dead-man switch above (stamped after the lock so concurrent runs don't race).
   await setSetting(db, "cron_heartbeat", new Date().toISOString()).catch(() => {});
   const claim: HourClaim = {};
@@ -104,7 +106,7 @@ export async function runSchedule(env: Env): Promise<void> {
     if (claim.hourKey) await setSetting(db, "last_user_pass", claim.previous ?? "").catch(() => {});
     throw err;
   } finally {
-    await releaseScheduleLock(db).catch(() => {});
+    await releaseScheduleLock(db, lockedAt).catch(() => {});
   }
 }
 
@@ -294,7 +296,9 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   // Weekly reports moved into processUser (per-user local timezone at 17:00).
 
   const userCutOver = await isCutOver(db, "user");
-  const users = await listOnboardedUsers(db);
+  // A different start each hour (domain/passOrder.ts): a pass cut short by a Worker limit must not
+  // drop the same users every hour.
+  const users = rotateForHour(await listOnboardedUsers(db), Math.floor(Date.now() / 3_600_000));
   // Bulk-prefetch the two reads EVERY processUser needs — one query for all active plans and
   // one for recent workout logs (covers each timezone's "today") — instead of 2 queries × N
   // users. The rest of processUser's reads are conditional and stay per-user.
