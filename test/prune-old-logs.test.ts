@@ -16,7 +16,9 @@ async function count(db: Awaited<ReturnType<typeof newDb>>, table: string): Prom
   return r?.c ?? 0;
 }
 
-test("pruneOldLogs: trainer messages and note history older than the cutoff go, recent ones stay", async () => {
+// Trainer <-> client messages are the conversation itself, not telemetry: the owner decided they are
+// kept for good (as is feedback, v2-admin.test.ts). Only the note history (superseded values) ages out.
+test("pruneOldLogs: old note history goes, trainer messages of any age stay", async () => {
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "uk", "Coach");
   await getOrCreateUser(db, 2, 2, "uk", "Ann");
@@ -30,7 +32,6 @@ test("pruneOldLogs: trainer messages and note history older than the cutoff go, 
 
   await pruneOldLogs(db, cutoff, cutoff.slice(0, 10));
 
-  for (const table of ["v2_messages", "v2_client_note_history"]) {
-    assert.equal(await count(db, table), 1, `${table} should have exactly the recent row left`);
-  }
+  assert.equal(await count(db, "v2_client_note_history"), 1, "only the recent note history row is left");
+  assert.equal(await count(db, "v2_messages"), 2, "the old message is still in the thread");
 });

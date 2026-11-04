@@ -199,7 +199,7 @@ test("markUpdateSeen dedupes by update id, pruneSeenUpdates removes old rows", a
   assert.equal(left?.c, 0);
 });
 
-test("pruneOldLogs sweeps v2_ai_calls/v2_error_events/v2_ai_usage/v2_analytics_events/v2_feedback/v2_plan_source_logs", async () => {
+test("pruneOldLogs sweeps v2_ai_calls/v2_error_events/v2_ai_usage/v2_analytics_events/v2_plan_source_logs, and keeps feedback", async () => {
   const db = newDb();
   seedAccount(db, 1);
   const old = "2020-01-01T00:00:00.000Z";
@@ -215,7 +215,8 @@ test("pruneOldLogs sweeps v2_ai_calls/v2_error_events/v2_ai_usage/v2_analytics_e
 
   assert.equal(db.prepare("SELECT COUNT(*) AS c FROM v2_ai_calls").first<{ c: number }>()?.c, 0);
   assert.equal(db.prepare("SELECT COUNT(*) AS c FROM v2_error_events").first<{ c: number }>()?.c, 0);
-  assert.equal(db.prepare("SELECT COUNT(*) AS c FROM v2_feedback").first<{ c: number }>()?.c, 0);
+  // Feedback (including untriaged reports and poll wishes) is the users' own words: kept for good.
+  assert.equal(db.prepare("SELECT COUNT(*) AS c FROM v2_feedback").first<{ c: number }>()?.c, 1);
   assert.equal(db.prepare("SELECT COUNT(*) AS c FROM v2_analytics_events").first<{ c: number }>()?.c, 0);
 });
 
