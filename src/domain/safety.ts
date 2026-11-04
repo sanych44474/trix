@@ -32,7 +32,7 @@ export function shouldEscalateForSeverity(severity: Severity): boolean {
   return severity === "strong";
 }
 
-/** Centralizes the pain-check-in escalation threshold (previously inlined in bot/injury.ts as
+/** Centralizes the pain-check-in escalation threshold (previously inlined in the retired bot/injury.ts as
  * `clamped >= 7`) so it's one tested source instead of a magic number at the call site. */
 export function shouldEscalateForPainScore(score: number): boolean {
   return score >= 7;

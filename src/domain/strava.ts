@@ -1,5 +1,5 @@
 // Strava -> trix cardio mapping. Pure and unit-tested (test/strava.test.ts); the HTTP and storage
-// live in src/features/strava/. Names match the bot's own cardio menu (bot/survey.ts), so an
+// live in src/features/strava/. Names match the cardio types the app logs, so an
 // imported run and a run typed in chat are the same exercise to records and conditioning load.
 import type { Lang, LoggedExercise } from "../types";
 

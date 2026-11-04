@@ -7,7 +7,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
 import { coachContext } from "../src/features/coach/coachContext";
-import { coachEditWeekday } from "../src/bot/coach";
 import { setEditOwner } from "../src/adapters/telegram/context";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { applyTrainer, approveTrainer, linkClient } from "../src/adapters/d1/v2Trainer";
@@ -41,25 +40,4 @@ test("coachContext: grounds in the CLIENT's plan/nutrition when a trainer is edi
   const context = await coachContext(ctx as never, client);
   assert.match(context, /Client's Exercise/);
   assert.doesNotMatch(context, /Trainer's Own Exercise/);
-});
-
-test("coachEditWeekday: resolves against the CLIENT's plan when the trainer is editing that client", async () => {
-  const db = newDb();
-  await getOrCreateUser(db, 11, 11, "en", "Coach");
-  await applyTrainer(db, 11, { name: "Coach" });
-  await approveTrainer(db, 11, "code11");
-  const trainer = (await getOrCreateUser(db, 11, 11, "en", "Coach")) as unknown as UserDoc;
-  await getOrCreateUser(db, 21, 21, "en", "Client");
-  await linkClient(db, 21, 11);
-
-  // Trainer's own plan trains weekday 3; the client's trains weekday 5 — if this resolves
-  // against the wrong owner, the returned weekday will betray it.
-  await setActivePlan(db, { ...plan(11, "Trainer Lift"), split: [{ weekday: 3, muscleGroup: "Push", exercises: [{ name: "Trainer Lift", sets: "3x8", startWeight: "50kg", technique: "" }] }] });
-  await setActivePlan(db, { ...plan(21, "Client Lift"), split: [{ weekday: 5, muscleGroup: "Push", exercises: [{ name: "Client Lift", sets: "3x8", startWeight: "50kg", technique: "" }] }] });
-
-  const { ctx } = makeCtx(db, trainer as unknown as Record<string, unknown>);
-  await setEditOwner(ctx as never, 21, "cl");
-
-  const weekday = await coachEditWeekday(ctx as never);
-  assert.equal(weekday, 5);
 });

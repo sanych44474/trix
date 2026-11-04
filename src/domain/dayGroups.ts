@@ -3,7 +3,7 @@
 // starter exercises.
 //
 // Pure data, kept in domain/ rather than in either adapter, because BOTH surfaces build days
-// from it -- the bot's day manager (src/bot/planDays.ts) and the Mini App's plan editor
+// from it -- the Mini App's plan editor
 // (src/webapp/planApi.ts). It previously lived in the bot module; importing it from there made
 // the webapp depend on the bot (and on grammY) for a list of strings, which inverts the layering
 // the rest of the codebase keeps.

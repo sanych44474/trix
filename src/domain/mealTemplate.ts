@@ -13,7 +13,7 @@ interface TemplateMealDay {
 
 // Allergen chip → curated food-name substrings to exclude. Matched as substrings, so "egg"
 // also drops "scrambled eggs", "fish" drops nothing here (handled by the explicit seafood
-// list). Mirrors the 6 chips in MP_ALLERGENS (src/bot/mealPlanCmds.ts).
+// list). These are the 6 allergen chips the meal plan offers.
 const ALLERGEN_EXCLUDES: Record<string, string[]> = {
   lactose: ["milk", "yogurt", "kefir", "cheese", "cheddar", "mozzarella", "parmesan", "feta", "gouda", "ricotta", "cream", "swiss", "whey protein", "butter", "ghee"],
   gluten: ["bread", "pasta", "noodles", "couscous", "bulgur", "semolina", "flour", "bagel", "tortilla", "granola", "cornflakes", "barley", "seitan"],

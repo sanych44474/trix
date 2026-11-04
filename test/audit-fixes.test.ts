@@ -47,9 +47,8 @@ test("photos: with body consent the trainer passes the check and sees the galler
   assert.equal(card.photos?.length, 1);
 });
 
-test("names in HTML notifications are escaped (injury → trainer, at-risk alert, referral joined)", () => {
+test("names in HTML notifications are escaped (at-risk alert, referral joined)", () => {
   for (const [file, needle] of [
-    ["src/bot/injury.ts", "const who = escapeHtml(ctx.user.profile.name"],
     ["src/schedulerJobs/trainerAtRisk.ts", "const name = escapeHtml(user.profile.name"],
     ["src/scheduler.ts", "const name = escapeHtml(user.profile.name"],
   ] as const) {

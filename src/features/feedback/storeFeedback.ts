@@ -1,5 +1,5 @@
 // Storing a piece of user feedback (the inbox the owner triages), shared by the bot's feedback
-// flow and the Mini App coach's "send as feedback" action. Moved from bot/feedbackIntake.ts.
+// flow and the Mini App coach's "send as feedback" action. (The bot's own chat intake was retired with the chat, ADR-0012.)
 import { getOwnerChatId } from "../../adapters/d1/v2Admin";
 import { feedbackReplyMarkup } from "./replyFeedback";
 import { insertFeedback } from "../../adapters/d1/v2Feedback";
