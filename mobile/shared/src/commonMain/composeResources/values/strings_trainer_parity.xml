@@ -33,6 +33,15 @@
     <string name="tr_answered">Answered</string>
     <string name="tr_answer_ph">Write a useful answer</string>
     <string name="tr_send">Send</string>
+    <string name="tr_ctx_week">This week: %1$s/%2$s workouts</string>
+    <string name="tr_ctx_week_noplan">This week: %1$s workouts</string>
+    <string name="tr_ctx_quests">Quests %1$s/%2$s</string>
+    <string name="tr_ctx_ex">%1$s/%2$s ex.</string>
+    <string name="tr_ctx_ex_noplan">%1$s ex.</string>
+    <string name="tr_ctx_min">%1$s min</string>
+    <string name="tr_ctx_unfinished">not finished</string>
+    <string name="tr_ctx_none">No workouts in the last 14 days</string>
+    <string name="tr_ctx_gap">Last workout %1$s days ago</string>
     <string name="tr_questions_hint">Questions from clients will appear here.</string>
     <string name="tr_fc_eyebrow">Getting started</string>
     <string name="tr_fc_title">Your first client</string>

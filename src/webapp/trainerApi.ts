@@ -33,6 +33,7 @@ import { readJsonBody } from "./validate";
 import type { BankPlan, Env, UserDoc } from "../types";
 import { apiFailure } from "./apiError";
 import { typedFailure } from "./failure";
+import { loadClientSnapshot } from "../features/trainer/clientSnapshot";
 
 const ROUTE = /^\/api\/trainer\/client\/(\d+)\/(card|note|flag|photo-request|interview-nudge|draft)$/;
 const ANSWER_ROUTE = /^\/api\/trainer\/question\/(\d+)\/answer$/;
@@ -57,7 +58,17 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     const clientIds = [...new Set(qs.map((q) => q.clientId))];
     const clients = await Promise.all(clientIds.map((id) => getUser(env.DB, id).catch(() => null)));
     const names = new Map(clientIds.map((id, i) => [id, clients[i]?.profile.name ?? `id ${id}`]));
-    const out = qs.map((q) => ({ id: q.id, clientId: q.clientId, client: names.get(q.clientId), text: q.text, draft: q.aiDraft ?? "", status: q.status }));
+    // Context for the questions still waiting: one snapshot per client, the same one the trainer's
+    // Telegram message carries. Answered questions don't need it and would only cost reads.
+    const waiting = [...new Set(qs.filter((q) => q.status === "pending").map((q) => q.clientId))];
+    const snapshots = new Map(await Promise.all(waiting.map(async (id) => {
+      const client = clients[clientIds.indexOf(id)];
+      return [id, client ? await loadClientSnapshot(env.DB, client).catch(() => null) : null] as const;
+    })));
+    const out = qs.map((q) => {
+      const context = q.status === "pending" ? snapshots.get(q.clientId) : null;
+      return { id: q.id, clientId: q.clientId, client: names.get(q.clientId), text: q.text, draft: q.aiDraft ?? "", status: q.status, ...(context ? { context } : {}) };
+    });
     return Response.json({ questions: out }, { headers: { "cache-control": "no-store" } });
   }
 

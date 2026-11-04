@@ -5861,6 +5861,52 @@ components:
         status:
           type: string
           enum: [pending, answered, dismissed]
+        context:
+          description: >-
+            Pending questions only: the client's snapshot (src/domain/clientSnapshot.ts), the same
+            context the trainer's Telegram message carries. Absent when it could not be read.
+          $ref: '#/components/schemas/ClientSnapshot'
+    ClientSnapshot:
+      type: object
+      required: [weekDone, weekPlanned, daysSinceLast, recent, questsDone, quests]
+      properties:
+        weekDone: {type: integer, description: 'Completed workouts dated in the current Monday-Sunday week'}
+        weekPlanned: {type: integer, description: 'Planned sessions this week; 0 = no plan or no training days'}
+        daysSinceLast: {type: integer, nullable: true, description: 'Days since the newest workout in the last 14 days; null when none'}
+        recent:
+          type: array
+          description: Up to 3 workouts from the last 14 days, newest first
+          items:
+            type: object
+            required: [date, weekday, label, completed, done, planned, durationMin, rpe, top]
+            properties:
+              date: {type: string, format: date}
+              weekday: {type: integer, minimum: 1, maximum: 7}
+              label: {type: string, nullable: true, description: "The plan day's label for that weekday"}
+              completed: {type: boolean}
+              done: {type: integer, description: 'Exercises with at least one logged set'}
+              planned: {type: integer, nullable: true, description: 'Exercises the plan day holds; null when not a plan day'}
+              durationMin: {type: integer, nullable: true}
+              rpe: {type: number, nullable: true}
+              top:
+                type: array
+                description: 'Up to 2 best sets, "Bench Press 80x8"'
+                items: {type: string}
+        questsDone: {type: integer}
+        quests:
+          type: array
+          items:
+            type: object
+            required: [code, kind, current, target, done]
+            properties:
+              code: {type: string}
+              kind:
+                type: string
+                enum: [workouts, muscle_sets, balance, water_days, food_days, steps_days]
+              muscle: {type: string}
+              current: {type: number}
+              target: {type: number}
+              done: {type: boolean}
     TrainerTemplate:
       type: object
       required: [id, name]

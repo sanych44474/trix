@@ -33,6 +33,15 @@
     <string name="tr_answered">Відповідь надано</string>
     <string name="tr_answer_ph">Напиши корисну відповідь</string>
     <string name="tr_send">Надіслати</string>
+    <string name="tr_ctx_week">Цей тиждень: %1$s/%2$s тренувань</string>
+    <string name="tr_ctx_week_noplan">Цей тиждень: %1$s тренувань</string>
+    <string name="tr_ctx_quests">Квести %1$s/%2$s</string>
+    <string name="tr_ctx_ex">%1$s/%2$s впр.</string>
+    <string name="tr_ctx_ex_noplan">%1$s впр.</string>
+    <string name="tr_ctx_min">%1$s хв</string>
+    <string name="tr_ctx_unfinished">не завершено</string>
+    <string name="tr_ctx_none">Жодного тренування за останні 14 днів</string>
+    <string name="tr_ctx_gap">Останнє тренування %1$s дн. тому</string>
     <string name="tr_questions_hint">Запитання від клієнтів з\'являться тут.</string>
     <string name="tr_fc_eyebrow">Перші кроки</string>
     <string name="tr_fc_title">Твій перший клієнт</string>

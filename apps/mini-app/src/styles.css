@@ -1063,3 +1063,4 @@ button { cursor: pointer; }
 .fb-reply { margin: 6px 0; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 8px; }
 .search-ai { display: grid; gap: 6px; margin-top: 12px; }
 .signal-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.client-context { display: grid; gap: 3px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }.client-context small { color: var(--muted); font-size: 12px; line-height: 1.4; }.client-context strong { color: var(--text); font-weight: 600; }.client-context .client-context-gap { color: var(--warn-ink); }

@@ -379,10 +379,14 @@ export function challengeTitleText(lang: Lang, tpl: ChallengeTemplate): string {
 /** Next week's quests for the Sunday digest (domain/quests.ts), as "• …" lines under a header. */
 export function renderQuestLines(lang: Lang, quests: Quest[]): string[] {
   if (!quests.length) return [];
-  const text = (q: Quest) => q.kind === "muscle_sets"
+  return [t(lang, "wreport_quests", { xp: QUEST_XP }), ...quests.map((q) => `• ${questLabel(lang, q)}`)];
+}
+
+/** One quest as the user reads it ("Hamstrings: 6 sets this week"), HTML-escaped. */
+export function questLabel(lang: Lang, q: Pick<Quest, "kind" | "target" | "muscle">): string {
+  return q.kind === "muscle_sets"
     ? t(lang, "quest_muscle_sets", { n: q.target, muscle: capitalize(t(lang, `mus_${(q.muscle ?? "").replace("-", "_")}` as Parameters<typeof t>[1])) })
     : t(lang, `quest_${q.kind}` as Parameters<typeof t>[1], { n: q.target });
-  return [t(lang, "wreport_quests", { xp: QUEST_XP }), ...quests.map((q) => `• ${text(q)}`)];
 }
 
 function capitalize(s: string): string {

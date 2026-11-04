@@ -100,3 +100,6 @@ export type RecoveryFactorCode = RecoveryFactor["code"];
 // Mirrors src/domain/mesocycle.ts.
 export type MesoPhase = NonNullable<Plan["mesocycle"]>["phase"];
 export type Mesocycle = NonNullable<Plan["mesocycle"]>;
+
+/** A client's week, recent workouts and quests, next to their question in the trainer inbox. */
+export type ClientSnapshot = Schemas["ClientSnapshot"];
