@@ -417,7 +417,7 @@ export async function createCustomExercise(
   // The video and the muscles (so the body map counts it from the first set) in parallel.
   const [video, muscles] = await Promise.all([
     lookupExerciseVideoCached(env.DB, env, name).catch(() => undefined),
-    learnExerciseMuscles(env, name).catch(() => null),
+    learnExerciseMuscles(env, name, user._id).catch(() => null),
   ]);
   let url = video?.url ?? undefined;
   if (url) url = await buildVideoOpenLink(env.WORKER_URL, url, user._id, env.TELEGRAM_BOT_TOKEN);
