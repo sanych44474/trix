@@ -106,3 +106,6 @@ export type CoachAction = Schemas["CoachAction"];
 
 /** Inbox feed item kinds; a kind the server adds reaches the app through openapi.yaml. */
 export type InboxKind = operations["getInbox"]["responses"][200]["content"]["application/json"]["data"]["items"][number]["kind"];
+
+/** A client's week, recent workouts and quests, next to their question in the trainer inbox. */
+export type ClientSnapshot = Schemas["ClientSnapshot"];

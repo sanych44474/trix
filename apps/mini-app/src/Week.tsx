@@ -9,6 +9,7 @@ import type { Dashboard } from "./types";
 import { SEEN_BADGES_KEY, unseenBadges } from "./logic/badgesSeen";
 import { lastWeekSummary } from "./logic/weekSummary";
 import { track } from "./logic/track";
+import { questText } from "./questText";
 
 const SUMMARY_SEEN_KEY = "trix:v2:week-summary-seen";
 
@@ -41,13 +42,6 @@ export function WeekSummaryCard({ lang, dashboard }: { lang: Lang; dashboard: Da
 }
 
 type Week = NonNullable<Dashboard["week"]>;
-type Quest = Week["quests"][number];
-
-function questText(lang: Lang, q: Quest): string {
-  const n = String(q.target);
-  if (q.kind === "muscle_sets") return t(lang, "quest_muscle_sets", { n, muscle: t(lang, `muscle_${(q.muscle ?? "").replace("-", "_")}` as Key) });
-  return t(lang, `quest_${q.kind}` as Key, { n });
-}
 
 const fmt = (lang: Lang, n: number) => { const s = String(Math.round(n * 2) / 2); return lang === "uk" ? s.replace(".", ",") : s; };
 

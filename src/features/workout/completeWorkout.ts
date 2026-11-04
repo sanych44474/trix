@@ -13,6 +13,8 @@ import { cleanAi, t } from "../../locales/i18n";
 import { announceSquadPr } from "../squad/prAnnounce";
 import { advanceLevel } from "../gamification/level";
 import { notify } from "../../notify";
+import { appMarkup } from "../../notify/appKeyboard";
+import { loadClientSnapshot, workoutDoneText } from "../trainer/clientSnapshot";
 import { HTML } from "../../adapters/telegram/context";
 
 export interface WorkoutSaveEntry {
@@ -174,11 +176,18 @@ export async function completeWorkout(
     try {
       const trainer = await getUser(env.DB, user.trainerId);
       if (trainer) {
+        // What was done and how the week stands, so the trainer can answer without opening the
+        // client card; the button opens that card. Saved rows are read back, so this runs after the save.
+        const name = user.profile.name ?? `id ${user._id}`;
+        const snapshot = await loadClientSnapshot(env.DB, user).catch(() => null);
+        const replyMarkup = appMarkup(env, t(trainer.lang, "nb_reply"), "role", { client: user._id });
         await notify(env, { api: o.api }, { userId: trainer._id, chatId: trainer.chatId }, {
           kind: "trainer_workout_done",
           key: `${o.date}:${user._id}`,
-          text: t(trainer.lang, "trainer_notify_done", { name: user.profile.name ?? `id ${user._id}`, n: outcome.exercises.length }),
-          extra: HTML,
+          text: snapshot
+            ? workoutDoneText(trainer.lang, name, snapshot, o.date)
+            : t(trainer.lang, "trainer_notify_done", { name, n: outcome.exercises.length }),
+          extra: replyMarkup ? { ...HTML, reply_markup: replyMarkup } : HTML,
         });
       }
     } catch { /* the trainer message must never fail the save */ }

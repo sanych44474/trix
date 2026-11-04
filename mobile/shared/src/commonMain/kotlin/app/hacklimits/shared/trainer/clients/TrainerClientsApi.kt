@@ -41,7 +41,45 @@ data class TrainerQuestion(
     val text: String,
     val draft: String = "",
     val status: String,
+    /** Pending questions only: the client's week, recent workouts and quests (src/domain/clientSnapshot.ts). */
+    val context: ClientSnapshot? = null,
 )
+
+/** A client's training context next to their question. Every field defaults, so a missing one never fails the inbox. */
+@Serializable
+data class ClientSnapshot(
+    val weekDone: Int = 0,
+    /** 0 = no plan or no training days set. */
+    val weekPlanned: Int = 0,
+    val daysSinceLast: Int? = null,
+    val recent: List<Workout> = emptyList(),
+    val questsDone: Int = 0,
+    val quests: List<Quest> = emptyList(),
+) {
+    @Serializable
+    data class Workout(
+        val date: String,
+        val weekday: Int,
+        val label: String? = null,
+        val completed: Boolean = true,
+        val done: Int = 0,
+        /** Null when that weekday is not a plan day. */
+        val planned: Int? = null,
+        val durationMin: Int? = null,
+        val rpe: Double? = null,
+        val top: List<String> = emptyList(),
+    )
+
+    @Serializable
+    data class Quest(
+        val code: String,
+        val kind: String,
+        val muscle: String? = null,
+        val current: Double = 0.0,
+        val target: Double = 0.0,
+        val done: Boolean = false,
+    )
+}
 
 @Serializable
 data class ProspectInvite(val name: String, val link: String, val createdAt: String)
