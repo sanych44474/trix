@@ -8,12 +8,9 @@ import { getOrCreateUser, updateUser, getUser } from "../src/adapters/d1/v2Users
 import { setActivePlan, getActivePlan } from "../src/adapters/d1/v2Plans";
 import { applyTrainer, approveTrainer, updateTrainer, getTrainer, linkClient } from "../src/adapters/d1/v2Trainer";
 import { saveTrainerTemplate } from "../src/adapters/d1/v2TrainerPrograms";
-import { getWorkoutLog } from "../src/adapters/d1/v2Workouts";
 import { setMode } from "../src/adapters/telegram/context";
 import { startAddExercise } from "../src/bot/todayEdit";
-import { cmdLog, logPickExercise, handleLogDraftInput, guardLogExit, onLogExit, setEntryRpe, logFinish } from "../src/bot/guidedLog";
 import { healPlanNamesForDisplay } from "../src/features/exercise/catalog";
-import { routeUserText } from "../src/bot/textRoutes";
 import { moveExercise } from "../src/bot/planReorder";
 import { startShareSelect, toggleShareClient, shareAssignToClients, shareLink, sharePublish, takeSharedProgram } from "../src/features/trainer/programSharing";
 import { listPublicPrograms } from "../src/adapters/d1/v2TrainerPrograms";
@@ -58,30 +55,6 @@ test("setMode carries context across a real DB round-trip and drops transient st
   assert.equal(reloaded?.session.logDraft, undefined); // transient dropped
 });
 
-test("non-onboarded client answering the wizard is pulled back into onboarding (regression: reply routed to trainer)", async () => {
-  const db = newDb();
-  const user = (await getOrCreateUser(db, 113, 113, "uk", "Maksym")) as unknown as UserDoc;
-  await getOrCreateUser(db, 999, 999, "uk", "Trainer999");
-  // Reproduce the field report: a not-yet-onboarded CLIENT whose session drifted into
-  // "msg_trainer" (tapped "message trainer", never sent). Sex already answered, so the next
-  // wizard step is age. They type "32" — it must advance onboarding, not go to the trainer.
-  user.role = "client";
-  user.trainerId = 999;
-  user.onboarded = false;
-  user.profile = { ...user.profile, sex: "male" };
-  user.session = { mode: "msg_trainer" };
-  await updateUser(db, 113, { role: "client", trainerId: 999, onboarded: false, profile: user.profile, session: user.session });
-  const { ctx, sent } = makeCtx(db, user as unknown as Record<string, unknown>);
-
-  await routeUserText(ctx as never, "32");
-
-  const reloaded = await getUser(db, 113);
-  assert.equal(reloaded?.session.mode, "onboarding"); // pulled back into the wizard
-  assert.equal(reloaded?.profile.age, 32); // the answer was applied
-  // Nothing was sent to the trainer (999); the reply is the wizard, to the user themself.
-  assert.equal(sent.some((s) => s.to === 999), false);
-});
-
 test("moveExercise reorders a day's exercises and persists the new order", async () => {
   const db = newDb();
   const user = (await getOrCreateUser(db, 114, 114, "uk", "Ord")) as unknown as UserDoc;
@@ -117,36 +90,6 @@ test("startAddExercise preserves the edit prefix (regression: owner editing a cl
   assert.equal(s.targetId, 3);
   assert.equal(s.editPlanOwner, 999);
   assert.equal(s.editPlanPrefix, "ou"); // was silently lost before the switchMode refactor
-});
-
-test("exit guard: leaving an unsaved log asks, and Discard clears the draft then navigates on", async () => {
-  const db = newDb();
-  const user = (await getOrCreateUser(db, 113, 113, "uk", "Log")) as unknown as UserDoc;
-  user.onboarded = true;
-  await updateUser(db, 113, { onboarded: true });
-  await setActivePlan(db, plan(113));
-  const { ctx, sent } = makeCtx(db, user as unknown as Record<string, unknown>);
-
-  await cmdLog(ctx as never);
-  await logPickExercise(ctx as never, 0);
-  const consumed = await handleLogDraftInput(ctx as never, "80 8"); // one-line entry
-  assert.equal(consumed, true);
-  assert.equal(ctx.user.session.logDraft?.entries.length, 1);
-
-  // Navigate away → guard intercepts and records the destination.
-  const guarded = await guardLogExit(ctx as never, "menu:nutrition");
-  assert.equal(guarded, true);
-  assert.equal(ctx.user.session.pendingExitResume, "menu:nutrition");
-  assert.ok(sent.some((m) => m.hasKb)); // the Save/Discard/Continue prompt was shown
-
-  // Discard → draft gone, no workout persisted, and we land in the requested section.
-  await onLogExit(ctx as never, "drop");
-  const s = (await getUser(db, 113))!.session;
-  assert.equal(s.mode, "nutrition"); // resumed the intended destination
-  assert.equal(s.logDraft, undefined);
-  assert.equal(s.pendingExitResume, undefined);
-  const logs = db.dump("SELECT * FROM v2_workout_sessions WHERE accountId = 113");
-  assert.equal(logs.length, 0); // discarded, nothing saved
 });
 
 // Set up an instructor (owner-granted) with N clients and a saved template. Returns ids + tid.
@@ -248,99 +191,26 @@ test("render self-heal localizes English exercise names on view and persists", a
   assert.equal(reloaded.split[0].exercises[0].name, "Жим гантелей лежачи"); // persisted, not just display
 });
 
-test("per-set RPE tap is captured on the draft and persisted onto the logged exercise", async () => {
-  const db = newDb();
-  const user = (await getOrCreateUser(db, 302, 302, "uk", "Rpe")) as unknown as UserDoc;
-  await updateUser(db, 302, { onboarded: true });
-  await setActivePlan(db, plan(302));
-  const { ctx } = makeCtx(db, user as unknown as Record<string, unknown>);
-
-  await cmdLog(ctx as never);
-  await logPickExercise(ctx as never, 0);
-  await handleLogDraftInput(ctx as never, "80 8");
-  await setEntryRpe(ctx as never, 0, 85); // "hard (1-2 left)" → RPE 8.5
-  assert.equal(ctx.user.session.logDraft?.entries[0].rpe, 8.5);
-
-  await logFinish(ctx as never);
-  const sessions = db.dump<{ date: string }>("SELECT date FROM v2_workout_sessions WHERE accountId = 302");
-  assert.equal(sessions.length, 1);
-  const saved = await getWorkoutLog(db, 302, sessions[0].date);
-  assert.equal(saved!.exercises[0].rpe, 8.5); // flowed into the saved log for autoregulation
-});
-
-test("exit guard: Save persists the workout before navigating on", async () => {
-  const db = newDb();
-  const user = (await getOrCreateUser(db, 114, 114, "uk", "Log2")) as unknown as UserDoc;
-  user.onboarded = true;
-  await updateUser(db, 114, { onboarded: true });
-  await setActivePlan(db, plan(114));
-  const { ctx } = makeCtx(db, user as unknown as Record<string, unknown>);
-
-  await cmdLog(ctx as never);
-  await logPickExercise(ctx as never, 0);
-  await handleLogDraftInput(ctx as never, "80 8,7,6"); // 3 sets, varying reps
-  await guardLogExit(ctx as never, "menu:nutrition");
-  await onLogExit(ctx as never, "save");
-
-  const sessions = db.dump<{ date: string; completed: number }>("SELECT date, completed FROM v2_workout_sessions WHERE accountId = 114");
-  assert.equal(sessions.length, 1);
-  assert.equal(sessions[0].completed, 1);
-  const saved = await getWorkoutLog(db, 114, sessions[0].date);
-  const ex = saved!.exercises;
-  assert.equal(ex[0].setsDone.length, 3); // per-set reps preserved (8/7/6)
-  assert.deepEqual(ex[0].setsDone.map((s: { reps: number }) => s.reps), [8, 7, 6]);
-});
-
 // --- routing tables (callback + text-mode) ---
 // The route tables replaced two giant if-chains; these tests pin the order-sensitive cases
 // (specific prefix before its shorter parent, exact key beating a covering prefix).
 
-test("callback routing: exact keys beat covering prefixes; specific prefixes beat parents", async () => {
+// The private chat is retired (ADR-0012): only the app sign-in, the bot's own asks and the owner's
+// tools are routed; every athlete and trainer button routes nowhere.
+test("callback routing: the kept routes resolve, the retired chat's buttons route nowhere", async () => {
   const { cbRouteFor } = await import("../src/bot/callbackRoutes");
-  // exact beats prefix
-  assert.equal(cbRouteFor("set:compete"), "set:compete");
-  assert.equal(cbRouteFor("set:body"), "set:");
-  assert.equal(cbRouteFor("logpast:menu"), "logpast:menu");
-  assert.equal(cbRouteFor("logpast:2026-01-01"), "logpast:");
-  assert.equal(cbRouteFor("wt:open"), "wt:open");
-  // specific prefix beats its parent
-  assert.equal(cbRouteFor("pday:delok:3"), "pday:delok:");
-  assert.equal(cbRouteFor("pday:del:3"), "pday:del:");
-  assert.equal(cbRouteFor("wt:open:2"), "wt:open:");
-  assert.equal(cbRouteFor("wt:Bench"), "wt:");
-  assert.equal(cbRouteFor("st:open:1"), "st:open:");
-  assert.equal(cbRouteFor("st:Bench"), "st:");
-  assert.equal(cbRouteFor("sw:custom:1:0"), "sw:custom:");
-  assert.equal(cbRouteFor("sw:1:0"), "sw:");
-  // near-miss lookalikes must not collide
-  assert.equal(cbRouteFor("std"), "std");
-  assert.equal(cbRouteFor("swc:1:0:abc"), "swc:");
-  assert.equal(cbRouteFor("clean:del:5"), "clean:del:");
-  assert.equal(cbRouteFor("cl:5:card"), "cl:");
-  // unknown data routes nowhere (falls to MENU_MAP in the dispatcher)
-  assert.equal(cbRouteFor("nope:xyz"), null);
-});
-
-test("text routing: every mode is classified exactly once (no overlap)", async () => {
-  const { MODE_TEXT_HANDLERS, COACH_TEXT_MODES } = await import("../src/bot/textRoutes");
-  for (const m of COACH_TEXT_MODES) {
-    assert.ok(!(m in MODE_TEXT_HANDLERS), `mode "${m}" is both a text handler and a coach fallthrough`);
+  for (const [data, route] of [
+    ["tglogin:ok:abc", "tglogin:ok:"], ["pp:yes", "pp:yes"], ["inact:stay", "inact:stay"],
+    ["share:tog:body", "share:tog:"], ["share:skip", "share:skip"], ["support:50", "support:"],
+    ["orep:users", "orep:"], ["ou:5:block", "ou:"], ["trainer:approve:7", "trainer:approve:"],
+    ["clean:del:5", "clean:del:"], ["fbr:12", "fbr:"], ["vid:set:1:0", "vid:set:"], ["menu:open", "menu:open"],
+  ] as const) assert.equal(cbRouteFor(data), route, data);
+  for (const data of ["set:body", "logpast:menu", "wt:open:2", "sw:1:0", "cl:5:card", "menu:plan", "nope:xyz"]) {
+    assert.equal(cbRouteFor(data), null, data);
   }
 });
 
-test("non-onboarded trainer whose session drifted is pulled back into onboarding too (trainers also train)", async () => {
-  const db = newDb();
-  const user = (await getOrCreateUser(db, 115, 115, "uk", "Coach")) as unknown as UserDoc;
-  user.role = "trainer";
-  user.onboarded = false;
-  user.profile = { ...user.profile, sex: "male" };
-  user.session = { mode: "idle" };
-  await updateUser(db, 115, { role: "trainer", onboarded: false, profile: user.profile, session: user.session });
-  const { ctx } = makeCtx(db, user as unknown as Record<string, unknown>);
-
-  await routeUserText(ctx as never, "32");
-
-  const reloaded = await getUser(db, 115);
-  assert.equal(reloaded?.session.mode, "onboarding");
-  assert.equal(reloaded?.profile.age, 32);
+test("text routing: only the bot's own asks and the owner's tools take typed text", async () => {
+  const { MODE_TEXT_HANDLERS } = await import("../src/bot/textRoutes");
+  assert.deepEqual(Object.keys(MODE_TEXT_HANDLERS).sort(), ["announce", "feedback_reply", "inact_feedback", "poll_price", "poll_wish", "video_url"]);
 });

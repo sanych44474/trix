@@ -539,7 +539,7 @@ export function applyProgression(plan: PlanDoc, changes: ExerciseChange[]): Plan
 // ---------- level-up & goal-reached transitions ----------
 
 /** The progression engine's next targets for the plan's rep-based lifts, from recent logs —
- *  what the coach prompt quotes instead of doing its own arithmetic (bot/coach.ts). Newest
+ *  what the coach prompt quotes instead of doing its own arithmetic (ai/planPrompts.ts coach prompts). Newest
  *  session per exercise; at most `max` lines. Pure; test/progression-math.test.ts. */
 export function planNextTargets(plan: PlanDoc, logs: WorkoutLogDoc[], max = 10): string[] {
   const out: string[] = [];

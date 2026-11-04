@@ -23,7 +23,7 @@ import { evaluateProgressionRate, } from "./domain/progression";
 import { localParts } from "./domain/localTime";
 import { isoWeekKey, } from "./domain/records";
 import { wakeUserScheduler, wakeSquadScheduler, wakeGlobalScheduler } from "./durable/wake";
-import { isCutOver } from "./durable/cutover";
+import { cronOwns } from "./durable/cutover";
 import { ADJUST_COOLDOWN_DAYS } from "./domain/adaptiveCalories";
 import { DAILY_NUDGE_CAP, daysBetween, isQuietHour, nudgesSentToday } from "./domain/reminderTiming";
 import { escapeHtml, t } from "./locales/i18n";
@@ -56,6 +56,7 @@ import { runOncePer } from "./schedulerJobs/runOncePer";
 import type { Sender } from "./schedulerJobs/shared";
 import { isTrainingDay as trainsOnDay, trainingWeekdaysOf } from "./domain/trainingDays";
 import { runComebackOpeners } from "./schedulerJobs/comebackOpener";
+import { rotateForHour } from "./domain/passOrder";
 
 
 // The reminders of one pass in priority order (see the loop in processUser). `counted` ones use
@@ -92,7 +93,8 @@ export async function runSchedule(env: Env): Promise<void> {
   // Only one cron run at a time. Heavy runs detached via waitUntil can outlive their minute; without
   // this lock the next cron starts concurrently and re-sends the same reminders (identical-spam).
   // Fails closed: running without the lock is what double-sends; a skipped minute only delays.
-  if (!(await acquireScheduleLock(db, Date.now(), 150_000).catch(() => false))) return;
+  const lockedAt = Date.now();
+  if (!(await acquireScheduleLock(db, lockedAt, 150_000).catch(() => false))) return;
   // Heartbeat for the dead-man switch above (stamped after the lock so concurrent runs don't race).
   await setSetting(db, "cron_heartbeat", new Date().toISOString()).catch(() => {});
   const claim: HourClaim = {};
@@ -104,7 +106,7 @@ export async function runSchedule(env: Env): Promise<void> {
     if (claim.hourKey) await setSetting(db, "last_user_pass", claim.previous ?? "").catch(() => {});
     throw err;
   } finally {
-    await releaseScheduleLock(db).catch(() => {});
+    await releaseScheduleLock(db, lockedAt).catch(() => {});
   }
 }
 
@@ -213,7 +215,7 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   // path into the hourly pass — rows live at most ~2h instead of ~1h, which is harmless.
   await pruneSeenUpdates(db, new Date(Date.now() - 3_600_000).toISOString()).catch(() => {});
 
-  if (!(await isCutOver(db, "global"))) await runGlobalJobs(db, bot, env);
+  if (await cronOwns(db, "global")) await runGlobalJobs(db, bot, env);
   await wakeGlobalScheduler(env).catch((e) => logSchedulerError(db, "global_scheduler_wake", e));
 
   // R2 photo-cache budget: always the real env here (runSchedule is only ever invoked with the
@@ -275,7 +277,7 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   // Held to 09:00 UTC: the ISO-week gate alone fires on the first tick after the week rolls
   // over, i.e. Monday 00:00 UTC — the middle of the night for the users this bot has, and a
   // 3am post into a group chat is how a bot gets muted.
-  if (utcNow.hour >= SQUAD_RECAP_HOUR_UTC && !(await isCutOver(db, "squad"))) {
+  if (utcNow.hour >= SQUAD_RECAP_HOUR_UTC && (await cronOwns(db, "squad"))) {
     await postSquadRecaps(db, bot, utcNow.date, thisWeekKey).catch((e) => logSchedulerError(db, "squad_recaps", e));
   }
 
@@ -293,8 +295,12 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
 
   // Weekly reports moved into processUser (per-user local timezone at 17:00).
 
-  const userCutOver = await isCutOver(db, "user");
-  const users = await listOnboardedUsers(db);
+  // Fails closed: a flag read error skips the user loop for this tick rather than risk the cron
+  // and the user DOs both sending (durable/cutover.ts cronOwns).
+  const userCutOver = !(await cronOwns(db, "user"));
+  // A different start each hour (domain/passOrder.ts): a pass cut short by a Worker limit must not
+  // drop the same users every hour.
+  const users = rotateForHour(await listOnboardedUsers(db), Math.floor(Date.now() / 3_600_000));
   // Bulk-prefetch the two reads EVERY processUser needs — one query for all active plans and
   // one for recent workout logs (covers each timezone's "today") — instead of 2 queries × N
   // users. The rest of processUser's reads are conditional and stay per-user.

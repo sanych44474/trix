@@ -5,14 +5,15 @@
 // invocation, with its own 50-subrequest budget, decoupled from every other user's. That
 // decoupling is the entire reason this exists (see docs/features.md's scheduler notes).
 //
-// DRY-RUN PHASE (current): every send and every D1 write processUser would make is intercepted
-// — logged to scheduler_dryrun_log (migrations/0060) instead of actually happening — via a
-// logging Sender and shadowD1 (./shadowDb.ts). The old cron path remains the SOLE real sender
-// and the sole writer of reminders.sent for as long as this phase lasts. Nothing here persists
-// its own dedup state yet: each firing reads the CURRENT real reminders.sent from D1 fresh,
-// exactly like the cron path does, so the two paths can be compared like-for-like. Cutover
-// (making this the real sender, and giving it its own persisted dedup state) is a deliberate
-// later phase, not a flag flip — see the grilling transcript this design came out of.
+// Two modes, chosen per alarm by the `scheduler_cutover_user` flag (./cutover.ts):
+//  - dry run (flag off, the default): every send and every D1 write processUser would make is
+//    intercepted and logged to scheduler_dryrun_log via a logging Sender, shadowD1 and an env
+//    with no outbound credentials (./dryRunEnv.ts). The cron path is the only real sender.
+//  - cut over (flag on): this alarm runs processUser for real against the real env; the cron
+//    skips the user loop (scheduler.ts, cronOwns fails closed on a flag read error).
+// Both modes read the same real reminders.sent, so turning the flag on is the whole cutover;
+// the procedure and its preconditions are in docs/scheduler-do-cutover-runbook.md. The alarm
+// runs at hh:01 (domain/alarmTiming.ts) so hour-exact slots are not skipped by drift.
 import { DurableObject } from "cloudflare:workers";
 import { loadLearnedMuscles } from "../exerciseMuscleLearning";
 import { Bot } from "grammy";
@@ -26,11 +27,11 @@ import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
 import { dryRunEnv } from "./dryRunEnv";
 import { logInfo, runWithRequestId } from "../log";
+import { nextHourlyAlarm } from "../domain/alarmTiming";
 
 // Hourly, matching the cron path's own hourKey-gated cadence (scheduler.ts) — processUser's
 // internal gates (reminderHour, already(), daysBetween(...)) are what actually decide whether
 // anything fires on a given hour, same as today.
-const ALARM_INTERVAL_MS = 60 * 60 * 1000;
 
 export class UserSchedulerDO extends DurableObject<Env> {
   /** Wake (or re-wake) this DO for a specific user. Idempotent: safe to call again after a
@@ -45,7 +46,7 @@ export class UserSchedulerDO extends DurableObject<Env> {
     if (!Number.isFinite(userId)) return new Response("bad userId", { status: 400 });
     await this.ctx.storage.put("userId", userId);
     if ((await this.ctx.storage.getAlarm()) === null) {
-      await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+      await this.ctx.storage.setAlarm(nextHourlyAlarm(Date.now()));
     }
     return new Response("ok");
   }
@@ -66,7 +67,7 @@ export class UserSchedulerDO extends DurableObject<Env> {
     // dedup key getting written independent of whether the thing it guards actually happened.
     // The equivalent failure mode here would be an alarm that silently stops recurring because
     // something downstream threw — reschedule can't be conditional on the rest of this succeeding.
-    await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+    await this.ctx.storage.setAlarm(nextHourlyAlarm(Date.now()));
 
     const user = await getUser(this.env.DB, userId);
     if (!user) return; // account deleted since the last wake

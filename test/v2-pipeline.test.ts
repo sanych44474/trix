@@ -40,6 +40,26 @@ test("expensiveBucket: POST on the four costly surfaces only, whole path segment
   assert.equal(expensiveBucket("POST", "/api/v2/workout/save"), null);
 });
 
+// Routes that call AI or the YouTube search (100 quota units per miss) on each request. A loop of
+// made-up exercise names could spend the shared daily YouTube quota for every user.
+test("expensiveBucket: the AI / YouTube routes outside the prefixes are throttled, reads included", () => {
+  assert.equal(expensiveBucket("GET", "/api/v2/workout/exinfo"), "exinfo");
+  assert.equal(expensiveBucket("GET", "/api/v2/workout/insight"), "insight");
+  assert.equal(expensiveBucket("POST", "/api/v2/workout/custom"), "custom");
+  assert.equal(expensiveBucket("POST", "/api/v2/plan/replan"), "replan");
+  assert.equal(expensiveBucket("GET", "/api/v2/workout/today"), null, "ordinary reads stay free");
+  assert.equal(expensiveBucket("GET", "/api/v2/plan/replan"), null, "polling the replan status is a cheap read");
+});
+
+test("pipeline: a GET that calls AI (exercise info) is throttled per user too", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 9310, 9310, "en", "T");
+  const l = limiter(() => false);
+  const res = await call(envFor(db, { RL_EXPENSIVE: l.binding }), 9310, "GET", "/api/v2/workout/exinfo?name=Bench%20Press");
+  assert.equal(res.status, 429);
+  assert.equal(((await res.json()) as { error: { code: string } }).error.code, "rate_limited");
+});
+
 test("pipeline: a throttled expensive action is a 429 rate_limited envelope with Retry-After, keyed per user", async () => {
   const db = newDb();
   await getOrCreateUser(db, 9301, 9301, "en", "T");

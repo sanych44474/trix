@@ -1,4 +1,4 @@
-// Generating one day of the meal plan, for the bot's /mealplan and the Mini App's meal plan screen. Moved from bot/mealPlanCmds.ts.
+// Generating one day of the meal plan, for the Mini App's meal plan screen.
 import { aiJSON } from "../../ai";
 import { type Per100g } from "../../domain/curatedFoods";
 import { lookupPer100gCached } from "../../ai/nutritionDb";

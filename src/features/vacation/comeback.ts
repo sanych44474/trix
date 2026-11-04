@@ -1,4 +1,4 @@
-// The comeback interview's steps, shared by the bot (bot/vacation.ts) and the apps' API
+// The comeback interview's steps, served by the apps' API
 // (webapp/trainingExtrasApi.ts). Pure: no chat or DB access.
 import type { t } from "../../locales/i18n";
 

@@ -1,4 +1,4 @@
-// The athlete context the AI coach is grounded in (plan, recent logs, today's check-in), shared by the bot's coach and the Mini App's. Moved from bot/coach.ts.
+// The athlete context the AI coach is grounded in (plan, recent logs, today's check-in), used by the Mini App and Android coach (webapp/coachApi.ts).
 import type { UserDoc } from "../../types";
 import { getRecentContext } from "../../adapters/d1/v2Analytics";
 import { getActivePlan } from "../../adapters/d1/v2Plans";

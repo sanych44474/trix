@@ -102,9 +102,9 @@ async function forward(req: Request, url: URL, env: Env, path: string, handler: 
   const legacyUrl = new URL(url.toString());
   legacyUrl.pathname = path;
   const mutating = req.method !== "GET";
-  const actor = mutating ? await miniAppUser(req, url, env).catch(() => null) : null;
-
-  const bucket = actor ? expensiveBucket(req.method, url.pathname) : null;
+  // A throttled read (an AI-backed GET) needs the caller too, to key its limit per user.
+  const bucket = expensiveBucket(req.method, url.pathname);
+  const actor = mutating || bucket ? await miniAppUser(req, url, env).catch(() => null) : null;
   if (actor && bucket && !(await withinLimit(env, "expensive", `${bucket}:${actor._id}`))) {
     return failure(req, 429, "rate_limited", "Too many requests, slow down", { "retry-after": "60" });
   }

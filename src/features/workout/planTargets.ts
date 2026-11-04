@@ -1,5 +1,5 @@
 // Reading a plan exercise's prescribed sets, reps and weight ("4 × 8–10", "60 kg"), used by the
-// bot's guided logger and the Mini App logger. Moved from bot/guidedLog.ts.
+// bot's guided logger and the Mini App logger.
 
 
 import { DURATION_ONLY } from "../../domain/muscleLoad";

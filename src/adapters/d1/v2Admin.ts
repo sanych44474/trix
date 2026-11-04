@@ -209,8 +209,11 @@ export async function acquireScheduleLock(db: DB, nowMs: number, ttlMs: number):
   return (res.meta.changes ?? 0) > 0;
 }
 
-export async function releaseScheduleLock(db: DB): Promise<void> {
-  await setSetting(db, "schedule_lock", "0");
+/** Release the lock taken at `heldSince` (acquireScheduleLock's nowMs). A run that outlived its TTL
+ *  may have lost the lock to the next tick; releasing unconditionally cleared that run's lock and
+ *  let a third run start beside it. Only the holder's own value is reset. */
+export async function releaseScheduleLock(db: DB, heldSince: number): Promise<void> {
+  await db.prepare("UPDATE v2_settings SET value = '0' WHERE key = 'schedule_lock' AND value = ?").bind(String(heldSince)).run();
 }
 
 /** Dashboard extras in ONE D1 roundtrip (db.batch): all-time stat counts, earned badge codes,

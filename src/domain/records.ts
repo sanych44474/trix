@@ -332,7 +332,7 @@ export const BADGES = [
   "buddy_duel_streak_4",
   "first_challenge",
   "challenges_5",
-  // Muscle map / technique (domain/weeklyReport.ts, bot/formCheck.ts, the exercise library):
+  // Muscle map / technique (domain/weeklyReport.ts, features/workout/formCheck.ts, the exercise library):
   "full_body_week",
   "all_in_range",
   "balance_streak_4",

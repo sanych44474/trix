@@ -138,9 +138,24 @@ export async function nutritionLogsSince(db: DB, userId: number, cutoff: string)
     .prepare("SELECT date, createdAt, updatedAt FROM v2_nutrition_days WHERE accountId = ? AND date >= ?")
     .bind(userId, cutoff)
     .all<{ date: string; createdAt: string | null; updatedAt: string }>();
+  // All the window's meals in one query, grouped by day in JS (one query per day used to make a
+  // week cost 8 statements, in the scheduler's per-user jobs too).
+  const entries = await db
+    .prepare(
+      `SELECT date, description, grams, kcal, protein, fats, carbs, source FROM v2_nutrition_entries
+       WHERE accountId = ? AND date >= ? ORDER BY date ASC, position ASC`,
+    )
+    .bind(userId, cutoff)
+    .all<{ date: string; description: string; grams: number | null; kcal: number; protein: number; fats: number; carbs: number; source: string | null }>();
+  const mealsByDate = new Map<string, MealEntry[]>();
+  for (const row of entries.results ?? []) {
+    const list = mealsByDate.get(row.date) ?? [];
+    list.push(toMealEntry(row));
+    mealsByDate.set(row.date, list);
+  }
   const out: NutritionLogDoc[] = [];
   for (const day of days.results ?? []) {
-    const meals = await getDayMeals(db, userId, day.date);
+    const meals = mealsByDate.get(day.date) ?? [];
     out.push({
       userId,
       date: day.date,
@@ -152,14 +167,10 @@ export async function nutritionLogsSince(db: DB, userId: number, cutoff: string)
   return out;
 }
 
-/** ALL users' nutrition-log (userId, date) pairs on/after `sinceDate` — bulk compliance
- * counting for the trainer dashboard without a query per client. */
-export async function allNutritionDatesSince(db: DB, sinceDate: string): Promise<{ userId: number; date: string }[]> {
-  const r = await db
-    .prepare("SELECT accountId AS userId, date FROM v2_nutrition_days WHERE date >= ?")
-    .bind(sinceDate)
-    .all<{ userId: number; date: string }>();
-  return r.results ?? [];
+/** These accounts' nutrition-log (userId, date) pairs on/after `sinceDate`. */
+export async function nutritionDatesForAccountsSince(db: DB, accountIds: number[], sinceDate: string): Promise<{ userId: number; date: string }[]> {
+  if (!accountIds.length) return [];
+  return allInChunks<{ userId: number; date: string }>(db, accountIds, [sinceDate], (ph) => `SELECT accountId AS userId, date FROM v2_nutrition_days WHERE date >= ? AND accountId IN (${ph})`);
 }
 
 // ---------- food name translations (cache) ----------

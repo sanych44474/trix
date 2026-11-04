@@ -316,7 +316,7 @@ test("acquireScheduleLock is exclusive until the ttl expires", async () => {
   assert.equal(await acquireScheduleLock(db, now, 60_000), true);
   assert.equal(await acquireScheduleLock(db, now + 1000, 60_000), false); // still fresh — refused
   assert.equal(await acquireScheduleLock(db, now + 120_000, 60_000), true); // stale — reacquired
-  await releaseScheduleLock(db);
+  await releaseScheduleLock(db, now + 120_000);
   assert.equal(await acquireScheduleLock(db, now + 121_000, 60_000), true); // released — free again
 });
 
@@ -437,4 +437,16 @@ test("pruneIdempotencyKeys removes old rows from v2_idempotency", async () => {
   await pruneIdempotencyKeys(db, new Date().toISOString());
   const left = db.prepare("SELECT COUNT(*) AS c FROM v2_idempotency").first<{ c: number }>();
   assert.equal(left?.c, 0);
+});
+
+// A pass longer than the lock's TTL lets the next tick take the lock; the first run's release
+// used to clear THAT run's lock, so a third tick ran alongside it and both sent the same due
+// rest timers ("rest over" twice). A run now releases only the lock it holds.
+test("releaseScheduleLock: a run whose lock was taken over does not release the new holder's lock", async () => {
+  const db = newDb();
+  const t = 1_800_000_000_000;
+  assert.equal(await acquireScheduleLock(db, t, 60_000), true); // run A
+  assert.equal(await acquireScheduleLock(db, t + 90_000, 60_000), true); // A overran: run B takes over
+  await releaseScheduleLock(db, t); // A finishes and releases
+  assert.equal(await acquireScheduleLock(db, t + 91_000, 60_000), false, "B still holds the lock");
 });

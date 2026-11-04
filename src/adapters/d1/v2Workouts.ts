@@ -8,7 +8,7 @@
 //
 // Achievements, buddies, competitors and leaderboards live in v2Gamification.ts.
 import type { ExerciseMetric, LoggedExercise, StrengthRecordDoc, Weekday, WorkoutLogDoc } from "../../types";
-import { nowIso, type DB } from "./shared";
+import { allInChunks, nowIso, type DB } from "./shared";
 
 // ---------- strength records ----------
 
@@ -340,6 +340,13 @@ export async function getWorkoutLog(db: DB, userId: number, date: string): Promi
 export async function allWorkoutLogsSince(db: DB, sinceDate: string): Promise<WorkoutLogDoc[]> {
   const r = await db.prepare("SELECT * FROM v2_workout_sessions WHERE date >= ?").bind(sinceDate).all<V2SessionRow>();
   return loadWorkoutLogs(db, r.results ?? []);
+}
+
+/** These accounts' workout logs on/after `sinceDate` (the trainer dashboard's clients). */
+export async function workoutLogsForAccountsSince(db: DB, accountIds: number[], sinceDate: string): Promise<WorkoutLogDoc[]> {
+  if (!accountIds.length) return [];
+  const rows = await allInChunks<V2SessionRow>(db, accountIds, [sinceDate], (ph) => `SELECT * FROM v2_workout_sessions WHERE date >= ? AND accountId IN (${ph})`);
+  return loadWorkoutLogs(db, rows);
 }
 
 export async function recentWorkoutLogs(db: DB, userId: number, limit: number): Promise<WorkoutLogDoc[]> {
