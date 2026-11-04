@@ -10,16 +10,20 @@ function plan(db: ReturnType<typeof newDb>, sql: string, ...params: unknown[]): 
   return rows.map((row) => row.detail).join(" | ");
 }
 
+/** True when any step reads every row of `table`: "SCAN t" with no index ("SCAN t USING INDEX i"
+ *  walks an index, which for a partial index holds only the rows it was built for). */
+const scans = (plan: string, table: string) => plan.split(" | ").some((step) => step.startsWith(`SCAN ${table}`) && !step.includes(" USING "));
+
 test("listClients: the trainer's clients come from an index, not a scan of every relationship", async () => {
   const p = plan(newDb(), "SELECT clientId FROM v2_trainer_relationships WHERE trainerId = ? AND status = 'active'", 1);
-  assert.doesNotMatch(p, /^SCAN|\| SCAN/, p);
+  assert.equal(scans(p, "v2_trainer_relationships"), false, p);
   assert.match(p, /USING (COVERING )?INDEX/, p);
 });
 
 test("pendingRecoveryCount (every minute): reads unfinished onboardings only", async () => {
   const p = plan(newDb(), `SELECT COUNT(*) AS n FROM v2_onboarding
        WHERE status != 'completed' AND (sessionRetryAfter IS NOT NULL OR sessionMode IN ('onboarding','plan_pending'))`);
-  assert.doesNotMatch(p, /SCAN v2_onboarding$|SCAN v2_onboarding \|/, p);
+  assert.equal(scans(p, "v2_onboarding"), false, p);
   assert.match(p, /INDEX idx_v2_onboarding_open/, p);
 });
 
