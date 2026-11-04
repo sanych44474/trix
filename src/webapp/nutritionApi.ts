@@ -22,6 +22,7 @@ import { apiFailure } from "./apiError";
 import { sendBestEffort as tgSend } from "../adapters/telegram/rawApi";
 import { hasTelegramChat } from "../domain/delivery";
 import { typedFailure } from "./failure";
+import { dayTargets as dayTargetsFor } from "../domain/trainingDays";
 // Same "the webview can't offer a file download, so push it to the viewer's own Telegram chat"
 // pattern extrasApi.ts/settingsApi.ts/trainerApi.ts already each define locally -- this endpoint
 // gets its own copy rather than a shared import, matching that convention.
@@ -34,10 +35,7 @@ function totals(meals: MealEntry[]) {
 async function dayTargets(env: Env, user: UserDoc): Promise<{ targets: NutritionTargets | null; isRestDay: boolean }> {
   const { weekday } = localParts(user.profile.timezone);
   const plan = await getActivePlan(env.DB, user._id).catch(() => null);
-  const trainingDays = user.profile.trainingWeekdays ?? plan?.split.map((d) => d.weekday) ?? [];
-  const isTraining = trainingDays.includes(weekday as (typeof trainingDays)[number]);
-  const isRestDay = !isTraining && !!plan?.restDayNutrition;
-  return { targets: (!isTraining && plan?.restDayNutrition) || user.nutrition || null, isRestDay };
+  return dayTargetsFor({ profile: user.profile, plan, nutrition: user.nutrition }, weekday);
 }
 
 export async function handleNutritionApi(req: Request, url: URL, env: Env): Promise<Response> {

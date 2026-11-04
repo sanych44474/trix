@@ -54,6 +54,7 @@ import { HTML, logSchedulerError, isoDaysAgo } from "./schedulerJobs/shared";
 import { runOncePer } from "./schedulerJobs/runOncePer";
 // Public surface kept here so existing `from "./scheduler"` imports keep working.
 import type { Sender } from "./schedulerJobs/shared";
+import { isTrainingDay as trainsOnDay, trainingWeekdaysOf } from "./domain/trainingDays";
 
 
 // The reminders of one pass in priority order (see the loop in processUser). `counted` ones use
@@ -498,9 +499,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // uses) — falling back to the profile's chosen weekdays only when there's no plan. This keeps
   // reminders consistent with the plan even if profile.trainingWeekdays drifts / is empty.
   const activePlan = pass.planByUser.get(user._id) ?? null;
-  const planDays = new Set((activePlan?.split ?? []).map((d) => d.weekday));
-  const trainsOn = (wd: Weekday) =>
-    planDays.size ? planDays.has(wd) : (user.profile.trainingWeekdays ?? []).includes(wd);
+  const planDays = new Set(trainingWeekdaysOf({ profile: { trainingWeekdays: [] }, plan: activePlan }));
+  const trainsOn = (wd: Weekday): boolean => trainsOnDay({ profile: user.profile, plan: activePlan }, wd);
   const isTrainingDay = trainsOn(weekday as Weekday);
   // Today's workout log — from the bulk prefetch, reused by the workout/checkin/wellbeing/
   // tomorrow gates (so the same day's training nudges agree and don't each re-query).

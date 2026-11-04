@@ -4,7 +4,6 @@
 // 1); bot.ts's barrel seam still applies: `export * from "./features/nutrition/nutritionLog"`.
 import { InlineKeyboard } from "grammy";
 import { logInfo } from "../../log";
-import type { Weekday } from "../../types";
 import { type InlineImage } from "../../ai/errors";
 import { isNotFoodPhoto } from "./photoFood";
 import { aiJSON, aiVisionJSON } from "../../ai";
@@ -22,6 +21,7 @@ import { cleanFoodName } from "../../domain/foodName";
 import { menuBtn } from "../../adapters/telegram/keyboards";
 
 import { num, verifyItems } from "./verifyItems";
+import { dayTargets } from "../../domain/trainingDays";
 
 export { num, verifyItems };
 
@@ -57,15 +57,13 @@ export async function logMeal(ctx: MyContext, items: P.NutritionItem[], method: 
   // KBJU split: on a rest day use the plan's rest-day macros if present, else training-day.
   const { weekday } = localParts(ctx.user.profile.timezone);
   const plan = await getActivePlan(ctx.db, ctx.user._id);
-  const trainingDays = ctx.user.profile.trainingWeekdays ?? plan?.split.map((d) => d.weekday) ?? [];
-  const isTrainingDay = trainingDays.includes(weekday as Weekday);
-  const targets = (!isTrainingDay && plan?.restDayNutrition) || ctx.user.nutrition;
+  const { targets, isRestDay } = dayTargets({ profile: ctx.user.profile, plan, nutrition: ctx.user.nutrition }, weekday);
   if (!targets) {
     await reply(ctx, t(lang, "nutrition_no_targets"));
     return;
   }
   const dayTag = plan?.restDayNutrition
-    ? t(lang, isTrainingDay ? "kbju_training_day" : "kbju_rest_day") + " "
+    ? t(lang, isRestDay ? "kbju_rest_day" : "kbju_training_day") + " "
     : "";
   const remaining = targets.calories - tot.kcal;
   let advice =
