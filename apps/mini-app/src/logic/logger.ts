@@ -17,8 +17,16 @@ export function isOutlierWeight(exercise: LoggerExercise, weight: number): boole
  *  exercise; it is saved with the log so re-opening the day puts it back in the right slot. */
 /** `prefill`: numbers put into the rows by "Repeat last" -- suggestions shown in the rows, not done
  *  sets; a set is only logged by its check (or Enter), like any other suggestion. */
-export type LoggerExercise = WorkoutToday["exercises"][number] & { planName?: string; prefill?: LoggerSet[] };
-export type LoggerSet = NonNullable<LoggerExercise["setsDone"]>[number];
+/** One logged set. Logger state, not part of GET /workout/today (the server never sends it). */
+export type LoggerSet = { weight: number; reps: number; seconds?: number; meters?: number; rpe?: number };
+/** A plan exercise plus what the logger tracks while the session runs (sets done, RPE, done). */
+export type LoggerExercise = WorkoutToday["exercises"][number] & {
+  planName?: string;
+  prefill?: LoggerSet[];
+  setsDone?: LoggerSet[];
+  rpe?: number;
+  completed?: boolean;
+};
 export type LoggerWorkout = Omit<WorkoutToday, "exercises"> & { exercises: LoggerExercise[] };
 
 /** The session clock: when the first set/rest happened, the rest tally, and -- once the user

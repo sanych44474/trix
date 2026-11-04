@@ -103,3 +103,6 @@ export type Mesocycle = NonNullable<Plan["mesocycle"]>;
 
 /** A plan edit or feedback the coach suggests; `target` is the exercise name to send as expectName. */
 export type CoachAction = Schemas["CoachAction"];
+
+/** Inbox feed item kinds; a kind the server adds reaches the app through openapi.yaml. */
+export type InboxKind = operations["getInbox"]["responses"][200]["content"]["application/json"]["data"]["items"][number]["kind"];

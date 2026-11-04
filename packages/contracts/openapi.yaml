@@ -768,7 +768,7 @@ paths:
                             type: object
                             properties:
                               id: {type: integer}
-                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression, feedback_done, squad_pr, squad_week]}
+                              kind: {type: string, enum: [plan_assigned, plan_changed, message, badge, progression, feedback_done, feedback_reply, squad_pr, squad_week]}
                               params: {type: object, additionalProperties: true}
                               createdAt: {type: string}
                               read: {type: boolean}
@@ -5237,7 +5237,6 @@ components:
       properties:
         date: {type: string}
         weekday: {type: integer}
-        title: {type: string}
         restDay: {type: boolean}
         muscleGroup: {type: string}
         exercises:
@@ -5296,19 +5295,6 @@ components:
               wmode:
                 type: string
                 enum: [total, perSide, perHand]
-              setsDone:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    weight: {type: number}
-                    reps: {type: number}
-                    seconds: {type: number}
-                    meters: {type: number}
-                    rpe: {type: number}
-                  required: [weight, reps]
-              rpe: {type: number}
-              completed: {type: boolean}
               restSec: {type: number}
         saved:
           type: array
@@ -5328,7 +5314,7 @@ components:
                     sec: {type: number}
                     m: {type: number}
                   required: [w, r, sec, m]
-            required: [name, rpe, sets]
+            required: [name, sets]
         savedAt: {type: string, description: When the saved log for this date was last written.}
         durationSec: {type: number, description: The saved session's measured length, if measured.}
         restTotalSec: {type: number}

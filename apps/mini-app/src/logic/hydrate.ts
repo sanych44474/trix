@@ -1,6 +1,7 @@
 import type { WorkoutToday } from "../types";
+import type { LoggerSet } from "./logger";
 
-type LoggerExercise = WorkoutToday["exercises"][number] & { planName?: string };
+type LoggerExercise = WorkoutToday["exercises"][number] & { planName?: string; setsDone?: LoggerSet[]; rpe?: number; completed?: boolean };
 type SavedEntry = NonNullable<WorkoutToday["saved"]>[number];
 
 // Logs don't store the metric, so infer it from what was recorded (same rule as the server's
