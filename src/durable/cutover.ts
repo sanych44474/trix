@@ -30,3 +30,18 @@ const SETTING_KEY: Record<CutoverKind, string> = {
 export async function isCutOver(db: D1Database, kind: CutoverKind): Promise<boolean> {
   return (await getSetting(db, SETTING_KEY[kind]).catch(() => null)) === "1";
 }
+
+/**
+ * Whether the CRON should do this kind's work this tick. Unlike isCutOver it fails CLOSED: on a
+ * flag read error the cron skips the work for one tick. Treating an unreadable flag as "not cut
+ * over" is safe for a DO (it stays in dry run) and dangerous for the cron: after a cutover, one
+ * D1 blip would have the cron act for real alongside the DOs. A skipped tick only delays; the
+ * next tick (a minute later) reads the flag again.
+ */
+export async function cronOwns(db: D1Database, kind: CutoverKind): Promise<boolean> {
+  try {
+    return (await getSetting(db, SETTING_KEY[kind])) !== "1";
+  } catch {
+    return false;
+  }
+}

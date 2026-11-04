@@ -23,7 +23,7 @@ import { evaluateProgressionRate, } from "./domain/progression";
 import { localParts } from "./domain/localTime";
 import { isoWeekKey, } from "./domain/records";
 import { wakeUserScheduler, wakeSquadScheduler, wakeGlobalScheduler } from "./durable/wake";
-import { isCutOver } from "./durable/cutover";
+import { cronOwns } from "./durable/cutover";
 import { ADJUST_COOLDOWN_DAYS } from "./domain/adaptiveCalories";
 import { DAILY_NUDGE_CAP, daysBetween, isQuietHour, nudgesSentToday } from "./domain/reminderTiming";
 import { escapeHtml, t } from "./locales/i18n";
@@ -215,7 +215,7 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   // path into the hourly pass — rows live at most ~2h instead of ~1h, which is harmless.
   await pruneSeenUpdates(db, new Date(Date.now() - 3_600_000).toISOString()).catch(() => {});
 
-  if (!(await isCutOver(db, "global"))) await runGlobalJobs(db, bot, env);
+  if (await cronOwns(db, "global")) await runGlobalJobs(db, bot, env);
   await wakeGlobalScheduler(env).catch((e) => logSchedulerError(db, "global_scheduler_wake", e));
 
   // R2 photo-cache budget: always the real env here (runSchedule is only ever invoked with the
@@ -277,7 +277,7 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   // Held to 09:00 UTC: the ISO-week gate alone fires on the first tick after the week rolls
   // over, i.e. Monday 00:00 UTC — the middle of the night for the users this bot has, and a
   // 3am post into a group chat is how a bot gets muted.
-  if (utcNow.hour >= SQUAD_RECAP_HOUR_UTC && !(await isCutOver(db, "squad"))) {
+  if (utcNow.hour >= SQUAD_RECAP_HOUR_UTC && (await cronOwns(db, "squad"))) {
     await postSquadRecaps(db, bot, utcNow.date, thisWeekKey).catch((e) => logSchedulerError(db, "squad_recaps", e));
   }
 
@@ -295,7 +295,9 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
 
   // Weekly reports moved into processUser (per-user local timezone at 17:00).
 
-  const userCutOver = await isCutOver(db, "user");
+  // Fails closed: a flag read error skips the user loop for this tick rather than risk the cron
+  // and the user DOs both sending (durable/cutover.ts cronOwns).
+  const userCutOver = !(await cronOwns(db, "user"));
   // A different start each hour (domain/passOrder.ts): a pass cut short by a Worker limit must not
   // drop the same users every hour.
   const users = rotateForHour(await listOnboardedUsers(db), Math.floor(Date.now() / 3_600_000));
