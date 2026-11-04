@@ -8,7 +8,6 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import type { MealEntry, MealPlanDoc } from "../src/types";
 import {
-  allNutritionDatesSince,
   appendMeals,
   deleteMealItem,
   getDayMeals,
@@ -17,6 +16,7 @@ import {
   getMealPlan,
   getRecentFoods,
   getUserFoodCorrection,
+  nutritionDatesForAccountsSince,
   nutritionLogsSince,
   putFoodCache,
   putUserFoodCorrection,
@@ -156,7 +156,7 @@ test("getRecentFoods: limit caps the result", async () => {
   assert.equal(recent.length, 2);
 });
 
-// ---------- nutritionLogsSince / allNutritionDatesSince ----------
+// ---------- nutritionLogsSince / nutritionDatesForAccountsSince ----------
 
 test("nutritionLogsSince: returns full-fidelity NutritionLogDoc, createdAt distinct from updatedAt", async () => {
   const db = newDb();
@@ -180,17 +180,20 @@ test("nutritionLogsSince: cutoff excludes earlier dates", async () => {
   assert.deepEqual(logs.map((l) => l.date), ["2026-01-05"]);
 });
 
-test("allNutritionDatesSince: spans all users, ignores meals content", async () => {
+test("nutritionDatesForAccountsSince: only the listed accounts, ignores meals content", async () => {
   const db = newDb();
   seedAccount(db, 1);
   seedAccount(db, 2);
+  seedAccount(db, 3);
   await appendMeals(db, 1, "2026-01-01", [meal("a")]);
   await appendMeals(db, 2, "2026-01-02", [meal("b")]);
-  const pairs = await allNutritionDatesSince(db, "2026-01-01");
+  await appendMeals(db, 3, "2026-01-02", [meal("c")]);
+  const pairs = await nutritionDatesForAccountsSince(db, [1, 2], "2026-01-01");
   assert.deepEqual(
     pairs.map((p) => `${p.userId}:${p.date}`).sort(),
     ["1:2026-01-01", "2:2026-01-02"],
   );
+  assert.deepEqual(await nutritionDatesForAccountsSince(db, [], "2026-01-01"), []);
 });
 
 // ---------- food translations ----------

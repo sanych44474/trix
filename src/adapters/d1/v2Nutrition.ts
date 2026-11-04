@@ -152,14 +152,10 @@ export async function nutritionLogsSince(db: DB, userId: number, cutoff: string)
   return out;
 }
 
-/** ALL users' nutrition-log (userId, date) pairs on/after `sinceDate` — bulk compliance
- * counting for the trainer dashboard without a query per client. */
-export async function allNutritionDatesSince(db: DB, sinceDate: string): Promise<{ userId: number; date: string }[]> {
-  const r = await db
-    .prepare("SELECT accountId AS userId, date FROM v2_nutrition_days WHERE date >= ?")
-    .bind(sinceDate)
-    .all<{ userId: number; date: string }>();
-  return r.results ?? [];
+/** These accounts' nutrition-log (userId, date) pairs on/after `sinceDate`. */
+export async function nutritionDatesForAccountsSince(db: DB, accountIds: number[], sinceDate: string): Promise<{ userId: number; date: string }[]> {
+  if (!accountIds.length) return [];
+  return allInChunks<{ userId: number; date: string }>(db, accountIds, [sinceDate], (ph) => `SELECT accountId AS userId, date FROM v2_nutrition_days WHERE date >= ? AND accountId IN (${ph})`);
 }
 
 // ---------- food name translations (cache) ----------

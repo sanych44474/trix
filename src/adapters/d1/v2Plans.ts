@@ -32,7 +32,7 @@
 import { catalogBankEntries } from "../../domain/programCatalog";
 import { recordInbox } from "./v2Inbox";
 import type { ExerciseMetric, PlanBankEntry, PlanDay, PlanDoc, PlanExercise, ProgressionRate, Weekday } from "../../types";
-import { nowIso, safeJsonParse, type DB } from "./shared";
+import { allInChunks, nowIso, safeJsonParse, type DB } from "./shared";
 import { PLAN_SCHEMA_VERSION, parsePlanDoc, parsePlanSplit, PlanValidationError } from "../../domain/plan-schema";
 import { hasCriticalIssues, lintPlan, type LintIssue } from "../../domain/plan-lint";
 import { existingCatalogIds } from "./v2Catalog";
@@ -259,6 +259,22 @@ export async function listActivePlans(db: DB): Promise<PlanDoc[]> {
       plans.push(assemblePlan(row, daysByPlan.get(row.id) ?? [], exercisesByDay));
     } catch (err) {
       console.error("listActivePlans: skipping corrupted plan row", row.accountId, err);
+    }
+  }
+  return plans;
+}
+
+/** These accounts' active plans (the trainer dashboard's clients); corrupted rows skipped as above. */
+export async function activePlansForAccounts(db: DB, accountIds: number[]): Promise<PlanDoc[]> {
+  if (!accountIds.length) return [];
+  const rows = await allInChunks<V2PlanRow>(db, accountIds, [], (ph) => `SELECT * FROM v2_plans WHERE active = 1 AND accountId IN (${ph}) ORDER BY id ASC`);
+  const { daysByPlan, exercisesByDay } = await loadPlanChildren(db, rows.map((row) => row.id));
+  const plans: PlanDoc[] = [];
+  for (const row of rows) {
+    try {
+      plans.push(assemblePlan(row, daysByPlan.get(row.id) ?? [], exercisesByDay));
+    } catch (err) {
+      console.error("activePlansForAccounts: skipping corrupted plan row", row.accountId, err);
     }
   }
   return plans;
@@ -515,6 +531,16 @@ export async function planStatusByUser(db: DB): Promise<Map<number, { active: bo
     .all<{ userId: number; a: number; d: number }>();
   const m = new Map<number, { active: boolean; draft: boolean }>();
   for (const row of r.results ?? []) m.set(row.userId, { active: !!row.a, draft: !!row.d });
+  return m;
+}
+
+/** planStatusByUser for these accounts only. */
+export async function planStatusForAccounts(db: DB, accountIds: number[]): Promise<Map<number, { active: boolean; draft: boolean }>> {
+  const m = new Map<number, { active: boolean; draft: boolean }>();
+  if (!accountIds.length) return m;
+  const rows = await allInChunks<{ userId: number; a: number; d: number }>(db, accountIds, [], (ph) =>
+    `SELECT accountId AS userId, MAX(active) AS a, MAX(CASE WHEN status='draft' THEN 1 ELSE 0 END) AS d FROM v2_plans WHERE accountId IN (${ph}) GROUP BY accountId`);
+  for (const row of rows) m.set(row.userId, { active: !!row.a, draft: !!row.d });
   return m;
 }
 
