@@ -62,7 +62,8 @@ export async function waterReminder(p: UserPass): Promise<boolean> {
   const ml = (await getWater(db, user._id, date).catch(() => 0)) ?? 0;
   if (ml >= goal) return false;
   const kb = p.appKb([[{ text: t(lang, "nb_open_fuel"), view: "fuel", fallback: "water:add:250" }]]);
-  const r = await p.send(t(lang, "water_reminder", { ml, goal }), withKb(kb));
+  // Keyed by slot: the text repeats ("0/2500 ml") and must not collide with an earlier slot.
+  const r = await p.send(t(lang, "water_reminder", { ml, goal }), withKb(kb), `water:${slot}`);
   if (p.durable(r)) p.setSent("water", slot);
   return true;
 }
