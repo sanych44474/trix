@@ -246,9 +246,12 @@ export async function handleTrainerApi(req: Request, url: URL, env: Env): Promis
     // The question's own status doesn't gate a re-answer (a trainer might legitimately amend),
     // so a lost-response retry must not double-message the client -- idempotency key only.
     const ans = await runIdempotent(env.DB, user._id, req.headers.get("idempotency-key"), async () => {
-      const client = await getUser(env.DB, q.clientId).catch(() => null);
+      // The answer must be stored before the question closes: a failed read or write throws, so
+      // runIdempotent releases the key (a retry runs again) and the question stays in the inbox.
+      // Only the Telegram ping is best-effort: the client also sees the answer in the app thread.
+      const client = await getUser(env.DB, q.clientId);
       if (client) {
-        await insertMessage(env.DB, user._id, q.clientId, text).catch(() => {});
+        await insertMessage(env.DB, user._id, q.clientId, text);
         // Keyed per call, not per question: a trainer may amend an answer, and runIdempotent already covers a retry.
         await notifySafely(env, { api: rawTelegramApi(env) }, { userId: client._id, chatId: client.chatId }, {
           kind: "trainer_answer",
