@@ -26,7 +26,7 @@ private-chat message gets the Open-app button.
 
 | | |
 |---|---|
-| Functions in this catalog | **197** across 11 areas |
+| Functions in this catalog | **195** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
 | Surfaces | 3 — the Telegram Mini App, the Android app, and the bot (sign-in, invite links, payments, squads, reminders, owner tools) |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
