@@ -238,12 +238,21 @@ async function lintBeforeSave(db: DB, plan: PlanDoc): Promise<LintIssue[]> {
   return issues;
 }
 
+/**
+ * The account's active plan with its days and exercises, in ONE round trip: three statements in
+ * a batch, the days and exercises found through a subquery on the active plan's id. It was three
+ * sequential queries, and this runs on nearly every endpoint and every scheduler alarm.
+ */
 export async function getActivePlan(db: DB, userId: number): Promise<PlanDoc | null> {
-  const r = await db
-    .prepare("SELECT * FROM v2_plans WHERE accountId = ? AND active = 1 ORDER BY id DESC LIMIT 1")
-    .bind(userId)
-    .first<V2PlanRow>();
-  return r ? toPlan(db, r) : null;
+  const active = "SELECT id FROM v2_plans WHERE accountId = ? AND active = 1 ORDER BY id DESC LIMIT 1";
+  const [plans, days, exercises] = await db.batch([
+    db.prepare("SELECT * FROM v2_plans WHERE accountId = ? AND active = 1 ORDER BY id DESC LIMIT 1").bind(userId),
+    db.prepare(`SELECT * FROM v2_plan_days WHERE planId = (${active}) ORDER BY weekday ASC`).bind(userId),
+    db.prepare(`SELECT e.* FROM v2_plan_exercises e JOIN v2_plan_days d ON d.id = e.dayId WHERE d.planId = (${active}) ORDER BY e.dayId, e.position ASC`).bind(userId),
+  ]);
+  const r = (plans.results as V2PlanRow[] | undefined)?.[0];
+  if (!r) return null;
+  return assemblePlan(r, (days.results ?? []) as V2PlanDayRow[], groupBy((exercises.results ?? []) as V2PlanExerciseRow[], (e) => e.dayId));
 }
 
 /** All users' active plans — bulk prefetch for the hourly scheduler pass. A single corrupted

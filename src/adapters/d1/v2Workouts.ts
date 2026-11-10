@@ -236,34 +236,34 @@ async function selectByIdsInChunks<T>(
   return out;
 }
 
-async function loadWorkoutLogs(db: DB, sessions: V2SessionRow[]): Promise<WorkoutLogDoc[]> {
-  if (!sessions.length) return [];
-  const sessionIds = sessions.map((s) => s.id);
-  const exerciseRows = await selectByIdsInChunks<V2ExerciseRow>(db, sessionIds, (placeholders) =>
-    `SELECT * FROM v2_workout_exercises WHERE sessionId IN (${placeholders}) ORDER BY sessionId, position`,
-  );
-
+/** Sessions plus their exercise and set rows, assembled into WorkoutLogDocs. */
+function assembleWorkoutLogs(sessions: V2SessionRow[], exerciseRows: V2ExerciseRow[], setRows: V2SetRow[]): WorkoutLogDoc[] {
   const setsByExercise = new Map<number, V2SetRow[]>();
-  if (exerciseRows.length) {
-    const exerciseIds = exerciseRows.map((e) => e.id);
-    const setRows = await selectByIdsInChunks<V2SetRow>(db, exerciseIds, (placeholders) =>
-      `SELECT * FROM v2_workout_sets WHERE exerciseId IN (${placeholders}) ORDER BY exerciseId, position`,
-    );
-    for (const row of setRows) {
-      const list = setsByExercise.get(row.exerciseId) ?? [];
-      list.push(row);
-      setsByExercise.set(row.exerciseId, list);
-    }
+  for (const row of setRows) {
+    const list = setsByExercise.get(row.exerciseId) ?? [];
+    list.push(row);
+    setsByExercise.set(row.exerciseId, list);
   }
-
   const exercisesBySession = new Map<number, LoggedExercise[]>();
   for (const row of exerciseRows) {
     const list = exercisesBySession.get(row.sessionId) ?? [];
     list.push(toLoggedExercise(row, setsByExercise.get(row.id) ?? []));
     exercisesBySession.set(row.sessionId, list);
   }
-
   return sessions.map((s) => toWorkoutLog(s, exercisesBySession.get(s.id) ?? []));
+}
+
+async function loadWorkoutLogs(db: DB, sessions: V2SessionRow[]): Promise<WorkoutLogDoc[]> {
+  if (!sessions.length) return [];
+  const sessionIds = sessions.map((s) => s.id);
+  const exerciseRows = await selectByIdsInChunks<V2ExerciseRow>(db, sessionIds, (placeholders) =>
+    `SELECT * FROM v2_workout_exercises WHERE sessionId IN (${placeholders}) ORDER BY sessionId, position`,
+  );
+  const setRows = exerciseRows.length
+    ? await selectByIdsInChunks<V2SetRow>(db, exerciseRows.map((e) => e.id), (placeholders) =>
+      `SELECT * FROM v2_workout_sets WHERE exerciseId IN (${placeholders}) ORDER BY exerciseId, position`)
+    : [];
+  return assembleWorkoutLogs(sessions, exerciseRows, setRows);
 }
 
 // Replaces the session's whole exercise/set tree (delete-then-insert) — same convention as
@@ -373,12 +373,26 @@ export async function recentWorkoutLogs(db: DB, userId: number, limit: number): 
   return loadWorkoutLogs(db, r.results ?? []);
 }
 
+/**
+ * One account's logs on/after `cutoff`, in ONE round trip: sessions, exercises and sets as three
+ * statements in a batch, the children joined to the sessions by account and date. Loading the
+ * children by id took a query per 100 ids, so the cost grew with the history (5 trips for the
+ * dashboard's 84 days, about 10 for the streak job's 120).
+ */
 export async function workoutLogsSince(db: DB, userId: number, cutoff: string): Promise<WorkoutLogDoc[]> {
-  const r = await db
-    .prepare("SELECT * FROM v2_workout_sessions WHERE accountId = ? AND date >= ?")
-    .bind(userId, cutoff)
-    .all<V2SessionRow>();
-  return loadWorkoutLogs(db, r.results ?? []);
+  const [sessions, exercises, sets] = await db.batch([
+    db.prepare("SELECT * FROM v2_workout_sessions WHERE accountId = ? AND date >= ?").bind(userId, cutoff),
+    db.prepare(
+      `SELECT e.* FROM v2_workout_exercises e JOIN v2_workout_sessions s ON s.id = e.sessionId
+       WHERE s.accountId = ? AND s.date >= ? ORDER BY e.sessionId, e.position`,
+    ).bind(userId, cutoff),
+    db.prepare(
+      `SELECT st.* FROM v2_workout_sets st JOIN v2_workout_exercises e ON e.id = st.exerciseId
+       JOIN v2_workout_sessions s ON s.id = e.sessionId
+       WHERE s.accountId = ? AND s.date >= ? ORDER BY st.exerciseId, st.position`,
+    ).bind(userId, cutoff),
+  ]);
+  return assembleWorkoutLogs((sessions.results ?? []) as V2SessionRow[], (exercises.results ?? []) as V2ExerciseRow[], (sets.results ?? []) as V2SetRow[]);
 }
 
 export async function countCompletedWorkouts(db: DB, userId: number): Promise<number> {
