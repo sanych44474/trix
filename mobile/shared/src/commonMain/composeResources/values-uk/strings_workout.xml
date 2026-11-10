@@ -10,7 +10,7 @@
     <string name="wk_close">Закрити</string>
     <string name="wk_controlled_reps">контрольовані повтори</string>
     <string name="wk_dock_draft_local">Збережено на телефоні</string>
-    <string name="wk_dock_draft_offline">Немає зв\'язку — чернетка лише на телефоні</string>
+    <string name="wk_dock_draft_offline">Немає зв'язку — чернетка лише на телефоні</string>
     <string name="wk_dock_draft_synced">Чернетку збережено</string>
     <string name="wk_dock_not_started">Ще без підходів</string>
     <string name="wk_dock_saved_at">✓ Збережено о %1$s</string>
@@ -35,7 +35,7 @@
     <string name="wk_focus_note_label">Коментар</string>
     <string name="wk_focus_prev">Назад</string>
     <string name="wk_generic_error">Щось пішло не так. Спробуй ще раз.</string>
-    <string name="wk_history_empty_detail">Завершені тренування з\'являться тут.</string>
+    <string name="wk_history_empty_detail">Завершені тренування з'являться тут.</string>
     <string name="wk_history_empty_title">Історії поки немає</string>
     <string name="wk_history_eyebrow">Минулі тренування</string>
     <string name="wk_history_row_exercises">%1$s вправ</string>
@@ -52,7 +52,7 @@
     <string name="wk_pick_date_label">Дата</string>
     <string name="wk_repeat_btn">Повторити</string>
     <string name="wk_repeated_note">Вправи скопійовано з %1$s. Перевір і збережи.</string>
-    <string name="wk_rest_day_detail">Твоя наступна запланована сесія з\'явиться тут.</string>
+    <string name="wk_rest_day_detail">Твоя наступна запланована сесія з'явиться тут.</string>
     <string name="wk_rest_day_title">День відпочинку</string>
     <string name="wk_restored_other_device_note">Відновлено незбережене тренування з іншого пристрою.</string>
     <string name="wk_retry">Повторити</string>
@@ -77,11 +77,11 @@
     <string name="wk_summary_pr_kicker">Новий особистий рекорд</string>
     <string name="wk_summary_pr_more">ще %1$s</string>
     <string name="wk_summary_sets_of">підходи</string>
-    <string name="wk_summary_volume">об\'єм</string>
+    <string name="wk_summary_volume">об'єм</string>
     <string name="wk_swap_overwrite_plan">Перезаписати план на тиждень: «%1$s» → «%2$s»? Скасувати — лише сьогодні.</string>
     <string name="wk_swap_plan_saved">План оновлено: тепер «%1$s»</string>
     <string name="wk_swap_search_btn">Знайти</string>
-    <string name="wk_swap_search_placeholder">М\'яз (напр. трицепс) або своя вправа</string>
+    <string name="wk_swap_search_placeholder">М'яз (напр. трицепс) або своя вправа</string>
     <string name="wk_swapped_from_note">замість: %1$s</string>
     <string name="wk_target_last">Минулого разу %1$s</string>
     <string name="wk_target_today">сьогодні %1$s</string>
@@ -105,7 +105,7 @@
     <string name="wk_train_repeat_last_btn">Повторити минуле</string>
     <string name="wk_train_rest_auto">Авто</string>
     <string name="wk_train_rest_for">%1$s · підхід %2$s</string>
-    <string name="wk_train_rest_next_btn">Далі</string>
+    <string name="wk_train_rest_skip_btn">Пропустити</string>
     <string name="wk_train_rest_over_label">Відпочинок завершено — наступний підхід!</string>
     <string name="wk_train_rest_prefs_aria">Налаштування відпочинку</string>
     <string name="wk_train_rest_sound">Звук</string>
@@ -138,7 +138,7 @@
     <string name="wk_muscle_hamstring">Біцепс стегна</string>
     <string name="wk_muscle_lower_back">Поперек</string>
     <string name="wk_muscle_neck">Шия</string>
-    <string name="wk_muscle_obliques">Косі м\'язи</string>
+    <string name="wk_muscle_obliques">Косі м'язи</string>
     <string name="wk_muscle_quadriceps">Квадрицепс</string>
     <string name="wk_muscle_tibialis">Гомілка</string>
     <string name="wk_muscle_trapezius">Трапеції</string>

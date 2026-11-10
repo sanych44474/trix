@@ -170,6 +170,7 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
             else -> d.set.copy(meters = value)
         }
         vm.setRowDraft(key, RowDraft(d.row, set, d.text + (field to raw)))
+        if (field == "weight" && reps && !isDone(d.row)) vm.keepTypedWeight(ex.index, d.row, value, rows)
     }
 
     val mainHead = stringResource(

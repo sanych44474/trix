@@ -1,5 +1,8 @@
 package app.hacklimits.shared.ui
 
+import androidx.compose.foundation.border
+import app.hacklimits.shared.workout.logic.segmentLook
+import app.hacklimits.shared.workout.logic.SegmentLook
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -218,18 +221,20 @@ private fun FocusBar(vm: LoggerViewModel, s: LoggerUi, at: Int) {
             )
             TextButton(onClick = { vm.toggleMenu() }) { Text(stringResource(Res.string.wk_exercise_more_aria)) }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
             exercises.forEachIndexed { i, ex ->
-                val done = ex.done.count(::isSetFilled)
-                val color = when {
-                    complete(ex) -> MaterialTheme.colorScheme.primary
-                    i == at -> MaterialTheme.colorScheme.onSurface
-                    done > 0 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-                    else -> MaterialTheme.colorScheme.outlineVariant
+                // Progress sets the colour; the open exercise is marked on top (taller, outlined), so
+                // going back to a finished one still shows where you are.
+                val look = segmentLook(i, at, complete(ex), ex.done.count(::isSetFilled))
+                val color = when (look.progress) {
+                    SegmentLook.Progress.COMPLETE -> MaterialTheme.colorScheme.primary
+                    SegmentLook.Progress.STARTED -> MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                    SegmentLook.Progress.TODO -> MaterialTheme.colorScheme.outlineVariant
                 }
                 Box(
-                    Modifier.weight(1f).height(6.dp)
+                    Modifier.weight(1f).height(if (look.current) 10.dp else 6.dp)
                         .background(color, RectangleShape)
+                        .then(if (look.current) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, RectangleShape) else Modifier)
                         .clickable { vm.goToExercise(ex.index) },
                 )
             }

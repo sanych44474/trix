@@ -25,7 +25,7 @@
     <string name="pl_plan_move_down">Move down</string>
     <string name="pl_plan_move_up">Move up</string>
     <string name="pl_plan_note_save">Save the comment</string>
-    <string name="pl_plan_owner_title">%1$s\'s plan</string>
+    <string name="pl_plan_owner_title">%1$s's plan</string>
     <string name="pl_plan_pick_add_btn">Add to %1$s</string>
     <string name="pl_plan_pick_library">Pick from the exercise library</string>
     <string name="pl_plan_pick_own">Your own exercise</string>
@@ -65,7 +65,7 @@
     <string name="pl_plan_day_rename_ph">e.g. Chest/Triceps</string>
     <string name="pl_plan_day_rename_hint">Tap a group to add it. Exercises stay as they are; the name shows in the plan, the workout and reminders.</string>
     <string name="pl_kitfit_eyebrow">Equipment</string>
-    <string name="pl_kitfit_title">%1$s exercises need equipment you don\'t have</string>
+    <string name="pl_kitfit_title">%1$s exercises need equipment you don't have</string>
     <string name="pl_kitfit_body">Your equipment: %1$s. Swap them for exercises on the same muscles you can do — sets and days stay the same.</string>
     <string name="pl_kitfit_btn">Fit my plan</string>
     <string name="pl_meso_intro">Runs your training in phases — hypertrophy, strength, peak, deload — one week at a time, each with its own rep range and intensity.</string>
@@ -88,7 +88,7 @@
     <string name="pl_ft_why">One tap — your plan and calorie targets get more accurate.</string>
     <string name="pl_ft_later">Later</string>
     <string name="pl_ft_save">Save</string>
-    <string name="ob_obq_sex">What\'s your sex?</string>
+    <string name="ob_obq_sex">What's your sex?</string>
     <string name="ob_obq_age">How old are you?</string>
     <string name="ob_obq_height">How tall are you?</string>
     <string name="ob_obq_weight">How much do you weigh?</string>
@@ -201,15 +201,15 @@
     <string name="pg_library_empty_title">Nothing published yet</string>
     <string name="pg_library_empty_detail">Check back later for community programs.</string>
     <string name="pg_library_taken_count">%1$s taken</string>
-    <string name="pg_library_taken_note">\"%1$s\" is now your active plan.</string>
+    <string name="pg_library_taken_note">"%1$s" is now your active plan.</string>
     <string name="pg_library_take_btn">Take</string>
     <string name="ob_time">2 minutes</string>
-    <string name="ob_welcome_title">Let\'s build your plan</string>
+    <string name="ob_welcome_title">Let's build your plan</string>
     <string name="ob_welcome_body">A few short questions, one at a time — about 2 minutes. Your plan, reminders and nutrition targets are built from your answers. Or pick a ready program — then just 4 questions about you.</string>
     <string name="ob_role_athlete_btn">💪 I train myself — with AI</string>
     <string name="ob_start_btn">Start</string>
     <string name="ob_role_trainer_btn">Choose a trainer</string>
-    <string name="ob_role_coach_btn">🧑‍🏫 I\'m a coach</string>
+    <string name="ob_role_coach_btn">🧑‍🏫 I'm a coach</string>
     <string name="ob_ready_btn">📋 Pick a ready program (4 questions)</string>
     <string name="ob_ready_title">Pick a ready program</string>
     <string name="ob_ready_body">45 plans for the gym, home with dumbbells or no equipment, beginner to advanced. The program adapts to your weight and level.</string>
@@ -227,7 +227,7 @@
     <string name="ob_obh_level">Beginner: under 6 months of regular training. Advanced: several years of structured lifting.</string>
     <string name="ob_obh_limits">The plan will avoid what hurts. Leave it empty if there is nothing.</string>
     <string name="ob_obh_share">Your workouts and plan are always visible to your trainer. Body data and health details are up to you, and you can change this later in Settings.</string>
-    <string name="ob_obq_goal">What\'s your main goal?</string>
+    <string name="ob_obq_goal">What's your main goal?</string>
     <string name="ob_obq_level">How much training experience do you have?</string>
     <string name="ob_obq_equipment">What equipment do you have?</string>
     <string name="ob_obq_days">Which days can you train?</string>
@@ -239,8 +239,8 @@
     <string name="ob_obo_share_body">Only body data (height, weight, measurements)</string>
     <string name="ob_obo_share_health">Only health (injuries, limitations)</string>
     <string name="ob_obo_share_none">Keep both private</string>
-    <string name="ob_obo_sleep_morning">Morning — I\'m up early</string>
-    <string name="ob_obo_sleep_evening">Evening — I\'m up late</string>
+    <string name="ob_obo_sleep_morning">Morning — I'm up early</string>
+    <string name="ob_obo_sleep_evening">Evening — I'm up late</string>
     <string name="ob_goal_fat_loss">Fat loss</string>
     <string name="ob_goal_muscle_gain">Muscle gain</string>
     <string name="ob_goal_recomposition">Recomposition</string>

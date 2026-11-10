@@ -3,7 +3,7 @@
     <string name="tt_share_title">Program sharing</string>
     <string name="tt_share_hint">Publish a saved template to the library, get a share link, or assign it to the clients you pick. Needs instructor access from the owner.</string>
     <string name="tt_publish_heading">Template to library or link</string>
-    <string name="tt_templates_empty">No saved templates yet. Save one from a client\'s plan first.</string>
+    <string name="tt_templates_empty">No saved templates yet. Save one from a client's plan first.</string>
     <string name="tt_publish_library">Publish to library</string>
     <string name="tt_publish_link">Get share link</string>
     <string name="tt_published">"%1$s" is published to the library.</string>

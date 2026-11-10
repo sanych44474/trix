@@ -32,6 +32,10 @@ import app.hacklimits.shared.workout.logic.suggestionFor
 import app.hacklimits.shared.workout.logic.swapExercise
 import app.hacklimits.shared.workout.logic.targetUse
 import app.hacklimits.shared.workout.logic.copyToLoggerExercises
+import app.hacklimits.shared.workout.logic.repeatAsSuggestions
+import app.hacklimits.shared.workout.logic.withTypedWeight
+import app.hacklimits.shared.workout.logic.savedSets
+import app.hacklimits.shared.workout.logic.isSetFilled
 import app.hacklimits.shared.data.WorkoutCopyExercise
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -212,6 +216,38 @@ class LoggerLogicTest {
         ).single()
         assertEquals(listOf(LoggerSet(seconds = 45.0, rpe = 7.0)), copied.setsDone)
         assertEquals(7.0, copied.rpe)
+    }
+
+    @Test
+    fun aSessionRepeatedTodayIsSuggestedNotAlreadyChecked() {
+        val copied = copyToLoggerExercises(
+            listOf(WorkoutCopyExercise(name = "Bench Press", metric = "reps", sets = listOf(WorkoutToday.PastSet(80.0, 8.0, 0.0, 0.0), WorkoutToday.PastSet(80.0, 6.0, 0.0, 0.0)), rpe = 8.0)),
+        )
+        val repeated = repeatAsSuggestions(copied).single()
+        assertEquals(emptyList<LoggerSet>(), repeated.setsDone, "nothing is checked, so each set starts its rest when logged")
+        assertEquals(listOf(LoggerSet(weight = 80.0, reps = 8.0), LoggerSet(weight = 80.0, reps = 6.0)), repeated.prefill)
+        assertEquals(2, repeated.sets)
+        assertEquals(null, repeated.rpe)
+        assertEquals(LoggerSet(weight = 80.0, reps = 6.0), suggestionFor(repeated, 1), "the row shows the copied numbers")
+    }
+
+    @Test
+    fun aLoadTypedBeforeTheRepsIsKeptAndCarriedToTheOpenSets() {
+        val bench = LoggerExercise(index = 0, name = "Bench Press", metric = "reps", sets = 3, setsDone = listOf(LoggerSet(weight = 70.0, reps = 10.0)))
+        // Typed key by key: "8", then "85".
+        val first = bench.copy(setsDone = withTypedWeight(bench, row = 1, weight = 8.0, rows = 3))
+        val sets = withTypedWeight(first, row = 1, weight = 85.0, rows = 3)
+        assertEquals(LoggerSet(weight = 70.0, reps = 10.0), sets[0], "a logged set is left alone")
+        assertEquals(listOf(85.0, 85.0), sets.drop(1).map { it.weight }, "the typed set and the open one after it")
+        assertTrue(sets.drop(1).none(::isSetFilled), "nothing is logged until it has reps")
+        assertEquals(listOf(LoggerSet(weight = 70.0, reps = 10.0)), savedSets(bench.copy(setsDone = sets)), "a save sends only logged sets")
+    }
+
+    @Test
+    fun aTypedLoadDoesNotOverwriteALoggedSetOrAnotherOpenLoad() {
+        val ex = LoggerExercise(index = 0, name = "Squat", metric = "reps", sets = 3, setsDone = listOf(LoggerSet(weight = 100.0, reps = 5.0), LoggerSet(), LoggerSet(weight = 90.0)))
+        assertEquals(ex.done, withTypedWeight(ex, row = 0, weight = 120.0, rows = 3), "row 0 is logged: unchanged")
+        assertEquals(listOf(100.0, 110.0, 90.0), withTypedWeight(ex, row = 1, weight = 110.0, rows = 3).map { it.weight }, "a drop set's own load stays")
     }
 
     @Test

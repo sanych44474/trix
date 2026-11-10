@@ -164,6 +164,21 @@ fun copyToLoggerExercises(items: List<WorkoutCopyExercise>): List<LoggerExercise
     )
 }
 
+/**
+ * "Repeat" a past session today: its sets fill the rows as suggestions, as "repeat last" does.
+ * Copied as done, every check was already ticked, so no set was logged by its own check and the
+ * rest timer never started (tester report). Back-filling a missed day keeps them done.
+ */
+fun repeatAsSuggestions(exercises: List<LoggerExercise>): List<LoggerExercise> = exercises.map { exercise ->
+    val prefill = exercise.done.map { it.copy(rpe = null) }
+    exercise.copy(
+        setsDone = emptyList(),
+        prefill = prefill.ifEmpty { null },
+        sets = maxOf(exercise.sets, prefill.size, 1),
+        rpe = null,
+    )
+}
+
 /** Swaps one exercise for another, remembering which plan exercise it stands in for. Swapping back
  * to the plan's own exercise clears that again. The plan's technique, video, target and weight
  * describe the old exercise, so they go. */
@@ -183,6 +198,28 @@ fun swapExercise(exercises: List<LoggerExercise>, index: Int, name: String, vide
     }
 
 /** Save entries: only exercises with at least one filled set. */
+/**
+ * A load typed into an open row before its reps: kept on that set and carried to the open rows
+ * after it that have no load of their own, so it is entered once, not per set. It used to live only
+ * in the row's draft and was lost as soon as the row closed or the exercise changed (tester
+ * report). A set stays not done until it has reps (isSetFilled), so nothing is logged early.
+ */
+fun withTypedWeight(exercise: LoggerExercise, row: Int, weight: Double, rows: Int): List<LoggerSet> {
+    val sets = exercise.done.toMutableList()
+    while (sets.size < rows) sets += emptyLoggerSet(exercise.metric)
+    if (row !in sets.indices || isSetFilled(sets[row])) return exercise.done
+    // Rows that followed this one's old load follow the new one, so typing "8" then "85" leaves 85.
+    val old = sets[row].weight
+    sets[row] = sets[row].copy(weight = weight)
+    for (i in row + 1 until sets.size) {
+        if (!isSetFilled(sets[i]) && (sets[i].weight == 0.0 || sets[i].weight == old)) sets[i] = sets[i].copy(weight = weight)
+    }
+    return sets
+}
+
+/** The sets a save sends: only those logged. A load typed ahead (withTypedWeight) is not a set. */
+fun savedSets(exercise: LoggerExercise): List<LoggerSet> = exercise.done.filter(::isSetFilled)
+
 fun buildSaveEntries(exercises: List<LoggerExercise>): List<LoggerExercise> = exercises.filter(::isExerciseFilled)
 
 fun countFilledSets(exercises: List<LoggerExercise>): Int = exercises.sumOf { exercise -> exercise.done.count(::isSetFilled) }

@@ -11,7 +11,7 @@ import { repDropoffs } from "./logic/repDropoff";
 import {
   buildSaveEntries, chooseStart, copyToLoggerExercises, countFilledSets, DENSITY_MIN_SESSION_SEC, DRAFT_KEY,
   emptyLoggerSet, isExerciseFilled, isoDate, isoWeekday, parseDraft, plannedSetsFor, removeLoggerSet, sessionElapsedSec, swapExercise,
-  isSetFilled, prefillFromLast, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
+  isSetFilled, prefillFromLast, repeatAsSuggestions, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
   targetUse,
 } from "./logic/logger";
 import { cachedToday, cacheToday, enqueueSave, isNetworkError, OFFLINE_SAVES_KEY } from "./logic/offlineSaves";
@@ -273,7 +273,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
   const repeatToday = (date: string) => withHistoryBusy(`repeat:${date}`, async () => {
     if (!workout) return;
     const data = await api<{ exercises: WorkoutCopyExercise[] }>(`/api/v2/workout/past?date=${date}`);
-    replaceWith({ ...workout, exercises: copyToLoggerExercises(data.exercises) }, null, date);
+    replaceWith({ ...workout, exercises: repeatAsSuggestions(copyToLoggerExercises(data.exercises)) }, null, date);
   });
   const startMissedBlank = (date: string) => withHistoryBusy(`blank:${date}`, async () => {
     const data = await api<WorkoutToday>(`/api/v2/workout/today?date=${date}`);

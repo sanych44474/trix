@@ -114,6 +114,16 @@ export function copyToLoggerExercises(items: WorkoutCopyExercise[]): LoggerExerc
   }));
 }
 
+/** "Repeat" a past session today: its sets fill the rows as suggestions, as "repeat last" does.
+ *  Copied as done, every check was already ticked, so no set was logged by its own check and the
+ *  rest timer never started (tester report). Back-filling a missed day keeps them done. */
+export function repeatAsSuggestions(exercises: LoggerExercise[]): LoggerExercise[] {
+  return exercises.map(({ rpe: _rpe, ...exercise }) => {
+    const prefill = (exercise.setsDone ?? []).map(({ rpe: _r, ...set }) => set);
+    return { ...exercise, setsDone: [], ...(prefill.length ? { prefill } : {}), sets: Math.max(exercise.sets || 1, prefill.length) };
+  });
+}
+
 /** Swap one exercise for another, remembering which plan exercise it stands in for. Swapping
  *  back to the plan's own exercise clears that again. */
 export function swapExercise(exercises: LoggerExercise[], index: number, name: string, extra: { videoUrl?: string; videoTitle?: string } = {}): LoggerExercise[] {

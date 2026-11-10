@@ -16,7 +16,7 @@
 
     <string name="td_kicker">Today</string>
     <string name="td_in_progress">In progress</string>
-    <string name="td_workout_title">Today\'s workout</string>
+    <string name="td_workout_title">Today's workout</string>
     <string name="td_done_title">Workout logged</string>
     <string name="td_rest_title">Rest day</string>
     <string name="td_rest_body">Your plan has a rest day today.</string>
@@ -33,7 +33,7 @@
     <string name="td_week_title">This week</string>
     <string name="td_week_count">%1$d of %2$d workouts</string>
     <string name="td_rswap_title">Your %1$s are still recovering</string>
-    <string name="td_rswap_body">Last session: %1$s. Today\'s plan is %2$s; %3$s (%4$s) trains muscles that are ready. Swap the two days in your plan?</string>
+    <string name="td_rswap_body">Last session: %1$s. Today's plan is %2$s; %3$s (%4$s) trains muscles that are ready. Swap the two days in your plan?</string>
     <string name="td_rswap_btn">Swap with %1$s</string>
     <string name="td_rswap_keep">Train as planned</string>
     <string name="td_error">Something went wrong. Try again.</string>

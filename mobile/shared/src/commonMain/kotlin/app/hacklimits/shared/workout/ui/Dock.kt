@@ -35,7 +35,7 @@ import app.hacklimits.shared.resources.wk_saving_ellipsis
 import app.hacklimits.shared.resources.wk_save_changes_btn
 import app.hacklimits.shared.resources.wk_save_for_date
 import app.hacklimits.shared.resources.wk_train_resting_label
-import app.hacklimits.shared.resources.wk_train_rest_next_btn
+import app.hacklimits.shared.resources.wk_train_rest_skip_btn
 import app.hacklimits.shared.resources.wk_train_rest_over_label
 import app.hacklimits.shared.workout.DockAction
 import app.hacklimits.shared.workout.LoggerUi
@@ -91,7 +91,7 @@ fun RestBar(vm: LoggerViewModel, rest: RestUi) {
                 OutlinedButton(onClick = { vm.adjustRest(REST_ADJUST_SEC) }) {
                     Text("+$REST_ADJUST_SEC", modifier = Modifier.padding(horizontal = 4.dp))
                 }
-                Button(onClick = { vm.stopRest() }) { Text(stringResource(Res.string.wk_train_rest_next_btn)) }
+                Button(onClick = { vm.stopRest() }) { Text(stringResource(Res.string.wk_train_rest_skip_btn)) }
             }
             val fraction = (100 - restRingPct(rest.target, live.left)) / 100f
             LinearProgressIndicator(progress = { fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())

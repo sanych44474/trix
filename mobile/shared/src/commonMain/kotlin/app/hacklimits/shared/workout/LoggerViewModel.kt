@@ -16,6 +16,7 @@ import app.hacklimits.shared.data.WorkoutCopyExercise
 import app.hacklimits.shared.data.WorkoutHistoryItem
 import app.hacklimits.shared.platform.RestAlarm
 import app.hacklimits.shared.workout.logic.DEFAULT_REST_SEC
+import app.hacklimits.shared.workout.logic.settled
 import app.hacklimits.shared.workout.logic.DENSITY_MIN_SESSION_SEC
 import app.hacklimits.shared.workout.logic.DRAFT_KEY
 import app.hacklimits.shared.muscles.MuscleLearning
@@ -36,6 +37,9 @@ import app.hacklimits.shared.telemetry.Telemetry
 import app.hacklimits.shared.workout.logic.chooseStart
 import app.hacklimits.shared.workout.logic.clampRest
 import app.hacklimits.shared.workout.logic.copyToLoggerExercises
+import app.hacklimits.shared.workout.logic.repeatAsSuggestions
+import app.hacklimits.shared.workout.logic.withTypedWeight
+import app.hacklimits.shared.workout.logic.savedSets
 import app.hacklimits.shared.workout.logic.countFilledSets
 import app.hacklimits.shared.workout.logic.density
 import app.hacklimits.shared.workout.logic.emptyLoggerSet
@@ -114,7 +118,8 @@ class LoggerViewModel(
 
     init {
         viewModelScope.launch {
-            pending.observeCounts().collect { counts ->
+            // settled(): a draft queued and sent in a moment no longer flashes the sync note.
+            pending.observeCounts().settled().collect { counts ->
                 val current = _ui.value
                 _ui.value = current.copy(
                     pendingSyncCount = counts.pending,
@@ -273,6 +278,10 @@ class LoggerViewModel(
             ex.copy(setsDone = sets)
         }
     }
+
+    /** A load typed before the reps: kept on the open set (and the open ones after it), see withTypedWeight. */
+    fun keepTypedWeight(index: Int, row: Int, weight: Double, rows: Int) =
+        mapExercise(index) { ex -> ex.copy(setsDone = withTypedWeight(ex, row, weight, rows)) }
 
     fun fillPlanned(index: Int) {
         val backfill = _ui.value.logDate != null
@@ -577,7 +586,7 @@ class LoggerViewModel(
         val entries = buildSaveEntries(s.exercises).map { ex ->
             SaveWorkoutRequest.Entry(
                 name = ex.name,
-                sets = ex.done.map { set ->
+                sets = savedSets(ex).map { set ->
                     SaveWorkoutRequest.SetDone(reps = set.reps, weight = set.weight, seconds = set.seconds, meters = set.meters, rpe = set.rpe)
                 },
                 rpe = ex.rpe,
@@ -603,7 +612,7 @@ class LoggerViewModel(
                 val result = api.save(request, key)
                 val doneAt = nowMs()
                 if (action == DockAction.Finish) restStartedAtMs = null
-                if (action == DockAction.Finish && _ui.value.rest.endAtMs != null) clearRest()
+                if (saveEndsRest(action) && _ui.value.rest.endAtMs != null) clearRest()
                 edit { current ->
                     current.copy(
                         saving = false, saved = true, drafted = false, savedAtMs = doneAt, sync = SyncState.IDLE,
@@ -649,7 +658,7 @@ class LoggerViewModel(
         }
         if (queuedCount == 0 && attentionCount == 0) load(quiet = true)
         if (action == DockAction.Finish) restStartedAtMs = null
-        if (_ui.value.rest.endAtMs != null) clearRest()
+        if (saveEndsRest(action) && _ui.value.rest.endAtMs != null) clearRest()
     }
 
     private fun summaryOf(s: LoggerUi, result: SaveWorkoutResult, final: SessionClock?, elapsed: Int, doneAt: Long): SaveSummary {
@@ -746,7 +755,7 @@ class LoggerViewModel(
 
     /** "Repeat": the exercises and sets of a past day, copied into today's logger. */
     fun repeatDay(date: String) = withHistoryBusy("repeat:$date") {
-        replaceWith(copyToLoggerExercises(cachedPast(date)), null, date)
+        replaceWith(repeatAsSuggestions(copyToLoggerExercises(cachedPast(date))), null, date)
     }
 
     /** "Edit this saved day": that day's sets, saved back onto the same date. */

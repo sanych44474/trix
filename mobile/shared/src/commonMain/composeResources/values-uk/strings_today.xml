@@ -33,7 +33,7 @@
     <string name="td_week_title">Цей тиждень</string>
     <string name="td_week_count">%1$d з %2$d тренувань</string>
     <string name="td_rswap_title">Ще відновлюються: %1$s</string>
-    <string name="td_rswap_body">Минулого разу: %1$s. Сьогодні за планом %2$s, а %3$s (%4$s) — м\'язи, які вже готові. Поміняти ці дні в плані місцями?</string>
+    <string name="td_rswap_body">Минулого разу: %1$s. Сьогодні за планом %2$s, а %3$s (%4$s) — м'язи, які вже готові. Поміняти ці дні в плані місцями?</string>
     <string name="td_rswap_btn">Поміняти з: %1$s</string>
     <string name="td_rswap_keep">Тренуватись за планом</string>
     <string name="td_error">Щось пішло не так. Спробуй ще раз.</string>
@@ -47,7 +47,7 @@
     <string name="td_recovery_good">Добре</string>
     <string name="td_recovery_fair">Задовільно</string>
     <string name="td_recovery_poor">Слабко</string>
-    <string name="td_factor_volume_above">Груп м\'язів понад тижневий орієнтир обсягу: %1$d</string>
+    <string name="td_factor_volume_above">Груп м'язів понад тижневий орієнтир обсягу: %1$d</string>
     <string name="td_factor_cardio_above">Кардіо-навантаження значно перевищує тижневий орієнтир</string>
     <string name="td_factor_low_energy">Низька енергія в останньому чек-іні</string>
     <string name="td_factor_high_stress">Високий стрес в останньому чек-іні</string>
@@ -64,7 +64,7 @@
 
     <string name="td_week_eyebrow">Цей тиждень</string>
     <string name="td_week_card_title">Баланс %1$d/100</string>
-    <string name="td_week_streak">Збалансованих тижнів поспіль: %1$d з %2$d. Кожен ключовий м\'яз на тижневому мінімумі %2$d тижні поспіль — бейдж.</string>
+    <string name="td_week_streak">Збалансованих тижнів поспіль: %1$d з %2$d. Кожен ключовий м'яз на тижневому мінімумі %2$d тижні поспіль — бейдж.</string>
     <string name="td_quests_title">Квести · +%1$d XP за кожен</string>
     <string name="td_quest_workouts">Тренувань: %1$d</string>
     <string name="td_quest_muscle_sets">%1$s — підходів за тиждень: %2$d</string>
@@ -84,7 +84,7 @@
     <string name="td_muscle_hamstring">Біцепс стегна</string>
     <string name="td_muscle_lower_back">Поперек</string>
     <string name="td_muscle_neck">Шия</string>
-    <string name="td_muscle_obliques">Косі м\'язи</string>
+    <string name="td_muscle_obliques">Косі м'язи</string>
     <string name="td_muscle_quadriceps">Квадрицепс</string>
     <string name="td_muscle_tibialis">Гомілка</string>
     <string name="td_muscle_trapezius">Трапеції</string>

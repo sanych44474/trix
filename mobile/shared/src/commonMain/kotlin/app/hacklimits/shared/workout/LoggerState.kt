@@ -73,6 +73,12 @@ sealed interface DockAction {
     data object Saved : DockAction // nothing to save
 }
 
+/**
+ * Only finishing the session ends the rest that is counting down. Saving edits to a day already
+ * logged (online or queued offline) happens mid-session too, and used to clear the timer.
+ */
+fun saveEndsRest(action: DockAction): Boolean = action == DockAction.Finish
+
 /** A plan exercise was swapped in the session: ask before rewriting the saved plan too. */
 data class PlanSwapConfirm(val planName: String, val choice: SwapChoice)
 
