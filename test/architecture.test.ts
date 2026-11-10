@@ -1,4 +1,5 @@
-// Architecture fitness tests: the dependency rules of docs/adr/0010-layering.md, checked on every
+// Architecture fitness tests: the dependency rules of docs/adr/0010-layering.md and
+// docs/adr/0014-layering-covers-every-folder.md, checked on every
 // run. Existing violations are listed in KNOWN below as a ratchet: the list may only shrink -- a
 // new violation fails, and so does a listed one that has been fixed (delete its line then).
 import { test } from "node:test";
@@ -32,24 +33,73 @@ function runtimeImports(file: string): string[] {
     if (m[1]) continue; // `import type` is erased at build time
     out.push(rel(normalize(join(dirname(file), m[2]))));
   }
-  return out;
+  return out.filter((t) => t.startsWith("src/")); // a relative path into node_modules is a package
 }
 
-/** The rules: which layer may not import which. */
+// Root modules every layer may import, the pure ones included: shared types and the release notes.
+const ROOT_SHARED = new Set(["src/types", "src/releaseNotes"]);
+// The Worker entry and the cron entry: nothing below the interfaces imports them at runtime.
+const ENTRY = new Set(["src/index", "src/scheduler"]);
+const INFRASTRUCTURE = ["adapters", "ai"];
+const APPLICATION = ["features", "notify", "knowledge", "schedulerJobs"];
+const INTERFACES = ["bot", "webapp", "durable"];
+
+/** The rules: which layer may not import which (docs/adr/0014-layering-covers-every-folder.md). */
 function violates(from: string, to: string): boolean {
   const a = layerOf(join(ROOT, from));
   const b = layerOf(join(ROOT, `${to}.ts`));
-  if (a === "domain") return !["domain", "(root)", "locales"].includes(b); // pure: no I/O layers
-  if (a === "adapters") return ["bot", "webapp", "features"].includes(b); // infrastructure stays below
-  if (["webapp", "features", "schedulerJobs", "ai", "knowledge"].includes(a) && b === "bot") return true; // the bot is a UI
+  // Pure layers name what they MAY import, so a new folder or root file is closed to them by default.
+  const only = (...layers: string[]) => !(b === "(root)" ? ROOT_SHARED.has(to) : layers.includes(b));
+  if (a === "locales" || a === "contracts") return only(a);
+  if (a === "domain") return only("domain", "locales"); // also bundled into the Mini App: no I/O
+  if (a === "render") return only("render", "domain", "locales");
+  if (a === "(root)") {
+    if (from === "src/index.ts") return false; // the composition root wires everything
+    if (from === "src/scheduler.ts") return ["bot", "webapp"].includes(b);
+    if (ROOT_LEGACY.has(from)) return false; // not placed in a layer yet, see the root test below
+    return only("domain", "locales"); // types, log, releaseNotes, appVersion
+  }
+  if (ENTRY.has(to)) return a !== "durable"; // the user DO runs the cron's per-user pass
+  if (INFRASTRUCTURE.includes(a)) return [...APPLICATION, ...INTERFACES].includes(b);
+  if (APPLICATION.includes(a)) return INTERFACES.includes(b);
+  if (a === "bot") return b === "webapp";
   // The Mini App API is an interface too: only the composition root (index.ts) wires it in.
-  if (b === "webapp" && a !== "webapp" && from !== "src/index.ts") return true;
-  return false;
+  if (a === "webapp") return b === "bot";
+  if (a === "durable") return ["bot", "webapp"].includes(b);
+  return true; // a folder with no rule: add it to a layer above
 }
 
-// Baseline (2026-10-13). Each line is "<file> -> <module>"; remove lines as they get fixed.
-// Every violation from the original baseline has been fixed (ADR-0010); keep this empty.
-const KNOWN = new Set<string>([]);
+// src/*.ts files that predate the rule "every module lives in a layer folder". A ratchet like
+// KNOWN: move a file into its layer and delete its line; a new file in src/ fails the test.
+const ROOT_LEGACY = new Set<string>([
+  "src/aiModelWatch.ts",
+  "src/dailyMetricsRollup.ts",
+  "src/exerciseMuscleLearning.ts",
+  "src/limits.ts",
+  "src/notify.ts",
+  "src/questClose.ts",
+  "src/render.ts",
+  "src/schedulerOutbox.ts",
+  "src/staleDrafts.ts",
+  "src/telegramSetup.ts",
+  "src/youtube.ts",
+]);
+const ROOT_ALLOWED = new Set(["src/index.ts", "src/scheduler.ts", "src/types.ts", "src/log.ts", "src/releaseNotes.ts", "src/appVersion.ts"]);
+
+test("src/ root holds only the entries and the shared modules (new code goes in a layer folder)", () => {
+  const rootFiles = sourceFiles().map(rel).filter((f) => layerOf(join(ROOT, f)) === "(root)");
+  const stray = rootFiles.filter((f) => !ROOT_ALLOWED.has(f) && !ROOT_LEGACY.has(f));
+  const moved = [...ROOT_LEGACY].filter((f) => !rootFiles.includes(f));
+  assert.deepEqual(stray, [], "put these in a layer folder (docs/adr/0014-layering-covers-every-folder.md)");
+  assert.deepEqual(moved, [], "these left src/ -- delete them from ROOT_LEGACY in test/architecture.test.ts");
+});
+
+// Each line is "<file> -> <module>"; remove lines as they get fixed. The 2026-10-13 baseline
+// (ADR-0010) reached zero; these are the edges the wider rules of ADR-0014 found on 2026-11-10.
+const KNOWN = new Set<string>([
+  "src/adapters/telegram/keyboards.ts -> src/notify/appLinks",
+  "src/schedulerJobs/global.ts -> src/durable/dryrunLog",
+]);
 
 test("layering: no new cross-layer imports (and fixed ones leave the baseline)", () => {
   const found = new Set<string>();
@@ -60,7 +110,7 @@ test("layering: no new cross-layer imports (and fixed ones leave the baseline)",
   }
   const added = [...found].filter((v) => !KNOWN.has(v));
   const fixed = [...KNOWN].filter((v) => !found.has(v));
-  assert.deepEqual(added, [], `new layering violations (see docs/adr/0010-layering.md):\n${added.join("\n")}`);
+  assert.deepEqual(added, [], `new layering violations (see docs/adr/0014-layering-covers-every-folder.md):\n${added.join("\n")}`);
   assert.deepEqual(fixed, [], `these are fixed -- delete them from KNOWN in test/architecture.test.ts:\n${fixed.join("\n")}`);
 });
 

@@ -3,9 +3,8 @@
 // buildClientCardPayload, test/client-card-payload.test.ts) takes already-fetched rows and does
 // no I/O of its own. The D1 orchestration that fetches those rows — the former
 // `buildDashboardPayload`/`buildTrainerSection`/`buildOwnerSection` that used to live in this
-// file — now lives in src/adapters/d1/dashboardReader.ts, the concrete v2-native adapter for the
-// `DashboardReader` application seam (src/application/dashboard.ts, Domain 10 of the v2 cutover —
-// see docs/adr/0001-v2-seams-and-staged-cutover.md). This file has no D1 access at all.
+// file — now lives in src/adapters/d1/dashboardReader.ts (Domain 10 of the v2 cutover — see
+// docs/adr/0001-v2-seams-and-staged-cutover.md). This file has no D1 access at all.
 import { learnedMusclesFor } from "./exerciseMuscles";
 import { parseReleaseNote, releaseDueInApp, type ReleaseItem } from "./releaseDelivery";
 import { latestRelease } from "../releaseNotes";
