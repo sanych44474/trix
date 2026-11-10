@@ -4,6 +4,7 @@ import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import { createInjury } from "../src/adapters/d1/v2Tracking";
+import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { upsertExercise, upsertExerciseTranslation } from "../src/adapters/d1/v2Catalog";
 import { handlePlanApi } from "../src/webapp/planApi";
 import { handleV2Api } from "../src/webapp/v2Api";
@@ -446,4 +447,30 @@ test("plan editor over /api/v2: the injury refusal reaches the apps as code conf
   assert.equal(res.status, 409);
   const body = (await res.json()) as { error: { code: string; message: string } };
   assert.deepEqual([body.error.code, body.error.message], ["conflict", "injury:knee"]);
+});
+
+test("plan editor: the owner opens and edits any user's plan from the app; the edit is logged against that user", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 10, 10, "en", "Owner");
+  await getOrCreateUser(db, 11, 11, "en", "Athlete");
+  await setOwnerChatId(db, 10);
+  await setActivePlan(db, plan(11));
+  const got = await call(db, 10, "GET", "/api/plan?clientId=11");
+  assert.equal(got.status, 200);
+  const view = (await got.json()) as { version: string; owner: { id: number } };
+  assert.equal(view.owner.id, 11);
+  const edit = await call(db, 10, "POST", "/api/plan", { weekday: 1, index: 0, action: "weight", value: "55 kg", expectName: "Bench Press", clientId: 11 }, { "If-Match": `"${view.version}"` });
+  assert.equal(edit.status, 200);
+  const after = (await (await call(db, 10, "GET", "/api/plan?clientId=11")).json()) as { days: Array<{ exercises: Array<{ startWeight: string }> }> };
+  assert.equal(after.days[0].exercises[0].startWeight, "55 kg");
+});
+
+test("plan editor: anyone else asking for another user's plan is still refused", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 10, 10, "en", "Owner");
+  await getOrCreateUser(db, 12, 12, "en", "Someone");
+  await getOrCreateUser(db, 11, 11, "en", "Athlete");
+  await setOwnerChatId(db, 10);
+  await setActivePlan(db, plan(11));
+  assert.equal((await call(db, 12, "GET", "/api/plan?clientId=11")).status, 403);
 });

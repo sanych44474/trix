@@ -16,7 +16,7 @@ export function WorkspaceView({ dashboard, lang, onOpenPlan, initialClientId, in
     {spaces.length > 1 && <div className="button-row tabs">
       {spaces.map((s) => <button key={s.id} className={active === s.id ? "button button-primary" : "button button-ghost"} onClick={() => setSpace(s.id)}>{t(lang, s.label)}</button>)}
     </div>}
-    {active === "owner" && <OwnerWorkspace lang={lang} />}
+    {active === "owner" && <OwnerWorkspace lang={lang} onOpenPlan={onOpenPlan} />}
     {active === "trainer" && <TrainerWorkspace dashboard={dashboard} lang={lang} onOpenPlan={onOpenPlan} initialClientId={initialClientId} />}
     {active === "social" && <SocialWorkspace lang={lang} role={dashboard.viewer.role} />}
   </div>;

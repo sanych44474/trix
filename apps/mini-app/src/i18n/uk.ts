@@ -417,6 +417,7 @@ export const uk: Record<keyof typeof en, string> = {
   roster_st_draft: "чернетка плану",
   roster_st_none: "без плану",
   roster_nudge_btn: "Пнути онбординг",
+  roster_plan_btn: "План",
   roster_nudged: "Надіслано ✓",
   roster_empty: "Нікого немає.",
   seen_never: "ніколи",

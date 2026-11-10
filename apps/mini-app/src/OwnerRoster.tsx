@@ -12,12 +12,14 @@ export type RosterAction = "block" | "unblock" | "delete" | "nudge";
 type Filter = "all" | "onboarding" | "active" | "idle";
 const PAGE = 30;
 
-export function OwnerRoster({ lang, rows, busy, nudged, onAction }: {
+export function OwnerRoster({ lang, rows, busy, nudged, onAction, onOpenPlan }: {
   lang: Lang;
   rows: Row[];
   busy: string | null;
   nudged: Set<number>;
   onAction: (id: number, action: RosterAction) => void;
+  /** Opens the user's plan in the editor (the owner may edit anyone's plan; the chat view is read-only). */
+  onOpenPlan?: (id: number) => void;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [open, setOpen] = useState<number | null>(null);
@@ -50,6 +52,7 @@ export function OwnerRoster({ lang, rows, busy, nudged, onAction }: {
             isOpen && <tr key={`${r.id}-a`} className="roster-actions"><td colSpan={3}>
               <small className="muted">{r.nick ? `${r.nick} · ` : ""}<span className="roster-stats"><Icon name="train" size={14} /> {r.w} <Icon name="check" size={14} /> {r.c} <Icon name="fuel" size={14} /> {r.n} <Icon name="steps" size={14} /> {r.s}</span></small>
               <div className="button-row">
+                {onOpenPlan && r.status !== "onboarding" && <button className="button button-ghost" onClick={() => onOpenPlan(r.id)}>{t(lang, "roster_plan_btn")}</button>}
                 {r.status === "onboarding" && <button className="button button-primary" disabled={busy === `nudge:${r.id}` || nudged.has(r.id)} onClick={() => onAction(r.id, "nudge")}>{nudged.has(r.id) ? t(lang, "roster_nudged") : busy === `nudge:${r.id}` ? "…" : t(lang, "roster_nudge_btn")}</button>}
                 <button className="button button-ghost" disabled={busy === `${blocked ? "unblock" : "block"}:${r.id}`} onClick={() => onAction(r.id, blocked ? "unblock" : "block")}>{t(lang, blocked ? "owner_unblock_btn" : "owner_block_btn")}</button>
                 {confirmDelete === r.id

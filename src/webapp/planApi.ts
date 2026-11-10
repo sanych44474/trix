@@ -12,7 +12,8 @@ import { getActivePlan, updatePlanMesocycle } from "../adapters/d1/v2Plans";
 import { listPlanChanges } from "../adapters/d1/v2PlanHistory";
 import { defaultMesocycle, type Mesocycle } from "../domain/mesocycle";
 import { getClientForTrainer } from "../adapters/d1/v2Trainer";
-import { updateUser } from "../adapters/d1/v2Users";
+import { getOwnerChatId } from "../adapters/d1/v2Admin";
+import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { getExerciseTranslation, getExerciseVideos, getUserVideos, searchExercisesByName } from "../adapters/d1/v2Catalog";
 import { exerciseMetric } from "../domain/setFormat";
 import { resolveWeightMode } from "../domain/exerciseClass";
@@ -159,6 +160,24 @@ function toPlanEdit(body: Record<string, unknown>): PlanEdit | null {
   }
 }
 
+/**
+ * Whose plan a `clientId` names, if this user may open it: a trainer's own client, or anyone for
+ * the owner (the owner's tools, ADR-0012: the chat plan view is read-only, plans are edited here).
+ * Everyone else gets 403, a trainer asking for someone else's client 404.
+ */
+async function otherPlanOwner(env: Env, user: UserDoc, clientId: number): Promise<UserDoc | Response> {
+  if (user.role === "trainer") {
+    const client = await getClientForTrainer(env.DB, user._id, clientId);
+    if (client) return client;
+  }
+  const ownerChatId = await getOwnerChatId(env.DB).catch(() => null);
+  if (ownerChatId && ownerChatId === user.chatId) {
+    const target = await getUser(env.DB, clientId).catch(() => null);
+    return target ?? typedFailure(404, "not_found", "not found");
+  }
+  return user.role === "trainer" ? typedFailure(404, "not_found", "not found") : typedFailure(403, "forbidden", "forbidden");
+}
+
 const NON_DAY_ACTIONS_WITH_SWAPPED = new Set(["fitkit", "difficulty"]);
 
 export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
@@ -198,10 +217,9 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
     const clientId = url.searchParams.get("clientId");
     let owner: UserDoc = user;
     if (clientId) {
-      if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
-      const client = await getClientForTrainer(env.DB, user._id, Number(clientId));
-      if (!client) return typedFailure(404, "not_found", "not found");
-      owner = client;
+      const target = await otherPlanOwner(env, user, Number(clientId));
+      if (target instanceof Response) return target;
+      owner = target;
     }
     const plan = await getActivePlan(env.DB, owner._id);
     if (!plan) return typedFailure(404, "not_found", "no_plan");
@@ -234,10 +252,9 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
   // Resolve the target plan owner (self or a trainer's client).
   let owner: UserDoc = user;
   if (body.clientId !== undefined) {
-    if (user.role !== "trainer") return typedFailure(403, "forbidden", "forbidden");
-    const client = await getClientForTrainer(env.DB, user._id, Number(body.clientId));
-    if (!client) return typedFailure(404, "not_found", "not found");
-    owner = client;
+    const target = await otherPlanOwner(env, user, Number(body.clientId));
+    if (target instanceof Response) return target;
+    owner = target;
   }
 
   const plan = await getActivePlan(env.DB, owner._id);

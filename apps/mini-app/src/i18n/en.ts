@@ -416,6 +416,7 @@ export const en = {
   roster_st_draft: "plan draft",
   roster_st_none: "no plan",
   roster_nudge_btn: "Nudge onboarding",
+  roster_plan_btn: "Plan",
   roster_nudged: "Sent ✓",
   roster_empty: "Nobody here.",
   seen_never: "never",
