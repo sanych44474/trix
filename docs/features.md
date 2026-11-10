@@ -1,14 +1,16 @@
 # trix — Feature Catalog
 
-Everything the product does, across both surfaces (the Telegram chat and the Telegram Mini App)
-and all four roles (solo athlete, a trainer's client, trainer, owner). **One numbered line = one
-function**, so the total below is a count rather than a slogan.
+Everything the product does, across the Telegram Mini App and the Android app, and all four roles (solo athlete, a trainer's client, trainer, owner). **One numbered line = one
+function**, so the total below is a count rather than a slogan. The Telegram bot's private chat
+is retired ([ADR-0012](adr/0012-private-chat-retired.md)): the bot keeps sign-in, pairing and
+invite links, payments, squads in groups, reminders and the owner's tools, and every other
+private-chat message gets the Open-app button.
 
 ## Why it matters
 
 - **A coach, not a log.** Most fitness apps wait for you to bring a program and open them. trix
   writes the program around your days, equipment and injuries, decides when to add weight, and
-  messages you first on training day, in the chat app you already have open.
+  messages you first on training day, in Telegram or as a push on Android.
 - **One place for everything that moves the needle**: the plan, the workout log, food and
   macros, bodyweight and measurements, sleep/energy check-ins, injuries, and the reminders that
   tie them together. No second app for nutrition, no spreadsheet for progress.
@@ -24,9 +26,9 @@ function**, so the total below is a count rather than a slogan.
 
 | | |
 |---|---|
-| Functions in this catalog | **196** across 11 areas |
+| Functions in this catalog | **195** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
-| Surfaces | 2 — Telegram chat (45 commands) and the Telegram Mini App |
+| Surfaces | 3 — the Telegram Mini App, the Android app, and the bot (sign-in, invite links, payments, squads, reminders, owner tools) |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
 | AI | 5 providers in a fallback chain; every provider receives the same input |
 | Backend | OpenAPI 3.1 contract, versioned `/api/v2/*`, forward-only D1 migrations |
@@ -51,7 +53,8 @@ function**, so the total below is a count rather than a slogan.
 
 ## 1. Onboarding & roles
 
-1. **Role choice at `/start`**: solo with the AI coach, find a trainer, or become a trainer.
+1. **Role choice in the app's onboarding**: solo with the AI coach, find a trainer, or become a
+   trainer. `/start` in the bot sends the Open-app button (and handles invite links).
 2. **Button-driven intake wizard**, 13 steps for a beginner: sex, age, height, weight, goal, level,
    training weekdays, session duration, equipment, lifestyle, sleep schedule, diet, limitations.
    A non-beginner also gets a lifts step (14); a client also gets a share step. Deterministic, no AI call
@@ -94,9 +97,10 @@ function**, so the total below is a count rather than a slogan.
 18. **Cardio-aware progression**: a week in the high cardio zone holds strength progression and
     says why.
 19. **Cardio-aware readiness**: a hard session in the last two days softens same-day advice.
-20. **Weekly volume per muscle** (`/volume` and the Mini App) against MEV/MAV landmarks.
+20. **Weekly volume per muscle** (Mini App and Android) against MEV/MAV landmarks.
 21. **Injury-aware planning**: report pain by area and severity; conflicting exercises are swapped
-    for safe ones.
+    for safe ones. Afterwards, a swap or add that loads the injury directly is refused (by the
+    athlete, a trainer or the AI coach), and the in-session swap list leaves such exercises out.
 22. **Injury follow-ups** on a 0–10 pain scale, with auto-restore when recovered.
 23. **"Not my gym today"**: one tap re-fits the session to bodyweight, dumbbells only or a band,
     for today only. Tomorrow reverts on its own.
@@ -177,7 +181,7 @@ function**, so the total below is a count rather than a slogan.
     exercise (free-exercise-db, 750 exercises), matched by the English catalog name or, for
     Ukrainian names, by movement (a merely similar exercise is labelled as such), with 3–5 short
     steps under it, condensed/translated by the AI once per exercise and language and cached.
-28. **Video form check**: send a short video of a set (or a round video note) in the chat; the AI
+28. **Video form check**: send a short video of a set from the app; the AI
     coach names the exercise and gives 2–3 concrete cues, only on what is visible, never medical
     advice (five checks a day, clips up to 60 s).
 
@@ -195,13 +199,13 @@ function**, so the total below is a count rather than a slogan.
 10. **Adaptive calories**: trend vs goal pace, at most ±150 kcal, with the reason shown.
 11. **AI meal plan** from allergies, likes and dislikes.
 12. **"What to eat now"**: a suggestion for the macros left today.
-13. **Shopping list** (`/grocery`): the meal plan multiplied out to 3/5/7 days, merged, rounded to
+13. **Shopping list** (Fuel screen): the meal plan multiplied out to 3/5/7 days, merged, rounded to
     buyable sizes and sorted by supermarket aisle (English and Ukrainian names).
 14. **Nutrition screen in the Mini App**: meals, totals vs targets, meal plan, day editing.
 
 ## 5. Body, recovery & activity
 
-1. **Bodyweight logging** in chat (free text) or with a quick form in the app.
+1. **Bodyweight logging** with a quick form in the app.
 2. **Measurements**: waist, chest, hips, arm, thigh, neck.
 3. **Trend charts** for weight and measurements in both surfaces.
 4. **Weight goal projection**: kg/week trend, ETA, on/off-track flag.
@@ -354,7 +358,7 @@ function**, so the total below is a count rather than a slogan.
 ## 10. Owner / admin
 
 1. **Owner console in the Mini App**: every report section rendered in-app.
-2. **One-tap feedback ask** to users inactive 7+ days (replies land in `/feedback`).
+2. **One-tap feedback ask** to users inactive 7+ days (replies land in the owner console).
 3. **`/ownerreport` overview**: funnel bars, DAU sparkline, week-over-week deltas, attention list.
 4. **AI health report**: traffic-light verdict, provider table, latency, plan-source offload.
 5. **Onboarding report**: stage funnel, stuck users and the fix path.
@@ -369,6 +373,7 @@ function**, so the total below is a count rather than a slogan.
 10. **Retention by signup week**: for each weekly cohort, the share who trained in their week
     1 / 2 / 4 / 8, an all-users row and the steepest drop — where people fall off, not just how
     many are active.
+11. **Edit any user's plan**: the roster's Plan button opens that user's plan in the editor.
 
 ## 11. Engineering safeguards (invisible features)
 
@@ -378,8 +383,8 @@ function**, so the total below is a count rather than a slogan.
 3. **Crash-safe reminders**: dedup that survives crashes and a scheduler mutex.
 4. **Graceful AI degradation**: identical input across the provider chain, and a sanitizer
    against LaTeX/control-character artifacts in AI text.
-5. **Privacy**: GDPR delete (`/deleteme`) wipes every table including photos, and `/export`
-   gives a user all of their data.
+5. **Privacy**: account deletion in Settings wipes every table including photos, and the data
+   export in Settings gives a user all of their data.
 
 ---
 

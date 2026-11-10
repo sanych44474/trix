@@ -8,6 +8,7 @@ import { t, type Key, type Lang } from "./i18n";
 import { Icon } from "./icons";
 import type { LibraryEntry } from "./logic/library";
 import { addGroupToLabel, DAY_LABEL_MAX } from "./logic/dayLabel";
+import { injuryRefusalArea } from "./logic/planEditError";
 
 // The 750-exercise library (data + pictures) loads only when the picker opens.
 const LibraryBrowser = lazy(() => import("./Library").then((m) => ({ default: m.LibraryBrowser })));
@@ -321,7 +322,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   return <div className="view-stack">
     <div className="screen-head"><h1>{clientId ? t(lang, "plan_owner_title", { name: plan.owner.name }) : t(lang, "plan_schedule_title")}</h1><span className="num">{t(lang, "days_count", { n: plan.days.length })}</span></div>
     {onBack && <button className="button button-quiet" onClick={onBack}><Icon name="chevron" size={20} className="flip" />{t(lang, "nav_clients")}</button>}
-    {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
+    {actionError !== null && <Card tone="muted"><div className="error-state"><strong>{injuryRefusalArea(actionError) ? t(lang, "plan_injury_blocked", { area: t(lang, `inj_area_${injuryRefusalArea(actionError)}` as Key) }) : actionError instanceof Error && !(actionError instanceof ApiError) ? actionError.message : t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(null)}>{t(lang, "close")}</button></div></Card>}
     {saved && <div className="save-note">{t(lang, "plan_updated")}</div>}
 
     <ol className="list schedule">

@@ -208,9 +208,10 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null, privat
                 if (result.days == null) load()
                 onDone()
             } catch (e: ApiException) {
-                _state.update { it.copy(actionError = "generic") }
+                val key = planEditErrorKey(e.message)
+                _state.update { it.copy(actionError = key) }
                 // A stale version (409/412): the plan changed underneath this copy; fetch the current one.
-                if (e.status == 409 || e.status == 412) load()
+                if ((e.status == 409 || e.status == 412) && key == "generic") load()
             } catch (e: Exception) {
                 _state.update { it.copy(actionError = "generic") }
             } finally {

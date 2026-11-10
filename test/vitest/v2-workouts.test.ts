@@ -2,9 +2,8 @@
 // node:sqlite-backed node:test harness (test/v2-workouts.test.ts) can't promise db.batch()'s
 // atomicity guarantees, nor its statement-execution-order semantics, match real D1.
 // upsertWorkoutLog fans a single logical write out across v2_workout_sessions + N
-// v2_workout_exercises + M v2_workout_sets rows (an upsert, then a re-select of the assigned id,
-// then a chunked db.batch() for the exercise/set tree — see the file-header comment in
-// v2Workouts.ts) and upsertStrengthRecord's read-then-write PR comparison depends on real
+// v2_workout_exercises + M v2_workout_sets rows (an upsert with RETURNING id, then one db.batch()
+// of multi-row INSERTs for the exercise/set tree) and upsertStrengthRecord's read-then-write PR comparison depends on real
 // SQLite row visibility across two separate statements against the same connection — neither is
 // something the node:sqlite harness's synchronous exec loop is guaranteed to model faithfully.
 import { env } from "cloudflare:workers";

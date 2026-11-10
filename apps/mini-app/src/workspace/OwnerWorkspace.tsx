@@ -10,7 +10,7 @@ import { OwnerReport, Panel, WorkspaceError } from "./shared";
 import { OwnerCleanupCard } from "./OwnerCleanupCard";
 
 
-export function OwnerWorkspace({ lang }: { lang: Lang }) {
+export function OwnerWorkspace({ lang, onOpenPlan }: { lang: Lang; onOpenPlan?: (userId?: number) => void }) {
   const [users, setUsers] = useState<OwnerUsers | null>(null);
   const [section, setSection] = useState<OwnerSection>("overview");
   const [reports, setReports] = useState<Partial<Record<OwnerSection, string>>>({});
@@ -77,7 +77,7 @@ export function OwnerWorkspace({ lang }: { lang: Lang }) {
     {section === "roster" && <Panel>
       <div className="section-head"><div><span className="eyebrow">{t(lang, "roster_eyebrow")}</span><h2>{t(lang, "recent_users_title")}</h2></div><span className="tag">{users.rows.length}</span></div>
       <OwnerCleanupCard lang={lang} onDone={() => void loadUsers()} />
-      <OwnerRoster lang={lang} rows={users.rows} busy={rosterBusy} nudged={nudged} onAction={(id, action) => void userAction(id, action)} />
+      <OwnerRoster lang={lang} rows={users.rows} busy={rosterBusy} nudged={nudged} onAction={(id, action) => void userAction(id, action)} onOpenPlan={onOpenPlan} />
     </Panel>}
 
     {section === "feedback" && <Panel>

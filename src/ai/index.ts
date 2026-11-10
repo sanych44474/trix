@@ -1,4 +1,5 @@
 import type { AiKind, AiProvider, Env } from "../types";
+import { DAILY_CALLS, USER_CALLS_PER_WINDOW, admitAiCall } from "./limiter";
 import { aiAttemptCountForUserSince, aiCacheStmt, aiCallStmt, aiUsageStmt, getAiCache, recordError } from "../adapters/d1/v2AiTelemetry";
 import { GEMINI_DEFAULT_LIGHT_MODEL, geminiGenerate } from "./gemini";
 import { GROQ_DEFAULT_MODEL, groqGenerate } from "./groq";
@@ -278,6 +279,14 @@ async function run(
     } catch {
       /* cache is best-effort — fall through to the live chain */
     }
+  }
+  // Atomic admission (ai/limiter.ts), after the cache: a cached answer touches no provider and
+  // takes no slot. One conditional write takes a slot in the user's 5-minute window and in the
+  // service's daily ceiling, so a parallel burst cannot overshoot. The attempt count at the top of
+  // run() stays: it fails a limited caller fast and charges every fallback provider a call burned.
+  const admission = await admitAiCall(o.db, o.userId);
+  if (admission !== "ok") {
+    throw new RateLimitError(429, admission === "user" ? `user ${o.userId} exceeded ${USER_CALLS_PER_WINDOW} AI calls/5min` : `daily AI ceiling (${DAILY_CALLS}) reached`);
   }
 
   let lastErr: unknown;

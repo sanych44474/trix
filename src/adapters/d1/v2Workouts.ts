@@ -271,8 +271,30 @@ async function loadWorkoutLogs(db: DB, sessions: V2SessionRow[]): Promise<Workou
 // (`sessionId * 100 + position + 1` for exercises, `exerciseId * 100 + setPosition + 1` for
 // sets), and writes are chunked at 50 statements per db.batch() call (D1's per-call ceiling) —
 // each chunk is atomic, the whole tree is not (accepted trade-off, same as those precedents).
-async function writeExercises(db: DB, sessionId: number, exercises: WorkoutLogDoc["exercises"]): Promise<void> {
-  const statements: D1PreparedStatement[] = [db.prepare("DELETE FROM v2_workout_exercises WHERE sessionId = ?").bind(sessionId)];
+/** D1 binds at most 100 parameters per statement; a multi-row INSERT carries this many rows. */
+const ROWS_PER_INSERT = (cols: number) => Math.floor(100 / cols);
+
+/** `INSERT INTO table (cols) VALUES (?, ...), (?, ...)` statements for these rows, chunked under the bind cap. */
+function multiInsert(db: DB, table: string, cols: string[], rows: unknown[][]): D1PreparedStatement[] {
+  const per = ROWS_PER_INSERT(cols.length);
+  const one = `(${cols.map(() => "?").join(", ")})`;
+  const out: D1PreparedStatement[] = [];
+  for (let i = 0; i < rows.length; i += per) {
+    const chunk = rows.slice(i, i + per);
+    out.push(db.prepare(`INSERT INTO ${table} (${cols.join(", ")}) VALUES ${chunk.map(() => one).join(", ")}`).bind(...chunk.flat()));
+  }
+  return out;
+}
+
+/**
+ * The statements that replace a session's exercises and sets: one DELETE, then multi-row INSERTs
+ * (12 rows each under D1's 100-bind cap). A 10 x 5 session is 7 statements instead of 61, which
+ * matters on D1's free plan (50 queries per invocation), and the caller runs them in one batch,
+ * so a failure leaves the previous exercises in place instead of half a workout.
+ */
+function exerciseStatements(db: DB, sessionId: number, exercises: WorkoutLogDoc["exercises"]): D1PreparedStatement[] {
+  const exRows: unknown[][] = [];
+  const setRows: unknown[][] = [];
   exercises.forEach((exercise, position) => {
     const exerciseId = sessionId * 100 + position + 1;
     const metric: ExerciseMetric = exercise.setsDone.some((set) => set.meters != null)
@@ -280,22 +302,16 @@ async function writeExercises(db: DB, sessionId: number, exercises: WorkoutLogDo
       : exercise.setsDone.some((set) => set.seconds != null)
         ? "time"
         : "reps";
-    statements.push(
-      db
-        .prepare("INSERT INTO v2_workout_exercises (id, sessionId, position, name, metric, skipped, rpe, planName) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-        .bind(exerciseId, sessionId, position, exercise.name, metric, exercise.skipped ? 1 : 0, exercise.rpe ?? null, exercise.planName ?? null),
-    );
+    exRows.push([exerciseId, sessionId, position, exercise.name, metric, exercise.skipped ? 1 : 0, exercise.rpe ?? null, exercise.planName ?? null]);
     exercise.setsDone.forEach((set, setPosition) => {
-      statements.push(
-        db
-          .prepare("INSERT INTO v2_workout_sets (id, exerciseId, position, weight, reps, seconds, meters, rpe) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-          .bind(exerciseId * 100 + setPosition + 1, exerciseId, setPosition, set.weight, set.reps, set.seconds ?? null, set.meters ?? null, set.rpe ?? null),
-      );
+      setRows.push([exerciseId * 100 + setPosition + 1, exerciseId, setPosition, set.weight, set.reps, set.seconds ?? null, set.meters ?? null, set.rpe ?? null]);
     });
   });
-  for (let i = 0; i < statements.length; i += 50) {
-    await db.batch(statements.slice(i, i + 50));
-  }
+  return [
+    db.prepare("DELETE FROM v2_workout_exercises WHERE sessionId = ?").bind(sessionId),
+    ...multiInsert(db, "v2_workout_exercises", ["id", "sessionId", "position", "name", "metric", "skipped", "rpe", "planName"], exRows),
+    ...multiInsert(db, "v2_workout_sets", ["id", "exerciseId", "position", "weight", "reps", "seconds", "meters", "rpe"], setRows),
+  ];
 }
 
 export async function upsertWorkoutLog(
@@ -311,21 +327,21 @@ export async function upsertWorkoutLog(
   const now = nowIso();
   // COALESCE: only the Mini App measures a session. A later save from a path that doesn't (a chat
   // edit, the quick-log API) must not wipe the length the app already recorded for that day.
-  await db
+  // RETURNING id gives the session's id from the upsert itself (inserted or updated), one round
+  // trip instead of an upsert plus a SELECT.
+  const session = await db
     .prepare(
       `INSERT INTO v2_workout_sessions (accountId, date, weekday, completed, rawText, createdAt, updatedAt, durationSec, restTotalSec)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(accountId, date) DO UPDATE SET
          weekday = excluded.weekday, completed = excluded.completed, rawText = excluded.rawText, updatedAt = excluded.updatedAt,
-         durationSec = COALESCE(excluded.durationSec, durationSec), restTotalSec = COALESCE(excluded.restTotalSec, restTotalSec)`,
+         durationSec = COALESCE(excluded.durationSec, durationSec), restTotalSec = COALESCE(excluded.restTotalSec, restTotalSec)
+       RETURNING id`,
     )
     .bind(userId, date, weekday, completed ? 1 : 0, notes ?? null, now, now, timing?.durationSec ?? null, timing?.restTotalSec ?? null)
-    .run();
-  // ON CONFLICT DO UPDATE doesn't reliably surface last_row_id across drivers, so upsert and then
-  // re-select the id.
-  const session = await db.prepare("SELECT id FROM v2_workout_sessions WHERE accountId = ? AND date = ?").bind(userId, date).first<{ id: number }>();
+    .first<{ id: number }>();
   if (!session) return;
-  await writeExercises(db, session.id, exercises);
+  await db.batch(exerciseStatements(db, session.id, exercises));
 }
 
 export async function getWorkoutLog(db: DB, userId: number, date: string): Promise<WorkoutLogDoc | null> {

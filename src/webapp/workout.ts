@@ -1,6 +1,8 @@
 // Guided workout logger backend for the Mini App (roadmap P2): today's session payload and the save
 // route's body. The save is the shared use case completeWorkout (features/workout/completeWorkout.ts). Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
+import { listActiveInjuries } from "../adapters/d1/v2Tracking";
+import { checkExerciseAgainstInjuries } from "../domain/safety";
 import { sessionKcal, sessionVolumeKg } from "../domain/sessionLoad";
 import { parseRestSec } from "../domain/restTime";
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";
@@ -511,15 +513,18 @@ export async function workoutSwapAlternatives(
   // a bodyweight-only/dumbbells-only user could be offered a barbell/machine exercise mid-set.
   const preset = profileEquipmentToPreset(user.profile.equipment);
   if (preset) candidates = candidates.filter((c) => fitsEquipmentPreset(c.equipments, preset));
+  // An exercise that loads an active injury directly is not offered (domain/safety.ts, the rule the
+  // plan editor refuses with) -- a knee injury mid-session must not be swapped into lunges. Matched
+  // by the movement in its name: the catalog muscle is the very group asked for, so matching on it
+  // would leave a knee-injured athlete no quad option at all, not even a wall sit.
+  const injuries = await listActiveInjuries(db, user._id).catch(() => []);
+  if (injuries.length) candidates = candidates.filter((c) => !checkExerciseAgainstInjuries({ name: c.name }, injuries).blocked);
   const picked = candidates.sort(() => Math.random() - 0.5).slice(0, 5);
-  const out: { id: string; name: string }[] = [];
-  for (const c of picked) {
-    let name = c.name;
-    if (user.lang !== "en") {
-      const tr = await getExerciseTranslation(db, c.id, user.lang).catch(() => null);
-      if (tr?.name) name = tr.name;
-    }
-    out.push({ id: c.id, name });
-  }
+  // Translations in parallel: five sequential lookups were five D1 round-trips on the swap tap.
+  const out = await Promise.all(picked.map(async (c) => {
+    if (user.lang === "en") return { id: c.id, name: c.name };
+    const tr = await getExerciseTranslation(db, c.id, user.lang).catch(() => null);
+    return { id: c.id, name: tr?.name || c.name };
+  }));
   return { alternatives: out, muscle: typed?.slug ?? null };
 }

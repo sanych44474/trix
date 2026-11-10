@@ -77,9 +77,11 @@ that is then unreachable from `src/index.ts`.
     remains of those files serves the app, the scheduler or the owner tools.
   - The owner's view of a user's plan (`ou:<id>:edit`) is read-only. Its day buttons (swap, add,
     delete, reorder, weight, sets, warm-up, video) had routed nowhere since slice 1, so they were
-    removed. Plans are edited in the app.
+    removed. Plans are edited in the app: the owner opens any user's plan from the roster's Plan
+    button (Mini App), and `/api/v2/plan?clientId=` accepts the owner for any account.
   - 1,242 locale keys that nothing used any more were removed from `en.ts` and `uk.ts`, shrinking
     the bot strings from 299 KB to 116 KB in the Worker bundle.
-- **Left on purpose:** `src/domain/safety.ts` (injury conflict checks) is no longer called. The
-  chat's catalog swap was its only caller, so the app's exercise swap does not check injuries.
-  That gap is tracked as follow-up work, not hidden by deleting the rule.
+- **Kept, then wired into the app:** `src/domain/safety.ts` (injury conflict checks) lost its only
+  caller, the chat's catalog swap. It was kept instead of deleted, and the app now uses it: the
+  shared plan editor refuses a swap or add that loads an active injury directly (409
+  `injury:<area>`), and the in-session swap list leaves such exercises out.

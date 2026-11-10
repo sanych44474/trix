@@ -215,3 +215,12 @@ test("summaryLoad: the server's volume (bodyweight included) and kcal win; offli
   assert.deepEqual(summaryLoad({ volumeKg: 1200 }, exercises), { volumeKg: 1200 });
   assert.deepEqual(summaryLoad(null, exercises), { volumeKg: 400 });
 });
+
+test("injuryRefusalArea: names the area of an injury refusal, nothing for other errors", async () => {
+  const { injuryRefusalArea } = await import("../apps/mini-app/src/logic/planEditError");
+  assert.equal(injuryRefusalArea(new Error("injury:knee")), "knee");
+  assert.equal(injuryRefusalArea(new Error("injury:lower_back")), "lower_back");
+  assert.equal(injuryRefusalArea(new Error("injury:<script>")), null);
+  assert.equal(injuryRefusalArea(new Error("stale")), null);
+  assert.equal(injuryRefusalArea("injury:knee"), null);
+});
