@@ -33,17 +33,17 @@
     <string name="ow_sent_to_n_users">Sent to %1$d users.</string>
 
     <string name="ow_release_eyebrow">Release notes</string>
-    <string name="ow_release_title">Send what\'s new to every chat</string>
-    <string name="ow_release_pending">Version %1$s: %2$d chats haven\'t received it yet.</string>
+    <string name="ow_release_title">Send what's new to every chat</string>
+    <string name="ow_release_pending">Version %1$s: %2$d chats haven't received it yet.</string>
     <string name="ow_release_none">Version %1$s has reached every chat.</string>
     <string name="ow_release_send">Send to %1$d</string>
     <string name="ow_release_confirm">Yes, send to %1$d</string>
     <string name="ow_release_result">Sent %1$d, failed %2$d. Still owed: %3$d.</string>
     <string name="ow_release_send_all">Send to all %1$d</string>
     <string name="ow_release_confirm_all">Yes, send to all %1$d</string>
-    <string name="ow_release_hint_queue">One tap queues it for everyone; it arrives over the next few minutes. Nobody gets it twice, and people who got it here won\'t see the in-app card again.</string>
-    <string name="ow_broadcast_queued">Queued for %1$d chats. They\'ll arrive over the next few minutes.</string>
-    <string name="ow_release_hint">Goes out in batches of 25; tap again to continue. Nobody gets it twice, and people who got it here won\'t see the in-app card again.</string>
+    <string name="ow_release_hint_queue">One tap queues it for everyone; it arrives over the next few minutes. Nobody gets it twice, and people who got it here won't see the in-app card again.</string>
+    <string name="ow_broadcast_queued">Queued for %1$d chats. They'll arrive over the next few minutes.</string>
+    <string name="ow_release_hint">Goes out in batches of 25; tap again to continue. Nobody gets it twice, and people who got it here won't see the in-app card again.</string>
 
     <string name="ow_announce_eyebrow">Announcement</string>
     <string name="ow_announce_title">Message every user</string>
@@ -60,7 +60,7 @@
     <string name="ow_image_ph">Describe the picture in English, e.g. «athlete doing a barbell squat in a bright gym, minimal flat illustration»</string>
     <string name="ow_image_make">Generate</string>
     <string name="ow_image_sent">Sent to your chat with the bot.</string>
-    <string name="ow_image_budget">Today\'s free Workers AI budget is spent — it resets at 00:00 UTC.</string>
+    <string name="ow_image_budget">Today's free Workers AI budget is spent — it resets at 00:00 UTC.</string>
     <string name="ow_image_hint">FLUX on Workers AI, free within the daily limit. English prompts work best; text in the picture comes out poorly.</string>
 
     <string name="ow_roster_eyebrow">Roster</string>
@@ -93,7 +93,7 @@
     <string name="ow_fbt_title">Feedback triage</string>
     <string name="ow_fbt_status_new">New</string>
     <string name="ow_fbt_status_done">Done</string>
-    <string name="ow_fbt_status_wontfix">Won\'t do</string>
+    <string name="ow_fbt_status_wontfix">Won't do</string>
     <string name="ow_fbt_status_all">All</string>
     <string name="ow_fbt_cat_all">All types</string>
     <string name="ow_fbt_cat_bug">Bug</string>
@@ -105,7 +105,7 @@
     <string name="ow_fbt_notify">Tell the author when I mark it done</string>
     <string name="ow_fbt_empty">Nothing here.</string>
     <string name="ow_fbt_mark_done">✓ Done</string>
-    <string name="ow_fbt_mark_wontfix">Won\'t do</string>
+    <string name="ow_fbt_mark_wontfix">Won't do</string>
     <string name="ow_fbt_reopen">Back to new</string>
     <string name="ow_fbt_reply_ph">Reply to the author…</string>
     <string name="ow_fbt_reply_send">Send</string>

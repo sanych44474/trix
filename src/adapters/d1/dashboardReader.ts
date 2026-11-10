@@ -27,16 +27,16 @@ import { t } from "../../locales/i18n";
 import { aiCallStatsSince } from "./v2AiTelemetry";
 import { countPlanSourcesSince, dailyActiveUsers } from "./v2Analytics";
 import { dashboardExtrasBatch, getOwnerChatId } from "./v2Admin";
-import { allWorkoutLogsSince, listStrength, workoutLogsSince } from "./v2Workouts";
+import { listStrength, workoutLogsForAccountsSince, workoutLogsSince } from "./v2Workouts";
 import { awardAchievement, settleQuests } from "./v2Gamification";
-import { getActivePlan, listActivePlans, planStatusByUser } from "./v2Plans";
+import { activePlansForAccounts, getActivePlan, planStatusForAccounts } from "./v2Plans";
 import { listClients } from "./v2Trainer";
 import { bodyLogsByUser, getDailyCheckin, stepLogsSince, waterLogsSince } from "./v2Tracking";
 import { QUEST_XP } from "../../domain/gamification";
 import { evaluateWeekQuests } from "../../domain/questWeek";
 import { weeklyReport } from "../../domain/weeklyReport";
 import { countActiveSince, countOnboarded, countUsers, getUser } from "./v2Users";
-import { allNutritionDatesSince, nutritionLogsSince } from "./v2Nutrition";
+import { nutritionDatesForAccountsSince, nutritionLogsSince } from "./v2Nutrition";
 import {
   assemblePayload,
   CALENDAR_DAYS,
@@ -64,12 +64,15 @@ async function buildTrainerSection(
   if (!clients.length) return { clients: [] };
   const ids = new Set(clients.map((c) => c._id));
   const cutoff = isoDaysBefore(today, 6);
+  // Every read names the trainer's clients: these used to scan all users' rows and filter in JS,
+  // so the dashboard's cost grew with the whole user base (chunked at 100 ids per statement).
+  const clientIds = [...ids];
   const [allLogs, allPlans, allNutrition, planStatus] = await Promise.all([
-    allWorkoutLogsSince(db, isoDaysBefore(today, 20)).catch(() => []),
-    listActivePlans(db).catch(() => []),
-    allNutritionDatesSince(db, cutoff).catch(() => []),
-    // Draft vs assigned, for the trainer's first-client checklist (one grouped query).
-    planStatusByUser(db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
+    workoutLogsForAccountsSince(db, clientIds, isoDaysBefore(today, 20)).catch(() => []),
+    activePlansForAccounts(db, clientIds).catch(() => []),
+    nutritionDatesForAccountsSince(db, clientIds, cutoff).catch(() => []),
+    // Draft vs assigned, for the trainer's first-client checklist.
+    planStatusForAccounts(db, clientIds).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
   ]);
   const logsByUser = new Map<number, WorkoutLogDoc[]>();
   for (const l of allLogs) {

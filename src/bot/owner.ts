@@ -221,7 +221,7 @@ export async function cmdUsers(ctx: MyContext) {
   await reply(ctx, t(lang, "owner_users_header", { n: users.length }), kb);
 }
 
-export function ownerUserKb(lang: Lang, id: number, confirmDelete = false, blocked = false, instructor?: boolean): InlineKeyboard {
+function ownerUserKb(lang: Lang, id: number, confirmDelete = false, blocked = false, instructor?: boolean): InlineKeyboard {
   const kb = new InlineKeyboard()
     .text(t(lang, "cc_plan"), `ou:${id}:plan`)
     .text(t(lang, "owner_regen"), `ou:${id}:regen`)

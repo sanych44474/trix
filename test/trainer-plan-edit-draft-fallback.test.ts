@@ -11,7 +11,7 @@ import { newDb, makeCtx } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { linkClient } from "../src/adapters/d1/v2Trainer";
 import { getActivePlan, saveDraftPlan, setActivePlan } from "../src/adapters/d1/v2Plans";
-import { clientCardAction, showPlanEditDay, showPlanEditPicker } from "../src/features/trainer/clientCard";
+import { showPlanEditDay, showPlanEditPicker } from "../src/features/trainer/clientCard";
 import type { PlanDoc, UserDoc, Weekday } from "../src/types";
 
 function plan(userId: number, exerciseName: string): PlanDoc {
@@ -98,22 +98,3 @@ test("showPlanEditDay: a stale eday button (direct entry) on a draft-only client
   assert.equal(sent[0].hasKb, true);
 });
 
-test("end-to-end: tapping Assign on a draft-only client activates the plan, after which the editor opens normally", async () => {
-  const db = newDb();
-  const trainer = await pairedClient(db, 750, 751, "Maxim").then(() => getUser(db, 750)) as unknown as UserDoc;
-  await saveDraftPlan(db, plan(751, "Overhead Press"));
-  const { ctx, sent } = makeCtx(db, trainer as unknown as Record<string, unknown>);
-
-  // First: confirm we're in the broken-before-fix state (no active plan yet).
-  assert.equal(await getActivePlan(db, 751), null);
-
-  // Tap the Assign button the fallback message offers -- same action clientCardAction("assign") runs.
-  await clientCardAction(ctx as never, 751, "assign");
-  assert.notEqual(await getActivePlan(db, 751), null, "assign must activate the draft");
-
-  // Now the editor works normally, no more fallback needed.
-  sent.length = 0;
-  await showPlanEditPicker(ctx as never, 751, "cl", "Maxim");
-  assert.equal(sent[0].hasKb, true);
-  assert.doesNotMatch(sent[0].text, /has a draft plan/);
-});

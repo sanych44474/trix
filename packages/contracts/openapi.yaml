@@ -582,6 +582,12 @@ paths:
                                 type: array
                                 description: Working-set reps in order.
                                 items: {type: integer}
+                        volumeKg:
+                          type: integer
+                          description: Kilograms moved in the session (weight x reps), bodyweight moves counted by the share of body weight they lift (src/domain/sessionLoad.ts).
+                        kcal:
+                          type: integer
+                          description: Estimated kcal burned (MET x body weight x duration). Absent when the profile has no body weight.
                   required: [data]
         '400': {$ref: '#/components/responses/ValidationError'}
         '409': {$ref: '#/components/responses/Conflict'}

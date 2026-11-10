@@ -1,13 +1,9 @@
-// The AI coach can take feedback about the app and, on the user's tap, pass it to the owner
-// (bot/coach.ts "feedback" action → feedbackIntake.recordFeedback).
+// The AI coach's action contract: a feedback action carries its summary, plan values stay short,
+// and the app gets only the edits it can apply (the coach screen sends feedback through
+// POST /api/v2/coach/feedback).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { newDb, makeCtx } from "./harness";
-import { handleCoachAction } from "../src/bot/coach";
-import { getOrCreateUser } from "../src/adapters/d1/v2Users";
-import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { validateCoachEditResult } from "../src/domain/coachActions";
-import type { UserDoc } from "../src/types";
 
 test("coach contract: a feedback action needs its summary", () => {
   assert.doesNotThrow(() => validateCoachEditResult({
@@ -23,32 +19,6 @@ test("coach contract: plan values stay short even though feedback may be long", 
     /too long/,
   );
 });
-
-test("tapping the feedback button forwards summary + original message to the owner, once", async () => {
-  const db = newDb();
-  await setOwnerChatId(db, 999);
-  const user = (await getOrCreateUser(db, 30, 30, "en", "Ann")) as unknown as UserDoc;
-  user.session = {
-    ...user.session,
-    coachTurnId: 7,
-    coachActions: [{ label: "Send", kind: "feedback", value: "Rest timer resets when minimised.", note: "your timer keeps resetting, tell the devs" }],
-  };
-  const { ctx, sent } = makeCtx(db, user as unknown as Record<string, unknown>);
-
-  await handleCoachAction(ctx as never, "feedback", 7, 0);
-  const toOwner = sent.filter((m) => m.to === 999);
-  assert.equal(toOwner.length, 1);
-  assert.match(toOwner[0]!.text, /Feedback via AI coach/);
-  assert.match(toOwner[0]!.text, /Rest timer resets/);
-  assert.match(toOwner[0]!.text, /tell the devs/);
-  const row = await db.prepare("SELECT text FROM v2_feedback WHERE accountId = 30").first<{ text: string }>();
-  assert.match(row!.text, /^\[AI coach\] Rest timer resets/);
-
-  await handleCoachAction(ctx as never, "feedback", 7, 0); // double tap
-  assert.equal(sent.filter((m) => m.to === 999).length, 1);
-
-});
-
 test("miniAppCoachActions: only edits the app can apply, feedback carries the user's words", async () => {
   const { miniAppCoachActions } = await import("../src/domain/coachActions");
   const out = miniAppCoachActions([

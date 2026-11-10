@@ -1,5 +1,5 @@
 // Video form check: the daily limit, size cap and the AI prompts, shared by the bot's video
-// message and the Mini App's upload. Moved from bot/formCheck.ts.
+// message and the Mini App's upload.
 import type { Lang } from "../../types";
 
 export const FORM_CHECKS_PER_DAY = 5;

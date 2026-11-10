@@ -3,12 +3,10 @@
 // and the Mini App form counted nothing at all, so the funnel read as zero starts.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeCtx, newDb } from "./harness";
-import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
+import { newDb } from "./harness";
+import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { FUNNEL_FINISHED, FUNNEL_STARTED } from "../src/adapters/d1/v2Analytics";
-import { onboardingButton } from "../src/bot/onboarding";
 import { handleOnboardingApi } from "../src/webapp/profileApi";
-import type { UserDoc } from "../src/types";
 
 type Db = ReturnType<typeof newDb>;
 const total = async (db: Db, event: string) =>
@@ -22,23 +20,6 @@ function post(db: Db, userId: number, path: string, body: unknown) {
     { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" } as never,
   );
 }
-
-test("bot wizard: tapping the first step's button counts as started", async () => {
-  const db = newDb();
-  await getOrCreateUser(db, 1, 1, "en", "Ann");
-  await updateUser(db, 1, { session: { mode: "onboarding", step: 0 } });
-  const { ctx, flush } = makeCtx(db, (await getUser(db, 1)) as never);
-
-  await onboardingButton(ctx as never, "v:0");
-  await flush();
-  assert.equal(await total(db, FUNNEL_STARTED), 1);
-  assert.equal(((await getUser(db, 1)) as UserDoc).session.step, 1, "the answer was applied");
-
-  const next = makeCtx(db, (await getUser(db, 1)) as never);
-  await onboardingButton(next.ctx as never, "v:0");
-  await next.flush();
-  assert.equal(await total(db, FUNNEL_STARTED), 1, "a later step is not a start");
-});
 
 test("Mini App form: the first saved answer is started, later saves are not, submit is finished", async () => {
   const db = newDb();

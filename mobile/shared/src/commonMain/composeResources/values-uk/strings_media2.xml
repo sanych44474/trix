@@ -2,7 +2,7 @@
     <string name="md_delete">Видалити</string>
     <string name="md_close">Закрити</string>
     <string name="md_saving">Збереження…</string>
-    <string name="md_meal_caption_ph">Підказка для ШІ (необов\'язково): напр. 200 г рису, без олії</string>
+    <string name="md_meal_caption_ph">Підказка для ШІ (необов'язково): напр. 200 г рису, без олії</string>
     <string name="md_meal_unreadable">Не вдалося розпізнати їжу на фото. Зніми ближче й згори або опиши страву нижче.</string>
     <string name="md_meal_limit">На сьогодні ліміт фото-оцінок вичерпано. Опиши страву текстом.</string>
     <string name="md_meal_another">Інше фото</string>
@@ -12,7 +12,7 @@
     <string name="md_voice_unclear">Не вдалося розібрати слова. Спробуй ще раз ближче до мікрофона.</string>
     <string name="md_form_check_title">Перевірка техніки за відео</string>
     <string name="md_form_check_intro">Зніми один підхід збоку, усе тіло в кадрі, до %1$d с. trix відповість 2–3 підказками на наступний підхід.</string>
-    <string name="md_form_check_caption_ph">Вправа (необов\'язково), напр. присід зі штангою</string>
+    <string name="md_form_check_caption_ph">Вправа (необов'язково), напр. присід зі штангою</string>
     <string name="md_form_check_btn">Зняти або вибрати відео</string>
     <string name="md_form_check_watching">Дивлюся твій підхід…</string>
     <string name="md_form_check_disclaimer">Це тренерські підказки, не медична порада. Якщо щось болить — зменш вагу й звернись до фахівця.</string>

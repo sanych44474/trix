@@ -1,20 +1,12 @@
-// Minimal single-turn "Ask the AI coach" endpoint for solo/trainer self-coaching. The bot already
-// has a general free-text AI chat entrypoint (handleCoach / src/bot/coach.ts, reachable by just
-// typing a message, or the voice note "Ask coach" option) -- this exposes the same underlying AI
-// orchestration (aiText, src/ai/index.ts: provider-fallback chain, per-user rate limiting, call
-// logging) to the Mini App as a plain question-in/answer-out call. It intentionally does NOT reuse
-// handleCoach/coachContext directly: those take a grammY `ctx: MyContext` and return tap-to-apply
-// plan-edit actions (JSON schema, deferred past the webhook) -- much more than a single-turn
-// ask-and-answer needs. This route builds its own light, D1-only context (active plan + last 14
-// days), matching the same self-contained pattern nutritionApi.ts's "recipe"/"recover" AI actions
-// already use (a feature-specific system prompt handed to aiText, not a shared ctx-bound builder).
+// "Ask the AI coach" for the Mini App and Android: one question in, an answer out, grounded in the
+// athlete's plan and engine context (coachContext), with tap-to-apply plan edits the app applies
+// itself and an optional body signal from Clef. The AI orchestration is aiText/aiJSON
+// (src/ai/index.ts: provider-fallback chain, per-user rate limiting, call logging).
 //
 // A client with a human trainer gets the human-in-the-loop flow instead of a direct AI answer:
-// the question is stored, the AI drafts a reply in the trainer's voice, and the trainer is asked
-// to send it / write their own / skip -- the same routing src/bot/coach.ts's routeClientQuestion
-// does, so a question asked in the Mini App lands in the trainer's existing q:send/q:own/q:skip
-// keyboard and in their questions panel. This used to 403 the client outright, which left the
-// client role mute in the Mini App: no AI coach, and no way to reach their trainer either.
+// the question is stored with the client's training context, the AI drafts a reply in the
+// trainer's voice, and the trainer answers in the app's questions panel (the Telegram ping links
+// there). This used to 403 the client outright, which left the client role mute in the Mini App.
 import { appMarkup } from "../notify/appKeyboard";
 import { aiJSON, aiText } from "../ai/index";
 import { choiceOf, clefAsk, noulProb, type ClefQuestion } from "../ai/clef";

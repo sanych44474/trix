@@ -17,8 +17,8 @@ import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
 import { dryRunEnv } from "./dryRunEnv";
 import { logInfo, runWithRequestId } from "../log";
+import { nextHourlyAlarm } from "../domain/alarmTiming";
 
-const ALARM_INTERVAL_MS = 60 * 60 * 1000; // hourly, matching the cron path's own cadence
 // A fixed entityId for the dry-run log — there is no real per-entity id for a singleton. 0 is
 // safe: user ids are positive Telegram ids and squad chat ids are negative, so it never collides
 // with either when deleteUserData/deleteSquad scope their cleanup by (source, entityId).
@@ -29,7 +29,7 @@ export class GlobalSchedulerDO extends DurableObject<Env> {
     const url = new URL(request.url);
     if (url.pathname !== "/wake") return new Response("not found", { status: 404 });
     if ((await this.ctx.storage.getAlarm()) === null) {
-      await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+      await this.ctx.storage.setAlarm(nextHourlyAlarm(Date.now()));
     }
     return new Response("ok");
   }
@@ -43,7 +43,7 @@ export class GlobalSchedulerDO extends DurableObject<Env> {
 
   private async runAlarm(): Promise<void> {
     // Reschedule first — same reasoning as the other two DOs.
-    await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+    await this.ctx.storage.setAlarm(nextHourlyAlarm(Date.now()));
 
     // Cut over? (durable/cutover.ts — default off.) Real bot, real db: the exact path
     // runGlobalJobs used to run in the cron loop (and now skips — see scheduler.ts).

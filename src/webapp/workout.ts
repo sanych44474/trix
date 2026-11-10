@@ -1,7 +1,7 @@
 // Guided workout logger backend for the Mini App (roadmap P2): today's session payload and the save
-// route's body. The save is completeWorkout (features/workout/completeWorkout.ts), the same call the
-// chat's finalizeWorkoutLog (bot/workoutSave.ts) makes, so both surfaces share one set of side effects. Assembly and validation
+// route's body. The save is the shared use case completeWorkout (features/workout/completeWorkout.ts). Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
+import { sessionKcal, sessionVolumeKg } from "../domain/sessionLoad";
 import { parseRestSec } from "../domain/restTime";
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";
 import { rawTelegramApi } from "../adapters/telegram/rawApi";
@@ -357,12 +357,16 @@ export interface SaveResult {
   totalWorkouts: number;
   // Up to two reps drop-offs in this session, worst first (domain/repDropoff.ts). Absent when none.
   dropoffs?: { name: string; reps: number[] }[];
+  /** Kilograms moved, bodyweight moves included (domain/sessionLoad.ts). */
+  volumeKg: number;
+  /** Estimated kcal for the session; absent without a body weight in the profile. */
+  kcal?: number;
 }
 
 const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
 
 /** The Mini App's save. The work -- log, records, badges, level, trainer notification, squad post --
- * is completeWorkout (bot/workoutSave.ts), shared with the chat path; this only shapes the result
+ * is completeWorkout (features/workout/completeWorkout.ts); this only shapes the result
  * for the app. Celebrations are returned in the response instead of being sent to chat. */
 export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[], dateOverride?: string, timing?: SaveTiming): Promise<SaveResult> {
   const local = localParts(user.profile.timezone);
@@ -379,6 +383,7 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
     .slice(0, 2)
     .map(({ name, reps }) => ({ name, reps }));
 
+  const kcal = sessionKcal(entries, user.profile.weightKg, timing?.durationSec);
   return {
     ok: true,
     prExercises: done.prExercises,
@@ -387,6 +392,8 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
     leveledUp: done.leveledUp,
     totalWorkouts: done.totalWorkouts,
     ...(dropoffs.length ? { dropoffs } : {}),
+    volumeKg: sessionVolumeKg(entries, user.profile.weightKg),
+    ...(kcal !== null ? { kcal } : {}),
   };
 }
 
@@ -417,7 +424,7 @@ export async function createCustomExercise(
   // The video and the muscles (so the body map counts it from the first set) in parallel.
   const [video, muscles] = await Promise.all([
     lookupExerciseVideoCached(env.DB, env, name).catch(() => undefined),
-    learnExerciseMuscles(env, name).catch(() => null),
+    learnExerciseMuscles(env, name, user._id).catch(() => null),
   ]);
   let url = video?.url ?? undefined;
   if (url) url = await buildVideoOpenLink(env.WORKER_URL, url, user._id, env.TELEGRAM_BOT_TOKEN);

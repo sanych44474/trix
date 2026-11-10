@@ -1,6 +1,6 @@
 # ADR-0007: photo-of-food logging stays in the bot
 
-- Status: accepted
+- Status: superseded by [ADR-0012](0012-private-chat-retired.md)
 - Date: 2026-09-22
 
 ## Context

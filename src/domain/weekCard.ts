@@ -1,3 +1,4 @@
+import { setVolumeKg } from "./sessionLoad";
 import type { WorkoutLogDoc } from "../types";
 
 interface WeekStats {
@@ -8,8 +9,9 @@ interface WeekStats {
 }
 
 /** Aggregate a week of workout logs into the shareable-card numbers.
- * Volume counts weighted sets only (weight × reps); bodyweight/timed sets add to set count. */
-export function weekStats(logs: WorkoutLogDoc[]): WeekStats {
+ * Volume is the same as the workout summary's (domain/sessionLoad.ts): weight × reps, bodyweight
+ * moves counted by the share of body weight they lift when it is known; timed sets add to set count. */
+export function weekStats(logs: WorkoutLogDoc[], bodyweightKg?: number): WeekStats {
   let done = 0;
   let skipped = 0;
   let totalSets = 0;
@@ -24,7 +26,7 @@ export function weekStats(logs: WorkoutLogDoc[]): WeekStats {
       if (e.skipped) continue;
       for (const s of e.setsDone) {
         totalSets++;
-        volumeKg += (s.weight || 0) * (s.reps || 0);
+        volumeKg += setVolumeKg(e.name, s, bodyweightKg);
       }
     }
   }

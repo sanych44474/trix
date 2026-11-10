@@ -114,6 +114,16 @@ export function copyToLoggerExercises(items: WorkoutCopyExercise[]): LoggerExerc
   }));
 }
 
+/** "Repeat" a past session today: its sets fill the rows as suggestions, as "repeat last" does.
+ *  Copied as done, every check was already ticked, so no set was logged by its own check and the
+ *  rest timer never started (tester report). Back-filling a missed day keeps them done. */
+export function repeatAsSuggestions(exercises: LoggerExercise[]): LoggerExercise[] {
+  return exercises.map(({ rpe: _rpe, ...exercise }) => {
+    const prefill = (exercise.setsDone ?? []).map(({ rpe: _r, ...set }) => set);
+    return { ...exercise, setsDone: [], ...(prefill.length ? { prefill } : {}), sets: Math.max(exercise.sets || 1, prefill.length) };
+  });
+}
+
 /** Swap one exercise for another, remembering which plan exercise it stands in for. Swapping
  *  back to the plan's own exercise clears that again. */
 export function swapExercise(exercises: LoggerExercise[], index: number, name: string, extra: { videoUrl?: string; videoTitle?: string } = {}): LoggerExercise[] {
@@ -261,4 +271,13 @@ export function targetUse(exercises: LoggerExercise[]): { kept: number; edited: 
     if (sets.every((s) => Math.abs((s.weight ?? 0) - e.target!.w) < 0.01)) kept++; else edited++;
   }
   return { kept, edited };
+}
+
+/** Volume and kcal for the summary: the server's (bodyweight moves included, domain/sessionLoad.ts)
+ *  when the save went through, else weight × reps over the logged sets (an offline save). */
+export function summaryLoad(result: { volumeKg?: number; kcal?: number } | null, exercises: LoggerExercise[]): { volumeKg: number; kcal?: number } {
+  if (result && typeof result.volumeKg === "number") return { volumeKg: result.volumeKg, ...(typeof result.kcal === "number" ? { kcal: result.kcal } : {}) };
+  const volumeKg = exercises.reduce((total, exercise) => exercise.metric !== "reps" ? total
+    : total + (exercise.setsDone ?? []).filter(isSetFilled).reduce((v, set) => v + (set.weight || 0) * (set.reps || 0), 0), 0);
+  return { volumeKg: Math.round(volumeKg) };
 }

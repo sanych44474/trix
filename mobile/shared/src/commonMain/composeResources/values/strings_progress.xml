@@ -38,7 +38,7 @@
     <string name="pr_body_map_back">Back</string>
     <string name="pr_body_map_hint">Tap a muscle to see what trained it this week, or pick recovery, a day or an exercise above.</string>
     <string name="pr_body_map_mode_week">Weekly load (all muscles)</string>
-    <string name="pr_body_map_mode_recovery">Recovery (what\'s ready today)</string>
+    <string name="pr_body_map_mode_recovery">Recovery (what's ready today)</string>
     <string name="pr_body_map_pick_label">Week, recovery, day or exercise</string>
     <string name="pr_body_map_recent_group">Recently logged</string>
     <string name="pr_body_map_primary">primary</string>
@@ -160,7 +160,7 @@
     <string name="pr_progress_photo_upload_btn">Take a photo</string>
     <string name="pr_progress_photo_uploaded_note">Photo saved. Check Settings to view your gallery.</string>
     <string name="pr_macro_breakdown_title">Macro breakdown</string>
-    <string name="pr_macro_breakdown_empty">Log a meal to see today\'s macro breakdown.</string>
+    <string name="pr_macro_breakdown_empty">Log a meal to see today's macro breakdown.</string>
     <string name="pr_kcal_of_target">%1$s of %2$s kcal</string>
     <string name="pr_fuel_rest_day_badge">Rest day target</string>
     <string name="pr_macro_trend_title">Last 7 days</string>

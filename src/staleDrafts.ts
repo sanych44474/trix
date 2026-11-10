@@ -1,5 +1,5 @@
 // Trainer clients who are stuck on a plan draft. A trainer client's first plan is saved as a DRAFT
-// for the trainer to review (bot/plan.ts finalizeOnboardingPlan / generateClientDraft) and stays
+// for the trainer to review (the app's onboarding submit, features/plan) and stays
 // invisible to the client until the trainer taps ✅ Assign. A trainer who never does leaves the
 // client finished with onboarding, told "your trainer is reviewing", and with nothing to train --
 // the "draft" rows in the owner roster. So, from the hourly global pass:

@@ -8,7 +8,6 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import type { MealEntry, MealPlanDoc } from "../src/types";
 import {
-  allNutritionDatesSince,
   appendMeals,
   deleteMealItem,
   getDayMeals,
@@ -17,6 +16,7 @@ import {
   getMealPlan,
   getRecentFoods,
   getUserFoodCorrection,
+  nutritionDatesForAccountsSince,
   nutritionLogsSince,
   putFoodCache,
   putUserFoodCorrection,
@@ -156,7 +156,7 @@ test("getRecentFoods: limit caps the result", async () => {
   assert.equal(recent.length, 2);
 });
 
-// ---------- nutritionLogsSince / allNutritionDatesSince ----------
+// ---------- nutritionLogsSince / nutritionDatesForAccountsSince ----------
 
 test("nutritionLogsSince: returns full-fidelity NutritionLogDoc, createdAt distinct from updatedAt", async () => {
   const db = newDb();
@@ -180,17 +180,20 @@ test("nutritionLogsSince: cutoff excludes earlier dates", async () => {
   assert.deepEqual(logs.map((l) => l.date), ["2026-01-05"]);
 });
 
-test("allNutritionDatesSince: spans all users, ignores meals content", async () => {
+test("nutritionDatesForAccountsSince: only the listed accounts, ignores meals content", async () => {
   const db = newDb();
   seedAccount(db, 1);
   seedAccount(db, 2);
+  seedAccount(db, 3);
   await appendMeals(db, 1, "2026-01-01", [meal("a")]);
   await appendMeals(db, 2, "2026-01-02", [meal("b")]);
-  const pairs = await allNutritionDatesSince(db, "2026-01-01");
+  await appendMeals(db, 3, "2026-01-02", [meal("c")]);
+  const pairs = await nutritionDatesForAccountsSince(db, [1, 2], "2026-01-01");
   assert.deepEqual(
     pairs.map((p) => `${p.userId}:${p.date}`).sort(),
     ["1:2026-01-01", "2:2026-01-02"],
   );
+  assert.deepEqual(await nutritionDatesForAccountsSince(db, [], "2026-01-01"), []);
 });
 
 // ---------- food translations ----------
@@ -267,4 +270,22 @@ test("getUserFoodCorrection / putUserFoodCorrection: per-user, per-query, upsert
 
   const other = await getUserFoodCorrection(db, 2, "oats");
   assert.equal(other, null);
+});
+
+// nutritionLogsSince used one query per day for the meals (8 queries for a week). It runs in 17
+// places, the hourly scheduler jobs among them; the meals now come in one query.
+test("nutritionLogsSince: a week of logs in two queries, meals grouped by day in order", async () => {
+  const db = newDb();
+  seedAccount(db, 1);
+  for (const d of ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05", "2026-01-06", "2026-01-07"]) {
+    await appendMeals(db, 1, d, [meal(`${d}-a`), meal(`${d}-b`)]);
+  }
+  let queries = 0;
+  const realPrepare = db.prepare.bind(db);
+  (db as { prepare: typeof db.prepare }).prepare = ((sql: string) => { queries++; return realPrepare(sql); }) as typeof db.prepare;
+  const logs = await nutritionLogsSince(db, 1, "2026-01-01");
+  assert.equal(queries, 2);
+  assert.equal(logs.length, 7);
+  const byDate = new Map(logs.map((l) => [l.date, l.meals.map((m) => m.desc)]));
+  assert.deepEqual(byDate.get("2026-01-03"), ["2026-01-03-a", "2026-01-03-b"]);
 });

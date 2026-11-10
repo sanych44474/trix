@@ -58,8 +58,19 @@ const EXPENSIVE_PREFIXES: Array<[prefix: string, bucket: string]> = [
   ["/api/v2/settings", "settings"],
 ];
 
+/** Single routes outside those prefixes that spend AI calls or the shared YouTube quota (a search
+ * costs 100 of ~10k daily units) on each request, reads included: exercise info looks the name up
+ * with AI and YouTube, so a loop of made-up names could use up the day's quota for every user. */
+const EXPENSIVE_ROUTES: Array<[method: string, path: string, bucket: string]> = [
+  ["GET", "/api/v2/workout/exinfo", "exinfo"],
+  ["GET", "/api/v2/workout/insight", "insight"],
+  ["POST", "/api/v2/workout/custom", "custom"],
+  ["POST", "/api/v2/plan/replan", "replan"],
+];
+
 /** The limiter bucket for a v2 request, or null when it is not throttled. */
 export function expensiveBucket(method: string, pathname: string): string | null {
+  for (const [m, path, bucket] of EXPENSIVE_ROUTES) if (method === m && pathname === path) return bucket;
   if (method !== "POST") return null;
   for (const [prefix, bucket] of EXPENSIVE_PREFIXES) {
     if (pathname === prefix || pathname.startsWith(`${prefix}/`)) return bucket;

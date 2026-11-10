@@ -7,7 +7,7 @@ import { updateUser } from "../adapters/d1/v2Users";
 import { t } from "../locales/i18n";
 import { type MyContext, reply } from "../adapters/telegram/context";
 
-export async function showShareSettings(ctx: MyContext) {
+async function showShareSettings(ctx: MyContext) {
   const lang = ctx.user.lang;
   const share = ctx.user.profile.shareWithTrainer;
   const kb = new InlineKeyboard()

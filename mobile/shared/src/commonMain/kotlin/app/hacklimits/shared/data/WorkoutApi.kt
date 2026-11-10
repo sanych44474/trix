@@ -85,6 +85,10 @@ data class SaveWorkoutResult(
     val totalWorkouts: Int = 0,
     /** Exercises whose reps fell sharply across sets (at most 2, worst first). Absent on older servers. */
     val dropoffs: List<RepDropoff>? = null,
+    /** Kilograms moved, bodyweight moves included (src/domain/sessionLoad.ts). Absent on older servers. */
+    val volumeKg: Double? = null,
+    /** Estimated kcal; absent without a body weight in the profile (or on older servers). */
+    val kcal: Int? = null,
 )
 
 @Serializable

@@ -40,10 +40,13 @@ async function fromCatalog(db: D1Database, name: string): Promise<ExerciseMuscle
   return slug ? { primary: [slug], secondary: [] } : null;
 }
 
-async function fromAi(env: Env, name: string): Promise<ExerciseMuscles | null> {
+async function fromAi(env: Env, name: string, userId?: number): Promise<ExerciseMuscles | null> {
   const out = await aiJSON<{ primary?: unknown; secondary?: unknown }>(env, {
     kind: "translate",
     db: env.DB,
+    // The user who added the exercise, so the call counts against their AI limit (absent for the
+    // hourly background pass, which has no user).
+    ...(userId != null ? { userId } : {}),
     temperature: 0,
     system: `You classify gym exercises by the muscles they train. Answer ONLY JSON {"primary":[...],"secondary":[...]} using these ids: ${ALL_SLUGS.join(", ")}. primary = the 1-2 main movers, secondary = assisting muscles (0-3). If the text is not a physical exercise, answer {"primary":[],"secondary":[]}.`,
     user: name,
@@ -55,7 +58,7 @@ async function fromAi(env: Env, name: string): Promise<ExerciseMuscles | null> {
 
 /** Classify one name and store the result (or a "couldn't classify" marker). Already-known
  *  names are skipped. Returns the muscles when there are any. */
-export async function learnExerciseMuscles(env: Env, name: string): Promise<ExerciseMuscles | null> {
+export async function learnExerciseMuscles(env: Env, name: string, userId?: number): Promise<ExerciseMuscles | null> {
   const clean = name.trim().slice(0, 120);
   if (clean.length < 2) return null;
   if (knownByRules(clean)) return musclesForExercise(clean);
@@ -69,7 +72,7 @@ export async function learnExerciseMuscles(env: Env, name: string): Promise<Exer
   let muscles = await fromCatalog(env.DB, clean).catch(() => null);
   if (!muscles) {
     source = "ai";
-    muscles = await fromAi(env, clean).catch(() => null);
+    muscles = await fromAi(env, clean, userId).catch(() => null);
   }
   await env.DB.prepare("INSERT OR IGNORE INTO v2_exercise_muscles (normalizedName, name, primaryMuscles, secondaryMuscles, source, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(key, clean, JSON.stringify(muscles?.primary ?? []), JSON.stringify(muscles?.secondary ?? []), muscles ? source : "none", new Date().toISOString()).run();

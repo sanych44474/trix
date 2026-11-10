@@ -1449,6 +1449,7 @@ export const en = {
   train_rest_next_btn: "Next",
   summary_done_btn: "Done",
   summary_volume: "volume",
+  summary_kcal: "kcal (estimate)",
   summary_sets_of: "sets",
   summary_duration: "duration",
   summary_pr_kicker: "New personal record",

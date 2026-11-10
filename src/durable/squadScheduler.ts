@@ -16,8 +16,8 @@ import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
 import type { Env } from "../types";
 import { shadowD1 } from "./shadowDb";
 import { logInfo, runWithRequestId } from "../log";
+import { nextHourlyAlarm } from "../domain/alarmTiming";
 
-const ALARM_INTERVAL_MS = 60 * 60 * 1000;
 // Must match scheduler.ts's SQUAD_RECAP_HOUR_UTC — duplicated rather than imported because
 // scheduler.ts pulls in the whole app (bot.ts and everything under it) and this DO should not
 // have to load that just for one constant. Both are exercised by their own tests; a drift
@@ -32,7 +32,7 @@ export class SquadSchedulerDO extends DurableObject<Env> {
     if (!Number.isFinite(chatId)) return new Response("bad chatId", { status: 400 });
     await this.ctx.storage.put("chatId", chatId);
     if ((await this.ctx.storage.getAlarm()) === null) {
-      await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+      await this.ctx.storage.setAlarm(nextHourlyAlarm(Date.now()));
     }
     return new Response("ok");
   }
@@ -48,7 +48,7 @@ export class SquadSchedulerDO extends DurableObject<Env> {
     if (typeof chatId !== "number") return;
     // Reschedule first — same reasoning as UserSchedulerDO: nothing below should be able to
     // silently stop this squad's recap forever by throwing before the next alarm is armed.
-    await this.ctx.storage.setAlarm(Date.now() + ALARM_INTERVAL_MS);
+    await this.ctx.storage.setAlarm(nextHourlyAlarm(Date.now()));
 
     const today = new Date().toISOString().slice(0, 10);
     if (new Date().getUTCHours() < SQUAD_RECAP_HOUR_UTC) return; // not the recap hour yet today

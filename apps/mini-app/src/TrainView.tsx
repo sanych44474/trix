@@ -11,7 +11,7 @@ import { repDropoffs } from "./logic/repDropoff";
 import {
   buildSaveEntries, chooseStart, copyToLoggerExercises, countFilledSets, DENSITY_MIN_SESSION_SEC, DRAFT_KEY,
   emptyLoggerSet, isExerciseFilled, isoDate, isoWeekday, parseDraft, plannedSetsFor, removeLoggerSet, sessionElapsedSec, swapExercise,
-  isSetFilled, prefillFromLast, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
+  isSetFilled, prefillFromLast, repeatAsSuggestions, summaryLoad, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
   targetUse,
 } from "./logic/logger";
 import { cachedToday, cacheToday, enqueueSave, isNetworkError, OFFLINE_SAVES_KEY } from "./logic/offlineSaves";
@@ -273,7 +273,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
   const repeatToday = (date: string) => withHistoryBusy(`repeat:${date}`, async () => {
     if (!workout) return;
     const data = await api<{ exercises: WorkoutCopyExercise[] }>(`/api/v2/workout/past?date=${date}`);
-    replaceWith({ ...workout, exercises: copyToLoggerExercises(data.exercises) }, null, date);
+    replaceWith({ ...workout, exercises: repeatAsSuggestions(copyToLoggerExercises(data.exercises)) }, null, date);
   });
   const startMissedBlank = (date: string) => withHistoryBusy(`blank:${date}`, async () => {
     const data = await api<WorkoutToday>(`/api/v2/workout/today?date=${date}`);
@@ -417,7 +417,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
           elapsedSec: elapsed,
           densityPct: final && elapsed >= DENSITY_MIN_SESSION_SEC ? density(final.startedAt, final.quality.restTotalSec, final.endedAt ?? doneAt) : null,
           bestStreak: final?.quality.bestStreak ?? 0,
-          volumeKg: workout.exercises.reduce((total, exercise) => exercise.metric !== "reps" ? total : total + (exercise.setsDone ?? []).filter(isSetFilled).reduce((v, set) => v + (set.weight || 0) * (set.reps || 0), 0), 0),
+          ...summaryLoad(result, workout.exercises),
           plannedSets: workout.exercises.reduce((total, exercise) => total + Math.max(exercise.sets || 1, (exercise.setsDone ?? []).length), 0),
           dropoffs: repDropoffs(workout.exercises),
         });

@@ -1,5 +1,5 @@
 // Importing workouts from a CSV export (Strong, Hevy, ...), shared by the bot's document upload
-// and the Mini App's import. Moved from bot/importCsv.ts.
+// and the Mini App's import.
 import { getWorkoutLog, upsertWorkoutLog } from "../../adapters/d1/v2Workouts";
 import { isoWeekday } from "../../domain/atrisk";
 import { parseWorkoutCsv, type ImportedDay } from "../../domain/csvImport";

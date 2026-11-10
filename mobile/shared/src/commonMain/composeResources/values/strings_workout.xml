@@ -73,11 +73,12 @@
     <string name="wk_summary_badges">Achievement unlocked: %1$s</string>
     <string name="wk_summary_done_btn">Done</string>
     <string name="wk_summary_duration">duration</string>
-    <string name="wk_summary_level_up">Level up — you\'re level %1$s!</string>
+    <string name="wk_summary_level_up">Level up — you're level %1$s!</string>
     <string name="wk_summary_pr_kicker">New personal record</string>
     <string name="wk_summary_pr_more">+%1$s more</string>
     <string name="wk_summary_sets_of">sets</string>
     <string name="wk_summary_volume">volume</string>
+    <string name="wk_summary_kcal">kcal (estimate)</string>
     <string name="wk_swap_overwrite_plan">Replace “%1$s” with “%2$s” in your plan for every week? Cancel = only today.</string>
     <string name="wk_swap_plan_saved">Plan updated: “%1$s” from now on</string>
     <string name="wk_swap_search_btn">Find</string>
@@ -105,7 +106,7 @@
     <string name="wk_train_repeat_last_btn">Repeat last</string>
     <string name="wk_train_rest_auto">Auto</string>
     <string name="wk_train_rest_for">%1$s · set %2$s</string>
-    <string name="wk_train_rest_next_btn">Next</string>
+    <string name="wk_train_rest_skip_btn">Skip rest</string>
     <string name="wk_train_rest_over_label">Rest over — next set!</string>
     <string name="wk_train_rest_prefs_aria">Rest settings</string>
     <string name="wk_train_rest_sound">Sound</string>

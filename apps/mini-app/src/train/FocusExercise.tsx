@@ -231,7 +231,7 @@ export function FocusExercise(props: FocusExerciseProps) {
               {RPE_CHOICES.map((rpe) => <button type="button" key={rpe} className="chip-button chip-num" aria-pressed={editing.set.rpe === rpe} onClick={() => props.onDraft({ ...editing, set: { ...editing.set, rpe: editing.set.rpe === rpe ? undefined : rpe } })}>{rpe}</button>)}
             </div>
           ) : <button type="button" className="button button-quiet button-small" onClick={() => setRpeOpen(true)}>+ {t(lang, "set_rpe_label")}</button>}
-          {rows > 1 && <button type="button" className="button button-quiet button-small danger" onClick={() => { props.onRemoveSet(editing.row); props.onDraft(null); }}>{t(lang, "set_remove_btn")}</button>}
+          {rows > 1 && <button type="button" className="soft-x" aria-label={t(lang, "set_remove_btn")} title={t(lang, "set_remove_btn")} onClick={() => { props.onRemoveSet(editing.row); props.onDraft(null); }}><Icon name="close" size={20} /></button>}
         </div>
       )}
       <button type="button" className="button button-quiet button-block add-set" onClick={props.onAddSet}><Icon name="plus" size={20} />{t(lang, "train_add_set_btn").replace(/^\+\s*/, "")}</button>

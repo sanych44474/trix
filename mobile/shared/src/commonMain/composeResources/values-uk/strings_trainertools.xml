@@ -20,8 +20,8 @@
     <string name="tt_report_title">Тижневий звіт по клієнтах</string>
     <string name="tt_report_active">Активні за 7 днів: %1$d з %2$d клієнтів (%3$d%%)</string>
     <string name="tt_report_empty">Клієнтів поки немає.</string>
-    <string name="tt_report_interview_ok">інтерв\'ю пройдено</string>
-    <string name="tt_report_interview">інтерв\'ю %1$d/%2$d</string>
+    <string name="tt_report_interview_ok">інтерв'ю пройдено</string>
+    <string name="tt_report_interview">інтерв'ю %1$d/%2$d</string>
     <string name="tt_report_events">Тр %1$d · Чк %2$d · Хр %3$d · Кр %4$d</string>
     <string name="tt_plan_active">План є</string>
     <string name="tt_plan_none">Плану немає</string>

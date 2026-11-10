@@ -12,12 +12,10 @@
 // (cmdToday/cmdPlan/... and showPlanEditDay) that live at the feature layer, so moving them here
 // would just re-create the same cycle one level down.
 import { InlineKeyboard, Keyboard, type Context } from "grammy";
-import type { Env, Lang, UserDoc } from "../../types";
-import { getActivePlan } from "../d1/v2Plans";
-import { getUser, updateUser } from "../d1/v2Users";
+import type { Env, UserDoc } from "../../types";
+import { updateUser } from "../d1/v2Users";
 import { switchMode } from "../../domain/session";
 import { t } from "../../locales/i18n";
-import { menuBtn } from "./keyboards";
 
 export type MyContext = Context & {
   env: Env;
@@ -43,7 +41,7 @@ export const MESSAGE_EFFECTS = {
   celebrate: "5046509860389126442", // 🎉
   fire: "5104841245755180586", // 🔥
 } as const;
-export type MessageEffect = keyof typeof MESSAGE_EFFECTS;
+type MessageEffect = keyof typeof MESSAGE_EFFECTS;
 
 /** Send with an effect, and if Telegram rejects the effect (an old client, an id it no longer
  *  knows) send the same message without it — an animation is never worth a lost message. */
@@ -55,16 +53,6 @@ async function replyWithEffect(ctx: MyContext, text: string, extra: Record<strin
     } catch { /* fall through to a plain send */ }
   }
   await ctx.reply(text, extra);
-}
-
-/** A reaction on the user's own message (Bot API setMessageReaction): the meal or workout they
- *  just sent gets a ✍ or 🔥, an acknowledgement that costs no extra chat message. Best effort. */
-export async function reactToUser(ctx: MyContext, emoji: "🔥" | "✍" | "🏆" | "👍") {
-  const msg = ctx.message;
-  if (!msg || ctx.chat?.type !== "private") return;
-  try {
-    await ctx.api.setMessageReaction(msg.chat.id, msg.message_id, [{ type: "emoji", emoji }]);
-  } catch { /* a reaction is decoration */ }
 }
 
 export async function sendLong(ctx: MyContext, text: string, kb?: InlineKeyboard | Keyboard, effect?: MessageEffect) {
@@ -114,26 +102,6 @@ export function planOwnerId(ctx: MyContext): number {
   return ctx.user.session.editPlanOwner ?? ctx.user._id;
 }
 
-// Fetch the active plan for the current edit target (managed client or self); if there is none,
-// send the standard "no plan" reply and return undefined — the caller should then `return`.
-export async function getActivePlanOrReply(
-  ctx: MyContext,
-  ownerId = planOwnerId(ctx),
-): Promise<Awaited<ReturnType<typeof getActivePlan>>> {
-  const plan = await getActivePlan(ctx.db, ownerId);
-  if (!plan) await reply(ctx, t(ctx.user.lang, "no_plan"), menuBtn(ctx.user.lang));
-  return plan;
-}
-
-// The LANGUAGE of the plan owner — so a trainer/owner editing a client's plan persists the
-// client's exercise names in the CLIENT's language, not the editor's.
-export async function planOwnerLang(ctx: MyContext): Promise<Lang> {
-  const owner = ctx.user.session.editPlanOwner;
-  if (owner === undefined || owner === ctx.user._id) return ctx.user.lang;
-  const u = await getUser(ctx.db, owner);
-  return u?.lang ?? ctx.user.lang;
-}
-
 // Begin editing another user's plan (trainer→client / owner→anyone). Sets the edit context.
 // `prefix` records which card owns the edit ("cl"/"ou") so post-action re-renders can rebuild
 // the edit-day keyboard instead of the self logging view.
@@ -142,12 +110,6 @@ export async function setEditOwner(ctx: MyContext, ownerId: number | undefined, 
   if (ownerId === undefined) { delete session.editPlanOwner; delete session.editPlanPrefix; }
   await updateUser(ctx.db, ctx.user._id, { session });
   ctx.user.session = session;
-}
-
-// True when the current edit targets someone else's plan (trainer→client / owner→user), so
-// the shared edit handlers must render the edit-day view, never the self "log workout" view.
-export function isEditingOther(ctx: MyContext): boolean {
-  return ctx.user.session.editPlanOwner !== undefined && ctx.user.session.editPlanOwner !== ctx.user._id;
 }
 
 // Clear any "editing someone else's plan" context (called when the user navigates to their

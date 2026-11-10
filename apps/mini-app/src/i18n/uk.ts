@@ -1448,6 +1448,7 @@ export const uk: Record<keyof typeof en, string> = {
   train_rest_next_btn: "Далі",
   summary_done_btn: "Готово",
   summary_volume: "об'єм",
+  summary_kcal: "ккал (оцінка)",
   summary_sets_of: "підходи",
   summary_duration: "тривалість",
   summary_pr_kicker: "Новий особистий рекорд",

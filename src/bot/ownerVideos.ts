@@ -1,13 +1,10 @@
-// Owner tools for exercise videos: refreshing the cache and setting a video for a plan exercise.
-// Split out of owner.ts; owner.ts re-exports everything here.
-import { InlineKeyboard } from "grammy";
+
 import type { UserDoc, Weekday } from "../types";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { deleteUserVideo, getExerciseVideo, listAllCatalogNames, setManualVideo, setUserVideo, upsertExerciseVideo } from "../adapters/d1/v2Catalog";
 import { updateUser } from "../adapters/d1/v2Users";
 import { getPlanDay } from "../domain/progression";
 import { cleanAi, t } from "../locales/i18n";
-import { weekdayName } from "../render";
 import { YouTubeQuotaError, normalizeVideoKey, parseYouTubeId, searchExerciseVideo } from "../youtube";
 import { type MyContext, planOwnerId, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "../adapters/telegram/keyboards";
@@ -104,27 +101,6 @@ export async function cmdSetVideo(ctx: MyContext, arg: string) {
     await setUserVideo(ctx.db, planOwnerId(ctx), key, name, { videoId: id, url: shortUrl });
   }
   await reply(ctx, t(lang, "setvideo_done", { name }));
-}
-
-// 🎥 Відео: button flow to set an exercise's technique-video link. A regular user sets a personal
-// override (only they see it); a trainer/owner sets the shared/global video. `weekday` 0 = pick
-// across the whole plan (user view); a specific weekday = that day only (trainer day-edit).
-export async function startVideoPick(ctx: MyContext, weekday: number) {
-  const lang = ctx.user.lang;
-  const plan = await getActivePlan(ctx.db, planOwnerId(ctx));
-  if (!plan) { await reply(ctx, t(lang, "no_plan"), menuBtn(lang)); return; }
-  const kb = new InlineKeyboard();
-  let count = 0;
-  for (const day of plan.split) {
-    if (weekday && day.weekday !== weekday) continue;
-    day.exercises.forEach((ex, idx) => {
-      const prefix = weekday ? "" : `${weekdayName(lang, day.weekday).slice(0, 2)}: `;
-      kb.text(`${prefix}${cleanAi(ex.name)}`.slice(0, 60), `vid:set:${day.weekday}:${idx}`).row();
-      count++;
-    });
-  }
-  if (!count) { await reply(ctx, t(lang, "no_plan"), menuBtn(lang)); return; }
-  await reply(ctx, t(lang, "video_pick"), kb);
 }
 
 export async function startVideoSet(ctx: MyContext, weekday: Weekday, index: number) {
