@@ -32,6 +32,7 @@
 // created (v2_feedback/v2_ai_usage/v2_plan_source_logs/v2_rest_timers) — same pattern Domain 7
 // (Trainer) already used for v2_client_note_history/v2_shared_programs, per that function's own
 // comments. deleteUserData now lives in v2Account.ts (the legacy repo layer was removed).
+import { pruneCounterStmts } from "../../ai/limiter";
 import { nowIso, type DB } from "./shared";
 // ---------- feedback ----------
 
@@ -132,6 +133,8 @@ export async function pruneOldLogs(db: DB, beforeIso: string, beforeDay: string)
     db.prepare("DELETE FROM v2_audit_events WHERE createdAt < ?").bind(beforeIso),
     db.prepare("DELETE FROM v2_plan_source_logs WHERE createdAt < ?").bind(beforeIso),
     db.prepare("DELETE FROM v2_client_note_history WHERE savedAt < ?").bind(beforeIso),
+    // AI admission counters (ai/limiter.ts): past 5-minute windows and past days.
+    ...pruneCounterStmts(db),
   ]);
 }
 

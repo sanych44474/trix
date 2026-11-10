@@ -69,3 +69,37 @@ test("run(): the limit is scoped per-user, not global", async () => {
     globalThis.fetch = realFetch;
   }
 });
+
+test("run(): a parallel burst cannot overshoot the per-user window (atomic admission, ai/limiter.ts)", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 3, 3, "en");
+  const realFetch = globalThis.fetch;
+  let providerCalls = 0;
+  globalThis.fetch = (async () => { providerCalls++; return new Response(JSON.stringify({ choices: [{ message: { content: "hi" } }] }), { status: 200 }); }) as typeof fetch;
+  try {
+    const env = { GROQ_API_KEY: "k" } as unknown as Env;
+    const results = await Promise.allSettled(Array.from({ length: 26 }, (_, i) => aiText(env, { system: "s", user: `u${i}`, kind: "coach", db, userId: 3 })));
+    const limited = results.filter((r) => r.status === "rejected" && r.reason instanceof RateLimitError).length;
+    assert.ok(limited >= 6, `limited ${limited} of 26`);
+    assert.ok(providerCalls <= 20, `provider called ${providerCalls} times`);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("run(): the daily service ceiling refuses before any provider is called", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 4, 4, "en");
+  const { DAILY_CALLS, dayKey } = await import("../src/ai/limiter");
+  db.dump("INSERT INTO v2_settings (key, value) VALUES (?, ?)", dayKey(Date.now()), String(DAILY_CALLS));
+  let fetchCalled = false;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => { fetchCalled = true; return new Response("nope"); }) as typeof fetch;
+  try {
+    const env = { GROQ_API_KEY: "k" } as unknown as Env;
+    await assert.rejects(() => aiText(env, { system: "s", user: "u", kind: "coach", db, userId: 4 }), RateLimitError);
+    assert.equal(fetchCalled, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
