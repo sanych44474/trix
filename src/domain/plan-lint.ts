@@ -30,7 +30,7 @@ export interface LintContext {
 }
 
 // A valid AI-GENERATED training day must carry a full session — this is a quality gate on the
-// AI generation path specifically (bot/plan.ts's aiJSON `validate` callback +
+// AI generation path specifically (features/plan's aiJSON `validate` callback +
 // healPlanIfDegenerate), not a general plan_lint rule: trainer-authored plans, shared/bank
 // plans and single-exercise draft edits are legitimately allowed a lighter day, so lintPlan
 // below does not enforce this for every save.

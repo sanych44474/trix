@@ -12,7 +12,7 @@ import { onboardingAppMarkup, onboardingUrlFromEnv } from "../../notify/onboardi
 import type { Env, UserDoc } from "../../types";
 import { obKeyboard, obProgress, obSteps } from "./questions";
 
-export interface NudgeResult {
+interface NudgeResult {
   /** Delivered or queued for retry. False when nothing new went out (already sent under this key, muted, or failed). */
   sent: boolean;
   alreadyOnboarded?: boolean;

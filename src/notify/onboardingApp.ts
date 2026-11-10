@@ -11,7 +11,7 @@ import { appViewUrlFromEnv, dashboardUrl } from "./appLinks";
 import { reply, type MyContext, type TKey } from "../adapters/telegram/context";
 
 /** Mini App onboarding link inside a bot update (the app URL is captured in createBot). */
-export function onboardingUrl(): string | undefined {
+function onboardingUrl(): string | undefined {
   const base = dashboardUrl();
   return base ? `${base}&view=onboarding` : undefined;
 }
@@ -21,7 +21,7 @@ export function onboardingUrlFromEnv(env: Pick<Env, "WORKER_URL" | "V2_APP_ENABL
   return appViewUrlFromEnv(env, "onboarding");
 }
 
-export function onboardingAppKb(lang: Lang, url: string): InlineKeyboard {
+function onboardingAppKb(lang: Lang, url: string): InlineKeyboard {
   return new InlineKeyboard().webApp(t(lang, "ob_app_btn"), url);
 }
 

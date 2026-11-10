@@ -97,7 +97,7 @@ export async function handleInactiveFeedback(ctx: MyContext, text: string) {
   await reply(ctx, t(lang, "inact_fb_thanks"), menuBtn(lang));
 }
 
-export async function forwardInactiveFeedbackToOwner(ctx: MyContext, decision: string, fb: string, feedbackId: number | null = null) {
+async function forwardInactiveFeedbackToOwner(ctx: MyContext, decision: string, fb: string, feedbackId: number | null = null) {
   const ownerChatId = await getOwnerChatId(ctx.db);
   if (!ownerChatId) return;
   const who = escapeHtml(ctx.user.profile.name ?? `id ${ctx.user._id}`) + (ctx.user.username ? ` (@${ctx.user.username})` : "");
@@ -107,7 +107,7 @@ export async function forwardInactiveFeedbackToOwner(ctx: MyContext, decision: s
     .catch(() => {});
 }
 
-export async function deleteUserFully(ctx: MyContext, u: UserDoc) {
+async function deleteUserFully(ctx: MyContext, u: UserDoc) {
   await purgeUser(ctx.env, ctx.db, u);
 }
 

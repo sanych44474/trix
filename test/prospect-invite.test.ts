@@ -5,8 +5,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
-import { applyTrainer, approveTrainer, getProspect, listProspects } from "../src/adapters/d1/v2Trainer";
-import { handleProspectName, joinByCode, joinByProspectCode, startProspectInvite } from "../src/features/trainer/trainer";
+import { applyTrainer, approveTrainer, createProspect, getProspect, listProspects } from "../src/adapters/d1/v2Trainer";
+import { joinByCode, joinByProspectCode } from "../src/features/trainer/trainer";
 import type { UserDoc } from "../src/types";
 
 async function setupApprovedTrainer(db: ReturnType<typeof newDb>, tid = 300) {
@@ -17,26 +17,11 @@ async function setupApprovedTrainer(db: ReturnType<typeof newDb>, tid = 300) {
   return trainer;
 }
 
-test("startProspectInvite + handleProspectName: creates a prospect and sends the link", async () => {
-  const db = newDb();
-  const trainer = await setupApprovedTrainer(db);
-  const { ctx, sent } = makeCtx(db, trainer as unknown as Record<string, unknown>);
-
-  await startProspectInvite(ctx as never);
-  await handleProspectName(ctx as never, "Jane");
-
-  assert.equal(sent.length, 2); // the name prompt, then the link
-  assert.match(sent[1].text, /Jane/);
-  const reloaded = await getUser(db, 300);
-  assert.equal(reloaded?.session.mode, "idle"); // handleProspectName resets the mode
-});
-
 test("joinByProspectCode: pairs the client, pre-fills the trainer's name, consumes the code", async () => {
   const db = newDb();
   const trainer = await setupApprovedTrainer(db);
-  const { ctx: trainerCtx } = makeCtx(db, trainer as unknown as Record<string, unknown>);
-  await startProspectInvite(trainerCtx as never);
-  await handleProspectName(trainerCtx as never, "Jane");
+  // The trainer adds "Jane" in the app (POST /trainer/prospects stores the same row).
+  await createProspect(db, "jane0001", trainer._id, "Jane");
 
   // Pull the code back out the same way the trainer's link would carry it.
   const client = (await getOrCreateUser(db, 400, 400, "en", "SomeTelegramHandle")) as unknown as UserDoc;
@@ -73,9 +58,8 @@ test("joinByProspectCode: a raced double-claim of the same code pairs exactly on
   // gate that must let exactly one of them through.
   const db = newDb();
   const trainer = await setupApprovedTrainer(db, 300);
-  const { ctx: trainerCtx } = makeCtx(db, trainer as unknown as Record<string, unknown>);
-  await startProspectInvite(trainerCtx as never);
-  await handleProspectName(trainerCtx as never, "Jane");
+  // The trainer adds "Jane" in the app (POST /trainer/prospects stores the same row).
+  await createProspect(db, "jane0001", trainer._id, "Jane");
   const code = (await listProspects(db, 300))[0].code;
 
   const a = (await getOrCreateUser(db, 500, 500, "en", "A")) as unknown as UserDoc;

@@ -10,7 +10,7 @@ import {
   type Diet, type Equipment, type Goal, type Level, type Lifestyle, type Sex, type SleepSchedule,
 } from "../../domain/onboardingQuestions";
 
-export interface ObStep {
+interface ObStep {
   field: "sex" | "age" | "hw" | "goal" | "level" | "baselineLifts" | "daysPerWeek" | "trainingWeekdays" | "sessionMinutes" | "equipment" | "lifestyle" | "sleepSchedule" | "dietPrefs" | "limitations";
   q: TKey; // i18n question key
   buttons?: { label: string; value: string }[];
@@ -58,7 +58,7 @@ export function obSteps(lang: Lang): ObStep[] {
   ];
 }
 
-export const OB_WEEKDAY_KEYS: Record<number, TKey> = { 1: "wd_mon", 2: "wd_tue", 3: "wd_wed", 4: "wd_thu", 5: "wd_fri", 6: "wd_sat", 7: "wd_sun" };
+const OB_WEEKDAY_KEYS: Record<number, TKey> = { 1: "wd_mon", 2: "wd_tue", 3: "wd_wed", 4: "wd_thu", 5: "wd_fri", 6: "wd_sat", 7: "wd_sun" };
 
 // Build the inline keyboard for a step (shared by first render, in-place edits, and the
 // cross-context push to a freshly-accepted client). Context-free so it can target any chat.
@@ -83,8 +83,6 @@ export function obKeyboard(lang: Lang, step: ObStep, selectedDays: number[] = []
   if (canBack) kb.row().text(t(lang, "ob_back"), "ob:back");
   return kb.inline_keyboard.length ? kb : undefined;
 }
-
-// Render the question + keyboard for step i (also used to resume an in-progress wizard).
 
 // Answered-question progress for the onboarding wizard, derived from the profile itself — works
 // for both the button wizard and AI-interview users. `next` = first unanswered step (resume target).

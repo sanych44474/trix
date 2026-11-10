@@ -1,6 +1,5 @@
 // Guided workout logger backend for the Mini App (roadmap P2): today's session payload and the save
-// route's body. The save is completeWorkout (features/workout/completeWorkout.ts), the same call the
-// chat's finalizeWorkoutLog (bot/workoutSave.ts) makes, so both surfaces share one set of side effects. Assembly and validation
+// route's body. The save is the shared use case completeWorkout (features/workout/completeWorkout.ts). Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
 import { sessionKcal, sessionVolumeKg } from "../domain/sessionLoad";
 import { parseRestSec } from "../domain/restTime";
@@ -367,7 +366,7 @@ export interface SaveResult {
 const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
 
 /** The Mini App's save. The work -- log, records, badges, level, trainer notification, squad post --
- * is completeWorkout (bot/workoutSave.ts), shared with the chat path; this only shapes the result
+ * is completeWorkout (features/workout/completeWorkout.ts); this only shapes the result
  * for the app. Celebrations are returned in the response instead of being sent to chat. */
 export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[], dateOverride?: string, timing?: SaveTiming): Promise<SaveResult> {
   const local = localParts(user.profile.timezone);

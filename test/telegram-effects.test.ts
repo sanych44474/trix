@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { reactToUser, reply, MESSAGE_EFFECTS } from "../src/adapters/telegram/context";
+import { reply, MESSAGE_EFFECTS } from "../src/adapters/telegram/context";
 
 const ctxOf = (opts: { failEffect?: boolean } = {}) => {
   const sent: Array<Record<string, unknown>> = [];
@@ -28,10 +28,4 @@ test("a rejected effect never loses the message", async () => {
   await reply(ctx, "New record!", undefined, "celebrate");
   assert.equal(sent.length, 1);
   assert.equal(sent[0]!.message_effect_id, undefined);
-});
-
-test("reactToUser reacts on the user's own message", async () => {
-  const { ctx, reactions } = ctxOf();
-  await reactToUser(ctx, "🔥");
-  assert.deepEqual(reactions[0], [7, 42, [{ type: "emoji", emoji: "🔥" }]]);
 });

@@ -4,8 +4,8 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { newDb, makeCtx, type Sent } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
-import { applyTrainer, approveTrainer, listProspects } from "../src/adapters/d1/v2Trainer";
-import { handleProspectName, joinByProspectCode, sharePromptKb, startProspectInvite } from "../src/features/trainer/trainer";
+import { applyTrainer, approveTrainer, createProspect, listProspects } from "../src/adapters/d1/v2Trainer";
+import { joinByProspectCode, sharePromptKb } from "../src/features/trainer/trainer";
 import { onboardingUrlFromEnv } from "../src/notify/onboardingApp";
 import { launcherGate, viewForCallback, viewForCommand } from "../src/bot/launcher";
 import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
@@ -40,9 +40,7 @@ test("trainer invite for a new user: 'connected' + one questionnaire button, no 
   await updateUser(db, 300, { role: "trainer" });
   await applyTrainer(db, 300, { name: "Max" });
   await approveTrainer(db, 300, "code300");
-  const { ctx: tctx } = makeCtx(db, trainer as never);
-  await startProspectInvite(tctx as never);
-  await handleProspectName(tctx as never, "Valeria");
+  await createProspect(db, "valeria01", trainer._id, "Valeria");
   const code = (await listProspects(db, 300))[0].code;
 
   const { ctx, sent } = makeCtx(db, (await solo(db, 502)) as never);
@@ -143,4 +141,14 @@ test("launcher: a trainer who has not finished the questionnaire is sent to it t
   Object.assign(ctx, { message: { text: "привіт" } });
   assert.equal(await launcherGate(ctx as never), true);
   assert.match(webAppUrls(sent.at(-1)!)[0] ?? "", /view=onboarding$/);
+});
+
+test("/start without an app URL (a dev bot): says the app is not set up, starts no chat interview or menu (ADR-0012)", async () => {
+  setAppUrl(undefined);
+  const db = newDb();
+  const { ctx, sent } = makeCtx(db, (await solo(db, 503)) as never);
+  await cmdStart(ctx as never);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].text, t("uk", "launch_no_app"));
+  assert.notEqual((await getUser(db, 503))?.session.mode, "onboarding");
 });

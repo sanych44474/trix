@@ -160,25 +160,24 @@ function**, so the total below is a count rather than a slogan.
 20. **Measured session length**: from the first set or rest to "Finish", stored with the log and
     shown in History.
 21. **History tab**: past sessions with duration; repeat one today or edit a saved day in place.
-    Finishing a session opens a **summary**: duration, sets against the plan, volume, new records
-    and how it felt.
+    Finishing a session opens a **summary**: duration, sets against the plan, volume (bodyweight
+    moves count the share of body weight they lift), an estimated kcal burn, new records and how
+    it felt ([ADR-0013](adr/0013-session-volume-and-kcal.md)).
 22. **Log a missed day** (blank or from a past session) within a 14-day window; past edits don't
     ping the trainer.
-23. **Chat logging in free text** ("80 8,7,6" / "80x8 75x10"), with tappable set correction.
-24. **Guided per-exercise chat flow** and past-day logging in chat.
-25. **Voice-note logging** (Whisper transcription) and a **cardio menu** (rowing / bike / run / …
+23. **Voice-note logging** (Whisper transcription) and a **cardio menu** (rowing / bike / run / …
     by time and distance).
-26. **Finish summary**: sets, duration, % of time working vs resting and rests-on-target streak
+24. **Finish summary**: sets, duration, % of time working vs resting and rests-on-target streak
     (tap any number for what it means), plus new PRs 🏆, badges 🏅 and level-ups.
-27. **Native Telegram button**: inside Telegram, "Finish workout" / "Save changes" is Telegram's
+25. **Native Telegram button**: inside Telegram, "Finish workout" / "Save changes" is Telegram's
     own bottom button, with a progress state while saving.
-28. **Strava import**: connect once; runs, rides, swims, walks and rows appear in the log by
+26. **Strava import**: connect once; runs, rides, swims, walks and rows appear in the log by
     themselves (twice a day or on demand), count toward cardio load and are never added twice.
-29. **Technique pictures and steps**: the info panel shows the start and finish position of the
+27. **Technique pictures and steps**: the info panel shows the start and finish position of the
     exercise (free-exercise-db, 750 exercises), matched by the English catalog name or, for
     Ukrainian names, by movement (a merely similar exercise is labelled as such), with 3–5 short
     steps under it, condensed/translated by the AI once per exercise and language and cached.
-30. **Video form check**: send a short video of a set (or a round video note) in the chat; the AI
+28. **Video form check**: send a short video of a set (or a round video note) in the chat; the AI
     coach names the exercise and gives 2–3 concrete cues, only on what is visible, never medical
     advice (five checks a day, clips up to 60 s).
 

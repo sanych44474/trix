@@ -58,7 +58,7 @@ export async function handleTrainingExtrasApi(req: Request, url: URL, env: Env, 
     });
   }
 
-  // ---- Strength standards (bot: progressCmds.ts cmdStandards) ----
+  // ---- Strength standards ----
   if (req.method === "GET" && path === "/api/standards") {
     const sex = user.profile.sex;
     const records = await listStrength(env.DB, user._id);

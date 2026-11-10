@@ -56,3 +56,30 @@ that is then unreachable from `src/index.ts`.
   without `WORKER_URL`) show no button in that setup. Production always has the URL.
 - The removal runs in slices, each green on its own: router registrations first, then the
   callback and text route tables, then the modules the import graph shows unreachable.
+
+## Progress
+
+- **Slice 1** (PR #123, commit `bf29ff8`): the router registers only the kept handlers, the
+  callback table keeps 21 exact and 11 prefix routes, and typed text routes only for the kept
+  modes. 26 unreachable modules were deleted.
+- **Slice 2** (PR #123):
+  - `/start` has no chat fallback. After the pairing payloads it sends the Open-app button.
+    Without an app URL (a dev bot) it says the app is not set up (`launch_no_app`) instead of
+    starting the chat interview, menus or the next-best-action card. `prog_` links open the
+    app's library.
+  - Pairing through `tr_` / `trp_` no longer falls back to the chat questionnaire. A trainer who
+    opens a client invite link is told it is not for them instead of getting the chat trainer
+    menu.
+  - The modules that became unreachable were deleted: plan view and edit, today edit, exercise
+    catalog, kit fit, reorder, nutrition and progress commands, the chat workout save, the next
+    best action, plan generation in chat, and the trainer's chat comms, interview and wizard.
+    The chat parts of the client card, program sharing and trainer modules went with them. What
+    remains of those files serves the app, the scheduler or the owner tools.
+  - The owner's view of a user's plan (`ou:<id>:edit`) is read-only. Its day buttons (swap, add,
+    delete, reorder, weight, sets, warm-up, video) had routed nowhere since slice 1, so they were
+    removed. Plans are edited in the app.
+  - 1,242 locale keys that nothing used any more were removed from `en.ts` and `uk.ts`, shrinking
+    the bot strings from 299 KB to 116 KB in the Worker bundle.
+- **Left on purpose:** `src/domain/safety.ts` (injury conflict checks) is no longer called. The
+  chat's catalog swap was its only caller, so the app's exercise swap does not check injuries.
+  That gap is tracked as follow-up work, not hidden by deleting the rule.

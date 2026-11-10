@@ -305,7 +305,7 @@ export interface ExerciseChange {
   field: "weight" | "reps";
   from: string;
   to: string;
-  reason?: string; // plain-language "why" -- shown verbatim by /planchanges (bot/plan.ts)
+  reason?: string; // plain-language "why" -- shown verbatim in the app's plan history
 }
 
 interface ProgressionResult {

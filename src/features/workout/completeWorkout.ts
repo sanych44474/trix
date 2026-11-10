@@ -1,4 +1,4 @@
-// Saving a finished workout (records, progression, streaks, squad posts), shared by the bot's and the Mini App's loggers. Moved from bot/workoutSave.ts.
+// Saving a finished workout (records, progression, streaks, squad posts), used by the Mini App and Android save (webapp/workout.ts).
 import { type Api } from "grammy";
 import { logInfo } from "../../log";
 import type { Env, ExerciseMetric, LoggedExercise, SetEntry, UserDoc, Weekday } from "../../types";

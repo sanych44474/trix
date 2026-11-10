@@ -41,7 +41,7 @@ export async function loadClientSnapshot(db: DB, client: UserDoc, now: Date = ne
 }
 
 /** "Tue 03.11 · Груди/Трицепс — 6/7 ex., 52 min · Bench Press 80x8, Dips BWx12" (HTML-escaped). */
-export function workoutLine(lang: Lang, w: WorkoutBrief): string {
+function workoutLine(lang: Lang, w: WorkoutBrief): string {
   const head = [`${weekdayName(lang, w.weekday)} ${w.date.slice(8, 10)}.${w.date.slice(5, 7)}`, ...(w.label ? [escapeHtml(w.label)] : [])].join(" · ");
   const facts = [
     w.planned !== null ? t(lang, "tsnap_ex", { done: w.done, planned: w.planned }) : t(lang, "tsnap_ex_noplan", { done: w.done }),

@@ -1,50 +1,19 @@
-// /start and the onboarding interview entry points.
+// /start: its pairing payloads (ADR-0012), then the Open-app button.
 import { joinByInviteCode } from "../features/squad/join";
-import { InlineKeyboard } from "grammy";
 import { logInfo } from "../log";
 import type { UserDoc } from "../types";
-import { pendingRequestForClient } from "../adapters/d1/v2Trainer";
 import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { escapeHtml, t } from "../locales/i18n";
-import { resumePendingPlan } from "./planGen";
 import { joinByCode, joinByProspectCode } from "../features/trainer/trainer";
-import { showSharedProgram } from "../features/trainer/programSharing";
-import { trainerMenu } from "../features/trainer/trainerCommon";
-import { onboardingStep, renderObStep } from "./onboarding";
-import { langMenu } from "../adapters/telegram/keyboards";
-import { showNextBestAction } from "./nextBestAction";
-import { sendOnboardingPrompt } from "../notify/onboardingApp";
 import { sendLauncher } from "./launcher";
 import { promptTelegramLogin } from "./telegramLogin";
 import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
-
-// Start (or restart) the deterministic button-based intake wizard (no per-turn AI).
-export async function startInterview(ctx: MyContext) {
-  await updateUser(ctx.db, ctx.user._id, { session: { mode: "onboarding", step: 0 } });
-  ctx.user.session = { mode: "onboarding", step: 0 };
-  // The questionnaire is a Mini App screen; the chat wizard is only the no-app fallback.
-  if (await sendOnboardingPrompt(ctx)) return;
-  await renderObStep(ctx, 0);
-}
-
-// Menu: continue an in-progress interview, or restart the intake to rebuild the plan.
-export async function cmdInterview(ctx: MyContext) {
-  const lang = ctx.user.lang;
-  if (ctx.user.session.mode === "onboarding") {
-    if (await sendOnboardingPrompt(ctx)) return;
-    await onboardingStep(ctx); // resume where they left off
-    return;
-  }
-  await reply(ctx, t(lang, "interview_restart"));
-  await startInterview(ctx);
-}
 
 export async function cmdStart(ctx: MyContext, payload?: string) {
   logInfo("app_open", { surface: "bot" });
   await clearEditOwner(ctx);
   const u = ctx.user;
   const lang = u.lang;
-  const hi = u.profile.name ? `${escapeHtml(u.profile.name)}! ` : "";
 
   // App sign-in link: ask first (telegramLogin.ts). Opening the link never signs anyone in.
   if (payload?.startsWith("login_")) {
@@ -52,10 +21,9 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
     return;
   }
 
-  // Deep link to a shared program → preview + "take it".
+  // A shared program opens in the app's library (ADR-0012: the chat preview is retired).
   if (payload?.startsWith("prog_")) {
-    await showSharedProgram(ctx, payload.slice(5));
-    return;
+    if (await sendLauncher(ctx, "library")) return;
   }
   // Deep link from a trainer's invite → auto-pair.
   if (payload?.startsWith("tr_")) {
@@ -111,42 +79,8 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
     if (await sendLauncher(ctx, "more")) return;
   }
   // With the Mini App, a plain /start (or one after a referral or buddy link) only points there.
+  // ADR-0012: there is no chat fallback any more. Without an app URL (a dev deployment) the bot
+  // says so instead of starting the retired chat interview or menus.
   if (await sendLauncher(ctx)) return;
-  if (u.session.mode === "plan_pending") {
-    await resumePendingPlan(ctx);
-    return;
-  }
-  if (u.role === "trainer") {
-    await reply(ctx, hi + t(lang, "trainer_home"), trainerMenu(lang));
-    return;
-  }
-  if (u.role === "client") {
-    // Roadmap item 5: one prioritized action instead of a bare "welcome back" + full menu —
-    // the menu is still one tap away (mainMenu/moreMenu), just not the FIRST thing shown.
-    await reply(ctx, hi + t(lang, "welcome_back"));
-    await showNextBestAction(ctx);
-    return;
-  }
-  // solo
-  const pending = await pendingRequestForClient(ctx.db, u._id);
-  if (pending) {
-    const tr = await getUser(ctx.db, pending.trainerId);
-    const kb = new InlineKeyboard().text(t(lang, "req_cancel"), `req:cancel:${pending.id}`);
-    await reply(ctx, t(lang, "req_waiting", { name: escapeHtml(tr?.profile.name ?? "trainer") }), kb);
-    return;
-  }
-  if (u.onboarded) {
-    await reply(ctx, hi + t(lang, "welcome_back"));
-    await showNextBestAction(ctx);
-    return;
-  }
-  // Stuck mid-interview (started but never finished) → resume and re-send the current
-  // question instead of bouncing back to the language picker and losing their answers.
-  if (u.session.mode === "onboarding") {
-    await reply(ctx, t(lang, "interview_resume"));
-    await onboardingStep(ctx);
-    return;
-  }
-  // brand new → ask LANGUAGE first; the lang choice then leads to disclaimer + role choice.
-  await reply(ctx, t(lang, "choose_language"), langMenu());
+  await reply(ctx, t(lang, "launch_no_app"));
 }

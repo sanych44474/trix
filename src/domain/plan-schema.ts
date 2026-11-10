@@ -91,7 +91,7 @@ const planDocSchema =z.object({
 // scope here (touches the AI provider call, a separately-risky change). This schema instead
 // replaces bot.ts's old `AiPlan` interface: what the AI is contractually expected to return,
 // looser than PlanDoc/PlanDay/PlanExercise (e.g. `metric` unconstrained) because
-// aiSplitToPlanDays (bot/plan.ts) is the normalization step that tightens it into a PlanDay[].
+// aiSplitToPlanDays (features/plan/planBuild.ts) is the normalization step that tightens it into a PlanDay[].
 
 const aiPlanExerciseSchema = z.object({
   name: z.string(),
