@@ -1,7 +1,8 @@
 import { withinLimit } from "../adapters/rateLimit/limits";
 import { getUser } from "../adapters/d1/v2Users";
 import type { DB } from "../adapters/d1/shared";
-import { randomBelow, randomDigits, safeEqual, toHex } from "../domain/secrets";
+import { newAppAccount } from "../adapters/d1/v2AppAccount";
+import { randomDigits, safeEqual, toHex } from "../domain/secrets";
 import type { Env, Lang } from "../types";
 import { createSession, sessionDelivery } from "./appSessions";
 import { miniAppIdentity } from "./auth";
@@ -110,15 +111,8 @@ async function verifyGoogleToken(token: string, clientId: string): Promise<Googl
 
 async function createGoogleAccount(db: DB, subject: string, email: string | null, now: string, accountLang: Lang): Promise<number> {
   for (let attempt = 0; attempt < 5; attempt++) {
-    const accountId = -(1_000_000_000 + randomBelow(1_000_000_000));
-    const chatId = -(4_000_000_000_000_000 + randomBelow(1_000_000_000) * 1_000 + randomBelow(1_000));
-    const statements = [
-      db.prepare("INSERT INTO v2_accounts (id, legacyUserId, chatId, role, status, botBlocked, createdAt, updatedAt) VALUES (?, ?, ?, 'solo', 'active', 1, ?, ?)").bind(accountId, accountId, chatId, now, now),
-      db.prepare("INSERT INTO v2_profiles (accountId, lang, profile, updatedAt) VALUES (?, ?, '{}', ?)").bind(accountId, accountLang, now),
-      db.prepare("INSERT INTO v2_preferences (accountId, lang, updatedAt) VALUES (?, ?, ?)").bind(accountId, accountLang, now),
-      db.prepare("INSERT INTO v2_onboarding (accountId, status, sessionMode, updatedAt) VALUES (?, 'in_progress', 'idle', ?)").bind(accountId, now),
-      db.prepare("INSERT INTO v2_auth_identities (provider, subject, accountId, email, createdAt) VALUES ('google', ?, ?, ?, ?)").bind(subject, accountId, email, now),
-    ];
+    const { accountId, statements } = newAppAccount(db, accountLang, now);
+    statements.push(db.prepare("INSERT INTO v2_auth_identities (provider, subject, accountId, email, createdAt) VALUES ('google', ?, ?, ?, ?)").bind(subject, accountId, email, now));
     if (email) statements.push(db.prepare("INSERT INTO v2_auth_emails (email, accountId, createdAt) VALUES (?, ?, ?)").bind(email, accountId, now));
     try {
       await db.batch(statements);
