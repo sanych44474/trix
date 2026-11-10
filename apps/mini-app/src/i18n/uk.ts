@@ -7,6 +7,7 @@ export const uk: Record<keyof typeof en, string> = {
   close: "Закрити",
   unauthorized_error: "Відкрий цю сторінку з Telegram, щоб продовжити.",
   generic_error: "Щось пішло не так. Спробуй ще раз.",
+  plan_injury_blocked: "Не додано: ця вправа навантажує травму ({area}). Обери іншу або спершу познач травму як вилікувану.",
   saving_ellipsis: "Збереження…",
   saved_label: "Збережено",
   level_n: "Рівень {n}",

@@ -124,12 +124,17 @@ fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Uni
                         item {
                             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                                 Row(Modifier.padding(12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    val injuryArea = code.removePrefix("injury:").takeIf { code.startsWith("injury:") }
                                     Text(
-                                        stringResource(when (code) {
-                                            "last_exercise" -> Res.string.pl_plan_last_exercise
-                                            "offline_read_only" -> Res.string.pl_offline_read_only
-                                            else -> Res.string.pl_generic_error
-                                        }),
+                                        if (injuryArea != null) {
+                                            stringResource(Res.string.pl_plan_injury_blocked, stringResource(injuryAreaRes(injuryArea)))
+                                        } else {
+                                            stringResource(when (code) {
+                                                "last_exercise" -> Res.string.pl_plan_last_exercise
+                                                "offline_read_only" -> Res.string.pl_offline_read_only
+                                                else -> Res.string.pl_generic_error
+                                            })
+                                        },
                                         modifier = Modifier.weight(1f),
                                     )
                                     TextButton(onClick = vm::dismissActionError) { Text(stringResource(Res.string.pl_close)) }
@@ -581,4 +586,16 @@ private fun wmodeLabel(mode: String): StringResource = when (mode) {
     "perSide" -> Res.string.pl_wmode_persidem
     "perHand" -> Res.string.pl_wmode_perhandm
     else -> Res.string.pl_wmode_total
+}
+
+/** The injury area's label for the plan editor's refusal message (server area codes). */
+private fun injuryAreaRes(area: String): StringResource = when (area) {
+    "shoulder" -> Res.string.tr_inj_area_shoulder
+    "elbow" -> Res.string.tr_inj_area_elbow
+    "wrist" -> Res.string.tr_inj_area_wrist
+    "lower_back" -> Res.string.tr_inj_area_lower_back
+    "hip" -> Res.string.tr_inj_area_hip
+    "ankle" -> Res.string.tr_inj_area_ankle
+    "neck" -> Res.string.tr_inj_area_neck
+    else -> Res.string.tr_inj_area_knee
 }

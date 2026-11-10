@@ -165,6 +165,7 @@
     <string name="pl_weekday_sat">Sat</string>
     <string name="pl_weekday_sun">Sun</string>
     <string name="pl_generic_error">Something went wrong. Try again.</string>
+    <string name="pl_plan_injury_blocked">Not added: this exercise loads your injury (%1$s). Pick another, or mark the injury as healed first.</string>
     <string name="pl_close">Close</string>
     <string name="pl_unauthorized_error">Open this page from Telegram to continue.</string>
     <string name="pl_saving_ellipsis">Saving…</string>

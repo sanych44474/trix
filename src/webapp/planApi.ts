@@ -32,6 +32,7 @@ const PLAN_EDIT_CODE: Record<PlanEditErrorCode, V2ErrorCode> = {
   full: "validation_error",
   conflict: "conflict",
   last: "validation_error",
+  injury: "conflict",
 };
 
 interface PlanExerciseView {
@@ -270,7 +271,8 @@ export async function handlePlanApi(req: Request, url: URL, env: Env, ctx?: Exec
       ...(NON_DAY_ACTIONS_WITH_SWAPPED.has(action) ? { swapped: result.swapped } : {}),
     });
   } catch (err) {
-    if (err instanceof PlanEditError) return typedFailure(planEditStatus(err.code), PLAN_EDIT_CODE[err.code], err.code);
+    // An injury refusal names the area ("injury:knee") so the app can say which injury it protects.
+    if (err instanceof PlanEditError) return typedFailure(planEditStatus(err.code), PLAN_EDIT_CODE[err.code], err.code === "injury" && err.area ? `injury:${err.area}` : err.code);
     return apiFailure(env, "api_plan", err, { userId: user._id, action });
   }
 }

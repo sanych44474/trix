@@ -14,6 +14,8 @@ import {
   setUserVideo,
 } from "../../adapters/d1/v2Catalog";
 import { updateUser } from "../../adapters/d1/v2Users";
+import { listActiveInjuries } from "../../adapters/d1/v2Tracking";
+import { checkExerciseAgainstInjuries } from "../../domain/safety";
 import { awardAchievement } from "../../adapters/d1/v2Gamification";
 import { fitSplitToKit, kitFromEquipment } from "../../domain/equipmentFit";
 import { swapPlanDays } from "../../domain/recoverySwap";
@@ -35,11 +37,12 @@ const TECHNIQUE_MAX = 1000;
 const EQUIPMENT = ["full gym", "home basics (dumbbells, bands)", "dumbbells only", "bodyweight only"];
 const FREE_EXERCISE_ID_SET = new Set<string>(FREE_EXERCISE_IDS);
 
-export type PlanEditErrorCode = "bad request" | "not found" | "stale" | "full" | "conflict" | "last";
+export type PlanEditErrorCode = "bad request" | "not found" | "stale" | "full" | "conflict" | "last" | "injury";
 
 /** Thrown for an edit the plan cannot take. `code` maps to the HTTP status via planEditStatus. */
 export class PlanEditError extends Error {
-  constructor(readonly code: PlanEditErrorCode) {
+  /** For "injury": the injured area the new exercise loads directly ("knee"). */
+  constructor(readonly code: PlanEditErrorCode, readonly area?: string) {
     super(code);
   }
 }
@@ -51,6 +54,7 @@ const STATUS: Record<PlanEditErrorCode, number> = {
   full: 400,
   conflict: 409,
   last: 400,
+  injury: 409,
 };
 export function planEditStatus(code: PlanEditErrorCode): number {
   return STATUS[code];
@@ -175,6 +179,21 @@ async function resolveExercise(
   };
 }
 
+/**
+ * A swap or add that puts in an exercise loading an active injury directly is refused
+ * (domain/safety.ts). Related conflicts go through: the athlete or coach may have a reason. This
+ * guards every writer of the plan: the athlete's editor, a trainer's, and the AI coach's actions.
+ */
+async function refuseInjuryConflict(db: DB, ownerId: number, ex: { name?: string; canonicalName?: string }): Promise<void> {
+  const injuries = await listActiveInjuries(db, ownerId).catch(() => []);
+  if (!injuries.length) return;
+  // By the movement in the name (local and English): the catalog's one muscle group is too coarse
+  // (every quad exercise would read as a knee conflict, a wall sit included).
+  const name = [ex.name, ex.canonicalName].filter(Boolean).join(" ");
+  const hit = checkExerciseAgainstInjuries({ name }, injuries);
+  if (hit.blocked) throw new PlanEditError("injury", hit.area);
+}
+
 /** Translate the split through the AI only when a new exercise has no catalog translation. */
 async function localizeIfNeeded(env: Env, lang: Lang, split: PlanDay[], db: DB, actorId: number, translated: boolean): Promise<PlanDay[]> {
   if (lang === "en" || translated) return split;
@@ -297,6 +316,7 @@ export async function applyPlanEdit(target: PlanEditTarget, edit: PlanEdit): Pro
       const { ex, index, day } = slotOf(split, edit);
       const before = ex.name;
       const { base, translated } = await resolveExercise(db, lang, edit);
+      await refuseInjuryConflict(db, owner._id, base);
       // A swap keeps the slot's rep scheme, load and key-lift flag; everything else comes from the new exercise.
       day.exercises[index] = { ...base, sets: ex.sets, startWeight: ex.startWeight || "—", isKeyLift: ex.isKeyLift, ...edit.overrides } as PlanExercise;
       split = await localizeIfNeeded(env, lang, split, db, target.actorId, translated);
@@ -308,6 +328,7 @@ export async function applyPlanEdit(target: PlanEditTarget, edit: PlanEdit): Pro
       if (!day) badRequest();
       if (day.exercises.length >= MAX_EX_PER_DAY) throw new PlanEditError("full");
       const { base, translated } = await resolveExercise(db, lang, edit);
+      await refuseInjuryConflict(db, owner._id, base);
       const built: PlanExercise = { sets: "3 × 8–12", startWeight: "—", ...base, ...edit.overrides } as PlanExercise;
       if (typeof edit.freeExerciseId === "string" && FREE_EXERCISE_ID_SET.has(edit.freeExerciseId) && target.actorId === owner._id) {
         await awardAchievement(db, owner._id, "library_first").catch(() => {});

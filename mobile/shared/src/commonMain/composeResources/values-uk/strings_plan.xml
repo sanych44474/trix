@@ -165,6 +165,7 @@
     <string name="pl_weekday_sat">Сб</string>
     <string name="pl_weekday_sun">Нд</string>
     <string name="pl_generic_error">Щось пішло не так. Спробуй ще раз.</string>
+    <string name="pl_plan_injury_blocked">Не додано: ця вправа навантажує травму (%1$s). Обери іншу або спершу познач травму як вилікувану.</string>
     <string name="pl_close">Закрити</string>
     <string name="pl_unauthorized_error">Відкрий цю сторінку з Telegram, щоб продовжити.</string>
     <string name="pl_saving_ellipsis">Збереження…</string>

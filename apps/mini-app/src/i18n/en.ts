@@ -6,6 +6,7 @@ export const en = {
   close: "Close",
   unauthorized_error: "Open this page from Telegram to continue.",
   generic_error: "Something went wrong. Try again.",
+  plan_injury_blocked: "Not added: this exercise loads your injury ({area}). Pick another, or mark the injury as healed first.",
   saving_ellipsis: "Saving…",
   saved_label: "Saved",
   level_n: "Level {n}",

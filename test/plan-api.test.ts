@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
+import { createInjury } from "../src/adapters/d1/v2Tracking";
 import { upsertExercise, upsertExerciseTranslation } from "../src/adapters/d1/v2Catalog";
 import { handlePlanApi } from "../src/webapp/planApi";
+import { handleV2Api } from "../src/webapp/v2Api";
 import { loadLearnedMuscles } from "../src/exerciseMuscleLearning";
 import type { Env, PlanDoc } from "../src/types";
 
@@ -402,4 +404,46 @@ test("plan days: a trainer renames a client's day; the new label is what GET ret
 
   const blank = await call(db, 1, "POST", "/api/plan", { clientId: 2, action: "dayname", weekday: 1, value: " " }, { "if-match": `"${after.version}"` });
   assert.equal(blank.status, 400);
+});
+
+test("plan editor: a swap or add onto an active injury's area is refused with the area, a safe one goes through", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  await setActivePlan(db, plan(1));
+  await createInjury(db, { userId: 1, area: "knee", severity: "mild", checkAfter: "2099-01-01", swaps: [] });
+  const post = async (body: Record<string, unknown>) => {
+    const current = await (await call(db, 1, "GET", "/api/plan")).json() as { version: string };
+    return call(db, 1, "POST", "/api/plan", body, { "If-Match": `"${current.version}"` });
+  };
+
+  const swap = await post({ weekday: 1, index: 1, action: "swap", value: "Barbell Squat", expectName: "Lat Pulldown" });
+  assert.equal(swap.status, 409);
+  assert.equal(((await swap.json()) as { error: string }).error, "injury:knee");
+  const add = await post({ weekday: 1, index: 0, action: "add", value: "Walking Lunge" });
+  assert.equal(add.status, 409);
+  const after = await (await call(db, 1, "GET", "/api/plan")).json() as { days: PlanDoc["split"] };
+  assert.deepEqual(after.days[0].exercises.map((e) => e.name), ["Bench Press", "Lat Pulldown"], "a refused edit leaves the plan as it was");
+
+  const safe = await post({ weekday: 1, index: 0, action: "add", value: "Cable Fly" });
+  assert.equal(safe.status, 200);
+});
+
+test("plan editor over /api/v2: the injury refusal reaches the apps as code conflict, message injury:<area>", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 2, 2, "en", "Bo");
+  await setActivePlan(db, plan(2));
+  await createInjury(db, { userId: 2, area: "knee", severity: "mild", checkAfter: "2099-01-01", swaps: [] });
+  const e = env(db);
+  const ctx = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+  const get = new Request("https://example.test/api/v2/plan?debugUser=2");
+  const version = ((await (await handleV2Api(get, new URL(get.url), e, ctx)).json()) as { data: { version: string } }).data.version;
+  const post = new Request("https://example.test/api/v2/plan?debugUser=2", {
+    method: "POST",
+    headers: { "content-type": "application/json", "If-Match": `"${version}"`, "Idempotency-Key": "injury-v2-0001" },
+    body: JSON.stringify({ weekday: 1, index: 1, action: "swap", value: "Barbell Squat", expectName: "Lat Pulldown" }),
+  });
+  const res = await handleV2Api(post, new URL(post.url), e, ctx);
+  assert.equal(res.status, 409);
+  const body = (await res.json()) as { error: { code: string; message: string } };
+  assert.deepEqual([body.error.code, body.error.message], ["conflict", "injury:knee"]);
 });

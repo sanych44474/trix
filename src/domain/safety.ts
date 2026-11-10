@@ -1,9 +1,9 @@
 // AI safety gate: the concrete "AI proposes, domain logic decides" boundary for plan edits that
-// change WHICH exercise a user does (add/swap) — whether the edit was suggested by the AI coach
-// or picked by the user via search, both funnel through applyCatalogExerciseChoice (bot.ts),
-// which calls checkExerciseAgainstInjuries before writing. Pure — reuses domain/injury.ts's
-// conflictScore (the same rule already applied to the manual injury-report swap flow) rather
-// than duplicating conflict detection.
+// change WHICH exercise a user does (add/swap). Every writer of the plan funnels through
+// applyPlanEdit (features/plan/planEdits.ts): the athlete's editor, a trainer's, and the AI coach's
+// actions. It calls checkExerciseAgainstInjuries before writing and refuses a direct conflict with
+// 409 "injury:<area>". The in-session swap list (webapp/workout.ts workoutSwapAlternatives) leaves
+// such exercises out. Pure: reuses domain/injury.ts's conflictScore rather than duplicating it.
 import type { InjuryDoc } from "../types";
 import { conflictScore, type ConflictLevel, type ExerciseLike, type InjuryArea, type Severity } from "./injury";
 
