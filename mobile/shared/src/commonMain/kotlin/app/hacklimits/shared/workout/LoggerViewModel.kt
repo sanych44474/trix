@@ -40,12 +40,12 @@ import app.hacklimits.shared.workout.logic.copyToLoggerExercises
 import app.hacklimits.shared.workout.logic.repeatAsSuggestions
 import app.hacklimits.shared.workout.logic.withTypedWeight
 import app.hacklimits.shared.workout.logic.savedSets
+import app.hacklimits.shared.workout.logic.summaryVolumeKg
 import app.hacklimits.shared.workout.logic.countFilledSets
 import app.hacklimits.shared.workout.logic.density
 import app.hacklimits.shared.workout.logic.emptyLoggerSet
 import app.hacklimits.shared.workout.logic.hydrateSaved
 import app.hacklimits.shared.workout.logic.isExerciseFilled
-import app.hacklimits.shared.workout.logic.isSetFilled
 import app.hacklimits.shared.workout.logic.isoWeekday
 import app.hacklimits.shared.workout.logic.localDateOf
 import app.hacklimits.shared.workout.logic.parseDraft
@@ -662,9 +662,7 @@ class LoggerViewModel(
     }
 
     private fun summaryOf(s: LoggerUi, result: SaveWorkoutResult, final: SessionClock?, elapsed: Int, doneAt: Long): SaveSummary {
-        val volume = s.exercises.filter { it.metric == "reps" }.sumOf { ex ->
-            ex.done.filter(::isSetFilled).sumOf { (it.weight) * it.reps }
-        }
+        val volume = summaryVolumeKg(result.volumeKg, s.exercises)
         return SaveSummary(
             prExercises = result.prExercises,
             newBadges = result.newBadges,
@@ -680,6 +678,7 @@ class LoggerViewModel(
             volumeKg = volume,
             plannedSets = s.exercises.sumOf { max(it.sets, it.done.size) },
             dropoffs = result.dropoffs.orEmpty(),
+            kcal = result.kcal,
         )
     }
 

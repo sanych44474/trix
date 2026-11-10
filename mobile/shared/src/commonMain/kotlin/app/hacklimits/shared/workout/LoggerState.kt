@@ -57,6 +57,8 @@ data class SaveSummary(
     val volumeKg: Double,
     val plannedSets: Int,
     val dropoffs: List<RepDropoff> = emptyList(),
+    /** Estimated kcal from the server; null hides the tile. */
+    val kcal: Int? = null,
 )
 
 enum class SyncState { IDLE, PENDING, SYNCED, OFFLINE }

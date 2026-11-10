@@ -69,3 +69,12 @@ test("buildWeekCard + computeWeekCardStats/formatWeekCardText agree on the same 
   assert.equal(full, text); // same computation, same formatting, no drift between the two paths
   assert.match(text, /500/);
 });
+
+test("weekStats: bodyweight moves count the body share when the weight is known, as the workout summary does", () => {
+  const log = { date: "2026-01-05", weekday: 1, completed: true, exercises: [
+    { name: "Pull-up", setsDone: [{ weight: 0, reps: 10 }], skipped: false },
+    { name: "Bench Press", setsDone: [{ weight: 80, reps: 5 }], skipped: false },
+  ] } as unknown as Parameters<typeof weekStats>[0][number];
+  assert.equal(weekStats([log]).volumeKg, 400, "no body weight: only what was logged");
+  assert.equal(weekStats([log], 80).volumeKg, 1200);
+});

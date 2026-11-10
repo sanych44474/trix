@@ -2,6 +2,7 @@
 // route's body. The save is completeWorkout (features/workout/completeWorkout.ts), the same call the
 // chat's finalizeWorkoutLog (bot/workoutSave.ts) makes, so both surfaces share one set of side effects. Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
+import { sessionKcal, sessionVolumeKg } from "../domain/sessionLoad";
 import { parseRestSec } from "../domain/restTime";
 import { learnExerciseMuscles } from "../exerciseMuscleLearning";
 import { rawTelegramApi } from "../adapters/telegram/rawApi";
@@ -357,6 +358,10 @@ export interface SaveResult {
   totalWorkouts: number;
   // Up to two reps drop-offs in this session, worst first (domain/repDropoff.ts). Absent when none.
   dropoffs?: { name: string; reps: number[] }[];
+  /** Kilograms moved, bodyweight moves included (domain/sessionLoad.ts). */
+  volumeKg: number;
+  /** Estimated kcal for the session; absent without a body weight in the profile. */
+  kcal?: number;
 }
 
 const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
@@ -379,6 +384,7 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
     .slice(0, 2)
     .map(({ name, reps }) => ({ name, reps }));
 
+  const kcal = sessionKcal(entries, user.profile.weightKg, timing?.durationSec);
   return {
     ok: true,
     prExercises: done.prExercises,
@@ -387,6 +393,8 @@ export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[],
     leveledUp: done.leveledUp,
     totalWorkouts: done.totalWorkouts,
     ...(dropoffs.length ? { dropoffs } : {}),
+    volumeKg: sessionVolumeKg(entries, user.profile.weightKg),
+    ...(kcal !== null ? { kcal } : {}),
   };
 }
 

@@ -35,6 +35,8 @@ import app.hacklimits.shared.workout.logic.copyToLoggerExercises
 import app.hacklimits.shared.workout.logic.repeatAsSuggestions
 import app.hacklimits.shared.workout.logic.withTypedWeight
 import app.hacklimits.shared.workout.logic.savedSets
+import app.hacklimits.shared.workout.logic.summaryVolumeKg
+import app.hacklimits.shared.data.SaveWorkoutResult
 import app.hacklimits.shared.workout.logic.isSetFilled
 import app.hacklimits.shared.data.WorkoutCopyExercise
 import kotlin.test.Test
@@ -248,6 +250,20 @@ class LoggerLogicTest {
         val ex = LoggerExercise(index = 0, name = "Squat", metric = "reps", sets = 3, setsDone = listOf(LoggerSet(weight = 100.0, reps = 5.0), LoggerSet(), LoggerSet(weight = 90.0)))
         assertEquals(ex.done, withTypedWeight(ex, row = 0, weight = 120.0, rows = 3), "row 0 is logged: unchanged")
         assertEquals(listOf(100.0, 110.0, 90.0), withTypedWeight(ex, row = 1, weight = 110.0, rows = 3).map { it.weight }, "a drop set's own load stays")
+    }
+
+    @Test
+    fun theSummaryUsesTheServersVolumeWithBodyweightAndItsKcal() {
+        val raw = """{"ok":true,"prExercises":[],"newBadges":[],"level":2,"leveledUp":false,"totalWorkouts":5,"volumeKg":1200,"kcal":310}"""
+        val result = AppJson.decodeFromString(SaveWorkoutResult.serializer(), raw)
+        assertEquals(1200.0, result.volumeKg)
+        assertEquals(310, result.kcal)
+        val exercises = listOf(
+            LoggerExercise(index = 0, name = "Pull-up", setsDone = listOf(LoggerSet(weight = 0.0, reps = 10.0))),
+            LoggerExercise(index = 1, name = "Bench Press", setsDone = listOf(LoggerSet(weight = 80.0, reps = 5.0))),
+        )
+        assertEquals(1200.0, summaryVolumeKg(result.volumeKg, exercises), "the server counts the pull-ups")
+        assertEquals(400.0, summaryVolumeKg(null, exercises), "an older server: weight x reps")
     }
 
     @Test

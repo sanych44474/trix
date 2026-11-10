@@ -413,7 +413,7 @@ export async function clientCardAction(ctx: MyContext, clientId: number, action:
     await reply(ctx, renderPlan(lang, draft), clientCardKb(lang, clientId));
   } else if (action === "week") {
     // Forwardable weekly report card for THIS client — same card the solo user gets.
-    const card = await buildWeekCard(ctx.db, clientId, client.profile.timezone, client.profile.name ?? `id ${clientId}`, lang, client.reminders?.lastVacation);
+    const card = await buildWeekCard(ctx.db, clientId, client.profile.timezone, client.profile.name ?? `id ${clientId}`, lang, client.reminders?.lastVacation, client.profile.weightKg);
     if (!card) {
       await reply(ctx, t(lang, "wcard_client_empty", { name: cname }), clientCardKb(lang, clientId));
       return;

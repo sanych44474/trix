@@ -46,6 +46,7 @@ import app.hacklimits.shared.resources.wk_summary_pr_kicker
 import app.hacklimits.shared.resources.wk_summary_pr_more
 import app.hacklimits.shared.resources.wk_summary_sets_of
 import app.hacklimits.shared.resources.wk_summary_volume
+import app.hacklimits.shared.resources.wk_summary_kcal
 import app.hacklimits.shared.resources.wk_unit_t
 import app.hacklimits.shared.workout.FeelState
 import app.hacklimits.shared.workout.LoggerUi
@@ -83,6 +84,7 @@ fun SummaryView(
             }
             add(volume to stringResource(Res.string.wk_summary_volume))
         }
+        summary.kcal?.takeIf { it > 0 }?.let { add("≈$it" to stringResource(Res.string.wk_summary_kcal)) }
     }
     Box(Modifier.fillMaxWidth()) {
         Column(

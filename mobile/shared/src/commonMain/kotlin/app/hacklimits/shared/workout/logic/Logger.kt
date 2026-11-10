@@ -220,6 +220,10 @@ fun withTypedWeight(exercise: LoggerExercise, row: Int, weight: Double, rows: In
 /** The sets a save sends: only those logged. A load typed ahead (withTypedWeight) is not a set. */
 fun savedSets(exercise: LoggerExercise): List<LoggerSet> = exercise.done.filter(::isSetFilled)
 
+/** The summary's volume: the server's (bodyweight moves included) when it sent one, else weight × reps over logged sets. */
+fun summaryVolumeKg(serverVolumeKg: Double?, exercises: List<LoggerExercise>): Double =
+    serverVolumeKg ?: exercises.filter { it.metric == "reps" }.sumOf { ex -> ex.done.filter(::isSetFilled).sumOf { it.weight * it.reps } }
+
 fun buildSaveEntries(exercises: List<LoggerExercise>): List<LoggerExercise> = exercises.filter(::isExerciseFilled)
 
 fun countFilledSets(exercises: List<LoggerExercise>): Int = exercises.sumOf { exercise -> exercise.done.count(::isSetFilled) }

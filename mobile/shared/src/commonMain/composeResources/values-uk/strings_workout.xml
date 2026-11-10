@@ -78,6 +78,7 @@
     <string name="wk_summary_pr_more">ще %1$s</string>
     <string name="wk_summary_sets_of">підходи</string>
     <string name="wk_summary_volume">об'єм</string>
+    <string name="wk_summary_kcal">ккал (оцінка)</string>
     <string name="wk_swap_overwrite_plan">Перезаписати план на тиждень: «%1$s» → «%2$s»? Скасувати — лише сьогодні.</string>
     <string name="wk_swap_plan_saved">План оновлено: тепер «%1$s»</string>
     <string name="wk_swap_search_btn">Знайти</string>

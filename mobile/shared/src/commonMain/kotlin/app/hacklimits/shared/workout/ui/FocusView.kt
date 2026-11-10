@@ -1,6 +1,10 @@
 package app.hacklimits.shared.workout.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +21,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -292,9 +298,11 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
                                 TextButton(onClick = { rpeOpen = true }) { Text("+ " + stringResource(Res.string.wk_set_rpe_label)) }
                             }
                             if (rows > 1) {
-                                TextButton(onClick = { vm.removeSet(ex.index, i); vm.setRowDraft(key, null) }) {
-                                    Text(stringResource(Res.string.wk_set_remove_btn), color = MaterialTheme.colorScheme.error)
-                                }
+                                Spacer(Modifier.weight(1f))
+                                SoftCloseButton(
+                                    label = stringResource(Res.string.wk_set_remove_btn),
+                                    onClick = { vm.removeSet(ex.index, i); vm.setRowDraft(key, null) },
+                                )
                             }
                         }
                     }
@@ -342,10 +350,12 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
                             ) { Text("✓", fontWeight = FontWeight.Bold) }
                         } else {
                             val doneLabel = stringResource(Res.string.wk_set_done_aria, i + 1)
-                            OutlinedButton(
-                                onClick = { commit(i, seed(i)) },
-                                modifier = Modifier.width(48.dp).semantics { contentDescription = doneLabel },
-                            ) {}
+                            // A raised empty box: pressing it logs the set (soft look, as in the Mini App).
+                            Box(
+                                Modifier.size(48.dp).softRaised().clip(SoftShape)
+                                    .clickable(role = Role.Button) { commit(i, seed(i)) }
+                                    .semantics { contentDescription = doneLabel },
+                            )
                         }
                     }
                 }
@@ -389,7 +399,9 @@ private fun SetField(
     var field by remember { mutableStateOf(TextFieldValue(value)) }
     var selectOnTap by remember { mutableStateOf(false) }
     if (field.text != value) field = TextFieldValue(value, TextRange(value.length))
-    OutlinedTextField(
+    // Soft look (tester request, matches the Mini App): the field sits pressed into the card, with
+    // no outline; focus shows as the accent caret and label.
+    TextField(
         value = field,
         onValueChange = { next ->
             val text = next.text.filter { it.isDigit() || (decimal && (it == '.' || it == ',')) }.take(7)
@@ -403,7 +415,14 @@ private fun SetField(
         label = { Text(label) },
         suffix = { if (suffix.isNotEmpty()) Text(suffix) },
         singleLine = true,
-        modifier = modifier.onFocusChanged { state ->
+        shape = SoftShape,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+        ),
+        modifier = modifier.softInset().onFocusChanged { state ->
             selectOnTap = state.isFocused
             if (state.isFocused) field = field.copy(selection = TextRange(0, field.text.length))
         },

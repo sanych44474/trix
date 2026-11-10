@@ -126,7 +126,7 @@ export async function cmdProgress(ctx: MyContext) {
 // Shareable week card — a <pre> summary of the last 7 days the user can forward to friends.
 export async function cmdWeekCard(ctx: MyContext) {
   const lang = ctx.user.lang;
-  const card = await buildWeekCard(ctx.db, ctx.user._id, ctx.user.profile.timezone, ctx.user.profile.name ?? "", lang, ctx.user.reminders?.lastVacation);
+  const card = await buildWeekCard(ctx.db, ctx.user._id, ctx.user.profile.timezone, ctx.user.profile.name ?? "", lang, ctx.user.reminders?.lastVacation, ctx.user.profile.weightKg);
   if (!card) {
     await reply(ctx, t(lang, "wcard_empty"), menuBtn(lang));
     return;

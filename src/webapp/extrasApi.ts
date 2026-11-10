@@ -93,7 +93,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
       target = client;
     }
     if (req.method === "GET") {
-      const stats = await computeWeekCardStats(env.DB, target._id, target.profile.timezone, target.reminders?.lastVacation);
+      const stats = await computeWeekCardStats(env.DB, target._id, target.profile.timezone, target.reminders?.lastVacation, target.profile.weightKg);
       const name = target.profile.name ?? `id ${target._id}`;
       const card = stats ? formatWeekCardText(stats, name, target.lang) : null;
       return Response.json({ card, stats, name }, noStore);

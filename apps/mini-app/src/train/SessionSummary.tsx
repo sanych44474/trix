@@ -21,7 +21,8 @@ export interface SaveSummary {
   elapsedSec: number; // 0 = no trustworthy clock, not shown
   densityPct: number | null;
   bestStreak: number;
-  volumeKg?: number; // load x reps over the logged sets
+  volumeKg?: number; // kg moved, bodyweight moves included (the server's; local weight x reps offline)
+  kcal?: number; // estimate from the server, absent without a body weight
   plannedSets?: number;
   dropoffs?: RepDropoff[]; // worst first; the summary shows at most two
 }
@@ -68,6 +69,7 @@ export function SessionSummary({ lang, summary, title, subtitle, date, onAskCoac
     ...(summary.elapsedSec > 0 ? [{ id: "time", value: fmtDuration(summary.elapsedSec), label: "summary_duration" as Key }] : []),
     { id: "sets", value: summary.plannedSets ? `${summary.sets}/${summary.plannedSets}` : String(summary.sets), label: "summary_sets_of" },
     ...(summary.volumeKg && summary.volumeKg > 0 ? [{ id: "volume", value: summary.volumeKg >= 1000 ? `${fmtNum(lang, summary.volumeKg / 1000)} ${t(lang, "unit_t")}` : `${fmtNum(lang, summary.volumeKg, 0)} ${t(lang, "ph_kg")}`, label: "summary_volume" as Key }] : []),
+    ...(summary.kcal ? [{ id: "kcal", value: `≈${fmtNum(lang, summary.kcal, 0)}`, label: "summary_kcal" as Key }] : []),
   ];
   const [firstPr, ...otherPrs] = summary.prExercises;
   const celebrate = summary.prExercises.length > 0 || summary.leveledUp || summary.newBadges.length > 0;

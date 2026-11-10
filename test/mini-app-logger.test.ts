@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildSaveEntries, chooseStart, prefillFromLast, repeatAsSuggestions, isDraftSaved, isOutlierWeight, parseDraft, sessionElapsedSec, swapExercise,
+  buildSaveEntries, chooseStart, prefillFromLast, repeatAsSuggestions, summaryLoad, isDraftSaved, isOutlierWeight, parseDraft, sessionElapsedSec, swapExercise,
   type LoggerDraft, type LoggerExercise,
 } from "../apps/mini-app/src/logic/logger";
 import { EMPTY_QUALITY } from "../apps/mini-app/src/logic/rest";
@@ -204,4 +204,14 @@ test("repeatAsSuggestions: a repeated past session fills the rows as suggestions
   assert.equal(ex!.sets, 3, "the rows keep the copied count");
   assert.equal(ex!.rpe, undefined, "the old session's RPE is not today's");
   assert.deepEqual(buildSaveEntries([ex!]), [], "an unchecked repeat saves nothing");
+});
+
+test("summaryLoad: the server's volume (bodyweight included) and kcal win; offline falls back to weight × reps", () => {
+  const exercises = [
+    { index: 0, name: "Pull-up", metric: "reps", sets: 1, setsDone: [{ weight: 0, reps: 10 }] },
+    { index: 1, name: "Bench Press", metric: "reps", sets: 1, setsDone: [{ weight: 80, reps: 5 }] },
+  ] as LoggerExercise[];
+  assert.deepEqual(summaryLoad({ volumeKg: 1200, kcal: 310 }, exercises), { volumeKg: 1200, kcal: 310 });
+  assert.deepEqual(summaryLoad({ volumeKg: 1200 }, exercises), { volumeKg: 1200 });
+  assert.deepEqual(summaryLoad(null, exercises), { volumeKg: 400 });
 });

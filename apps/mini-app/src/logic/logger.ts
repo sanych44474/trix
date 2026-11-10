@@ -272,3 +272,12 @@ export function targetUse(exercises: LoggerExercise[]): { kept: number; edited: 
   }
   return { kept, edited };
 }
+
+/** Volume and kcal for the summary: the server's (bodyweight moves included, domain/sessionLoad.ts)
+ *  when the save went through, else weight × reps over the logged sets (an offline save). */
+export function summaryLoad(result: { volumeKg?: number; kcal?: number } | null, exercises: LoggerExercise[]): { volumeKg: number; kcal?: number } {
+  if (result && typeof result.volumeKg === "number") return { volumeKg: result.volumeKg, ...(typeof result.kcal === "number" ? { kcal: result.kcal } : {}) };
+  const volumeKg = exercises.reduce((total, exercise) => exercise.metric !== "reps" ? total
+    : total + (exercise.setsDone ?? []).filter(isSetFilled).reduce((v, set) => v + (set.weight || 0) * (set.reps || 0), 0), 0);
+  return { volumeKg: Math.round(volumeKg) };
+}

@@ -33,6 +33,7 @@ export async function computeWeekCardStats(
   userId: number,
   tz: string | undefined,
   frozen?: { from: string; until: string },
+  bodyweightKg?: number,
 ): Promise<WeekCardStats | null> {
   const today = localParts(tz).date;
   const since = isoDateMinus(today, 6);
@@ -42,7 +43,7 @@ export async function computeWeekCardStats(
     userStatCounts(db, userId).catch(() => ({ workouts: 0, nutrition: 0, checkins: 0, steps: 0, badges: 0 })),
     listStrength(db, userId).catch(() => []),
   ]);
-  const stats = weekStats(allLogs.filter((l) => l.date >= since));
+  const stats = weekStats(allLogs.filter((l) => l.date >= since), bodyweightKg);
   if (!stats.done && !stats.skipped) return null;
   const streak = weekStreak(allLogs.filter((l) => l.completed).map((l) => l.date), today, frozen);
   const planned = plan?.split.length ?? 0;
@@ -81,7 +82,8 @@ export async function buildWeekCard(
   displayName: string,
   lang: Lang,
   frozen?: { from: string; until: string },
+  bodyweightKg?: number,
 ): Promise<string | null> {
-  const s = await computeWeekCardStats(db, userId, tz, frozen);
+  const s = await computeWeekCardStats(db, userId, tz, frozen, bodyweightKg);
   return s ? formatWeekCardText(s, displayName, lang) : null;
 }
