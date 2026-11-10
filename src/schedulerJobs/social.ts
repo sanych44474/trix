@@ -9,7 +9,7 @@ import { currentWinStreak, decideDuel } from "../domain/buddyDuel";
 import { postSquadDigest } from "../features/squad/digest";
 import { escapeHtml, t } from "../locales/i18n";
 import { HTML, logSchedulerError } from "./shared";
-import { notify } from "../notify";
+import { notify } from "../notify/notify";
 import type { Env } from "../types";
 
 // Squad recaps go to GROUP chats, which have no timezone of their own — a single sensible UTC

@@ -1,5 +1,6 @@
-import type { Env, ExerciseVideo } from "./types";
-import { getExerciseVideo, upsertExerciseVideo } from "./adapters/d1/v2Catalog";
+import type { Env, ExerciseVideo } from "../../types";
+import { getExerciseVideo, upsertExerciseVideo } from "../d1/v2Catalog";
+import { normalizeVideoKey } from "../../domain/videoKey";
 
 // Thrown when the YouTube Data API rejects with HTTP 403 quotaExceeded so batch callers
 // (warm-at-generation, background backfill, /refreshvideos) can stop instead of hammering.
@@ -38,11 +39,6 @@ export function isoDurationToSeconds(iso: string): number {
   const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
   if (!m) return 0;
   return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
-}
-
-/** Normalize an exercise name into the cache key: trim, lowercase, collapse whitespace. */
-export function normalizeVideoKey(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 /** Significant tokens of an exercise name (words ≥ 3 chars), for title-relevance scoring. */

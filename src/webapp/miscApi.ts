@@ -21,7 +21,7 @@ import { getUser, updateUser } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { computeBoards } from "../features/gamification/boards";
 import { CHALLENGES, challengeByCode, challengeCurrent, challengeStatus, challengeWindow, challengeWindowCounts, resolveWaterGoal, seasonalChallenge, seasonMilestones } from "../domain/challenges";
-import { challengeTitleText } from "../render";
+import { challengeTitleText } from "../render/telegramText";
 import { checkAfterDate } from "../domain/injury";
 import { localParts } from "../domain/localTime";
 import { challengeMilestones, rankOf } from "../domain/records";

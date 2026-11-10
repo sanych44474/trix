@@ -2,11 +2,11 @@ import { Bot, } from "grammy";
 import { botClientOptions } from "./adapters/telegram/rawApi";
 import { hasTelegramChat } from "./domain/delivery";
 import { hasPushDevice } from "./adapters/d1/v2Push";
-import { deliverDueNotifications } from "./schedulerOutbox";
+import { deliverDueNotifications } from "./notify/outbox";
 import { ALL_NOTIFICATIONS } from "./adapters/d1/v2Notifications";
-import { isDurable, notify, pingOther } from "./notify";
-import { type DeliveryResult } from "./schedulerOutbox";
-import { closeQuestWeek } from "./questClose";
+import { isDurable, notify, pingOther } from "./notify/notify";
+import { type DeliveryResult } from "./notify/outbox";
+import { closeQuestWeek } from "./features/gamification/questClose";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "./types";
 import { acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTimers, pruneSeenUpdates, getSetting, setSetting } from "./adapters/d1/v2Admin";
@@ -404,7 +404,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   if (user.blocked) return;
   const telegram = hasTelegramChat(user);
   if (!telegram && !(await hasPushDevice(db, user._id).catch(() => false))) return;
-  // chatId 0 routes the outbox to push (schedulerOutbox.ts attemptPush).
+  // chatId 0 routes the outbox to push (notify/outbox.ts attemptPush).
   const reachChatId = telegram ? user.chatId : 0;
   // On vacation → don't disturb (no reminders/nudges) until it ends.
   if (user.vacationUntil && user.vacationUntil > new Date()) return;
@@ -417,7 +417,7 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   // processUser (which would skip flushReminders and re-fire next tick). Enqueues into the
   // notification_outbox and attempts delivery immediately (same latency as a direct send on the
   // happy path) — a failure is now retried with backoff on a later cron tick instead of being
-  // silently dropped (roadmap item 3, see schedulerOutbox.ts). A 403 still means the user
+  // silently dropped (roadmap item 3, see notify/outbox.ts). A 403 still means the user
   // blocked the bot → flag them so we stop trying for the rest of this invocation.
   let botBlocked = false;
   const send = async (text: string, extra?: Parameters<typeof bot.api.sendMessage>[2], key?: string): Promise<DeliveryResult> => {

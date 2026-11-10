@@ -15,7 +15,7 @@
 // the procedure and its preconditions are in docs/scheduler-do-cutover-runbook.md. The alarm
 // runs at hh:01 (domain/alarmTiming.ts) so hour-exact slots are not skipped by drift.
 import { DurableObject } from "cloudflare:workers";
-import { loadLearnedMuscles } from "../exerciseMuscleLearning";
+import { loadLearnedMuscles } from "../features/exercise/muscleLearning";
 import { Bot } from "grammy";
 import { botClientOptions } from "../adapters/telegram/rawApi";
 import { logDryRun } from "./dryrunLog";

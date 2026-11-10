@@ -4,10 +4,10 @@ import { newDb } from "./harness";
 import {
   ACTIVATE_H, POSTPONED_ACTIVATE_H, REMIND_H, WARN_BEFORE_H,
   autoActivationFor, postponeAutoActivation, staleDraftStep, sweepStaleDrafts,
-} from "../src/staleDrafts";
+} from "../src/features/plan/staleDrafts";
 import { getOrphanDraft, updateDraftSplit } from "../src/adapters/d1/v2Plans";
 import { draftDeliver } from "../src/schedulerJobs/global";
-import { deliverDueNotifications } from "../src/schedulerOutbox";
+import { deliverDueNotifications } from "../src/notify/outbox";
 import { GrammyError } from "grammy";
 import type { Env } from "../src/types";
 

@@ -7,7 +7,7 @@ import { HTML } from "../../adapters/telegram/context";
 import { rawTelegramApi } from "../../adapters/telegram/rawApi";
 import { updateUser } from "../../adapters/d1/v2Users";
 import { escapeHtml, t } from "../../locales/i18n";
-import { isDurable, notify } from "../../notify";
+import { isDurable, notify } from "../../notify/notify";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "../../notify/onboardingApp";
 import type { Env, UserDoc } from "../../types";
 import { obKeyboard, obProgress, obSteps } from "./questions";

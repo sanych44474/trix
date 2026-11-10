@@ -9,7 +9,7 @@ import { updateUser } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { rankOf, streakMilestones, weekStartStr, weekStreak } from "../domain/records";
 import { escapeHtml, t } from "../locales/i18n";
-import { chunkReport } from "../render";
+import { chunkReport } from "../render/telegramText";
 import { buildOwnerReport } from "../features/owner/ownerReport";
 import { computeBoards } from "../features/gamification/boards";
 import { advanceMesocycle, phaseGuidance, phaseKey } from "../domain/mesocycle";

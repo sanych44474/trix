@@ -46,7 +46,7 @@ export interface DashboardPayload {
     plannedWeekdays: number[]; // ISO 1..7 — lets the client mark FUTURE training days
     split: { weekday: number; group: string; n: number }[]; // plan day summaries for the day card
     logs: { date: string; done: boolean; ex: { n: string; s: number }[] }[]; // what was actually done that day
-    // Muscles for logged names the body map's rules don't know (exerciseMuscleLearning.ts); the
+    // Muscles for logged names the body map's rules don't know (features/exercise/muscleLearning.ts); the
     // app registers them into the same lookup before drawing the map.
     learnedMuscles?: { name: string; primary: string[]; secondary: string[] }[];
   };
@@ -179,7 +179,7 @@ export function assemblePayload(
 
   // Weekly volume vs MEV/MAV (last 7 days of completed sets).
   const volume = weeklyVolume(workouts, isoDaysBefore(today, 6)).map((v) => ({ ...v }));
-  // Logged names only the learned table knows (registered at request start, exerciseMuscleLearning.ts).
+  // Logged names only the learned table knows (registered at request start, features/exercise/muscleLearning.ts).
   const learnedMuscles = learnedMusclesFor(workouts.flatMap((w) => w.exercises.map((e) => e.name)));
   const release = latestRelease();
   const releaseText = user.lang === "en" ? release.en : release.uk;

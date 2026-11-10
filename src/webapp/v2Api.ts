@@ -8,7 +8,7 @@ import { handlePhotoApi } from "./miscApi";
 import { v2RouteFor, type MiniAppHandler } from "./routes";
 import { buildDashboardPayload } from "../adapters/d1/dashboardReader";
 import { runIdempotent, WORKOUT_SAVE_WINDOW_HOURS } from "../adapters/d1/v2Idempotency";
-import { expensiveBucket, withinLimit } from "../limits";
+import { expensiveBucket, withinLimit } from "../adapters/rateLimit/limits";
 import { apiFailure, ERROR_RECORDED_HEADER } from "./apiError";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { checkCronHeartbeat } from "../schedulerJobs/global";

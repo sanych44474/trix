@@ -5,8 +5,8 @@ import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import { chatMuted, dueNotifications, markRetry } from "../src/adapters/d1/v2Notifications";
-import { deliverDueNotifications, enqueueAndDeliver, type OutboxSender } from "../src/schedulerOutbox";
-import { skipMutedRecipients } from "../src/notify";
+import { deliverDueNotifications, enqueueAndDeliver, type OutboxSender } from "../src/notify/outbox";
+import { skipMutedRecipients } from "../src/notify/notify";
 import type { Env } from "../src/types";
 
 async function mute(db: ReturnType<typeof newDb>, id: number) {

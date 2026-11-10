@@ -1,4 +1,4 @@
-import { withinLimit } from "../limits";
+import { withinLimit } from "../adapters/rateLimit/limits";
 import { getUser } from "../adapters/d1/v2Users";
 import { randomBelow, randomDigits, safeEqual, toHex } from "../domain/secrets";
 import type { Env, Lang } from "../types";

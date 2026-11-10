@@ -3,10 +3,10 @@
 import { pruneDryRunLog } from "../durable/dryrunLog";
 import { sendBestEffort } from "../adapters/telegram/rawApi";
 import { pruneInbox } from "../adapters/d1/v2Inbox";
-import { learnUnknownExercises } from "../exerciseMuscleLearning";
-import { rollupDailyMetrics } from "../dailyMetricsRollup";
-import { sweepStaleDrafts, type Deliver } from "../staleDrafts";
-import { weeklyModelCheck } from "../aiModelWatch";
+import { learnUnknownExercises } from "../features/exercise/muscleLearning";
+import { rollupDailyMetrics } from "./dailyMetricsRollup";
+import { sweepStaleDrafts, type Deliver } from "../features/plan/staleDrafts";
+import { weeklyModelCheck } from "./aiModelWatch";
 import { isoDateMinus } from "../features/gamification/boards";
 import type { Env } from "../types";
 import { appMarkup } from "../notify/appKeyboard";
@@ -18,7 +18,7 @@ import { pruneIdempotencyKeys } from "../adapters/d1/v2Idempotency";
 import { computeBoards } from "../features/gamification/boards";
 import { logSchedulerError, type Sender } from "./shared";
 import { runOncePer } from "./runOncePer";
-import { isDurable, notify } from "../notify";
+import { isDurable, notify } from "../notify/notify";
 
 // Push the owner an alert when something operationally wrong is happening (no need to open /report).
 // Each alert type is throttled to once per hour via config.alertState so it never spams.
@@ -65,7 +65,7 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
   if (env) {
     await weeklyModelCheck(env, (chatId, text) => bot.api.sendMessage(chatId, text, { parse_mode: "HTML" }))
       .catch((e) => logSchedulerError(db, "ai_model_check", e));
-    // Muscles for exercise names the body map doesn't know yet (exerciseMuscleLearning.ts).
+    // Muscles for exercise names the body map doesn't know yet (features/exercise/muscleLearning.ts).
     await learnUnknownExercises(env).catch((e) => logSchedulerError(db, "exercise_muscles", e));
   }
 

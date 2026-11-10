@@ -56,7 +56,6 @@ function violates(from: string, to: string): boolean {
   if (a === "(root)") {
     if (from === "src/index.ts") return false; // the composition root wires everything
     if (from === "src/scheduler.ts") return ["bot", "webapp"].includes(b);
-    if (ROOT_LEGACY.has(from)) return false; // not placed in a layer yet, see the root test below
     return only("domain", "locales"); // types, log, releaseNotes, appVersion
   }
   if (ENTRY.has(to)) return a !== "durable"; // the user DO runs the cron's per-user pass
@@ -69,29 +68,13 @@ function violates(from: string, to: string): boolean {
   return true; // a folder with no rule: add it to a layer above
 }
 
-// src/*.ts files that predate the rule "every module lives in a layer folder". A ratchet like
-// KNOWN: move a file into its layer and delete its line; a new file in src/ fails the test.
-const ROOT_LEGACY = new Set<string>([
-  "src/aiModelWatch.ts",
-  "src/dailyMetricsRollup.ts",
-  "src/exerciseMuscleLearning.ts",
-  "src/limits.ts",
-  "src/notify.ts",
-  "src/questClose.ts",
-  "src/render.ts",
-  "src/schedulerOutbox.ts",
-  "src/staleDrafts.ts",
-  "src/telegramSetup.ts",
-  "src/youtube.ts",
-]);
+// Every module lives in a layer folder. src/ itself holds the two entries and the shared modules.
 const ROOT_ALLOWED = new Set(["src/index.ts", "src/scheduler.ts", "src/types.ts", "src/log.ts", "src/releaseNotes.ts", "src/appVersion.ts"]);
 
 test("src/ root holds only the entries and the shared modules (new code goes in a layer folder)", () => {
   const rootFiles = sourceFiles().map(rel).filter((f) => layerOf(join(ROOT, f)) === "(root)");
-  const stray = rootFiles.filter((f) => !ROOT_ALLOWED.has(f) && !ROOT_LEGACY.has(f));
-  const moved = [...ROOT_LEGACY].filter((f) => !rootFiles.includes(f));
+  const stray = rootFiles.filter((f) => !ROOT_ALLOWED.has(f));
   assert.deepEqual(stray, [], "put these in a layer folder (docs/adr/0014-layering-covers-every-folder.md)");
-  assert.deepEqual(moved, [], "these left src/ -- delete them from ROOT_LEGACY in test/architecture.test.ts");
 });
 
 // Each line is "<file> -> <module>"; remove lines as they get fixed. The 2026-10-13 baseline

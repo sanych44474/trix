@@ -24,13 +24,14 @@ Android has no SDK here: CI's "Mobile" workflow is the check (see `mobile/CLAUDE
 **Every change is covered by tests (owner's standing rule).** New code ships with tests, and a bug fix adds a test that fails before the fix (show it failing).
 - Test the path production takes. In a private chat every bot update first passes `launcherGate` (`src/bot/launcher.ts`), which answers everything except the owner with the Open-app button. A bot flow that non-owners answer in the chat (buttons or typed replies) needs a test through the gate with an app URL set (`setAppUrl`). Calling its handlers directly hid that the price poll worked only for the owner.
 
-## Architecture (ADR-0010, enforced by `test/architecture.test.ts`)
+## Architecture (ADR-0010 and ADR-0014, enforced by `test/architecture.test.ts`)
 - Layers, inside out:
-  - `domain/`: pure rules and math.
+  - `domain/`, `render/`, `locales/`, `contracts/`: pure. `domain/` holds rules and math, `render/` turns them into text and images.
   - `adapters/`, `ai/`: infrastructure.
   - `features/`, `notify/`, `knowledge/`, `schedulerJobs/`: shared use cases.
-  - `bot/`, `webapp/`, `index.ts`, `scheduler.ts`: interfaces.
+  - `bot/`, `webapp/`, `durable/`, `index.ts`, `scheduler.ts`: interfaces.
 - Never import outward. `webapp/` never imports `bot/`.
+- No new files in `src/` itself: it holds only `index.ts`, `scheduler.ts`, `types.ts`, `log.ts`, `releaseNotes.ts` and `appVersion.ts`. Every other module goes in a layer folder.
 - Only `src/adapters/telegram/rawApi.ts` may contain the Bot API host, because the URL embeds the token.
 - No `export … from` re-export shims, except in `src/index.ts` and `src/ai/prompts.ts`. Import from the declaring module.
 - New logic goes in `src/domain/`, pure and unit-tested. Handlers orchestrate.

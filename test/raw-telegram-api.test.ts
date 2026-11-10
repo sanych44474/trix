@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { GrammyError } from "grammy";
 import { newDb } from "./harness";
 import { fetchTelegramFile, rawTelegramApi, sendBestEffort, telegramTimeouts } from "../src/adapters/telegram/rawApi";
-import { enqueueAndDeliver } from "../src/schedulerOutbox";
+import { enqueueAndDeliver } from "../src/notify/outbox";
 import { completeWorkout } from "../src/features/workout/completeWorkout";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import { linkClient } from "../src/adapters/d1/v2Trainer";

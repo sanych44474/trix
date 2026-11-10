@@ -6,7 +6,7 @@
 // problem specific to these jobs. Same dry-run posture as the others: runs the real
 // runGlobalJobs (scheduler.ts) against a shadowed D1 and a logging Sender.
 import { DurableObject } from "cloudflare:workers";
-import { loadLearnedMuscles } from "../exerciseMuscleLearning";
+import { loadLearnedMuscles } from "../features/exercise/muscleLearning";
 import { Bot } from "grammy";
 import { botClientOptions } from "../adapters/telegram/rawApi";
 import { logSchedulerError, type Sender } from "../schedulerJobs/shared";

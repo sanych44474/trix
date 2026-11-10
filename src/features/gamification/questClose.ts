@@ -3,14 +3,14 @@
 // or by someone who only uses the bot, was never recorded — the XP (and the quest_sweep badge)
 // silently went missing. The Monday scheduler pass calls this for the week that just ended;
 // recording is idempotent per (week, code), so a week the app already recorded is a no-op.
-import type { DB } from "./adapters/d1/shared";
-import type { UserDoc } from "./types";
-import { workoutLogsSince } from "./adapters/d1/v2Workouts";
-import { nutritionLogsSince } from "./adapters/d1/v2Nutrition";
-import { stepLogsSince, waterLogsSince } from "./adapters/d1/v2Tracking";
-import { getActivePlan } from "./adapters/d1/v2Plans";
-import { settleQuests } from "./adapters/d1/v2Gamification";
-import { evaluateWeekQuests } from "./domain/questWeek";
+import type { DB } from "../../adapters/d1/shared";
+import type { UserDoc } from "../../types";
+import { workoutLogsSince } from "../../adapters/d1/v2Workouts";
+import { nutritionLogsSince } from "../../adapters/d1/v2Nutrition";
+import { stepLogsSince, waterLogsSince } from "../../adapters/d1/v2Tracking";
+import { getActivePlan } from "../../adapters/d1/v2Plans";
+import { settleQuests } from "../../adapters/d1/v2Gamification";
+import { evaluateWeekQuests } from "../../domain/questWeek";
 
 const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 

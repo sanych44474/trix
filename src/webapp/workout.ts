@@ -5,7 +5,7 @@ import { listActiveInjuries } from "../adapters/d1/v2Tracking";
 import { checkExerciseAgainstInjuries } from "../domain/safety";
 import { sessionKcal, sessionVolumeKg } from "../domain/sessionLoad";
 import { parseRestSec } from "../domain/restTime";
-import { learnExerciseMuscles } from "../exerciseMuscleLearning";
+import { learnExerciseMuscles } from "../features/exercise/muscleLearning";
 import { rawTelegramApi } from "../adapters/telegram/rawApi";
 import { completeWorkout, type WorkoutSaveEntry } from "../features/workout/completeWorkout";
 import { muscleGroupToEnum } from "../domain/exerciseDefaults";
@@ -32,8 +32,8 @@ import {
 import { isoDateMinus } from "../features/gamification/boards";
 import { cleanAi, t } from "../locales/i18n";
 import { aiText } from "../ai/index";
-import { exerciseVideoKey } from "../render";
-import { lookupExerciseVideoCached } from "../youtube";
+import { exerciseVideoKey } from "../render/telegramText";
+import { lookupExerciseVideoCached } from "../adapters/youtube/youtube";
 import { buildVideoOpenLink } from "../domain/videoLink";
 import type { Env, ExerciseMetric, ExerciseVideo, LoggedExercise, PlanDoc, SetEntry, UserDoc, Weekday, WorkoutLogDoc } from "../types";
 

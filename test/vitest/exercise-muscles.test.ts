@@ -1,8 +1,8 @@
-// exerciseMuscleLearning.ts against real D1: a catalog match is learned without AI, an
+// features/exercise/muscleLearning.ts against real D1: a catalog match is learned without AI, an
 // unclassifiable name is stored as a negative cache, and the stored rows feed the lookup.
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { learnExerciseMuscles, learnUnknownExercises, loadLearnedMuscles } from "../../src/exerciseMuscleLearning";
+import { learnExerciseMuscles, learnUnknownExercises, loadLearnedMuscles } from "../../src/features/exercise/muscleLearning";
 import { musclesForExercise } from "../../src/domain/exerciseMuscles";
 
 describe("learnExerciseMuscles", () => {
