@@ -10,20 +10,18 @@ import { closeQuestWeek } from "./features/gamification/questClose";
 import { isoDateMinus } from "./features/gamification/boards";
 import type { BodyLogDoc, Env, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "./types";
 import { acquireScheduleLock, releaseScheduleLock, dueRestTimers, deleteRestTimers, pruneSeenUpdates, getSetting, setSetting } from "./adapters/d1/v2Admin";
-import { countNotificationsSince } from "./adapters/d1/v2Notifications";
 import { logInfo } from "./log";
 import { syncKnowledge } from "./knowledge/sync";
 import { pruneLearned } from "./adapters/d1/v2FoodLearned";
-import { allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts";
+import { workoutLogsSince } from "./adapters/d1/v2Workouts";
 import { awardAchievement, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
-import { getActivePlan, listActivePlans, setProgressionRate } from "./adapters/d1/v2Plans";
+import { getActivePlan, setProgressionRate } from "./adapters/d1/v2Plans";
 import { bodyLogsByUser, } from "./adapters/d1/v2Tracking";
 import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, updateUser } from "./adapters/d1/v2Users";
 import { evaluateProgressionRate, } from "./domain/progression";
 import { localParts } from "./domain/localTime";
 import { isoWeekKey, } from "./domain/records";
 import { wakeUserScheduler, wakeSquadScheduler, wakeGlobalScheduler } from "./durable/wake";
-import { cronOwns } from "./durable/cutover";
 import { ADJUST_COOLDOWN_DAYS } from "./domain/adaptiveCalories";
 import { DAILY_NUDGE_CAP, daysBetween, isQuietHour, nudgesSentToday } from "./domain/reminderTiming";
 import { escapeHtml, t } from "./locales/i18n";
@@ -36,8 +34,7 @@ import { purgeExpiredStories } from "./adapters/r2/storyMedia";
 import { stravaAccountsDue } from "./adapters/d1/v2Strava";
 import { syncStrava } from "./features/strava/stravaSync";
 import { stravaConfig } from "./features/strava/stravaSync";
-import { runGlobalJobs } from "./schedulerJobs/global";
-import { postSquadRecaps, processBuddyDuels, SQUAD_RECAP_HOUR_UTC, SQUAD_RECAP_BATCH } from "./schedulerJobs/social";
+import { processBuddyDuels, SQUAD_RECAP_BATCH } from "./schedulerJobs/social";
 import { weeklyDigest } from "./schedulerJobs/weeklyDigest";
 import { reminderKey, type UserPass } from "./schedulerJobs/userPass";
 import { adaptiveCalories } from "./schedulerJobs/adaptiveCalories";
@@ -215,13 +212,12 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   // path into the hourly pass — rows live at most ~2h instead of ~1h, which is harmless.
   await pruneSeenUpdates(db, new Date(Date.now() - 3_600_000).toISOString()).catch(() => {});
 
-  if (await cronOwns(db, "global")) await runGlobalJobs(db, bot, env);
+  // The global jobs, squad recaps and per-user reminders run in the scheduler Durable Objects
+  // (ADR-0015). The cron only keeps those objects armed.
   await wakeGlobalScheduler(env).catch((e) => logSchedulerError(db, "global_scheduler_wake", e));
 
-  // R2 photo-cache budget: always the real env here (runSchedule is only ever invoked with the
-  // live Worker env, never the DO's shadowed dry-run one) -- safe to run regardless of scheduler
-  // cutover state. No-op until the bucket exists, and a no-op below 80% of the free tier's 10GB
-  // even once it does; see photoStorage.ts for the eviction policy.
+  // R2 photo-cache budget. No-op until the bucket exists, and a no-op below 80% of the free
+  // tier's 10GB even once it does; see photoStorage.ts for the eviction policy.
   await runOncePer(db, { key: "last_r2_budget_check", period: { windowMs: 7 * 86_400_000 } }, async () => {
     const budget = await enforceStorageBudget(env);
     if (budget?.evictedCount) console.log(JSON.stringify({ level: "info", scope: "r2_budget", ...budget }));
@@ -272,15 +268,6 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   const thisWeekKey = isoWeekKey(utcNow.date);
   await runOncePer(db, { key: "last_buddy_duel_week", period: { periodKey: thisWeekKey } }, () => processBuddyDuels({ ...env, DB: db }, bot, utcNow.date));
 
-  // Squad recap — one post per group chat, once per ISO week, covering the week that just
-  // ended. Squads are chat-scoped, not user-scoped, so this sits outside the per-user loop.
-  // Held to 09:00 UTC: the ISO-week gate alone fires on the first tick after the week rolls
-  // over, i.e. Monday 00:00 UTC — the middle of the night for the users this bot has, and a
-  // 3am post into a group chat is how a bot gets muted.
-  if (utcNow.hour >= SQUAD_RECAP_HOUR_UTC && (await cronOwns(db, "squad"))) {
-    await postSquadRecaps(db, bot, utcNow.date, thisWeekKey).catch((e) => logSchedulerError(db, "squad_recaps", e));
-  }
-
   // Catch-up wake for any squad that predates the wake-on-creation code path (bot/squad.ts).
   // Self-limiting the same way the user-side sweep is: bounded batch, only never-woken squads.
   const unwokenSquads = await squadsNeedingWake(db, SQUAD_RECAP_BATCH).catch(() => []);
@@ -293,73 +280,20 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
     }
   }
 
-  // Weekly reports moved into processUser (per-user local timezone at 17:00).
-
-  // Fails closed: a flag read error skips the user loop for this tick rather than risk the cron
-  // and the user DOs both sending (durable/cutover.ts cronOwns).
-  const userCutOver = !(await cronOwns(db, "user"));
-  // A different start each hour (domain/passOrder.ts): a pass cut short by a Worker limit must not
-  // drop the same users every hour.
+  // Arm the Durable Object of every user who has never been woken. Self-limiting: bounded by new
+  // users per hour, not the whole onboarded population, which matters because DO calls share the
+  // per-invocation subrequest budget. doWokenAt is set only after a successful wake, so a
+  // transient failure retries next hour. A different start each hour (domain/passOrder.ts): a pass
+  // cut short by a Worker limit must not drop the same users every hour.
   const users = rotateForHour(await listOnboardedUsers(db), Math.floor(Date.now() / 3_600_000));
-  // Bulk-prefetch the two reads EVERY processUser needs — one query for all active plans and
-  // one for recent workout logs (covers each timezone's "today") — instead of 2 queries × N
-  // users. The rest of processUser's reads are conditional and stay per-user.
-  const [activePlans, recentLogs] = await Promise.all([
-    listActivePlans(db).catch(() => [] as PlanDoc[]),
-    allWorkoutLogsSince(db, isoDaysAgo(1)).catch(() => []),
-  ]);
-  const pass: SharedPass = {
-    planByUser: new Map(activePlans.map((p) => [p.userId, p])),
-    logByUserDate: new Map(recentLogs.map((l) => [`${l.userId}:${l.date}`, l])),
-    // Weekly-narrative AI budget per invocation — same idea as the plan-pending "one per tick"
-    // cap: each narrative is a full AI-chain call (many subrequests). Unsent users keep their
-    // dedup key unset, so the next hourly pass picks them up.
-    narrativeBudget: 5,
-    boardsByDay: new Map(),
-  };
-  // Instrumentation for the open question this loop carries: it iterates EVERY onboarded user in
-  // ONE hourly invocation, with no cap, which is a free-tier ceiling (Workers caps external
-  // subrequests per invocation, and every Telegram send in the tick shares that budget).
-  // The right cap depends on numbers nobody has yet, so measure before capping. Note the shape a
-  // cap must take when the time comes: reminders gate on `hour === reminderHour`, so every user
-  // still has to be visited once an hour -- a "first N users" cursor would starve the tail of the
-  // list out of its reminder window entirely. A send budget on SharedPass (like narrativeBudget
-  // above) is the safe shape, since an unsent user simply keeps its dedup key and fires next hour.
-  const passStartedAt = new Date().toISOString();
-  const passStartMs = Date.now();
-  let processed = 0;
-  let failed = 0;
   for (const user of users) {
-    // Self-limiting bootstrap for the DO dry-run: only a user who has NEVER been woken gets a
-    // wake attempt, so this stays bounded by new users per hour rather than the whole onboarded
-    // population every hour -- important because DO calls, like everything else in this loop,
-    // still share the same per-invocation subrequest budget. doWokenAt is set only after a
-    // successful wake, so a transient failure retries next hour rather than being lost.
-    if (!user.doWokenAt) {
-      try {
-        await wakeUserScheduler(env, user._id);
-        await updateUser(db, user._id, { doWokenAt: new Date() });
-      } catch (err) {
-        logSchedulerError(db, "user_scheduler_wake", err, user._id);
-      }
-    }
-    // Once user reminders are cut over to UserSchedulerDO (see durable/cutover.ts), the cron
-    // path must stop doing this for real -- both paths acting would double-send everything.
-    if (userCutOver) continue;
+    if (user.doWokenAt) continue;
     try {
-      await processUser(env, bot, user, pass);
-      processed++;
+      await wakeUserScheduler(env, user._id);
+      await updateUser(db, user._id, { doWokenAt: new Date() });
     } catch (err) {
-      failed++;
-      logSchedulerError(db, "schedule_user", err, user._id);
+      logSchedulerError(db, "user_scheduler_wake", err, user._id);
     }
-  }
-  if (!userCutOver) {
-    // `sends` counts outbox rows created during the pass — every user-facing send goes through it,
-    // so this is measured, not estimated. Rides logInfo, so it lands in Workers Logs AND Analytics
-    // Engine (src/log.ts) and one real 08:00 pass answers "how close are we to the ceiling".
-    const sends = await countNotificationsSince(db, passStartedAt).catch(() => -1);
-    logInfo("user_pass", { users: users.length, processed, failed, sends, durationMs: Date.now() - passStartMs });
   }
 
   await runComebackOpeners(env, bot, db);
@@ -374,13 +308,8 @@ export interface SharedPass {
   boardsByDay: Map<string, Promise<import("./features/gamification/boards").BoardsResult>>;
 }
 
-/** Single-user equivalent of the bulk SharedPass built in runScheduleInner — for a DO
- * alarm processing exactly one user, not the whole hourly cron loop. narrativeBudget is
- * deliberately uncapped (Infinity): the bulk loop's budget of 5/tick exists ONLY because one
- * invocation used to serve every user's reminders, and this narrative call is one AI-chain
- * call that a single invocation can afford on its own. boardsByDay starts empty — the
- * memoization only pays off across many users sharing an invocation, which a per-user DO
- * alarm never does. */
+/** The SharedPass of one user, for a DO alarm. narrativeBudget is uncapped: the weekly narrative
+ * is one AI-chain call, which a single user's invocation can afford. */
 export async function buildSinglePass(db: D1Database, userId: number): Promise<SharedPass> {
   const [plan, logs] = await Promise.all([
     getActivePlan(db, userId).catch(() => null),
@@ -423,8 +352,8 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   const send = async (text: string, extra?: Parameters<typeof bot.api.sendMessage>[2], key?: string): Promise<DeliveryResult> => {
     if (botBlocked) return "blocked";
     // Same message text to the same user on the same local day collapses to one outbox row —
-    // defense in depth against a double-enqueue, not the primary dedup (that's the cutover
-    // mutual-exclusion flag, durable/cutover.ts, which decides whether this call happens at all).
+    // defense in depth against a double-enqueue. The primary guard is that only the user's own
+    // Durable Object alarm runs this (ADR-0015).
     const idempotencyKey = reminderKey(date, text, key);
     const result = await notify(env, bot, { userId: user._id, chatId: reachChatId }, {
       kind: "reminder",

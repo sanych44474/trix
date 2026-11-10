@@ -81,7 +81,6 @@ test("src/ root holds only the entries and the shared modules (new code goes in 
 // (ADR-0010) reached zero; these are the edges the wider rules of ADR-0014 found on 2026-11-10.
 const KNOWN = new Set<string>([
   "src/adapters/telegram/keyboards.ts -> src/notify/appLinks",
-  "src/schedulerJobs/global.ts -> src/durable/dryrunLog",
 ]);
 
 test("layering: no new cross-layer imports (and fixed ones leave the baseline)", () => {

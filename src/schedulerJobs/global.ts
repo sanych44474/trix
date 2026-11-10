@@ -1,6 +1,6 @@
 // Account-wide scheduler jobs (owner alerts, leaderboard cache, pruning, metrics rollup,
 // stale drafts, AI model watch) and the cron dead-man switch. Split out of scheduler.ts.
-import { pruneDryRunLog } from "../durable/dryrunLog";
+import { pruneDryRunLog } from "../adapters/d1/schedulerDryrunLog";
 import { sendBestEffort } from "../adapters/telegram/rawApi";
 import { pruneInbox } from "../adapters/d1/v2Inbox";
 import { learnUnknownExercises } from "../features/exercise/muscleLearning";
@@ -23,10 +23,8 @@ import { isDurable, notify } from "../notify/notify";
 // Push the owner an alert when something operationally wrong is happening (no need to open /report).
 // Each alert type is throttled to once per hour via config.alertState so it never spams.
 /** How the stale-draft sweep delivers: through the notification outbox when there is an env (a
- * failed send retries and a block is recorded), and straight through the bot otherwise (the dry-run
- * stand-in has no env). The outbox env is built from `db` on purpose: in the Durable Object's
- * dry run `db` is the shadow database, and writing a real outbox row from there would take the
- * dedup key and make the live cron skip the message as a duplicate. */
+ * failed send retries and a block is recorded), and straight through the bot otherwise (a test
+ * stand-in with no env). */
 export function draftDeliver(db: D1Database, bot: Sender, env?: Env): Deliver {
   if (!env) {
     return (m) => bot.api.sendMessage(m.chatId, m.text, m.extra as never).then(() => true, () => false);
@@ -36,9 +34,8 @@ export function draftDeliver(db: D1Database, bot: Sender, env?: Env): Deliver {
 }
 
 /** The account-wide (not per-user, not per-squad) jobs: owner alerts, the leaderboard cache,
- * and telemetry pruning. Extracted so the still-live cron path (below) and the dry-run
- * GlobalSchedulerDO (durable/globalScheduler.ts) run the EXACT same logic, not two copies that
- * can drift. Each sub-job already catches its own errors — one failing must not skip the rest. */
+ * and telemetry pruning. Run hourly by GlobalSchedulerDO (durable/globalScheduler.ts). Each
+ * sub-job already catches its own errors — one failing must not skip the rest. */
 export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Promise<void> {
   // Proactive owner alerts — error spikes / AI provider outages, deduped to once per hour each.
   await checkOwnerAlerts(db, bot).catch((e) => logSchedulerError(db, "owner_alerts", e));
@@ -61,7 +58,7 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
     .catch((e) => logSchedulerError(db, "stale_drafts", e));
 
   // Weekly: alert the owner when a configured AI model id vanished from its provider's catalog
-  // (aiModelWatch.ts). Needs the real env for the API keys; the shadow dry-run pass has none.
+  // (aiModelWatch.ts). Needs the env for the API keys.
   if (env) {
     await weeklyModelCheck(env, (chatId, text) => bot.api.sendMessage(chatId, text, { parse_mode: "HTML" }))
       .catch((e) => logSchedulerError(db, "ai_model_check", e));
@@ -85,7 +82,7 @@ export async function runGlobalJobs(db: D1Database, bot: Sender, env?: Env): Pro
     await pruneNotificationOutbox(db, cutoff.toISOString()).catch(() => {});
     // The Mini App feed keeps 60 days.
     await pruneInbox(db, new Date(Date.now() - 60 * 86_400_000).toISOString()).catch(() => {});
-    // The scheduler dry-run log is written every hour per user and read only for a recent window.
+    // Nothing writes the scheduler dry-run log any more; this empties what is left of it.
     await pruneDryRunLog(db, new Date(Date.now() - 30 * 86_400_000).toISOString()).catch(() => {});
   });
 

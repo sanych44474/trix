@@ -36,9 +36,8 @@ export interface OutboxRow {
 }
 
 /** Idempotent by (accountId, idempotencyKey) — a duplicate enqueue of the same logical
- * notification is silently absorbed rather than creating a second row (defense in depth; the
- * cutover flag, not this, is what actually prevents cron/DO from both deciding to send in the
- * first place). Returns the new row's id, or null if it was a duplicate (nothing was inserted) —
+ * notification is silently absorbed rather than creating a second row (defense in depth: only
+ * one scheduler path decides to send, see ADR-0015). Returns the new row's id, or null if it was a duplicate (nothing was inserted) —
  * the caller uses this to decide whether to attempt an immediate delivery. */
 export async function enqueueNotification(
   db: DB,

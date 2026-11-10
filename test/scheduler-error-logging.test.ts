@@ -4,11 +4,9 @@ import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { logSchedulerError } from "../src/schedulerJobs/shared";
 
-// The three cutover DOs (src/durable/{user,squad,global}Scheduler.ts) each now wrap their
-// real-send call in `.catch((err) => logSchedulerError(db, "<kind>", err, id))` -- mirroring
-// the cron path's own error handling (scheduler.ts's per-job try/catch), so a real error after
-// a scheduler_cutover_* flag flips still reaches error_logs/owner-report instead of only a raw
-// uncaught exception in Workers Logs. Forcing a genuine exception through the full DO/alarm
+// The three scheduler DOs (src/durable/{user,squad,global}Scheduler.ts) each wrap their
+// send call in `.catch((err) => logSchedulerError(db, "<kind>", err, id))`, so an error in an
+// alarm reaches error_logs/owner-report instead of only a raw uncaught exception in Workers Logs. Forcing a genuine exception through the full DO/alarm
 // stack (real grammY Bot, real fetch to Telegram) isn't a clean, network-free, deterministic
 // test given how defensively processUser/postSquadDigest/runGlobalJobs already catch their own
 // sub-steps -- this instead directly verifies the primitive those three one-line wrappers all
@@ -29,7 +27,7 @@ async function pollErrorEvents(db: ReturnType<typeof newDb>, expected: number) {
   return rows;
 }
 
-test("logSchedulerError persists a queryable row for each of the three cutover-branch kinds", async () => {
+test("logSchedulerError persists a queryable row for each of the three scheduler DO kinds", async () => {
   const db = newDb();
   const user = await getOrCreateUser(db, 42, 42, "en", "Ann");
   const squadOwner = await getOrCreateUser(db, 7, 7, "en", "Squad Owner");

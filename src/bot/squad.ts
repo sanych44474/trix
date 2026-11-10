@@ -53,7 +53,7 @@ export async function handleGroupUpdate(ctx: MyContext, today: string): Promise<
     await upsertSquad(ctx.db, chatId, title, user._id);
     const added = await joinSquad(ctx.db, chatId, user._id);
     const members = await squadMembers(ctx.db, chatId);
-    // Arms the squad's recap DO (dry-run phase — see squadScheduler.ts). Best-effort: a wake
+    // Arms the squad's recap DO (see squadScheduler.ts). Best-effort: a wake
     // failure must never block the join confirmation the person is waiting on.
     await wakeSquadScheduler(ctx.env, chatId).catch(() => {});
     await say(added ? "squad_joined" : "squad_already_in", { name: user.alias || user.profile.name || "", n: members.length });

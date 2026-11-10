@@ -1,43 +1,21 @@
-// Group-level weekly jobs: squad recaps posted into group chats and buddy duels. Split out of
-// scheduler.ts.
+// Group-level weekly jobs: buddy duels. Split out of scheduler.ts. Squad recaps are posted by
+// SquadSchedulerDO.
 import { Bot } from "grammy";
 import { allWorkoutLogsSince } from "../adapters/d1/v2Workouts";
-import { allBuddyPairs, awardAchievement, buddyDuelHistory, buddyWinCount, recordBuddyDuel, deleteSquad, markSquadRecapped, squadsDueForRecap } from "../adapters/d1/v2Gamification";
+import { allBuddyPairs, awardAchievement, buddyDuelHistory, buddyWinCount, recordBuddyDuel } from "../adapters/d1/v2Gamification";
 import { getUser } from "../adapters/d1/v2Users";
-import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
+import { isoWeekKey, weekRangeOffset } from "../domain/records";
 import { currentWinStreak, decideDuel } from "../domain/buddyDuel";
-import { postSquadDigest } from "../features/squad/digest";
 import { escapeHtml, t } from "../locales/i18n";
 import { HTML, logSchedulerError } from "./shared";
 import { notify } from "../notify/notify";
 import type { Env } from "../types";
 
-// Squad recaps go to GROUP chats, which have no timezone of their own — a single sensible UTC
-// hour is the honest answer (09:00 UTC = noon in Kyiv, morning across Europe).
-export const SQUAD_RECAP_HOUR_UTC = 9;
-// Each recap post is one EXTERNAL subrequest, and the Workers Free plan allows 50 per
-// invocation — shared with every reminder the per-user loop below sends in the same tick. The
-// sweep therefore runs in small batches on consecutive minutes instead of fanning out at once.
+// How many never-woken squads the cron arms per tick (scheduler.ts): each wake is a subrequest.
 export const SQUAD_RECAP_BATCH = 8;
 
 // Weekly buddy-duel sweep — see the call site's comment for the gating rule. Runs once for the
 // whole system per week, not per user: buddy PAIRS, not individual users, are the unit of work.
-/** Post last week's board into every squad chat. A chat that rejects the message (bot kicked,
- * group deleted) is dropped — that is the only automatic squad deletion there is. */
-export async function postSquadRecaps(db: D1Database, bot: Bot, todayUtc: string, weekKey: string): Promise<void> {
-  const squads = await squadsDueForRecap(db, weekKey, SQUAD_RECAP_BATCH);
-  if (!squads.length) return;
-  const { from } = weekRangeOffset(todayUtc, 1); // Monday of the week that just ended
-  const until = weekStartStr(todayUtc); // exclusive: this fresh week is not part of the recap
-  for (const squad of squads) {
-    const ok = await postSquadDigest(db, bot.api, squad.chatId, { weekStart: from, until, past: true });
-    // Marked either way: a chat that is merely unreachable this minute must not be retried
-    // every minute for the rest of the week.
-    await markSquadRecapped(db, squad.chatId, weekKey).catch(() => {});
-    if (!ok) await deleteSquad(db, squad.chatId).catch(() => {});
-  }
-}
-
 export async function processBuddyDuels(env: Env, bot: Bot, todayStr: string): Promise<void> {
   const db = env.DB;
   const pairs = await allBuddyPairs(db);

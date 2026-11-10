@@ -49,7 +49,7 @@ directory = "public"
 [ai]
 binding = "AI"
 
-# Durable Objects — per-user reminder scheduling (dry-run phase, see src/durable/). SQLite
+# Durable Objects — reminder, squad-recap and global-job scheduling (see src/durable/). SQLite
 # storage backend, available on Workers Free. `exports` is the current declarative way to
 # manage DO class lifecycle (this file has no [[migrations]] array).
 [[durable_objects.bindings]]
