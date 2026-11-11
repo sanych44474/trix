@@ -3,8 +3,8 @@
 import type { ExerciseVideo, PlanDay } from "../../types";
 import { getExerciseVideos, getUserVideos } from "../../adapters/d1/v2Catalog";
 import { buildVideoOpenLink } from "../../domain/videoLink";
-import { exerciseVideoKey } from "../../render";
-import { lookupExerciseVideoCached } from "../../youtube";
+import { exerciseVideoKey } from "../../render/telegramText";
+import { lookupExerciseVideoCached } from "../../adapters/youtube/youtube";
 import { type MyContext } from "../../adapters/telegram/context";
 import { APP_URL } from "../../notify/appLinks";
 

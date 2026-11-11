@@ -1,22 +1,22 @@
-import { cleanAi, escapeHtml, t } from "./locales/i18n";
-import type { BoardEntry } from "./domain/records";
-import { e1rm } from "./domain/records";
-import type { DailyCheckinDoc, ExerciseVideo, Lang, MealPlanDoc, PlanDay, PlanDoc, StrengthRecordDoc, Weekday } from "./types";
-import { formatRecordBest } from "./domain/setFormat";
-import { getPlanDay, nextTarget } from "./domain/progression";
-import { resolveWeightMode } from "./domain/exerciseClass";
-import { type ActivityCell } from "./domain/activity";
-import { localParts } from "./domain/localTime";
-import { normalizeVideoKey } from "./youtube";
-import { phaseGuidance, phaseKey } from "./domain/mesocycle";
-import { GROCERY_ORDER, formatGrams, type GroceryCategory, type GroceryLine } from "./domain/groceryList";
-import type { ConditioningWeek } from "./domain/conditioning";
-import { planBalance } from "./domain/muscleLoad";
-import type { WeeklyReport } from "./domain/weeklyReport";
-import type { Quest } from "./domain/quests";
-import { isSelfSelectWeight } from "./domain/startWeights";
-import { challengeTitleParts, type ChallengeTemplate } from "./domain/challenges";
-import { QUEST_XP } from "./domain/gamification";
+import { cleanAi, escapeHtml, t } from "../locales/i18n";
+import type { BoardEntry } from "../domain/records";
+import { e1rm } from "../domain/records";
+import type { DailyCheckinDoc, ExerciseVideo, Lang, MealPlanDoc, PlanDay, PlanDoc, StrengthRecordDoc, Weekday } from "../types";
+import { formatRecordBest } from "../domain/setFormat";
+import { getPlanDay, nextTarget } from "../domain/progression";
+import { resolveWeightMode } from "../domain/exerciseClass";
+import { type ActivityCell } from "../domain/activity";
+import { localParts } from "../domain/localTime";
+import { normalizeVideoKey } from "../domain/videoKey";
+import { phaseGuidance, phaseKey } from "../domain/mesocycle";
+import { GROCERY_ORDER, formatGrams, type GroceryCategory, type GroceryLine } from "../domain/groceryList";
+import type { ConditioningWeek } from "../domain/conditioning";
+import { planBalance } from "../domain/muscleLoad";
+import type { WeeklyReport } from "../domain/weeklyReport";
+import type { Quest } from "../domain/quests";
+import { isSelfSelectWeight } from "../domain/startWeights";
+import { challengeTitleParts, type ChallengeTemplate } from "../domain/challenges";
+import { QUEST_XP } from "../domain/gamification";
 
 /** Human-readable weekly conditioning load: "3 cardio sessions - ~180 min", or the session count
  * alone when nothing carried a duration (a distance-only log has real work the minutes can't see,

@@ -1,11 +1,11 @@
-import { ensureTelegramSetup } from "./telegramSetup";
+import { ensureTelegramSetup } from "./adapters/telegram/setup";
 import { GrammyError } from "grammy";
 import { sendBestEffort, telegramCall } from "./adapters/telegram/rawApi";
 import type { Update } from "grammy/types";
 export { UserSchedulerDO } from "./durable/userScheduler";
 export { SquadSchedulerDO } from "./durable/squadScheduler";
 export { GlobalSchedulerDO } from "./durable/globalScheduler";
-import { loadLearnedMuscles } from "./exerciseMuscleLearning";
+import { loadLearnedMuscles } from "./features/exercise/muscleLearning";
 import { createBot } from "./bot/router";
 import { buildOwnerMetrics } from "./features/owner/ownerMetrics";
 import { ownerUsersData } from "./features/owner/ownerReport";
@@ -37,7 +37,7 @@ import { handleProviderAuth } from "./webapp/providerAuth";
 import { handlePushApi } from "./webapp/pushApi";
 import { logError, logInfo, runWithRequestId, withHeader } from "./log";
 import { secretMatches } from "./domain/secrets";
-import { expensiveBucket, withinLimit } from "./limits";
+import { expensiveBucket, withinLimit } from "./adapters/rateLimit/limits";
 import type { Env } from "./types";
 
 
@@ -302,7 +302,7 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, url: U
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const reqId = crypto.randomUUID();
-    await loadLearnedMuscles(env.DB).catch(() => {}); // cached per isolate (exerciseMuscleLearning.ts)
+    await loadLearnedMuscles(env.DB).catch(() => {}); // cached per isolate (features/exercise/muscleLearning.ts)
     const start = Date.now();
     return runWithRequestId(reqId, env, async () => {
       const url = new URL(req.url);

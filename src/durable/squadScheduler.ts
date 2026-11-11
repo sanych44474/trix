@@ -1,27 +1,20 @@
 // Per-squad Durable Object: one instance per squad chatId (see bot/squad.ts's wake-on-create).
-// Mirrors UserSchedulerDO exactly — same dry-run posture, same reasons — for the weekly squad
-// recap that used to be a batched cron sweep (postSquadRecaps in scheduler.ts). Alarm fires
-// hourly, same as UserSchedulerDO, for like-for-like comparison against the cron path during
-// this phase; it only actually acts once the recap hour arrives and the week hasn't been
-// recapped yet, exactly the same gate scheduler.ts's own SQUAD_RECAP_HOUR_UTC uses.
+// It posts the weekly squad recap. The alarm fires hourly, like UserSchedulerDO's, and acts once
+// the recap hour has arrived and the week has not been recapped yet. Nothing else posts recaps
+// (ADR-0015).
 import { DurableObject } from "cloudflare:workers";
 import { Bot } from "grammy";
 import { botClientOptions } from "../adapters/telegram/rawApi";
-import { logDryRun } from "./dryrunLog";
 import { deleteSquad, getSquad, markSquadRecapped } from "../adapters/d1/v2Gamification";
-import { isCutOver } from "./cutover";
 import { logSchedulerError } from "../schedulerJobs/shared";
-import { postSquadDigest, type DigestWindow, type SquadApi } from "../features/squad/digest";
+import { postSquadDigest, type DigestWindow } from "../features/squad/digest";
 import { isoWeekKey, weekRangeOffset, weekStartStr } from "../domain/records";
 import type { Env } from "../types";
-import { shadowD1 } from "./shadowDb";
 import { logInfo, runWithRequestId } from "../log";
 import { nextHourlyAlarm } from "../domain/alarmTiming";
 
-// Must match scheduler.ts's SQUAD_RECAP_HOUR_UTC — duplicated rather than imported because
-// scheduler.ts pulls in the whole app (bot.ts and everything under it) and this DO should not
-// have to load that just for one constant. Both are exercised by their own tests; a drift
-// between them would show up as the two paths disagreeing during the dry-run comparison.
+// Squad recaps go to GROUP chats, which have no timezone of their own — a single sensible UTC
+// hour is the honest answer (09:00 UTC = noon in Kyiv, morning across Europe).
 const SQUAD_RECAP_HOUR_UTC = 9;
 
 export class SquadSchedulerDO extends DurableObject<Env> {
@@ -62,44 +55,24 @@ export class SquadSchedulerDO extends DurableObject<Env> {
     const until = weekStartStr(today);
     const win: DigestWindow = { weekStart: from, until, past: true };
 
-    // Cut over? (durable/cutover.ts — default off.) Real bot.api, real db: the exact path
-    // postSquadRecaps used to run in the cron loop (and now skips — see scheduler.ts).
-    const cutOver = await isCutOver(this.env.DB, "squad");
-    logInfo("do_alarm_run", { doType: "squad", cutOver });
-    if (cutOver) {
-      // Mirrors the cron path's own logSchedulerError around postSquadRecaps -- without this, an
-      // exception here would only surface as a raw uncaught exception in Workers Logs, invisible
-      // to error_logs/owner-report the way the same failure would be from the cron path.
-      try {
-        const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
-        const ok = await postSquadDigest(this.env.DB, bot.api, chatId, win);
-        await markSquadRecapped(this.env.DB, chatId, weekKey).catch(() => {});
-        if (!ok) await deleteSquad(this.env.DB, chatId).catch(() => {});
-      } catch (err) {
-        // accountId has a real FK to v2_accounts -- chatId (a Telegram group id) would violate
-        // it and be silently dropped by logSchedulerError's own .catch(). createdBy is squad
-        // creation's actual v2_accounts.id, so it both satisfies the FK and gives owner-report a
-        // real person to attribute the failure to.
-        logSchedulerError(this.env.DB, "squad_recaps", err, squad.createdBy ?? undefined);
-      }
-      return;
+    logInfo("do_alarm_run", { doType: "squad" });
+    // Without the catch an exception here would only reach Workers Logs, not error_logs or the
+    // owner report.
+    try {
+      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
+      const ok = await postSquadDigest(this.env.DB, bot.api, chatId, win);
+      // Marked either way: a chat that is merely unreachable this hour must not be retried every
+      // hour for the rest of the week.
+      await markSquadRecapped(this.env.DB, chatId, weekKey).catch(() => {});
+      // A chat that rejects the message (bot kicked, group deleted) is dropped — that is the only
+      // automatic squad deletion there is.
+      if (!ok) await deleteSquad(this.env.DB, chatId).catch(() => {});
+    } catch (err) {
+      // accountId has a real FK to v2_accounts -- chatId (a Telegram group id) would violate
+      // it and be silently dropped by logSchedulerError's own .catch(). createdBy is squad
+      // creation's actual v2_accounts.id, so it both satisfies the FK and gives owner-report a
+      // real person to attribute the failure to.
+      logSchedulerError(this.env.DB, "squad_recaps", err, squad.createdBy ?? undefined);
     }
-
-    const writes: { sql: string; params: unknown[] }[] = [];
-    const shadowDb = shadowD1(this.env.DB, (w) => writes.push(w));
-
-    const sends: { chatId: number; text: string }[] = [];
-    const api: SquadApi = {
-      sendMessage: (async (targetChatId: number, text: string) => {
-        sends.push({ chatId: targetChatId, text });
-        return {} as Awaited<ReturnType<SquadApi["sendMessage"]>>;
-      }) as SquadApi["sendMessage"],
-    };
-
-    await postSquadDigest(shadowDb, api, chatId, win);
-    await markSquadRecapped(shadowDb, chatId, weekKey);
-
-    for (const s of sends) await logDryRun(this.env.DB, "squad", chatId, "send", s);
-    for (const w of writes) await logDryRun(this.env.DB, "squad", chatId, "write", w);
   }
 }

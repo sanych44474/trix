@@ -12,7 +12,7 @@ import { plannedDayCount } from "../../domain/quests";
 import { localParts } from "../../domain/localTime";
 import { weekStartStr } from "../../domain/records";
 import { escapeHtml, t } from "../../locales/i18n";
-import { questLabel, weekdayName } from "../../render";
+import { questLabel, weekdayName } from "../../render/telegramText";
 import type { Lang, UserDoc } from "../../types";
 
 const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);

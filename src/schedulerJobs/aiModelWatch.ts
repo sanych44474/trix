@@ -5,14 +5,14 @@
 // Only the providers' model LISTS are read — no generation, no cost — and the owner gets one bot
 // message naming each configured id that is no longer listed. scripts/check-ai-models.mjs is the
 // manual, fuller version (it also test-calls every model).
-import type { Env } from "./types";
-import { getOwnerChatId } from "./adapters/d1/v2Admin";
-import { runOncePer } from "./schedulerJobs/runOncePer";
-import { geminiFallbackModels } from "./ai/gemini";
-import { GROQ_DEFAULT_MODEL } from "./ai/groq";
-import { OPENROUTER_DEFAULT_TRANSLATE_MODEL, openrouterTextModels, openrouterVisionModels } from "./ai/openrouter";
-import { ollamaModels } from "./ai/ollama";
-import { splitKeys } from "./ai/errors";
+import type { Env } from "../types";
+import { getOwnerChatId } from "../adapters/d1/v2Admin";
+import { runOncePer } from "./runOncePer";
+import { geminiFallbackModels } from "../ai/gemini";
+import { GROQ_DEFAULT_MODEL } from "../ai/groq";
+import { OPENROUTER_DEFAULT_TRANSLATE_MODEL, openrouterTextModels, openrouterVisionModels } from "../ai/openrouter";
+import { ollamaModels } from "../ai/ollama";
+import { splitKeys } from "../ai/errors";
 
 export type Provider = "gemini" | "groq" | "openrouter" | "ollama";
 const WEEK_MS = 7 * 86_400_000;

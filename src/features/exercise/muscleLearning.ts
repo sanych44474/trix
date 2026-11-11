@@ -4,9 +4,9 @@
 // request and scheduler pass registers the stored rows (cached per isolate), so all callers of
 // musclesForExercise count the exercise. New names are picked up by an hourly sweep over recent
 // workouts and active plans, and immediately when someone adds their own exercise.
-import type { Env } from "./types";
-import { aiJSON } from "./ai/index";
-import { ALL_SLUGS, cleanSlugs, knownByRules, musclesForExercise, normalizeExerciseName, registerLearnedMuscles, slugForCatalogMuscle, type ExerciseMuscles } from "./domain/exerciseMuscles";
+import type { Env } from "../../types";
+import { aiJSON } from "../../ai/index";
+import { ALL_SLUGS, cleanSlugs, knownByRules, musclesForExercise, normalizeExerciseName, registerLearnedMuscles, slugForCatalogMuscle, type ExerciseMuscles } from "../../domain/exerciseMuscles";
 
 const CACHE_MS = 10 * 60_000;
 let loadedAt = 0;

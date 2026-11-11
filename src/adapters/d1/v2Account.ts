@@ -47,10 +47,6 @@ export async function deleteUserData(env: Env, userId: number): Promise<void> {
     // Tables added after this function was first written — each of these has been found missing
     // here at least once in review. When a new table gets a userId/trainerId/ownerId column, add
     // its delete here too.
-    // source is checked alongside entityId: entityId is polymorphic (userId for 'user'
-    // rows, a squad chatId for 'squad' rows) and Telegram user ids and group chat ids
-    // occupy overlapping numeric ranges, so entityId alone is not a safe match.
-    db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'user' AND entityId = ?").bind(userId),
      // v2 is a projection of the legacy account, so deleting the account must remove its
      // projection as well. Child rows cascade from v2_accounts; audit rows need an explicit
      // decision because they intentionally do not have a foreign key cascade.

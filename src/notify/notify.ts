@@ -2,7 +2,7 @@
 //
 // Sending a Telegram message looked like one thing and was three: ~35 `api.sendMessage` calls,
 // ~20 hand-written `fetch`es, and six callers of the notification outbox. The outbox
-// (schedulerOutbox.ts) is the only path that retries a rate limit, records a block and refuses to
+// (notify/outbox.ts) is the only path that retries a rate limit, records a block and refuses to
 // send the same thing twice, yet most sends that matter bypassed it -- a reminder whose send
 // failed was recorded as sent, a duel result vanished on a Telegram hiccup.
 //
@@ -19,10 +19,10 @@
 // Two adapters sit behind it, which is what makes the seam real: grammY's `bot.api` (webhook and
 // cron) and rawTelegramApi (Mini App requests, no Bot instance).
 import type { Transformer } from "grammy";
-import { enqueueAndDeliver, type DeliveryResult, type OutboxSender } from "./schedulerOutbox";
-import { chatMuted } from "./adapters/d1/v2Notifications";
-import { sendBestEffort } from "./adapters/telegram/rawApi";
-import type { Env } from "./types";
+import { enqueueAndDeliver, type DeliveryResult, type OutboxSender } from "./outbox";
+import { chatMuted } from "../adapters/d1/v2Notifications";
+import { sendBestEffort } from "../adapters/telegram/rawApi";
+import type { Env } from "../types";
 
 export type { DeliveryResult, OutboxSender };
 

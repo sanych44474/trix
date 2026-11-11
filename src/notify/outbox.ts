@@ -5,17 +5,17 @@
 //    failure is now PERSISTED and retried, not silently dropped.
 //  - deliverDueNotifications: called once per runScheduleInner tick (the existing per-minute
 //    cron) — sweeps rows a previous attempt backed off, whose nextAttemptAt has now passed.
-import { pushActions } from "./domain/pushActions";
+import { pushActions } from "../domain/pushActions";
 import type { Bot } from "grammy";
 import { GrammyError } from "grammy";
-import { claimNotification, dueNotifications, enqueueNotification, notificationsMuted, markPermanentFailure, markRetry, markSent, type OutboxRow } from "./adapters/d1/v2Notifications";
-import { updateUser } from "./adapters/d1/v2Users";
-import { classifySendError } from "./domain/notificationDelivery";
-import type { Env } from "./types";
-import { deletePushTokens, listPushTokens } from "./adapters/d1/v2Push";
-import { sendPush } from "./adapters/fcm/fcm";
-import { pushParts } from "./domain/plainText";
-import { logError } from "./log";
+import { claimNotification, dueNotifications, enqueueNotification, notificationsMuted, markPermanentFailure, markRetry, markSent, type OutboxRow } from "../adapters/d1/v2Notifications";
+import { updateUser } from "../adapters/d1/v2Users";
+import { classifySendError } from "../domain/notificationDelivery";
+import type { Env } from "../types";
+import { deletePushTokens, listPushTokens } from "../adapters/d1/v2Push";
+import { sendPush } from "../adapters/fcm/fcm";
+import { pushParts } from "../domain/plainText";
+import { logError } from "../log";
 
 export interface OutboxSender {
   api: { sendMessage: Bot["api"]["sendMessage"] };

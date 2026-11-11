@@ -10,7 +10,7 @@ import type { DailyCheckinDoc, PlanDoc, PlanExercise, WorkoutLogDoc } from "../s
 import { computeTargets, restDayTargets, splitMeals, solvePortions, isPlausiblePer100g, per100gCorrectionFrom, scaleMealEntry } from "../src/domain/mealplan";
 import { curatedPer100g } from "../src/ai/nutritionDb";
 import { cleanAi, cleanAiText, t } from "../src/locales/i18n";
-import { chunkReport } from "../src/render";
+import { chunkReport } from "../src/render/telegramText";
 
 test("parseWorkoutText: name + multiple sets", () => {
   const r = parseWorkoutText("Bench press 80x6, 80x5");

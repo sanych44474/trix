@@ -9,14 +9,14 @@
 // Retention is deliberately NOT written here: retention_d1/d7/d30 had no reader, while the number
 // the owner actually sees is the cohort retention (domain/cohorts.ts cohortRetention, fed by
 // adapters/d1/v2Analytics.ts). Two definitions of one metric is how they drift; that one is the source.
-import { aiAndErrorStatsBetween } from "./adapters/d1/v2AiTelemetry";
-import { upsertDailyMetrics } from "./adapters/d1/v2DailyMetrics";
-import { countCompletedWorkoutsBetween, allWorkoutLogsSince } from "./adapters/d1/v2Workouts";
-import { countActivePlans, listActivePlans } from "./adapters/d1/v2Plans";
-import { countSessionAccountsBetween } from "./adapters/d1/v2Analytics";
-import { countCreatedBetween, countOnboarded } from "./adapters/d1/v2Users";
-import { isoDateMinus } from "./features/gamification/boards";
-import { isoWeekday } from "./domain/atrisk";
+import { aiAndErrorStatsBetween } from "../adapters/d1/v2AiTelemetry";
+import { upsertDailyMetrics } from "../adapters/d1/v2DailyMetrics";
+import { countCompletedWorkoutsBetween, allWorkoutLogsSince } from "../adapters/d1/v2Workouts";
+import { countActivePlans, listActivePlans } from "../adapters/d1/v2Plans";
+import { countSessionAccountsBetween } from "../adapters/d1/v2Analytics";
+import { countCreatedBetween, countOnboarded } from "../adapters/d1/v2Users";
+import { isoDateMinus } from "../features/gamification/boards";
+import { isoWeekday } from "../domain/atrisk";
 
 function dayBoundsIso(date: string): { start: string; endExclusive: string } {
   return { start: `${date}T00:00:00.000Z`, endExclusive: `${isoDateMinus(date, -1)}T00:00:00.000Z` };

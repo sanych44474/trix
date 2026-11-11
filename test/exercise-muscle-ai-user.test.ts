@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
-import { learnExerciseMuscles } from "../src/exerciseMuscleLearning";
+import { learnExerciseMuscles } from "../src/features/exercise/muscleLearning";
 import type { Env } from "../src/types";
 
 test("learnExerciseMuscles: the AI classification is attributed to the user who added the exercise", async () => {

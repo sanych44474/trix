@@ -1,6 +1,7 @@
-import { withinLimit } from "../limits";
+import { withinLimit } from "../adapters/rateLimit/limits";
 import { getUser } from "../adapters/d1/v2Users";
-import { randomBelow, randomDigits, safeEqual, toHex } from "../domain/secrets";
+import { newAppAccount } from "../adapters/d1/v2AppAccount";
+import { randomDigits, safeEqual, toHex } from "../domain/secrets";
 import type { Env, Lang } from "../types";
 import { createSession, revokeSession, sessionDelivery, sessionTokenFromRequest, clearedSessionCookie } from "./appSessions";
 import { miniAppIdentity } from "./auth";
@@ -78,17 +79,11 @@ function randomHex(bytes: number): string {
 }
 
 async function createEmailAccount(env: Env, email: string, lang: Lang, now: string): Promise<number> {
-  // Email-only accounts use negative identity values and an unreachable synthetic chat ID.
-  // This keeps Telegram IDs untouched and botBlocked prevents scheduled Telegram delivery.
   for (let attempt = 0; attempt < 4; attempt++) {
-    const accountId = -(1_000_000_000 + randomBelow(1_000_000_000));
-    const chatId = -(4_000_000_000_000_000 + randomBelow(1_000_000_000) * 1_000 + randomBelow(1_000));
+    const { accountId, statements } = newAppAccount(env.DB, lang, now);
     try {
       await env.DB.batch([
-        env.DB.prepare("INSERT INTO v2_accounts (id, legacyUserId, chatId, role, status, botBlocked, createdAt, updatedAt) VALUES (?, ?, ?, 'solo', 'active', 1, ?, ?)").bind(accountId, accountId, chatId, now, now),
-        env.DB.prepare("INSERT INTO v2_profiles (accountId, lang, profile, updatedAt) VALUES (?, ?, '{}', ?)").bind(accountId, lang, now),
-        env.DB.prepare("INSERT INTO v2_preferences (accountId, lang, updatedAt) VALUES (?, ?, ?)").bind(accountId, lang, now),
-        env.DB.prepare("INSERT INTO v2_onboarding (accountId, status, sessionMode, updatedAt) VALUES (?, 'in_progress', 'idle', ?)").bind(accountId, now),
+        ...statements,
         env.DB.prepare("INSERT INTO v2_auth_emails (email, accountId, createdAt) VALUES (?, ?, ?)").bind(email, accountId, now),
       ]);
       return accountId;

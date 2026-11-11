@@ -1,6 +1,6 @@
 // The owner-triggered "finish your questionnaire" ping (ADR-0012 keeps it). The chat onboarding
 // wizard that lived here was retired with the chat: the questionnaire is the app's.
-import { pingOther } from "../notify";
+import { pingOther } from "../notify/notify";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "../notify/onboardingApp";
 import { InlineKeyboard } from "grammy";
 import { listIncompleteOnboarding, updateUser } from "../adapters/d1/v2Users";

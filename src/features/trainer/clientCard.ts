@@ -6,7 +6,7 @@ import { getActivePlan, getDraftPlan } from "../../adapters/d1/v2Plans";
 import { getUser } from "../../adapters/d1/v2Users";
 import { getPlanDay } from "../../domain/progression";
 import { t } from "../../locales/i18n";
-import { renderToday, weekdayName } from "../../render";
+import { renderToday, weekdayName } from "../../render/telegramText";
 import { type MyContext, reply, setEditOwner } from "../../adapters/telegram/context";
 import { healPlanNamesForDisplay } from "../exercise/catalog";
 import { videosForDays } from "../plan/exerciseVideos";

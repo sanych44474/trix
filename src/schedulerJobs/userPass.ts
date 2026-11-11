@@ -2,7 +2,7 @@
 // reminder blocks that live in their own modules. Built once per pass; each block destructures
 // only what it uses. A block returns true when it sent the one user-facing message of the tick.
 import type { BodyLogDoc, Env, Lang, PlanDoc, UserDoc, Weekday, WorkoutLogDoc } from "../types";
-import type { DeliveryResult } from "../schedulerOutbox";
+import type { DeliveryResult } from "../notify/outbox";
 import type { SharedPass } from "../scheduler";
 import type { Sender } from "./shared";
 import type { InlineKeyboard } from "grammy";

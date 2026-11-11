@@ -6,7 +6,7 @@ import type { Sender } from "./shared";
 import { listVacationEnded, markComebackDone, updateUser } from "../adapters/d1/v2Users";
 import { notificationStatus } from "../adapters/d1/v2Notifications";
 import { afterDelivery } from "../domain/notificationDelivery";
-import { notify } from "../notify";
+import { notify } from "../notify/notify";
 import { HTML, logSchedulerError } from "./shared";
 import { t } from "../locales/i18n";
 

@@ -1,8 +1,8 @@
-// Stale trainer-client drafts (src/staleDrafts.ts) against real D1: remind once after a day,
+// Stale trainer-client drafts (src/features/plan/staleDrafts.ts) against real D1: remind once after a day,
 // activate after three, never touch a draft that sits next to an active plan.
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { sweepStaleDrafts } from "../../src/staleDrafts";
+import { sweepStaleDrafts } from "../../src/features/plan/staleDrafts";
 
 const H = 3_600_000;
 async function seed(id: number, role: string): Promise<void> {

@@ -2,7 +2,7 @@
 // Mini App was never opened, and only once.
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { closeQuestWeek } from "../../src/questClose";
+import { closeQuestWeek } from "../../src/features/gamification/questClose";
 import { getUser } from "../../src/adapters/d1/v2Users";
 
 describe("closeQuestWeek", () => {

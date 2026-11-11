@@ -1,4 +1,4 @@
-// schedulerOutbox.ts's delivery mechanics (roadmap item 3) — enqueueAndDeliver (the immediate,
+// notify/outbox.ts's delivery mechanics (roadmap item 3) — enqueueAndDeliver (the immediate,
 // low-latency path scheduler.ts's `send` closure calls) and deliverDueNotifications (the retry
 // sweep, called once per cron tick from runScheduleInner). No existing test exercises
 // scheduler.ts's processUser at all, so this is the only coverage this delivery path has.
@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GrammyError } from "grammy";
 import { newDb } from "./harness";
-import { deliverDueNotifications, enqueueAndDeliver, type OutboxSender } from "../src/schedulerOutbox";
+import { deliverDueNotifications, enqueueAndDeliver, type OutboxSender } from "../src/notify/outbox";
 import { dueNotifications, markRetry } from "../src/adapters/d1/v2Notifications";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
 import type { Env } from "../src/types";

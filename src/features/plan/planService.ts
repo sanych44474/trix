@@ -2,7 +2,7 @@
 // activating the plan once onboarding is done (questionnaire, ready program, recovery sweep), and
 // the "rebuild my plan" the Mini App starts. Shared by the bot, the Mini App API and the cron, so
 // it lives here rather than in bot/ (docs/adr/0010-layering.md).
-import { pingOther } from "../../notify";
+import { pingOther } from "../../notify/notify";
 import { sendBestEffort } from "../../adapters/telegram/rawApi";
 import { appLink, appMarkup } from "../../notify/appKeyboard";
 import type { Env, Lang, PlanDoc, UserDoc } from "../../types";

@@ -6,7 +6,7 @@ import { handleV2Api } from "../src/webapp/v2Api";
 import worker from "../src/index";
 import { claimIdempotencyKey, completeIdempotencyClaim, runIdempotent, WORKOUT_SAVE_WINDOW_HOURS } from "../src/adapters/d1/v2Idempotency";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
-import { expensiveBucket } from "../src/limits";
+import { expensiveBucket } from "../src/adapters/rateLimit/limits";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
 

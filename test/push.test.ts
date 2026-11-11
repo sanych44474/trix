@@ -6,7 +6,7 @@ import { newDb } from "./harness";
 import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { listPushTokens, registerPushDevice } from "../src/adapters/d1/v2Push";
 import { sendPush } from "../src/adapters/fcm/fcm";
-import { enqueueAndDeliver } from "../src/schedulerOutbox";
+import { enqueueAndDeliver } from "../src/notify/outbox";
 import { pushParts, telegramHtmlToPlain } from "../src/domain/plainText";
 import { handlePushApi } from "../src/webapp/pushApi";
 import type { Env } from "../src/types";

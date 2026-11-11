@@ -3,7 +3,7 @@
 // Android app, and the bot keeps only /start pairing, the app's Telegram sign-in, payments, the
 // asks it sends itself (price poll, inactive-user ask, sharing consent), squads in groups and the
 // owner's tools.
-import { skipMutedRecipients } from "../notify";
+import { skipMutedRecipients } from "../notify/notify";
 import { cmdPaySupport, cmdSupport, onPreCheckout, onSuccessfulPayment } from "./support";
 import { Bot } from "grammy";
 import { botClientOptions } from "../adapters/telegram/rawApi";
