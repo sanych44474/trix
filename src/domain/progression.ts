@@ -273,6 +273,18 @@ function parsePlanDistance(s: string): MetricRange | undefined {
   };
 }
 
+/**
+ * The middle of a time or distance prescription in the unit a set is logged in: seconds or metres.
+ * "3 × 1 min" is 60, "20 min" is 1200, "3 × 30-45s" is 38, "5 km" is 5000. Undefined when the
+ * spec has no duration or distance in it. The logger's prefill used the rep parser for every
+ * metric, so a 1-minute plank was suggested (and "did as planned" logged) as 1 second.
+ */
+export function planMetricMid(sets: string, metric: "time" | "distance"): number | undefined {
+  const range = metric === "time" ? parsePlanDuration(sets || "") : parsePlanDistance(sets || "");
+  if (!range) return undefined;
+  return Math.max(1, Math.round(((range.low + range.high) / 2) * range.perUnit));
+}
+
 function fmtMetricNum(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
@@ -492,7 +504,9 @@ export function computePlanProgression(
 
       // Progress ABOVE demonstrated only when the last MIN_SESSIONS both topped the rep range and
       // weren't maximal — then add one step (two on an easy week). Capped at demonstrated + 2 steps.
-      const ready = recent.length === MIN_SESSIONS && recent.every((s) => reachedTop(s) && notMaxed(s));
+      // ...and only when those sessions were AT the demonstrated weight: topping the reps on a
+      // lighter day (60 x 12 after backing off from 80) earns nothing above 80.
+      const ready = recent.length === MIN_SESSIONS && recent.every((s) => reachedTop(s) && notMaxed(s) && s.weight >= demonstrated - 1e-6);
       let target = demonstrated;
       if (ready) {
         const rpes = recent.map((s) => s.rpe).filter((r): r is number => typeof r === "number");

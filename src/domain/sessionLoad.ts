@@ -23,9 +23,10 @@ interface Share {
   addsLoad: boolean;
 }
 
+const ASSISTED = /assist|гравітрон|гравитрон|з допомогою|с помощью|резинк/u;
+
 // Order matters: the first match wins ("віджимання на брусах" is a dip, not a push-up).
 const SHARES: Share[] = [
-  { pattern: /assist|гравітрон|гравитрон|з допомогою|с помощью|резинк/u, share: 0, addsLoad: false },
   { pattern: /muscle[- ]?up|вихід силою|выход силой/u, share: 1, addsLoad: true },
   { pattern: /pull[- ]?up|chin[- ]?up|підтягуван|подтягиван/u, share: 1, addsLoad: true },
   { pattern: /\bdips?\b|бруси|брусах|брусья|брусьях/u, share: 0.95, addsLoad: true },
@@ -39,6 +40,7 @@ const SHARES: Share[] = [
 /** The bodyweight share for an exercise name, or null when it is not a bodyweight move we know. */
 export function bodyweightShare(name: string): Share | null {
   const n = name.toLowerCase();
+  if (ASSISTED.test(n)) return null;
   const hit = SHARES.find((s) => s.pattern.test(n));
   return hit && hit.share > 0 ? hit : null;
 }
@@ -48,6 +50,9 @@ export function setVolumeKg(name: string, set: SetEntry, bodyweightKg?: number):
   const reps = set.reps > 0 ? set.reps : 0;
   if (!reps) return 0;
   const weight = set.weight > 0 ? set.weight : 0;
+  // An assisted move (band, gravitron): the logged weight is the help, not a load lifted. It
+  // counts what is left of the body weight, or nothing when the body weight is unknown.
+  if (ASSISTED.test(name.toLowerCase())) return bodyweightKg && bodyweightKg > 0 ? Math.max(0, bodyweightKg - weight) * reps : 0;
   const bw = bodyweightKg && bodyweightKg > 0 ? bodyweightShare(name) : null;
   if (bw && (bw.addsLoad || weight === 0)) return (weight + bw.share * (bodyweightKg as number)) * reps;
   return weight * reps;

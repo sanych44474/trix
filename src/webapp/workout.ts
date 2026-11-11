@@ -15,7 +15,7 @@ import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscle
 import { exerciseMetric, formatSetEntry, metricOfSets } from "../domain/setFormat";
 import { implausibleAbove } from "../domain/weightOutlier";
 import { repDropoffs } from "../domain/repDropoff";
-import { getPlanDay, nextTargetSet, workingSets, type TargetStep } from "../domain/progression";
+import { getPlanDay, nextTargetSet, planMetricMid, workingSets, type TargetStep } from "../domain/progression";
 import { resolveWeightMode } from "../domain/exerciseClass";
 import { localParts } from "../domain/localTime";
 import { deleteWorkoutDraft, getWorkoutDraft, getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
@@ -103,7 +103,8 @@ export function assembleWorkoutToday(
       name: ex.name,
       metric: exerciseMetric(ex),
       sets: planSetsCount(ex.sets),
-      reps: planRepsMid(ex.sets),
+      // Both clients read `reps` as the set's amount in its own unit: reps, seconds or metres.
+      reps: plannedAmount(ex.sets, exerciseMetric(ex)),
       weightKg: planWeight(ex.startWeight),
       planSets: ex.sets,
       planWeight: ex.startWeight,
@@ -348,6 +349,12 @@ export function validateSaveBody(body: unknown): { entries: SaveEntry[]; timing:
 /** Same human-readable raw text the bot stores as workout_logs.notes (logFinish format). */
 export function buildRawText(entries: SaveEntry[]): string {
   return entries.map((e) => `${e.name} ${e.sets.map(formatSetEntry).join(", ")}`).join("\n");
+}
+
+/** A plan exercise's prescribed amount per set in the unit it is logged in (reps, seconds, metres). */
+export function plannedAmount(sets: string, metric: string): number {
+  if (metric === "time" || metric === "distance") return planMetricMid(sets, metric) ?? planRepsMid(sets);
+  return planRepsMid(sets);
 }
 
 export interface SaveResult {

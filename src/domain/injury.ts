@@ -13,67 +13,82 @@ export type ConflictLevel = "direct" | "related" | "none";
 interface AreaRule {
   muscles: string[]; // catalog muscle enums directly loaded → direct conflict
   patterns: string[]; // movementPattern values that load the area → direct conflict
-  keywords: RegExp; // name match (EN+UK) → direct conflict
+  keywords: RegExp; // name match (EN+UK+RU) → direct conflict
   related: RegExp; // broader name match → related (swapped only on "strong")
   safeMuscles: string[]; // replacement pool (muscles that don't load the area)
 }
+
+// Shared pieces. Keywords are matched against the lower-cased name in English, Ukrainian and
+// Russian. Short Latin words carry \b or a lookaround so they do not match inside another word
+// ("run" in "crunch", "row" in "arrow", "dip" in "hip dip"); Cyrillic stems carry a negative
+// context where the same stem names another body part ("розведення ніг", "нахилена лава").
+const PRESS = String.raw`(?<!leg |calf )press|жим(?! ?(?:ног|платформ))`; // not leg/calf press
+const ARM_CURL = String.raw`(?<!leg |nordic |hamstring )curl`; // not a leg curl
+const SQUAT = "squat|присід|присед";
+const LUNGE = "lunge|випад|выпад";
+const JUMP = "jump|стрибк|прыжк";
+const DEADLIFT = "deadlift|станов";
+const DIP = String.raw`(?<!hip )\bdips?\b|бруся|брусь`;
+const rx = (...parts: string[]) => new RegExp(parts.join("|"), "i");
 
 const RULES: Record<InjuryArea, AreaRule> = {
   shoulder: {
     muscles: ["chest", "traps"],
     patterns: ["horizontal-push", "vertical-push"],
-    // (?<!leg ) so "leg press" / "жим ногами" aren't read as shoulder work.
-    keywords: /(?<!leg )press|жим(?! ?ног)|overhead|над головою|shoulder|плеч|дельт|розвед|lateral raise|розведення|dip|бруся/i,
-    related: /push|bench|fly|кросовер|crossover|pull-?up|підтяг/i,
+    keywords: rx(PRESS, "overhead|над головою|над головой|shoulder|плеч|дельт|розвед(?![а-яіїє]* ніг)|развед(?![а-яё]* ног)|lateral raise", DIP),
+    related: /push|bench|fly|кросовер|кроссовер|crossover|pull-?up|підтяг|подтяг/i,
     safeMuscles: ["quadriceps", "hamstrings", "glutes", "calves", "abdominals"],
   },
   elbow: {
     muscles: ["biceps", "triceps"],
-    patterns: ["isolation"],
-    keywords: /curl|згинання рук|triceps|трицепс|біцепс|pushdown|розгинання рук|extension.*arm|скотт|скручування рук/i,
-    related: /(?<!leg )press|жим(?! ?ног)|dip|бруся|close.?grip|вузьк/i,
+    // No movement pattern: "isolation" also names leg extensions and calf raises, so a mild elbow
+    // injury swapped every isolation exercise in the plan.
+    patterns: [],
+    keywords: rx(ARM_CURL, "згинання рук|сгибание рук|triceps|трицепс|біцепс|бицепс|pushdown|розгинання рук|разгибание рук|extension.*arm|скотт|скручування рук"),
+    related: rx(PRESS, DIP, "close.?grip|вузьк|узк"),
     safeMuscles: ["quadriceps", "hamstrings", "glutes", "calves", "abdominals"],
   },
   wrist: {
     muscles: ["forearms"],
     patterns: [],
-    keywords: /wrist|зап'яст|forearm|передпліч|curl|згинання рук|grip|хват/i,
-    related: /(?<!leg )press|жим(?! ?ног)|deadlift|станов|row|тяга|pull|підтяг/i,
+    keywords: rx("wrist|зап'яст|запяст|forearm|передпліч|предплеч", ARM_CURL, "згинання рук|сгибание рук|grip|хват"),
+    related: rx(PRESS, DEADLIFT, String.raw`\brow|тяга|pull|підтяг|подтяг`),
     safeMuscles: ["quadriceps", "hamstrings", "glutes", "calves", "abdominals"],
   },
   lower_back: {
     muscles: ["lower_back", "glutes", "hamstrings"],
     patterns: ["hinge", "squat"],
-    keywords: /deadlift|станов|good.?morning|нахил|hyperextension|гіперекстенз|row.*barbell|тяга штанги|squat|присід|romanian|румун/i,
-    related: /row|тяга|bent.?over|clean|ривок|swing|мах/i,
+    // нахил(?!ен): a bent-over good morning, not an incline ("нахилена") bench.
+    keywords: rx(DEADLIFT, "good.?morning|нахил(?!ен)|наклон(?!н)|hyperextension|гіперекстенз|гиперэкстенз|row.*barbell|тяга штанги", SQUAT, "romanian|румун|румын"),
+    related: /\brow|тяга|bent.?over|clean|ривок|рывок|swing|мах/i,
     safeMuscles: ["chest", "lats", "biceps", "triceps", "calves", "quadriceps"],
   },
   knee: {
     muscles: ["quadriceps"],
     patterns: ["squat"],
-    keywords: /squat|присід|lunge|випад|leg press|жим ног|leg extension|розгинання ніг|jump|стрибк|step.?up|зашагуван/i,
-    related: /leg curl|згинання ніг|hip thrust|місток|calf|литк/i,
+    keywords: rx(SQUAT, LUNGE, "leg press|жим ног|leg extension|розгинання ніг|разгибание ног", JUMP, "step.?up|зашагуван|зашагиван"),
+    related: /leg curl|згинання ніг|сгибание ног|hip thrust|місток|мостик|calf|литк|икр/i,
     safeMuscles: ["chest", "lats", "biceps", "triceps", "abdominals"],
   },
   hip: {
     muscles: ["glutes", "abductors", "adductors", "hamstrings"],
     patterns: ["hinge", "squat"],
-    keywords: /hip thrust|місток|deadlift|станов|squat|присід|abductor|adductor|відведення ніг|приведення ніг|привідн|lunge|випад/i,
-    related: /leg press|жим ног|good.?morning|нахил|romanian|румун/i,
+    keywords: rx("hip thrust|місток|мостик", DEADLIFT, SQUAT, "abductor|adductor|відведення ніг|приведення ніг|отведение ног|приведение ног|привідн", LUNGE),
+    related: /leg press|жим ног|good.?morning|нахил(?!ен)|наклон(?!н)|romanian|румун|румын/i,
     safeMuscles: ["chest", "lats", "biceps", "triceps", "abdominals"],
   },
   ankle: {
     muscles: ["calves"],
     patterns: ["calf"],
-    keywords: /calf|литк|на носки|jump|стрибк|run|біг|lunge|випад|box|бокс/i,
-    related: /squat|присід|leg press|жим ног/i,
+    keywords: rx("calf|литк|икр|на носки|на носк", JUMP, String.raw`\brun|біг|бег`, LUNGE, String.raw`\bbox\b(?! breath)|бокс`),
+    related: rx(SQUAT, "leg press|жим ног"),
     safeMuscles: ["chest", "lats", "biceps", "triceps", "abdominals"],
   },
   neck: {
     muscles: ["traps", "neck"],
     patterns: [],
-    keywords: /shrug|шраг|neck|шия|upright row|тяга до підборіддя|face pull|тяга.*обличчя/i,
-    related: /deadlift|станов|overhead|над головою|(?<!leg )press|жим(?! ?ног)/i,
+    keywords: /shrug|шраг|neck|шия|шея|upright row|тяга до підборіддя|тяга к подбородку|face pull|тяга.*обличчя|тяга.*лицу/i,
+    related: rx(DEADLIFT, "overhead|над головою|над головой", PRESS),
     safeMuscles: ["quadriceps", "hamstrings", "glutes", "calves", "biceps", "triceps"],
   },
 };

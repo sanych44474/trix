@@ -7,6 +7,7 @@
 import { weeklyMuscleSets, type LoggedDay, type Lookup } from "./muscleLoad";
 import { musclesForExercise, type Slug } from "./exerciseMuscles";
 import { weeklyReport } from "./weeklyReport";
+import { trainingWeekdaysOf } from "./trainingDays";
 
 type QuestKind = "workouts" | "muscle_sets" | "balance" | "water_days" | "food_days" | "steps_days";
 
@@ -84,7 +85,10 @@ export function questProgress(quests: Quest[], weekStart: string, inp: QuestInpu
   });
 }
 
-/** Training days per week: the profile's chosen weekdays, else the plan's days. */
+/** Training days per week, by the one rule every surface uses (domain/trainingDays.ts): the
+ *  plan's days when it has any, else the profile's. It read the profile first, so after changing
+ *  weekdays in Settings without a replan the quest target (3) disagreed with Today, the reminders
+ *  and the week card (5). */
 export function plannedDayCount(trainingWeekdays: number[] | undefined, split: Array<{ weekday: number }> | undefined): number {
-  return new Set(trainingWeekdays?.length ? trainingWeekdays : (split ?? []).map((d) => d.weekday)).size;
+  return trainingWeekdaysOf({ profile: { trainingWeekdays }, plan: { split } }).length;
 }
