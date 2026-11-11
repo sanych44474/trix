@@ -560,6 +560,7 @@ export const en = {
   dock_saved_offline: "On this phone — syncs when online",
   offline_pending: "⏳ Workouts waiting for network: {n}. They'll sync automatically.",
   offline_synced: "Offline workouts synced: {n}",
+  offline_dropped: "Couldn't save {n} offline workout(s): the server refused them. Open the day and save it again.",
   dock_not_started: "No sets yet",
   restored_other_device_note: "Restored an unsaved workout from another device.",
   swapped_from_note: "instead of {name}",

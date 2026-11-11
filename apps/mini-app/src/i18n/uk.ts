@@ -561,6 +561,7 @@ export const uk: Record<keyof typeof en, string> = {
   dock_saved_offline: "На телефоні — надішлю з мережею",
   offline_pending: "⏳ Тренувань чекає на мережу: {n}. Надішлю автоматично.",
   offline_synced: "Офлайн-тренування збережено: {n}",
+  offline_dropped: "Не вдалося зберегти офлайн-тренувань: {n}. Сервер їх відхилив. Відкрий день і збережи ще раз.",
   dock_not_started: "Ще без підходів",
   restored_other_device_note: "Відновлено незбережене тренування з іншого пристрою.",
   swapped_from_note: "замість: {name}",

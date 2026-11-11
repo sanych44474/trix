@@ -14,7 +14,7 @@ import {
   isSetFilled, prefillFromLast, repeatAsSuggestions, summaryLoad, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
   targetUse,
 } from "./logic/logger";
-import { cachedToday, cacheToday, enqueueSave, isNetworkError, OFFLINE_SAVES_KEY } from "./logic/offlineSaves";
+import { cachedToday, cacheToday, dequeueDate, enqueueSave, isNetworkError, OFFLINE_SAVES_KEY } from "./logic/offlineSaves";
 import { registerLearnedMuscles } from "./logic/exerciseMuscles";
 
 type CustomExercise = { name: string; videoUrl?: string; videoTitle?: string; muscles?: { primary: string[]; secondary: string[] } };
@@ -403,6 +403,9 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
       if (use.kept) track("app_target_kept");
       if (use.edited) track("app_target_edited");
       if (action.kind === "finish") session.finish(final);
+      // This save is now the day's truth: an older one still queued for the date must not be
+      // replayed over it by the next offline flush.
+      try { dequeueDate(localStorage, targetDate ?? workout.date); mirrorToDevice(OFFLINE_SAVES_KEY); } catch { /* storage is optional */ }
       setSaved(true); setDrafted(false); setSavedAt(doneAt); setSync("idle"); setRestoredFrom(null);
       window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success");
       if (action.kind !== "update") {
