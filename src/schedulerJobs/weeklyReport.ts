@@ -5,7 +5,7 @@ import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { awardAchievement, competitorWorkoutDates } from "../adapters/d1/v2Gamification";
 import { updatePlanMesocycle } from "../adapters/d1/v2Plans";
 import { listClients } from "../adapters/d1/v2Trainer";
-import { updateUser } from "../adapters/d1/v2Users";
+import { patchReminders } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { rankOf, streakMilestones, weekStartStr, weekStreak } from "../domain/records";
 import { escapeHtml, t } from "../locales/i18n";
@@ -130,7 +130,7 @@ export async function weeklyReport(p: UserPass): Promise<void> {
     }
     if (rank) {
       user.reminders = { ...user.reminders, lastRank: rank };
-      await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
+      await patchReminders(db, user._id, { lastRank: rank }).catch(() => {});
     }
     // Only send when there is something real behind it. `rank` exists only if they logged a
     // session THIS week (the consistency board drops zero-count entries), and `streak > 0`

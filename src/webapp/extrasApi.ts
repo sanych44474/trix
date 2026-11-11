@@ -15,7 +15,7 @@ import { listAchievements } from "../adapters/d1/v2Gamification";
 import { setActivePlan } from "../adapters/d1/v2Plans";
 import { applyTrainer, cancelPendingRequest, countClientsOf, createProspect, createRequest, getClientForTrainer, getRequest, getTrainer, linkClient, listDirectoryTrainers, listProspects, pendingRequestForClient, pendingRequestsForTrainer, setRequestStatus, updateTrainer } from "../adapters/d1/v2Trainer";
 import { bumpSharedTaken, getSharedProgram, listPublicPrograms } from "../adapters/d1/v2TrainerPrograms";
-import { getUser, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
+import { getUser, stampOnboardedAt, updateUser, patchReminders } from "../adapters/d1/v2Users";
 import { adaptPlan } from "../domain/planAdapt";
 import { platePlan, warmupRamp } from "../domain/calc";
 import { BADGES, e1rm } from "../domain/records";
@@ -178,7 +178,7 @@ export async function handleExtrasApi(req: Request, url: URL, env: Env): Promise
     const note = latestRelease();
     const fresh = await getUser(env.DB, user._id);
     if (fresh && fresh.reminders?.releaseSeen !== note.version) {
-      await updateUser(env.DB, user._id, { reminders: { ...fresh.reminders, releaseSeen: note.version } });
+      await patchReminders(env.DB, user._id, { releaseSeen: note.version });
     }
     return Response.json({ ok: true, version: note.version });
   }

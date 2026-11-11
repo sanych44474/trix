@@ -14,7 +14,7 @@
 // back to the old batched sends.
 import { GrammyError } from "grammy";
 import { telegramCall } from "../../adapters/telegram/rawApi";
-import { getUser, listOnboardedUsers, updateUser } from "../../adapters/d1/v2Users";
+import { getUser, listOnboardedUsers, updateUser, patchReminders } from "../../adapters/d1/v2Users";
 import { recordAudit } from "../../adapters/d1/v2Admin";
 import { latestRelease, releaseBody } from "../../releaseNotes";
 import { hasAnsweredPoll } from "../../adapters/d1/v2PricePoll";
@@ -83,7 +83,7 @@ async function deliver(env: Env, msg: BroadcastMessage): Promise<Outcome> {
     return { ack: false, delaySeconds: retryAfter ?? RETRY_DELAY_SEC, rateLimited: retryAfter !== undefined };
   }
   if (msg.kind === "release") {
-    await updateUser(env.DB, user._id, { reminders: { ...user.reminders, releaseSent: msg.version } }).catch(() => {});
+    await patchReminders(env.DB, user._id, { releaseSent: msg.version }).catch(() => {});
   }
   return { ack: true };
 }

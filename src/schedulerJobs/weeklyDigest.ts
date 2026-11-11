@@ -9,7 +9,7 @@ import { listStrength, workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { getActivePlan } from "../adapters/d1/v2Plans";
 import { bodyLogsByUser, stepLogsSince } from "../adapters/d1/v2Tracking";
-import { updateUser } from "../adapters/d1/v2Users";
+import { patchReminders } from "../adapters/d1/v2Users";
 import { nutritionLogsSince } from "../adapters/d1/v2Nutrition";
 import { recentPrCount } from "../domain/records";
 import { nextBalanceStreak, weeklyReport } from "../domain/weeklyReport";
@@ -67,7 +67,7 @@ export async function weeklyDigest(p: WeeklyDigestCtx): Promise<boolean> {
       const balanceWeeks = nextBalanceStreak(user.reminders?.balanceWeeks, report.allInRange);
       if (balanceWeeks >= 4) await award("balance_streak_4");
       user.reminders = { ...user.reminders, balanceWeeks };
-      await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
+      await patchReminders(db, user._id, { balanceWeeks }).catch(() => {});
       const prs = recentPrCount(await listStrength(db, user._id).catch(() => []), since);
       parts.push("", ...renderWeeklyMuscleLines(lang, report, prs, newBadges));
       photoUrl = await weekMapUrl(env.WORKER_URL, user.profile.sex, report.zones, env.TELEGRAM_BOT_TOKEN).catch(() => null);

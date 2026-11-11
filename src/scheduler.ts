@@ -18,7 +18,7 @@ import { allWorkoutLogsSince, workoutLogsSince } from "./adapters/d1/v2Workouts"
 import { awardAchievement, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
 import { getActivePlan, listActivePlans, setProgressionRate } from "./adapters/d1/v2Plans";
 import { bodyLogsByUser, } from "./adapters/d1/v2Tracking";
-import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, updateUser } from "./adapters/d1/v2Users";
+import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, updateUser, patchReminders } from "./adapters/d1/v2Users";
 import { evaluateProgressionRate, } from "./domain/progression";
 import { localParts } from "./domain/localTime";
 import { isoWeekKey, } from "./domain/records";
@@ -192,7 +192,7 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
         await pingOther(env, u.chatId, nudgeText, appUrl ? onboardingAppMarkup(u.lang, appUrl) : undefined);
         // Mark today's nudge so we don't send it again today (in the reminders column, so a
         // user-facing session write can't wipe it).
-        await updateUser(db, u._id, { reminders: { ...u.reminders, lastNudge: today } });
+        await patchReminders(db, u._id, { lastNudge: today });
       } catch (e) {
         logSchedulerError(db, "stuck_onboarding_nudge", e, u._id);
       }
@@ -518,8 +518,11 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   };
   const flushReminders = async () => {
     if (Object.keys(dirty).length === 0) return;
-    const merged = { ...sent, ...dirty };
-    await updateUser(db, user._id, { reminders: { ...user.reminders, sent: merged } });
+    // Only the keys this pass set, merged into the stored map (patchReminders). The pass works on
+    // a snapshot taken when it started; writing the whole object back wiped anything another flow
+    // (a release broadcast, a workout save) had set since. A user still on the legacy
+    // session.lastReminders map gets it carried over once.
+    await patchReminders(db, user._id, { sent: user.reminders?.sent ? dirty : { ...sent, ...dirty } });
   };
 
   // Dedup MUST persist even if a later block throws (heavy Monday work, owner report, AI calls).

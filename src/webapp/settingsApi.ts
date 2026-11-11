@@ -12,7 +12,7 @@ import { insertFeedback } from "../adapters/d1/v2Feedback";
 import { feedbackReplyMarkup } from "../features/feedback/replyFeedback";
 import { triageFeedbackCategory } from "../features/feedback/triageFeedback";
 import { unlinkClient } from "../adapters/d1/v2Trainer";
-import { clearVacation, getUser, setVacation, updateUser } from "../adapters/d1/v2Users";
+import { clearVacation, getUser, setVacation, updateUser, patchReminders } from "../adapters/d1/v2Users";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import { localParts } from "../domain/localTime";
 import { REMINDER_KEYS } from "../domain/reminderTypes";
@@ -96,6 +96,15 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
       if (body.off === true) {
         await clearVacation(env.DB, user._id);
         user.vacationUntil = undefined;
+        // The streak freeze ends today too. It kept the original end date, so cancelling a
+        // 90-day vacation on day one still protected the streak through 12 empty weeks.
+        const frozen = user.reminders?.lastVacation;
+        const { date: today } = localParts(user.profile.timezone);
+        if (frozen && frozen.until > today) {
+          const lastVacation = { ...frozen, until: today };
+          await patchReminders(env.DB, user._id, { lastVacation });
+          user.reminders = { ...user.reminders, lastVacation };
+        }
       } else {
         const days = Number(body.days);
         if (!Number.isInteger(days) || days < 1 || days > 90) return typedFailure(400, "validation_error", "bad request");
@@ -103,10 +112,10 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
         await setVacation(env.DB, user._id, until.toISOString());
         // Freeze the streak for the window (same bookkeeping as the bot's vacation flow).
         const { date } = localParts(user.profile.timezone);
-        const reminders = { ...user.reminders, lastVacation: { from: date, until: until.toISOString().slice(0, 10) } };
-        await updateUser(env.DB, user._id, { reminders });
+        const lastVacation = { from: date, until: until.toISOString().slice(0, 10) };
+        await patchReminders(env.DB, user._id, { lastVacation });
         user.vacationUntil = until;
-        user.reminders = reminders;
+        user.reminders = { ...user.reminders, lastVacation };
       }
     } else if (action === "lang") {
       const next = body.lang === "en" ? "en" : body.lang === "uk" ? "uk" : null;

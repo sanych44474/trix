@@ -6,7 +6,7 @@ import { getActivePlan, updateActivePlanSplit } from "../../adapters/d1/v2Plans"
 import { adoptLoggedWeights } from "../../domain/startWeights";
 import { countCompletedWorkouts, upsertStrengthRecord, upsertWorkoutLog } from "../../adapters/d1/v2Workouts";
 import { awardAchievement } from "../../adapters/d1/v2Gamification";
-import { getUser, updateUser } from "../../adapters/d1/v2Users";
+import { getUser, patchReminders } from "../../adapters/d1/v2Users";
 import { bestSetForMetric, fmtDistance, fmtDuration, metricOfSets } from "../../domain/setFormat";
 import { prMilestones, workoutMilestones } from "../../domain/records";
 import { cleanAi, t } from "../../locales/i18n";
@@ -120,9 +120,8 @@ export async function applyWorkoutSave(
   // Lifetime PR counter → milestone badges (prs_10 / prs_25).
   if (prExercises.length) {
     const prCount = (user.reminders?.prCount ?? 0) + prExercises.length;
-    const reminders = { ...user.reminders, prCount };
-    await updateUser(db, user._id, { reminders }).catch(() => {});
-    user.reminders = reminders;
+    await patchReminders(db, user._id, { prCount }).catch(() => {});
+    user.reminders = { ...user.reminders, prCount };
     for (const code of prMilestones(prCount)) if (await awardAchievement(db, user._id, code)) fresh.push(code);
   }
 

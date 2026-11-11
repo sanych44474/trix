@@ -6,7 +6,7 @@
 // exists to cover (same reasoning as test/vitest/idempotency.test.ts).
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { getOrCreateUser, getUser, updateUser } from "../../src/adapters/d1/v2Users";
+import { getOrCreateUser, getUser, patchReminders, updateUser } from "../../src/adapters/d1/v2Users";
 
 describe("v2Users: getOrCreateUser — one batch across 4 tables", () => {
   it("lands rows in v2_accounts, v2_profiles, v2_preferences and v2_onboarding together", async () => {
@@ -69,5 +69,16 @@ describe("v2Users: updateUser — multi-table patch lands atomically", () => {
 
     const u = await getUser(env.DB, 510);
     expect(u?.trainerId).toBe(512);
+  });
+});
+
+describe("v2Users: patchReminders — json_patch on real D1", () => {
+  it("merges the given fields and nested sent keys, leaving the rest", async () => {
+    await getOrCreateUser(env.DB, 9931, 9931, "en", "Patch");
+    await updateUser(env.DB, 9931, { reminders: { sent: { water: "2026-11-10" }, prCount: 2 } });
+    await patchReminders(env.DB, 9931, { releaseSent: "2026-11-10" });
+    await patchReminders(env.DB, 9931, { sent: { workout: "2026-11-11" } });
+    const user = await getUser(env.DB, 9931);
+    expect(user?.reminders).toEqual({ sent: { water: "2026-11-10", workout: "2026-11-11" }, prCount: 2, releaseSent: "2026-11-10" });
   });
 });

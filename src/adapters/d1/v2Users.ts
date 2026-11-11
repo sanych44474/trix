@@ -161,6 +161,22 @@ export async function getOrCreateUser(
   return (await getUser(db, userId))!;
 }
 
+/**
+ * Change only the given fields of a user's `reminders` JSON, in one atomic statement
+ * (json_patch: nested objects such as `sent` merge key by key, null removes a field).
+ *
+ * `reminders` is written by the hourly pass, the broadcast consumer, the workout save, the level
+ * check and the settings API. Each used to write the whole object from its own copy of the user,
+ * so a stale copy wiped whatever another flow had set in the meantime: the pass's flush erased
+ * `releaseSent` (the release note went out again), and the reverse lost the day's reminder dedupe.
+ */
+export async function patchReminders(db: DB, userId: number, patch: Record<string, unknown>): Promise<void> {
+  await db
+    .prepare("UPDATE v2_preferences SET userReminders = json_patch(COALESCE(userReminders, '{}'), ?), updatedAt = ? WHERE accountId = ?")
+    .bind(JSON.stringify(patch), nowIso(), userId)
+    .run();
+}
+
 export async function updateUser(
   db: DB,
   userId: number,
