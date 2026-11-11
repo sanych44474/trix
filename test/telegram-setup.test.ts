@@ -1,10 +1,10 @@
-// The Worker's own Telegram setup (src/telegramSetup.ts): which Bot API calls it makes, and that
+// The Worker's own Telegram setup (src/adapters/telegram/setup.ts): which Bot API calls it makes, and that
 // it runs once per version, retrying after a failure.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getSetting, setOwnerChatId } from "../src/adapters/d1/v2Admin";
-import { ensureTelegramSetup, PROFILE, setupCalls, TELEGRAM_SETUP_VERSION } from "../src/telegramSetup";
+import { ensureTelegramSetup, PROFILE, setupCalls, TELEGRAM_SETUP_VERSION } from "../src/adapters/telegram/setup";
 
 test("setup calls: /start only, both languages, menu button to the Mini App", () => {
   const calls = setupCalls("https://trix.example/app-v2");

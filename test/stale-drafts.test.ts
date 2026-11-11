@@ -4,10 +4,10 @@ import { newDb } from "./harness";
 import {
   ACTIVATE_H, POSTPONED_ACTIVATE_H, REMIND_H, WARN_BEFORE_H,
   autoActivationFor, postponeAutoActivation, staleDraftStep, sweepStaleDrafts,
-} from "../src/staleDrafts";
+} from "../src/features/plan/staleDrafts";
 import { getOrphanDraft, updateDraftSplit } from "../src/adapters/d1/v2Plans";
 import { draftDeliver } from "../src/schedulerJobs/global";
-import { deliverDueNotifications } from "../src/schedulerOutbox";
+import { deliverDueNotifications } from "../src/notify/outbox";
 import { GrammyError } from "grammy";
 import type { Env } from "../src/types";
 
@@ -234,12 +234,12 @@ test("draftDeliver: a rate-limited reminder is queued and delivered by the retry
   assert.equal(texts.length, 1);
 });
 
-test("draftDeliver: without an env (the dry-run stand-in) it sends straight through the bot and reports failure", async () => {
+test("draftDeliver: without an env it sends straight through the bot and reports failure", async () => {
   const db = newDb();
   const ok = await draftDeliver(db, { api: { sendMessage: (async () => ({})) as never } })({ userId: 1, chatId: 1, kind: "k", key: "k", text: "x" });
   assert.equal(ok, true);
   const bad = await draftDeliver(db, { api: { sendMessage: (async () => { throw new Error("down"); }) as never } })({ userId: 1, chatId: 1, kind: "k", key: "k", text: "x" });
   assert.equal(bad, false);
   const rows = await db.prepare("SELECT COUNT(*) AS n FROM v2_notifications").first<{ n: number }>();
-  assert.equal(rows!.n, 0, "the dry-run path leaves the outbox alone");
+  assert.equal(rows!.n, 0, "the env-less path leaves the outbox alone");
 });

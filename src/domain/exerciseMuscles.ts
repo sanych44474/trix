@@ -178,7 +178,7 @@ export function musclesForExercise(name: string): ExerciseMuscles | null {
 // ---- Learned muscles: exercises the rules above don't recognise ----
 // Someone's own exercise ("Тяга Т-грифа з упором", a club-specific machine) used to drop out of
 // the body map, the region list and the muscle quests. Such names are classified once (catalog
-// match, else AI; src/exerciseMuscleLearning.ts), stored in v2_exercise_muscles, and registered
+// match, else AI; src/features/exercise/muscleLearning.ts), stored in v2_exercise_muscles, and registered
 // here by the server and the Mini App, so every caller of musclesForExercise sees them. The
 // rules always win: a learned entry only fills a gap.
 const LEARNED = new Map<string, ExerciseMuscles>();

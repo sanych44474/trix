@@ -1,37 +1,22 @@
 // Per-user Durable Object: one instance per userId (see bot/router.ts's wake-on-create and
-// settings handlers). Its alarm fires hourly, mirroring the old cron's per-user cadence, and
-// runs the SAME processUser decision logic (src/scheduler.ts) the cron path still runs for
-// real — the only thing that differs is WHO calls it: each user's own alarm, in its own
-// invocation, with its own 50-subrequest budget, decoupled from every other user's. That
-// decoupling is the entire reason this exists (see docs/features.md's scheduler notes).
-//
-// Two modes, chosen per alarm by the `scheduler_cutover_user` flag (./cutover.ts):
-//  - dry run (flag off, the default): every send and every D1 write processUser would make is
-//    intercepted and logged to scheduler_dryrun_log via a logging Sender, shadowD1 and an env
-//    with no outbound credentials (./dryRunEnv.ts). The cron path is the only real sender.
-//  - cut over (flag on): this alarm runs processUser for real against the real env; the cron
-//    skips the user loop (scheduler.ts, cronOwns fails closed on a flag read error).
-// Both modes read the same real reminders.sent, so turning the flag on is the whole cutover;
-// the procedure and its preconditions are in docs/scheduler-do-cutover-runbook.md. The alarm
-// runs at hh:01 (domain/alarmTiming.ts) so hour-exact slots are not skipped by drift.
+// settings handlers). Its alarm fires hourly and runs processUser (src/scheduler.ts) for that one
+// user, in its own invocation with its own 50-subrequest budget, decoupled from every other
+// user's. That decoupling is the entire reason this exists (see docs/features.md's scheduler
+// notes). Nothing else runs a user's reminders (ADR-0015). The alarm runs at hh:01
+// (domain/alarmTiming.ts) so hour-exact slots are not skipped by drift.
 import { DurableObject } from "cloudflare:workers";
-import { loadLearnedMuscles } from "../exerciseMuscleLearning";
+import { loadLearnedMuscles } from "../features/exercise/muscleLearning";
 import { Bot } from "grammy";
 import { botClientOptions } from "../adapters/telegram/rawApi";
-import { logDryRun } from "./dryrunLog";
 import { getUser } from "../adapters/d1/v2Users";
-import { isCutOver } from "./cutover";
 import { buildSinglePass, processUser } from "../scheduler";
-import { logSchedulerError, type Sender } from "../schedulerJobs/shared";
+import { logSchedulerError } from "../schedulerJobs/shared";
 import type { Env } from "../types";
-import { shadowD1 } from "./shadowDb";
-import { dryRunEnv } from "./dryRunEnv";
 import { logInfo, runWithRequestId } from "../log";
 import { nextHourlyAlarm } from "../domain/alarmTiming";
 
-// Hourly, matching the cron path's own hourKey-gated cadence (scheduler.ts) — processUser's
-// internal gates (reminderHour, already(), daysBetween(...)) are what actually decide whether
-// anything fires on a given hour, same as today.
+// processUser's internal gates (reminderHour, already(), daysBetween(...)) decide whether anything
+// fires on a given hour.
 
 export class UserSchedulerDO extends DurableObject<Env> {
   /** Wake (or re-wake) this DO for a specific user. Idempotent: safe to call again after a
@@ -72,47 +57,11 @@ export class UserSchedulerDO extends DurableObject<Env> {
     const user = await getUser(this.env.DB, userId);
     if (!user) return; // account deleted since the last wake
 
-    // Cut over? (durable/cutover.ts — a single D1 flag, default off.) Real bot, real db, no
-    // logging: this IS the real send/write path now, the exact same one the cron loop used to
-    // run for this user (and now skips — see scheduler.ts's userCutOver check). Not cut over
-    // (the default): shadow everything, exactly as before — see the file header.
-    const cutOver = await isCutOver(this.env.DB, "user");
-    logInfo("do_alarm_run", { doType: "user", cutOver });
-    if (cutOver) {
-      // Mirrors the cron path's own try/catch around processUser (scheduler.ts's per-user loop)
-      // so a real error after cutover still reaches error_logs/owner-report instead of only a
-      // raw uncaught exception in Workers Logs -- an exception thrown straight out of alarm()
-      // is invisible to the same owner-facing channel the cron path already reports through.
-      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
-      const pass = await buildSinglePass(this.env.DB, userId);
-      await processUser(this.env, bot, user, pass).catch((err) => logSchedulerError(this.env.DB, "schedule_user", err, userId));
-      return;
-    }
-
-    const writes: { sql: string; params: unknown[] }[] = [];
-    // No outbound credentials: a dry run decides, it never pushes, calls AI or contacts anyone.
-    const shadowEnv: Env = dryRunEnv(this.env, shadowD1(this.env.DB, (w) => writes.push(w)));
-
-    const sends: { chatId: number; text: string }[] = [];
-    const sender: Sender = {
-      api: {
-        sendMessage: (async (chatId: number, text: string) => {
-          sends.push({ chatId, text });
-          // processUser only ever awaits this and, on a few paths, catches a GrammyError for
-          // the 403-blocked case — it never reads the resolved message back. A minimal stand-in
-          // is enough; there is no real Telegram response to fabricate faithfully.
-          return {} as Awaited<ReturnType<Sender["api"]["sendMessage"]>>;
-        }) as Sender["api"]["sendMessage"],
-      },
-    };
-
-    const pass = await buildSinglePass(shadowEnv.DB, userId);
-    await processUser(shadowEnv, sender, user, pass);
-
-    // Persisted through the REAL db, deliberately not the shadow — the shadow exists to protect
-    // processUser's OWN writes; the dry-run observation itself must actually land, or there is
-    // nothing left to compare against the cron path.
-    for (const s of sends) await logDryRun(this.env.DB, "user", userId, "send", s);
-    for (const w of writes) await logDryRun(this.env.DB, "user", userId, "write", w);
+    logInfo("do_alarm_run", { doType: "user" });
+    // An exception thrown straight out of alarm() only reaches Workers Logs. Logging it here puts
+    // it in error_logs and the owner report.
+    const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
+    const pass = await buildSinglePass(this.env.DB, userId);
+    await processUser(this.env, bot, user, pass).catch((err) => logSchedulerError(this.env.DB, "schedule_user", err, userId));
   }
 }

@@ -2,7 +2,7 @@
 // /api/profile yet — reminder toggles, vacation mode, language, cycle tracking, leaderboard
 // opt-in + alias, feedback, data export (pushed as a document to the chat), leave-trainer and
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
-import { pingOther } from "../notify";
+import { pingOther } from "../notify/notify";
 import { appMarkup } from "../notify/appKeyboard";
 import { buildExportJson, buildExportMd } from "../features/export/exportData";
 import { resolveWaitlistNudge } from "../features/trainer/trainer";

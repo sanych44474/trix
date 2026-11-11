@@ -6,7 +6,7 @@ description: >-
   placeholder database id and fails with "could not be found [code: 7404]".
 
   Extracted from deploy.yml so every wrangler-invoking workflow uses the same step. It existed
-  only inside deploy.yml at first, and scheduler-cutover.yml was written without it — which is
+  only inside deploy.yml at first, and a second workflow was written without it — which is
   precisely the drift this shape prevents.
 
 inputs:

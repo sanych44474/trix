@@ -1,7 +1,7 @@
 // Owner console in the Mini App: the /ownerreport sections rendered in-app (they're already
 // Telegram-HTML — <b>/<i>/<pre> render natively in the webview), plus one-tap ops actions.
 // Auth: initData user must BE the owner (chatId match); everyone else gets an opaque 404.
-import { notifySafely, pingOther } from "../notify";
+import { notifySafely, pingOther } from "../notify/notify";
 import { rawTelegramApi, telegramUpload } from "../adapters/telegram/rawApi";
 import { HTML } from "../adapters/telegram/context";
 import { MAX_FEEDBACK_REPLY, replyToFeedback } from "../features/feedback/replyFeedback";

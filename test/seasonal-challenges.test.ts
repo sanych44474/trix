@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { challengeByCode, challengeWindow, seasonalChallenge, seasonMilestones, CHALLENGES } from "../src/domain/challenges";
-import { challengeTitleText } from "../src/render";
+import { challengeTitleText } from "../src/render/telegramText";
 
 test("seasonal challenge: one per calendar month, rotating, resolvable from its code", () => {
   const oct = seasonalChallenge("2026-10-02");

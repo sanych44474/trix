@@ -113,7 +113,7 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 | `packages/contracts/` | OpenAPI 3.1 contract for `/api/v2/*` |
 | `src/domain/` | **Pure**, unit-tested logic: progression, records, analysis, standards, plan bank |
 | `src/ai/` | Orchestrator + provider clients (shared `http.ts`) + prompts + nutrition DB |
-| `src/render.ts` | HTML + chart rendering for the chat surface |
+| `src/render/telegramText.ts` | HTML + chart rendering for the chat surface |
 | `src/locales/` | `en` / `uk` catalogs, `t()` with HTML escaping, `cleanAi()` sanitizer |
 | `migrations/` | Forward-only D1 migrations |
 
@@ -155,7 +155,7 @@ npx wrangler secret put ADMIN_SECRET
 
 # 3. Register the webhook against the deployed Worker (once per bot). The command menu, profile
 #    texts and menu button are applied by the Worker itself after each deploy
-#    (src/telegramSetup.ts; bump TELEGRAM_SETUP_VERSION when you change them).
+#    (src/adapters/telegram/setup.ts; bump TELEGRAM_SETUP_VERSION when you change them).
 node scripts/setup-telegram.mjs
 
 # 4. Claim the owner role by sending /admin <ADMIN_SECRET> to your bot

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { inflateSync } from "node:zlib";
 import { nextBalanceStreak, weeklyReport, zonesToColors } from "../src/domain/weeklyReport";
 import { TRACKED_MUSCLES } from "../src/domain/muscleLoad";
-import { renderWeeklyMuscleLines } from "../src/render";
+import { renderWeeklyMuscleLines } from "../src/render/telegramText";
 import { renderBodyMapPng } from "../src/render/bodyMapPng";
 import { MASKS } from "../src/render/bodyMapMasks";
 import { serveWeekMap, weekMapUrl } from "../src/features/report/weekMap";

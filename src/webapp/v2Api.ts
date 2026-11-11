@@ -6,9 +6,9 @@ import { BOOKMARK_HEADER, openReadSession } from "../adapters/d1/session";
 import { miniAppUser, shareIdentity } from "./auth";
 import { handlePhotoApi } from "./miscApi";
 import { v2RouteFor, type MiniAppHandler } from "./routes";
-import { createD1DashboardApplication } from "../adapters/d1/dashboardReader";
+import { buildDashboardPayload } from "../adapters/d1/dashboardReader";
 import { runIdempotent, WORKOUT_SAVE_WINDOW_HOURS } from "../adapters/d1/v2Idempotency";
-import { expensiveBucket, withinLimit } from "../limits";
+import { expensiveBucket, withinLimit } from "../adapters/rateLimit/limits";
 import { apiFailure, ERROR_RECORDED_HEADER } from "./apiError";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { checkCronHeartbeat } from "../schedulerJobs/global";
@@ -194,7 +194,7 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx: Execution
     // client now (V2_APP_ENABLED), so without this the alert could no longer fire at all.
     ctx.waitUntil(checkCronHeartbeat(env));
     try {
-      const payload = await createD1DashboardApplication(env.DB).getDashboard(user);
+      const payload = await buildDashboardPayload(env.DB, user);
       return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded, planPending: !user.onboarded && user.session.mode === "plan_pending", ...(user.onboarded && user.role !== "trainer" ? { profileGaps: profileGaps(user.profile) } : {}) }, ...payload }, req);
     } catch (err) {
       logError("v2_dashboard_failed", err, { userId: user._id });

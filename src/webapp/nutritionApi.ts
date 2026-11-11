@@ -10,7 +10,7 @@ import { generateMealDayFor } from "../features/nutrition/mealDay";
 import { miniAppUser } from "./auth";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
-import { renderGroceryList } from "../render";
+import { renderGroceryList } from "../render/telegramText";
 import { type FoodItem, aiProductLookup, decodeEntities, fatSecretSearch } from "./foodDb";
 import { bumpLearned, learnedByBarcode, rememberFoods, searchLearned } from "../adapters/d1/v2FoodLearned";
 import { searchCatalog } from "../domain/foodCatalog";

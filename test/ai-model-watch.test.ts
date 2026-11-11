@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkModels, configuredModels, missingModels, modelAlertText } from "../src/aiModelWatch";
+import { checkModels, configuredModels, missingModels, modelAlertText } from "../src/schedulerJobs/aiModelWatch";
 import type { Env } from "../src/types";
 
 test("missingModels ignores the models/ prefix and case", () => {

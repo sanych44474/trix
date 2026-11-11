@@ -51,7 +51,7 @@ These are properties of the deployment, not bugs, but they decide how safe your 
 - **Secrets and signatures are compared in constant time** (`src/domain/secrets.ts`): the admin
   header, the webhook secret, `initData`, and the signed `/v`, `/weekmap.png` and Strava-state
   links. Link signatures are keyed on the bot token, so rotating it invalidates links already sent.
-- **Throttling** (`src/limits.ts`, the Workers Rate Limiting binding declared in `wrangler.toml`):
+- **Throttling** (`src/adapters/rateLimit/limits.ts`, the Workers Rate Limiting binding declared in `wrangler.toml`):
   `/admin/*` is limited per client IP, and the expensive Mini App actions (media, coach, trainer
   chat, settings) per user, plus the existing per-user AI cap. Counters are per Cloudflare location
   and eventually consistent, so this is abuse protection, not exact accounting. If the binding is

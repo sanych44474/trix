@@ -25,8 +25,8 @@ export function isoDaysAgo(days: number): string {
 }
 
 // The only bot surface processUser (and everything it calls) needs. Narrowed from the
-// concrete grammY Bot so a dry-run caller (a DO alarm, logging what it WOULD send) can pass
-// a logging stand-in instead of a real bot, without an `as unknown as Bot` cast.
+// concrete grammY Bot so a test can pass a recording stand-in instead of a real bot, without an
+// `as unknown as Bot` cast.
 export interface Sender {
   api: { sendMessage: Bot["api"]["sendMessage"] };
 }

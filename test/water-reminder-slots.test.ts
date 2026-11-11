@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newDb } from "./harness";
 import { getOrCreateUser, getUser, updateUser } from "../src/adapters/d1/v2Users";
-import { notify } from "../src/notify";
+import { notify } from "../src/notify/notify";
 import { waterReminder } from "../src/schedulerJobs/nudges";
 import { reminderKey, type UserPass } from "../src/schedulerJobs/userPass";
 import type { Env, UserDoc } from "../src/types";

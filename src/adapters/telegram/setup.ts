@@ -6,10 +6,10 @@
 // The webhook is NOT set here: it carries the secret token and drop_pending_updates, and a working
 // webhook should never be touched by a routine deploy. scripts/setup-telegram.mjs still does that.
 import { GrammyError } from "grammy";
-import { telegramCall } from "./adapters/telegram/rawApi";
-import { getOwnerChatId, getSetting, setSetting } from "./adapters/d1/v2Admin";
-import { logError, logInfo } from "./log";
-import type { Env } from "./types";
+import { telegramCall } from "./rawApi";
+import { getOwnerChatId, getSetting, setSetting } from "../d1/v2Admin";
+import { logError, logInfo } from "../../log";
+import type { Env } from "../../types";
 
 /** Bump when anything below changes; the next cron after the deploy re-applies it. */
 export const TELEGRAM_SETUP_VERSION = "2026-10-07-profile";
