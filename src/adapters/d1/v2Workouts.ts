@@ -98,32 +98,49 @@ export async function upsertStrengthRecord(
       .run();
     return { isPR: false };
   }
-  const stored = JSON.parse(row.history) as { date: string; weight: number; reps: number; seconds?: number; meters?: number; rpe?: number }[];
-  // A re-save of the same day replaces that day's entry instead of adding another one.
-  const history = oneEntryPerDate([...stored, entry]);
+  type Entry = { date: string; weight: number; reps: number; seconds?: number; meters?: number; rpe?: number };
+  const stored = JSON.parse(row.history) as Entry[];
+  // A re-save of the same day replaces that day's entry instead of adding another one. Kept in
+  // date order: a back-filled day used to land at the end, and deloadDue reads the first and last
+  // entries as the oldest and newest.
+  const history = oneEntryPerDate([...stored, entry]).sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
+  // The stored best normally only moves up. The exception is a corrected day: when the entry
+  // being replaced IS the stored best (800 x 5 typed for 80 x 5), the best is taken from the
+  // history again, or the typo stays the record for good and no PR can fire after it.
+  const replaced = stored.find((e) => e.date === date);
+  const amount = (e: Entry) => (metric === "time" ? e.seconds ?? 0 : metric === "distance" ? e.meters ?? 0 : e.weight);
+  const wasBest = !!replaced && (metric === "time" ? (replaced.seconds ?? 0) === (row.bestSeconds ?? 0)
+    : metric === "distance" ? (replaced.meters ?? 0) === (row.bestMeters ?? 0)
+    : replaced.weight === row.bestWeight && replaced.reps === row.bestReps);
+  let prior = { weight: row.bestWeight, reps: row.bestReps, seconds: row.bestSeconds ?? 0, meters: row.bestMeters ?? 0 };
+  if (wasBest) {
+    const others = stored.filter((e) => e.date !== date);
+    const top = others.reduce<Entry | null>((best, e) => (!best || amount(e) > amount(best) || (metric === "reps" && e.weight === best.weight && e.reps > best.reps) ? e : best), null);
+    prior = { ...prior, ...(metric === "time" ? { seconds: top?.seconds ?? 0 } : metric === "distance" ? { meters: top?.meters ?? 0 } : { weight: top?.weight ?? 0, reps: top?.reps ?? 0 }) };
+  }
   // "Better" and PR-worthiness are judged on the exercise's native axis. Time/distance PRs count
   // even at bodyweight; weight×reps PRs require external load (bodyweight reps don't rank).
   let better: boolean;
   let isPR: boolean;
   if (metric === "time") {
-    better = seconds > (row.bestSeconds ?? 0);
-    isPR = better && (row.bestSeconds ?? 0) > 0;
+    better = seconds > prior.seconds;
+    isPR = better && prior.seconds > 0;
   } else if (metric === "distance") {
-    better = meters > (row.bestMeters ?? 0);
-    isPR = better && (row.bestMeters ?? 0) > 0;
+    better = meters > prior.meters;
+    isPR = better && prior.meters > 0;
   } else {
-    better = weight > row.bestWeight || (weight === row.bestWeight && reps > row.bestReps);
-    isPR = better && weight > 0;
+    better = weight > prior.weight || (weight === prior.weight && reps > prior.reps);
+    isPR = better && weight > 0 && (prior.weight > 0 || prior.reps > 0 || !wasBest);
   }
   await db
     .prepare(
       "UPDATE v2_strength_records SET bestWeight = ?, bestReps = ?, bestSeconds = ?, bestMeters = ?, metric = ?, history = ?, updatedAt = ? WHERE accountId = ? AND exercise = ?",
     )
     .bind(
-      metric === "reps" && better ? weight : row.bestWeight,
-      metric === "reps" && better ? reps : row.bestReps,
-      metric === "time" && better ? seconds : (row.bestSeconds ?? 0),
-      metric === "distance" && better ? meters : (row.bestMeters ?? 0),
+      metric === "reps" && better ? weight : prior.weight,
+      metric === "reps" && better ? reps : prior.reps,
+      metric === "time" && better ? seconds : prior.seconds,
+      metric === "distance" && better ? meters : prior.meters,
       metric,
       JSON.stringify(history),
       now,

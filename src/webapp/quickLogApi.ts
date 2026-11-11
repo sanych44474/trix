@@ -59,7 +59,7 @@ export async function handleQuickLogApi(req: Request, url: URL, env: Env): Promi
       const existing = await getWorkoutLog(env.DB, user._id, today);
       const exercises = (existing?.exercises ?? []).filter((e) => e.name !== name);
       exercises.push({ name, setsDone: Array.from({ length: sets }, () => ({ weight, reps })), skipped: false });
-      await upsertWorkoutLog(env.DB, user._id, today, weekday as Weekday, exercises, existing?.completed ?? true, existing?.notes);
+      await upsertWorkoutLog(env.DB, user._id, today, weekday as Weekday, exercises, true, existing?.notes); // a day that now holds real sets is a workout, even if it was a skip placeholder
       if (weight > 0) await upsertStrengthRecord(env.DB, user._id, name, { metric: "reps", weight, reps }, today).catch(() => {});
       return Response.json({ ok: true, exercises: exercises.length });
     }
@@ -87,7 +87,7 @@ export async function handleQuickLogApi(req: Request, url: URL, env: Env): Promi
       const existing = await getWorkoutLog(env.DB, user._id, today);
       const exercises = (existing?.exercises ?? []).filter((e) => !byName.has(e.name));
       for (const [exName, setsDone] of byName) exercises.push({ name: exName, setsDone, skipped: false });
-      await upsertWorkoutLog(env.DB, user._id, today, weekday as Weekday, exercises, existing?.completed ?? true, existing?.notes);
+      await upsertWorkoutLog(env.DB, user._id, today, weekday as Weekday, exercises, true, existing?.notes); // a day that now holds real sets is a workout, even if it was a skip placeholder
       return Response.json({ ok: true, exercises: exercises.length });
     }
 
@@ -126,6 +126,8 @@ export async function handleQuickLogApi(req: Request, url: URL, env: Env): Promi
         kind: "nutrition",
         db: env.DB,
         userId: user._id,
+        // Only an estimate with at least one real item is worth replaying from the cache.
+        cacheIf: (est) => ((est as NutritionEstimate).items ?? []).some((i) => Number(i.kcal) > 0),
       });
       // Same database check as the chat and photo paths: the AI's macros are recomputed from the
       // user's corrections / USDA / Open Food Facts when the portion is known.

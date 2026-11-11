@@ -52,6 +52,7 @@ export async function lookupPer100gCached(db: D1Database, env: Env, query: strin
         temperature: 0.1,
         kind: "nutrition",
         db,
+        cacheIf: (r) => Number((r as Per100gResult).kcal) > 0,
       });
       if (res.kcal > 0) fresh = { source: "Gemini", kcal: Math.round(res.kcal), protein: Math.round(res.protein), fats: Math.round(res.fats), carbs: Math.round(res.carbs) };
     } catch { /* Gemini also unavailable — give up */ }

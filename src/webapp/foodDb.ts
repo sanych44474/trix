@@ -52,6 +52,8 @@ export async function aiProductLookup(env: Env, lang: Lang, q: { name?: string }
     kind: "nutrition",
     db: env.DB,
     ...(userId ? { userId } : {}),
+    // "Not found" from a weak fallback model is not cached: a better provider may know the product.
+    cacheIf: (r) => (r as { found?: boolean; kcal?: number }).found === true && Number((r as { kcal?: number }).kcal) > 0,
   }).catch(() => null);
   if (!res || !res.found || !res.name || !(res.kcal && res.kcal > 0)) return null;
   const g = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v * 10) / 10 : 0);

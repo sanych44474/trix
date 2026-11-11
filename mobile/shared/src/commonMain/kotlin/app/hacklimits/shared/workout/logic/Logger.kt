@@ -360,10 +360,11 @@ fun hydrateSaved(data: WorkoutToday): List<LoggerExercise> {
     return (merged + remaining.map(::fromPlan)).mapIndexed { i, ex -> ex.copy(index = i) }
 }
 
-// Logs don't store the metric, so it is inferred from what was recorded.
-private fun savedMetric(entry: WorkoutToday.SavedEntry): String = when {
-    entry.sets.any { it.sec > 0 } -> "time"
+// Logs don't store the metric, so it is inferred from what was recorded. Metres first, as the
+// server does: a run logged as "5 km 30 min" stores both and is a distance.
+internal fun savedMetric(entry: WorkoutToday.SavedEntry): String = when {
     entry.sets.any { it.m > 0 } -> "distance"
+    entry.sets.any { it.sec > 0 } -> "time"
     else -> "reps"
 }
 

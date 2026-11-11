@@ -35,6 +35,7 @@ import app.hacklimits.shared.workout.logic.copyToLoggerExercises
 import app.hacklimits.shared.workout.logic.repeatAsSuggestions
 import app.hacklimits.shared.workout.logic.withTypedWeight
 import app.hacklimits.shared.workout.logic.savedSets
+import app.hacklimits.shared.workout.logic.savedMetric
 import app.hacklimits.shared.workout.logic.summaryVolumeKg
 import app.hacklimits.shared.data.SaveWorkoutResult
 import app.hacklimits.shared.workout.logic.isSetFilled
@@ -264,6 +265,13 @@ class LoggerLogicTest {
         )
         assertEquals(1200.0, summaryVolumeKg(result.volumeKg, exercises), "the server counts the pull-ups")
         assertEquals(400.0, summaryVolumeKg(null, exercises), "an older server: weight x reps")
+    }
+
+    @Test
+    fun aSetWithMetresAndSecondsIsADistanceAsTheServerReadsIt() {
+        val run = WorkoutToday.SavedEntry(name = "Run", sets = listOf(WorkoutToday.PastSet(0.0, 0.0, 1800.0, 5000.0)))
+        assertEquals("distance", savedMetric(run))
+        assertEquals("time", savedMetric(WorkoutToday.SavedEntry(name = "Plank", sets = listOf(WorkoutToday.PastSet(0.0, 0.0, 60.0, 0.0)))))
     }
 
     @Test

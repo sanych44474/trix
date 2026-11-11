@@ -491,7 +491,10 @@ export async function workoutSwapAlternatives(
   // By name first: the logger's list can be reordered (moved exercises, a re-opened saved day
   // lists what was logged first), so its position no longer has to match the plan's.
   const byName = planName ? day?.exercises.find((e) => e.name === planName) : undefined;
-  const current = byName ?? day?.exercises[index];
+  // A named exercise that is not in today's plan (a back-filled day, a copied or custom exercise)
+  // is looked up by its name alone. Falling back to today's slot at that index offered bench
+  // alternatives for Monday's squat when it was swapped on a Tuesday.
+  const current = byName ?? (planName ? undefined : day?.exercises[index]);
   // A typed muscle ("трицепс") picks the group outright; it works for any exercise, in the plan
   // or not. Anything else typed there is the person's own exercise, which the app adds itself.
   const typed = muscleQuery ? muscleFromQuery(muscleQuery) : null;

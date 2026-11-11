@@ -45,3 +45,10 @@ test("metric is inferred for standalone entries", () => {
   ] };
   assert.deepEqual(hydrateSaved(data).exercises.map((e) => e.metric), ["time", "distance"]);
 });
+
+test("a set with both metres and seconds is a distance, as the server reads it", () => {
+  const data: WorkoutToday = { date: "2026-09-25", weekday: 5, exercises: [], saved: [
+    { name: "Біг", sets: [{ w: 0, r: 0, sec: 1800, m: 5000 }] },
+  ] };
+  assert.deepEqual(hydrateSaved(data).exercises.map((e) => e.metric), ["distance"]);
+});
