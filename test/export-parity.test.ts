@@ -1,8 +1,8 @@
 // The gap: /deleteme clears ~60 tables' worth of a user's data, but /export only ever returned
 // ~7 activity-log domains -- notably not the user's own training plan, despite it being the
 // single most personal artifact the product generates for them. This is not full parity with
-// deleteUserData (most of its ~60 tables are internal telemetry -- ai_call_logs, idempotency_keys,
-// scheduler_dryrun_log -- that were never "your data" to export in the first place; see the
+// deleteUserData (most of its ~60 tables are internal telemetry -- ai_call_logs, idempotency_keys
+// -- that were never "your data" to export in the first place; see the
 // deliberate-scope note at the top of exportData.ts). It closes the three gaps that clearly ARE
 // "your data": the active plan, active injuries, and earned badges.
 import { test } from "node:test";

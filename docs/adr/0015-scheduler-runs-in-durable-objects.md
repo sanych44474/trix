@@ -49,14 +49,13 @@ Removed:
 - The cron's `processUser` loop, `postSquadRecaps` and its `runGlobalJobs` call.
 - `.github/workflows/scheduler-cutover.yml`, `docs/scheduler-do-cutover-runbook.md` and
   `scripts/verify-scheduler-dryrun.mjs`.
+- The table `scheduler_dryrun_log` (`migrations/0108_drop_scheduler_dryrun_log.sql`), its weekly
+  prune and the per-account and per-squad deletes. Its rows held message texts.
 
 Kept:
 
 - `processUser`, `buildSinglePass` and the reminder list stay in `src/scheduler.ts`. Moving them
   is a separate change.
-- The table `scheduler_dryrun_log`. Nothing writes it now. Its rows hold message texts, so the
-  weekly prune (`adapters/d1/schedulerDryrunLog.ts`) and the per-account delete stay until a
-  migration drops the table.
 
 ## Consequences
 
@@ -67,10 +66,12 @@ Kept:
 - The cron no longer loads every active plan and a day of workout logs each hour.
 - A Durable Object that is never armed never fires. The cron's wake sweep is the only thing that
   arms a user who was onboarded without a wake, so it must stay.
+- The deploy applies migrations before it deploys the Worker. Between those two steps the old
+  Worker still names `scheduler_dryrun_log` in the account-delete and squad-delete batches, so a
+  delete in that window fails as a whole and has to be repeated. A revert to a Worker older than
+  this change has the same failure until the table is recreated.
 - `squadsDueForRecap` (`adapters/d1/v2Gamification.ts`) has no caller left outside its tests.
 
-## Follow-ups
+## Follow-up
 
-1. Drop `scheduler_dryrun_log` in a migration, then remove the prune and the two per-account
-   deletes. A remote migration needs the owner's explicit yes.
-2. Delete the three `scheduler_cutover_*` rows from `v2_settings`.
+Delete the three `scheduler_cutover_*` rows from `v2_settings`. They are no longer read.

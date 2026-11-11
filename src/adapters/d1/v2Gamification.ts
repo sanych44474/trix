@@ -514,15 +514,11 @@ export async function markSquadWoken(db: DB, chatId: number): Promise<void> {
 /** Drop a squad and its membership — used when the bot is removed from the chat. One atomic
  * batch, same as legacy: a crash between the deletes must never leave v2_squad_members rows
  * pointing at a squadId that no longer has a v2_squads parent (squadsForUser/squadMembers would
- * then surface a "member of" a squad that getSquad() reports as gone). scheduler_dryrun_log has
- * no v2_* counterpart (it's purely observational DO dry-run infra — migrations/0060's own header
- * comment says it is safe to prune and nothing reads it back — not part of this or any product
- * domain in the migration plan's inventory), so that DELETE stays targeting the legacy table. */
+ * then surface a "member of" a squad that getSquad() reports as gone). */
 export async function deleteSquad(db: DB, chatId: number): Promise<void> {
   await db.batch([
     db.prepare("DELETE FROM v2_squad_members WHERE squadId = ?").bind(chatId),
     db.prepare("DELETE FROM v2_squads WHERE chatId = ?").bind(chatId),
-    db.prepare("DELETE FROM scheduler_dryrun_log WHERE source = 'squad' AND entityId = ?").bind(chatId),
   ]);
 }
 

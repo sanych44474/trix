@@ -34,3 +34,9 @@ test("runSchedule: wakes the Durable Objects and leaves the user pass and the gl
   assert.equal((await getUser(db, 2))?.reminders?.sent?.ref_reward, undefined, "the cron ran the user pass");
   assert.equal(await getSetting(db, "boards_cache"), null, "the cron ran the global jobs");
 });
+
+test("the scheduler dry-run log table is gone (migrations/0108): its rows held message texts", () => {
+  const db = newDb();
+  const left = db.raw.prepare("SELECT name FROM sqlite_master WHERE name LIKE '%scheduler_dryrun_log%'").all();
+  assert.deepEqual(left, []);
+});
