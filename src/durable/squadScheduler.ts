@@ -55,15 +55,16 @@ export class SquadSchedulerDO extends DurableObject<Env> {
     const until = weekStartStr(today);
     const win: DigestWindow = { weekStart: from, until, past: true };
 
+    // Claim the week first: if this write fails nothing was posted yet and the next alarm retries;
+    // if it succeeds a later failure cannot cause a second post.
+    if (!(await markSquadRecapped(this.env.DB, chatId, weekKey).catch(() => false))) return;
+
     logInfo("do_alarm_run", { doType: "squad" });
     // Without the catch an exception here would only reach Workers Logs, not error_logs or the
     // owner report.
     try {
       const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
       const ok = await postSquadDigest(this.env.DB, bot.api, chatId, win);
-      // Marked either way: a chat that is merely unreachable this hour must not be retried every
-      // hour for the rest of the week.
-      await markSquadRecapped(this.env.DB, chatId, weekKey).catch(() => {});
       // A chat that rejects the message (bot kicked, group deleted) is dropped — that is the only
       // automatic squad deletion there is.
       if (!ok) await deleteSquad(this.env.DB, chatId).catch(() => {});

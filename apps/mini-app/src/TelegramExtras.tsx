@@ -100,7 +100,7 @@ export function SupportCard({ lang }: { lang: Lang }) {
   const tip = async (stars: number) => {
     setBusy(stars); setResult(null);
     try {
-      const { link } = await api<{ link: string }>("/api/v2/support/invoice", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"createSupportInvoice">({ stars: stars as 50 | 100 | 250 }) });
+      const { link } = await api<{ link: string }>("/api/v2/support/invoice", { method: "POST", idempotencyKey: true, body: typedBody<"createSupportInvoice">({ stars: stars as 50 | 100 | 250 }) });
       const status = await openInvoice(link);
       if (status === "paid") { setResult("paid"); window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success"); }
       else if (status === "failed") setResult("failed");

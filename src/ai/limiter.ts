@@ -19,7 +19,7 @@ export const DAILY_CALLS = 5_000;
 
 /** Fixed-width window number, so keys sort by time ("ai_rl:005894112:42"). */
 const windowNo = (now: number) => String(Math.floor(now / USER_WINDOW_MS)).padStart(9, "0");
-export const userKey = (userId: number, now: number) => `ai_rl:${windowNo(now)}:${userId}`;
+const userKey = (userId: number, now: number) => `ai_rl:${windowNo(now)}:${userId}`;
 export const dayKey = (now: number) => `ai_day:${new Date(now).toISOString().slice(0, 10)}`;
 
 /** Takes one slot under `key` if fewer than `cap` are taken. True when admitted. */
@@ -35,7 +35,7 @@ async function take(db: DB, key: string, cap: number): Promise<boolean> {
   return row != null;
 }
 
-export type Admission = "ok" | "user" | "global";
+type Admission = "ok" | "user" | "global";
 
 /** Admit one AI call for this user (or an anonymous system call when userId is null). */
 export async function admitAiCall(db: DB, userId: number | null | undefined, now = Date.now()): Promise<Admission> {

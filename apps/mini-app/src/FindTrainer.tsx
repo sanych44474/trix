@@ -25,13 +25,13 @@ export function FindTrainer({ lang, onBack, onAccepted }: Props) {
   const choose = async (trainerId: number) => {
     setBusy(trainerId);
     try {
-      await api("/api/v2/trainers", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"requestTrainer">({ trainerId }) });
+      await api("/api/v2/trainers", { method: "POST", idempotencyKey: true, body: typedBody<"requestTrainer">({ trainerId }) });
       await load();
     } catch { setError(true); } finally { setBusy(null); }
   };
   const cancel = async () => {
     setBusy("cancel");
-    try { await api("/api/v2/trainers", { method: "DELETE", idempotencyKey: crypto.randomUUID() }); await load(); } catch { setError(true); } finally { setBusy(null); }
+    try { await api("/api/v2/trainers", { method: "DELETE", idempotencyKey: true }); await load(); } catch { setError(true); } finally { setBusy(null); }
   };
 
   return <div className="ob-wizard view-stack">

@@ -105,7 +105,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
     if (!body) return;
     setSaving(true); setError(null);
     try {
-      await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateProfile">(body) });
+      await api("/api/v2/profile", { method: "POST", idempotencyKey: true, body: typedBody<"updateProfile">(body) });
       setReady("pick");
       setIndex(-1);
     } catch {
@@ -119,7 +119,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
     if (!body) { setIndex(firstOpenStep(all, final, isClient)); return; }
     setSaving(true); setError(null);
     try {
-      await api("/api/v2/onboarding", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"completeOnboarding">(body) });
+      await api("/api/v2/onboarding", { method: "POST", idempotencyKey: true, body: typedBody<"completeOnboarding">(body) });
       clearDraft();
       onComplete();
     } catch (err) {
@@ -143,7 +143,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
     if (next === lang || langBusy) return;
     setLangBusy(true);
     try {
-      await api("/api/v2/settings", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateSettings">({ action: "lang", lang: next }) });
+      await api("/api/v2/settings", { method: "POST", idempotencyKey: true, body: typedBody<"updateSettings">({ action: "lang", lang: next }) });
       onLangChange(next);
     } catch { /* keep the current language */ } finally { setLangBusy(false); }
   };

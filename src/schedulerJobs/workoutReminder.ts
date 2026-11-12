@@ -1,6 +1,6 @@
 
 import { workoutLogsSince } from "../adapters/d1/v2Workouts";
-import { updateUser } from "../adapters/d1/v2Users";
+import { patchReminders } from "../adapters/d1/v2Users";
 import { getPlanDay } from "../domain/progression";
 import { t } from "../locales/i18n";
 import { renderDay } from "../render/telegramText";
@@ -24,11 +24,8 @@ export async function workoutReminder(p: UserPass): Promise<boolean> {
       const actedOn = sinceLogs.some((l) => l.completed);
       ignoredStreak = actedOn ? 0 : ignoredStreak + 1;
       if (ignoredStreak !== (user.reminders?.workoutIgnoredStreak ?? 0)) {
-        // Mutate the in-memory object (not just the DB row) — flushReminders() below rebuilds
-        // `reminders` from this same object at the end of processUser, and would otherwise
-        // clobber this write back to its stale value (same pattern as `lastRank` further down).
         user.reminders = { ...user.reminders, workoutIgnoredStreak: ignoredStreak };
-        await updateUser(db, user._id, { reminders: user.reminders }).catch(() => {});
+        await patchReminders(db, user._id, { workoutIgnoredStreak: ignoredStreak }).catch(() => {});
       }
     }
     const wd = weekday;

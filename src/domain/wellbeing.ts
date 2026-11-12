@@ -2,7 +2,7 @@
 // screen and the Mini App / native wellbeing route both read the same numbers from here.
 import type { DailyCheckinDoc } from "../types";
 
-export type WellbeingMetric = "energy" | "sleep" | "stress";
+type WellbeingMetric = "energy" | "sleep" | "stress";
 
 type Averages = Record<WellbeingMetric, number>;
 

@@ -5,18 +5,18 @@
 import type { UserProfile, Weekday } from "../types";
 import { AGE_RANGE, DIETS, EQUIPMENT, GOALS, HEIGHT_CM_RANGE, LEVELS, LIFESTYLES, SESSION_MINUTES, SEXES, SLEEP_SCHEDULES, WEIGHT_KG_RANGE } from "./onboardingQuestions";
 
-export type AnswerMode = "patch" | "onboarding";
-export type AnswerField =
+type AnswerMode = "patch" | "onboarding";
+type AnswerField =
   | "sex" | "age" | "heightCm" | "weightKg" | "goal" | "level" | "equipment" | "dietPrefs" | "lifestyle"
   | "sessionMinutes" | "sleepSchedule" | "timezone";
-export type AnswerError = "out_of_range" | "invalid";
+type AnswerError = "out_of_range" | "invalid";
 
-export interface AnswerResult {
+interface AnswerResult {
   patch: Partial<UserProfile>;
   errors: Partial<Record<AnswerField, AnswerError>>;
 }
 
-export interface AnswerContext {
+interface AnswerContext {
   mode: AnswerMode;
   isClient: boolean;
   /** The profile's timezone; onboarding keeps it and ignores the device's. */

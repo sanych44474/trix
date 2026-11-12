@@ -117,6 +117,9 @@ export interface UserProfile {
   foodLikes?: string; // foods the user enjoys — meal plan favors them
   foodDislikes?: string; // foods to avoid in the meal plan
   remindersOff?: string[]; // reminder keys the user disabled (workout/nutrition/steps/checkin/…)
+  // The athlete's limits on automatic progression (domain/progressionPrefs.ts): no automatic
+  // increases, and a per-exercise ceiling (heaviest dumbbell / top of the stack), keyed by capKey().
+  progression?: { auto?: boolean; caps?: Record<string, number> };
   // Opt-in menstrual-cycle tracking (female users only). When on, the coach knows the current
   // phase (follicular/ovulation/luteal/menstruation) and can nudge deloads / carb bumps around
   // the period. Off by default and never inferred — the user must switch it on and log a start.
@@ -292,6 +295,8 @@ export interface UserSession {
   recentFoods?: MealEntry[]; // recent foods offered for one-tap re-log (index → item)
   photoReviewFor?: number; // trainer id awaiting this client's next photo (progress-photo review)
   replanAt?: string; // ISO: a plan rebuild started from the app is building (features/plan/planService.ts rebuildPlan)
+  planTries?: number; // failed plan builds while parked in plan_pending (planRetryDue backs the sweep off)
+  planTriedAt?: string; // ISO of the last failed build
   replanFailed?: string; // ISO: the last app rebuild failed (cleared when a new one starts)
   photoSelf?: boolean; // self-serve "📸 progress photo" flow: the next photo goes to the gallery
 }

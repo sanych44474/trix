@@ -4,7 +4,7 @@
 // medical/competition standard. Names are matched bilingually (EN + UK) against the big compounds.
 import { resolveWeightMode } from "./exerciseClass";
 
-export type StrengthLevel = "beginner" | "novice" | "intermediate" | "advanced" | "elite";
+type StrengthLevel = "beginner" | "novice" | "intermediate" | "advanced" | "elite";
 
 const STRENGTH_LEVELS:StrengthLevel[] = ["beginner", "novice", "intermediate", "advanced", "elite"];
 

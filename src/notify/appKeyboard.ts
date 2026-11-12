@@ -10,7 +10,7 @@ export type AppView =
   | "today" | "train" | "plan" | "fuel" | "progress" | "more" | "settings" | "library" | "inbox" | "coach" | "role" | "onboarding";
 
 /** Extra deep-link parameters the Mini App understands. */
-export interface AppParams {
+interface AppParams {
   /** Trainer workspace: open this client's card. */
   client?: number;
   /** Coach screen: a question pre-filled in the box (the user still taps send). */

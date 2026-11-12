@@ -38,7 +38,7 @@ export function ExtrasView({ lang, role, links = [], onOpen }: { lang: Lang; rol
   const [takenName, setTakenName] = useState<string | null>(null);
   const takeProgram = async (program: LibraryProgram) => {
     setTakingCode(program.code); setTakenName(null);
-    try { await api("/api/v2/library", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"takeLibraryProgram">({ code: program.code }) }); setTakenName(program.name); }
+    try { await api("/api/v2/library", { method: "POST", idempotencyKey: true, body: typedBody<"takeLibraryProgram">({ code: program.code }) }); setTakenName(program.name); }
     catch (err) { setLibraryError(err); } finally { setTakingCode(null); }
   };
 

@@ -208,3 +208,12 @@ test("deloadDue: genuinely active for 6+ weeks, still training this lift now, do
   ])];
   assert.equal(deloadDue(records, "2026-06-02"), true);
 });
+
+test("computePlanProgression: reps topped at a lighter weight do not add load above the heavier one the athlete backed off from", () => {
+  // 80 kg ground out at RPE 9.5, then two sessions at 60 x 12. "Ready" was judged on the 60 kg
+  // sessions and the bump applied to the 80 kg maximum: 80 -> 82.5 with nothing earned at 80.
+  const ex: PlanExercise = { name: "Bench Press", sets: "3 × 8–12", startWeight: "80 kg", technique: "", muscles: "chest", role: "primary" };
+  const logs = [log("2026-11-08", "Bench Press", 12, 60, 8), log("2026-11-04", "Bench Press", 12, 60, 8), log("2026-11-01", "Bench Press", 8, 80, 9.5)];
+  const r = computePlanProgression(plan(ex), logs, []);
+  assert.ok(!r.changes.some((c) => c.to === "82.5 kg"), JSON.stringify(r.changes));
+});

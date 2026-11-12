@@ -47,6 +47,7 @@ import app.hacklimits.shared.settings.MoreViewModel
 import app.hacklimits.shared.settings.MoreViewModel.Message
 import app.hacklimits.shared.settings.ProfileSection
 import app.hacklimits.shared.settings.ProfileViewModel
+import app.hacklimits.shared.settings.ProgressionSection
 import app.hacklimits.shared.settings.RemindersSection
 import app.hacklimits.shared.settings.SettingsCard
 import app.hacklimits.shared.settings.TrainerSection
@@ -171,6 +172,7 @@ fun MoreScreen(
         } else {
             LanguageSection(settings.lang, s.busy, vm::setLanguage)
             RemindersSection(settings, s.busy, vm::toggleReminder)
+            ProgressionSection(settings.progression, s.busy, vm::setAutoProgression, vm::removeCap)
             p.reminderHour?.let { hour -> key(hour) { ReminderHourSetting(initialHour = hour) } }
             VacationSection(
                 settings = settings,

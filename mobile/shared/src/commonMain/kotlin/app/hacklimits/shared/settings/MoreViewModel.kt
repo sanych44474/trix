@@ -74,6 +74,8 @@ class MoreViewModel(
         }
     }
 
+    fun setAutoProgression(auto: Boolean) = act { settings.setAutoProgression(auto)?.let { s -> _state.update { it.copy(settings = s) } } }
+    fun removeCap(exercise: String) = act { settings.clearCap(exercise)?.let { s -> _state.update { it.copy(settings = s) } } }
     fun toggleReminder(key: String) = act { settings.toggleReminder(key)?.let { s -> _state.update { it.copy(settings = s) } } }
     fun setLanguage(lang: String) = act { settings.setLanguage(lang)?.let { s -> _state.update { it.copy(settings = s, message = Message.Saved) } } }
     fun vacation(days: Int?) = act { settings.vacation(days)?.let { s -> _state.update { it.copy(settings = s) } } }

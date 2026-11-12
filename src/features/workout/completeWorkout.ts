@@ -6,7 +6,7 @@ import { getActivePlan, updateActivePlanSplit } from "../../adapters/d1/v2Plans"
 import { adoptLoggedWeights } from "../../domain/startWeights";
 import { countCompletedWorkouts, upsertStrengthRecord, upsertWorkoutLog } from "../../adapters/d1/v2Workouts";
 import { awardAchievement } from "../../adapters/d1/v2Gamification";
-import { getUser, updateUser } from "../../adapters/d1/v2Users";
+import { getUser, patchReminders } from "../../adapters/d1/v2Users";
 import { bestSetForMetric, fmtDistance, fmtDuration, metricOfSets } from "../../domain/setFormat";
 import { prMilestones, workoutMilestones } from "../../domain/records";
 import { cleanAi, t } from "../../locales/i18n";
@@ -24,7 +24,7 @@ export interface WorkoutSaveEntry {
   planName?: string; // Mini App swap: the plan exercise this entry replaced
 }
 
-export interface PrHit {
+interface PrHit {
   name: string;
   metric: ExerciseMetric;
   weight: number;
@@ -41,7 +41,7 @@ export function formatPrBest(pr: PrHit): string {
   return `${pr.weight} kg × ${pr.reps}`;
 }
 
-export interface WorkoutSaveOutcome {
+interface WorkoutSaveOutcome {
   exercises: LoggedExercise[];
   prExercises: string[];
   prHit: PrHit | null; // first PR this save, for the single-message chat celebration
@@ -54,7 +54,7 @@ export interface WorkoutSaveOutcome {
  * Ctx-free and mutates `user.reminders` in place (mirrors the DB write) so a caller chaining
  * more bookkeeping off the same UserDoc — e.g. level transition — sees the updated prCount.
  * Shared by the chat path (finalizeWorkoutLog) and the Mini App save route. */
-export async function applyWorkoutSave(
+async function applyWorkoutSave(
   db: D1Database,
   user: UserDoc,
   entries: WorkoutSaveEntry[],
@@ -120,9 +120,8 @@ export async function applyWorkoutSave(
   // Lifetime PR counter → milestone badges (prs_10 / prs_25).
   if (prExercises.length) {
     const prCount = (user.reminders?.prCount ?? 0) + prExercises.length;
-    const reminders = { ...user.reminders, prCount };
-    await updateUser(db, user._id, { reminders }).catch(() => {});
-    user.reminders = reminders;
+    await patchReminders(db, user._id, { prCount }).catch(() => {});
+    user.reminders = { ...user.reminders, prCount };
     for (const code of prMilestones(prCount)) if (await awardAchievement(db, user._id, code)) fresh.push(code);
   }
 
@@ -130,7 +129,7 @@ export async function applyWorkoutSave(
 }
 
 /** What a finished workout produces: the record-keeping outcome plus the level it earned. */
-export interface WorkoutCompletion extends WorkoutSaveOutcome {
+interface WorkoutCompletion extends WorkoutSaveOutcome {
   level: number;
   xp: number;
   leveledUp: boolean;

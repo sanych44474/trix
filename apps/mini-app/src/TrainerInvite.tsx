@@ -41,7 +41,7 @@ export function TrainerInviteCard({ lang }: { lang: Lang }) {
   const create = async () => {
     setBusy(true); setError(false);
     try {
-      const invite = await api<TrainerProspectInvite>("/api/v2/trainer/invite", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"createTrainerInvite">({ name: name.trim() }) });
+      const invite = await api<TrainerProspectInvite>("/api/v2/trainer/invite", { method: "POST", idempotencyKey: true, body: typedBody<"createTrainerInvite">({ name: name.trim() }) });
       setFresh(invite);
       setName("");
       setData((current) => current ? { ...current, prospects: [invite, ...current.prospects] } : current);

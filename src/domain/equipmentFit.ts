@@ -8,7 +8,7 @@
 // Pure; test/equipment-fit.test.ts. No src/types import, so the Mini App can share it.
 import { musclesForExercise, type Slug } from "./exerciseMuscles";
 
-export type Kit = "gym" | "home" | "dumbbells" | "bodyweight";
+type Kit = "gym" | "home" | "dumbbells" | "bodyweight";
 type Gear = "barbell" | "machine" | "cable" | "kettlebell" | "dumbbell" | "band" | "bar" | "cardioMachine";
 
 /** Onboarding's stored equipment answer (or free text) → the kit it means. */

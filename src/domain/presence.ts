@@ -15,7 +15,7 @@ export const SESSION_IDLE_MS = 30 * 60 * 1000;
  * boundary above is exact to a minute) without a write on every request. */
 export const PRESENCE_WRITE_GAP_MS = 60 * 1000;
 
-export interface PresenceStep {
+interface PresenceStep {
   /** Write `lastSeenAt = now`. */
   write: boolean;
   /** This interaction opens a new session (log `session_started`). */

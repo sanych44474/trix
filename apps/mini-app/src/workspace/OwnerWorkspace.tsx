@@ -37,14 +37,14 @@ export function OwnerWorkspace({ lang, onOpenPlan }: { lang: Lang; onOpenPlan?: 
   const selectSection = (id: OwnerSection) => { setSection(id); loadSection(id); };
   const retry = () => { setError(false); void loadUsers(); loadSection(section, true); };
 
-  const askInactive = async () => { try { const result = await api<{ sent: number }>("/api/v2/owner/ask-inactive", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) }); setSent(result.sent); } catch { setActionError(true); } };
+  const askInactive = async () => { try { const result = await api<{ sent: number }>("/api/v2/owner/ask-inactive", { method: "POST", idempotencyKey: true, body: jsonBody({}) }); setSent(result.sent); } catch { setActionError(true); } };
   // Block/unblock/delete ANY user. Delete is a two-tap gate matching the bot's own ownerUserKb
   // confirm (ou:*:del shows confirm/cancel, only ou:*:delok deletes) -- pendingDelete tracks which
   // row is mid-confirm; a second explicit tap on "Yes, delete" is what actually calls the route.
   const userAction = async (id: number, action: RosterAction) => {
     setRosterBusy(`${action}:${id}`);
     try {
-      await api(`/api/v2/owner/user/${id}/${action}`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
+      await api(`/api/v2/owner/user/${id}/${action}`, { method: "POST", idempotencyKey: true, body: jsonBody({}) });
       if (action === "nudge") { setNudged((current) => new Set(current).add(id)); return; }
       await loadUsers();
     } catch { setActionError(true); } finally { setRosterBusy(null); }
@@ -111,7 +111,7 @@ export function ReleaseBroadcastPanel({ lang }: { lang: Lang }) {
   const send = async () => {
     setBusy(true); setError(false);
     try {
-      const r = await api<{ version: string; sent: number; failed: number; remaining: number; queued?: number }>("/api/v2/owner/release/send", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
+      const r = await api<{ version: string; sent: number; failed: number; remaining: number; queued?: number }>("/api/v2/owner/release/send", { method: "POST", idempotencyKey: true, body: jsonBody({}) });
       setResult(r);
       setInfo({ version: r.version, pending: r.remaining, queue: info.queue });
       setConfirm(false);
@@ -149,7 +149,7 @@ export function AnnouncePanel({ lang }: { lang: Lang }) {
   const send = async () => {
     setBusy(true); setError(false);
     try {
-      const r = await api<{ sent: number; failed: number; remaining: number; total: number; next: number | null; queued?: number }>("/api/v2/owner/announce", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"ownerAnnounce">({ text: text.trim(), ...(progress?.next ? { after: progress.next } : {}) }) });
+      const r = await api<{ sent: number; failed: number; remaining: number; total: number; next: number | null; queued?: number }>("/api/v2/owner/announce", { method: "POST", idempotencyKey: true, body: typedBody<"ownerAnnounce">({ text: text.trim(), ...(progress?.next ? { after: progress.next } : {}) }) });
       setProgress((prev) => ({ ...r, sent: (prev?.sent ?? 0) + r.sent, failed: (prev?.failed ?? 0) + r.failed }));
       setConfirm(false);
     } catch { setError(true); } finally { setBusy(false); }
@@ -181,7 +181,7 @@ export function PromoImagePanel({ lang }: { lang: Lang }) {
   const make = async () => {
     setBusy(true); setStatus(null);
     try {
-      const r = await api<{ ok: boolean }>("/api/v2/owner/image", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"ownerImage">({ prompt: prompt.trim() }) });
+      const r = await api<{ ok: boolean }>("/api/v2/owner/image", { method: "POST", idempotencyKey: true, body: typedBody<"ownerImage">({ prompt: prompt.trim() }) });
       setStatus(r.ok ? "sent" : "error");
     } catch (err) {
       setStatus((err as { status?: number })?.status === 429 ? "budget" : "error");

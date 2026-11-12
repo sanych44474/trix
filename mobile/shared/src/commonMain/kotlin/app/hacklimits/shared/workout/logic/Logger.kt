@@ -60,6 +60,10 @@ data class LoggerExercise(
     val setsDone: List<LoggerSet>? = null,
     val rpe: Double? = null,
     val weightWarnAbove: Double? = null,
+    /** The person's own weight ceiling for this exercise (kg); null = none. */
+    val capKg: Double? = null,
+    val capShared: Boolean = false,
+    val dumbbellOnly: Boolean = false,
 ) {
     val done: List<LoggerSet> get() = setsDone ?: emptyList()
 }
@@ -313,7 +317,8 @@ fun fromPlan(ex: WorkoutToday.Exercise): LoggerExercise = LoggerExercise(
     index = ex.index, name = ex.name, metric = ex.metric, sets = ex.sets, reps = ex.reps, weightKg = ex.weightKg,
     planSets = ex.planSets, planWeight = ex.planWeight, technique = ex.technique, note = ex.note,
     canonicalName = ex.canonicalName, videoUrl = ex.videoUrl, videoTitle = ex.videoTitle,
-    target = ex.target, last = ex.last, restSec = ex.restSec, weightWarnAbove = ex.weightWarnAbove,
+    target = ex.target, last = ex.last, restSec = ex.restSec, weightWarnAbove = ex.weightWarnAbove, capKg = ex.capKg,
+    capShared = ex.capShared, dumbbellOnly = ex.dumbbellOnly,
 )
 
 /**
@@ -360,10 +365,11 @@ fun hydrateSaved(data: WorkoutToday): List<LoggerExercise> {
     return (merged + remaining.map(::fromPlan)).mapIndexed { i, ex -> ex.copy(index = i) }
 }
 
-// Logs don't store the metric, so it is inferred from what was recorded.
-private fun savedMetric(entry: WorkoutToday.SavedEntry): String = when {
-    entry.sets.any { it.sec > 0 } -> "time"
+// Logs don't store the metric, so it is inferred from what was recorded. Metres first, as the
+// server does: a run logged as "5 km 30 min" stores both and is a distance.
+internal fun savedMetric(entry: WorkoutToday.SavedEntry): String = when {
     entry.sets.any { it.m > 0 } -> "distance"
+    entry.sets.any { it.sec > 0 } -> "time"
     else -> "reps"
 }
 

@@ -10,6 +10,8 @@ import { mirrorToDevice, restoreFromDevice } from "./logic/deviceStorage";
 export function OfflineSync({ lang }: { lang: Lang }) {
   const [pending, setPending] = useState(() => { try { return readQueue(localStorage).length; } catch { return 0; } });
   const [sent, setSent] = useState(0);
+  // Saves the server refused for good (a day outside the edit window, say). They used to vanish.
+  const [dropped, setDropped] = useState(0);
   const busy = useRef(false);
 
   useEffect(() => {
@@ -21,6 +23,7 @@ export function OfflineSync({ lang }: { lang: Lang }) {
           api("/api/v2/workout/save", { method: "POST", idempotencyKey: q.key, body: JSON.stringify(q.body) }).then(() => undefined));
         setPending(r.remaining);
         if (r.sent) setSent((n) => n + r.sent);
+        if (r.dropped) setDropped((n) => n + r.dropped);
         mirrorToDevice(OFFLINE_SAVES_KEY);
       } catch { /* storage unavailable: nothing to flush */ } finally { busy.current = false; }
     };
@@ -43,6 +46,7 @@ export function OfflineSync({ lang }: { lang: Lang }) {
     return () => clearTimeout(id);
   }, [sent]);
 
+  if (dropped) return <div className="offline-banner" role="alert">{t(lang, "offline_dropped", { n: dropped })} <button type="button" className="text-button" onClick={() => setDropped(0)}>{t(lang, "close")}</button></div>;
   if (pending) return <div className="offline-banner" role="status">{t(lang, "offline_pending", { n: pending })}</div>;
   if (sent) return <div className="offline-banner done" role="status">{t(lang, "offline_synced", { n: sent })}</div>;
   return null;

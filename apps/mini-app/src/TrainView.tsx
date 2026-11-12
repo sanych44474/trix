@@ -14,7 +14,7 @@ import {
   isSetFilled, prefillFromLast, repeatAsSuggestions, summaryLoad, type LoggerDraft, type LoggerExercise, type LoggerSet, type LoggerWorkout, type StartSource,
   targetUse,
 } from "./logic/logger";
-import { cachedToday, cacheToday, enqueueSave, isNetworkError, OFFLINE_SAVES_KEY } from "./logic/offlineSaves";
+import { cachedToday, cacheToday, dequeueDate, enqueueSave, isNetworkError, OFFLINE_SAVES_KEY } from "./logic/offlineSaves";
 import { registerLearnedMuscles } from "./logic/exerciseMuscles";
 
 type CustomExercise = { name: string; videoUrl?: string; videoTitle?: string; muscles?: { primary: string[]; secondary: string[] } };
@@ -236,6 +236,17 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
   const fillLast = (index: number) => mapExercise(index, (exercise) => !exercise.last?.length ? exercise
     : logDate ? { ...exercise, setsDone: exercise.last.map((set) => ({ weight: set.w, reps: set.r, seconds: set.sec || undefined, meters: set.m || undefined })) }
     : prefillFromLast(exercise));
+  // The athlete's own ceiling for an exercise (Settings > progression, server side). Saved, then
+  // the exercise's target is re-read so the suggestion respects it right away; sets already logged
+  // are left alone.
+  const setCap = async (exercise: LoggerExercise, kg: number | null, all = false) => {
+    try {
+      await api("/api/v2/settings", { method: "POST", idempotencyKey: true, body: typedBody<"updateSettings">({ action: "progression", exercise: all ? "@dumbbell" : exercise.name, capKg: kg }) });
+      const fresh = await api<WorkoutToday>(`/api/v2/workout/today${logDate ? `?date=${logDate}` : ""}`);
+      const next = fresh.exercises.find((e) => e.name === exercise.name);
+      mapExercise(exercise.index, (ex) => ({ ...ex, capKg: next?.capKg ?? (kg ?? undefined), capShared: next?.capShared, target: next?.target ?? ex.target, ...(next ? { weightKg: next.weightKg, reps: next.reps } : {}) }));
+    } catch (err) { setActionError(err); }
+  };
   const addSet = (index: number) => mapExercise(index, (exercise) => ({ ...exercise, setsDone: [...(exercise.setsDone ?? []), emptyLoggerSet(exercise.metric)] }));
   const removeSet = (index: number, setIndex: number) => mapExercise(index, (exercise) => removeLoggerSet(exercise, setIndex));
   // Indexes are renumbered after a reorder, so focus follows the exercise that was on screen (logic/loggerOrder.ts).
@@ -321,7 +332,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
       const data = await api<{ alternatives: Array<{ id: string; name: string }>; muscle?: string | null }>(
         `/api/v2/workout/swap?index=${index}&name=${encodeURIComponent(planName)}&muscle=${encodeURIComponent(q)}`);
       if (data.muscle) { setSwapChoices(data.alternatives); return; }
-      const own = await api<CustomExercise>("/api/v2/workout/custom", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"addCustomExercise">({ name: q }) });
+      const own = await api<CustomExercise>("/api/v2/workout/custom", { method: "POST", idempotencyKey: true, body: typedBody<"addCustomExercise">({ name: q }) });
       registerLearnedMuscles(own.muscles ? [{ name: own.name, ...own.muscles }] : []); // counts on the body map right away
       await applySwap({ id: "", name: own.name }, { videoUrl: own.videoUrl, videoTitle: own.videoTitle });
     } catch (err) { setActionError(err); } finally { setActionBusy(null); }
@@ -350,7 +361,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
     if (name.length < 2) return;
     setActionBusy("custom");
     try {
-      const result = await api<CustomExercise>("/api/v2/workout/custom", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"addCustomExercise">({ name }) });
+      const result = await api<CustomExercise>("/api/v2/workout/custom", { method: "POST", idempotencyKey: true, body: typedBody<"addCustomExercise">({ name }) });
       registerLearnedMuscles(result.muscles ? [{ name: result.name, ...result.muscles }] : []); // counts on the body map right away
       mutate((exercises) => [...exercises, { index: exercises.length, name: result.name, metric: "reps", sets: 1, ...(result.videoUrl ? { videoUrl: result.videoUrl, videoTitle: result.videoTitle } : {}) }]);
       setCustomName(""); setShowCustom(false);
@@ -403,6 +414,9 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
       if (use.kept) track("app_target_kept");
       if (use.edited) track("app_target_edited");
       if (action.kind === "finish") session.finish(final);
+      // This save is now the day's truth: an older one still queued for the date must not be
+      // replayed over it by the next offline flush.
+      try { dequeueDate(localStorage, targetDate ?? workout.date); mirrorToDevice(OFFLINE_SAVES_KEY); } catch { /* storage is optional */ }
       setSaved(true); setDrafted(false); setSavedAt(doneAt); setSync("idle"); setRestoredFrom(null);
       window.Telegram?.WebApp.HapticFeedback?.notificationOccurred("success");
       if (action.kind !== "update") {
@@ -565,6 +579,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
           }}
           onFillPlanned={() => fillPlanned(exercise.index)}
           onFillLast={() => fillLast(exercise.index)}
+          onSetCap={(kg, all) => void setCap(exercise, kg, all)}
           onOpenSwap={() => void openSwap(exercise)}
           onApplySwap={(choice) => void applySwap(choice)}
           onSearchSwap={(text) => void searchSwap(exercise, text)}

@@ -13,7 +13,7 @@ import type { Env } from "../types";
 export const KB_WRITES_PER_RUN = 60;
 const MANAGED = KB_LANGS.map((l) => `${l}/`);
 
-export interface KbSyncResult {
+interface KbSyncResult {
   put: number;
   deleted: number;
   unchanged: number;
@@ -40,7 +40,7 @@ async function storedHashes(bucket: R2Bucket): Promise<Map<string, string>> {
   return out;
 }
 
-export async function loadTechniqueRows(db: D1Database): Promise<TechniqueRow[]> {
+async function loadTechniqueRows(db: D1Database): Promise<TechniqueRow[]> {
   try {
     const r = await db.prepare("SELECT exerciseId, lang, steps, name FROM v2_technique_steps ORDER BY exerciseId, lang").all<TechniqueRow>();
     return r.results ?? [];

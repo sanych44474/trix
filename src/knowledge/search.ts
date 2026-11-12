@@ -20,7 +20,7 @@ const MIN_QUESTION_CHARS = 15;
 const MAX_PASSAGES = 4;
 const MAX_PASSAGE_CHARS = 700;
 
-export function monthlyQueryCap(env: Pick<Env, "AI_SEARCH_MONTHLY_QUERIES">): number {
+function monthlyQueryCap(env: Pick<Env, "AI_SEARCH_MONTHLY_QUERIES">): number {
   const n = Number(env.AI_SEARCH_MONTHLY_QUERIES);
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_MONTHLY;
 }

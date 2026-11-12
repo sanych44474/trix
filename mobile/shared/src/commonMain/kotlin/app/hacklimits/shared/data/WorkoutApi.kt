@@ -11,6 +11,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** GET /api/v2/workout/today (openapi `WorkoutToday`): today's planned exercises with the
  * progression target, last session's sets, the saved log and the server copy of the draft. */
@@ -52,6 +56,12 @@ data class WorkoutToday(
         val wmode: String? = null,
         /** Above this typed set weight the app asks "is that right?". Null when the server has no threshold. */
         val weightWarnAbove: Double? = null,
+        /** The person's own weight ceiling for this exercise (kg); progression never proposes above it. */
+        val capKg: Double? = null,
+        /** [capKg] comes from the ceiling for all dumbbell exercises, not this exercise's own. */
+        val capShared: Boolean = false,
+        /** Needs nothing but dumbbells, so a ceiling for all of them can be set from here. */
+        val dumbbellOnly: Boolean = false,
     )
 
     @Serializable data class Target(val w: Double, val r: Double, val lastW: Double, val lastR: Double, val step: String)
@@ -132,6 +142,21 @@ class WorkoutApi(private val api: ApiClient) {
         api.authorize(this)
         date?.let { parameter("date", it) }
     })
+
+    /** Sets (kg) or clears (null) the person's own weight ceiling for [exercise] (Settings, action "progression"). */
+    suspend fun setCap(exercise: String, kg: Double?, idempotencyKey: String) {
+        val response = api.http.post("api/v2/settings") {
+            api.authorize(this)
+            header("Idempotency-Key", idempotencyKey)
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("action", "progression")
+                put("exercise", exercise)
+                put("capKg", kg?.let { JsonPrimitive(it) } ?: JsonNull)
+            })
+        }
+        if (!response.status.isSuccess()) throw api.errorOf(response)
+    }
 
     /** The same [idempotencyKey] on a retry returns the first result instead of saving twice. */
     suspend fun save(request: SaveWorkoutRequest, idempotencyKey: String): SaveWorkoutResult =

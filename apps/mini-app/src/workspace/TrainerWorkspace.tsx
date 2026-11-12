@@ -36,7 +36,7 @@ export function TrainerProfilePanel({ lang, onBack }: { lang: Lang; onBack: () =
   const save = async () => {
     setSaving(true); setSaved(false);
     try {
-      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateTrainerProfile">({ name: form.name, bio: form.bio, specialization: form.specialization, approach: form.approach, experienceYears: form.experienceYears, priceOnline: form.priceOnline, city: form.city, contact: form.contact, accepting: form.accepting }) });
+      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: true, body: typedBody<"updateTrainerProfile">({ name: form.name, bio: form.bio, specialization: form.specialization, approach: form.approach, experienceYears: form.experienceYears, priceOnline: form.priceOnline, city: form.city, contact: form.contact, accepting: form.accepting }) });
       setSaved(true);
     } catch { setActionError(true); } finally { setSaving(false); }
   };
@@ -109,7 +109,7 @@ export function ScheduleView({ lang, onBack }: { lang: Lang; onBack: () => void 
 
   const act = async (key: string, body: RequestBody<"mutateTrainerSessions">) => {
     setBusy(key);
-    try { await api("/api/v2/trainer/sessions", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"mutateTrainerSessions">(body) }); load(); }
+    try { await api("/api/v2/trainer/sessions", { method: "POST", idempotencyKey: true, body: typedBody<"mutateTrainerSessions">(body) }); load(); }
     catch { setActionError(true); } finally { setBusy(null); }
   };
   const book = () => {
@@ -170,7 +170,7 @@ export function FinanceView({ lang, onBack }: { lang: Lang; onBack: () => void }
 
   const act = async (key: string, body: RequestBody<"mutateTrainerFinance">) => {
     setBusy(key);
-    try { await api("/api/v2/trainer/finance", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"mutateTrainerFinance">(body) }); load(); }
+    try { await api("/api/v2/trainer/finance", { method: "POST", idempotencyKey: true, body: typedBody<"mutateTrainerFinance">(body) }); load(); }
     catch { setActionError(true); } finally { setBusy(null); }
   };
 
@@ -249,7 +249,7 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan, initialClientId 
   useEffect(() => { void load().catch(() => setError(true)); }, []);
   const act = async (key: string, path: string, body: unknown): Promise<boolean> => {
     setBusy(key);
-    try { await api(path, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); await load(); return true; }
+    try { await api(path, { method: "POST", idempotencyKey: true, body: jsonBody(body) }); await load(); return true; }
     catch { setActionError(true); return false; }
     finally { setBusy(null); }
   };

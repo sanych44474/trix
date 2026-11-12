@@ -14,7 +14,7 @@ export function OwnerCleanupCard({ lang, onDone }: { lang: Lang; onDone: () => v
 
   const preview = () => {
     setError(false); setNote(null); setConfirming(false);
-    api<{ count: number; days: number }>("/api/v2/owner/cleanup", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"ownerCleanup">({}) })
+    api<{ count: number; days: number }>("/api/v2/owner/cleanup", { method: "POST", idempotencyKey: true, body: typedBody<"ownerCleanup">({}) })
       .then((r) => { setCount(r.count); setDays(r.days); })
       .catch(() => setError(true));
   };
@@ -23,7 +23,7 @@ export function OwnerCleanupCard({ lang, onDone }: { lang: Lang; onDone: () => v
   const purge = async () => {
     setBusy(true); setError(false);
     try {
-      const r = await api<{ deleted: number }>("/api/v2/owner/cleanup", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"ownerCleanup">({ confirm: true }) });
+      const r = await api<{ deleted: number }>("/api/v2/owner/cleanup", { method: "POST", idempotencyKey: true, body: typedBody<"ownerCleanup">({ confirm: true }) });
       setNote(t(lang, "tt_cleanup_done", { n: r.deleted }));
       setCount(0);
       setConfirming(false);

@@ -7,8 +7,9 @@ type SavedEntry = NonNullable<WorkoutToday["saved"]>[number];
 // Logs don't store the metric, so infer it from what was recorded (same rule as the server's
 // loggedMetric in src/webapp/workout.ts).
 function savedMetric(entry: SavedEntry): LoggerExercise["metric"] {
-  if (entry.sets.some((set) => set.sec > 0)) return "time";
+  // Metres first, as the server does: a run logged as "5 km 30 min" stores both and is a distance.
   if (entry.sets.some((set) => set.m > 0)) return "distance";
+  if (entry.sets.some((set) => set.sec > 0)) return "time";
   return "reps";
 }
 

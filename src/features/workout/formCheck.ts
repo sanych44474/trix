@@ -6,7 +6,7 @@ export const FORM_CHECKS_PER_DAY = 5;
 export const MAX_VIDEO_BYTES = 14 * 1024 * 1024; // ~19 MB once base64-encoded, under Gemini's 20 MB inline cap
 export const MAX_VIDEO_SEC = 60;
 
-export type FormCheckGate = "ok" | "too_big" | "too_long" | "limit";
+type FormCheckGate = "ok" | "too_big" | "too_long" | "limit";
 
 /** Whether a clip may be checked: size and length first (free to tell), then the daily quota. */
 export function formCheckGate(video: { bytes?: number; seconds?: number }, usedToday: number): FormCheckGate {

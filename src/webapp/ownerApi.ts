@@ -13,7 +13,7 @@ import { listFeedback, updateFeedback } from "../adapters/d1/v2Feedback";
 import { recordInbox } from "../adapters/d1/v2Inbox";
 import { FEEDBACK_CATEGORIES, FEEDBACK_STATUSES, type FeedbackCategory, type FeedbackStatus } from "../domain/feedbackTriage";
 import { readJsonBody } from "./validate";
-import { getUser, listInactive, listOnboardedUsers, updateUser } from "../adapters/d1/v2Users";
+import { getUser, listInactive, listOnboardedUsers, updateUser, patchReminders } from "../adapters/d1/v2Users";
 import { appMarkup } from "../notify/appKeyboard";
 import { deleteUserData } from "../adapters/d1/v2Account";
 import { orAI, orEngagement, orErrors, orOnboarding, orOverview, orRetention, orTrainers, orUsers, ownerUsersData } from "../features/owner/ownerReport";
@@ -192,10 +192,8 @@ export async function handleOwnerApi(req: Request, url: URL, env: Env): Promise<
     for (const u of targets) {
       if (await pingOther(env, u.chatId, t(u.lang, "inact_fb_ask"))) {
         sent++;
-        await updateUser(env.DB, u._id, {
-          session: switchMode(u.session, "inact_feedback"),
-          reminders: { ...u.reminders, sent: { ...u.reminders?.sent, fb_ask: today } },
-        }).catch(() => {});
+        await updateUser(env.DB, u._id, { session: switchMode(u.session, "inact_feedback") }).catch(() => {});
+        await patchReminders(env.DB, u._id, { sent: { fb_ask: today } }).catch(() => {});
       }
     }
     return Response.json({ sent, total: targets.length });

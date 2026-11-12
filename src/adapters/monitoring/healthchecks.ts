@@ -7,9 +7,9 @@
 // fifth minute, and a failed run pings /fail at once. Unset = no pings.
 
 /** Successful runs ping only every this many minutes: plenty for the alert, a fifth of the requests. */
-export const HEALTHCHECK_EVERY_MIN = 5;
+const HEALTHCHECK_EVERY_MIN = 5;
 
-export type CronOutcome = "ok" | "fail";
+type CronOutcome = "ok" | "fail";
 
 /** Whether this cron run should ping: every failure, and successes on every fifth minute. */
 export function healthcheckDue(outcome: CronOutcome, scheduledTime: number): boolean {

@@ -69,7 +69,7 @@ async function encodePng(raw: Uint8Array, w: number, h: number): Promise<Uint8Ar
   return out;
 }
 
-export interface BodyMapImage {
+interface BodyMapImage {
   colors: Record<string, string>; // slug → #rrggbb for highlighted parts
   sex?: "male" | "female";
   base?: string; // every other part

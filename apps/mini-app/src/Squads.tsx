@@ -38,7 +38,7 @@ export function SquadsCard({ lang }: { lang: Lang }) {
   const post = async (key: string, body: Parameters<typeof typedBody<"editSquads">>[0]) => {
     setBusy(key); setNote(null);
     try {
-      const r = await api<Result>("/api/v2/squads", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editSquads">(body) });
+      const r = await api<Result>("/api/v2/squads", { method: "POST", idempotencyKey: true, body: typedBody<"editSquads">(body) });
       if (!r.ok && r.reason) setNote(t(lang, `squad_app_${r.reason}`));
       else if (r.reason === "already") setNote(t(lang, "squad_app_already"));
       return r.ok;

@@ -11,7 +11,7 @@ import { t } from "../../locales/i18n";
 export const MAX_FILE_BYTES = 3 * 1024 * 1024;
 export const MAX_DAYS_IMPORTED = 200;
 
-export type ImportResult = { imported: number; skipped: number; capped: boolean; format: "strong" | "hevy" };
+type ImportResult = { imported: number; skipped: number; capped: boolean; format: "strong" | "hevy" };
 
 /** Import a Strong/Hevy CSV export: only dates without a log are written. Null = not a workout CSV. */
 export async function importWorkoutCsv(db: D1Database, userId: number, lang: Lang, raw: string): Promise<ImportResult | null> {

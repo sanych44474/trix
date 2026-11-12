@@ -18,8 +18,8 @@ import { failureCode, typedFailure } from "./failure";
 import { MULTIPART_OVERHEAD_BYTES, readMultipartBody } from "./validate";
 
 export const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
-export const MAX_AUDIO_BYTES = 4 * 1024 * 1024; // ~4 min of opus; the app stops at 60 s
-export const MEAL_PHOTOS_PER_DAY = 30;
+const MAX_AUDIO_BYTES = 4 * 1024 * 1024; // ~4 min of opus; the app stops at 60 s
+const MEAL_PHOTOS_PER_DAY = 30;
 
 const bad = (reason: string, status = 400) => typedFailure(status, failureCode(status), reason);
 

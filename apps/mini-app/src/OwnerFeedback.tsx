@@ -29,7 +29,7 @@ export function OwnerFeedback({ lang }: { lang: Lang }) {
   const update = async (row: Row, patch: { status?: Status; category?: Category }) => {
     setBusy(row.id); setError(false);
     try {
-      await api(`/api/v2/owner/feedback/${row.id}`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ ...patch, ...(patch.status === "done" ? { notify } : {}) }) });
+      await api(`/api/v2/owner/feedback/${row.id}`, { method: "POST", idempotencyKey: true, body: jsonBody({ ...patch, ...(patch.status === "done" ? { notify } : {}) }) });
       load();
     } catch { setError(true); } finally { setBusy(null); }
   };
@@ -40,7 +40,7 @@ export function OwnerFeedback({ lang }: { lang: Lang }) {
     if (!text) return;
     setBusy(row.id); setError(false);
     try {
-      await api(`/api/v2/owner/feedback/${row.id}/reply`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ text }) });
+      await api(`/api/v2/owner/feedback/${row.id}/reply`, { method: "POST", idempotencyKey: true, body: jsonBody({ text }) });
       setDrafts((d) => ({ ...d, [row.id]: "" })); setSentTo(row.id); load();
     } catch { setError(true); } finally { setBusy(null); }
   };

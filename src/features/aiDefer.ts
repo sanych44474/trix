@@ -3,7 +3,6 @@
 import { RateLimitError } from "../ai/errors";
 import { recordError } from "../adapters/d1/v2AiTelemetry";
 import { startThinking } from "../adapters/telegram/thinking";
-import { advanceLevel } from "./gamification/level";
 import { t } from "../locales/i18n";
 import { MyContext, reply } from "../adapters/telegram/context";
 
@@ -20,14 +19,6 @@ export async function onError(ctx: MyContext, err: unknown, where: string) {
   await recordError(ctx.db, { userId: ctx.user._id, kind: where, errorType: "exception", message: String(err).slice(0, 200) }).catch(() => {});
   // For any AI-related failure show a retry hint instead of a scary generic error.
   await reply(ctx, t(ctx.user.lang, "ai_retry"));
-}
-
-// Celebrate crossing an XP level -- called after XP-earning actions (meal, check-in, steps). The
-// bookkeeping (and the silent first sighting) lives in features/gamification/level.ts, shared with
-// the workout save; this only decides how the chat says it.
-export async function maybeCelebrateLevel(ctx: MyContext) {
-  const lv = await advanceLevel(ctx.db, ctx.user);
-  if (lv?.leveledUp) await reply(ctx, t(ctx.user.lang, "levelup_msg", { level: lv.level, xp: lv.xp }), undefined, "celebrate").catch(() => {});
 }
 
 // Run a conversational AI handler past the webhook response (waitUntil) so the user gets

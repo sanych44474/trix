@@ -78,7 +78,7 @@ const BUDGET_THRESHOLD = 0.8;
 // weekly check re-triggers eviction for one more object, over and over.
 const EVICT_TARGET = 0.65;
 
-export interface StorageBudgetResult {
+interface StorageBudgetResult {
   checked: boolean;
   totalBytes: number;
   evictedCount: number;

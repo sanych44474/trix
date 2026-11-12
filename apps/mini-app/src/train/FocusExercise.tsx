@@ -54,6 +54,9 @@ export interface FocusExerciseProps {
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
   onCloseMenu: () => void;
+  /** Set (kg) or clear (null) the athlete's own weight ceiling for this exercise. */
+  /** `all`: the ceiling is for every dumbbell-only exercise, not just this one. */
+  onSetCap: (kg: number | null, all?: boolean) => void;
 }
 
 type Main = "reps" | "seconds" | "meters";
@@ -91,6 +94,7 @@ export function FocusExercise(props: FocusExerciseProps) {
   const firstOpen = Array.from({ length: rows }, (_, i) => i).find((i) => !done(i));
   const editing = draft && draft.row < rows ? draft : null;
   const [rpeOpen, setRpeOpen] = useState(false);
+  const [capOpen, setCapOpen] = useState(false);
   const mainInput = useRef<HTMLInputElement>(null);
 
   // A tap focuses the field and then drops the caret where the finger was, undoing a select() made on
@@ -138,6 +142,7 @@ export function FocusExercise(props: FocusExerciseProps) {
       <h1 id="focus-ex-title">{exercise.name}</h1>
       <p className="focus-target num">{target}</p>
       {exercise.target && <p className="focus-progress num">{t(lang, "target_last", { set: setLabel(exercise.target.lastW, exercise.target.lastR) })} → <strong>{t(lang, "target_today", { set: setLabel(exercise.target.w, exercise.target.r) })}</strong></p>}
+      {exercise.capKg ? <p className="focus-progress">{t(lang, "cap_note", { kg: fmt(lang, exercise.capKg) })}</p> : null}
       {exercise.planName && <p className="focus-progress">{t(lang, "swapped_from_note", { name: exercise.planName })}</p>}
       {exercise.note && <p className="focus-note"><Icon name="chat" size={18} /><span><strong>{t(lang, "focus_note_label")}</strong> {exercise.note}</span></p>}
       {muscles && muscles.primary.length > 0 && <Suspense fallback={<div className="focus-muscles" />}>
@@ -151,6 +156,7 @@ export function FocusExercise(props: FocusExerciseProps) {
         <div className="action-sheet" role="menu">
           <button type="button" className="chip-button" onClick={() => { props.onFillPlanned(); props.onCloseMenu(); }}>{t(lang, "train_as_planned_btn")}</button>
           {exercise.last?.length ? <button type="button" className="chip-button" onClick={() => { props.onFillLast(); props.onCloseMenu(); }}>{t(lang, "train_repeat_last_btn")}</button> : null}
+          {reps && <button type="button" className="chip-button" onClick={() => setCapOpen((v) => !v)} aria-expanded={capOpen}>{t(lang, "train_cap_btn")}{exercise.capKg ? ` · ${fmt(lang, exercise.capKg)} ${t(lang, "ph_kg")}` : ""}</button>}
           <button type="button" className="chip-button" onClick={props.onOpenSwap}>{props.busy === `swap:${exercise.index}` ? "…" : t(lang, "train_swap_btn")}</button>
           <button type="button" className="chip-button" onClick={() => { props.onStartRest(restSec, exercise.name); props.onCloseMenu(); }}><Icon name="timer" size={18} />{restSec} {t(lang, "ph_sec")}</button>
           <button type="button" className="chip-button" onClick={props.onToggleRestPrefs} aria-expanded={props.restPrefsOpen}>{t(lang, "train_rest_prefs_aria")}</button>
@@ -158,6 +164,20 @@ export function FocusExercise(props: FocusExerciseProps) {
           <button type="button" className="chip-button" onClick={() => props.onMove(1)}>{t(lang, "train_move_down")}</button>
           <button type="button" className="chip-button danger" onClick={props.onRemove}>{t(lang, "train_delete_btn")}</button>
         </div>
+      )}
+      {props.menuOpen && capOpen && (
+        <form className="input-row" onSubmit={(event) => {
+          event.preventDefault();
+          const form = event.currentTarget.elements;
+          const kg = Number((form.namedItem("cap") as HTMLInputElement).value.replace(",", "."));
+          const all = exercise.dumbbellOnly ? (form.namedItem("capAll") as HTMLInputElement).checked : false;
+          if (kg > 0 && kg <= 1000) { props.onSetCap(kg, all); setCapOpen(false); props.onCloseMenu(); }
+        }}>
+          <input name="cap" type="text" inputMode="decimal" autoComplete="off" aria-label={t(lang, "train_cap_btn")} placeholder={t(lang, "ph_kg")} defaultValue={exercise.capKg ? String(exercise.capKg) : ""} />
+          <button type="submit" className="button button-ghost">{t(lang, "cap_save_btn")}</button>
+          {exercise.dumbbellOnly ? <label className="check-row"><input name="capAll" type="checkbox" defaultChecked={!!exercise.capShared} /><span>{t(lang, "cap_all_dumbbells")}</span></label> : null}
+          {exercise.capKg ? <button type="button" className="button button-ghost" onClick={() => { props.onSetCap(null, !!exercise.capShared); setCapOpen(false); props.onCloseMenu(); }}>{t(lang, "cap_clear_btn")}</button> : null}
+        </form>
       )}
       {props.restPrefsOpen && (
         <div className="chip-row">

@@ -16,7 +16,7 @@ import type { ClientCardDoc, InjuryDoc, UserDoc } from "../types";
 
 /** One trainer<->client message, from the client-card viewer's perspective (no raw account ids
  * exposed to the client -- just "was this from me [the trainer]"). */
-export interface ClientCardMessage {
+interface ClientCardMessage {
   fromMe: boolean;
   text: string;
   createdAt: string;

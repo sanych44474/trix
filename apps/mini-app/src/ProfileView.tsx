@@ -44,7 +44,7 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   const run = async (key: string, action: SettingsBody["action"], extra?: Omit<Partial<SettingsBody>, "action">): Promise<SettingsResult | null> => {
     setBusy(key); setActionSaved(null); setActionError(null);
     try {
-      const result = await api<SettingsResult>("/api/v2/settings", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateSettings">({ action, ...extra }) });
+      const result = await api<SettingsResult>("/api/v2/settings", { method: "POST", idempotencyKey: true, body: typedBody<"updateSettings">({ action, ...extra }) });
       if (result.state) setSettings(result.state);
       if (result.ok === false) { setActionError(key); return result; }
       setActionSaved(key);
@@ -67,6 +67,8 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   const endVacation = () => { void run("vacation", "vacation", { off: true }); };
   const toggleCycle = (on: boolean) => { void run("cycle", "cycle", { on }); };
   const saveCycleDetails = () => { void run("cycleDetails", "cycle", { lastStart: cycleStart || undefined, len: Number(cycleLen) }); };
+  const toggleAutoProgression = (auto: boolean) => { void run("progression", "progression", { auto }); };
+  const removeCap = (exercise: string) => { void run(`cap:${exercise}`, "progression", { exercise, capKg: null }); };
   const toggleCompete = (on: boolean) => { void run("compete", "compete", { on }); };
   const saveAlias = () => { void run("alias", "compete", { alias: alias.trim() }); };
   const sendFeedback = async () => {
@@ -96,13 +98,13 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   // typed edits would vanish) -- reuses the same per-field actionError/actionSaved convention the
   // settings actions below already use, keyed "profile", rendered as an inline note near the button.
   const profileBody = (value: ProfilePayload["profile"]) => typedBody<"updateProfile">({ ...value, goalWeight: value.goalWeight === null ? null : Number(value.goalWeight), waterGoalMl: value.waterGoalMl === null ? null : Number(value.waterGoalMl), stepsGoal: value.stepsGoal === null ? null : Number(value.stepsGoal) });
-  const save = async () => { setSaving(true); setActionError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: profileBody(form) }); onBack(); } catch { setActionError("profile"); } finally { setSaving(false); } };
+  const save = async () => { setSaving(true); setActionError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: true, body: profileBody(form) }); onBack(); } catch { setActionError("profile"); } finally { setSaving(false); } };
   // The daily reminder hour saves on its own (the rest of the profile form is untouched).
   const saveReminderHour = async (hour: number) => {
     setHourBusy(true); setActionSaved(null); setActionError(null);
     try {
       const next = { ...form, reminderHour: hour };
-      await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: profileBody(next) });
+      await api("/api/v2/profile", { method: "POST", idempotencyKey: true, body: profileBody(next) });
       setForm(next); setActionSaved("hour");
     } catch { setActionError("hour"); } finally { setHourBusy(false); }
   };
@@ -156,6 +158,7 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
 
       {settings.cycle && <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "cycle_eyebrow")}</span><h2>{t(lang, "cycle_title")}</h2></div></div><label className="check-row"><input type="checkbox" checked={settings.cycle.on} disabled={busy === "cycle"} onChange={(event) => toggleCycle(event.target.checked)} /><span>{t(lang, "cycle_toggle_label")}</span></label><div className="form-grid"><label className="form-field"><span>{t(lang, "field_last_period")}</span><input type="date" value={cycleStart} onChange={(event) => setCycleStart(event.target.value)} /></label><label className="form-field"><span>{t(lang, "field_cycle_length")}</span><input type="number" min="20" max="45" value={cycleLen} onChange={(event) => setCycleLen(event.target.value)} /></label></div><div className="button-row"><button className="button button-ghost" disabled={busy === "cycleDetails"} onClick={saveCycleDetails}>{busy === "cycleDetails" ? t(lang, "saving_ellipsis") : t(lang, "cycle_save_btn")}</button></div>{(actionSaved === "cycleDetails" || actionSaved === "cycle") && <div className="save-note">{t(lang, "saved_label")}</div>}{(actionError === "cycleDetails" || actionError === "cycle") && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>}
 
+      <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "prog_eyebrow")}</span><h2>{t(lang, "prog_title")}</h2></div></div><label className="check-row"><input type="checkbox" checked={settings.progression.auto} disabled={busy === "progression"} onChange={(event) => toggleAutoProgression(event.target.checked)} /><span>{t(lang, "prog_auto_label")}</span></label><h3>{t(lang, "prog_caps_title")}</h3>{settings.progression.caps.length ? settings.progression.caps.map((cap) => <div className="check-row" key={cap.exercise}><span>{cap.exercise === "@dumbbell" ? t(lang, "cap_all_dumbbells") : cap.exercise} · {cap.kg} {t(lang, "ph_kg")}</span><button type="button" className="text-button" disabled={busy === `cap:${cap.exercise}`} onClick={() => removeCap(cap.exercise)}>{t(lang, "prog_cap_remove")}</button></div>) : <p className="muted">{t(lang, "prog_caps_empty")}</p>}{actionError === "progression" && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>
       <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "compete_eyebrow")}</span><h2>{t(lang, "compete_title")}</h2></div></div><label className="check-row"><input type="checkbox" checked={settings.compete.on} disabled={busy === "compete"} onChange={(event) => toggleCompete(event.target.checked)} /><span>{t(lang, "compete_toggle_label")}</span></label><div className="input-row"><input value={alias} maxLength={30} placeholder={t(lang, "alias_ph")} onChange={(event) => setAlias(event.target.value)} /><button className="button button-ghost" disabled={busy === "alias"} onClick={saveAlias}>{busy === "alias" ? t(lang, "saving_ellipsis") : t(lang, "compete_save_btn")}</button></div>{(actionSaved === "alias" || actionSaved === "compete") && <div className="save-note">{t(lang, "saved_label")}</div>}{(actionError === "alias" || actionError === "compete") && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>
 
       <section className="card"><div className="section-head"><div><span className="eyebrow">{t(lang, "feedback_eyebrow")}</span><h2>{t(lang, "feedback_title")}</h2></div></div><label className="form-field"><textarea value={feedback} maxLength={1500} placeholder={t(lang, "feedback_ph")} onChange={(event) => setFeedback(event.target.value)} /></label><div className="button-row"><button className="button button-ghost" disabled={busy === "feedback" || feedback.trim().length < 2} onClick={() => void sendFeedback()}>{busy === "feedback" ? t(lang, "saving_ellipsis") : t(lang, "feedback_send_btn")}</button></div>{actionSaved === "feedback" && <div className="save-note">{t(lang, "feedback_sent_note")}</div>}{actionError === "feedback" && <div className="save-note error-note">{t(lang, "save_error")}</div>}</section>

@@ -15,7 +15,7 @@
 
 import { typedFailure } from "./failure";
 
-export interface FieldSchema<T> {
+interface FieldSchema<T> {
   parse(value: unknown, path: string): { ok: true; value: T } | { ok: false; error: string };
 }
 

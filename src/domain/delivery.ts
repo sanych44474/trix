@@ -10,7 +10,7 @@ export function hasTelegramChat(user: { chatId: number; botBlocked?: boolean }):
 /** Largest progress photo accepted; phone cameras stay well under this after the app's resize. */
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
-export type ImageType = "image/jpeg" | "image/png" | "image/webp";
+type ImageType = "image/jpeg" | "image/png" | "image/webp";
 
 /** The image type from its first bytes, ignoring whatever the client claims. null = not an image
  * we store. */

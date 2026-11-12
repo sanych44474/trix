@@ -4,7 +4,7 @@ import { computeTargets } from "../domain/mealplan";
 import type { CatalogExercise, Lang, UserProfile } from "../types";
 
 // Compact candidate block (no long instructions) injected into plan/swap prompts.
-export function candidateBlock(candidates: CatalogExercise[]): string {
+function candidateBlock(candidates: CatalogExercise[]): string {
   if (!candidates.length) return "";
   // Group by muscle so the AI can easily find candidates for each day's muscle group.
   const byMuscle = new Map<string, CatalogExercise[]>();
@@ -604,40 +604,6 @@ export function exerciseCatalogUser(
   ]
     .filter(Boolean)
     .join("\n");
-}
-
-// ---------- warm-up suggestion ----------
-
-export const WARMUP_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    steps: { type: "ARRAY", items: { type: "STRING" } },
-  },
-  required: ["steps"],
-};
-
-export interface WarmupResult {
-  steps: string[];
-}
-
-export function warmupSystem(lang: Lang): string {
-  const L = langName(lang);
-  return `You are a strength & conditioning coach. Propose a short, practical warm-up for the given training day.
-
-Rules:
-- Return 3-5 concise warm-up steps that prepare the body for the day's muscle group and exercises.
-- Write every step in natural, fluent ${L} only. Do NOT mix in words from any other language.
-- Each step is one short line (e.g. "5 min easy bike", "band pull-aparts x15", "2 light warm-up sets").
-- Order them from general (raise heart rate / mobility) to specific (movement-specific ramp).
-- Plain text only — no markdown, asterisks, bullets, numbering, LaTeX or backslashes. Use a plain "x" for sets/reps, never the LaTeX "\\times".`;
-}
-
-export function warmupUser(muscleGroup: string, exercises: string[], level: string): string {
-  return [
-    `Muscle group: ${muscleGroup}`,
-    `Main exercises: ${exercises.join(", ") || "n/a"}`,
-    `Client level: ${level}`,
-  ].join("\n");
 }
 
 // ---------- exercise info (translate catalog instructions + safety) ----------

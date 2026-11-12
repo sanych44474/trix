@@ -44,7 +44,7 @@ export function MealPhoto({ lang, onLogged }: { lang: Lang; onLogged: () => void
     if (!items?.length) return;
     setBusy("log");
     try {
-      await api("/api/v2/nutrition", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editNutrition">({ action: "add_items", items }) });
+      await api("/api/v2/nutrition", { method: "POST", idempotencyKey: true, body: typedBody<"editNutrition">({ action: "add_items", items }) });
       reset();
       setNote(t(lang, "meal_photo_logged"));
       onLogged();

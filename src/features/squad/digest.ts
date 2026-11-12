@@ -25,7 +25,7 @@ export function squadLang(members: { lang: string }[]): Lang {
   return best;
 }
 
-export function renderSquadBoard(lang: Lang, week: SquadWeek, title: string | null, past: boolean): string {
+function renderSquadBoard(lang: Lang, week: SquadWeek, title: string | null, past: boolean): string {
   const head = t(lang, past ? "squad_recap_title" : "squad_board_title", {
     title: title?.trim() || t(lang, "squad_default_title"),
   });

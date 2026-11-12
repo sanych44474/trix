@@ -85,7 +85,7 @@ export async function coachContext(ctx: { db: D1Database }, owner: UserDoc): Pro
   // What the app itself has already decided — the coach quotes these instead of re-deriving
   // (and contradicting) them: the progression engine's next targets, a planned deload week,
   // today's readiness from the check-in.
-  const targets = plan ? planNextTargets(plan, recent.workouts) : [];
+  const targets = plan ? planNextTargets(plan, recent.workouts, 10, owner.profile.progression) : [];
   const targetsLine = targets.length ? `Next targets (the app's progression engine — quote these, don't compute different numbers):\n${targets.join("\n")}\n` : "";
   const deloadLine = plan && trainingWeek(plan, date).deload ? "This week is a planned DELOAD week: ~40% fewer sets, light loads, RPE ≤ 7 — don't push intensity.\n" : "";
   const readiness = readinessAdvice(checkin);

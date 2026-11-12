@@ -210,9 +210,16 @@ export async function handleWorkoutApi(req: Request, url: URL, env: Env): Promis
 // 30 exercises x 20 sets of JSON fits comfortably; anything bigger is not a real logger state.
 const MAX_DRAFT_CHARS = 60_000;
 
+/** A real calendar date as YYYY-MM-DD. V8 reads "2026-02-30" as 2 March, so parse and round-trip. */
+export function isCalendarDate(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const ms = Date.parse(`${date}T00:00:00Z`);
+  return !Number.isNaN(ms) && new Date(ms).toISOString().slice(0, 10) === date;
+}
+
 // Edit window guard: only a real calendar date, today or up to 14 days back (user's timezone).
 function validateEditDate(date: string, user: UserDoc): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) return "bad date";
+  if (!isCalendarDate(date)) return "bad date";
   const today = localParts(user.profile.timezone).date;
   if (date > today) return "future date";
   const floor = new Date(Date.parse(`${today}T00:00:00Z`) - 14 * 86_400_000).toISOString().slice(0, 10);

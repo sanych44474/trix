@@ -37,7 +37,7 @@ export function ReadyPrograms({ lang, onApplied }: { lang: Lang; onApplied?: () 
   const apply = async (p: ReadyProgram) => {
     setBusy(true); setNote(null);
     try {
-      await api("/api/v2/programs", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"applyReadyProgram">({ id: p.id }) });
+      await api("/api/v2/programs", { method: "POST", idempotencyKey: true, body: typedBody<"applyReadyProgram">({ id: p.id }) });
       setNote(t(lang, "rp_applied", { name: p.name }));
       setConfirm(null);
       track("app_program_applied");

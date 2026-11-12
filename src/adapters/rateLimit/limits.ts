@@ -16,12 +16,12 @@
 import { logError } from "../../log";
 
 /** The slice of Cloudflare's RateLimit binding this module uses. */
-export interface RateLimitBinding {
+interface RateLimitBinding {
   limit(options: { key: string }): Promise<{ success: boolean }>;
 }
 
 /** `admin`: guessing ADMIN_SECRET. `expensive`: Mini App actions that call AI or send documents. */
-export type LimitName = "admin" | "expensive" | "auth";
+type LimitName = "admin" | "expensive" | "auth";
 
 const BINDING: Record<LimitName, string> = { admin: "RL_ADMIN", expensive: "RL_EXPENSIVE", auth: "RL_AUTH" };
 const warned = new Set<string>();

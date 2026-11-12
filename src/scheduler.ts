@@ -17,7 +17,7 @@ import { workoutLogsSince } from "./adapters/d1/v2Workouts";
 import { awardAchievement, markSquadWoken, squadsNeedingWake } from "./adapters/d1/v2Gamification";
 import { getActivePlan, setProgressionRate } from "./adapters/d1/v2Plans";
 import { bodyLogsByUser, } from "./adapters/d1/v2Tracking";
-import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, updateUser } from "./adapters/d1/v2Users";
+import { getUser, listOnboardedUsers, listOnboardingOwedReply, listPlanPendingUsers, listRetryUsers, pendingRecoveryCount, listStuckOnboardingUsers, updateUser, patchReminders } from "./adapters/d1/v2Users";
 import { evaluateProgressionRate, } from "./domain/progression";
 import { localParts } from "./domain/localTime";
 import { isoWeekKey, } from "./domain/records";
@@ -27,7 +27,7 @@ import { DAILY_NUDGE_CAP, daysBetween, isQuietHour, nudgesSentToday } from "./do
 import { escapeHtml, t } from "./locales/i18n";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "./notify/onboardingApp";
 import { appKeyboard, } from "./notify/appKeyboard";
-import { finalizeOnboardingPlan, retryInterviewStep } from "./features/plan/planService";
+import { finalizeOnboardingPlan, planRetryDue, retryInterviewStep } from "./features/plan/planService";
 import { APP_VERSION } from "./appVersion";
 import { enforceStorageBudget } from "./adapters/r2/photoStorage";
 import { purgeExpiredStories } from "./adapters/r2/storyMedia";
@@ -166,10 +166,11 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   // subrequests (AI provider chain), and processing multiple users per invocation triggers
   // Cloudflare's "Too many subrequests" limit.
   const pendingPlan = await listPlanPendingUsers(db, new Date(Date.now() - 90_000).toISOString()).catch(() => []);
-  if (pendingPlan.length > 0) {
+  const due = pendingPlan.find((u) => planRetryDue(u));
+  if (due) {
     // Recover with the zero-AI bank plan first: a slow AI chain here blocks the whole cron
     // invocation (and can exceed its CPU limit) before the reminder/check-in section runs.
-    await finalizeOnboardingPlan(env, db, pendingPlan[0], { preferBank: true }).catch((e) => logSchedulerError(db, "plan_pending_recover", e, pendingPlan[0]._id));
+    await finalizeOnboardingPlan(env, db, due, { preferBank: true }).catch((e) => logSchedulerError(db, "plan_pending_recover", e, due._id));
   }
   } // end pendingRecoveryCount gate
 
@@ -189,7 +190,7 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
         await pingOther(env, u.chatId, nudgeText, appUrl ? onboardingAppMarkup(u.lang, appUrl) : undefined);
         // Mark today's nudge so we don't send it again today (in the reminders column, so a
         // user-facing session write can't wipe it).
-        await updateUser(db, u._id, { reminders: { ...u.reminders, lastNudge: today } });
+        await patchReminders(db, u._id, { lastNudge: today });
       } catch (e) {
         logSchedulerError(db, "stuck_onboarding_nudge", e, u._id);
       }
@@ -447,8 +448,11 @@ export async function processUser(env: Env, bot: Sender, user: UserDoc, pass: Sh
   };
   const flushReminders = async () => {
     if (Object.keys(dirty).length === 0) return;
-    const merged = { ...sent, ...dirty };
-    await updateUser(db, user._id, { reminders: { ...user.reminders, sent: merged } });
+    // Only the keys this pass set, merged into the stored map (patchReminders). The pass works on
+    // a snapshot taken when it started; writing the whole object back wiped anything another flow
+    // (a release broadcast, a workout save) had set since. A user still on the legacy
+    // session.lastReminders map gets it carried over once.
+    await patchReminders(db, user._id, { sent: user.reminders?.sent ? dirty : { ...sent, ...dirty } });
   };
 
   // Dedup MUST persist even if a later block throws (heavy Monday work, owner report, AI calls).

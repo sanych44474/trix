@@ -9,10 +9,10 @@
 import type { UserDoc } from "../../types";
 import { userStatCounts } from "../../adapters/d1/v2Analytics";
 import { awardAchievement } from "../../adapters/d1/v2Gamification";
-import { updateUser } from "../../adapters/d1/v2Users";
+import { patchReminders } from "../../adapters/d1/v2Users";
 import { computeXp, levelFromXp, levelTransition } from "../../domain/gamification";
 
-export interface LevelUpdate {
+interface LevelUpdate {
   level: number;
   xp: number;
   /** The user crossed into a higher level than the one last recorded. */
@@ -30,9 +30,8 @@ export async function advanceLevel(db: D1Database, user: UserDoc): Promise<Level
     const transition = levelTransition(lv.level, user.reminders?.lastLevel);
     let freshBadge: string | null = null;
     if (transition.changed) {
-      const reminders = { ...user.reminders, lastLevel: transition.level };
-      await updateUser(db, user._id, { reminders });
-      user.reminders = reminders;
+      await patchReminders(db, user._id, { lastLevel: transition.level });
+      user.reminders = { ...user.reminders, lastLevel: transition.level };
       if (transition.badge && (await awardAchievement(db, user._id, transition.badge).catch(() => false))) freshBadge = transition.badge;
     }
     return { level: lv.level, xp: lv.xp, leveledUp: transition.leveledUp, freshBadge };

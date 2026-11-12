@@ -4,7 +4,7 @@ import type { UserProfile } from "../../types";
 
 // Intake essentials the interview must collect — used to show onboarding progress (X/N) in the
 // owner report. Keep in sync with the "essentials" list in P.interviewSystem.
-export const INTAKE_ESSENTIALS: (keyof UserProfile)[] = [
+const INTAKE_ESSENTIALS: (keyof UserProfile)[] = [
   "name", "weightKg", "heightCm", "age", "sex", "goal", "trainingHistory",
   "daysPerWeek", "trainingWeekdays", "equipment", "sleepSchedule", "lifestyle",
   "limitations", "dietPrefs", "favoriteExercises", "dislikedExercises", "timezone", "reminderHour",

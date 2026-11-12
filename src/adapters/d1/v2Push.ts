@@ -5,7 +5,7 @@ import { nowIso, type DB } from "./shared";
 
 export type PushPlatform = "android" | "ios";
 export type PushKind = "token" | "fid";
-export interface PushTarget { token: string; kind: PushKind }
+interface PushTarget { token: string; kind: PushKind }
 
 export async function registerPushDevice(db: DB, accountId: number, token: string, platform: PushPlatform, appVersion: string | null, kind: PushKind = "token"): Promise<void> {
   const now = nowIso();

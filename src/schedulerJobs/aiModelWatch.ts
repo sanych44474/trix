@@ -60,7 +60,7 @@ const KEY_VAR: Record<Provider, keyof Env> = { gemini: "GEMINI_API_KEY", groq: "
 
 /** The provider's model list. A key var may hold several comma-separated keys (rotation, see
  * splitKeys); sending the raw list as one key is rejected, so each key is tried in turn. */
-export async function fetchCatalog(env: Env, provider: Provider): Promise<string[]> {
+async function fetchCatalog(env: Env, provider: Provider): Promise<string[]> {
   const keys = provider === "openrouter" ? [""] : splitKeys(env[KEY_VAR[provider]] as string | undefined);
   let last: unknown = new Error("no key");
   for (const key of keys) {

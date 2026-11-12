@@ -72,13 +72,19 @@ export async function dueNotifications(db: DB, nowIsoStr: string, limit = 50): P
     .prepare("SELECT id, accountId, chatId, kind, attempts, payload FROM v2_notifications WHERE status = 'pending' AND nextAttemptAt <= ? ORDER BY id ASC LIMIT ?")
     .bind(nowIsoStr, limit)
     .all<OutboxRowRaw>();
-  return (r.results ?? []).flatMap((row) => {
+  const rows: OutboxRow[] = [];
+  const unreadable: number[] = [];
+  for (const row of r.results ?? []) {
     try {
-      return [{ id: row.id, userId: row.accountId, chatId: row.chatId, kind: row.kind, attempts: row.attempts, payload: JSON.parse(row.payload) as OutboxPayload }];
+      rows.push({ id: row.id, userId: row.accountId, chatId: row.chatId, kind: row.kind, attempts: row.attempts, payload: JSON.parse(row.payload) as OutboxPayload });
     } catch {
-      return []; // corrupted payload — drop it from this batch; markPermanentFailure below cleans it up
+      unreadable.push(row.id);
     }
-  });
+  }
+  // A payload that cannot be parsed can never be sent. Left pending it was read again on every
+  // tick and held one of the sweep's slots for good, so it is retired here.
+  for (const id of unreadable) await markPermanentFailure(db, id, "failed", "bad_payload").catch(() => {});
+  return rows;
 }
 
 function hasAllOff(off: string | null | undefined): boolean {

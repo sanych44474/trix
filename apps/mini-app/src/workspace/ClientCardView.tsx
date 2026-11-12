@@ -48,7 +48,7 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
   const decideDraft = async (decision: "assign" | "discard" | "postpone") => {
     setBusy("draft"); setActionError(false);
     try {
-      await api(`/api/v2/trainer/client/${clientId}/draft`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"decideClientDraft">({ decision }) });
+      await api(`/api/v2/trainer/client/${clientId}/draft`, { method: "POST", idempotencyKey: true, body: typedBody<"decideClientDraft">({ decision }) });
       setSavedKey("draft");
       load();
     } catch { setActionError(true); } finally { setBusy(null); }
@@ -57,14 +57,14 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
   const saveCard = async () => {
     setBusy("card"); setSavedKey(null);
     try {
-      await api(`/api/v2/trainer/client/${clientId}/card`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateClientCard">({ healthNotes, personalNotes, birthday }) });
+      await api(`/api/v2/trainer/client/${clientId}/card`, { method: "POST", idempotencyKey: true, body: typedBody<"updateClientCard">({ healthNotes, personalNotes, birthday }) });
       setSavedKey("card");
     } catch { setActionError(true); } finally { setBusy(null); }
   };
   const saveNote = async () => {
     setBusy("note"); setSavedKey(null);
     try {
-      await api(`/api/v2/trainer/client/${clientId}/note`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateClientNote">({ note }) });
+      await api(`/api/v2/trainer/client/${clientId}/note`, { method: "POST", idempotencyKey: true, body: typedBody<"updateClientNote">({ note }) });
       setSavedKey("note");
     } catch { setActionError(true); } finally { setBusy(null); }
   };
@@ -73,7 +73,7 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
     setBusy("flag");
     try {
       const next = !data.client.flagged;
-      await api(`/api/v2/trainer/client/${clientId}/flag`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateClientFlag">({ flagged: next }) });
+      await api(`/api/v2/trainer/client/${clientId}/flag`, { method: "POST", idempotencyKey: true, body: typedBody<"updateClientFlag">({ flagged: next }) });
       setData({ ...data, client: { ...data.client, flagged: next } });
     } catch { setActionError(true); } finally { setBusy(null); }
   };
@@ -81,7 +81,7 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
     if (!templateName.trim()) return;
     setBusy("template"); setTemplateError(null); setSavedKey(null);
     try {
-      await api("/api/v2/trainer/templates", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"mutateTrainerTemplates">({ action: "create", name: templateName.trim(), fromClientId: clientId }) });
+      await api("/api/v2/trainer/templates", { method: "POST", idempotencyKey: true, body: typedBody<"mutateTrainerTemplates">({ action: "create", name: templateName.trim(), fromClientId: clientId }) });
       setTemplateName(""); setSavedKey("template"); onTemplateSaved();
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) setTemplateError(t(lang, "no_active_plan_hint"));
@@ -91,14 +91,14 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
   const requestPhotos = async () => {
     setBusy("photoreq"); setSavedKey(null);
     try {
-      await api(`/api/v2/trainer/client/${clientId}/photo-request`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
+      await api(`/api/v2/trainer/client/${clientId}/photo-request`, { method: "POST", idempotencyKey: true, body: jsonBody({}) });
       setSavedKey("photoreq");
     } catch { setActionError(true); } finally { setBusy(null); }
   };
   const requestInterview = async () => {
     setBusy("interview"); setSavedKey(null);
     try {
-      await api(`/api/v2/trainer/client/${clientId}/interview-nudge`, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({}) });
+      await api(`/api/v2/trainer/client/${clientId}/interview-nudge`, { method: "POST", idempotencyKey: true, body: jsonBody({}) });
       setSavedKey("interview");
     } catch { setActionError(true); } finally { setBusy(null); }
   };

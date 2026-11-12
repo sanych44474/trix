@@ -5,7 +5,7 @@
 // progression (domain/progression*), deload (domain/mesocycle.ts), nutrition (domain/calc.ts).
 // Each guide is one document; short sections with a heading each so chunks stay self-contained.
 
-export interface Guide {
+interface Guide {
   slug: string;
   uk: string;
   en: string;

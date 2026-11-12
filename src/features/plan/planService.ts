@@ -91,7 +91,7 @@ export async function retryInterviewStep(env: Env, db: D1Database, user: UserDoc
 // completed interview always converges to a plan instead of looping in plan_pending while the
 // AI chain is down. Mirrors buildPlanForUser's emergency fallback but ctx-free; exercise names
 // localize lazily on first view (healPlanNamesForDisplay). Returns null when no archetype fits.
-export async function bankFallbackPlan(
+async function bankFallbackPlan(
   db: D1Database, lang: Lang, profile: UserDoc["profile"], userId: number, authoredBy?: number,
 ): Promise<PlanDoc | null> {
   const match = selectBest(await listPlanBank(db), profile, userId);
@@ -183,13 +183,29 @@ export async function finalizeOnboardingPlan(
     // without a plan, which is exactly what /ownerreport → Errors exists to surface.
     await recordError(db, { userId: user._id, kind: "plan_finalize", errorType: "exception", message: String(e).slice(0, 200) }).catch(() => {});
     // Park for the plan-pending sweep to retry (don't leave them stuck).
-    await updateUser(db, user._id, { session: { mode: "plan_pending" } }).catch(() => {});
+    const tries = (user.session.planTries ?? 0) + 1;
+    await updateUser(db, user._id, { session: { mode: "plan_pending", planTries: tries, planTriedAt: new Date().toISOString() } }).catch(() => {});
     return false;
   }
 }
 
+/** After this many failed builds the every-minute sweep slows to one try per PLAN_RETRY_BACKOFF_MS. */
+const PLAN_FAST_TRIES = 5;
+const PLAN_RETRY_BACKOFF_MS = 60 * 60_000;
+
+/**
+ * Whether the plan-pending sweep should try this user now. A build that fails for a reason a
+ * retry cannot fix (no archetype fits, a bad profile) used to run, fail and log an error every
+ * minute for ever, and being first in the list it starved the users behind it.
+ */
+export function planRetryDue(user: UserDoc, now = Date.now()): boolean {
+  if ((user.session.planTries ?? 0) < PLAN_FAST_TRIES) return true;
+  const at = user.session.planTriedAt ? Date.parse(user.session.planTriedAt) : Number.NaN;
+  return !Number.isFinite(at) || now - at >= PLAN_RETRY_BACKOFF_MS;
+}
+
 /** A rebuild still counts as running this long after it started (a crashed one frees up after). */
-export const REPLAN_RUNNING_MS = 5 * 60_000;
+const REPLAN_RUNNING_MS = 5 * 60_000;
 
 /** True while a plan rebuild the user started from the app is still building. */
 export function replanRunning(user: UserDoc, now = Date.now()): boolean {

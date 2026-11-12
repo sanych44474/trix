@@ -36,7 +36,7 @@ export function SocialWorkspace({ lang, role }: { lang: Lang; role: Dashboard["v
 
   const post = async (key: string, path: string, body: unknown) => {
     setBusy(key);
-    try { await api(path, { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) }); load(); }
+    try { await api(path, { method: "POST", idempotencyKey: true, body: jsonBody(body) }); load(); }
     catch { setActionError(true); }
     finally { setBusy(null); }
   };

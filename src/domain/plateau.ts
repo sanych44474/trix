@@ -24,7 +24,7 @@ interface Session {
   volume: number; // Σ weight × reps
 }
 
-export type PlateauKind = "flat" | "regress";
+type PlateauKind = "flat" | "regress";
 
 export interface PlateauFinding {
   exercise: string;

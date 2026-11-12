@@ -74,11 +74,15 @@ export async function claimIdempotencyKey(db: DB, userId: number, key: string, w
     // window lapses; a genuinely in-flight one gets a 409-style "try again shortly" instead of a
     // duplicate side effect.
     if (Date.parse(row.createdAt) < Date.now() - CLAIM_STALE_MS) {
-      await db
-        .prepare("UPDATE v2_idempotency SET createdAt = ? WHERE accountId = ? AND key = ? AND state = 'processing'")
-        .bind(nowIso(), userId, key)
-        .run()
-        .catch(() => {});
+      // Compare-and-set on the createdAt we read: of two retries that both see the abandoned claim,
+      // only the first update still matches, so only one of them runs the handler.
+      try {
+        const took = await db
+          .prepare("UPDATE v2_idempotency SET createdAt = ? WHERE accountId = ? AND key = ? AND state = 'processing' AND createdAt = ?")
+          .bind(nowIso(), userId, key, row.createdAt)
+          .run();
+        if ((took.meta.changes ?? 0) === 0) return { claimed: false, cached: null };
+      } catch { /* could not write: fail open, like the read-back above */ }
       return { claimed: true };
     }
     return { claimed: false, cached: null };

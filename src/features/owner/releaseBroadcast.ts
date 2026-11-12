@@ -5,14 +5,14 @@
 import { GrammyError } from "grammy";
 import { telegramCall } from "../../adapters/telegram/rawApi";
 import type { Env } from "../../types";
-import { listOnboardedUsers, updateUser } from "../../adapters/d1/v2Users";
+import { listOnboardedUsers, updateUser, patchReminders } from "../../adapters/d1/v2Users";
 import { recordAudit } from "../../adapters/d1/v2Admin";
 import { latestRelease, releaseBody } from "../../releaseNotes";
 import { releaseRecipients } from "../../domain/releaseDelivery";
 import { appMarkup } from "../../notify/appKeyboard";
 import { t } from "../../locales/i18n";
 
-export interface ReleaseBroadcastResult { version: string; sent: number; failed: number; remaining: number }
+interface ReleaseBroadcastResult { version: string; sent: number; failed: number; remaining: number }
 
 /** Recipients still owed the latest note (for the owner's "send to N" labels). */
 export async function pendingReleaseRecipients(env: Env): Promise<number> {
@@ -33,7 +33,7 @@ export async function broadcastRelease(env: Env, ownerId: number, limit: number)
       .then(() => "ok" as const, (e: unknown) => (e instanceof GrammyError && e.error_code === 403 ? ("blocked" as const) : ("failed" as const)));
     if (outcome === "ok") {
       sent++;
-      await updateUser(env.DB, u._id, { reminders: { ...u.reminders, releaseSent: note.version } }).catch(() => {});
+      await patchReminders(env.DB, u._id, { releaseSent: note.version }).catch(() => {});
     } else {
       failed++;
       // 403 = the user blocked the bot: stop counting them as reachable (same as the bot's own sends).

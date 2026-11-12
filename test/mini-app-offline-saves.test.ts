@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cachedToday, cacheToday, enqueueSave, flushQueue, isNetworkError, readQueue, shouldRetry, type QueuedSave } from "../apps/mini-app/src/logic/offlineSaves";
+import { cachedToday, cacheToday, dequeueDate, enqueueSave, flushQueue, isNetworkError, readQueue, shouldRetry, type QueuedSave } from "../apps/mini-app/src/logic/offlineSaves";
 
 function memStore() {
   const m = new Map<string, string>();
@@ -82,4 +82,61 @@ test("the queue keeps the newest 20 saves", () => {
   assert.equal(keys.length, 20);
   assert.equal(keys[0], "k2", "the oldest save is the one dropped");
   assert.equal(keys[19], "k21");
+});
+
+// A flush used to take a snapshot of the queue and write its own result back at the end. A save
+// queued while a slow send was in flight was erased by that write: the logger had already said
+// "saved", and the workout was gone.
+test("flushQueue: a save queued while a send is in flight is kept, not overwritten by the flush", async () => {
+  const s = memStore();
+  enqueueSave(s, { key: "key-old-0001", date: "2026-11-09", body: { date: "2026-11-09", v: 1 }, queuedAt: 1 });
+  const sentKeys: string[] = [];
+  const r = await flushQueue(s, async (q) => {
+    sentKeys.push(q.key);
+    // The user finishes another workout while the first request is still open.
+    if (q.key === "key-old-0001") enqueueSave(s, { key: "key-new-0002", date: "2026-11-10", body: { date: "2026-11-10", v: 2 }, queuedAt: 2 });
+  });
+  assert.deepEqual(sentKeys, ["key-old-0001", "key-new-0002"], "the save queued mid-flush is sent too, not erased");
+  assert.equal(r.sent, 2);
+  assert.deepEqual(readQueue(s), []);
+});
+
+test("flushQueue: a save queued mid-flush survives when the network drops again", async () => {
+  const s = memStore();
+  enqueueSave(s, { key: "key-old-0001", date: "2026-11-09", body: { date: "2026-11-09" }, queuedAt: 1 });
+  await flushQueue(s, async (q) => {
+    if (q.key === "key-old-0001") { enqueueSave(s, { key: "key-new-0002", date: "2026-11-10", body: { date: "2026-11-10" }, queuedAt: 2 }); return; }
+    throw new TypeError("Failed to fetch");
+  });
+  assert.deepEqual(readQueue(s).map((q) => q.key), ["key-new-0002"]);
+});
+
+test("flushQueue: a queued save replaced by a newer one for the same date is not sent", async () => {
+  const s = memStore();
+  enqueueSave(s, { key: "key-a-000001", date: "2026-11-08", body: { date: "2026-11-08" }, queuedAt: 1 });
+  enqueueSave(s, { key: "key-b-000002", date: "2026-11-09", body: { date: "2026-11-09", v: 1 }, queuedAt: 2 });
+  const sentKeys: string[] = [];
+  await flushQueue(s, async (q) => {
+    sentKeys.push(q.key);
+    // While the first is being sent, the 11-09 workout is saved again with more sets.
+    if (q.key === "key-a-000001") enqueueSave(s, { key: "key-c-000003", date: "2026-11-09", body: { date: "2026-11-09", v: 2 }, queuedAt: 3 });
+  });
+  assert.deepEqual(sentKeys, ["key-a-000001", "key-c-000003"], "the stale body for 11-09 is never sent");
+  assert.deepEqual(readQueue(s), []);
+});
+
+test("dequeueDate: a save that went through online removes the older queued save for that date", () => {
+  const s = memStore();
+  enqueueSave(s, { key: "key-a-000001", date: "2026-11-08", body: {}, queuedAt: 1 });
+  enqueueSave(s, { key: "key-b-000002", date: "2026-11-09", body: {}, queuedAt: 2 });
+  dequeueDate(s, "2026-11-09");
+  assert.deepEqual(readQueue(s).map((q) => q.date), ["2026-11-08"]);
+});
+
+test("wiring: an online save dequeues its date, and a refused offline save is shown, not dropped silently", async () => {
+  const { readFileSync } = await import("node:fs");
+  assert.match(readFileSync("apps/mini-app/src/TrainView.tsx", "utf8"), /dequeueDate\(localStorage, targetDate \?\? workout\.date\)/);
+  const sync = readFileSync("apps/mini-app/src/OfflineSync.tsx", "utf8");
+  assert.match(sync, /if \(r\.dropped\) setDropped/);
+  assert.match(sync, /t\(lang, "offline_dropped", \{ n: dropped \}\)/);
 });

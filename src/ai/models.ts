@@ -72,7 +72,7 @@ export const NEURONS_PER_IMAGE = 120;
 const IMAGE_TOKENS = 1_600;
 
 /** Rough token count of text (Cyrillic tokenises denser than English, so ~3 chars/token). */
-export function estimateTokens(text: string): number {
+function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3);
 }
 

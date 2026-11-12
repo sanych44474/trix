@@ -127,7 +127,7 @@ export function pathToPolygons(d: string, steps = 4): Pt[][] {
 
 const SS = 4; // supersamples per axis
 
-export interface Layer { polys: Pt[][]; rgb: [number, number, number] }
+interface Layer { polys: Pt[][]; rgb: [number, number, number] }
 
 /** Paints layers in order onto an RGB buffer (nonzero winding; SS sub-scanlines per pixel row,
  *  exact fractional coverage along x). Edges are sorted by top y and swept with an active list,

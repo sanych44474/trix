@@ -80,6 +80,9 @@ interface CallOpts {
   validate?: (parsed: unknown) => void; // semantic check on the PARSED result (aiJSON only)
   onPartial?: (textSoFar: string) => void; // stream the raw answer as it arrives (providers that can)
   cacheTtlMs?: number; // opt this call into the response cache; only for prompts that do not depend on the user
+  /** Cache the answer only when this says it is worth replaying (given the parsed JSON, or the
+   *  text). A parseable but empty answer from a degraded provider must not be served for weeks. */
+  cacheIf?: (answer: unknown) => boolean;
 }
 
 function utcDate(): string {
@@ -177,6 +180,18 @@ export function providerDeadline(name: string, isFirst: boolean, now: number, ch
   if (name === "gemini") return now + Math.round((chainDeadline - now) * 0.6);
   if (name === "openrouter" && isFirst) return now + Math.round((chainDeadline - now) * 0.35);
   return undefined;
+}
+
+/** CallOpts.cacheIf applied to a provider's text (parsed as JSON when it is JSON). A check that throws caches nothing. */
+function worthCaching(o: CallOpts, text: string): boolean {
+  if (!o.cacheIf) return true;
+  try {
+    let answer: unknown = text;
+    try { answer = parseJson<unknown>(text); } catch { /* plain text */ }
+    return o.cacheIf(answer);
+  } catch {
+    return false;
+  }
 }
 
 async function run(
@@ -323,7 +338,7 @@ async function run(
       if (validate) validate(text); // throws if the output is unusable → next provider
       telemetry.push(aiUsageStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, model: p.model, ok: true, date }));
       telemetry.push(aiCallStmt(o.db, { userId: o.userId, provider: p.name, kind: o.kind, latencyMs: Date.now() - startMs, tokens: lastTokens, wasFallback }));
-      if (key && cacheTtl) telemetry.push(aiCacheStmt(o.db, key, text, cacheTtl)); // piggybacks the batch
+      if (key && cacheTtl && worthCaching(o, text)) telemetry.push(aiCacheStmt(o.db, key, text, cacheTtl)); // piggybacks the batch
       await flushTelemetry(o.db, [...telemetry, ...neuronsSpent]);
       // docs/slos.md's ai_call_completed -- input/output token split and cost estimate are NOT
       // populated yet: providers return bare text today (see aiCallStmt's own comment), so there

@@ -5,8 +5,8 @@ import { validateInitData } from "./initData";
 import { sessionIdentity, sessionTokenFromRequest } from "./appSessions";
 import type { Env, UserDoc } from "../types";
 
-export type MiniAppAuthMethod = "telegram" | "email" | "google" | "debug";
-export interface MiniAppIdentity {
+type MiniAppAuthMethod = "telegram" | "email" | "google" | "debug";
+interface MiniAppIdentity {
   user: UserDoc;
   method: MiniAppAuthMethod;
 }

@@ -1,6 +1,4 @@
-// Pure exercise helpers: pulling an exercise name out of a message, dropping equipment words,
-// default sets and start weight for a catalog exercise, and muscle-group enum mapping.
-import type { CatalogExercise, ExerciseMetric } from "../types";
+
 import { parseWorkoutText } from "./workoutText";
 
 export function extractExerciseQuery(text: string): string {
@@ -38,30 +36,6 @@ export function stripEquipmentWords(s: string): string {
     .replace(/\b(?:with|using|on)\b/gi, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
-}
-
-function defaultSetsForExercise(catalog: CatalogExercise): string {
-  switch (catalog.difficulty) {
-    case "expert":
-      return "4 × 6-8";
-    case "intermediate":
-      return "4 × 8-10";
-    default:
-      return "3 × 10-12";
-  }
-}
-
-export function defaultStartWeightForExercise(catalog: CatalogExercise): string {
-  const eq = catalog.equipments.join(" ").toLowerCase();
-  const bodyweightish = catalog.type?.toLowerCase().includes("bodyweight") || eq.includes("bodyweight");
-  return bodyweightish ? "Bodyweight" : "—";
-}
-
-// Default sets string by metric: timed holds → seconds, cardio → duration, else reps by difficulty.
-export function defaultSetsForMetric(metric: ExerciseMetric, catalog: CatalogExercise): string {
-  if (metric === "time") return "3 × 30-45s";
-  if (metric === "distance") return "10 min";
-  return defaultSetsForExercise(catalog);
 }
 
 // Maps localized/English muscle group display names to catalog muscle enum values.

@@ -9,6 +9,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -26,10 +27,14 @@ data class SettingsState(
     /** Only for female profiles; null hides the cycle card. */
     val cycle: Cycle? = null,
     val compete: Compete = Compete(),
+    val progression: Progression = Progression(),
 ) {
     @Serializable data class Reminder(val key: String, val label: String, val on: Boolean)
     @Serializable data class Cycle(val on: Boolean = false, val lastStart: String? = null, val len: Int = 28)
     @Serializable data class Compete(val on: Boolean = false, val alias: String = "")
+    /** The person's limits on automatic progression: an off switch and per-exercise weight ceilings. */
+    @Serializable data class Progression(val auto: Boolean = true, val caps: List<Cap> = emptyList())
+    @Serializable data class Cap(val exercise: String, val kg: Double)
 }
 
 @Serializable private data class SettingsResult(val state: SettingsState? = null)
@@ -56,6 +61,11 @@ class SettingsApi(private val api: ApiClient) {
         put("action", "compete")
         on?.let { put("on", it) }
         alias?.let { put("alias", it) }
+    })
+
+    suspend fun setAutoProgression(auto: Boolean): SettingsState? = act(buildJsonObject { put("action", "progression"); put("auto", auto) })
+    suspend fun clearCap(exercise: String): SettingsState? = act(buildJsonObject {
+        put("action", "progression"); put("exercise", exercise); put("capKg", JsonNull)
     })
 
     suspend fun feedback(text: String): SettingsState? = act(buildJsonObject { put("action", "feedback"); put("text", text) })

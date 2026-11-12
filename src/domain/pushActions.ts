@@ -6,7 +6,7 @@
 const VIEWS = new Set(["today", "train", "plan", "fuel", "progress", "more", "settings", "library", "inbox", "coach", "role", "onboarding"]);
 const MAX_ACTIONS = 2;
 
-export interface PushAction { label: string; view: string }
+interface PushAction { label: string; view: string }
 
 function viewOf(url: unknown): string | null {
   if (typeof url !== "string") return null;

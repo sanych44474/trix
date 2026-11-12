@@ -66,27 +66,42 @@ export function shouldRetry(err: unknown): boolean {
   return status === 429 || status >= 500;
 }
 
+/** Remove the queued save for a date: a newer save for that day went through online. Without
+ *  this the next flush replayed the older body and overwrote the newer workout. */
+export function dequeueDate(store: Store, date: string): void {
+  const queue = readQueue(store);
+  if (queue.some((q) => q.date === date)) writeQueue(store, queue.filter((q) => q.date !== date));
+}
+
+const removeKey = (store: Store, key: string) => writeQueue(store, readQueue(store).filter((q) => q.key !== key));
+
 /**
  * Send queued saves oldest first. Stops at the first network error (still offline) and keeps the
  * rest. Any other failure stays queued only when shouldRetry says so.
+ *
+ * The queue is re-read around every send, and only the entry just handled is removed. A send can
+ * take the full request timeout on gym signal; a save queued meanwhile used to be erased when the
+ * flush wrote its start-of-run snapshot back, after the logger had already said "saved".
  */
 export async function flushQueue(store: Store, send: (q: QueuedSave) => Promise<void>): Promise<FlushResult> {
-  const queue = readQueue(store);
-  const keep: QueuedSave[] = [];
   let sent = 0, dropped = 0;
-  for (let i = 0; i < queue.length; i++) {
-    const q = queue[i]!;
+  const tried = new Set<string>();
+  for (;;) {
+    // The oldest entry not tried in this run. One replaced by a newer save for its date is gone
+    // from the queue by now and is never sent.
+    const q = readQueue(store).find((entry) => !tried.has(entry.key));
+    if (!q) break;
+    tried.add(q.key);
     try {
       await send(q);
       sent++;
+      removeKey(store, q.key);
     } catch (err) {
-      if (isNetworkError(err)) { keep.push(...queue.slice(i)); break; }
-      if (shouldRetry(err)) keep.push(q);
-      else dropped++;
+      if (isNetworkError(err)) break;
+      if (!shouldRetry(err)) { dropped++; removeKey(store, q.key); }
     }
   }
-  writeQueue(store, keep);
-  return { sent, dropped, remaining: keep.length };
+  return { sent, dropped, remaining: readQueue(store).length };
 }
 
 /** The device's calendar date (the logger's "today" when the server can't be asked). */

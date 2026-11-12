@@ -4,11 +4,11 @@
 // confidence never do, so the card stays rare and the coach reply itself is never changed.
 // test/body-signal.test.ts.
 
-export type BodySignal = { kind: "injury" | "urgent" };
+type BodySignal = { kind: "injury" | "urgent" };
 
-export const PAIN_MIN = 0.75;
-export const INJURY_MIN_CONFIDENCE = 0.6;
-export const URGENT_MIN_CONFIDENCE = 0.5;
+const PAIN_MIN = 0.75;
+const INJURY_MIN_CONFIDENCE = 0.6;
+const URGENT_MIN_CONFIDENCE = 0.5;
 
 /** `pain` is the probability the message reports pain (null when Clef gave no answer). */
 export function bodySignalFrom(pain: number | null, severity: { choice: string; confidence?: number } | null): BodySignal | null {

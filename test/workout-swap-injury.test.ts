@@ -37,3 +37,19 @@ test("swap list: without an injury the same candidates are all offered", async (
   const r = await workoutSwapAlternatives(db, user, null, 0, "Leg Press", "quads");
   assert.equal(r?.alternatives.length, 5);
 });
+
+test("swap list: an exercise that is not in today's plan is looked up by its own name, not by today's slot", async () => {
+  // Tuesday is chest day; the athlete back-fills Monday's legs and swaps "Squat" at index 0.
+  const db = await setup();
+  const { upsertExercise: add } = await import("../src/adapters/d1/v2Catalog");
+  await add(db, { id: "fly", name: "Cable Fly", muscle: "chest", equipments: ["cable"], instructions: "", safetyInfo: "" });
+  const { setActivePlan } = await import("../src/adapters/d1/v2Plans");
+  const { localParts } = await import("../src/domain/localTime");
+  const user = (await getUser(db, 1)) as UserDoc;
+  const weekday = localParts(user.profile.timezone).weekday;
+  await setActivePlan(db, { userId: 1, active: true, status: "active", split: [{ weekday, muscleGroup: "Chest", exercises: [{ name: "Bench Press", sets: "3 × 8", startWeight: "60 kg", technique: "", metric: "reps", muscles: "chest" }] }], nutrition: { calories: 2000, protein: 150, fats: 60, carbs: 200 }, supplements: [], methodology: "", generatedAt: new Date(), schemaVersion: 1 } as never);
+  const { getActivePlan } = await import("../src/adapters/d1/v2Plans");
+  const r = await workoutSwapAlternatives(db, user, await getActivePlan(db, 1), 0, "Squat");
+  const names = (r?.alternatives ?? []).map((a) => a.name);
+  assert.ok(names.length > 0 && !names.includes("Cable Fly"), `quad alternatives, got: ${names.join(", ")}`);
+});

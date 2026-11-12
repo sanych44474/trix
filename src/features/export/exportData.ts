@@ -17,7 +17,7 @@ import { num } from "../nutrition/verifyItems";
 
 // The date a strength PR was set: the most recent history entry that hit the stored best
 // (by reps metric); falls back to the record's updatedAt for time/distance lifts.
-export function prDate(r: StrengthRecordDoc): string {
+function prDate(r: StrengthRecordDoc): string {
   if (r.metric === "reps") {
     const hit = r.history.filter((h) => h.weight === r.bestWeight && h.reps === r.bestReps);
     if (hit.length) return hit[hit.length - 1].date;
@@ -26,7 +26,7 @@ export function prDate(r: StrengthRecordDoc): string {
 }
 
 // One readable body-log line: weight + only the non-empty measurements, with units.
-export function bodyExportLine(lang: Lang, b: BodyLogDoc): string {
+function bodyExportLine(lang: Lang, b: BodyLogDoc): string {
   const parts: string[] = [];
   if (b.weight) parts.push(`${b.weight} ${t(lang, "unit_kg")}`);
   const m = b.measurements ?? {};
@@ -39,7 +39,7 @@ export function bodyExportLine(lang: Lang, b: BodyLogDoc): string {
 
 // The active plan's weekly split, one line per day, for the export's Markdown body. `null` (no
 // active plan) is handled by the caller — this only formats a plan that exists.
-export function planExportLines(lang: Lang, plan: PlanDoc): string[] {
+function planExportLines(lang: Lang, plan: PlanDoc): string[] {
   const out: string[] = [];
   for (const day of [...plan.split].sort((a, b) => a.weekday - b.weekday)) {
     out.push(`### ${weekdayName(lang, day.weekday)} — ${day.muscleGroup}`);

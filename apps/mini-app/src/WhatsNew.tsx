@@ -27,7 +27,7 @@ export function WhatsNewCard({ lang, version, text, items }: { lang: Lang; versi
   if (hidden) return null;
   const dismiss = () => {
     setHidden(true);
-    api("/api/v2/whatsnew/seen", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody({ version }) }).catch(() => {});
+    api("/api/v2/whatsnew/seen", { method: "POST", idempotencyKey: true, body: jsonBody({ version }) }).catch(() => {});
   };
   return (
     <section className="card whatsnew-card">

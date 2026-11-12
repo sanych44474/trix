@@ -26,7 +26,7 @@ private-chat message gets the Open-app button.
 
 | | |
 |---|---|
-| Functions in this catalog | **195** across 11 areas |
+| Functions in this catalog | **196** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
 | Surfaces | 3 — the Telegram Mini App, the Android app, and the bot (sign-in, invite links, payments, squads, reminders, owner tools) |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
@@ -130,6 +130,10 @@ private-chat message gets the Open-app button.
     reserve) and the plan takes the logged weight from there; anyone who states their bench, squat
     and deadlift gets every related exercise calibrated from those numbers; the rest are capped to
     a realistic share of bodyweight for their level.
+34. **Your own limits on progression**: switch automatic increases off, or set the heaviest load you have per exercise
+    (dumbbells stop at 30 kg). The app never suggests above it: at the ceiling it adds reps instead, and the weekly plan
+    update follows the same rule. Set from an exercise's menu while training or in Settings, in both apps
+    ([ADR-0014](adr/0014-progression-limits.md)).
 
 ## 3. Workout logging
 

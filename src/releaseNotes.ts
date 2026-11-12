@@ -6,7 +6,7 @@ import { escapeHtml, mdToHtml } from "./locales/i18n";
 // they're HTML-escaped first). The owner broadcasts the latest entry to every user (each in
 // their own language) with a confirm gate. Older history lives in docs/release-notes.md (add each
 // new entry there too), not in the Worker bundle — /whatsnew only needs the current and previous version.
-export interface ReleaseNote {
+interface ReleaseNote {
   version: string; // YYYY-MM-DD (also the display tag)
   en: string;
   uk: string;

@@ -28,14 +28,14 @@ import type { Env } from "../types";
 
 export type MiniAppHandler = (req: Request, url: URL, env: Env, ctx?: ExecutionContext) => Promise<Response>;
 
-export interface MiniAppRoute {
+interface MiniAppRoute {
   /** The unversioned path, e.g. /api/trainer. The v2 path is /api/v2 plus the same suffix. */
   path: string;
   handler: MiniAppHandler;
   legacy?: "exact" | "prefix";
 }
 
-export const MINI_APP_ROUTES: readonly MiniAppRoute[] = [
+const MINI_APP_ROUTES: readonly MiniAppRoute[] = [
   { path: "/api/workout", handler: handleWorkoutApi, legacy: "prefix" },
   { path: "/api/plan", handler: handlePlanApi, legacy: "exact" },
   { path: "/api/nutrition", handler: handleNutritionApi, legacy: "exact" },

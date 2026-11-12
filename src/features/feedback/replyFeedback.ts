@@ -17,7 +17,7 @@ export function feedbackReplyMarkup(feedbackId: number | null): { inline_keyboar
   return feedbackId ? { inline_keyboard: [[{ text: "↩️ Reply", callback_data: `fbr:${feedbackId}` }]] } : undefined;
 }
 
-export type ReplyResult = "sent" | "queued" | "not_delivered" | "not_found";
+type ReplyResult = "sent" | "queued" | "not_delivered" | "not_found";
 
 export async function replyToFeedback(env: Env, sender: OutboxSender, feedbackId: number, rawReply: string): Promise<ReplyResult> {
   const reply = rawReply.trim().slice(0, MAX_FEEDBACK_REPLY);

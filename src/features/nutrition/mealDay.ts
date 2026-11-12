@@ -86,7 +86,7 @@ export async function generateMealDayFor(
 // Translate the day's English food + meal names to the user's language in one batched
 // translate call (Gemini-first chain, deduped names). Best-effort: any failure leaves the
 // English names so the menu still renders.
-export async function localizeMealNames(env: Env, db: D1Database, lang: Lang, userId: number, meals: Meal[]): Promise<Meal[]> {
+async function localizeMealNames(env: Env, db: D1Database, lang: Lang, userId: number, meals: Meal[]): Promise<Meal[]> {
   if (lang === "en") return meals;
   const names = [...new Set([...meals.map((m) => m.name), ...meals.flatMap((m) => m.items.map((it) => it.food))])].filter(Boolean);
   if (!names.length) return meals;

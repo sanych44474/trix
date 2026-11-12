@@ -1,8 +1,8 @@
 import { toHex } from "../domain/secrets";
 import type { DB } from "../adapters/d1/shared";
 
-export const SESSION_COOKIE = "__Host-trix_session";
-export const SESSION_SECONDS = 30 * 24 * 60 * 60;
+const SESSION_COOKIE = "__Host-trix_session";
+const SESSION_SECONDS = 30 * 24 * 60 * 60;
 
 const encoder = new TextEncoder();
 
@@ -21,7 +21,7 @@ export function sessionTokenFromRequest(req: Request): string | null {
   return null;
 }
 
-export async function sessionTokenHash(token: string): Promise<string> {
+async function sessionTokenHash(token: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", encoder.encode(token));
   return toHex(new Uint8Array(digest));
 }
@@ -56,7 +56,7 @@ export async function revokeSession(db: DB, token: string | null): Promise<void>
   await db.prepare("DELETE FROM v2_auth_sessions WHERE tokenHash = ?").bind(await sessionTokenHash(token)).run();
 }
 
-export function sessionCookie(token: string): string {
+function sessionCookie(token: string): string {
   return `${SESSION_COOKIE}=${token}; Path=/; Max-Age=${SESSION_SECONDS}; Secure; HttpOnly; SameSite=Strict`;
 }
 

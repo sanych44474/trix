@@ -305,3 +305,43 @@ test("strength history already stored with duplicate dates is collapsed on read"
   const [record] = await listStrength(db, 306);
   assert.deepEqual(record.history, [{ date: "2026-09-25", weight: 14, reps: 11 }]);
 });
+
+test("upsertStrengthRecord: correcting a typo on the same day brings the best back down", async () => {
+  // 800 x 5 saved by mistake, then the day re-saved as 80 x 5. The best only ever moved up, so 800
+  // stayed the record for good: no PR could fire again and the strength board ranked on it.
+  const db = newDb();
+  await seedAccount(db, 77);
+  await upsertStrengthRecord(db, 77, "Bench Press", { metric: "reps", weight: 75, reps: 5 }, "2026-11-01");
+  await upsertStrengthRecord(db, 77, "Bench Press", { metric: "reps", weight: 800, reps: 5 }, "2026-11-08");
+  await upsertStrengthRecord(db, 77, "Bench Press", { metric: "reps", weight: 80, reps: 5 }, "2026-11-08");
+  const [rec] = await listStrength(db, 77);
+  assert.equal(rec.bestWeight, 80);
+  const next = await upsertStrengthRecord(db, 77, "Bench Press", { metric: "reps", weight: 82.5, reps: 5 }, "2026-11-10");
+  assert.equal(next.isPR, true, "a real PR fires again");
+});
+
+test("upsertStrengthRecord: a back-filled day lands in date order in the history", async () => {
+  const db = newDb();
+  await seedAccount(db, 78);
+  await upsertStrengthRecord(db, 78, "Squat", { metric: "reps", weight: 100, reps: 5 }, "2026-11-08");
+  await upsertStrengthRecord(db, 78, "Squat", { metric: "reps", weight: 95, reps: 5 }, "2026-11-03");
+  const [rec] = await listStrength(db, 78);
+  assert.deepEqual(rec.history.map((h) => h.date), ["2026-11-03", "2026-11-08"]);
+  assert.equal(rec.bestWeight, 100, "an older, lighter day does not lower the best");
+});
+
+test("quick log: logging an exercise on a day marked skipped makes the day a completed workout", async () => {
+  // The day held a skip placeholder (completed = false). The quick log kept that flag, so the
+  // sets were stored but ignored by volume, the streak, quests and "already logged".
+  const { handleQuickLogApi } = await import("../src/webapp/quickLogApi");
+  const { getOrCreateUser } = await import("../src/adapters/d1/v2Users");
+  const { localParts } = await import("../src/domain/localTime");
+  const db = newDb();
+  const user = await getOrCreateUser(db, 79, 79, "en", "Ann");
+  const { date, weekday } = localParts((user as { profile: { timezone?: string } }).profile.timezone);
+  await upsertWorkoutLog(db, 79, date, weekday as Weekday, [], false);
+  const req = new Request("https://example.test/api/log?debugUser=79", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "workout", name: "Push-up", sets: 3, reps: 15, weight: 0 }) });
+  const res = await handleQuickLogApi(req, new URL(req.url), { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "t" } as never);
+  assert.equal(res.status, 200);
+  assert.equal((await getWorkoutLog(db, 79, date))?.completed, true);
+});

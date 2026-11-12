@@ -4,7 +4,7 @@ import type { BodyLogDoc, Lang } from "../../types";
 import { nutritionLogsSince } from "../../adapters/d1/v2Nutrition";
 import { t } from "../../locales/i18n";
 
-export const REPORT_DAYS = 14;
+const REPORT_DAYS = 14;
 import { num } from "../nutrition/verifyItems";
 
 // Average daily nutrition over the logged days, as a localized report line.

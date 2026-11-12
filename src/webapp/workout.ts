@@ -1,6 +1,7 @@
 // Guided workout logger backend for the Mini App (roadmap P2): today's session payload and the save
 // route's body. The save is the shared use case completeWorkout (features/workout/completeWorkout.ts). Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
+import { isDumbbellOnly, limitsFor, type Limits } from "../domain/progressionPrefs";
 import { listActiveInjuries } from "../adapters/d1/v2Tracking";
 import { checkExerciseAgainstInjuries } from "../domain/safety";
 import { sessionKcal, sessionVolumeKg } from "../domain/sessionLoad";
@@ -15,7 +16,7 @@ import { catalogMusclesForExercise, muscleFromQuery } from "../domain/swapMuscle
 import { exerciseMetric, formatSetEntry, metricOfSets } from "../domain/setFormat";
 import { implausibleAbove } from "../domain/weightOutlier";
 import { repDropoffs } from "../domain/repDropoff";
-import { getPlanDay, nextTargetSet, workingSets, type TargetStep } from "../domain/progression";
+import { getPlanDay, nextTargetSet, planMetricMid, workingSets, type TargetStep } from "../domain/progression";
 import { resolveWeightMode } from "../domain/exerciseClass";
 import { localParts } from "../domain/localTime";
 import { deleteWorkoutDraft, getWorkoutDraft, getWorkoutLog, workoutLogsSince } from "../adapters/d1/v2Workouts";
@@ -37,7 +38,7 @@ import { lookupExerciseVideoCached } from "../adapters/youtube/youtube";
 import { buildVideoOpenLink } from "../domain/videoLink";
 import type { Env, ExerciseMetric, ExerciseVideo, LoggedExercise, PlanDoc, SetEntry, UserDoc, Weekday, WorkoutLogDoc } from "../types";
 
-export interface WorkoutTodayExercise {
+interface WorkoutTodayExercise {
   index: number;
   name: string;
   metric: ExerciseMetric;
@@ -60,6 +61,13 @@ export interface WorkoutTodayExercise {
   // The weight (kg) above which a typed set weight is an implausible jump: the logger's warning
   // threshold (domain/weightOutlier.ts implausibleAbove). Absent when there is not enough history.
   weightWarnAbove?: number;
+  // The athlete's own ceiling for this exercise in kg (Settings / the exercise menu). Progression
+  // never proposes a load above it; absent when none is set.
+  capKg?: number;
+  /** capKg comes from the all-dumbbell ceiling. */
+  capShared?: boolean;
+  /** Done with dumbbells only: the ceiling can be set for all such exercises at once. */
+  dumbbellOnly?: boolean;
   // The progression engine's target for today (domain/progression nextTargetSet) from the last
   // session's working sets — shown under the exercise and used as the weight/reps prefill.
   target?: { w: number; r: number; lastW: number; lastR: number; step: TargetStep };
@@ -68,7 +76,7 @@ export interface WorkoutTodayExercise {
   restSec?: number; // planned rest between sets in seconds, parsed from PlanExercise.rest ("90s", "2-3 min") by domain/restTime.ts
 }
 
-export interface WorkoutTodayPayload {
+interface WorkoutTodayPayload {
   date: string;
   weekday: Weekday;
   restDay: boolean;
@@ -103,7 +111,8 @@ export function assembleWorkoutToday(
       name: ex.name,
       metric: exerciseMetric(ex),
       sets: planSetsCount(ex.sets),
-      reps: planRepsMid(ex.sets),
+      // Both clients read `reps` as the set's amount in its own unit: reps, seconds or metres.
+      reps: plannedAmount(ex.sets, exerciseMetric(ex)),
       weightKg: planWeight(ex.startWeight),
       planSets: ex.sets,
       planWeight: ex.startWeight,
@@ -231,13 +240,17 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
       }
     }
     for (const ex of payload.exercises) {
+      const limits = limitsFor(user.profile.progression, ex.name, ex.canonicalName);
+      if (limits.cap !== undefined) ex.capKg = limits.cap;
+      if (limits.shared) ex.capShared = true;
+      if (isDumbbellOnly(ex.name) || (ex.canonicalName && isDumbbellOnly(ex.canonicalName))) ex.dumbbellOnly = true;
       const le = lastByName.get(ex.name);
       if (!le) continue;
       ex.last = le.setsDone.map((s) => ({ w: s.weight || 0, r: s.reps || 0, sec: s.seconds || 0, m: s.meters || 0 }));
       ex.weightHistory = weightsByName.get(ex.name);
       const warnAbove = implausibleAbove(ex.weightHistory ?? []);
       if (warnAbove !== null) ex.weightWarnAbove = warnAbove;
-      const target = todayTarget(ex, le);
+      const target = todayTarget(ex, le, limits);
       if (target) {
         ex.target = target;
         // The target is the prefill; a saved log or draft for today still wins on the client.
@@ -258,12 +271,12 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
 
 /** ISO weekday (1=Mon..7=Sun) of a YYYY-MM-DD string. */
 /** Today's target for a rep-based exercise from its last logged session. Pure (unit-tested). */
-export function todayTarget(ex: Pick<WorkoutTodayExercise, "name" | "metric" | "planSets">, last: LoggedExercise): WorkoutTodayExercise["target"] {
+export function todayTarget(ex: Pick<WorkoutTodayExercise, "name" | "metric" | "planSets">, last: LoggedExercise, limits?: Limits): WorkoutTodayExercise["target"] {
   if (ex.metric !== "reps") return undefined;
   const range = parseRepRangeLoose(ex.planSets ?? "");
   const ws = workingSets(last.setsDone, range?.low ?? 1);
   if (!ws) return undefined;
-  const n = nextTargetSet(ws.weight, ws.reps, ex.name, last.rpe, range);
+  const n = nextTargetSet(ws.weight, ws.reps, ex.name, last.rpe, range, limits);
   return { w: n.weight, r: n.reps, lastW: ws.weight, lastR: ws.reps, step: n.step };
 }
 
@@ -279,14 +292,14 @@ function isoWeekdayOfDate(date: string): Weekday {
   return (d === 0 ? 7 : d) as Weekday;
 }
 
-export interface SaveEntry {
+interface SaveEntry {
   name: string;
   rpe?: number; // entry-level effort (same as the bot's one-tap srpe buttons)
   planName?: string; // the plan exercise this one replaced (in-session swap)
   sets: SetEntry[];
 }
 
-export interface SaveTiming {
+interface SaveTiming {
   durationSec?: number;
   restTotalSec?: number;
 }
@@ -350,7 +363,13 @@ export function buildRawText(entries: SaveEntry[]): string {
   return entries.map((e) => `${e.name} ${e.sets.map(formatSetEntry).join(", ")}`).join("\n");
 }
 
-export interface SaveResult {
+/** A plan exercise's prescribed amount per set in the unit it is logged in (reps, seconds, metres). */
+export function plannedAmount(sets: string, metric: string): number {
+  if (metric === "time" || metric === "distance") return planMetricMid(sets, metric) ?? planRepsMid(sets);
+  return planRepsMid(sets);
+}
+
+interface SaveResult {
   ok: true;
   prExercises: string[];
   newBadges: string[]; // localized labels, ready to display
@@ -484,7 +503,10 @@ export async function workoutSwapAlternatives(
   // By name first: the logger's list can be reordered (moved exercises, a re-opened saved day
   // lists what was logged first), so its position no longer has to match the plan's.
   const byName = planName ? day?.exercises.find((e) => e.name === planName) : undefined;
-  const current = byName ?? day?.exercises[index];
+  // A named exercise that is not in today's plan (a back-filled day, a copied or custom exercise)
+  // is looked up by its name alone. Falling back to today's slot at that index offered bench
+  // alternatives for Monday's squat when it was swapped on a Tuesday.
+  const current = byName ?? (planName ? undefined : day?.exercises[index]);
   // A typed muscle ("трицепс") picks the group outright; it works for any exercise, in the plan
   // or not. Anything else typed there is the person's own exercise, which the app adds itself.
   const typed = muscleQuery ? muscleFromQuery(muscleQuery) : null;

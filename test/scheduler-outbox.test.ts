@@ -170,3 +170,29 @@ test("enqueueAndDeliver: a D1 error AFTER Telegram accepted the message does not
   const dueSoon = await dueNotifications(db, new Date(Date.now() + 90_000).toISOString());
   assert.equal(dueSoon.length, 0);
 });
+
+test("sweep: a row with an unreadable payload is retired, not left pending forever", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 71, 71, "en", "Ann");
+  db.dump("INSERT INTO v2_notifications (accountId, chatId, kind, idempotencyKey, payload, status, attempts, nextAttemptAt, createdAt) VALUES (71, 71, 'reminder', 'bad-json', '{not json', 'pending', 0, '2000-01-01T00:00:00.000Z', '2000-01-01T00:00:00.000Z')");
+  await deliverDueNotifications(fakeEnv(db), { api: { sendMessage: async () => ({}) } } as unknown as OutboxSender);
+  const row = db.dump<{ status: string; lastError: string }>("SELECT status, lastError FROM v2_notifications WHERE idempotencyKey = 'bad-json'")[0];
+  assert.equal(row.status, "failed", "it held one of the sweep's 50 slots on every tick");
+  assert.equal(row.lastError, "bad_payload");
+});
+
+test("sweep: a delivery that throws outside the send still counts as an attempt, and the sweep goes on", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 72, 72, "en", "Bo");
+  await getOrCreateUser(db, 73, 73, "en", "Cy");
+  const past = "2000-01-01T00:00:00.000Z";
+  // A payload that parses but breaks delivery itself (no text to send), then a healthy row.
+  db.dump("INSERT INTO v2_notifications (accountId, chatId, kind, idempotencyKey, payload, status, attempts, nextAttemptAt, createdAt) VALUES (72, 72, 'reminder', 'poison', 'null', 'pending', 0, ?, ?)", past, past);
+  db.dump("INSERT INTO v2_notifications (accountId, chatId, kind, idempotencyKey, payload, status, attempts, nextAttemptAt, createdAt) VALUES (73, 73, 'reminder', 'healthy', ?, 'pending', 0, ?, ?)", JSON.stringify({ text: "hi" }), past, past);
+  const sent: number[] = [];
+  const sender = { api: { sendMessage: async (chatId: number) => { sent.push(chatId); return {}; } } } as unknown as OutboxSender;
+  await deliverDueNotifications(fakeEnv(db), sender);
+  assert.deepEqual(sent, [73], "the row after the poison one is still delivered in the same sweep");
+  const poison = db.dump<{ status: string; attempts: number }>("SELECT status, attempts FROM v2_notifications WHERE idempotencyKey = 'poison'")[0];
+  assert.ok(poison.attempts >= 1 || poison.status === "failed", JSON.stringify(poison));
+});

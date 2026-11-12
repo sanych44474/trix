@@ -97,7 +97,7 @@ function isoWeekdayOf(date: string): Weekday {
   return (d === 0 ? 7 : d) as Weekday;
 }
 
-export interface SyncResult { imported: number; days: number }
+interface SyncResult { imported: number; days: number }
 
 /** Pulls new activities into the log. Records the outcome on the link either way. */
 export async function syncStrava(db: DB, cfg: StravaConfig, accountId: number, lang: Lang, fetchImpl: Fetch = fetch, now = Date.now()): Promise<SyncResult> {

@@ -31,7 +31,7 @@ import type { DB } from "../../adapters/d1/shared";
 
 export const MAX_EX_PER_DAY = 12;
 /** Weights keep what the user typed, rounded only to this step (plates are the calculator's job). */
-export const WEIGHT_STEP_KG = 0.5;
+const WEIGHT_STEP_KG = 0.5;
 const NOTE_MAX = 300;
 const TECHNIQUE_MAX = 1000;
 const EQUIPMENT = ["full gym", "home basics (dumbbells, bands)", "dumbbells only", "bodyweight only"];
@@ -84,7 +84,7 @@ export type PlanEdit =
   | { kind: "difficulty"; weekday: number; dir: "up" | "down" }
   | { kind: "fitkit"; equipment?: string };
 
-export interface PlanEditTarget {
+interface PlanEditTarget {
   env: Env;
   /** The plan owner (self, or the client a trainer is editing). Mutated: profile follows day sync. */
   owner: UserDoc;
@@ -96,7 +96,7 @@ export interface PlanEditTarget {
   expectedVersion?: string;
 }
 
-export interface PlanEditResult {
+interface PlanEditResult {
   split: PlanDay[];
   /** One-line history summary; empty when the edit was a no-op and nothing was recorded. */
   summary: string;

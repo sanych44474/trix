@@ -51,10 +51,40 @@ function headers(extra?: HeadersInit): Headers {
   return headers;
 }
 
-export async function api<T>(path: string, init: RequestInit & { idempotencyKey?: string } = {}): Promise<T> {
+// `idempotencyKey: true` asks for a key that stays the same for the same request (path + body)
+// until it gets an answer. A fresh key per tap meant a slow save the person tapped again was
+// logged twice (a meal, a body measurement); with one key the server returns the first result.
+const pendingKeys = new Map<string, string>();
+
+export function stableKey(path: string, body: unknown): string {
+  const id = `${path}\u0000${typeof body === "string" ? body : ""}`;
+  let key = pendingKeys.get(id);
+  if (!key) { key = crypto.randomUUID(); pendingKeys.set(id, key); }
+  return key;
+}
+
+/** The request was answered for good: a success, or a refusal a retry would not change. */
+export function settleKey(path: string, body: unknown, status?: number): void {
+  if (status === undefined || (status < 500 && status !== 408 && status !== 409 && status !== 429)) pendingKeys.delete(`${path}\u0000${typeof body === "string" ? body : ""}`);
+}
+
+export async function api<T>(path: string, init: RequestInit & { idempotencyKey?: string | true } = {}): Promise<T> {
   const requestHeaders = headers(init.headers);
   if (init.body && !requestHeaders.has("Content-Type")) requestHeaders.set("Content-Type", "application/json");
-  if (init.idempotencyKey) requestHeaders.set("Idempotency-Key", init.idempotencyKey);
+  const stable = init.idempotencyKey === true;
+  if (init.idempotencyKey) requestHeaders.set("Idempotency-Key", stable ? stableKey(path, init.body) : (init.idempotencyKey as string));
+  try {
+    const result = await send<T>(path, init, requestHeaders);
+    if (stable) settleKey(path, init.body);
+    return result;
+  } catch (err) {
+    // No answer at all (a timeout, a dropped connection) keeps the key: the save may have landed.
+    if (stable && err instanceof ApiError) settleKey(path, init.body, err.status);
+    throw err;
+  }
+}
+
+async function send<T>(path: string, init: RequestInit, requestHeaders: Headers): Promise<T> {
   const response = await fetch(appendDebugQuery(path), { ...init, headers: requestHeaders, signal: init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   rememberBookmark(response);
   let body: unknown = null;
