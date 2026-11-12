@@ -2,6 +2,7 @@
 // /api/profile yet — reminder toggles, vacation mode, language, cycle tracking, leaderboard
 // opt-in + alias, feedback, data export (pushed as a document to the chat), leave-trainer and
 // account deletion. One endpoint, action-based POSTs; GET returns the whole current state.
+import { sanitizeProgression, withCap } from "../domain/progressionPrefs";
 import { pingOther } from "../notify/notify";
 import { appMarkup } from "../notify/appKeyboard";
 import { buildExportJson, buildExportMd } from "../features/export/exportData";
@@ -50,6 +51,10 @@ function state(user: UserDoc, lang: Lang) {
       ? { on: !!user.profile.cycleTracking, lastStart: user.profile.lastPeriodStart ?? null, len: user.profile.cycleLengthDays ?? 28 }
       : null,
     compete: { on: !!user.competeOptIn, alias: user.alias ?? "" },
+    progression: {
+      auto: user.profile.progression?.auto !== false,
+      caps: Object.entries(user.profile.progression?.caps ?? {}).map(([exercise, kg]) => ({ exercise, kg })).sort((a, b) => a.exercise.localeCompare(b.exercise)),
+    },
   };
 }
 
@@ -131,6 +136,23 @@ export async function handleSettingsApi(req: Request, url: URL, env: Env): Promi
         if (body.lastStart <= date) profile.lastPeriodStart = body.lastStart;
       }
       if (typeof body.len === "number" && body.len >= 20 && body.len <= 45) profile.cycleLengthDays = Math.round(body.len);
+      await updateUser(env.DB, user._id, { profile });
+      user.profile = profile;
+    } else if (action === "progression") {
+      // The athlete's limits on automatic progression (domain/progressionPrefs.ts): an off switch,
+      // and a per-exercise ceiling (capKg; null clears it).
+      let prefs = sanitizeProgression(user.profile.progression);
+      if (typeof body.auto === "boolean") prefs = { ...prefs, ...(body.auto ? {} : { auto: false }) };
+      if (body.auto === true) delete prefs.auto;
+      if (typeof body.exercise === "string" && "capKg" in body) {
+        const kg = body.capKg === null ? null : Number(body.capKg);
+        const next = withCap(prefs, body.exercise.slice(0, 80), kg);
+        if (!next) return typedFailure(400, "validation_error", "bad request");
+        prefs = next;
+      } else if (typeof body.auto !== "boolean") {
+        return typedFailure(400, "validation_error", "bad request");
+      }
+      const profile = { ...user.profile, progression: Object.keys(prefs).length ? prefs : undefined };
       await updateUser(env.DB, user._id, { profile });
       user.profile = profile;
     } else if (action === "compete") {

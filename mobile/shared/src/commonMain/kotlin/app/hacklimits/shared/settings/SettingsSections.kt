@@ -232,6 +232,26 @@ internal fun RemindersSection(settings: SettingsState, busy: Boolean, onToggle: 
 }
 
 @Composable
+internal fun ProgressionSection(progression: SettingsState.Progression, busy: Boolean, onAuto: (Boolean) -> Unit, onRemoveCap: (String) -> Unit) {
+    SettingsCard(stringResource(Res.string.ac_prog_title), stringResource(Res.string.ac_prog_eyebrow)) {
+        CheckRow(stringResource(Res.string.ac_prog_auto), checked = progression.auto, onChange = { onAuto(it) }, enabled = !busy)
+        Text(stringResource(Res.string.ac_prog_caps_title), style = MaterialTheme.typography.titleSmall)
+        if (progression.caps.isEmpty()) {
+            Text(stringResource(Res.string.ac_prog_caps_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            progression.caps.forEach { cap ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("${cap.exercise} · ${fmtKg(cap.kg)}", modifier = Modifier.weight(1f))
+                    TextButton(onClick = { onRemoveCap(cap.exercise) }, enabled = !busy) { Text(stringResource(Res.string.ac_prog_cap_remove)) }
+                }
+            }
+        }
+    }
+}
+
+private fun fmtKg(kg: Double): String = if (kg % 1.0 == 0.0) "${kg.toInt()} kg" else "$kg kg"
+
+@Composable
 internal fun VacationSection(settings: SettingsState, dateText: String, busy: Boolean, onDays: (Int) -> Unit, onDate: (String) -> Unit, onStartDate: () -> Unit, onEnd: () -> Unit) {
     SettingsCard(stringResource(Res.string.ac_vacation_title), stringResource(Res.string.ac_vacation_eyebrow)) {
         val until = settings.vacationUntil

@@ -171,6 +171,7 @@ fun MoreScreen(
         } else {
             LanguageSection(settings.lang, s.busy, vm::setLanguage)
             RemindersSection(settings, s.busy, vm::toggleReminder)
+            ProgressionSection(settings.progression, s.busy, vm::setAutoProgression, vm::removeCap)
             p.reminderHour?.let { hour -> key(hour) { ReminderHourSetting(initialHour = hour) } }
             VacationSection(
                 settings = settings,

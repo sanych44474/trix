@@ -60,6 +60,8 @@ data class LoggerExercise(
     val setsDone: List<LoggerSet>? = null,
     val rpe: Double? = null,
     val weightWarnAbove: Double? = null,
+    /** The person's own weight ceiling for this exercise (kg); null = none. */
+    val capKg: Double? = null,
 ) {
     val done: List<LoggerSet> get() = setsDone ?: emptyList()
 }
@@ -313,7 +315,7 @@ fun fromPlan(ex: WorkoutToday.Exercise): LoggerExercise = LoggerExercise(
     index = ex.index, name = ex.name, metric = ex.metric, sets = ex.sets, reps = ex.reps, weightKg = ex.weightKg,
     planSets = ex.planSets, planWeight = ex.planWeight, technique = ex.technique, note = ex.note,
     canonicalName = ex.canonicalName, videoUrl = ex.videoUrl, videoTitle = ex.videoTitle,
-    target = ex.target, last = ex.last, restSec = ex.restSec, weightWarnAbove = ex.weightWarnAbove,
+    target = ex.target, last = ex.last, restSec = ex.restSec, weightWarnAbove = ex.weightWarnAbove, capKg = ex.capKg,
 )
 
 /**

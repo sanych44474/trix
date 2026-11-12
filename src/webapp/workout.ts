@@ -1,6 +1,7 @@
 // Guided workout logger backend for the Mini App (roadmap P2): today's session payload and the save
 // route's body. The save is the shared use case completeWorkout (features/workout/completeWorkout.ts). Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
+import { limitsFor, type Limits } from "../domain/progressionPrefs";
 import { listActiveInjuries } from "../adapters/d1/v2Tracking";
 import { checkExerciseAgainstInjuries } from "../domain/safety";
 import { sessionKcal, sessionVolumeKg } from "../domain/sessionLoad";
@@ -60,6 +61,9 @@ interface WorkoutTodayExercise {
   // The weight (kg) above which a typed set weight is an implausible jump: the logger's warning
   // threshold (domain/weightOutlier.ts implausibleAbove). Absent when there is not enough history.
   weightWarnAbove?: number;
+  // The athlete's own ceiling for this exercise in kg (Settings / the exercise menu). Progression
+  // never proposes a load above it; absent when none is set.
+  capKg?: number;
   // The progression engine's target for today (domain/progression nextTargetSet) from the last
   // session's working sets — shown under the exercise and used as the weight/reps prefill.
   target?: { w: number; r: number; lastW: number; lastR: number; step: TargetStep };
@@ -232,13 +236,15 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
       }
     }
     for (const ex of payload.exercises) {
+      const limits = limitsFor(user.profile.progression, ex.name, ex.canonicalName);
+      if (limits.cap !== undefined) ex.capKg = limits.cap;
       const le = lastByName.get(ex.name);
       if (!le) continue;
       ex.last = le.setsDone.map((s) => ({ w: s.weight || 0, r: s.reps || 0, sec: s.seconds || 0, m: s.meters || 0 }));
       ex.weightHistory = weightsByName.get(ex.name);
       const warnAbove = implausibleAbove(ex.weightHistory ?? []);
       if (warnAbove !== null) ex.weightWarnAbove = warnAbove;
-      const target = todayTarget(ex, le);
+      const target = todayTarget(ex, le, limits);
       if (target) {
         ex.target = target;
         // The target is the prefill; a saved log or draft for today still wins on the client.
@@ -259,12 +265,12 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
 
 /** ISO weekday (1=Mon..7=Sun) of a YYYY-MM-DD string. */
 /** Today's target for a rep-based exercise from its last logged session. Pure (unit-tested). */
-export function todayTarget(ex: Pick<WorkoutTodayExercise, "name" | "metric" | "planSets">, last: LoggedExercise): WorkoutTodayExercise["target"] {
+export function todayTarget(ex: Pick<WorkoutTodayExercise, "name" | "metric" | "planSets">, last: LoggedExercise, limits?: Limits): WorkoutTodayExercise["target"] {
   if (ex.metric !== "reps") return undefined;
   const range = parseRepRangeLoose(ex.planSets ?? "");
   const ws = workingSets(last.setsDone, range?.low ?? 1);
   if (!ws) return undefined;
-  const n = nextTargetSet(ws.weight, ws.reps, ex.name, last.rpe, range);
+  const n = nextTargetSet(ws.weight, ws.reps, ex.name, last.rpe, range, limits);
   return { w: n.weight, r: n.reps, lastW: ws.weight, lastR: ws.reps, step: n.step };
 }
 

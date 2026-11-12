@@ -1,4 +1,5 @@
 import type { DailyCheckinDoc, LoggedExercise, PlanDay, PlanDoc, PlanExercise, ProgressionRate, SetEntry, Weekday, WorkoutLogDoc } from "../types";
+import { limitTarget, limitsFor, type Limits, type ProgressionPrefs } from "./progressionPrefs";
 import { exerciseMetric, metricOfSets, bestSetForMetric } from "./setFormat";
 import { tokens } from "./workoutText";
 import { isLowerBody } from "./exerciseClass";
@@ -73,8 +74,9 @@ export function nextTarget(
   exercise: string,
   lastRpe?: number,
   range?: { low: number; high: number },
+  limits?: Limits,
 ): string {
-  const n = nextTargetSet(bestWeight, bestReps, exercise, lastRpe, range);
+  const n = nextTargetSet(bestWeight, bestReps, exercise, lastRpe, range, limits);
   return `${n.weight > 0 ? fmtNum(n.weight) : "BW"} × ${n.reps}`;
 }
 
@@ -87,14 +89,18 @@ export function nextTargetSet(
   exercise: string,
   lastRpe?: number,
   range?: { low: number; high: number },
+  limits?: Limits,
 ): { weight: number; reps: number; step: TargetStep } {
   const low = range?.low ?? 8;
   const high = Math.max(low, range?.high ?? 12);
   if (typeof lastRpe === "number" && lastRpe >= GRIND_RPE) return { weight: bestWeight, reps: bestReps, step: "hold" };
   const easy = typeof lastRpe === "number" && lastRpe <= 7;
-  if (!(bestWeight > 0)) return { weight: 0, reps: bestReps + (easy ? 2 : 1), step: "reps" };
-  if (bestReps < high) return { weight: bestWeight, reps: Math.min(high, bestReps + (easy ? 2 : 1)), step: "reps" };
-  return { weight: bestWeight + loadJump(exercise, bestWeight, easy), reps: low, step: "load" };
+  let next: { weight: number; reps: number; step: TargetStep };
+  if (!(bestWeight > 0)) next = { weight: 0, reps: bestReps + (easy ? 2 : 1), step: "reps" };
+  else if (bestReps < high) next = { weight: bestWeight, reps: Math.min(high, bestReps + (easy ? 2 : 1)), step: "reps" };
+  else next = { weight: bestWeight + loadJump(exercise, bestWeight, easy), reps: low, step: "load" };
+  // The athlete's own limits (domain/progressionPrefs.ts): a ceiling on the load, or no automatic increases.
+  return limitTarget(next, { weight: bestWeight, reps: bestReps }, limits, easy);
 }
 
 interface NextTargetGuidance {
@@ -398,7 +404,7 @@ export function computePlanProgression(
   plan: PlanDoc,
   logs: WorkoutLogDoc[],
   checkins: DailyCheckinDoc[],
-  opts: { conditioningOverload?: boolean; deloadHold?: boolean } = {},
+  opts: { conditioningOverload?: boolean; deloadHold?: boolean; prefs?: ProgressionPrefs } = {},
 ): ProgressionResult {
   const result: ProgressionResult = {
     changes: [], plateau: [], maxedBodyweight: [], heldForWellbeing: false, heldForConditioning: false,
@@ -451,8 +457,12 @@ export function computePlanProgression(
       sessions = sessions.filter((s, i) => !isImplausibleJump(s.weight, sessions.slice(i + 1).map((o) => o.weight)));
       if (sessions.length < MIN_SESSIONS) return;
 
+      // The athlete's limits for this exercise (domain/progressionPrefs.ts).
+      const limits = limitsFor(opts.prefs, ex.name, ex.canonicalName);
+      const manual = limits.auto === false;
+
       if (metric === "time" || metric === "distance") {
-        progressTimedExercise(result, ex, day.weekday, index, metric, sessions);
+        if (!manual) progressTimedExercise(result, ex, day.weekday, index, metric, sessions);
         return;
       }
 
@@ -467,9 +477,11 @@ export function computePlanProgression(
       const notMaxed = (s: { rpe?: number }) => typeof s.rpe !== "number" || s.rpe < GRIND_RPE;
       const recent = sessions.slice(0, MIN_SESSIONS);
 
-      // ---- Bodyweight: rep-based double progression (unchanged) ----
-      if (w.bodyweight) {
-        const ready = recent.length === MIN_SESSIONS && recent.every((s) => reachedTop(s) && notMaxed(s));
+      // ---- Bodyweight, or loaded and already at the athlete's ceiling: rep-based double progression ----
+      // At the ceiling there is no heavier weight to add, so the rep range grows instead.
+      const atCeiling = !w.bodyweight && limits.cap !== undefined && w.kg >= limits.cap;
+      if (w.bodyweight || atCeiling) {
+        const ready = !manual && recent.length === MIN_SESSIONS && recent.every((s) => reachedTop(s) && notMaxed(s));
         if (ready && range) {
           const rpes = recent.map((s) => s.rpe).filter((r): r is number => typeof r === "number");
           const easy = rpes.length ? rpes.every((r) => r <= 7) : top !== undefined && recent.every((s) => s.reps >= top + 2);
@@ -506,7 +518,7 @@ export function computePlanProgression(
       // weren't maximal — then add one step (two on an easy week). Capped at demonstrated + 2 steps.
       // ...and only when those sessions were AT the demonstrated weight: topping the reps on a
       // lighter day (60 x 12 after backing off from 80) earns nothing above 80.
-      const ready = recent.length === MIN_SESSIONS && recent.every((s) => reachedTop(s) && notMaxed(s) && s.weight >= demonstrated - 1e-6);
+      const ready = !manual && recent.length === MIN_SESSIONS && recent.every((s) => reachedTop(s) && notMaxed(s) && s.weight >= demonstrated - 1e-6);
       let target = demonstrated;
       if (ready) {
         const rpes = recent.map((s) => s.rpe).filter((r): r is number => typeof r === "number");
@@ -514,6 +526,8 @@ export function computePlanProgression(
         target = demonstrated + loadJump(ex.name, demonstrated, easy);
       }
       target = Math.min(target, demonstrated + step * 2);
+      // Never above the athlete's ceiling (unless he already lifts more: the plan follows him).
+      if (limits.cap !== undefined) target = Math.min(target, Math.max(limits.cap, demonstrated));
 
       if (Math.abs(target - w.kg) >= 0.5) {
         const to = `${fmtNum(target)}${w.suffix || " kg"}`;
@@ -555,7 +569,7 @@ export function applyProgression(plan: PlanDoc, changes: ExerciseChange[]): Plan
 /** The progression engine's next targets for the plan's rep-based lifts, from recent logs —
  *  what the coach prompt quotes instead of doing its own arithmetic (ai/planPrompts.ts coach prompts). Newest
  *  session per exercise; at most `max` lines. Pure; test/progression-math.test.ts. */
-export function planNextTargets(plan: PlanDoc, logs: WorkoutLogDoc[], max = 10): string[] {
+export function planNextTargets(plan: PlanDoc, logs: WorkoutLogDoc[], max = 10, prefs?: ProgressionPrefs): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   const newestFirst = [...logs].sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -568,7 +582,7 @@ export function planNextTargets(plan: PlanDoc, logs: WorkoutLogDoc[], max = 10):
         const le = log.exercises.find((e) => !e.skipped && e.setsDone?.length && (exerciseTokensEqual(e.name, ex.name) || (!!ex.canonicalName && exerciseTokensEqual(e.name, ex.canonicalName))));
         if (!le) continue;
         const ws = workingSets(le.setsDone, range?.low ?? 1);
-        if (ws) out.push(`${ex.name}: last ${ws.weight || "BW"}×${ws.reps}${le.rpe ? `@${le.rpe}` : ""} → next ${nextTarget(ws.weight, ws.reps, ex.name, le.rpe, range ? { low: range.low, high: range.high } : undefined)}`);
+        if (ws) out.push(`${ex.name}: last ${ws.weight || "BW"}×${ws.reps}${le.rpe ? `@${le.rpe}` : ""} → next ${nextTarget(ws.weight, ws.reps, ex.name, le.rpe, range ? { low: range.low, high: range.high } : undefined, limitsFor(prefs, ex.name, ex.canonicalName))}`);
         break;
       }
     }

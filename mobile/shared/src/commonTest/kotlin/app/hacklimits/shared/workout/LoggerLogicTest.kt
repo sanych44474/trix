@@ -40,6 +40,7 @@ import app.hacklimits.shared.workout.logic.summaryVolumeKg
 import app.hacklimits.shared.data.SaveWorkoutResult
 import app.hacklimits.shared.workout.logic.isSetFilled
 import app.hacklimits.shared.data.WorkoutCopyExercise
+import app.hacklimits.shared.data.SettingsState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -272,6 +273,25 @@ class LoggerLogicTest {
         val run = WorkoutToday.SavedEntry(name = "Run", sets = listOf(WorkoutToday.PastSet(0.0, 0.0, 1800.0, 5000.0)))
         assertEquals("distance", savedMetric(run))
         assertEquals("time", savedMetric(WorkoutToday.SavedEntry(name = "Plank", sets = listOf(WorkoutToday.PastSet(0.0, 0.0, 60.0, 0.0)))))
+    }
+
+    @Test
+    fun theServersWeightCeilingReachesTheLoggerRow() {
+        val raw = """{"index":0,"name":"Dumbbell Press","metric":"reps","sets":3,"reps":10,"weightKg":30,"planSets":"3 × 8–12","planWeight":"30 kg","capKg":30}"""
+        val ex = AppJson.decodeFromString(WorkoutToday.Exercise.serializer(), raw)
+        assertEquals(30.0, ex.capKg)
+        assertEquals(30.0, fromPlan(ex).capKg)
+        assertNull(fromPlan(ex.copy(capKg = null)).capKg)
+    }
+
+    @Test
+    fun settingsCarryTheProgressionLimitsAndAnOlderServerMeansNone() {
+        val s = AppJson.decodeFromString(SettingsState.serializer(), """{"progression":{"auto":false,"caps":[{"exercise":"dumbbell press","kg":30}]}}""")
+        assertEquals(false, s.progression.auto)
+        assertEquals(listOf(SettingsState.Cap("dumbbell press", 30.0)), s.progression.caps)
+        val older = AppJson.decodeFromString(SettingsState.serializer(), "{}")
+        assertEquals(true, older.progression.auto)
+        assertEquals(emptyList(), older.progression.caps)
     }
 
     @Test

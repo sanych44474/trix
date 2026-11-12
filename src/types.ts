@@ -117,6 +117,9 @@ export interface UserProfile {
   foodLikes?: string; // foods the user enjoys — meal plan favors them
   foodDislikes?: string; // foods to avoid in the meal plan
   remindersOff?: string[]; // reminder keys the user disabled (workout/nutrition/steps/checkin/…)
+  // The athlete's limits on automatic progression (domain/progressionPrefs.ts): no automatic
+  // increases, and a per-exercise ceiling (heaviest dumbbell / top of the stack), keyed by capKey().
+  progression?: { auto?: boolean; caps?: Record<string, number> };
   // Opt-in menstrual-cycle tracking (female users only). When on, the coach knows the current
   // phase (follicular/ovulation/luteal/menstruation) and can nudge deloads / carb bumps around
   // the period. Off by default and never inferred — the user must switch it on and log a start.

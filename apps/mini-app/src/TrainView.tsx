@@ -236,6 +236,17 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
   const fillLast = (index: number) => mapExercise(index, (exercise) => !exercise.last?.length ? exercise
     : logDate ? { ...exercise, setsDone: exercise.last.map((set) => ({ weight: set.w, reps: set.r, seconds: set.sec || undefined, meters: set.m || undefined })) }
     : prefillFromLast(exercise));
+  // The athlete's own ceiling for an exercise (Settings > progression, server side). Saved, then
+  // the exercise's target is re-read so the suggestion respects it right away; sets already logged
+  // are left alone.
+  const setCap = async (exercise: LoggerExercise, kg: number | null) => {
+    try {
+      await api("/api/v2/settings", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateSettings">({ action: "progression", exercise: exercise.name, capKg: kg }) });
+      const fresh = await api<WorkoutToday>(`/api/v2/workout/today${logDate ? `?date=${logDate}` : ""}`);
+      const next = fresh.exercises.find((e) => e.name === exercise.name);
+      mapExercise(exercise.index, (ex) => ({ ...ex, capKg: next?.capKg ?? (kg ?? undefined), target: next?.target ?? ex.target, ...(next ? { weightKg: next.weightKg, reps: next.reps } : {}) }));
+    } catch (err) { setActionError(err); }
+  };
   const addSet = (index: number) => mapExercise(index, (exercise) => ({ ...exercise, setsDone: [...(exercise.setsDone ?? []), emptyLoggerSet(exercise.metric)] }));
   const removeSet = (index: number, setIndex: number) => mapExercise(index, (exercise) => removeLoggerSet(exercise, setIndex));
   // Indexes are renumbered after a reorder, so focus follows the exercise that was on screen (logic/loggerOrder.ts).
@@ -568,6 +579,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
           }}
           onFillPlanned={() => fillPlanned(exercise.index)}
           onFillLast={() => fillLast(exercise.index)}
+          onSetCap={(kg) => void setCap(exercise, kg)}
           onOpenSwap={() => void openSwap(exercise)}
           onApplySwap={(choice) => void applySwap(choice)}
           onSearchSwap={(text) => void searchSwap(exercise, text)}

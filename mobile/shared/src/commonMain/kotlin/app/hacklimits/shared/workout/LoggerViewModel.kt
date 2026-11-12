@@ -283,6 +283,35 @@ class LoggerViewModel(
     fun keepTypedWeight(index: Int, row: Int, weight: Double, rows: Int) =
         mapExercise(index) { ex -> ex.copy(setsDone = withTypedWeight(ex, row, weight, rows)) }
 
+    /**
+     * The person's own weight ceiling for an exercise (kg; null clears it). Saved on the server
+     * (Settings, action "progression"), then the exercise's target is re-read so the suggestion
+     * respects it right away. Sets already logged are left alone.
+     */
+    fun setCap(index: Int, kg: Double?) {
+        val s = _ui.value
+        val ex = s.exercises.firstOrNull { it.index == index } ?: return
+        viewModelScope.launch {
+            try {
+                api.setCap(ex.name, kg, Uuid.random().toString())
+                val fresh = api.today(s.logDate)
+                val next = fresh.exercises.firstOrNull { it.name == ex.name }
+                mapExercise(index) { cur ->
+                    cur.copy(
+                        capKg = next?.capKg ?: kg,
+                        target = next?.target ?: cur.target,
+                        weightKg = next?.weightKg ?: cur.weightKg,
+                        reps = next?.reps ?: cur.reps,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                edit { it.copy(actionError = "cap_failed") }
+            }
+        }
+    }
+
     fun fillPlanned(index: Int) {
         val backfill = _ui.value.logDate != null
         mapExercise(index) { ex -> if (backfill) ex.copy(setsDone = plannedSetsFor(ex)) else ex.copy(prefill = null) }

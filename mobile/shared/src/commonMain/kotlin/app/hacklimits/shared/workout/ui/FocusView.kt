@@ -84,6 +84,10 @@ import app.hacklimits.shared.resources.wk_train_rest_auto
 import app.hacklimits.shared.resources.wk_train_rest_prefs_aria
 import app.hacklimits.shared.resources.wk_train_rest_sound
 import app.hacklimits.shared.resources.wk_train_repeat_last_btn
+import app.hacklimits.shared.resources.wk_cap_clear_btn
+import app.hacklimits.shared.resources.wk_cap_note
+import app.hacklimits.shared.resources.wk_cap_save_btn
+import app.hacklimits.shared.resources.wk_train_cap_btn
 import app.hacklimits.shared.resources.wk_train_swap_btn
 import app.hacklimits.shared.resources.wk_train_rest_for
 import app.hacklimits.shared.workout.LoggerUi
@@ -217,6 +221,7 @@ fun FocusView(vm: LoggerViewModel, s: LoggerUi, at: Int) {
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
+        ex.capKg?.let { Text(stringResource(Res.string.wk_cap_note, fmtNum(it)), style = MaterialTheme.typography.bodySmall) }
         ex.planName?.let { Text(stringResource(Res.string.wk_swapped_from_note, it), style = MaterialTheme.typography.bodySmall) }
         ex.note?.takeIf { it.isNotBlank() }?.let { note ->
             Text("${stringResource(Res.string.wk_focus_note_label)} $note", style = MaterialTheme.typography.bodyMedium)
@@ -455,6 +460,30 @@ private fun MusclesLine(muscles: ExerciseMuscles, open: Boolean, onToggle: () ->
     }
 }
 
+/** "Max weight": the heaviest load the person has (dumbbells stop at 30 kg); progression never proposes above it. */
+@Composable
+private fun CapControl(ex: LoggerExercise, onSet: (Double?) -> Unit) {
+    var open by remember(ex.index, ex.name) { mutableStateOf(false) }
+    var text by remember(ex.index, ex.name, ex.capKg) { mutableStateOf(ex.capKg?.let { fmtNum(it) } ?: "") }
+    val label = stringResource(Res.string.wk_train_cap_btn) + (ex.capKg?.let { " · ${fmtNum(it)} ${stringResource(Res.string.wk_ph_kg)}" } ?: "")
+    OutlinedButton(onClick = { open = !open }, modifier = Modifier.fillMaxWidth()) { Text(label) }
+    if (open) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { next -> text = next.filter { it.isDigit() || it == '.' || it == ',' }.take(7) },
+                label = { Text(stringResource(Res.string.wk_ph_kg)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1f),
+            )
+            val kg = parseTyped(text)
+            Button(onClick = { open = false; onSet(kg) }, enabled = kg > 0 && kg <= 1000) { Text(stringResource(Res.string.wk_cap_save_btn)) }
+            if (ex.capKg != null) TextButton(onClick = { open = false; onSet(null) }) { Text(stringResource(Res.string.wk_cap_clear_btn)) }
+        }
+    }
+}
+
 @Composable
 private fun ActionMenu(vm: LoggerViewModel, s: LoggerUi, ex: LoggerExercise, restSec: Int) {
     val exerciseName = ex.name
@@ -467,6 +496,7 @@ private fun ActionMenu(vm: LoggerViewModel, s: LoggerUi, ex: LoggerExercise, res
                 Text(stringResource(Res.string.wk_train_repeat_last_btn))
             }
         }
+        if (ex.metric == "reps") CapControl(ex, onSet = { kg -> vm.setCap(ex.index, kg); vm.closeMenu() })
         OutlinedButton(onClick = { vm.openSwap(ex.index) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(Res.string.wk_train_swap_btn))
         }

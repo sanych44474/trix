@@ -54,6 +54,7 @@ export async function weeklyProgression(p: WeeklyProgressionCtx): Promise<void> 
     const prog = computePlanProgression(plan, logs, checkins, {
       conditioningOverload: conditioningOverload(cond),
       deloadHold: deloadProgressionHold(plan, date),
+      prefs: user.profile.progression,
     });
     const week = weeksSincePlan(plan.generatedAt.toISOString().slice(0, 10), date);
     const isClient = user.role === "client" && !!user.trainerId;
