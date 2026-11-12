@@ -47,6 +47,7 @@ import app.hacklimits.shared.settings.MoreViewModel
 import app.hacklimits.shared.settings.MoreViewModel.Message
 import app.hacklimits.shared.settings.ProfileSection
 import app.hacklimits.shared.settings.ProfileViewModel
+import app.hacklimits.shared.settings.ProgressionSection
 import app.hacklimits.shared.settings.RemindersSection
 import app.hacklimits.shared.settings.SettingsCard
 import app.hacklimits.shared.settings.TrainerSection
