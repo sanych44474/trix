@@ -14,11 +14,11 @@ export interface FunnelAccount {
   secondWorkout: string | null;
 }
 
-export const FUNNEL_STEPS = ["signup", "started", "onboarded", "plan", "workout1", "workout2_7d"] as const;
+const FUNNEL_STEPS = ["signup", "started", "onboarded", "plan", "workout1", "workout2_7d"] as const;
 export type FunnelStep = (typeof FUNNEL_STEPS)[number];
 
 /** A second workout counts as "came back" only within this many days of the first. */
-export const RETURN_WINDOW_DAYS = 7;
+const RETURN_WINDOW_DAYS = 7;
 
 const DAY_MS = 86_400_000;
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);

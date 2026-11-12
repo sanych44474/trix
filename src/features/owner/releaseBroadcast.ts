@@ -12,7 +12,7 @@ import { releaseRecipients } from "../../domain/releaseDelivery";
 import { appMarkup } from "../../notify/appKeyboard";
 import { t } from "../../locales/i18n";
 
-export interface ReleaseBroadcastResult { version: string; sent: number; failed: number; remaining: number }
+interface ReleaseBroadcastResult { version: string; sent: number; failed: number; remaining: number }
 
 /** Recipients still owed the latest note (for the owner's "send to N" labels). */
 export async function pendingReleaseRecipients(env: Env): Promise<number> {

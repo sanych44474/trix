@@ -4,8 +4,8 @@
 // The 1.5x leg catches big lifts' typos; the +20 kg leg keeps light work (10 -> 25 kg dumbbells) and
 // ordinary PRs (80 -> 100 kg) unflagged. Pure, no imports, so the Mini App can use it too.
 
-export const IMPLAUSIBLE_RATIO = 1.5;
-export const IMPLAUSIBLE_ADD_KG = 20;
+const IMPLAUSIBLE_RATIO = 1.5;
+const IMPLAUSIBLE_ADD_KG = 20;
 const MIN_HISTORY = 2;
 
 /** The weight (kg) above which a typed set weight is implausible for this history, or null when

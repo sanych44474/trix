@@ -11,7 +11,7 @@
 import { SELF_SELECT_WEIGHT } from "./equipmentFit";
 
 export type Lift = "bench" | "squat" | "deadlift" | "ohp" | "row";
-export type Baseline = Partial<Record<Lift, number>>; // estimated 1RM, kg
+type Baseline = Partial<Record<Lift, number>>; // estimated 1RM, kg
 
 export function isSelfSelectWeight(s: string | undefined): boolean {
   return /підбер|подбер|pick a weight|choose a weight/i.test(s ?? "");

@@ -8,7 +8,7 @@ export interface PollAnswer {
   price?: number;
 }
 
-export interface PollSummary {
+interface PollSummary {
   total: number;
   yes: number;
   custom: number;
@@ -20,7 +20,7 @@ export interface PollSummary {
 }
 
 /** The price the poll proposes, in USD a month (the lower bound of the $4-5 range). */
-export const PROPOSED_PRICE = 4;
+const PROPOSED_PRICE = 4;
 const MAX_PRICE = 100;
 
 /** A monthly price in USD from free text: "3", "2.5", "2,5$", "$4 на місяць". Null when there is

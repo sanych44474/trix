@@ -54,7 +54,7 @@ export function classifySendError(info: SendErrorInfo, attemptsSoFar: number): D
  *   - wait:    still in flight (pending / retrying); decide on a later tick.
  *   - give_up: it will never arrive; close the flow without the state change.
  */
-export type AfterDelivery = "commit" | "wait" | "give_up";
+type AfterDelivery = "commit" | "wait" | "give_up";
 
 export function afterDelivery(
   result: "sent" | "blocked" | "retrying" | "failed" | "duplicate" | "muted",

@@ -58,7 +58,7 @@ export function setVolumeKg(name: string, set: SetEntry, bodyweightKg?: number):
   return weight * reps;
 }
 
-export interface LoadEntry {
+interface LoadEntry {
   name: string;
   sets: SetEntry[];
   rpe?: number;
@@ -72,7 +72,7 @@ export function sessionVolumeKg(entries: LoadEntry[], bodyweightKg?: number): nu
 }
 
 /** Seconds per set when the session had no clock (a backfilled day): work plus a usual rest. */
-export const SEC_PER_SET_ESTIMATE = 150;
+const SEC_PER_SET_ESTIMATE = 150;
 const MAX_ESTIMATE_SEC = 3 * 3600;
 
 /** MET for the session's hardest logged effort (RPE 1–10); unknown effort is moderate. */

@@ -23,7 +23,7 @@ import * as P from "../../ai/prompts";
 // AI-build a PlanDoc for `forUserId` from a profile (not saved). Reused by solo plans,
 // client onboarding drafts, and trainer-generated drafts.
 // Guard: reject technique strings that look like truncated/broken output (e.g. "1.", "1. ").
-export function isValidTechnique(s?: string): boolean {
+function isValidTechnique(s?: string): boolean {
   if (!s) return false;
   const t = s.trim();
   return t.length > 15 && !/^\d+\.?\s*$/.test(t);
@@ -101,7 +101,7 @@ export async function translatePlanExercises(
 
 // Translate methodology + nutrition.notes from English to the user's language.
 // Best-effort: falls back to the original English strings on any AI/parse error.
-export async function translatePlanMeta(
+async function translatePlanMeta(
   env: Env,
   lang: Lang,
   methodology: string,
@@ -142,7 +142,7 @@ export async function buildPlanDoc(
 // Transform a validated AI plan's split into clean PlanDays: sanitize every text field, clamp
 // weekdays, and re-anchor each exercise to a real catalog id (dropping hallucinated ids and
 // fixing name/id mismatches via reconcileGrounding). Pure — no I/O.
-export function aiSplitToPlanDays(
+function aiSplitToPlanDays(
   aiSplit: AiPlan["split"],
   candidates: CatalogExercise[],
   candidateIds: Set<string>,

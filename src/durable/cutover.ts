@@ -19,7 +19,7 @@
 // v2_settings now — Domain 9 — so this example targets that table, not legacy `settings`.)
 import { getSetting } from "../adapters/d1/v2Admin";
 
-export type CutoverKind = "user" | "squad" | "global";
+type CutoverKind = "user" | "squad" | "global";
 
 const SETTING_KEY: Record<CutoverKind, string> = {
   user: "scheduler_cutover_user",

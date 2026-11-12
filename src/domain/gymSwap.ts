@@ -2,7 +2,7 @@
 // to what the user actually has on hand right now (bodyweight / dumbbells / a band). Purely a
 // today's-session override: nothing here touches the stored plan, so tomorrow's session reverts
 // on its own the same way the existing single-exercise on-the-fly swap already does.
-export type EquipmentPreset = "bodyweight" | "dumbbells" | "band";
+type EquipmentPreset = "bodyweight" | "dumbbells" | "band";
 
 // Equipment tags in the catalog are free text from an external API ("Dumbbells", "dumbbell",
 // "flat bench") — messy casing and singular/plural, so every check is lowercase substring, not
@@ -39,13 +39,13 @@ export function profileEquipmentToPreset(equipment?: string): EquipmentPreset | 
   return null;
 }
 
-export interface GymSwapSlot {
+interface GymSwapSlot {
   index: number;
   exerciseId?: string;
   muscle: string; // catalog muscle enum for THIS exercise, already resolved by the caller
 }
 
-export interface GymSwapCandidate {
+interface GymSwapCandidate {
   id: string;
   name: string;
   canonicalName?: string;

@@ -11,7 +11,7 @@ import type { MyContext } from "../../adapters/telegram/context";
 import type { PlanDoc } from "../../types";
 import { coachContext } from "../coach/coachContext";
 
-export type AdaptiveCtx = Pick<MyContext, "db" | "env" | "user">;
+type AdaptiveCtx = Pick<MyContext, "db" | "env" | "user">;
 
 /** Asks the coach for micro-adjustments to `plan` (edited in place) and saves the plan when any changed. */
 export async function applyAdaptiveCheckin(ctx: AdaptiveCtx, plan: PlanDoc, text: string): Promise<{ reply: string; applied: string[] }> {

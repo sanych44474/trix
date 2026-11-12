@@ -30,14 +30,14 @@ const URL = "https://openrouter.ai/api/v1/chat/completions";
 // NVIDIA alone: an account that turns on ZDR or blocks training on free models stops reaching
 // them, and the chain falls to Gemma.
 export const OPENROUTER_DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
-export const OPENROUTER_DEFAULT_VISION_MODEL = "nvidia/nemotron-3.5-super-vl:free";
+const OPENROUTER_DEFAULT_VISION_MODEL = "nvidia/nemotron-3.5-super-vl:free";
 export const OPENROUTER_DEFAULT_TRANSLATE_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
 // [2026-10-02] A text fallback inside the tier: the :free roster churns (it has already lost every
 // model once), so one 404 no longer drops the whole OpenRouter tier. OPENROUTER_FALLBACK_MODELS
 // overrides.
-export const OPENROUTER_DEFAULT_FALLBACK_MODELS = ["nvidia/nemotron-3.5-lightning:free", "google/gemma-4-31b-it:free"];
+const OPENROUTER_DEFAULT_FALLBACK_MODELS = ["nvidia/nemotron-3.5-lightning:free", "google/gemma-4-31b-it:free"];
 /** Vision models tried after the default vision model. An explicit OPENROUTER_VISION_MODEL is used alone. */
-export const OPENROUTER_DEFAULT_VISION_FALLBACK_MODELS = ["google/gemma-4-31b-it:free"];
+const OPENROUTER_DEFAULT_VISION_FALLBACK_MODELS = ["google/gemma-4-31b-it:free"];
 
 /** Vision models to try in order. Exported for the model check script. */
 export function openrouterVisionModels(env: { OPENROUTER_VISION_MODEL?: string }): string[] {

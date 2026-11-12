@@ -20,11 +20,11 @@ export const MAX_ATTEMPTS = 3;
 
 /** `windowMs`: a rolling window since the last success. `periodKey`: a calendar period (an ISO
  * week, a date) computed by the caller; the job has run when the stamp equals it. */
-export type GatePeriod = { windowMs: number } | { periodKey: string };
+type GatePeriod = { windowMs: number } | { periodKey: string };
 
-export type GateResult = "ran" | "skipped" | "failed" | "gave_up";
+type GateResult = "ran" | "skipped" | "failed" | "gave_up";
 
-export interface GateOptions {
+interface GateOptions {
   key: string;
   period: GatePeriod;
   maxAttempts?: number;

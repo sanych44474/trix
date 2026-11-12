@@ -20,11 +20,11 @@ import type { Env, UserDoc } from "../types";
 import { notify } from "../notify";
 import { rawTelegramApi } from "../adapters/telegram/rawApi";
 import { typedFailure } from "./failure";
-export const MAX_CHAT_TEXT = 2000;
-export const CHAT_PUSH_QUIET_MIN = 15;
+const MAX_CHAT_TEXT = 2000;
+const CHAT_PUSH_QUIET_MIN = 15;
 
 /** The other side of the viewer's thread: a client's own trainer, or one of the trainer's clients. */
-export async function chatPeer(env: Env, user: UserDoc, withId?: number): Promise<UserDoc | null> {
+async function chatPeer(env: Env, user: UserDoc, withId?: number): Promise<UserDoc | null> {
   if (withId && withId !== user.trainerId) return getClientForTrainer(env.DB, user._id, withId).catch(() => null);
   if (user.role === "client" && user.trainerId) return getUser(env.DB, user.trainerId).catch(() => null);
   return null;

@@ -55,7 +55,7 @@ interface PlanDayView {
   muscleGroup: string;
   exercises: PlanExerciseView[];
 }
-export interface PlanPayload {
+interface PlanPayload {
   owner: { id: number; name: string };
   editable: boolean; // self, or a trainer/owner viewing their client
   version: string; // plan.generatedAt ISO — a full replan invalidates in-flight edits

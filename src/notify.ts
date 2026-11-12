@@ -27,7 +27,7 @@ import type { Env } from "./types";
 export type { DeliveryResult, OutboxSender };
 
 /** Who gets it. `userId` is the account the outbox row and a block flag belong to. */
-export interface Recipient {
+interface Recipient {
   userId: number;
   chatId: number;
 }

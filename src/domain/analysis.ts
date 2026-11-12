@@ -22,7 +22,7 @@ export const VOLUME_LANDMARKS: Record<MuscleGroup, VolumeLandmark> = {
 
 export type VolumeZone = "below" | "optimal" | "above";
 
-export interface MuscleVolume {
+interface MuscleVolume {
   group: MuscleGroup;
   sets: number;
   mev: number;

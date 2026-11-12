@@ -18,7 +18,7 @@ export function complianceScore(args: {
 
 // ---------- activity grid (streak calendar) ----------
 
-export interface ActivityCell {
+interface ActivityCell {
   date: string;
   workout: boolean;
   nutrition: boolean;

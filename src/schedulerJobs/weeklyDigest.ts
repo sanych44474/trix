@@ -21,7 +21,7 @@ import { renderQuestLines, renderWeeklyMuscleLines } from "../render";
 import { HTML, isoDaysAgo } from "./shared";
 import type { Sender } from "./shared";
 
-export interface WeeklyDigestCtx {
+interface WeeklyDigestCtx {
   env: Env;
   db: D1Database;
   user: UserDoc;

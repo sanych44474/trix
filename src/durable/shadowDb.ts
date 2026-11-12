@@ -13,7 +13,7 @@
 // WITH pass straight through to the real database.
 const WRITE_RE = /^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i;
 
-export interface ShadowWrite {
+interface ShadowWrite {
   sql: string;
   params: unknown[];
 }

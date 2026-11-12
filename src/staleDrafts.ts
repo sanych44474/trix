@@ -29,15 +29,15 @@ const H = 3_600_000;
 
 /** What the sweep remembers per draft (keyed by plan id). Older rows stored a bare ISO string, which
  * meant "reminded"; readState() upgrades them. */
-export interface DraftState {
+interface DraftState {
   reminded?: string;
   warned?: string;
   postponed?: string;
 }
 
-export type DraftStep = "remind" | "warn" | "activate" | null;
+type DraftStep = "remind" | "warn" | "activate" | null;
 
-export function activateAfterHours(state: DraftState): number {
+function activateAfterHours(state: DraftState): number {
   return state.postponed ? POSTPONED_ACTIVATE_H : ACTIVATE_H;
 }
 

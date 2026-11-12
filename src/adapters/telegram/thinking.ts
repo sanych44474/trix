@@ -12,7 +12,7 @@ const STREAM_INTERVAL_MS = 700; // at most ~1.4 draft updates a second
 const MAX_MS = 120_000; // never outlive a hung job
 const MAX_LEN = 4000;
 
-export interface Thinking {
+interface Thinking {
   update(text: string): void;
   stop(): void;
 }

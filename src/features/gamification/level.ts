@@ -12,7 +12,7 @@ import { awardAchievement } from "../../adapters/d1/v2Gamification";
 import { patchReminders } from "../../adapters/d1/v2Users";
 import { computeXp, levelFromXp, levelTransition } from "../../domain/gamification";
 
-export interface LevelUpdate {
+interface LevelUpdate {
   level: number;
   xp: number;
   /** The user crossed into a higher level than the one last recorded. */

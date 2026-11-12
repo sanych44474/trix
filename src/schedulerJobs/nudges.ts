@@ -27,9 +27,9 @@ import { surveyKb, surveyRemaining } from "../features/survey/eveningSurvey";
 import { appKeyboardEnabled } from "../notify/appKeyboard";
 import { isoDaysAgo } from "./shared";
 
-export const CHECKIN_HOUR = 20;
-export const EVENING_HOUR = 21; // one combined evening survey (water / steps / food / check-in) — 9pm local
-export const QUALITY_EVERY_DAYS = 14; // recurring "rate trix + what's missing" quality/feedback ask
+const CHECKIN_HOUR = 20;
+const EVENING_HOUR = 21; // one combined evening survey (water / steps / food / check-in) — 9pm local
+const QUALITY_EVERY_DAYS = 14; // recurring "rate trix + what's missing" quality/feedback ask
 
 const withKb = (kb: InlineKeyboard | undefined) => (kb ? { ...HTML, reply_markup: kb } : HTML);
 

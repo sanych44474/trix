@@ -19,12 +19,12 @@ export type ClefQuestion =
   | { type: "choice"; instructions: string; criteria: Record<string, string> }
   | { type: "score"; instructions: string; criteria: string[] };
 
-export type ClefAnswer =
+type ClefAnswer =
   | { type: "noul"; noul: number }
   | { type: "choice"; choice: string; probabilities: Record<string, number>; confidence: number }
   | { type: "score"; score: number; legend: Record<string, string>; probabilities: Record<string, number>; confidence: number };
 
-export type ClefAnswers = Record<string, ClefAnswer>;
+type ClefAnswers = Record<string, ClefAnswer>;
 
 const MAX_IMAGES = 4;
 const DEFAULT_TIMEOUT_MS = 3_000;

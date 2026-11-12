@@ -310,7 +310,7 @@ function exerciseTokensEqual(a: string, b: string): boolean {
   return inter / Math.min(ta.size, tb.size) >= 0.6;
 }
 
-export interface ExerciseChange {
+interface ExerciseChange {
   weekday: Weekday;
   index: number; // index in that day's exercises
   exercise: string;

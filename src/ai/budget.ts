@@ -5,7 +5,7 @@
 // the load. The default budget leaves 20% headroom because the per-call figures are estimates.
 import type { Env } from "../types";
 
-export const FREE_DAILY_NEURONS = 10_000;
+const FREE_DAILY_NEURONS = 10_000;
 const DEFAULT_BUDGET = 8_000;
 
 const key = (date = new Date().toISOString().slice(0, 10)) => `wai_neurons:${date}`;

@@ -30,11 +30,11 @@ export type QuestionId =
   | "equipment" | "lifestyle" | "sleep" | "diet" | "limits" | "share";
 
 /** lifts: only past beginner; share: only for a trainer's client; always otherwise. */
-export type ShowWhen = "always" | "nonBeginner" | "trainerClient";
+type ShowWhen = "always" | "nonBeginner" | "trainerClient";
 
-export interface QuestionOption { value: string; label: string }
+interface QuestionOption { value: string; label: string }
 
-export interface QuestionNumber { min: number; max: number; step: number; unit: string; placeholder: string }
+interface QuestionNumber { min: number; max: number; step: number; unit: string; placeholder: string }
 
 export interface Question {
   id: QuestionId;

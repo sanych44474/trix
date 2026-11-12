@@ -4,8 +4,8 @@
 // path while a cutover flag is off. Moved here from the removed legacy repo layer.
 import { nowIso, type DB } from "../adapters/d1/shared";
 
-export type DryRunSource = "user" | "squad" | "global";
-export type DryRunKind = "send" | "write";
+type DryRunSource = "user" | "squad" | "global";
+type DryRunKind = "send" | "write";
 
 export async function logDryRun(db: DB, source: DryRunSource, entityId: number, kind: DryRunKind, detail: unknown): Promise<void> {
   await db

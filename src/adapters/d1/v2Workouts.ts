@@ -52,14 +52,14 @@ function toStrength(r: V2StrengthRow): StrengthRecordDoc {
   };
 }
 
-export interface PrResult {
+interface PrResult {
   isPR: boolean; // beat a previous best (not the first-ever record)
   prevWeight?: number;
   prevReps?: number;
 }
 
 /** Best set of one exercise in a session, on whichever axis the exercise is measured. */
-export interface BestSet {
+interface BestSet {
   metric: ExerciseMetric;
   weight: number;
   reps: number;

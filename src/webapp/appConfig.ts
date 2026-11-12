@@ -10,7 +10,7 @@ import type { Env } from "../types";
 export const APK_KEY = "releases/android/latest.apk";
 export const APK_MANIFEST_KEY = "releases/android/latest.json";
 
-export interface ApkManifest {
+interface ApkManifest {
   versionCode: number;
   versionName: string;
   sha256: string;

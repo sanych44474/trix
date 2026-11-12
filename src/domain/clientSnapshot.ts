@@ -49,7 +49,7 @@ export interface WorkoutBrief {
   top: string[];
 }
 
-export interface QuestBrief {
+interface QuestBrief {
   code: string;
   kind: QuestProgress["kind"];
   muscle?: QuestProgress["muscle"];
@@ -70,7 +70,7 @@ export interface ClientSnapshot {
   quests: QuestBrief[];
 }
 
-export interface SnapshotInput {
+interface SnapshotInput {
   /** The client's local date, YYYY-MM-DD. */
   today: string;
   /** Monday of the client's current week, YYYY-MM-DD. */

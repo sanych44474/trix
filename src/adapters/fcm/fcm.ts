@@ -4,8 +4,8 @@
 import type { Env } from "../../types";
 
 interface ServiceAccount { project_id: string; client_email: string; private_key: string; token_uri?: string }
-export type PushResult = "sent" | "unregistered" | "retry" | "failed";
-export interface PushMessage { title: string; body: string; data?: Record<string, string> }
+type PushResult = "sent" | "unregistered" | "retry" | "failed";
+interface PushMessage { title: string; body: string; data?: Record<string, string> }
 
 const SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
 const TOKEN_URI = "https://oauth2.googleapis.com/token";
@@ -19,7 +19,7 @@ function pemToDer(pem: string): ArrayBuffer {
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)).buffer;
 }
 
-export function parseServiceAccount(raw: string | undefined): ServiceAccount | null {
+function parseServiceAccount(raw: string | undefined): ServiceAccount | null {
   if (!raw) return null;
   try {
     const sa = JSON.parse(raw) as Partial<ServiceAccount>;

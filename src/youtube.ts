@@ -34,7 +34,7 @@ const YT_VIDEOS = "https://www.googleapis.com/youtube/v3/videos";
 const SHORT_MAX_SECONDS = 60;
 
 /** Parse an ISO-8601 duration (e.g. "PT1M5S", "PT45S") to seconds; 0 if unparseable. */
-export function isoDurationToSeconds(iso: string): number {
+function isoDurationToSeconds(iso: string): number {
   const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
   if (!m) return 0;
   return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
@@ -61,7 +61,7 @@ export interface YouTubeSearchItem {
   };
 }
 
-export interface PickedVideo {
+interface PickedVideo {
   videoId: string;
   url: string;
   title: string;

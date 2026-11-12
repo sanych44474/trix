@@ -9,9 +9,9 @@ import type { Env } from "../../types";
 
 /** Where the verified numbers came from: the user's own corrections, USDA, the app's food
  *  catalog, or Open Food Facts (older cached rows). "" when nothing was verified. */
-export type VerifySource = "" | "user" | "USDA" | "trix" | "Open Food Facts";
+type VerifySource = "" | "user" | "USDA" | "trix" | "Open Food Facts";
 
-export type VerifiedItem = { desc: string; kcal: number; protein: number; fats: number; carbs: number; grams?: number; query?: string };
+type VerifiedItem = { desc: string; kcal: number; protein: number; fats: number; carbs: number; grams?: number; query?: string };
 
 // Coerce any AI value (number, numeric string, or junk) to a finite integer.
 export function num(x: unknown): number {

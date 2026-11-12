@@ -91,7 +91,7 @@ export async function retryInterviewStep(env: Env, db: D1Database, user: UserDoc
 // completed interview always converges to a plan instead of looping in plan_pending while the
 // AI chain is down. Mirrors buildPlanForUser's emergency fallback but ctx-free; exercise names
 // localize lazily on first view (healPlanNamesForDisplay). Returns null when no archetype fits.
-export async function bankFallbackPlan(
+async function bankFallbackPlan(
   db: D1Database, lang: Lang, profile: UserDoc["profile"], userId: number, authoredBy?: number,
 ): Promise<PlanDoc | null> {
   const match = selectBest(await listPlanBank(db), profile, userId);
@@ -189,7 +189,7 @@ export async function finalizeOnboardingPlan(
 }
 
 /** A rebuild still counts as running this long after it started (a crashed one frees up after). */
-export const REPLAN_RUNNING_MS = 5 * 60_000;
+const REPLAN_RUNNING_MS = 5 * 60_000;
 
 /** True while a plan rebuild the user started from the app is still building. */
 export function replanRunning(user: UserDoc, now = Date.now()): boolean {

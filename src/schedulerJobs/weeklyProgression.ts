@@ -23,7 +23,7 @@ import { applySwaps } from "./plateauSwaps";
 import { HTML, isoDaysAgo } from "./shared";
 import type { Sender } from "./shared";
 
-export interface WeeklyProgressionCtx {
+interface WeeklyProgressionCtx {
   db: D1Database;
   user: UserDoc;
   lang: Lang;

@@ -1,9 +1,5 @@
-// Leaderboards + badges: board assembly from aggregate queries and badge rendering. Extracted
-// from bot.ts — consumed by the bot (/records), the scheduler (weekly nudges + hourly cache)
-// and the Mini App (/api/boards). No imports from ../bot, so this module is cycle-free.
-import { InlineKeyboard } from "grammy";
+
 import {
-  BADGES,
   consistencyBoard,
   mostImprovedBoard,
   recentPrBoard,
@@ -31,7 +27,7 @@ export function isoDateMinus(dateStr: string, days: number): string {
 }
 
 // alias "" = anonymous, non-empty = custom, undefined = fall back to profile name.
-export function competitorName(alias: string | undefined, profileName?: string): string {
+function competitorName(alias: string | undefined, profileName?: string): string {
   if (alias === "") return ""; // anonymous → localized at render
   return alias || profileName || "";
 }
@@ -82,25 +78,6 @@ export async function computeBoards(db: D1Database, tz?: string): Promise<Boards
   };
 }
 
-export function recordsTabs(lang: Lang, optedIn: boolean): InlineKeyboard {
-  const kb = new InlineKeyboard()
-    .text(t(lang, "tab_weekly"), "rec:weekly")
-    .text(t(lang, "tab_prs"), "rec:prs")
-    .row()
-    .text(t(lang, "tab_hall"), "rec:hall")
-    .text(t(lang, "tab_badges"), "rec:badges")
-    .row();
-  if (!optedIn) kb.text(t(lang, "records_join"), "set:compete").row();
-  kb.text(t(lang, "menu_open"), "menu:open");
-  return kb;
-}
-
 export function badgeLabel(lang: Lang, code: string): string {
   return t(lang, `badge_${code}` as Parameters<typeof t>[1]);
-}
-
-export function renderBadges(lang: Lang, earned: string[]): string {
-  const have = new Set(earned);
-  const lines = BADGES.map((c) => `${have.has(c) ? "✅" : "🔒"} ${badgeLabel(lang, c)}`);
-  return `${t(lang, "badges_header", { n: earned.length, total: BADGES.length })}\n${lines.join("\n")}`;
 }

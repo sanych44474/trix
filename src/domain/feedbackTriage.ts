@@ -23,7 +23,7 @@ export function classifyFeedback(text: string): FeedbackCategory {
 }
 
 /** Clef's answer is taken only at or above this confidence; below it the row keeps "other". */
-export const CLEF_TRIAGE_MIN_CONFIDENCE = 0.6;
+const CLEF_TRIAGE_MIN_CONFIDENCE = 0.6;
 
 /** The categories Clef may move a rule-less "other" into. "rating" is the ⭐ rule's alone, and
  *  "other" is Clef's way of abstaining. */

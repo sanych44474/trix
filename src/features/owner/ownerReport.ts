@@ -25,7 +25,7 @@ import { barList, monoTable, pctBar, share, sparkline } from "./reportFormat";
 import { buildErrorReport, loadOwnerSnapshot, ownerReportWindows } from "./ownerMetrics";
 
 
-export type OwnerSnapshot = Awaited<ReturnType<typeof loadOwnerSnapshot>>;
+type OwnerSnapshot = Awaited<ReturnType<typeof loadOwnerSnapshot>>;
 
 // 📊 Overview: trainers/clients summary + 7-day engagement KPIs (carries the report header).
 export async function orOverview(db: D1Database, snapshot?: OwnerSnapshot): Promise<string> {

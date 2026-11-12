@@ -9,7 +9,7 @@ const URL = "https://ollama.com/v1/chat/completions";
 // duplicate this verbatim.
 export const OLLAMA_DEFAULT_MODEL = "gpt-oss:120b";
 // [2026-10-02] Smaller sibling as an in-tier fallback when 120b is busy; OLLAMA_FALLBACK_MODELS overrides.
-export const OLLAMA_DEFAULT_FALLBACK_MODELS = ["gpt-oss:20b"];
+const OLLAMA_DEFAULT_FALLBACK_MODELS = ["gpt-oss:20b"];
 
 export function ollamaModels(env: { OLLAMA_MODEL?: string; OLLAMA_FALLBACK_MODELS?: string }): string[] {
   const configured = (env.OLLAMA_FALLBACK_MODELS ?? "").split(",").map((m) => m.trim()).filter(Boolean);

@@ -13,26 +13,26 @@ const MAX_LIFTS = 12;
 const DELOAD_WINDOW_DAYS = 21;
 const DELOAD_MIN_SESSIONS = 3;
 
-export const SIGNAL_MIN_CONFIDENCE = 0.6;
-export const DELOAD_MIN_PROBABILITY = 0.7;
+const SIGNAL_MIN_CONFIDENCE = 0.6;
+const DELOAD_MIN_PROBABILITY = 0.7;
 
-export type LiftStatus = "progressing" | "stalled" | "regressing";
+type LiftStatus = "progressing" | "stalled" | "regressing";
 const LIFT_STATUSES: readonly LiftStatus[] = ["progressing", "stalled", "regressing"];
 
 /** Structurally the same as the Clef question type in src/ai/clef.ts (domain may not import ai/). */
-export type SignalQuestion =
+type SignalQuestion =
   | { type: "noul"; instructions: string }
   | { type: "choice"; instructions: string; criteria: Record<string, string> };
 
 /** The subset of a Clef answer this module reads. */
-export type SignalAnswers = Record<string, { type: string; choice?: string; confidence?: number; noul?: number }> | null;
+type SignalAnswers = Record<string, { type: string; choice?: string; confidence?: number; noul?: number }> | null;
 
 export interface TrainingSignals {
   exercises: Array<{ name: string; status: LiftStatus; confidence: number }>;
   deload: { probability: number; suggested: boolean } | null;
 }
 
-export interface SignalPlan {
+interface SignalPlan {
   state: unknown;
   questions: Record<string, SignalQuestion>;
   lifts: Array<{ id: string; name: string }>;

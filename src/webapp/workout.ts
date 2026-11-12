@@ -37,7 +37,7 @@ import { lookupExerciseVideoCached } from "../youtube";
 import { buildVideoOpenLink } from "../domain/videoLink";
 import type { Env, ExerciseMetric, ExerciseVideo, LoggedExercise, PlanDoc, SetEntry, UserDoc, Weekday, WorkoutLogDoc } from "../types";
 
-export interface WorkoutTodayExercise {
+interface WorkoutTodayExercise {
   index: number;
   name: string;
   metric: ExerciseMetric;
@@ -68,7 +68,7 @@ export interface WorkoutTodayExercise {
   restSec?: number; // planned rest between sets in seconds, parsed from PlanExercise.rest ("90s", "2-3 min") by domain/restTime.ts
 }
 
-export interface WorkoutTodayPayload {
+interface WorkoutTodayPayload {
   date: string;
   weekday: Weekday;
   restDay: boolean;
@@ -280,14 +280,14 @@ function isoWeekdayOfDate(date: string): Weekday {
   return (d === 0 ? 7 : d) as Weekday;
 }
 
-export interface SaveEntry {
+interface SaveEntry {
   name: string;
   rpe?: number; // entry-level effort (same as the bot's one-tap srpe buttons)
   planName?: string; // the plan exercise this one replaced (in-session swap)
   sets: SetEntry[];
 }
 
-export interface SaveTiming {
+interface SaveTiming {
   durationSec?: number;
   restTotalSec?: number;
 }
@@ -357,7 +357,7 @@ export function plannedAmount(sets: string, metric: string): number {
   return planRepsMid(sets);
 }
 
-export interface SaveResult {
+interface SaveResult {
   ok: true;
   prExercises: string[];
   newBadges: string[]; // localized labels, ready to display

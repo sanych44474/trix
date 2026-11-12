@@ -5,12 +5,12 @@ import { NEURONS_PER_AUDIO_MINUTE, WORKERSAI_TIER_MODELS, estimateNeurons } from
 // Exported (not just local literals) so scripts/check-ai-models.mjs can smoke-test the actual
 // defaults instead of hand-maintained copies that can drift out of sync — index.ts used to
 // duplicate WORKERSAI_DEFAULT_MODEL verbatim.
-export const WORKERSAI_DEFAULT_TRANSCRIBE_MODEL = "@cf/openai/whisper-large-v3-turbo";
+const WORKERSAI_DEFAULT_TRANSCRIBE_MODEL = "@cf/openai/whisper-large-v3-turbo";
 // [2026-10-02] gpt-oss-120b leads (Workers AI's strongest general model; it accepts Chat
 // Completions-style messages since 2026-02-17), GLM 4.7 Flash stays right behind it — workersaiGenerate walks the list, so a model that errors or returns unusable output (e.g.
 // all of max_tokens spent on reasoning) falls to the next one instead of out of the provider.
-export const WORKERSAI_DEFAULT_MODEL = WORKERSAI_TIER_MODELS.standard[0];
-export const WORKERSAI_DEFAULT_FALLBACK_MODELS = WORKERSAI_TIER_MODELS.standard.slice(1);
+const WORKERSAI_DEFAULT_MODEL = WORKERSAI_TIER_MODELS.standard[0];
+const WORKERSAI_DEFAULT_FALLBACK_MODELS = WORKERSAI_TIER_MODELS.standard.slice(1);
 
 /** Models to try in order: WORKERSAI_MODEL (or the default), then WORKERSAI_FALLBACK_MODELS (or
  *  the default fallbacks). Exported for scripts/check-ai-models.mjs and tests. */

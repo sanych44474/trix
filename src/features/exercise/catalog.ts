@@ -15,7 +15,7 @@ import { extractExerciseQuery, stripEquipmentWords, muscleGroupToEnum } from "..
 // Instructions + safety for an exercise in the user's language. English is served straight
 // from the catalog; other languages are translated on first use and cached so /today is
 // instant afterwards. Falls back to the English original if translation fails.
-export async function exerciseInfoEntry(
+async function exerciseInfoEntry(
   ctx: AiCtx,
   exerciseId: string,
   lang: Lang,
@@ -54,7 +54,7 @@ export async function exerciseInfoEntry(
   }
 }
 
-export async function translateExerciseQueryToEnglish(ctx: AiCtx, query: string): Promise<string> {
+async function translateExerciseQueryToEnglish(ctx: AiCtx, query: string): Promise<string> {
   if (ctx.user.lang === "en") return query.trim();
   try {
     const translated = await aiText(ctx.env, {
@@ -75,7 +75,7 @@ export async function translateExerciseQueryToEnglish(ctx: AiCtx, query: string)
   }
 }
 
-export async function searchExerciseCatalog(ctx: AiCtx, query: string, limit = 5): Promise<CatalogExercise[]> {
+async function searchExerciseCatalog(ctx: AiCtx, query: string, limit = 5): Promise<CatalogExercise[]> {
   const cleaned = extractExerciseQuery(query);
   const english = await translateExerciseQueryToEnglish(ctx, cleaned);
   // Specific phrasings first; the equipment-stripped forms are last-resort so exact matches win
@@ -94,7 +94,7 @@ export async function searchExerciseCatalog(ctx: AiCtx, query: string, limit = 5
 
 // Resolve a catalog id + canonical name for one (ungrounded) plan exercise: match the
 // catalog by its name (UA/EN), else AI-author a catalog entry (coach). No mutation here.
-export async function groundExercise(
+async function groundExercise(
   ctx: AiCtx,
   day: PlanDay,
   ex: PlanExercise,
@@ -180,7 +180,7 @@ export async function healPlanNamesForDisplay(ctx: AiCtx, plan: PlanDoc, lang: L
   return plan;
 }
 
-export async function exerciseIdForName(name: string): Promise<string> {
+async function exerciseIdForName(name: string): Promise<string> {
   const bytes = new TextEncoder().encode(name.toLowerCase().trim());
   const digest = await crypto.subtle.digest("SHA-1", bytes);
   return Array.from(new Uint8Array(digest))
@@ -189,7 +189,7 @@ export async function exerciseIdForName(name: string): Promise<string> {
     .slice(0, 16);
 }
 
-export async function createExerciseCatalogEntry(
+async function createExerciseCatalogEntry(
   ctx: AiCtx,
   query: string,
   day: PlanDay,

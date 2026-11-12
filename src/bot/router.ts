@@ -28,7 +28,7 @@ import { CB_EXACT, CB_PREFIX } from "./callbackRoutes";
 import { routeUserText } from "./textRoutes";
 
 /** Owner menu buttons (the owner hub's own entries). */
-export const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
+const MENU_MAP: Record<string, (c: MyContext) => Promise<void>> = {
   "menu:users": cmdUsers,
   "menu:ownerreport": cmdOwnerReport,
   "menu:whatsnew": cmdWhatsNew,

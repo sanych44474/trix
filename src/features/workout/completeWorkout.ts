@@ -24,7 +24,7 @@ export interface WorkoutSaveEntry {
   planName?: string; // Mini App swap: the plan exercise this entry replaced
 }
 
-export interface PrHit {
+interface PrHit {
   name: string;
   metric: ExerciseMetric;
   weight: number;
@@ -41,7 +41,7 @@ export function formatPrBest(pr: PrHit): string {
   return `${pr.weight} kg × ${pr.reps}`;
 }
 
-export interface WorkoutSaveOutcome {
+interface WorkoutSaveOutcome {
   exercises: LoggedExercise[];
   prExercises: string[];
   prHit: PrHit | null; // first PR this save, for the single-message chat celebration
@@ -54,7 +54,7 @@ export interface WorkoutSaveOutcome {
  * Ctx-free and mutates `user.reminders` in place (mirrors the DB write) so a caller chaining
  * more bookkeeping off the same UserDoc — e.g. level transition — sees the updated prCount.
  * Shared by the chat path (finalizeWorkoutLog) and the Mini App save route. */
-export async function applyWorkoutSave(
+async function applyWorkoutSave(
   db: D1Database,
   user: UserDoc,
   entries: WorkoutSaveEntry[],
@@ -129,7 +129,7 @@ export async function applyWorkoutSave(
 }
 
 /** What a finished workout produces: the record-keeping outcome plus the level it earned. */
-export interface WorkoutCompletion extends WorkoutSaveOutcome {
+interface WorkoutCompletion extends WorkoutSaveOutcome {
   level: number;
   xp: number;
   leveledUp: boolean;

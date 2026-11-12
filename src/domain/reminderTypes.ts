@@ -9,5 +9,3 @@ export const REMINDER_KEYS = [
   ["checkin", "rem_checkin"], ["wellbeing", "rem_wellbeing"], ["tomorrow", "rem_tomorrow"], ["measure", "rem_measure"],
   ["weighin", "rem_weighin"], ["plateau", "rem_plateau"], ["digest", "rem_digest"], ["quality", "rem_quality"],
 ] as const;
-
-export type ReminderKey = (typeof REMINDER_KEYS)[number][0];

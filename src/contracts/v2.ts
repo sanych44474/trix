@@ -4,7 +4,7 @@
  * response envelope. Keeping this seam small lets the old /api/* handlers remain
  * available during the staged migration.
  */
-export const V2_ERROR_CODES = [
+const V2_ERROR_CODES = [
   "validation_error",
   "unauthorized",
   "forbidden",
@@ -28,7 +28,7 @@ export function retryableFor(code: V2ErrorCode): boolean {
   return RETRYABLE_ERROR_CODES.includes(code);
 }
 
-export interface V2Error {
+interface V2Error {
   code: V2ErrorCode;
   message: string;
   retryable: boolean;
@@ -36,7 +36,7 @@ export interface V2Error {
   details?: Record<string, unknown>;
 }
 
-export interface V2Success<T> {
+interface V2Success<T> {
   data: T;
   meta?: {
     version: 2;

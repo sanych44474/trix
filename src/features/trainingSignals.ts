@@ -11,7 +11,7 @@ import { shouldDeload } from "../domain/deload";
 import { buildSignalState, readSignals, type TrainingSignals } from "../domain/trainingSignals";
 import type { Env } from "../types";
 
-export interface TrainingSignalsPayload extends TrainingSignals {
+interface TrainingSignalsPayload extends TrainingSignals {
   computedAt: string;
 }
 
