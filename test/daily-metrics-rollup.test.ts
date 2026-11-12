@@ -9,7 +9,7 @@ import { getOrCreateUser } from "../src/adapters/d1/v2Users";
 import { getDailyMetrics } from "../src/adapters/d1/v2DailyMetrics";
 import { setActivePlan } from "../src/adapters/d1/v2Plans";
 import { upsertWorkoutLog } from "../src/adapters/d1/v2Workouts";
-import { rollupDailyMetrics } from "../src/dailyMetricsRollup";
+import { rollupDailyMetrics } from "../src/schedulerJobs/dailyMetricsRollup";
 import { bumpEvent, SESSION_EVENT } from "../src/adapters/d1/v2Analytics";
 import { recordError } from "../src/adapters/d1/v2AiTelemetry";
 import type { PlanDoc } from "../src/types";

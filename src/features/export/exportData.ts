@@ -12,7 +12,7 @@ import { t } from "../../locales/i18n";
 import { BODY_FIELDS, bodyFieldLabel, renderBodyDynamics, reportNutritionLine } from "../report/reportLines";
 import { areaLabelKey } from "../../domain/injuryAreas";
 import { badgeLabel } from "../gamification/boards";
-import { weekdayName } from "../../render";
+import { weekdayName } from "../../render/telegramText";
 import { num } from "../nutrition/verifyItems";
 
 // The date a strength PR was set: the most recent history entry that hit the stored best

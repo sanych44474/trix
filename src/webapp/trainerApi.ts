@@ -4,7 +4,7 @@
 //   /api/trainer/question/:id/answer (POST)   — answer a client question
 // Same initData auth as the dashboard, plus a trainer-role gate; per-client ops also run the
 // ownership check (getClientForTrainer — missing and not-yours both 404).
-import { notifySafely, pingOther } from "../notify";
+import { notifySafely, pingOther } from "../notify/notify";
 import { appMarkup } from "../notify/appKeyboard";
 import { rawTelegramApi } from "../adapters/telegram/rawApi";
 import { HTML } from "../adapters/telegram/context";
@@ -13,7 +13,7 @@ import {
   setUserFlag,
 } from "../adapters/d1/v2Admin";
 import { assignDraftPlan, deleteDraftPlan, getActivePlan, saveDraftPlan } from "../adapters/d1/v2Plans";
-import { postponeAutoActivation } from "../staleDrafts";
+import { postponeAutoActivation } from "../features/plan/staleDrafts";
 import { deleteTrainerTemplate, getTrainerTemplate, listTrainerTemplates, saveTrainerTemplate } from "../adapters/d1/v2TrainerPrograms";
 import { getClientCard, getClientForTrainer, listClients, setClientCard, setClientNote } from "../adapters/d1/v2Trainer";
 import { getQuestion, insertMessage, listQuestionsForTrainer, setQuestionStatus } from "../adapters/d1/v2TrainerMessages";

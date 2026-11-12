@@ -7,7 +7,7 @@ import { recordInbox } from "../../adapters/d1/v2Inbox";
 import { getUser } from "../../adapters/d1/v2Users";
 import { HTML } from "../../adapters/telegram/context";
 import { escapeHtml, t } from "../../locales/i18n";
-import { isDurable, notify, type OutboxSender } from "../../notify";
+import { isDurable, notify, type OutboxSender } from "../../notify/notify";
 import type { Env } from "../../types";
 
 export const MAX_FEEDBACK_REPLY = 1500;

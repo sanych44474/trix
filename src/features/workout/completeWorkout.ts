@@ -12,7 +12,7 @@ import { prMilestones, workoutMilestones } from "../../domain/records";
 import { cleanAi, t } from "../../locales/i18n";
 import { announceSquadPr } from "../squad/prAnnounce";
 import { advanceLevel } from "../gamification/level";
-import { notify } from "../../notify";
+import { notify } from "../../notify/notify";
 import { appMarkup } from "../../notify/appKeyboard";
 import { loadClientSnapshot, workoutDoneText } from "../trainer/clientSnapshot";
 import { HTML } from "../../adapters/telegram/context";

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pickBestVideo, parseYouTubeId, type YouTubeSearchItem } from "../src/youtube";
+import { pickBestVideo, parseYouTubeId, type YouTubeSearchItem } from "../src/adapters/youtube/youtube";
 
 const item = (videoId: string, title: string, channelTitle: string): YouTubeSearchItem => ({
   id: { videoId },

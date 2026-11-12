@@ -12,7 +12,7 @@ import { readinessAdvice } from "../../domain/deload";
 import { getDailyCheckin } from "../../adapters/d1/v2Tracking";
 import { CONDITIONING_LANDMARK, conditioningWeek } from "../../domain/conditioning";
 import { recentCoachingReasons } from "../../domain/coachMemory";
-import { weekdayName } from "../../render";
+import { weekdayName } from "../../render/telegramText";
 
 // `owner` is whose plan/history the coach reasons about — the operator themselves when
 // self-coaching, or the managed client when a trainer is editing that client's plan (see

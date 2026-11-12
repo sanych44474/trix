@@ -4,7 +4,7 @@
 import { recordInbox } from "../adapters/d1/v2Inbox";
 import type { InlineKeyboard } from "grammy";
 import type { AppButton } from "../notify/appKeyboard";
-import { type DeliveryResult } from "../schedulerOutbox";
+import { type DeliveryResult } from "../notify/outbox";
 import type { BodyLogDoc, Lang, PlanDoc, UserDoc, WorkoutLogDoc } from "../types";
 import { recordPlanSource } from "../adapters/d1/v2Analytics";
 import { countAdjustmentWeeksSince, recordAdjustment } from "../adapters/d1/v2PlanHistory";
@@ -18,7 +18,7 @@ import { weeksSincePlan } from "../domain/deload";
 import { conditioningOverload, conditioningWeek } from "../domain/conditioning";
 import { daysBetween } from "../domain/reminderTiming";
 import { escapeHtml, t } from "../locales/i18n";
-import { conditioningLoadLabel } from "../render";
+import { conditioningLoadLabel } from "../render/telegramText";
 import { applySwaps } from "./plateauSwaps";
 import { HTML, isoDaysAgo } from "./shared";
 import type { Sender } from "./shared";

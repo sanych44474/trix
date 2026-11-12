@@ -8,7 +8,7 @@ import { setOwnerChatId } from "../src/adapters/d1/v2Admin";
 import { upsertExercise, upsertExerciseTranslation } from "../src/adapters/d1/v2Catalog";
 import { handlePlanApi } from "../src/webapp/planApi";
 import { handleV2Api } from "../src/webapp/v2Api";
-import { loadLearnedMuscles } from "../src/exerciseMuscleLearning";
+import { loadLearnedMuscles } from "../src/features/exercise/muscleLearning";
 import type { Env, PlanDoc } from "../src/types";
 
 function env(db: ReturnType<typeof newDb>): Env {

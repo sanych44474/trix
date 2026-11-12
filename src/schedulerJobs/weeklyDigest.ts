@@ -17,7 +17,7 @@ import { pickQuests, plannedDayCount } from "../domain/quests";
 import { toLoggedDays } from "../domain/recoverySwap";
 import { weekMapUrl } from "../features/report/weekMap";
 import { t } from "../locales/i18n";
-import { renderQuestLines, renderWeeklyMuscleLines } from "../render";
+import { renderQuestLines, renderWeeklyMuscleLines } from "../render/telegramText";
 import { HTML, isoDaysAgo } from "./shared";
 import type { Sender } from "./shared";
 

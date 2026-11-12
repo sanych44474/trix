@@ -1,6 +1,6 @@
 // One-off SILENT backfill: ensure every exercise in an active plan has a YouTube **Short** (≤60s)
 // technique clip cached in the remote D1 `v2_exercise_videos` table. No Telegram, no bot.
-// Mirrors src/youtube.ts (search.list → videos.list duration filter → heuristic pick).
+// Mirrors src/adapters/youtube/youtube.ts (search.list → videos.list duration filter → heuristic pick).
 //
 // Quota-aware: first cheaply checks the durations of already-stored videos (videos.list = 1 unit
 // per 50 ids) and nulls out any that are NOT real Shorts, so long videos stop showing immediately

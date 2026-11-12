@@ -24,7 +24,7 @@ import { createQuestion, listMessages, listQuestionsForClient, setQuestionDraft 
 import { getTrainer } from "../adapters/d1/v2Trainer";
 import { localParts } from "../domain/localTime";
 import { cleanAiText, escapeHtml, t } from "../locales/i18n";
-import { weekdayName } from "../render";
+import { weekdayName } from "../render/telegramText";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import type { Env } from "../types";

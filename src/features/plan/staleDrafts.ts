@@ -14,11 +14,11 @@
 // is exactly who the final warning and the postpone are for.
 // Only clients with NO active plan are touched: a draft next to an active plan is a weekly
 // progression proposal, which stays the trainer's call.
-import type { Lang } from "./types";
-import { assignDraftPlan, getOrphanDraft, listOrphanDrafts } from "./adapters/d1/v2Plans";
-import { getUser } from "./adapters/d1/v2Users";
-import { getSetting, setSetting } from "./adapters/d1/v2Admin";
-import { escapeHtml, t } from "./locales/i18n";
+import type { Lang } from "../../types";
+import { assignDraftPlan, getOrphanDraft, listOrphanDrafts } from "../../adapters/d1/v2Plans";
+import { getUser } from "../../adapters/d1/v2Users";
+import { getSetting, setSetting } from "../../adapters/d1/v2Admin";
+import { escapeHtml, t } from "../../locales/i18n";
 
 export const REMIND_H = 24;
 export const WARN_BEFORE_H = 6;

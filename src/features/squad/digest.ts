@@ -61,8 +61,8 @@ export function isChatGone(err: unknown): boolean {
 
 /** Build and post a squad board for the given window. Returns false when the chat is gone (the
  * bot was kicked or the group was deleted) — the caller drops the squad. */
-// Narrowed from the concrete grammY Api so a dry-run caller (SquadSchedulerDO's alarm) can
-// pass a logging stand-in instead of a real api client, without an `as unknown as Api` cast
+// Narrowed from the concrete grammY Api so a test can pass a recording stand-in instead of a
+// real api client, without an `as unknown as Api` cast
 // -- same pattern as scheduler.ts's Sender for processUser.
 export interface SquadApi {
   sendMessage: Api["sendMessage"];

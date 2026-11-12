@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { muscleRecovery, planBalance, planSetCount, weeklyMuscleSets } from "../src/domain/muscleLoad";
-import { renderPlanBalance } from "../src/render";
+import { renderPlanBalance } from "../src/render/telegramText";
 import type { PlanDay } from "../src/types";
 
 const row = <T extends { slug: string }>(rows: T[], slug: string) => rows.find((r) => r.slug === slug)!;

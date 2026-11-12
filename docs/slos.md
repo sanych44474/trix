@@ -16,7 +16,7 @@ the production account or an external Grafana workspace is configured correctly.
   endpoint through Grafana's Infinity datasource. The endpoint is backed by D1 and omits direct
   identifiers from its top-user rows. Those rows remain pseudonymous and may be re-identified in
   a small population; names and IDs belong only in D1 and owner-only views.
-- `v2_daily_metrics` stores daily aggregate rows. The rollup in `src/dailyMetricsRollup.ts` writes
+- `v2_daily_metrics` stores daily aggregate rows. The rollup in `src/schedulerJobs/dailyMetricsRollup.ts` writes
   completed workouts, planned days without a completed workout, session counts, signups, plan
   snapshots, and bounded AI telemetry. It does not contain a user identifier.
 

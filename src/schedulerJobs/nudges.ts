@@ -22,7 +22,7 @@ import { plateauReport, type PlateauFinding } from "../domain/plateau";
 import { daysBetween } from "../domain/reminderTiming";
 import { isWeighInHour, weighInDue } from "../domain/weighIn";
 import type { Lang, Weekday } from "../types";
-import { renderDay, challengeTitleText } from "../render";
+import { renderDay, challengeTitleText } from "../render/telegramText";
 import { surveyKb, surveyRemaining } from "../features/survey/eveningSurvey";
 import { appKeyboardEnabled } from "../notify/appKeyboard";
 import { isoDaysAgo } from "./shared";

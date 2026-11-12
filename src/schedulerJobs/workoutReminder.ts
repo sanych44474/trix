@@ -3,7 +3,7 @@ import { workoutLogsSince } from "../adapters/d1/v2Workouts";
 import { patchReminders } from "../adapters/d1/v2Users";
 import { getPlanDay } from "../domain/progression";
 import { t } from "../locales/i18n";
-import { renderDay } from "../render";
+import { renderDay } from "../render/telegramText";
 import { HTML } from "./shared";
 import type { UserPass } from "./userPass";
 

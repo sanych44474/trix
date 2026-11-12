@@ -5,7 +5,8 @@ import { deleteUserVideo, getExerciseVideo, listAllCatalogNames, setManualVideo,
 import { updateUser } from "../adapters/d1/v2Users";
 import { getPlanDay } from "../domain/progression";
 import { cleanAi, t } from "../locales/i18n";
-import { YouTubeQuotaError, normalizeVideoKey, parseYouTubeId, searchExerciseVideo } from "../youtube";
+import { YouTubeQuotaError, parseYouTubeId, searchExerciseVideo } from "../adapters/youtube/youtube";
+import { normalizeVideoKey } from "../domain/videoKey";
 import { type MyContext, planOwnerId, reply, setMode } from "../adapters/telegram/context";
 import { menuBtn } from "../adapters/telegram/keyboards";
 import { isOwner } from "../features/owner/ownerAccess";

@@ -3,26 +3,16 @@
 // not what the whole per-user/per-squad DO redesign was solving (none of them touch the
 // per-invocation subrequest ceiling: an owner alert is at most one send, the rest is pure D1);
 // this exists for design consistency with the other two DO types, not because it fixes a
-// problem specific to these jobs. Same dry-run posture as the others: runs the real
-// runGlobalJobs (scheduler.ts) against a shadowed D1 and a logging Sender.
+// problem specific to these jobs. Nothing else runs them (ADR-0015).
 import { DurableObject } from "cloudflare:workers";
-import { loadLearnedMuscles } from "../exerciseMuscleLearning";
+import { loadLearnedMuscles } from "../features/exercise/muscleLearning";
 import { Bot } from "grammy";
 import { botClientOptions } from "../adapters/telegram/rawApi";
-import { logSchedulerError, type Sender } from "../schedulerJobs/shared";
+import { logSchedulerError } from "../schedulerJobs/shared";
 import { runGlobalJobs } from "../schedulerJobs/global";
-import { isCutOver } from "./cutover";
-import { logDryRun } from "./dryrunLog";
 import type { Env } from "../types";
-import { shadowD1 } from "./shadowDb";
-import { dryRunEnv } from "./dryRunEnv";
 import { logInfo, runWithRequestId } from "../log";
 import { nextHourlyAlarm } from "../domain/alarmTiming";
-
-// A fixed entityId for the dry-run log — there is no real per-entity id for a singleton. 0 is
-// safe: user ids are positive Telegram ids and squad chat ids are negative, so it never collides
-// with either when deleteUserData/deleteSquad scope their cleanup by (source, entityId).
-const GLOBAL_LOG_ENTITY_ID = 0;
 
 export class GlobalSchedulerDO extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
@@ -45,37 +35,10 @@ export class GlobalSchedulerDO extends DurableObject<Env> {
     // Reschedule first — same reasoning as the other two DOs.
     await this.ctx.storage.setAlarm(nextHourlyAlarm(Date.now()));
 
-    // Cut over? (durable/cutover.ts — default off.) Real bot, real db: the exact path
-    // runGlobalJobs used to run in the cron loop (and now skips — see scheduler.ts).
-    const cutOver = await isCutOver(this.env.DB, "global");
-    logInfo("do_alarm_run", { doType: "global", cutOver });
-    if (cutOver) {
-      // runGlobalJobs already catches each of its own sub-jobs internally (scheduler.ts), but the
-      // cron caller never wraps the outer call either -- this is defense in depth so a genuinely
-      // unexpected exception here still reaches error_logs/owner-report instead of only a raw
-      // uncaught exception in Workers Logs.
-      const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
-      await runGlobalJobs(this.env.DB, bot, this.env).catch((err) => logSchedulerError(this.env.DB, "global_jobs", err));
-      return;
-    }
-
-    const writes: { sql: string; params: unknown[] }[] = [];
-    // No outbound credentials: a dry run decides, it never pushes, calls AI or contacts anyone.
-    const shadowEnv: Env = dryRunEnv(this.env, shadowD1(this.env.DB, (w) => writes.push(w)));
-
-    const sends: { chatId: number; text: string }[] = [];
-    const sender: Sender = {
-      api: {
-        sendMessage: (async (chatId: number, text: string) => {
-          sends.push({ chatId, text });
-          return {} as Awaited<ReturnType<Sender["api"]["sendMessage"]>>;
-        }) as Sender["api"]["sendMessage"],
-      },
-    };
-
-    await runGlobalJobs(shadowEnv.DB, sender);
-
-    for (const s of sends) await logDryRun(this.env.DB, "global", GLOBAL_LOG_ENTITY_ID, "send", s);
-    for (const w of writes) await logDryRun(this.env.DB, "global", GLOBAL_LOG_ENTITY_ID, "write", w);
+    logInfo("do_alarm_run", { doType: "global" });
+    // runGlobalJobs catches each of its own sub-jobs. This is defense in depth, so an unexpected
+    // exception still reaches error_logs and the owner report, not only Workers Logs.
+    const bot = new Bot(this.env.TELEGRAM_BOT_TOKEN, botClientOptions);
+    await runGlobalJobs(this.env.DB, bot, this.env).catch((err) => logSchedulerError(this.env.DB, "global_jobs", err));
   }
 }

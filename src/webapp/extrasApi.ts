@@ -3,7 +3,7 @@
 // library (+ take), what's-new, the plates calculator, and become-a-trainer / trainer-profile
 // editing. Reuses the same repos and domain code as the bot; pushes (confirmations, interview
 // kick-off) go out via the Bot API.
-import { pingOther } from "../notify";
+import { pingOther } from "../notify/notify";
 import { listInbox, markInboxRead } from "../adapters/d1/v2Inbox";
 import { computeWeekCardStats, formatWeekCardText } from "../features/gamification/weekCard";
 import { obKeyboard, obSteps } from "../features/onboarding/questions";

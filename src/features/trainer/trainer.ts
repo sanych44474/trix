@@ -17,7 +17,7 @@ import { interviewProgress } from "../owner/ownerRows";
 import { localParts } from "../../domain/localTime";
 import { t } from "../../locales/i18n";
 import { type MyContext, HTML, reply } from "../../adapters/telegram/context";
-import { notifySafely } from "../../notify";
+import { notifySafely } from "../../notify/notify";
 import { sendOnboardingPrompt } from "../../notify/onboardingApp";
 import { shortCode, trainerMenu } from "./trainerCommon";
 

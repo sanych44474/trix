@@ -15,9 +15,9 @@ import { getTrainer, updateTrainer } from "../adapters/d1/v2Trainer";
 import { countActiveSince, getUser, listOnboardedUsers, stampOnboardedAt, updateUser } from "../adapters/d1/v2Users";
 import { formatRecordBest } from "../domain/setFormat";
 import { escapeHtml, t } from "../locales/i18n";
-import { notifySafely } from "../notify";
+import { notifySafely } from "../notify/notify";
 import { latestRelease, releaseBody } from "../releaseNotes";
-import { chunkReport, renderPlan } from "../render";
+import { chunkReport, renderPlan } from "../render/telegramText";
 import { aiJSON } from "../ai/index";
 import * as P from "../ai/prompts";
 import { ownerHubMenu } from "../adapters/telegram/keyboards";
@@ -31,7 +31,7 @@ import { ownerReportWindows } from "../features/owner/ownerMetrics";
 import { orOverview, orEngagement, orRetention, orAI, orTrainers, orOnboarding, orErrors, orUsers, buildOwnerReport } from "../features/owner/ownerReport";
 import { isOwner } from "../features/owner/ownerAccess";
 import { secretMatches } from "../domain/secrets";
-import { withinLimit } from "../limits";
+import { withinLimit } from "../adapters/rateLimit/limits";
 
 
 // ---------------- owner / admin ----------------

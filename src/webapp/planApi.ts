@@ -18,7 +18,7 @@ import { getExerciseTranslation, getExerciseVideos, getUserVideos, searchExercis
 import { exerciseMetric } from "../domain/setFormat";
 import { resolveWeightMode } from "../domain/exerciseClass";
 import { cleanAi } from "../locales/i18n";
-import { exerciseVideoKey, weekdayName } from "../render";
+import { exerciseVideoKey, weekdayName } from "../render/telegramText";
 import { miniAppUser } from "./auth";
 import { readJsonBody } from "./validate";
 import { buildVideoOpenLink } from "../domain/videoLink";

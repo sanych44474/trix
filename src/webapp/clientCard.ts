@@ -10,7 +10,7 @@ import { listMessages } from "../adapters/d1/v2TrainerMessages";
 import { listActiveInjuries, listProgressPhotos } from "../adapters/d1/v2Tracking";
 import { buildDashboardPayload } from "../adapters/d1/dashboardReader";
 import { getDraftPlan } from "../adapters/d1/v2Plans";
-import { autoActivationFor } from "../staleDrafts";
+import { autoActivationFor } from "../features/plan/staleDrafts";
 import type { DashboardPayload } from "../domain/dashboardPayload";
 import type { ClientCardDoc, InjuryDoc, UserDoc } from "../types";
 

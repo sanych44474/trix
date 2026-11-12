@@ -94,7 +94,7 @@ test("an unreadable stamp runs the job rather than blocking it forever", async (
 // THE regression for the weekly AI model check: it used to stamp the week BEFORE running, so a
 // failed owner alert (or a throw in the catalog read) meant no check for the next 7 days.
 test("weeklyModelCheck: a failed owner alert does not consume the week", async () => {
-  const { weeklyModelCheck } = await import("../src/aiModelWatch");
+  const { weeklyModelCheck } = await import("../src/schedulerJobs/aiModelWatch");
   const { setOwnerChatId } = await import("../src/adapters/d1/v2Admin");
   const db = newDb();
   await setOwnerChatId(db, 42);

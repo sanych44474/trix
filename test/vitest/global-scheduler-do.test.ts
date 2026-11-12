@@ -7,23 +7,16 @@ import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { getSetting } from "../../src/adapters/d1/v2Admin";
 
-describe("GlobalSchedulerDO alarm (dry-run)", () => {
-  it("decides for real (leaderboard cache) but never writes it for real", async () => {
+describe("GlobalSchedulerDO alarm", () => {
+  it("runs the global jobs for real, with no flag set: the leaderboard cache is written", async () => {
     expect(await getSetting(env.DB, "boards_cache")).toBeNull();
 
     const id = env.GLOBAL_SCHEDULER.idFromName("global");
     const stub = env.GLOBAL_SCHEDULER.get(id);
     await stub.fetch("https://do/wake");
-    const ran = await runDurableObjectAlarm(stub);
-    expect(ran).toBe(true);
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
 
-    // The real settings row was never written -- only the shadow saw it.
-    expect(await getSetting(env.DB, "boards_cache")).toBeNull();
-
-    const logged = await env.DB
-      .prepare("SELECT kind FROM scheduler_dryrun_log WHERE source = 'global'")
-      .all<{ kind: string }>();
-    expect(logged.results.some((r) => r.kind === "write")).toBe(true);
+    expect(await getSetting(env.DB, "boards_cache")).not.toBeNull();
   });
 
   it("waking twice does not create a second alarm, and it reschedules itself", async () => {

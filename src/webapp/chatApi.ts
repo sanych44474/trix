@@ -17,7 +17,7 @@ import { readJsonBody } from "./validate";
 import { runIdempotent } from "../adapters/d1/v2Idempotency";
 import type { Env, UserDoc } from "../types";
 
-import { notify } from "../notify";
+import { notify } from "../notify/notify";
 import { rawTelegramApi } from "../adapters/telegram/rawApi";
 import { typedFailure } from "./failure";
 const MAX_CHAT_TEXT = 2000;

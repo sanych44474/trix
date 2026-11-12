@@ -1,6 +1,6 @@
-// Real v2-native implementation of `DashboardReader` (src/application/dashboard.ts) — Domain 10
-// of the v2 cutover, see docs/adr/0001-v2-seams-and-staged-cutover.md. This is the "deep module"
-// the ADR calls out by name: it owns ALL the D1 fetching + fan-out for the Mini App dashboard
+// The Mini App dashboard read — Domain 10 of the v2 cutover, see
+// docs/adr/0001-v2-seams-and-staged-cutover.md. This is the "deep module" the ADR calls out by
+// name: it owns ALL the D1 fetching + fan-out for the Mini App dashboard
 // (formerly `buildDashboardPayload`/`buildTrainerSection`/`buildOwnerSection`, which used to be
 // inlined in src/domain/dashboardPayload.ts), then hands the raw rows to that file's PURE
 // `assemblePayload` for shaping. src/domain/dashboardPayload.ts now has no D1 access at all — see its
@@ -45,7 +45,6 @@ import {
   MACRO_DAYS,
   type DashboardPayload,
 } from "../../domain/dashboardPayload";
-import { createDashboardApplication, type DashboardReader } from "../../application/dashboard";
 import type { UserDoc, WorkoutLogDoc } from "../../types";
 import { estimateSessionMinutes } from "../../domain/sessionLength";
 
@@ -255,11 +254,4 @@ export async function buildDashboardPayload(db: D1Database, user: UserDoc): Prom
   const todayDay = plan ? getPlanDay(plan, isoWeekdayOf(today)) : undefined;
   payload.logForm = { exercises: (todayDay?.exercises ?? []).map((e) => e.name), minutes: estimateSessionMinutes(todayDay?.exercises ?? []) };
   return payload;
-}
-
-export function createD1DashboardApplication(db: D1Database) {
-  const reader: DashboardReader = {
-    read: (user: UserDoc) => buildDashboardPayload(db, user),
-  };
-  return createDashboardApplication(reader);
 }

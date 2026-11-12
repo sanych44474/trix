@@ -13,7 +13,7 @@
 //
 // Keys are stable identifiers (a user id, or the client IP for /admin where there is no user), never
 // a region.
-import { logError } from "./log";
+import { logError } from "../../log";
 
 /** The slice of Cloudflare's RateLimit binding this module uses. */
 interface RateLimitBinding {
