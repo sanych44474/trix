@@ -38,9 +38,22 @@ export function broadcastQueue(env: Env): Queue<BroadcastMessage> | null {
   return (env.BROADCAST_QUEUE as Queue<BroadcastMessage> | undefined) ?? null;
 }
 
-async function enqueue(queue: Queue<BroadcastMessage>, messages: BroadcastMessage[]): Promise<void> {
-  for (let i = 0; i < messages.length; i += SEND_BATCH) {
-    await queue.sendBatch(messages.slice(i, i + SEND_BATCH).map((body) => ({ body })));
+/**
+ * Queues the messages 100 at a time. If a batch is refused part-way, the ones already queued are
+ * on their way, so the failure says how many: the owner needs that number to know that a second
+ * tap would send an announcement to the first batches twice. The count goes to the audit log too.
+ */
+async function enqueue(env: Env, ownerId: number, what: string, queue: Queue<BroadcastMessage>, messages: BroadcastMessage[]): Promise<void> {
+  let queued = 0;
+  try {
+    for (let i = 0; i < messages.length; i += SEND_BATCH) {
+      const batch = messages.slice(i, i + SEND_BATCH);
+      await queue.sendBatch(batch.map((body) => ({ body })));
+      queued += batch.length;
+    }
+  } catch (err) {
+    await recordAudit(env.DB, ownerId, "broadcast_partial", undefined, `${what}: queued ${queued} of ${messages.length}`).catch(() => {});
+    throw new Error(`Broadcast stopped after ${queued} of ${messages.length} were queued: ${String(err).slice(0, 120)}`);
   }
 }
 
@@ -48,7 +61,7 @@ async function enqueue(queue: Queue<BroadcastMessage>, messages: BroadcastMessag
 export async function queueReleaseBroadcast(env: Env, queue: Queue<BroadcastMessage>, ownerId: number): Promise<{ version: string; queued: number }> {
   const note = latestRelease();
   const due = releaseRecipients(await listOnboardedUsers(env.DB), note.version);
-  await enqueue(queue, due.map((u) => ({ kind: "release", userId: u._id, version: note.version })));
+  await enqueue(env, ownerId, `release ${note.version}`, queue, due.map((u) => ({ kind: "release", userId: u._id, version: note.version })));
   await recordAudit(env.DB, ownerId, "release_notes", undefined, `${note.version} queued ${due.length}`).catch(() => {});
   return { version: note.version, queued: due.length };
 }
@@ -56,7 +69,7 @@ export async function queueReleaseBroadcast(env: Env, queue: Queue<BroadcastMess
 /** Queue an announcement for every onboarded user who can be reached. Returns how many were queued. */
 export async function queueAnnouncement(env: Env, queue: Queue<BroadcastMessage>, ownerId: number, text: string): Promise<{ queued: number }> {
   const recipients = (await listOnboardedUsers(env.DB)).filter((u) => !u.blocked && !u.botBlocked);
-  await enqueue(queue, recipients.map((u) => ({ kind: "announce", userId: u._id, text })));
+  await enqueue(env, ownerId, "announcement", queue, recipients.map((u) => ({ kind: "announce", userId: u._id, text })));
   await recordAudit(env.DB, ownerId, "broadcast", undefined, `queued ${recipients.length}: ${text.slice(0, 80)}`).catch(() => {});
   return { queued: recipients.length };
 }

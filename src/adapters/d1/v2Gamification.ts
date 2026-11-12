@@ -438,10 +438,16 @@ export async function squadsDueForRecap(db: DB, weekKey: string, limit: number):
   return res.results ?? [];
 }
 
-/** Mark a squad as recapped for `weekKey`. Written even when the post itself failed for a
- * transient reason — a retry storm into a group chat is worse than a missed weekly recap. */
-export async function markSquadRecapped(db: DB, chatId: number, weekKey: string): Promise<void> {
-  await db.prepare("UPDATE v2_squads SET lastRecapWeek = ? WHERE chatId = ?").bind(weekKey, chatId).run();
+/** Claim a squad's recap for `weekKey`: true for the one caller that records it, false when the
+ * week is already taken. Claimed BEFORE the post, so a failed write after a sent recap can no
+ * longer make the next hourly alarm post it again; a post that then fails is not retried, because
+ * a retry storm into a group chat is worse than a missed weekly recap. */
+export async function markSquadRecapped(db: DB, chatId: number, weekKey: string): Promise<boolean> {
+  const res = await db
+    .prepare("UPDATE v2_squads SET lastRecapWeek = ? WHERE chatId = ? AND (lastRecapWeek IS NULL OR lastRecapWeek <> ?)")
+    .bind(weekKey, chatId, weekKey)
+    .run();
+  return (res.meta.changes ?? 0) > 0;
 }
 
 /** Members of a squad with the display name and language the digest needs. */

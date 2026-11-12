@@ -80,7 +80,9 @@ test("squadsDueForRecap: batched, and a recapped squad drops out until the next 
   assert.equal((await squadsDueForRecap(db, "2026-W24", 1)).length, 1);
   assert.equal((await squadsDueForRecap(db, "2026-W24", 8)).length, 2);
 
-  await markSquadRecapped(db, CHAT, "2026-W24");
+  assert.equal(await markSquadRecapped(db, CHAT, "2026-W24"), true);
+  // The week is claimed once: a second alarm for the same week must not post it again.
+  assert.equal(await markSquadRecapped(db, CHAT, "2026-W24"), false);
   assert.deepEqual((await squadsDueForRecap(db, "2026-W24", 8)).map((s) => s.chatId), [-2002]);
   // A new week makes it due again.
   assert.equal((await squadsDueForRecap(db, "2026-W25", 8)).length, 2);
