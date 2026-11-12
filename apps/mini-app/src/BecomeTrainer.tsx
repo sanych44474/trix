@@ -38,7 +38,7 @@ export function BecomeTrainerCard({ lang, role }: { lang: Lang; role: Dashboard[
     if (!becomeName.trim()) return;
     setBecomeBusy(true); setBecomeError(null); setBecomeSent(false);
     try {
-      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateTrainerProfile">({ name: becomeName.trim(), specialization: becomeSpecialization.trim(), city: becomeCity.trim(), contact: becomeContact.trim(), bio: becomeBio.trim() }) });
+      await api("/api/v2/trainer/profile", { method: "POST", idempotencyKey: true, body: typedBody<"updateTrainerProfile">({ name: becomeName.trim(), specialization: becomeSpecialization.trim(), city: becomeCity.trim(), contact: becomeContact.trim(), bio: becomeBio.trim() }) });
       setBecomeSent(true);
       loadTrainerApp();
     } catch (err) { setBecomeError(err); } finally { setBecomeBusy(false); }

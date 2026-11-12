@@ -27,7 +27,7 @@ import { DAILY_NUDGE_CAP, daysBetween, isQuietHour, nudgesSentToday } from "./do
 import { escapeHtml, t } from "./locales/i18n";
 import { onboardingAppMarkup, onboardingUrlFromEnv } from "./notify/onboardingApp";
 import { appKeyboard, } from "./notify/appKeyboard";
-import { finalizeOnboardingPlan, retryInterviewStep } from "./features/plan/planService";
+import { finalizeOnboardingPlan, planRetryDue, retryInterviewStep } from "./features/plan/planService";
 import { APP_VERSION } from "./appVersion";
 import { enforceStorageBudget } from "./adapters/r2/photoStorage";
 import { purgeExpiredStories } from "./adapters/r2/storyMedia";
@@ -166,10 +166,11 @@ async function runScheduleInner(env: Env, claim: HourClaim): Promise<void> {
   // subrequests (AI provider chain), and processing multiple users per invocation triggers
   // Cloudflare's "Too many subrequests" limit.
   const pendingPlan = await listPlanPendingUsers(db, new Date(Date.now() - 90_000).toISOString()).catch(() => []);
-  if (pendingPlan.length > 0) {
+  const due = pendingPlan.find((u) => planRetryDue(u));
+  if (due) {
     // Recover with the zero-AI bank plan first: a slow AI chain here blocks the whole cron
     // invocation (and can exceed its CPU limit) before the reminder/check-in section runs.
-    await finalizeOnboardingPlan(env, db, pendingPlan[0], { preferBank: true }).catch((e) => logSchedulerError(db, "plan_pending_recover", e, pendingPlan[0]._id));
+    await finalizeOnboardingPlan(env, db, due, { preferBank: true }).catch((e) => logSchedulerError(db, "plan_pending_recover", e, due._id));
   }
   } // end pendingRecoveryCount gate
 

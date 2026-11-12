@@ -95,7 +95,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
       const result = await api<{ ok: true; days: Plan["days"]; version: string; changes?: Plan["changes"] }>("/api/v2/plan", {
         method: "POST",
         headers: { "If-Match": `"${plan.version}"` },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: true,
         body: typedBody<"editPlan">({ weekday, index, action, clientId: clientId ?? undefined, value, expectName, ...extra }),
       });
       setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}) });
@@ -118,7 +118,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
       const result = await api<{ ok: true; days: Plan["days"]; version: string; changes?: Plan["changes"] }>("/api/v2/plan", {
         method: "POST",
         headers: { "If-Match": `"${plan.version}"` },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: true,
         body: typedBody<"editPlan">({ ...body, clientId: clientId ?? undefined }),
       });
       setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}), ...(key === "fitkit" && plan.kit ? { kit: { equipment: body.equipment ?? plan.kit.equipment, mismatches: 0 } } : {}) });
@@ -143,7 +143,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
       const result = await api<{ ok: true; swapped: number; days: Plan["days"]; version: string; changes?: Plan["changes"] }>("/api/v2/plan", {
         method: "POST",
         headers: { "If-Match": `"${plan.version}"` },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: true,
         body: typedBody<"editPlan">({ action: "difficulty", weekday, dir, clientId: clientId ?? undefined }),
       });
       setPlan({ ...plan, days: result.days, version: result.version, ...(result.changes ? { changes: result.changes } : {}) });
@@ -168,7 +168,7 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
       await api("/api/v2/plan", {
         method: "POST",
         headers: { "If-Match": `"${plan.version}"` },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: true,
         body: typedBody<"editPlan">({ action: "meso", on, clientId: clientId ?? undefined }),
       });
       load();

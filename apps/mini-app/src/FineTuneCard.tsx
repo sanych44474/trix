@@ -30,7 +30,7 @@ export function FineTuneCard({ lang, gaps, onSaved }: { lang: Lang; gaps: Gap[];
   const save = async (v: string | number) => {
     setBusy(true);
     try {
-      await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateProfile">({ [gap]: v }) });
+      await api("/api/v2/profile", { method: "POST", idempotencyKey: true, body: typedBody<"updateProfile">({ [gap]: v }) });
       setDone((d) => [...d, gap]);
       setValue("");
       if (left.length === 1) onSaved();

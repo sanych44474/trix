@@ -35,7 +35,7 @@ export function CardioPanel({ lang, onBack }: { lang: Lang; onBack: () => void }
     try {
       const r = await api<{ ok: boolean }>("/api/v2/log", {
         method: "POST",
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: true,
         body: typedBody<"quickLog">({ kind: "cardio", key: picked.key as never, text: text.trim() }),
       });
       if (r.ok) {
@@ -163,7 +163,7 @@ export function ComebackFlow({ lang, onDone }: { lang: Lang; onDone: () => void 
     try {
       await api("/api/v2/comeback", {
         method: "POST",
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: true,
         body: typedBody<"answerComeback">({ answers: answers as never, decision }),
       });
       setState({ ...state, pending: false });
@@ -241,7 +241,7 @@ export function AdaptiveCheckin({ lang, onDone }: { lang: Lang; onDone: () => vo
     try {
       const res = await api<AdaptiveResult>("/api/v2/checkin/adaptive", {
         method: "POST",
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: true,
         body: typedBody<"answerAdaptiveCheckin">({ text: text.trim() }),
       });
       setResult(res);

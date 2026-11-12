@@ -241,7 +241,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
   // are left alone.
   const setCap = async (exercise: LoggerExercise, kg: number | null) => {
     try {
-      await api("/api/v2/settings", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateSettings">({ action: "progression", exercise: exercise.name, capKg: kg }) });
+      await api("/api/v2/settings", { method: "POST", idempotencyKey: true, body: typedBody<"updateSettings">({ action: "progression", exercise: exercise.name, capKg: kg }) });
       const fresh = await api<WorkoutToday>(`/api/v2/workout/today${logDate ? `?date=${logDate}` : ""}`);
       const next = fresh.exercises.find((e) => e.name === exercise.name);
       mapExercise(exercise.index, (ex) => ({ ...ex, capKg: next?.capKg ?? (kg ?? undefined), target: next?.target ?? ex.target, ...(next ? { weightKg: next.weightKg, reps: next.reps } : {}) }));
@@ -332,7 +332,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
       const data = await api<{ alternatives: Array<{ id: string; name: string }>; muscle?: string | null }>(
         `/api/v2/workout/swap?index=${index}&name=${encodeURIComponent(planName)}&muscle=${encodeURIComponent(q)}`);
       if (data.muscle) { setSwapChoices(data.alternatives); return; }
-      const own = await api<CustomExercise>("/api/v2/workout/custom", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"addCustomExercise">({ name: q }) });
+      const own = await api<CustomExercise>("/api/v2/workout/custom", { method: "POST", idempotencyKey: true, body: typedBody<"addCustomExercise">({ name: q }) });
       registerLearnedMuscles(own.muscles ? [{ name: own.name, ...own.muscles }] : []); // counts on the body map right away
       await applySwap({ id: "", name: own.name }, { videoUrl: own.videoUrl, videoTitle: own.videoTitle });
     } catch (err) { setActionError(err); } finally { setActionBusy(null); }
@@ -361,7 +361,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
     if (name.length < 2) return;
     setActionBusy("custom");
     try {
-      const result = await api<CustomExercise>("/api/v2/workout/custom", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"addCustomExercise">({ name }) });
+      const result = await api<CustomExercise>("/api/v2/workout/custom", { method: "POST", idempotencyKey: true, body: typedBody<"addCustomExercise">({ name }) });
       registerLearnedMuscles(result.muscles ? [{ name: result.name, ...result.muscles }] : []); // counts on the body map right away
       mutate((exercises) => [...exercises, { index: exercises.length, name: result.name, metric: "reps", sets: 1, ...(result.videoUrl ? { videoUrl: result.videoUrl, videoTitle: result.videoTitle } : {}) }]);
       setCustomName(""); setShowCustom(false);

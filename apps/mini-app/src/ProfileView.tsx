@@ -44,7 +44,7 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   const run = async (key: string, action: SettingsBody["action"], extra?: Omit<Partial<SettingsBody>, "action">): Promise<SettingsResult | null> => {
     setBusy(key); setActionSaved(null); setActionError(null);
     try {
-      const result = await api<SettingsResult>("/api/v2/settings", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"updateSettings">({ action, ...extra }) });
+      const result = await api<SettingsResult>("/api/v2/settings", { method: "POST", idempotencyKey: true, body: typedBody<"updateSettings">({ action, ...extra }) });
       if (result.state) setSettings(result.state);
       if (result.ok === false) { setActionError(key); return result; }
       setActionSaved(key);
@@ -98,13 +98,13 @@ export function ProfileView({ onBack, lang, onLangChange }: { onBack: () => void
   // typed edits would vanish) -- reuses the same per-field actionError/actionSaved convention the
   // settings actions below already use, keyed "profile", rendered as an inline note near the button.
   const profileBody = (value: ProfilePayload["profile"]) => typedBody<"updateProfile">({ ...value, goalWeight: value.goalWeight === null ? null : Number(value.goalWeight), waterGoalMl: value.waterGoalMl === null ? null : Number(value.waterGoalMl), stepsGoal: value.stepsGoal === null ? null : Number(value.stepsGoal) });
-  const save = async () => { setSaving(true); setActionError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: profileBody(form) }); onBack(); } catch { setActionError("profile"); } finally { setSaving(false); } };
+  const save = async () => { setSaving(true); setActionError(null); try { await api("/api/v2/profile", { method: "POST", idempotencyKey: true, body: profileBody(form) }); onBack(); } catch { setActionError("profile"); } finally { setSaving(false); } };
   // The daily reminder hour saves on its own (the rest of the profile form is untouched).
   const saveReminderHour = async (hour: number) => {
     setHourBusy(true); setActionSaved(null); setActionError(null);
     try {
       const next = { ...form, reminderHour: hour };
-      await api("/api/v2/profile", { method: "POST", idempotencyKey: crypto.randomUUID(), body: profileBody(next) });
+      await api("/api/v2/profile", { method: "POST", idempotencyKey: true, body: profileBody(next) });
       setForm(next); setActionSaved("hour");
     } catch { setActionError("hour"); } finally { setHourBusy(false); }
   };

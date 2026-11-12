@@ -36,7 +36,7 @@ export function CoachChat({ lang, prefill, onReportInjury }: { lang: Lang; prefi
     setQuestion(""); setBusy("ask"); setError(false);
     track(turns.length ? "app_coach_followup" : "app_coach_ask");
     try {
-      const r = await api<{ answer?: string; actions?: Action[]; bodySignal?: { kind: "injury" | "urgent" } }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"askCoach">({ question: q, history }) });
+      const r = await api<{ answer?: string; actions?: Action[]; bodySignal?: { kind: "injury" | "urgent" } }>("/api/v2/coach/ask", { method: "POST", idempotencyKey: true, body: typedBody<"askCoach">({ question: q, history }) });
       setTurns((prev) => [...prev, { role: "coach", text: r.answer || t(lang, "generic_error"), actions: r.actions ?? [], ...(r.bodySignal ? { bodySignal: r.bodySignal } : {}) }]);
     } catch {
       setError(true);
@@ -48,11 +48,11 @@ export function CoachChat({ lang, prefill, onReportInjury }: { lang: Lang; prefi
     setBusy(key); setError(false);
     try {
       if (a.kind === "feedback") {
-        await api("/api/v2/coach/feedback", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"sendCoachFeedback">({ summary: a.value ?? "", ...(a.note ? { original: a.note } : {}) }) });
+        await api("/api/v2/coach/feedback", { method: "POST", idempotencyKey: true, body: typedBody<"sendCoachFeedback">({ summary: a.value ?? "", ...(a.note ? { original: a.note } : {}) }) });
       } else {
         const action = PLAN_ACTION[a.kind];
         if (!action || !a.weekday) throw new Error("unsupported");
-        await api("/api/v2/plan", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editPlan">({ action, weekday: a.weekday, index: a.index ?? -1, value: a.kind === "swap" || a.kind === "add" ? a.exercise : a.value, ...(a.target ? { expectName: a.target } : {}) }) });
+        await api("/api/v2/plan", { method: "POST", idempotencyKey: true, body: typedBody<"editPlan">({ action, weekday: a.weekday, index: a.index ?? -1, value: a.kind === "swap" || a.kind === "add" ? a.exercise : a.value, ...(a.target ? { expectName: a.target } : {}) }) });
       }
       setTurns((prev) => prev.map((x, j) => (j === turnIdx ? { ...x, done: [...(x.done ?? []), i] } : x)));
       track(`app_coach_action_${a.kind}`);

@@ -28,7 +28,7 @@ export function ProgramSharingView({ lang, clients, onBack }: { lang: Lang; clie
     setBusy(`pub:${mode}`); setNote(null); setLink(null); setError(false);
     try {
       const r = await api<{ code: string; name: string; link?: string }>("/api/v2/trainer/share/template", {
-        method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"shareTrainerTemplate">({ templateId: Number(templateId), mode }),
+        method: "POST", idempotencyKey: true, body: typedBody<"shareTrainerTemplate">({ templateId: Number(templateId), mode }),
       });
       if (r.link) setLink(r.link);
       else setNote(t(lang, "tt_published_note", { name: r.name }));
@@ -39,7 +39,7 @@ export function ProgramSharingView({ lang, clients, onBack }: { lang: Lang; clie
     setBusy("mine"); setNote(null); setLink(null); setError(false);
     try {
       const r = await api<{ code: string; name: string }>("/api/v2/trainer/share/plan", {
-        method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"shareTrainerOwnPlan">({ name: myName.trim() }),
+        method: "POST", idempotencyKey: true, body: typedBody<"shareTrainerOwnPlan">({ name: myName.trim() }),
       });
       setNote(t(lang, "tt_published_note", { name: r.name }));
       setMyName("");
@@ -50,7 +50,7 @@ export function ProgramSharingView({ lang, clients, onBack }: { lang: Lang; clie
     setBusy("assign"); setNote(null); setLink(null); setError(false);
     try {
       const r = await api<{ assigned: number; total: number }>("/api/v2/trainer/share/assign", {
-        method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"assignTrainerTemplate">({ templateId: Number(templateId), clientIds: picked }),
+        method: "POST", idempotencyKey: true, body: typedBody<"assignTrainerTemplate">({ templateId: Number(templateId), clientIds: picked }),
       });
       setNote(t(lang, "tt_assign_done", { ok: r.assigned, total: r.total }));
       setPicked([]);

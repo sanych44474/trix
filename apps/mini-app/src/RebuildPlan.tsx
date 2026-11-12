@@ -31,7 +31,7 @@ export function RebuildPlanCard({ lang, onDone }: { lang: Lang; onDone: () => vo
   const start = async () => {
     setConfirming(false); setError(false);
     try {
-      await api("/api/v2/plan/replan", { method: "POST", idempotencyKey: crypto.randomUUID() });
+      await api("/api/v2/plan/replan", { method: "POST", idempotencyKey: true });
       setStatus({ pending: true, failed: false });
       track("app_plan_rebuild");
     } catch (err) { setError(!(err instanceof ApiError && err.status === 403)); }

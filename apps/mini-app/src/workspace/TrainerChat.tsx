@@ -40,7 +40,7 @@ export function TrainerChat({ lang, peerId, canDraft, prefill }: { lang: Lang; p
     if (!body || busy) return;
     setBusy("send"); setError(false);
     try {
-      await api("/api/v2/chat", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"sendChatMessage">({ text: body, ...(peerId ? { with: peerId } : {}) }) });
+      await api("/api/v2/chat", { method: "POST", idempotencyKey: true, body: typedBody<"sendChatMessage">({ text: body, ...(peerId ? { with: peerId } : {}) }) });
       setText("");
       track(peerId ? "app_chat_trainer_sent" : "app_chat_client_sent");
       await load();

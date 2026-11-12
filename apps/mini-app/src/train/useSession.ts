@@ -158,7 +158,7 @@ export function useSession() {
     restStartedRef.current = now;
     restTargetRef.current = target;
     setRest({ endAt: now + bounded * 1000, left: bounded, over: 0, done: false, target, label });
-    void api("/api/v2/workout/rest", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"startRestTimer">({ seconds: bounded }) }).catch(() => {});
+    void api("/api/v2/workout/rest", { method: "POST", idempotencyKey: true, body: typedBody<"startRestTimer">({ seconds: bounded }) }).catch(() => {});
   };
   const startRest = (seconds: number, label = "") => armRest(seconds, label, clampRest(seconds));
 
@@ -185,7 +185,7 @@ export function useSession() {
     const elapsed = restStartedRef.current == null ? 0 : Math.round((now - restStartedRef.current) / 1000);
     restTargetRef.current = elapsed + next;
     window.Telegram?.WebApp.HapticFeedback?.impactOccurred("light");
-    void api("/api/v2/workout/rest", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"startRestTimer">({ seconds: next }) }).catch(() => {});
+    void api("/api/v2/workout/rest", { method: "POST", idempotencyKey: true, body: typedBody<"startRestTimer">({ seconds: next }) }).catch(() => {});
   };
 
   /** The clock as it would be if the session ended now -- computed, not applied, so a failed

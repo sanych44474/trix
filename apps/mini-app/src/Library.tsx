@@ -104,7 +104,7 @@ function OwnPlanAdd({ lang, ex, name }: { lang: Lang; ex: LibraryEntry; name: st
       await api("/api/v2/plan", {
         method: "POST",
         headers: { "If-Match": `"${plan.version}"` },
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: true,
         body: typedBody<"editPlan">({ weekday: day, index: -1, action: "add", value: name, freeExerciseId: ex.id }),
       });
       setState("added");

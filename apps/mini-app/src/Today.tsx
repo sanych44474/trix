@@ -45,7 +45,7 @@ function RecoverySwapCard({ lang, swap, onDone }: { lang: Lang; swap: NonNullabl
   const apply = async () => {
     setBusy(true); setError(null);
     try {
-      await api("/api/v2/plan", { method: "POST", idempotencyKey: crypto.randomUUID(), body: typedBody<"editPlan">({ action: "dayswap", weekday: swap.weekday, other: swap.other }) });
+      await api("/api/v2/plan", { method: "POST", idempotencyKey: true, body: typedBody<"editPlan">({ action: "dayswap", weekday: swap.weekday, other: swap.other }) });
       onDone();
     } catch (err) { setError(err); } finally { setBusy(false); }
   };
@@ -197,7 +197,7 @@ function WaterSteps({ lang, stats, fmt, onSaved }: { lang: Lang; stats: NonNulla
   const post = async (key: string, body: unknown) => {
     setBusy(key); setFailed(false);
     try {
-      await api("/api/v2/log", { method: "POST", idempotencyKey: crypto.randomUUID(), body: jsonBody(body) });
+      await api("/api/v2/log", { method: "POST", idempotencyKey: true, body: jsonBody(body) });
       if (key === "steps") setSteps("");
       onSaved();
     } catch { setFailed(true); } finally { setBusy(null); }

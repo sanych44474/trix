@@ -295,6 +295,8 @@ export interface UserSession {
   recentFoods?: MealEntry[]; // recent foods offered for one-tap re-log (index → item)
   photoReviewFor?: number; // trainer id awaiting this client's next photo (progress-photo review)
   replanAt?: string; // ISO: a plan rebuild started from the app is building (features/plan/planService.ts rebuildPlan)
+  planTries?: number; // failed plan builds while parked in plan_pending (planRetryDue backs the sweep off)
+  planTriedAt?: string; // ISO of the last failed build
   replanFailed?: string; // ISO: the last app rebuild failed (cleared when a new one starts)
   photoSelf?: boolean; // self-serve "📸 progress photo" flow: the next photo goes to the gallery
 }
