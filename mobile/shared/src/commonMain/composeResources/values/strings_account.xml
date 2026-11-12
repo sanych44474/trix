@@ -63,6 +63,7 @@
     <string name="ac_prog_auto">Suggest more weight and reps automatically</string>
     <string name="ac_prog_caps_title">Max weight per exercise</string>
     <string name="ac_prog_caps_empty">No limits yet. Set one from an exercise's menu while you train.</string>
+    <string name="ac_prog_cap_all_dumbbells">All dumbbell exercises</string>
     <string name="ac_prog_cap_remove">Remove</string>
     <string name="ac_vacation_eyebrow">Vacation</string>
     <string name="ac_vacation_title">Pause reminders</string>

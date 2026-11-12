@@ -36,3 +36,11 @@ weekly plan update (`computePlanProgression`).
 - Ceilings are per exercise name, not per equipment: a swapped-in exercise has none until the
   person sets one. A per-equipment ceiling (all dumbbells) can be added on top if testers ask.
 - Time and distance exercises have no ceiling; only the off switch applies to them.
+
+## Addendum: one ceiling for all dumbbells
+
+The tester's limit is a piece of equipment, not an exercise: his dumbbells stop at 30 kg for every
+dumbbell movement. `caps["@dumbbell"]` is a ceiling for every exercise whose gear is dumbbells and
+nothing else (`isDumbbellOnly`, built on `gearFor`). An exercise's own ceiling wins over it. The
+workout payload says when the shown ceiling is the shared one (`capShared`) and when the exercise
+can offer it (`dumbbellOnly`), so the clients need no gear rules of their own.

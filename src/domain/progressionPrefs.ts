@@ -10,6 +10,17 @@
 // (action "progression"); applied by nextTargetSet (today's target) and computePlanProgression
 // (the weekly plan update).
 
+import { gearFor } from "./equipmentFit";
+
+/** The `caps` key for "every exercise that needs nothing but dumbbells" (one pair of dumbbells stops at 30 kg for all of them). */
+export const DUMBBELL_CAP_KEY = "@dumbbell";
+
+/** True when the exercise is done with dumbbells and nothing else (no barbell, bench rack, cable). */
+export function isDumbbellOnly(name: string): boolean {
+  const gear = gearFor(name);
+  return gear.length === 1 && gear[0] === "dumbbell";
+}
+
 export interface ProgressionPrefs {
   /** false = no automatic increases at all. Absent or true = the engine decides, as before. */
   auto?: boolean;
@@ -22,6 +33,8 @@ export interface Limits {
   auto?: boolean;
   /** Ceiling in kg for this exercise. */
   cap?: number;
+  /** The ceiling comes from the all-dumbbell setting, not from this exercise's own. */
+  shared?: boolean;
 }
 
 type Step = "hold" | "reps" | "load";
@@ -44,6 +57,12 @@ export function limitsFor(prefs: ProgressionPrefs | undefined, ...names: Array<s
   for (const n of names) {
     const cap = n ? prefs.caps?.[capKey(n)] : undefined;
     if (typeof cap === "number" && cap > 0) { limits.cap = cap; break; }
+  }
+  // No ceiling of its own: the one for all-dumbbell work applies. An exercise's own ceiling wins.
+  const shared = prefs.caps?.[DUMBBELL_CAP_KEY];
+  if (limits.cap === undefined && typeof shared === "number" && shared > 0 && names.some((n) => n && isDumbbellOnly(n))) {
+    limits.cap = shared;
+    limits.shared = true;
   }
   return limits;
 }

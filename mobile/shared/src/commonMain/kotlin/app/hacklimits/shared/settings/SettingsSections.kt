@@ -241,7 +241,7 @@ internal fun ProgressionSection(progression: SettingsState.Progression, busy: Bo
         } else {
             progression.caps.forEach { cap ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("${cap.exercise} · ${fmtKg(cap.kg)}", modifier = Modifier.weight(1f))
+                    Text("${if (cap.exercise == "@dumbbell") stringResource(Res.string.ac_prog_cap_all_dumbbells) else cap.exercise} · ${fmtKg(cap.kg)}", modifier = Modifier.weight(1f))
                     TextButton(onClick = { onRemoveCap(cap.exercise) }, enabled = !busy) { Text(stringResource(Res.string.ac_prog_cap_remove)) }
                 }
             }

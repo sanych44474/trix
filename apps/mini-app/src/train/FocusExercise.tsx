@@ -55,7 +55,8 @@ export interface FocusExerciseProps {
   onRemove: () => void;
   onCloseMenu: () => void;
   /** Set (kg) or clear (null) the athlete's own weight ceiling for this exercise. */
-  onSetCap: (kg: number | null) => void;
+  /** `all`: the ceiling is for every dumbbell-only exercise, not just this one. */
+  onSetCap: (kg: number | null, all?: boolean) => void;
 }
 
 type Main = "reps" | "seconds" | "meters";
@@ -167,12 +168,15 @@ export function FocusExercise(props: FocusExerciseProps) {
       {props.menuOpen && capOpen && (
         <form className="input-row" onSubmit={(event) => {
           event.preventDefault();
-          const kg = Number((event.currentTarget.elements.namedItem("cap") as HTMLInputElement).value.replace(",", "."));
-          if (kg > 0 && kg <= 1000) { props.onSetCap(kg); setCapOpen(false); props.onCloseMenu(); }
+          const form = event.currentTarget.elements;
+          const kg = Number((form.namedItem("cap") as HTMLInputElement).value.replace(",", "."));
+          const all = exercise.dumbbellOnly ? (form.namedItem("capAll") as HTMLInputElement).checked : false;
+          if (kg > 0 && kg <= 1000) { props.onSetCap(kg, all); setCapOpen(false); props.onCloseMenu(); }
         }}>
           <input name="cap" type="text" inputMode="decimal" autoComplete="off" aria-label={t(lang, "train_cap_btn")} placeholder={t(lang, "ph_kg")} defaultValue={exercise.capKg ? String(exercise.capKg) : ""} />
           <button type="submit" className="button button-ghost">{t(lang, "cap_save_btn")}</button>
-          {exercise.capKg ? <button type="button" className="button button-ghost" onClick={() => { props.onSetCap(null); setCapOpen(false); props.onCloseMenu(); }}>{t(lang, "cap_clear_btn")}</button> : null}
+          {exercise.dumbbellOnly ? <label className="check-row"><input name="capAll" type="checkbox" defaultChecked={!!exercise.capShared} /><span>{t(lang, "cap_all_dumbbells")}</span></label> : null}
+          {exercise.capKg ? <button type="button" className="button button-ghost" onClick={() => { props.onSetCap(null, !!exercise.capShared); setCapOpen(false); props.onCloseMenu(); }}>{t(lang, "cap_clear_btn")}</button> : null}
         </form>
       )}
       {props.restPrefsOpen && (

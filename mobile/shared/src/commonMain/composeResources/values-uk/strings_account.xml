@@ -63,6 +63,7 @@
     <string name="ac_prog_auto">Пропонувати більшу вагу й повтори автоматично</string>
     <string name="ac_prog_caps_title">Максимальна вага за вправами</string>
     <string name="ac_prog_caps_empty">Лімітів ще немає. Встанови його в меню вправи під час тренування.</string>
+    <string name="ac_prog_cap_all_dumbbells">Усі вправи з гантелями</string>
     <string name="ac_prog_cap_remove">Прибрати</string>
     <string name="ac_vacation_eyebrow">Пауза</string>
     <string name="ac_vacation_title">Постав нагадування на паузу</string>

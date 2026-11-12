@@ -106,13 +106,25 @@ test("wiring: the weekly job and the coach prompt read the athlete's limits", as
 test("Android: the ceiling's strings exist in both languages and the UI is wired to the view model", async () => {
   const { readFileSync } = await import("node:fs");
   const res = "mobile/shared/src/commonMain/composeResources";
-  const names = ["wk_train_cap_btn", "wk_cap_save_btn", "wk_cap_clear_btn", "wk_cap_note", "ac_prog_eyebrow", "ac_prog_title", "ac_prog_auto", "ac_prog_caps_title", "ac_prog_caps_empty", "ac_prog_cap_remove"];
+  const names = ["wk_train_cap_btn", "wk_cap_save_btn", "wk_cap_clear_btn", "wk_cap_note", "ac_prog_eyebrow", "ac_prog_title", "ac_prog_auto", "ac_prog_caps_title", "ac_prog_caps_empty", "ac_prog_cap_remove", "wk_cap_all_dumbbells", "ac_prog_cap_all_dumbbells"];
   for (const dir of ["values", "values-uk"]) {
     const all = ["strings_workout.xml", "strings_account.xml"].map((f) => readFileSync(`${res}/${dir}/${f}`, "utf8")).join("\n");
     for (const n of names) assert.match(all, new RegExp(`name="${n}"`), `${dir}: ${n}`);
   }
   const kt = "mobile/shared/src/commonMain/kotlin/app/hacklimits/shared";
-  assert.match(readFileSync(`${kt}/workout/ui/FocusView.kt`, "utf8"), /CapControl\(ex, onSet = \{ kg -> vm\.setCap\(ex\.index, kg\)/);
+  assert.match(readFileSync(`${kt}/workout/ui/FocusView.kt`, "utf8"), /CapControl\(ex, onSet = \{ kg, all -> vm\.setCap\(ex\.index, kg, all\)/);
   assert.match(readFileSync(`${kt}/ui/MoreScreen.kt`, "utf8"), /ProgressionSection\(settings\.progression, s\.busy, vm::setAutoProgression, vm::removeCap\)/);
   assert.match(readFileSync(`${kt}/data/WorkoutApi.kt`, "utf8"), /put\("action", "progression"\)/);
+});
+
+test("one ceiling for all dumbbell exercises applies to each, and an exercise's own wins", async () => {
+  const { DUMBBELL_CAP_KEY, isDumbbellOnly, limitsFor } = await import("../src/domain/progressionPrefs");
+  assert.equal(isDumbbellOnly("Dumbbell Bench Press"), true);
+  assert.equal(isDumbbellOnly("Гантельний жим"), true);
+  assert.equal(isDumbbellOnly("Barbell Squat"), false);
+  assert.equal(isDumbbellOnly("Cable Fly"), false);
+  const prefs = { caps: { [DUMBBELL_CAP_KEY]: 30, "dumbbell curl": 20 } };
+  assert.deepEqual(limitsFor(prefs, "Dumbbell Bench Press"), { cap: 30, shared: true });
+  assert.deepEqual(limitsFor(prefs, "Dumbbell Curl"), { cap: 20 });
+  assert.deepEqual(limitsFor(prefs, "Barbell Squat"), {});
 });

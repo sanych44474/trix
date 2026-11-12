@@ -285,6 +285,15 @@ class LoggerLogicTest {
     }
 
     @Test
+    fun theAllDumbbellCeilingAndTheFlagReachTheLoggerRow() {
+        val raw = """{"index":0,"name":"Dumbbell Press","metric":"reps","sets":3,"reps":10,"weightKg":30,"planSets":"3 × 8–12","planWeight":"30 kg","capKg":30,"capShared":true,"dumbbellOnly":true}"""
+        val row = fromPlan(AppJson.decodeFromString(WorkoutToday.Exercise.serializer(), raw))
+        assertEquals(true, row.capShared)
+        assertEquals(true, row.dumbbellOnly)
+        assertEquals(false, fromPlan(AppJson.decodeFromString(WorkoutToday.Exercise.serializer(), """{"index":0,"name":"Squat","metric":"reps","sets":3,"reps":5,"weightKg":0,"planSets":"3 × 5","planWeight":"BW"}""")).dumbbellOnly)
+    }
+
+    @Test
     fun settingsCarryTheProgressionLimitsAndAnOlderServerMeansNone() {
         val s = AppJson.decodeFromString(SettingsState.serializer(), """{"progression":{"auto":false,"caps":[{"exercise":"dumbbell press","kg":30}]}}""")
         assertEquals(false, s.progression.auto)

@@ -1,7 +1,7 @@
 // Guided workout logger backend for the Mini App (roadmap P2): today's session payload and the save
 // route's body. The save is the shared use case completeWorkout (features/workout/completeWorkout.ts). Assembly and validation
 // are pure (unit-tested); saveWorkout/buildWorkoutTodayPayload only fetch and write rows.
-import { limitsFor, type Limits } from "../domain/progressionPrefs";
+import { isDumbbellOnly, limitsFor, type Limits } from "../domain/progressionPrefs";
 import { listActiveInjuries } from "../adapters/d1/v2Tracking";
 import { checkExerciseAgainstInjuries } from "../domain/safety";
 import { sessionKcal, sessionVolumeKg } from "../domain/sessionLoad";
@@ -64,6 +64,10 @@ interface WorkoutTodayExercise {
   // The athlete's own ceiling for this exercise in kg (Settings / the exercise menu). Progression
   // never proposes a load above it; absent when none is set.
   capKg?: number;
+  /** capKg comes from the all-dumbbell ceiling. */
+  capShared?: boolean;
+  /** Done with dumbbells only: the ceiling can be set for all such exercises at once. */
+  dumbbellOnly?: boolean;
   // The progression engine's target for today (domain/progression nextTargetSet) from the last
   // session's working sets — shown under the exercise and used as the weight/reps prefill.
   target?: { w: number; r: number; lastW: number; lastR: number; step: TargetStep };
@@ -238,6 +242,8 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
     for (const ex of payload.exercises) {
       const limits = limitsFor(user.profile.progression, ex.name, ex.canonicalName);
       if (limits.cap !== undefined) ex.capKg = limits.cap;
+      if (limits.shared) ex.capShared = true;
+      if (isDumbbellOnly(ex.name) || (ex.canonicalName && isDumbbellOnly(ex.canonicalName))) ex.dumbbellOnly = true;
       const le = lastByName.get(ex.name);
       if (!le) continue;
       ex.last = le.setsDone.map((s) => ({ w: s.weight || 0, r: s.reps || 0, sec: s.seconds || 0, m: s.meters || 0 }));

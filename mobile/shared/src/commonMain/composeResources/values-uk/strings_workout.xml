@@ -81,6 +81,7 @@
     <string name="wk_summary_kcal">ккал (оцінка)</string>
     <string name="wk_train_cap_btn">Макс. вага</string>
     <string name="wk_cap_save_btn">Зберегти</string>
+    <string name="wk_cap_all_dumbbells">Усі вправи з гантелями</string>
     <string name="wk_cap_clear_btn">Прибрати ліміт</string>
     <string name="wk_cap_note">Твій ліміт: %1$s кг. Застосунок не пропонуватиме більше.</string>
     <string name="wk_swap_overwrite_plan">Перезаписати план на тиждень: «%1$s» → «%2$s»? Скасувати — лише сьогодні.</string>

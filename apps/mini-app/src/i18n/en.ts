@@ -672,6 +672,7 @@ export const en = {
   train_delete_btn: "Delete",
   train_cap_btn: "Max weight",
   cap_save_btn: "Save",
+  cap_all_dumbbells: "All dumbbell exercises",
   cap_clear_btn: "Remove limit",
   cap_note: "Your limit: {kg} kg. The app will not suggest more weight.",
   prog_eyebrow: "Progression",

@@ -288,17 +288,18 @@ class LoggerViewModel(
      * (Settings, action "progression"), then the exercise's target is re-read so the suggestion
      * respects it right away. Sets already logged are left alone.
      */
-    fun setCap(index: Int, kg: Double?) {
+    fun setCap(index: Int, kg: Double?, all: Boolean = false) {
         val s = _ui.value
         val ex = s.exercises.firstOrNull { it.index == index } ?: return
         viewModelScope.launch {
             try {
-                api.setCap(ex.name, kg, Uuid.random().toString())
+                api.setCap(if (all) "@dumbbell" else ex.name, kg, Uuid.random().toString())
                 val fresh = api.today(s.logDate)
                 val next = fresh.exercises.firstOrNull { it.name == ex.name }
                 mapExercise(index) { cur ->
                     cur.copy(
                         capKg = next?.capKg ?: kg,
+                        capShared = next?.capShared ?: false,
                         target = next?.target ?: cur.target,
                         weightKg = next?.weightKg ?: cur.weightKg,
                         reps = next?.reps ?: cur.reps,

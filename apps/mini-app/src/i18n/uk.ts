@@ -673,6 +673,7 @@ export const uk: Record<keyof typeof en, string> = {
   train_delete_btn: "Видалити",
   train_cap_btn: "Макс. вага",
   cap_save_btn: "Зберегти",
+  cap_all_dumbbells: "Усі вправи з гантелями",
   cap_clear_btn: "Прибрати ліміт",
   cap_note: "Твій ліміт: {kg} кг. Застосунок не пропонуватиме більше.",
   prog_eyebrow: "Прогресія",

@@ -81,6 +81,7 @@
     <string name="wk_summary_kcal">kcal (estimate)</string>
     <string name="wk_train_cap_btn">Max weight</string>
     <string name="wk_cap_save_btn">Save</string>
+    <string name="wk_cap_all_dumbbells">All dumbbell exercises</string>
     <string name="wk_cap_clear_btn">Remove limit</string>
     <string name="wk_cap_note">Your limit: %1$s kg. The app will not suggest more weight.</string>
     <string name="wk_swap_overwrite_plan">Replace “%1$s” with “%2$s” in your plan for every week? Cancel = only today.</string>

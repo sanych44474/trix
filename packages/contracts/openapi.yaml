@@ -4454,7 +4454,7 @@ components:
           description: 'action=lang'
         on: {type: boolean, description: 'action=cycle | compete'}
         auto: {type: boolean, description: 'action=progression: false turns automatic increases of weight and reps off, true turns them back on'}
-        exercise: {type: string, maxLength: 80, description: 'action=progression: the exercise whose ceiling is set or cleared (with capKg)'}
+        exercise: {type: string, maxLength: 80, description: 'action=progression: the exercise whose ceiling is set or cleared (with capKg); "@dumbbell" sets it for every dumbbell-only exercise'}
         capKg: {type: [number, 'null'], minimum: 0, maximum: 1000, description: 'action=progression: the heaviest load in kg for `exercise`; null clears it'}
         lastStart: {type: string, description: 'action=cycle: YYYY-MM-DD, not in the future'}
         len: {type: number, minimum: 20, maximum: 45, description: 'action=cycle: cycle length in days'}
@@ -5288,6 +5288,12 @@ components:
               capKg:
                 type: number
                 description: The athlete's own ceiling for this exercise in kg (heaviest dumbbell, top of the stack). Progression never proposes a load above it. Absent when none is set.
+              capShared:
+                type: boolean
+                description: True when capKg comes from the athlete's ceiling for all dumbbell exercises (exercise "@dumbbell" in POST /settings) rather than from this exercise's own.
+              dumbbellOnly:
+                type: boolean
+                description: True when the exercise needs nothing but dumbbells, so a ceiling for all dumbbell exercises can be set from it.
               weightWarnAbove:
                 type: number
                 description: The weight (kg) above which a typed set weight is an implausible jump over weightHistory (a likely typo). Absent when there is not enough history (fewer than two prior sessions above 0 kg). Warn when the typed weight is strictly above it.

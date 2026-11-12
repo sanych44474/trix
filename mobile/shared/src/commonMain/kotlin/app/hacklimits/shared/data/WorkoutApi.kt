@@ -58,6 +58,10 @@ data class WorkoutToday(
         val weightWarnAbove: Double? = null,
         /** The person's own weight ceiling for this exercise (kg); progression never proposes above it. */
         val capKg: Double? = null,
+        /** [capKg] comes from the ceiling for all dumbbell exercises, not this exercise's own. */
+        val capShared: Boolean = false,
+        /** Needs nothing but dumbbells, so a ceiling for all of them can be set from here. */
+        val dumbbellOnly: Boolean = false,
     )
 
     @Serializable data class Target(val w: Double, val r: Double, val lastW: Double, val lastR: Double, val step: String)
