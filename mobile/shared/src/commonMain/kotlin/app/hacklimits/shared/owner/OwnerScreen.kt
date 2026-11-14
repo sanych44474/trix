@@ -63,7 +63,7 @@ private const val RELEASE_BATCH = 25
  * moderation, feedback triage and the reports. Only reachable for the owner (see [OwnerApi.isOwner]).
  */
 @Composable
-fun OwnerScreen(onBack: () -> Unit) {
+fun OwnerScreen(onBack: () -> Unit, onOpenPlan: (Long) -> Unit = {}) {
     val vm: OwnerViewModel = koinViewModel()
     val feedback: FeedbackTriageViewModel = koinViewModel()
     val broadcast: BroadcastViewModel = koinViewModel()
@@ -133,6 +133,7 @@ fun OwnerScreen(onBack: () -> Unit) {
                             busy = s.rosterBusy,
                             nudged = s.nudged,
                             onAction = vm::moderate,
+                            onOpenPlan = onOpenPlan,
                         )
                     }
                     SECTION_FEEDBACK -> item {
@@ -377,6 +378,7 @@ private fun RosterPanel(
     busy: String?,
     nudged: Set<Long>,
     onAction: (OwnerUser, String) -> Unit,
+    onOpenPlan: (Long) -> Unit,
 ) {
     val now = remember { Clock.System.now() }
     var filter by remember { mutableStateOf(RosterFilter.ALL) }
@@ -438,6 +440,7 @@ private fun RosterPanel(
                         busy = busy,
                         nudged = nudged,
                         confirmDelete = confirmDelete == user.id,
+                        onOpenPlan = { onOpenPlan(user.id) },
                         onConfirmDelete = { confirmDelete = user.id },
                         onAction = { action ->
                             confirmDelete = null
@@ -461,6 +464,7 @@ private fun RosterActions(
     busy: String?,
     nudged: Set<Long>,
     confirmDelete: Boolean,
+    onOpenPlan: () -> Unit,
     onConfirmDelete: () -> Unit,
     onAction: (String) -> Unit,
 ) {
@@ -482,6 +486,10 @@ private fun RosterActions(
                         },
                     )
                 }
+            }
+            // The owner reads and edits anyone's plan, like the Mini App roster's Plan button.
+            if (user.status != "onboarding") {
+                OutlinedButton(onClick = onOpenPlan) { Text(stringResource(Res.string.ow_roster_plan_btn), maxLines = 1) }
             }
             val moderationAction = if (blocked) "unblock" else "block"
             OutlinedButton(onClick = { onAction(moderationAction) }, enabled = busy != "$moderationAction:${user.id}") {
