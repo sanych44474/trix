@@ -1,18 +1,16 @@
 // Pure keyboard / menu builders (lang -> InlineKeyboard). Extracted from bot.ts (god-file
 // split); behavior unchanged. These depend only on the locale layer + two bot-level constants
-// (COMMON_TZ, dashboardUrl) that are referenced lazily inside function bodies, so the value-cycle
-// with ../bot is load-safe.
+// (COMMON_TZ) referenced lazily inside function bodies, so the value-cycle with ../bot is load-safe.
+// The Mini App URL comes in as an argument: infrastructure does not import the application layer.
 import { InlineKeyboard } from "grammy";
 import type { Lang } from "../../types";
 import { t } from "../../locales/i18n";
-import { dashboardUrl } from "../../notify/appLinks";
 
 // Common athlete menu — shown to EVERY role (trainers/owner get extra rows appended in cmdMenu).
 // Kept deliberately light: daily actions only; everything else lives one tap away in "More"
 // (moreMenu) and the progress hub, and the Mini App dashboard carries the stats/logger.
-export function mainMenu(lang: Lang): InlineKeyboard {
+export function mainMenu(lang: Lang, app?: string): InlineKeyboard {
   const kb = new InlineKeyboard();
-  const app = dashboardUrl();
   if (app) kb.webApp(t(lang, "menu_dashboard"), app).row();
   return kb
     .text(t(lang, "menu_today"), "menu:today")

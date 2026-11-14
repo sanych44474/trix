@@ -133,7 +133,7 @@ private-chat message gets the Open-app button.
 34. **Your own limits on progression**: switch automatic increases off, or set the heaviest load you have per exercise
     (dumbbells stop at 30 kg). The app never suggests above it: at the ceiling it adds reps instead, and the weekly plan
     update follows the same rule. Set from an exercise's menu while training or in Settings, in both apps
-    ([ADR-0014](adr/0014-progression-limits.md)).
+    ([ADR-0016](adr/0016-progression-limits.md)).
 
 ## 3. Workout logging
 

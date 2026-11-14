@@ -1,4 +1,4 @@
-# ADR-0014: the athlete can limit automatic progression
+# ADR-0016: the athlete can limit automatic progression
 
 - Status: accepted
 - Date: 2026-11-12
