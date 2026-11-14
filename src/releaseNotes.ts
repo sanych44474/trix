@@ -14,6 +14,43 @@ interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "2026-11-14",
+    en: `🎉 *What's new in Hack Limits*
+
+🏋️ *Your own limits* — your dumbbells stop at 30 kg? Set the heaviest weight for an exercise, or for all dumbbell exercises at once, from its menu while you train or in Settings. The app will never suggest more; at your limit it adds reps instead. You can also switch automatic increases off.
+
+🔔 *Tap the rest notification* — on Android it now opens your workout (it needs the new app version).
+
+🩹 *Safer swaps* — swapping or adding an exercise checks it against your active injuries, in English and Russian too.
+
+📶 *Saves that hold* — a workout saved offline is no longer lost or sent twice, and tapping a slow save again does not log a meal twice.
+
+🔥 *Volume and calories* — bodyweight moves like pull-ups and push-ups now count in a session's volume, and the summary shows an estimate of the calories you burned.
+
+✏️ *Your day, your names* — rename the muscle groups of a training day in the plan.
+
+🔧 *Fixed* — time and distance targets ("3 x 1 min", "5 km") are suggested correctly, a typo in a record no longer blocks the real one, cancelling a vacation ends the streak freeze, and a quick log on a skipped day counts as a workout.
+
+Tap *📱 Open Hack Limits* below.`,
+    uk: `🎉 *Що нового в Hack Limits*
+
+🏋️ *Твої власні ліміти* — гантелі закінчуються на 30 кг? Задай найбільшу вагу для вправи або одразу для всіх вправ із гантелями: у меню вправи під час тренування чи в Налаштуваннях. Застосунок більше не запропонує важче; на твоєму ліміті він додає повторення. Автоматичне збільшення можна й вимкнути.
+
+🔔 *Тап по сповіщенню про відпочинок* — в Android тепер відкриває твоє тренування (потрібна нова версія застосунку).
+
+🩹 *Безпечніша заміна* — заміна чи додавання вправи перевіряється за твоїми активними травмами, також українською та російською.
+
+📶 *Збереження, що не губиться* — тренування, збережене офлайн, більше не зникає і не надсилається двічі, а повторний тап по повільному збереженню не записує їжу двічі.
+
+🔥 *Обсяг і калорії* — вправи з власною вагою, як підтягування й віджимання, тепер враховуються в обсязі тренування, а підсумок показує оцінку спалених калорій.
+
+✏️ *Твій день, твої назви* — перейменуй групи м'язів тренувального дня в плані.
+
+🔧 *Виправлено* — цілі за часом і дистанцією («3 x 1 хв», «5 км») пропонуються правильно, помилка в рекорді більше не блокує справжній, скасування відпустки завершує заморозку серії, а швидкий запис у пропущений день зараховується як тренування.
+
+Тисни *📱 Відкрити Hack Limits* нижче.`,
+  },
+  {
     version: "2026-10-26",
     en: `🎉 *What's new in Hack Limits*
 
@@ -57,59 +94,6 @@ Tap *📱 Open Hack Limits* below.`,
 🌍 *Повністю перекладено* — грами, кілограми, хвилини й дні більше не лишаються англійською.
 
 Тисни *📱 Відкрити Hack Limits* нижче.`,
-  },
-  {
-    version: "2026-10-18",
-    en: `🎉 *What's new in trix*
-
-📓 *A training journal* — the app is rebuilt around today's workout: five tabs (Today, Training, Food, Progress, More), calm colours and less text on every screen.
-
-🏋️ *Today* — the day's workout with its real length from your plan, the week as done / planned / rest marks, and water and steps logged right there.
-
-🎯 *Focus mode* — one exercise on screen: a set in one tap, the rest timer at the bottom, the muscles the exercise works, and a summary with volume and records when you finish.
-
-🗓 *Plan as a week* — Monday to Sunday at a glance; edit an exercise or add a training day in a panel over the schedule.
-
-📈 *Progress in three sections* — Training (muscle map, calendar, 1RM), Body (weight for a week, month or 3 months, measurements, photos) and Food.
-
-🍽 *Faster food logging* — calories and macros as bars, and four quick ways to log: search with recent foods, photo, voice and barcode. Search now starts from a 400-food base.
-
-📋 *45 ready programs* — gym, dumbbells or no equipment, for every level. Pick one in More → Ready programs.
-
-🔴 *Red theme* — Settings → Screen → Colour. Works in light and dark.
-
-✅ *More accurate* — muscles are matched correctly for hundreds more exercises, cardio no longer counts as dozens of sets, and a swapped exercise doesn't inherit the old weight.
-
-📉 *Honest plateau alerts* — only when nothing moved for weeks (weight, reps, sets or volume), with your numbers and one concrete next step.
-
-🔕 *One switch for notifications* — Settings → What nudges you → All Telegram notifications.
-
-Tap *📱 Open trix* below.`,
-    uk: `🎉 *Що нового в trix*
-
-📓 *Щоденник тренувань* — застосунок перебудовано навколо тренування дня: п'ять вкладок (Сьогодні, Тренування, Харчування, Прогрес, Ще), спокійні кольори й менше тексту на кожному екрані.
-
-🏋️ *Сьогодні* — тренування дня з реальною тривалістю за твоїм планом, тиждень позначками «зроблено / заплановано / відпочинок», а воду й кроки записуєш просто тут.
-
-🎯 *Режим фокусу* — на екрані одна вправа: підхід одним дотиком, таймер відпочинку внизу, м'язи, які працюють, і підсумок з обсягом і рекордами наприкінці.
-
-🗓 *План як тиждень* — з понеділка по неділю одним поглядом; вправу чи новий день редагуєш у панелі поверх розкладу.
-
-📈 *Прогрес у трьох розділах* — Тренування (карта м'язів, календар, 1ПМ), Тіло (вага за тиждень, місяць чи 3 місяці, заміри, фото) і Харчування.
-
-🍽 *Швидше записувати їжу* — калорії та БЖВ смужками і чотири швидкі способи: пошук із нещодавніми, фото, голос і штрихкод. Пошук тепер починається з бази на 400 продуктів.
-
-📋 *45 готових програм* — зал, гантелі чи без інвентарю, для будь-якого рівня. Обирай у Ще → Готові програми.
-
-🔴 *Червона тема* — Налаштування → Екран → Колір. Працює у світлій і темній.
-
-✅ *Точніше* — м'язи правильно визначаються ще для сотень вправ, кардіо більше не рахується як десятки підходів, а замінена вправа не успадковує стару вагу.
-
-📉 *Чесні сповіщення про плато* — лише коли за кілька тижнів не зросло нічого (вага, повторення, підходи чи обʼєм), з твоїми цифрами й конкретним наступним кроком.
-
-🔕 *Один перемикач сповіщень* — Налаштування → Які нагадування отримувати → Усі сповіщення в Telegram.
-
-Тисни *📱 Відкрити trix* нижче.`,
   },
 ];
 
