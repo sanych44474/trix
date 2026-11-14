@@ -70,6 +70,7 @@
     <string name="ow_roster_f_active">Active</string>
     <string name="ow_roster_f_idle">Away 7+ days</string>
     <string name="ow_roster_empty">Nobody here.</string>
+    <string name="ow_roster_plan_btn">Plan</string>
     <string name="ow_roster_nudge_btn">Nudge onboarding</string>
     <string name="ow_roster_nudged">Sent ✓</string>
     <string name="ow_block_btn">Block</string>

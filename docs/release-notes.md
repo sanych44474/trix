@@ -2,6 +2,48 @@
 
 What users were told in each release, newest first — the same text the bot broadcasts and shows in *What's new* (`/whatsnew`). The Worker bundle keeps only the latest two (`src/releaseNotes.ts`); this file is the full history.
 
+## 2026-11-14
+
+### English
+
+🎉 **What's new in Hack Limits**
+
+🏋️ **Your own limits** — your dumbbells stop at 30 kg? Set the heaviest weight for an exercise, or for all dumbbell exercises at once, from its menu while you train or in Settings. The app will never suggest more; at your limit it adds reps instead. You can also switch automatic increases off.
+
+🔔 **Tap the rest notification** — on Android it now opens your workout (it needs the new app version).
+
+🩹 **Safer swaps** — swapping or adding an exercise checks it against your active injuries, in English and Russian too.
+
+📶 **Saves that hold** — a workout saved offline is no longer lost or sent twice, and tapping a slow save again does not log a meal twice.
+
+🔥 **Volume and calories** — bodyweight moves like pull-ups and push-ups now count in a session's volume, and the summary shows an estimate of the calories you burned.
+
+✏️ **Your day, your names** — rename the muscle groups of a training day in the plan.
+
+🔧 **Fixed** — time and distance targets ("3 x 1 min", "5 km") are suggested correctly, a typo in a record no longer blocks the real one, cancelling a vacation ends the streak freeze, and a quick log on a skipped day counts as a workout.
+
+Tap **📱 Open Hack Limits** below.
+
+### Українська
+
+🎉 **Що нового в Hack Limits**
+
+🏋️ **Твої власні ліміти** — гантелі закінчуються на 30 кг? Задай найбільшу вагу для вправи або одразу для всіх вправ із гантелями: у меню вправи під час тренування чи в Налаштуваннях. Застосунок більше не запропонує важче; на твоєму ліміті він додає повторення. Автоматичне збільшення можна й вимкнути.
+
+🔔 **Тап по сповіщенню про відпочинок** — в Android тепер відкриває твоє тренування (потрібна нова версія застосунку).
+
+🩹 **Безпечніша заміна** — заміна чи додавання вправи перевіряється за твоїми активними травмами, також українською та російською.
+
+📶 **Збереження, що не губиться** — тренування, збережене офлайн, більше не зникає і не надсилається двічі, а повторний тап по повільному збереженню не записує їжу двічі.
+
+🔥 **Обсяг і калорії** — вправи з власною вагою, як підтягування й віджимання, тепер враховуються в обсязі тренування, а підсумок показує оцінку спалених калорій.
+
+✏️ **Твій день, твої назви** — перейменуй групи м'язів тренувального дня в плані.
+
+🔧 **Виправлено** — цілі за часом і дистанцією («3 x 1 хв», «5 км») пропонуються правильно, помилка в рекорді більше не блокує справжній, скасування відпустки завершує заморозку серії, а швидкий запис у пропущений день зараховується як тренування.
+
+Тисни **📱 Відкрити Hack Limits** нижче.
+
 ## 2026-10-26
 
 ### English

@@ -77,14 +77,10 @@ appears, introduce the interface then.
 
 ## Known violations
 
-The wider rules found two existing edges. They are listed in `KNOWN` in the test, which is a
-ratchet as in ADR-0010: a new violation fails, and so does a listed one that has been fixed.
-
-<table>
-<tr><th>Import</th><th>Why it is wrong</th></tr>
-<tr><td><code>adapters/telegram/keyboards.ts</code> → <code>notify/appLinks</code></td><td>Infrastructure reaches the application layer for <code>dashboardUrl</code></td></tr>
-<tr><td><code>schedulerJobs/global.ts</code> → <code>durable/dryrunLog</code></td><td>A shared job reaches an interface folder to prune the scheduler dry-run log</td></tr>
-</table>
+None. The wider rules found two edges. `schedulerJobs/global.ts` → `durable/dryrunLog` went with the
+dry-run log (ADR-0015). `adapters/telegram/keyboards.ts` → `notify/appLinks` is fixed: `mainMenu`
+takes the Mini App URL as an argument and its callers pass `dashboardUrl()`. `KNOWN` in the test
+is empty and stays a ratchet: a new violation fails.
 
 ## Not changed
 

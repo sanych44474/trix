@@ -24,6 +24,7 @@ import { ownerHubMenu } from "../adapters/telegram/keyboards";
 import { type MyContext, HTML, clearEditOwner, reply, setMode } from "../adapters/telegram/context";
 import { buildPlanDoc } from "../features/plan/planBuild";
 import { deferAi } from "../features/aiDefer";
+import { dashboardUrl } from "../notify/appLinks";
 import { mainMenu, menuBtn } from "../adapters/telegram/keyboards";
 import { showPlanEditPicker, showPlanEditDay } from "../features/trainer/clientCard";
 import { monoTable } from "../features/owner/reportFormat";
@@ -357,7 +358,7 @@ export async function ownerUserAction(ctx: MyContext, userId: number, action: st
         kind: "plan_ready",
         key: `plan_ready:${userId}:${plan.generatedAt.getTime()}`,
         text: t(target.lang, "plan_ready"),
-        extra: { ...HTML, reply_markup: mainMenu(target.lang) },
+        extra: { ...HTML, reply_markup: mainMenu(target.lang, dashboardUrl()) },
       });
     });
   } else if (action === "assign") {
@@ -370,7 +371,7 @@ export async function ownerUserAction(ctx: MyContext, userId: number, action: st
         kind: "plan_ready",
         key: `plan_ready:${userId}:${draft?.generatedAt.getTime() ?? 0}`,
         text: t(target.lang, "plan_ready"),
-        extra: { ...HTML, reply_markup: mainMenu(target.lang) },
+        extra: { ...HTML, reply_markup: mainMenu(target.lang, dashboardUrl()) },
       });
     }
   } else if (action === "edit") {

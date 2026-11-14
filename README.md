@@ -21,7 +21,7 @@ Actual operator costs depend on account plans, usage, and optional AI providers.
 
 ## What it can do
 
-**196 functions across 11 areas**, one per line in the
+**198 functions across 11 areas**, one per line in the
 [feature catalog](docs/features.md); what changed in each release is in the
 [release notes](docs/release-notes.md). The short version:
 

@@ -70,6 +70,7 @@
     <string name="ow_roster_f_active">Активні</string>
     <string name="ow_roster_f_idle">Немає 7+ днів</string>
     <string name="ow_roster_empty">Нікого немає.</string>
+    <string name="ow_roster_plan_btn">План</string>
     <string name="ow_roster_nudge_btn">Підштовхнути онбординг</string>
     <string name="ow_roster_nudged">Надіслано ✓</string>
     <string name="ow_block_btn">Заблокувати</string>

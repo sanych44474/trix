@@ -117,7 +117,7 @@ internal fun showNotification(context: Context, title: String, body: String, kin
     NotificationManagerCompat.from(context).notify(id, builder.build())
 }
 
-private fun openIntent(context: Context, view: String?, requestCode: Int): PendingIntent {
+internal fun openIntent(context: Context, view: String?, requestCode: Int): PendingIntent {
     val intent = Intent(context, MainActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         .apply { if (view != null) putExtra(EXTRA_VIEW, view) }

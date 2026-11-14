@@ -26,7 +26,7 @@ private-chat message gets the Open-app button.
 
 | | |
 |---|---|
-| Functions in this catalog | **196** across 11 areas |
+| Functions in this catalog | **198** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
 | Surfaces | 3 — the Telegram Mini App, the Android app, and the bot (sign-in, invite links, payments, squads, reminders, owner tools) |
 | Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
@@ -47,7 +47,7 @@ private-chat message gets the Open-app button.
 | 8. Mini App platform | 21 |
 | 9. Reminders & automation | 13 |
 | 10. Owner / admin | 10 |
-| 11. Engineering safeguards | 5 |
+| 11. Engineering safeguards | 7 |
 
 ---
 
@@ -132,8 +132,9 @@ private-chat message gets the Open-app button.
     a realistic share of bodyweight for their level.
 34. **Your own limits on progression**: switch automatic increases off, or set the heaviest load you have per exercise
     (dumbbells stop at 30 kg). The app never suggests above it: at the ceiling it adds reps instead, and the weekly plan
-    update follows the same rule. Set from an exercise's menu while training or in Settings, in both apps
-    ([ADR-0014](adr/0014-progression-limits.md)).
+    update follows the same rule. Set from an exercise's menu while training or in Settings, in both apps.
+    For dumbbell-only exercises one tick sets the ceiling for all of them (an exercise's own ceiling
+    wins) ([ADR-0016](adr/0016-progression-limits.md)).
 
 ## 3. Workout logging
 
@@ -159,7 +160,8 @@ private-chat message gets the Open-app button.
     metric; optional auto-start after a set and a sound.
 16. **Pinned rest bar** with a large clock, ±15 s and "Next", a bar that empties as the rest runs
     out, counting up past zero so drift shows.
-17. **Rest-done Telegram push** from the server, so it arrives with the screen locked.
+17. **Rest-done Telegram push** from the server, so it arrives with the screen locked. On Android the
+    app's own rest-over notification opens the workout when tapped.
 18. **Save dock**: pinned above the nav with live session time, save/draft status and one action:
     Finish workout (asks first), Save changes, or Save for a past date.
 19. **Drafts that follow you**: unsaved work is kept on the phone instantly and synced to the
@@ -356,7 +358,8 @@ private-chat message gets the Open-app button.
     week-one checkpoint and a day-14 beat. Falling behind offers a *smaller* plan, never a louder
     one.
 11. **Recurring light feedback ask** every two weeks.
-12. **Plan-generation recovery sweep** and hourly leaderboard cache.
+12. **Plan-generation recovery sweep** (after five failed builds a person is retried hourly, not every
+    minute) and hourly leaderboard cache.
 13. **Cron heartbeat**: a dead-man alert to the owner if the scheduler stops.
 
 ## 10. Owner / admin
@@ -377,18 +380,26 @@ private-chat message gets the Open-app button.
 10. **Retention by signup week**: for each weekly cohort, the share who trained in their week
     1 / 2 / 4 / 8, an all-users row and the steepest drop — where people fall off, not just how
     many are active.
-11. **Edit any user's plan**: the roster's Plan button opens that user's plan in the editor.
+11. **Edit any user's plan**: the roster's Plan button (Mini App and Android) opens that user's plan in the editor.
 
 ## 11. Engineering safeguards (invisible features)
 
 1. **Automated tests** (`node:test` and the real Workers runtime) and typecheck-enforced
    bilingual catalogs; CI gates every pull request.
-2. **Idempotent saves everywhere**: a retried request never double-logs or double-notifies.
+2. **Idempotent saves everywhere**: a retried request never double-logs or double-notifies. The Mini App
+   keeps one key for the same request until it is answered, so a tapped-again slow save is applied once,
+   and two retries cannot both take over an abandoned one.
 3. **Crash-safe reminders**: dedup that survives crashes and a scheduler mutex.
 4. **Graceful AI degradation**: identical input across the provider chain, and a sanitizer
    against LaTeX/control-character artifacts in AI text.
 5. **Privacy**: account deletion in Settings wipes every table including photos, and the data
    export in Settings gives a user all of their data.
+6. **Settings fields are patched, not overwritten**: the reminder state is one JSON column written by
+   eleven flows; each changes only its own fields, so a release note, a PR count or a vacation freeze
+   is not wiped by a stale copy, and a guard test fails if a flow writes the whole object again.
+7. **Once-only group posts and honest broadcasts**: a squad's weekly recap is claimed before it is
+   posted, so a failed write cannot make it post twice; a broadcast refused part-way says how many
+   messages were already queued and records it in the audit log.
 
 ---
 

@@ -55,6 +55,8 @@ class RestOverWorker(context: Context, params: WorkerParameters) : Worker(contex
             .setContentTitle(inputData.getString("title"))
             .setContentText(inputData.getString("body"))
             .setAutoCancel(true)
+            // A tap returns to the workout. Without a content intent the notification did nothing.
+            .setContentIntent(openIntent(applicationContext, "train", REST_NOTIFICATION_ID))
             .build()
         NotificationManagerCompat.from(applicationContext).notify(REST_NOTIFICATION_ID, notification)
         return Result.success()

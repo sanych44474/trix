@@ -312,7 +312,7 @@ fun App(
                         CoachScreen(onBack = { nav.popBackStack() }, onLogInjury = { nav.navigate(InjuriesRoute) })
                     }
                     composable<SocialRoute> { SocialScreen(onBack = { nav.popBackStack() }, onOpenCoach = { nav.navigate(CoachRoute) }) }
-                    composable<OwnerRoute> { OwnerScreen(onBack = { nav.popBackStack() }) }
+                    composable<OwnerRoute> { OwnerScreen(onBack = { nav.popBackStack() }, onOpenPlan = { id -> nav.navigate(PlanRoute(id)) }) }
                     composable<CardioRoute> { CardioScreen(onBack = { nav.popBackStack() }) }
                     composable<ComebackRoute> { ComebackScreen(onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) }
                     composable<TrainerReportRoute> { TrainerReportScreen(onBack = { nav.popBackStack() }) }

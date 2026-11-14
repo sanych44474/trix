@@ -81,6 +81,10 @@ that is then unreachable from `src/index.ts`.
     button (Mini App), and `/api/v2/plan?clientId=` accepts the owner for any account.
   - 1,242 locale keys that nothing used any more were removed from `en.ts` and `uk.ts`, shrinking
     the bot strings from 299 KB to 116 KB in the Worker bundle.
+- **Slice 3 check (2026-11-14):** walking the imports from `src/index.ts` and `src/scheduler.ts`
+  finds no module the Worker cannot reach, apart from `domain/planArchetypes.ts` and
+  `render/rasterize.ts`, which the plan-bank and body-map generator scripts use. Nothing is left to
+  delete; the removal is finished.
 - **Kept, then wired into the app:** `src/domain/safety.ts` (injury conflict checks) lost its only
   caller, the chat's catalog swap. It was kept instead of deleted, and the app now uses it: the
   shared plan editor refuses a swap or add that loads an active injury directly (409

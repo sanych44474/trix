@@ -38,18 +38,18 @@ test("parseReleaseNote: one card per paragraph, greeting and bot-only closing li
     assert.ok(!items.some((i) => /trix\*? (below|нижче)/.test(i.body)), "the closing button line is not a card");
   }
   assert.equal(parseReleaseNote(note.uk)[0]!.title, "Hack Limits для Android");
-  assert.equal(latestRelease().version, "2026-10-26");
+  assert.equal(latestRelease().version, "2026-11-14");
   assert.deepEqual(parseReleaseNote("Hi\n\nPlain paragraph with no title."), [{ icon: "", title: "", body: "Plain paragraph with no title." }]);
 });
 
 
-test("the 2026-10-18 note parses into eleven cards in both languages", () => {
-  const note = RELEASE_NOTES.find((n) => n.version === "2026-10-18")!;
+test("the 2026-11-14 note parses into seven cards in both languages", () => {
+  const note = RELEASE_NOTES.find((n) => n.version === "2026-11-14")!;
   for (const text of [note.uk, note.en]) {
     const items = parseReleaseNote(text);
-    assert.equal(items.length, 11);
+    assert.equal(items.length, 7);
     assert.ok(items.every((i) => i.icon && i.title && i.body));
   }
-  assert.equal(parseReleaseNote(note.uk)[0]!.title, "Щоденник тренувань");
+  assert.equal(parseReleaseNote(note.uk)[0]!.title, "Твої власні ліміти");
   assert.equal(RELEASE_NOTES.length, 2, "the Worker keeps only the latest two");
 });
