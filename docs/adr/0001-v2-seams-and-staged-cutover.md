@@ -2,7 +2,10 @@
 
 - Status: accepted (dual-write/cohort/shadow-read mechanism retired — see
   [ADR-0004](0004-retire-dual-write-and-shadow-reads.md); legacy `/app` shell retired — see
-  [ADR-0006](0006-retire-legacy-app-shell.md))
+  [ADR-0006](0006-retire-legacy-app-shell.md); the `src/application` seam retired by
+  [ADR-0014](0014-layering-covers-every-folder.md); the scheduler part completed by
+  [ADR-0015](0015-scheduler-runs-in-durable-objects.md); legacy tables dropped by
+  [ADR-0009](0009-drop-legacy-tables.md))
 - Date: 2026-09-15
 
 ## Context
