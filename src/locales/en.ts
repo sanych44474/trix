@@ -725,7 +725,7 @@ export const en = {
   support_invoice_desc: "A voluntary tip for the free AI coach. Nothing is unlocked — everything is already free.",
   support_invoice_label: "Support",
   support_thanks: "Thank you for the {n} ⭐ — it genuinely helps keep Hack Limits free for everyone. 🙏",
-  support_declined: "This payment can't be processed. Please try again from /support.",
+  support_declined: "This payment can't be processed. Please try again from the Support card on the app's More screen.",
   strava_connected_title: "Strava connected",
   strava_connected: "✅ Strava is connected. New runs, rides and swims will appear in your log automatically.",
   strava_connected_synced: "✅ Strava is connected. Imported {n} activities from the last 30 days — new ones will appear automatically.",

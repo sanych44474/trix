@@ -41,7 +41,7 @@ const COMMAND_VIEWS: Record<string, AppView> = {
   progress: "progress", records: "progress", measure: "progress", checkin: "progress", report: "progress", calendar: "progress",
   coach: "coach", feedback: "coach", settings: "settings", lang: "settings", export: "settings", deleteme: "settings",
   clients: "role", requests: "role", trainer: "role", becometrainer: "more", leavetrainer: "settings",
-  challenges: "more", plates: "more", whatsnew: "more", support: "more", paysupport: "more", import: "more",
+  challenges: "more", plates: "more", whatsnew: "more", support: "more", import: "more",
 };
 
 export function viewForCallback(data: string): AppView | undefined {
@@ -81,7 +81,7 @@ const START_PAYLOADS = ["tr_", "trp_", "ref_", "buddy_", "sq_", "login_"];
 
 /**
  * True when the update was answered with the Open-app button and must go no further.
- * Lets through: payments, the owner, and /start deep links that pair with a trainer or buddy.
+ * Lets through: payments and /paysupport, the owner, and /start deep links that pair with a trainer or buddy.
  */
 export async function launcherGate(ctx: MyContext): Promise<boolean> {
   if (!ctx.user || (ctx.chat?.type ?? "private") !== "private") return false;
@@ -104,6 +104,8 @@ export async function launcherGate(ctx: MyContext): Promise<boolean> {
   // Typed answers to those asks (own price, what to add or remove, why they left) go to them.
   const mode = ctx.user.session?.mode;
   if (!cmd && text && mode && CHAT_ANSWERED_MODES.has(mode)) return false;
+  // Telegram's rules for bots that accept payments require /paysupport to answer every user (support.ts).
+  if (cmd?.[1].toLowerCase() === "paysupport") return false;
   if (cmd?.[1].toLowerCase() === "start") {
     const payload = cmd[2] ?? "";
     if (START_PAYLOADS.some((p) => payload.startsWith(p))) return false; // pairing runs, then points to the app
