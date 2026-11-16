@@ -132,7 +132,12 @@ export const en = {
   plan_change_src_injury_swap: "Injury swap",
   edit_client_plan_btn: "Edit client plan",
   no_plan_title: "No active plan",
-  no_plan_detail: "Finish onboarding to build your first plan.",
+  no_plan_detail: "There is no training plan here yet.",
+  no_plan_build_detail: "Build a plan from your profile. It takes about a minute.",
+  no_plan_build_btn: "Build my plan",
+  no_plan_questionnaire_detail: "Answer a short questionnaire, and we will build your plan.",
+  no_plan_questionnaire_btn: "Fill in the questionnaire",
+  no_plan_trainer_detail: "Your trainer is preparing your plan. It will appear here when it is ready.",
 
   // fuel view
   kcal_value: "{n} kcal",
