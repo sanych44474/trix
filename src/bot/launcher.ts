@@ -73,7 +73,7 @@ export async function sendLauncher(ctx: MyContext, view?: AppView): Promise<bool
   return true;
 }
 
-const CHAT_ANSWERED_CALLBACKS = ["pp:", "inact:", "share:tog:", "share:skip"];
+const CHAT_ANSWERED_CALLBACKS = ["pp:", "inact:", "share:tog:", "share:skip", "bdy:"];
 const CHAT_ANSWERED_MODES = new Set<string>(["poll_price", "poll_wish", "inact_feedback"]);
 
 // login_: the native app's Telegram sign-in (telegramLogin.ts) must reach its confirm prompt.
@@ -94,7 +94,8 @@ export async function launcherGate(ctx: MyContext): Promise<boolean> {
     if (data.startsWith("tglogin:")) return false;
     // Asks the bot itself sends and that are answered in the chat must reach their handlers:
     // the price poll (bot/pricePoll.ts), the owner's "still here?" ask to inactive users
-    // (bot/cleanup.ts) and the trainer-sharing consent sent after pairing (share:tog/skip).
+    // (bot/cleanup.ts), the trainer-sharing consent sent after pairing (share:tog/skip) and a buddy
+    // request's Accept/Decline (bdy:, bot/buddyRequest.ts).
     if (CHAT_ANSWERED_CALLBACKS.some((p) => data.startsWith(p))) return false;
     await ctx.answerCallbackQuery().catch(() => {});
     return sendLauncher(ctx, viewForCallback(data));
