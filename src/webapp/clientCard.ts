@@ -1,8 +1,8 @@
 // Client-card payload for the trainer Mini App view: one JSON with the trainer's own notes,
-// consent-gated client data (body/health) and the client's full dashboard payload (for the
-// embedded charts). Assembly is pure (assembleClientCardPayload, unit-tested);
+// consent-gated client data (body/health) and the client's dashboard payload (for the
+// embedded charts), with its body and wellbeing data redacted by the same consents. Assembly is pure (assembleClientCardPayload, unit-tested);
 // buildClientCardPayload only fetches rows.
-import { trainerCanSee } from "../domain/clientCard";
+import { redactDashboardForTrainer, trainerCanSee } from "../domain/clientCard";
 import { computeCyclePhase } from "../domain/cycle";
 import { localParts } from "../domain/localTime";
 import { getClientCard, getClientNote, listClientNoteHistory, type ClientNoteHistoryEntry } from "../adapters/d1/v2Trainer";
@@ -122,7 +122,7 @@ export function assembleClientCardPayload(
     shared,
     noteHistory: rows.noteHistory,
     messages: rows.messages,
-    dashboard: rows.dashboard,
+    dashboard: redactDashboardForTrainer(rows.dashboard, profile),
   };
 }
 

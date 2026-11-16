@@ -3,12 +3,39 @@
 // callers pass todayIso and label strings, so everything is deterministic and unit-testable.
 
 import type { UserProfile } from "../types";
+import type { DashboardPayload } from "./dashboardPayload";
+import { recoveryScore } from "./recovery";
 
 type ShareKey = "body" | "health";
 
 /** Strict opt-in: only an explicit `true` grants visibility (absent/false = hidden). */
 export function trainerCanSee(profile: UserProfile, key: ShareKey): boolean {
   return profile.shareWithTrainer?.[key] === true;
+}
+
+/** The client's dashboard as their trainer may see it on the client card. Without "body" consent:
+ * no weight history, goal or forecast, no measurements, no body-fat estimate, no sex. Without
+ * "health" consent the readiness score is recomputed without the daily wellbeing check-in
+ * (energy, sleep, stress), keeping only the training-load factors. */
+export function redactDashboardForTrainer(dashboard: DashboardPayload, profile: UserProfile): DashboardPayload {
+  const out: DashboardPayload = { ...dashboard };
+  if (!trainerCanSee(profile, "body")) {
+    out.weight = { points: [] };
+    delete out.measurements;
+    delete out.bodyFat;
+    delete out.sex;
+  }
+  if (!trainerCanSee(profile, "health")) {
+    const codes = new Set(dashboard.recovery.factors.map((f) => f.code));
+    const volume = dashboard.recovery.factors.find((f) => f.code === "volume_above");
+    out.recovery = recoveryScore({
+      checkin: null,
+      conditioningZone: codes.has("cardio_above") ? "above" : "optimal",
+      avgRpe: codes.has("grinding_rpe") ? 9 : null,
+      groupsAboveMav: volume?.count ?? 0,
+    });
+  }
+  return out;
 }
 
 /** Parse trainer input "DD.MM.YYYY", "DD.MM" or "YYYY-MM-DD" into the canonical stored form:
