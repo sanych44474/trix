@@ -1,6 +1,6 @@
 # ADR-0003: do not split into packages/domain|application|ui|adapters
 
-- Status: accepted
+- Status: accepted (the `src/application` layer was retired, see [ADR-0014](0014-layering-covers-every-folder.md))
 - Date: 2026-09-17
 
 ## Context

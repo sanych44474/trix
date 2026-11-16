@@ -6,7 +6,7 @@ Hack Limits (repo `trix`): an AI training and nutrition coach. Three clients sha
 - Native Android app: `mobile/`, Kotlin Multiplatform + Compose.
 
 Backend: a single Cloudflare Worker (`src/`, TypeScript).
-- Storage: D1 (SQLite), R2, Durable Objects (per-user scheduler), Queues (broadcasts).
+- Storage: D1 (SQLite), R2, Durable Objects (three schedulers: per user, per squad, global; the only scheduler for reminders, ADR-0015), Queues (broadcasts).
 - AI: provider fallback in `src/ai/`.
 
 User-facing text is Ukrainian and English. The owner writes in Ukrainian or Russian: answer in their language.
