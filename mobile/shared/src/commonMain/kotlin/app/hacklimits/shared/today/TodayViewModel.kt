@@ -92,5 +92,6 @@ class TodayViewModel(
         cache.read(CACHE_KEY)?.let { AppJson.decodeFromString(Dashboard.serializer(), it) }
     }.getOrNull()
 
-    private companion object { const val CACHE_KEY = "dashboard.v1" }
+    /** CACHE_KEY: the cached dashboard; the plan screen reads its viewer for the no-plan card. */
+    companion object { const val CACHE_KEY = "dashboard.v1" }
 }

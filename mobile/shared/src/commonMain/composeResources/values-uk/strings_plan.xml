@@ -171,7 +171,12 @@
     <string name="pl_saving_ellipsis">Збереження…</string>
     <string name="pl_nav_more">Ще</string>
     <string name="pl_no_plan_title">Активного плану немає</string>
-    <string name="pl_no_plan_detail">Заверши реєстрацію, щоб отримати свій перший план.</string>
+    <string name="pl_no_plan_detail">Плану тренувань тут поки немає.</string>
+    <string name="pl_no_plan_build_detail">Склади план за своїм профілем. Це займе близько хвилини.</string>
+    <string name="pl_no_plan_build_btn">Скласти план</string>
+    <string name="pl_no_plan_questionnaire_detail">Дай відповіді на коротку анкету, і ми складемо тобі план.</string>
+    <string name="pl_no_plan_questionnaire_btn">Заповнити анкету</string>
+    <string name="pl_no_plan_trainer_detail">Твій тренер готує тобі план. Він з'явиться тут, щойно буде готовий.</string>
     <string name="pl_days_count">%1$s дн.</string>
     <string name="pl_weight_label">Вага</string>
     <string name="pl_sets_label">Підходи</string>

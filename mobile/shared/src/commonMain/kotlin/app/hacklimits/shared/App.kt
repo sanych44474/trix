@@ -301,6 +301,7 @@ fun App(
                             koinViewModel(parameters = { if (clientId > 0) parametersOf(clientId) else parametersOf() }),
                             onClose = { nav.popBackStack() },
                             onOpenLibrary = { nav.navigate(ExerciseLibraryRoute) },
+                            onStartQuestionnaire = { nav.navigate(OnboardingRoute) },
                         )
                     }
                     composable<ExerciseLibraryRoute> { ExerciseLibraryScreen(koinViewModel(), onBack = { nav.popBackStack() }) }

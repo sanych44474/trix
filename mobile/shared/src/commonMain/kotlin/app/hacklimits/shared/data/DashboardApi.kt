@@ -39,7 +39,7 @@ data class Dashboard(
         @Serializable data class Point(val date: String, val kg: Double)
     }
 
-    /** `profileGaps` is absent for trainers and before onboarding (the fine-tune card's input). */
+    /** `profileGaps` is absent before onboarding (the fine-tune card's input). */
     @Serializable data class Viewer(
         val id: Long,
         val role: String,
