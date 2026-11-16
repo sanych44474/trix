@@ -8,6 +8,7 @@ import { BadgeCelebration } from "./Week";
 import { TodayView } from "./Today";
 import { Icon, type IconName } from "./icons";
 import { track } from "./logic/track";
+import { noPlanAction } from "./logic/noPlan";
 import type { Space } from "./logic/workspace";
 import { moreLinksFor, navigationFor, tabFor, viewFromSearch, type View } from "./logic/navigation";
 import { DASHBOARD_CACHE_KEY, useDashboard } from "./useDashboard";
@@ -121,6 +122,7 @@ export function App() {
   // "Start" opens the logger straight into it.
   const [focus, setFocus] = useState(false);
   const [focusOnOpen, setFocusOnOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   useEffect(() => { const id = setTimeout(() => { void loadTrainView().catch(() => {}); }, 1200); return () => clearTimeout(id); }, []);
   useTelegramChrome(view, setView);
   const navigation = useMemo(() => navigationFor(dashboard?.viewer.role), [dashboard?.viewer.role]);
@@ -128,8 +130,11 @@ export function App() {
   if (error && !dashboard) return <main className="app-shell"><ErrorState lang={lang} error={error} retry={loadDashboard} /></main>;
   if (!dashboard) return null;
   const needsOnboarding = !dashboard.viewer.onboarded && dashboard.viewer.role !== "trainer";
-  if (needsOnboarding && (onboardingPending || dashboard.viewer.planPending)) return <main className="app-shell"><header className="topbar"><div className="brand-mark">H</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div></header><div className="view-stack"><div className="hero"><div><span className="eyebrow hero-eyebrow">{t(lang, "ob_pending_eyebrow")}</span><h1>{t(lang, "ob_pending_title")}</h1><p>{t(lang, "ob_pending_body")}</p><p>{t(lang, "ob_plan_ready_soon")}</p></div><button className="button button-light" onClick={loadDashboard}>{t(lang, "check_status")}</button></div><Card><div className="section-head"><div><span className="eyebrow">{t(lang, "ob_pending_next_eyebrow")}</span><h2>{t(lang, "ob_pending_next_title")}</h2></div></div><p className="muted">{t(lang, "ob_pending_next_body")}</p></Card></div></main>;
-  if (needsOnboarding) return <main className="app-shell"><header className="topbar"><div className="brand-mark">H</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div></header><Suspense fallback={<Loading />}><OnboardingView lang={lang} isClient={dashboard.viewer.role === "client"} onLangChange={setLang} onReload={loadDashboard} onComplete={() => setOnboardingPending(true)} /></Suspense></main>;
+  // A trainer is not sent through the questionnaire on launch (their workspace stays reachable), but
+  // can open it from the no-plan card to get their own plan.
+  const inOnboarding = needsOnboarding || (onboardingOpen && !dashboard.viewer.onboarded);
+  if (inOnboarding && (onboardingPending || dashboard.viewer.planPending)) return <main className="app-shell"><header className="topbar"><div className="brand-mark">H</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div></header><div className="view-stack"><div className="hero"><div><span className="eyebrow hero-eyebrow">{t(lang, "ob_pending_eyebrow")}</span><h1>{t(lang, "ob_pending_title")}</h1><p>{t(lang, "ob_pending_body")}</p><p>{t(lang, "ob_plan_ready_soon")}</p></div><button className="button button-light" onClick={loadDashboard}>{t(lang, "check_status")}</button></div><Card><div className="section-head"><div><span className="eyebrow">{t(lang, "ob_pending_next_eyebrow")}</span><h2>{t(lang, "ob_pending_next_title")}</h2></div></div><p className="muted">{t(lang, "ob_pending_next_body")}</p></Card></div></main>;
+  if (inOnboarding) return <main className="app-shell"><header className="topbar"><div className="brand-mark">H</div><div><span className="eyebrow">{t(lang, "brand_title")}</span><strong>{t(lang, "brand_subtitle")}</strong></div></header><Suspense fallback={<Loading />}><OnboardingView lang={lang} isClient={dashboard.viewer.role === "client"} onLangChange={setLang} onReload={loadDashboard} onComplete={() => setOnboardingPending(true)} onClose={needsOnboarding ? undefined : () => setOnboardingOpen(false)} /></Suspense></main>;
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => { if (window.scrollY === 0) pullStart.current = event.touches[0]?.clientY ?? null; };
   const onTouchEnd = (event: React.TouchEvent<HTMLElement>) => { const start = pullStart.current; pullStart.current = null; const end = event.changedTouches[0]?.clientY ?? 0; if (start !== null && end - start > 72 && !loading) loadDashboard(); };
   const openPlan = (clientId?: number) => { setPlanClientId(clientId ?? null); setView("plan"); };
@@ -138,12 +143,12 @@ export function App() {
   // The plan without a client is the Training tab's "Plan" segment; a client's plan (trainer) is
   // its own screen with a back button.
   const trainScreen = view === "train" || (view === "plan" && planClientId === null);
-  const planSlot = <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={null} canRebuild={role !== "client"} onOpenLibrary={() => setView("library")} /></Suspense>;
+  const planSlot = <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={null} canRebuild={role !== "client"} noPlan={noPlanAction(dashboard.viewer)} onOpenOnboarding={() => setOnboardingOpen(true)} onOpenLibrary={() => setView("library")} /></Suspense>;
   const startWorkout = () => { setFocusOnOpen(true); setView("train"); };
   return <main className={focus && trainScreen ? "app-shell focus-mode" : "app-shell"} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
     {!(focus && trainScreen) && <header className="topbar"><div className="topbar-title"><span>{shortDate(lang, dashboard.today)}</span>{dashboard.name && <strong>{dashboard.name}</strong>}</div><InboxBell lang={lang} open={view === "inbox"} onOpen={() => setView("inbox")} /><button className="icon-button" onClick={() => setView("settings")} aria-label={t(lang, "settings_aria")}><Icon name="gear" /></button></header>}
     <div className="content"><OfflineSync lang={lang} />
-      {view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onStart={startWorkout} onReload={loadDashboard} onAskCoach={() => openCoach()} />}
+      {view === "today" && <TodayView dashboard={dashboard} lang={lang} onOpen={setView} onStart={startWorkout} onReload={loadDashboard} onAskCoach={() => openCoach()} onOpenOnboarding={() => setOnboardingOpen(true)} />}
       {trainScreen && <Suspense fallback={<Loading />}><TrainView lang={lang} sex={dashboard?.sex} initialSegment={view === "plan" ? "plan" : "today"} startInFocus={focusOnOpen} planSlot={planSlot} onFocusChange={(on) => { setFocus(on); if (!on) setFocusOnOpen(false); }} onExit={() => { setFocus(false); setFocusOnOpen(false); setView("today"); }} onAskCoach={() => openCoach(t(lang, "coach_prefill_session"))} /></Suspense>}
       {view === "coach" && <Suspense fallback={<Loading />}><CoachView lang={lang} routed={role === "client"} prefill={coachPrefill} onReportInjury={openInjuries} onBack={() => { setCoachPrefill(undefined); setView("today"); }} /></Suspense>}
       {view === "plan" && planClientId !== null && <Suspense fallback={<Loading />}><PlanView lang={lang} clientId={planClientId} canRebuild={role !== "client"} onOpenLibrary={() => setView("library")} onBack={() => { setPlanClientId(null); setView("role"); }} /></Suspense>}

@@ -7,11 +7,13 @@ import app.hacklimits.shared.data.AccountCache
 import app.hacklimits.shared.data.AppJson
 import app.hacklimits.shared.data.canFallbackToCache
 import app.hacklimits.shared.data.CatalogExercise
+import app.hacklimits.shared.data.Dashboard
 import app.hacklimits.shared.data.Plan
 import app.hacklimits.shared.data.PlanApi
 import app.hacklimits.shared.data.PlanEdit
 import app.hacklimits.shared.data.PlanEditResult
 import app.hacklimits.shared.data.ReplanStatus
+import app.hacklimits.shared.today.TodayViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,6 +47,8 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null, privat
         val catalogBusy: String? = null,
         val replan: ReplanStatus = ReplanStatus(),
         val replanError: Boolean = false,
+        /** The server said there is no active plan (404 no_plan): which no-plan card to show instead of an error. */
+        val noPlan: NoPlanAction? = null,
     )
 
     private val _state = MutableStateFlow(State())
@@ -58,7 +62,7 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null, privat
 
     fun load() {
         viewModelScope.launch {
-            _state.update { it.copy(loading = true, loadError = null) }
+            _state.update { it.copy(loading = true, loadError = null, noPlan = null) }
             val local = cachedPlan()
             if (local != null) _state.update { it.copy(plan = local, loading = false, offline = true, lastUpdatedAtMs = cache.lastUpdatedAt(PLAN_CACHE_KEY)) }
             try {
@@ -67,7 +71,8 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null, privat
                 _state.update { it.copy(plan = plan, loading = false, offline = false, lastUpdatedAtMs = if (clientId == null) cache.lastUpdatedAt(PLAN_CACHE_KEY) else null) }
             } catch (e: ApiException) {
                 val cached = if (e.canFallbackToCache()) cachedPlan() else null
-                _state.update { it.copy(plan = cached, loading = false, offline = cached != null, lastUpdatedAtMs = if (cached != null) cache.lastUpdatedAt(PLAN_CACHE_KEY) else null, loadError = if (cached == null) e.code else null) }
+                val noPlan = if (cached == null && clientId == null && e.code == "no_plan") noPlanForViewer() else null
+                _state.update { it.copy(plan = cached, loading = false, offline = cached != null, lastUpdatedAtMs = if (cached != null) cache.lastUpdatedAt(PLAN_CACHE_KEY) else null, loadError = if (cached == null) e.code else null, noPlan = noPlan) }
             } catch (e: Exception) {
                 val cached = cachedPlan()
                 _state.update { it.copy(plan = cached, loading = false, offline = cached != null, lastUpdatedAtMs = if (cached != null) cache.lastUpdatedAt(PLAN_CACHE_KEY) else null, loadError = if (cached == null) "network" else null) }
@@ -78,6 +83,11 @@ class PlanViewModel(private val api: PlanApi, val clientId: Long? = null, privat
     private suspend fun cachedPlan(): Plan? = if (clientId != null) null else runCatching {
         cache.read(PLAN_CACHE_KEY)?.let { AppJson.decodeFromString(Plan.serializer(), it) }
     }.getOrNull()
+
+    /** Who is asking, from the dashboard Today keeps cached; without it the build button is offered (the server still decides). */
+    private suspend fun noPlanForViewer(): NoPlanAction = runCatching {
+        cache.read(TodayViewModel.CACHE_KEY)?.let { AppJson.decodeFromString(Dashboard.serializer(), it).viewer }
+    }.getOrNull()?.let { noPlanAction(it.role, it.onboarded, it.planPending) } ?: NoPlanAction.Build
 
     fun dismissActionError() = _state.update { it.copy(actionError = null) }
 

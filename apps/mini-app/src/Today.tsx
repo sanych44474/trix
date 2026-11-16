@@ -9,6 +9,8 @@ import type { Dashboard, RecoveryFactor, RecoveryLabel } from "./types";
 import type { View } from "./logic/navigation";
 import { DRAFT_KEY, parseDraft } from "./logic/logger";
 import { todayPlan } from "./logic/todayPlan";
+import { hasActivePlan, noPlanAction } from "./logic/noPlan";
+import { NoPlanCard } from "./RebuildPlan";
 import { canUseMainButton, showMainButton } from "./telegram";
 import { FineTuneCard } from "./FineTuneCard";
 import { WhatsNewCard } from "./WhatsNew";
@@ -77,7 +79,7 @@ function exercisesLabel(lang: Lang, n: number): string {
   return t(lang, key, { n });
 }
 
-export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoach }: { dashboard: Dashboard; lang: Lang; onOpen: (view: View) => void; onStart: () => void; onReload: () => void; onAskCoach: () => void }) {
+export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoach, onOpenOnboarding }: { dashboard: Dashboard; lang: Lang; onOpen: (view: View) => void; onStart: () => void; onReload: () => void; onAskCoach: () => void; onOpenOnboarding: () => void }) {
   const plan = useMemo(() => todayPlan({
     today: dashboard.today,
     planExercises: dashboard.logForm?.exercises ?? [],
@@ -85,6 +87,7 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
     days: dashboard.calendar.days,
     logs: dashboard.calendar.logs,
     draft: readDraft(),
+    hasPlan: hasActivePlan(dashboard.calendar),
   }), [dashboard]);
   const group = dashboard.calendar.split.find((d) => d.weekday === plan.week.find((w) => w.today)?.weekday)?.group;
   const [more, setMore] = useState(() => { try { return localStorage.getItem(MORE_KEY) === "1"; } catch { return false; } });
@@ -124,7 +127,7 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
   const kicker = plan.state === "continue" ? t(lang, "today_in_progress") : t(lang, "today_kicker");
 
   return <div className="view-stack today">
-    <section className={`wod wod-${plan.state}`} aria-labelledby="today-workout-title">
+    {plan.state === "noplan" ? <NoPlanCard lang={lang} action={noPlanAction(dashboard.viewer)} onQuestionnaire={onOpenOnboarding} onDone={onReload} /> : <section className={`wod wod-${plan.state}`} aria-labelledby="today-workout-title">
       <span className="kicker">{kicker}{plan.state === "done" && group ? ` · ${group}` : ""}</span>
       <h1 id="today-workout-title">{title}</h1>
       <p className="wod-meta">
@@ -138,7 +141,7 @@ export function TodayView({ dashboard, lang, onOpen, onStart, onReload, onAskCoa
         {n > chips.length && <li>+{n - chips.length}</li>}
       </ul>}
       {!(native && primary) && <button type="button" className={primary ? "button button-primary button-block" : "button button-outline button-block"} onClick={go}>{action}</button>}
-    </section>
+    </section>}
 
     <ComebackFlow lang={lang} onDone={onReload} />
     {dashboard.recoverySwap && plan.state === "start" && <RecoverySwapCard lang={lang} swap={dashboard.recoverySwap} onDone={onReload} />}

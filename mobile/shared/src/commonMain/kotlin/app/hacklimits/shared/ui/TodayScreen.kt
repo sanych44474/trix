@@ -75,7 +75,15 @@ import app.hacklimits.shared.account.WhatsNewApi
 import app.hacklimits.shared.account.WhatsNewCard
 import app.hacklimits.shared.account.WhatsNewNote
 import app.hacklimits.shared.plan.FineTuneCard
+import app.hacklimits.shared.plan.NoPlanAction
+import app.hacklimits.shared.plan.NoPlanCard
+import app.hacklimits.shared.plan.PlanViewModel
+import app.hacklimits.shared.plan.hasActivePlan
+import app.hacklimits.shared.plan.noPlanAction
+import app.hacklimits.shared.plan.showsNoPlan
+import app.hacklimits.shared.data.ReplanStatus
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * Today: the workout block (start / continue / logged / rest day), the week as seven days, the
@@ -126,7 +134,7 @@ fun TodayScreen(
                     }
                 }
                 if (d.viewer.onboarded && !d.viewer.planPending) {
-                    TodayBody(d, session, vm, quick, prefs, onStartWorkout, onOpenTraining, onAskCoach, onOpenPlan, onOpenFood, onOpenProgress, onOpenComeback)
+                    TodayBody(d, session, vm, quick, prefs, onStartWorkout, onOpenTraining, onAskCoach, onOpenPlan, onOpenFood, onOpenProgress, onOpenComeback, onStartQuestionnaire)
                 }
             }
         }
@@ -147,6 +155,7 @@ private fun TodayBody(
     onOpenFood: () -> Unit,
     onOpenProgress: () -> Unit,
     onOpenComeback: () -> Unit,
+    onStartQuestionnaire: () -> Unit,
 ) {
     val telemetry = koinInject<Telemetry>()
     val signals by vm.signals.collectAsStateWithLifecycle()
@@ -191,8 +200,12 @@ private fun TodayBody(
         celebrate = d.badges.filter { it.code in fresh.show }
     }
 
-    WorkoutBlock(plan, d.lang, group, d.logForm?.minutes ?: 0) {
-        if (plan.state == TodayState.Start || plan.state == TodayState.Continue) onStartWorkout() else onOpenTraining()
+    if (showsNoPlan(plan.state, hasActivePlan(d.calendar))) {
+        TodayNoPlan(d.viewer, onQuestionnaire = onStartQuestionnaire, onDone = vm::refresh)
+    } else {
+        WorkoutBlock(plan, d.lang, group, d.logForm?.minutes ?: 0) {
+            if (plan.state == TodayState.Start || plan.state == TodayState.Continue) onStartWorkout() else onOpenTraining()
+        }
     }
 
     d.recoverySwap?.takeIf { plan.state == TodayState.Start }?.let { swap ->
@@ -275,6 +288,24 @@ private fun TodayBody(
     if (celebrate.isNotEmpty()) {
         BadgeCelebration(celebrate) { celebrate = emptyList() }
     }
+}
+
+/**
+ * No active plan (plan/NoPlan.kt): the card that replaces the workout block. The build button reuses
+ * the plan screen's rebuild request and polling (PlanViewModel); Today reloads once the plan is there.
+ */
+@Composable
+private fun TodayNoPlan(viewer: Dashboard.Viewer, onQuestionnaire: () -> Unit, onDone: () -> Unit) {
+    val action = noPlanAction(viewer.role, viewer.onboarded, viewer.planPending)
+    if (action != NoPlanAction.Build) {
+        NoPlanCard(action, ReplanStatus(), error = false, onBuild = {}, onQuestionnaire = onQuestionnaire)
+        return
+    }
+    val telemetry = koinInject<Telemetry>()
+    val planVm: PlanViewModel = koinViewModel(parameters = { parametersOf() })
+    val s by planVm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(s.plan, s.offline) { if (s.plan != null && !s.offline) onDone() }
+    NoPlanCard(action, s.replan, s.replanError, onBuild = { telemetry.track("app_plan_rebuild"); planVm.startReplan() }, onQuestionnaire = onQuestionnaire)
 }
 
 /** One tappable row of the Today list: a label, an optional trailing value, and the open/closed mark. */

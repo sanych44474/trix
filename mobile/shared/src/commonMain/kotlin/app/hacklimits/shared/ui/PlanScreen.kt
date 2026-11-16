@@ -52,6 +52,7 @@ import app.hacklimits.shared.plan.addGroupToLabel
 import app.hacklimits.shared.plan.KitFitCard
 import app.hacklimits.shared.plan.LibraryBrowser
 import app.hacklimits.shared.plan.MesocycleCard
+import app.hacklimits.shared.plan.NoPlanCard
 import app.hacklimits.shared.plan.PlanViewModel
 import app.hacklimits.shared.plan.RebuildPlanCard
 import app.hacklimits.shared.plan.planBalance
@@ -79,10 +80,11 @@ private sealed interface PlanSheet {
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Unit)? = null) {
+fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Unit)? = null, onStartQuestionnaire: () -> Unit = {}) {
     val s by vm.state.collectAsStateWithLifecycle()
     val telemetry = koinInject<Telemetry>()
     val plan = s.plan
+    val noPlan = s.noPlan
     var sheet by remember { mutableStateOf<PlanSheet?>(null) }
     var openDay by rememberSaveable { mutableStateOf<Int?>(null) }
     var showChanges by remember { mutableStateOf(false) }
@@ -99,6 +101,9 @@ fun PlanScreen(vm: PlanViewModel, onClose: () -> Unit, onOpenLibrary: (() -> Uni
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when {
                 plan == null && s.loading -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                plan == null && noPlan != null -> item {
+                    NoPlanCard(noPlan, s.replan, s.replanError, onBuild = { telemetry.track("app_plan_rebuild"); vm.startReplan() }, onQuestionnaire = onStartQuestionnaire)
+                }
                 plan == null -> item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(if (s.loadError == "unauthorized") Res.string.pl_unauthorized_error else Res.string.pl_generic_error), color = MaterialTheme.colorScheme.error)

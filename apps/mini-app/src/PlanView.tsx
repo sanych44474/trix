@@ -1,5 +1,5 @@
 // The Plan screen (lazy chunk): the weekly plan editor, mesocycle card, kit fit and change log.
-import { RebuildPlanCard } from "./RebuildPlan";
+import { NoPlanCard, RebuildPlanCard } from "./RebuildPlan";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, ApiError, typedBody } from "./api";
@@ -9,6 +9,7 @@ import { Icon } from "./icons";
 import type { LibraryEntry } from "./logic/library";
 import { addGroupToLabel, DAY_LABEL_MAX } from "./logic/dayLabel";
 import { injuryRefusalArea } from "./logic/planEditError";
+import { isNoPlanError, type NoPlanAction } from "./logic/noPlan";
 
 // The 750-exercise library (data + pictures) loads only when the picker opens.
 const LibraryBrowser = lazy(() => import("./Library").then((m) => ({ default: m.LibraryBrowser })));
@@ -42,7 +43,7 @@ export function KitFitCard({ lang, kit, busy, onFit }: { lang: Lang; kit: NonNul
   </Card>;
 }
 
-export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebuild = false }: { lang: Lang; clientId?: number | null; onBack?: () => void; onOpenLibrary?: () => void; canRebuild?: boolean }) {
+export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebuild = false, noPlan, onOpenOnboarding }: { lang: Lang; clientId?: number | null; onBack?: () => void; onOpenLibrary?: () => void; canRebuild?: boolean; noPlan?: NoPlanAction; onOpenOnboarding?: () => void }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<unknown>(null);
   // Separate from `error` on purpose: `error` means "couldn't load the plan, nothing to show" and
@@ -193,9 +194,13 @@ export function PlanView({ lang, clientId = null, onBack, onOpenLibrary, canRebu
   const fmtSets = (n: number) => (lang === "uk" ? String(n).replace(".", ",") : String(n));
   const muscleName = (slug: string) => t(lang, `muscle_${slug.replace("-", "_")}` as Key);
 
-  if (error) return <ErrorState lang={lang} error={error} retry={load} />;
+  // No active plan is a state of its own (logic/noPlan.ts), not "Something went wrong".
+  const noPlanState = clientId === null && noPlan
+    ? <NoPlanCard lang={lang} action={noPlan} onQuestionnaire={onOpenOnboarding} onDone={load} />
+    : <Empty title={t(lang, "no_plan_title")} detail={t(lang, "no_plan_detail")} />;
+  if (error) return isNoPlanError(error) ? noPlanState : <ErrorState lang={lang} error={error} retry={load} />;
   if (!plan) return <Loading />;
-  if (!plan.days.length) return <Empty title={t(lang, "no_plan_title")} detail={t(lang, "no_plan_detail")} />;
+  if (!plan.days.length) return noPlanState;
 
   const sheetDay = sheet && sheet.kind === "exercise" ? plan.days.find((d) => d.weekday === sheet.weekday) : undefined;
   const sheetExercise = sheet && sheet.kind === "exercise" ? sheetDay?.exercises.find((e) => e.index === sheet.index) : undefined;
