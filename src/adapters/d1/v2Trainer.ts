@@ -331,12 +331,21 @@ export async function listProspects(db: DB, trainerId: number): Promise<Prospect
 
 // ---------- link/unlink: the single source of truth for v2_trainer_relationships writes ----------
 
+/** Drops a trainer's pending progress-photo request (session.photoReviewFor) from clientId's
+ * session. Returned as a statement so it lands in the same batch that ends or replaces the edge. */
+export function clearPhotoReviewStmt(db: DB, clientId: number): D1PreparedStatement {
+  return db
+    .prepare("UPDATE v2_onboarding SET session = json_remove(session, '$.photoReviewFor'), updatedAt = ? WHERE accountId = ? AND json_extract(session, '$.photoReviewFor') IS NOT NULL")
+    .bind(nowIso(), clientId);
+}
+
 /** Establishes clientId's one active trainer edge, replacing any previous one atomically. See the
  * file-header comment for why this must be delete-then-insert in one batch. */
 export async function linkClient(db: DB, clientId: number, trainerId: number): Promise<void> {
   const now = nowIso();
   await db.batch([
     db.prepare("DELETE FROM v2_trainer_relationships WHERE clientId = ?").bind(clientId),
+    clearPhotoReviewStmt(db, clientId),
     db.prepare(
       `INSERT INTO v2_trainer_relationships (clientId, trainerId, status, consent, createdAt, updatedAt)
        VALUES (?, ?, 'active', '{}', ?, ?)`,
@@ -353,6 +362,7 @@ export async function unlinkClient(db: DB, clientId: number): Promise<void> {
     db.prepare("DELETE FROM v2_trainer_relationships WHERE clientId = ?").bind(clientId),
     db.prepare("UPDATE v2_accounts SET role='solo', updatedAt=? WHERE id=?").bind(now, clientId),
     deactivateActivePlan(db, clientId),
+    clearPhotoReviewStmt(db, clientId),
   ]);
 }
 

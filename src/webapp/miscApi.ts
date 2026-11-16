@@ -217,11 +217,14 @@ async function handlePhotoUpload(req: Request, env: Env, user: UserDoc): Promise
   }
   logInfo("photo_uploaded", { source: "webapp" });
   // A trainer asked for a progress photo (photoReviewFor): the next upload goes to them too, with
-  // a button to the client's card, the same as the chat flow did.
+  // a button to the client's card, the same as the chat flow did. Only while that trainer is still
+  // this client's trainer and the client shares body data with them (the consent that gates the
+  // trainer seeing progress photos at all); otherwise the stale request is just dropped.
   const trainerId = user.session.photoReviewFor;
   if (trainerId) {
     await updateUser(env.DB, user._id, { session: { ...user.session, photoReviewFor: undefined } }).catch(() => {});
-    const trainer = await getUser(env.DB, trainerId).catch(() => null);
+    const stillTheirs = user.role === "client" && user.trainerId === trainerId && trainerCanSee(user.profile, "body");
+    const trainer = stillTheirs ? await getUser(env.DB, trainerId).catch(() => null) : null;
     if (trainer && hasTelegramChat(trainer)) {
       const who = escapeHtml(user.profile.name ?? `id ${user._id}`);
       const markup = appMarkup(env, t(trainer.lang, "nb_open_client"), "role", { client: user._id });
