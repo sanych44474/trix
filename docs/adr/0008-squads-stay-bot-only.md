@@ -1,6 +1,6 @@
 # ADR-0008: squad creation and management stay in the bot
 
-- Status: accepted
+- Status: superseded in practice: squads are created, joined by invite code and left in the Mini App (see `src/webapp/squadApi.ts`, `apps/mini-app/src/Squads.tsx`); the bot keeps group-chat squads made with `/squad` in a group, their weekly recap posted to the group (`src/durable/squadScheduler.ts`), and the `sq_` invite deep link (`src/bot/start.ts`)
 - Date: 2026-09-22
 
 ## Context
