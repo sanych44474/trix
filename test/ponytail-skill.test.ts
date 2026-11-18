@@ -4,15 +4,26 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 
-const dir = ".claude/skills/ponytail";
+const skills = ["ponytail", "ponytail-audit", "ponytail-debt", "ponytail-review"];
 
-test("the skill is one markdown file with a name, a description and its source", () => {
-  assert.deepEqual(readdirSync(dir), ["SKILL.md"], "no hooks or scripts are vendored");
-  const text = readFileSync(`${dir}/SKILL.md`, "utf8");
-  assert.match(text, /^---\nname: ponytail\n/);
-  assert.match(text, /description:/);
-  assert.match(text, /github\.com\/DietrichGebert\/ponytail/);
-  assert.match(text, /MIT/);
+test("each skill is one markdown file with a name, a description and its source", () => {
+  for (const name of skills) {
+    const folder = `.claude/skills/${name}`;
+    assert.deepEqual(readdirSync(folder), ["SKILL.md"], `${name}: no hooks or scripts are vendored`);
+    const text = readFileSync(`${folder}/SKILL.md`, "utf8");
+    assert.match(text, new RegExp(`^---\\nname: ${name}\\n`), name);
+    assert.match(text, /description:/, name);
+    assert.match(text, /github\.com\/DietrichGebert\/ponytail/, name);
+    assert.match(text, /MIT/, name);
+  }
+  assert.deepEqual(readdirSync(".claude/skills").filter((d) => d.startsWith("ponytail")).sort(), skills.slice().sort(), "only the reviewed skills");
+});
+
+test("the report skills only read: no commands, downloads or file writes in their text", () => {
+  for (const name of skills.slice(1)) {
+    const text = readFileSync(`.claude/skills/${name}/SKILL.md`, "utf8");
+    assert.doesNotMatch(text, /\b(curl|wget|npm install|rm -rf)\b|https?:\/\/(?!github\.com\/DietrichGebert\/ponytail)/, name);
+  }
 });
 
 test("CLAUDE.md says the repository's rules win, notably tests for every change", () => {

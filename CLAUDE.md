@@ -63,7 +63,7 @@ Android has no SDK here: CI's "Mobile" workflow is the check (see `mobile/CLAUDE
 - Squash-merged. After a merge, restart the working branch from `origin/main`.
 
 ## Ponytail skill
-`.claude/skills/ponytail/` is a vendored copy of the Ponytail skill ("the smallest change that fully solves the task"). Use it on coding tasks. Where it differs from this file, this file wins: every change is covered by tests (its "trivial changes need none" does not apply here), and the owner is answered in Ukrainian or Russian.
+`.claude/skills/ponytail*` are vendored copies of the Ponytail skills (tag v5.3.3): `ponytail` ("the smallest change that fully solves the task"; use it on coding tasks) and the read-only reports `ponytail-audit`, `ponytail-debt` and `ponytail-review`. The plugin itself and its hooks are not installed. Where they differ from this file, this file wins: every change is covered by tests (its "trivial changes need none" does not apply here), and the owner is answered in Ukrainian or Russian.
 
 ## Folder rules
 `mobile/CLAUDE.md` and `apps/mini-app/CLAUDE.md` add rules for those trees.
