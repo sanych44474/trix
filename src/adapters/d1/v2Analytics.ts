@@ -173,10 +173,49 @@ export const FUNNEL_FINISHED = "funnel_onboarding_finished";
 
 /** `lastSeenAt = whenIso`, plus the day's session mark when this interaction opens a session, in one
  * round trip. */
-export async function markSeen(db: DB, userId: number, whenIso: string, sessionDay: string | null): Promise<void> {
+export async function markSeen(db: DB, userId: number, whenIso: string, sessionDay: string | null, surface?: SessionSurface): Promise<void> {
   const statements = [db.prepare("UPDATE v2_accounts SET lastSeenAt = ? WHERE id = ?").bind(whenIso, userId)];
-  if (sessionDay) statements.push(db.prepare(BUMP_EVENT_SQL).bind(userId, SESSION_EVENT, sessionDay));
+  if (sessionDay) {
+    statements.push(db.prepare(BUMP_EVENT_SQL).bind(userId, SESSION_EVENT, sessionDay));
+    // The same session, counted again per surface: "who uses the Android app and who the bot".
+    if (surface) statements.push(db.prepare(BUMP_EVENT_SQL).bind(userId, sessionSurfaceEvent(surface), sessionDay));
+  }
   await db.batch(statements);
+}
+
+/** Where a session happened: the Telegram bot chat, the Mini App inside Telegram (or the web), or the native Android app. */
+export type SessionSurface = "bot" | "miniapp" | "android";
+export const SESSION_SURFACES: SessionSurface[] = ["bot", "miniapp", "android"];
+export const sessionSurfaceEvent = (surface: SessionSurface): string => `${SESSION_EVENT}_${surface}`;
+
+/** Distinct accounts with a session on each surface on or after `sinceDay`. An account that used
+ * two surfaces counts once in each, so the numbers can add up to more than the active total. */
+export async function countSessionAccountsBySurface(db: DB, sinceDay: string): Promise<Record<SessionSurface, number>> {
+  const r = await db
+    .prepare(`SELECT event, COUNT(DISTINCT accountId) AS c FROM v2_analytics_events WHERE event IN (?, ?, ?) AND date >= ? GROUP BY event`)
+    .bind(...SESSION_SURFACES.map(sessionSurfaceEvent), sinceDay)
+    .all<{ event: string; c: number }>();
+  const by = new Map((r.results ?? []).map((x) => [x.event, x.c]));
+  return { bot: by.get(sessionSurfaceEvent("bot")) ?? 0, miniapp: by.get(sessionSurfaceEvent("miniapp")) ?? 0, android: by.get(sessionSurfaceEvent("android")) ?? 0 };
+}
+
+/** How the onboarded, not-owner-blocked accounts can be reached. `android` has a registered push
+ * device; `telegram` has a Telegram chat that has not blocked the bot; `blockedBot` has one that
+ * has. An account can be in both `android` and `telegram`. */
+export async function countReach(db: DB): Promise<{ android: number; telegram: number; blockedBot: number; appOnly: number }> {
+  const r = await db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN EXISTS (SELECT 1 FROM v2_push_devices p WHERE p.accountId = a.id AND p.platform = 'android') THEN 1 ELSE 0 END) AS android,
+         SUM(CASE WHEN a.chatId > 0 AND COALESCE(a.botBlocked, 0) = 0 THEN 1 ELSE 0 END) AS telegram,
+         SUM(CASE WHEN a.chatId > 0 AND COALESCE(a.botBlocked, 0) = 1 THEN 1 ELSE 0 END) AS blockedBot,
+         SUM(CASE WHEN a.chatId <= 0 THEN 1 ELSE 0 END) AS appOnly
+       FROM v2_accounts a
+       JOIN v2_onboarding o ON o.accountId = a.id AND o.status = 'completed'
+       WHERE COALESCE(a.blocked, 0) = 0`,
+    )
+    .first<{ android: number; telegram: number | null; blockedBot: number | null; appOnly: number | null }>();
+  return { android: r?.android ?? 0, telegram: r?.telegram ?? 0, blockedBot: r?.blockedBot ?? 0, appOnly: r?.appOnly ?? 0 };
 }
 
 /** Distinct accounts that had a session on a day in [fromDay, toExclusiveDay) (YYYY-MM-DD). */

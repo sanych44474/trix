@@ -2,7 +2,7 @@
 import { getUser } from "../adapters/d1/v2Users";
 import { recordPresence } from "../adapters/d1/v2Presence";
 import { validateInitData } from "./initData";
-import { sessionIdentity, sessionTokenFromRequest } from "./appSessions";
+import { isNativeClient, sessionIdentity, sessionTokenFromRequest } from "./appSessions";
 import type { Env, UserDoc } from "../types";
 
 type MiniAppAuthMethod = "telegram" | "email" | "google" | "debug";
@@ -75,7 +75,7 @@ async function resolveIdentity(req: Request, url: URL, env: Env): Promise<MiniAp
   if (!user || user.blocked) return null;
   // Every authenticated Mini App request is proof the person is here. This is the Mini App's half of
   // "last seen" (the bot writes the other half), throttled to one write a minute.
-  await recordPresence(env.DB, user, "miniapp");
+  await recordPresence(env.DB, user, isNativeClient(req) ? "android" : "miniapp");
   return { user, method };
 }
 

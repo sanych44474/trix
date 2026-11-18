@@ -32,7 +32,7 @@ export async function orOverview(db: D1Database, snapshot?: OwnerSnapshot): Prom
   const { since7Iso } = ownerReportWindows();
   const since7Date = since7Iso.slice(0, 10);
   const { trainersCount, clientsCount, pendingApps, pendingReqs, active7, active30, engagement,
-    totalUsers, onboarded, new7, moderation, churned, inactive7, usersWithPlan, activityRate7d } = snapshot ?? (await loadOwnerSnapshot(db));
+    totalUsers, onboarded, new7, moderation, churned, inactive7, usersWithPlan, activityRate7d, reach, surfaces7, surfaces30 } = snapshot ?? (await loadOwnerSnapshot(db));
   const todayStr = new Date().toISOString().slice(0, 10);
   const thisWkStart = weekStartStr(todayStr);
   const lastWkStart = weekStartStr(new Date(Date.parse(todayStr) - 7 * 86_400_000).toISOString().slice(0, 10));
@@ -67,6 +67,9 @@ export async function orOverview(db: D1Database, snapshot?: OwnerSnapshot): Prom
     `• New 7d: <b>+${new7}</b> · Trainers <b>${trainersCount}</b> · Clients <b>${clientsCount}</b>`,
     `• Active: 7d <b>${active7}</b> · 30d <b>${active30}</b> · activity rate 7d/onb <b>${activityRate7d}%</b>`,
     `• DAU 7d: <code>${sparkline(days)}</code> peak ${dauPeak}`,
+    `• 📱 Android app: <b>${reach.android}</b> installed (push) · active 7d <b>${surfaces7.android}</b> · 30d <b>${surfaces30.android}</b>`,
+    `• 💬 Telegram bot: <b>${reach.telegram}</b> reachable, <b>${reach.blockedBot}</b> blocked it · bot chat 7d <b>${surfaces7.bot}</b> · Mini App 7d <b>${surfaces7.miniapp}</b>`,
+    `• 📲 App only, no Telegram chat: <b>${reach.appOnly}</b>`,
     `🔻 ${totalUsers} → ${onboarded} onboarded → ${active7} active 7d`,
     "",
     "🏋️ <b>Training (7d)</b>",

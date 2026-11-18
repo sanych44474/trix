@@ -2,7 +2,7 @@
 // (domain/presence.ts); this is the write and the `session_started` event around it.
 import { logInfo } from "../../log";
 import { presenceStep } from "../../domain/presence";
-import { markSeen } from "./v2Analytics";
+import { markSeen, type SessionSurface } from "./v2Analytics";
 import type { DB } from "./shared";
 
 /** Never throws: presence is bookkeeping and must not fail the request that triggered it. Updates
@@ -11,7 +11,7 @@ import type { DB } from "./shared";
 export async function recordPresence(
   db: DB,
   user: { _id: number; lastSeenAt?: Date },
-  surface: "bot" | "miniapp",
+  surface: SessionSurface,
   nowMs = Date.now(),
 ): Promise<boolean> {
   const step = presenceStep(user.lastSeenAt, nowMs);
@@ -20,7 +20,7 @@ export async function recordPresence(
   const when = new Date(nowMs);
   user.lastSeenAt = when;
   try {
-    await markSeen(db, user._id, when.toISOString(), step.newSession ? when.toISOString().slice(0, 10) : null);
+    await markSeen(db, user._id, when.toISOString(), step.newSession ? when.toISOString().slice(0, 10) : null, surface);
     return true;
   } catch {
     return false;

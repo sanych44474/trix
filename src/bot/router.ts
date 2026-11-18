@@ -13,7 +13,8 @@ import { cmdPricePoll } from "./pricePoll";
 import { cmdRefreshVideos, cmdSetVideo } from "./ownerVideos";
 import { bumpEvent } from "../adapters/d1/v2Analytics";
 import { recordPresence } from "../adapters/d1/v2Presence";
-import { getOrCreateUser, updateUser } from "../adapters/d1/v2Users";
+import { getOrCreateUser, getUser, updateUser } from "../adapters/d1/v2Users";
+import { blockedByChatMemberStatus } from "../domain/delivery";
 import { localParts } from "../domain/localTime";
 import { handleGroupUpdate } from "./squad";
 import { type Env } from "../types";
@@ -96,6 +97,18 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
     await handleGroupUpdate(ctx, new Date().toISOString().slice(0, 10));
   });
 
+  // The user blocking or unblocking the bot in their private chat. Without this the flag only ever
+  // flips on a failed send, and nothing flips it back when they return (see the clearing below).
+  bot.use(async (ctx, next) => {
+    const change = ctx.myChatMember;
+    if (!change) return next();
+    const blocked = blockedByChatMemberStatus(change.new_chat_member.status);
+    if (blocked !== null && change.chat.type === "private") {
+      const known = await getUser(env.DB, change.from.id);
+      if (known && !!known.botBlocked !== blocked) await updateUser(env.DB, known._id, { botBlocked: blocked });
+    }
+  });
+
   bot.use(async (ctx, next) => {
     const from = ctx.from;
     const chatId = ctx.chat?.id ?? from?.id;
@@ -119,6 +132,13 @@ export function createBot(env: Env, exCtx?: ExecutionContext): Bot<MyContext> {
     // cron) and open a session when the gap is wide (domain/presence.ts). This is the only reliable
     // "is this user active" signal: updatedAt is bumped by the scheduler too.
     ctx.waitUntil(recordPresence(ctx.db, ctx.user, "bot"));
+    // A private update from the person proves they can receive our messages again: they unblocked
+    // the bot. The flag used to stay set forever, which silently cut them off from every reminder
+    // and broadcast until the owner toggled their block.
+    if (ctx.user.botBlocked && (ctx.chat?.type ?? "private") === "private") {
+      ctx.user.botBlocked = false;
+      await updateUser(ctx.db, ctx.user._id, { botBlocked: false });
+    }
     // Owner-banned users are ignored entirely until the owner unblocks them.
     if (ctx.user.blocked) return;
     await next();

@@ -7,6 +7,15 @@ export function hasTelegramChat(user: { chatId: number; botBlocked?: boolean }):
   return user.chatId > 0 && !user.botBlocked;
 }
 
+/** What Telegram's `my_chat_member` status says about whether the user can receive our messages:
+ * `kicked` = the user blocked the bot, `member` = they started or unblocked it again. Anything
+ * else (a group role, `left`) says nothing about a private chat, so it returns null. */
+export function blockedByChatMemberStatus(status: string): boolean | null {
+  if (status === "kicked") return true;
+  if (status === "member") return false;
+  return null;
+}
+
 /** Largest progress photo accepted; phone cameras stay well under this after the app's resize. */
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 

@@ -63,7 +63,8 @@ await post("setWebhook", {
   url: webhookUrl,
   secret_token: secret,
   // pre_checkout_query: Telegram Stars support payments (src/bot/support.ts) must be confirmed.
-  allowed_updates: ["message", "callback_query", "pre_checkout_query"],
+  // my_chat_member: the user blocked or unblocked the bot (src/bot/router.ts keeps botBlocked in step).
+  allowed_updates: ["message", "callback_query", "pre_checkout_query", "my_chat_member"],
   drop_pending_updates: true,
 });
 // Default menu (English) for everyone, plus a Ukrainian override (uk clients get uk).
