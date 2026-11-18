@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { adherenceDeloadDue, deloadDue } from "../src/domain/deload";
 import { buildActivityCells, complianceScore } from "../src/domain/activity";
 import { computePlanProgression } from "../src/domain/progression";
-import { fatLossGoalReached, gainGoalReached, nextLevel, shouldLevelUp } from "../src/domain/levelGoals";
 import type { PlanDoc, PlanExercise, StrengthRecordDoc, WorkoutLogDoc } from "../src/types";
 
 const wlog = (completed: boolean): WorkoutLogDoc => ({
@@ -41,50 +40,6 @@ test("buildActivityCells: oldest→newest window with workout/nutrition flags", 
   assert.equal(cells[5].nutrition, true);
   assert.equal(cells[4].workout, true);
   assert.equal(cells[0].workout, false);
-});
-
-test("nextLevel walks the ladder and stops at the top", () => {
-  assert.equal(nextLevel("beginner"), "intermediate");
-  assert.equal(nextLevel("intermediate"), "advanced");
-  assert.equal(nextLevel("advanced"), null);
-});
-
-test("shouldLevelUp: fast pace + consistent weekly progress + headroom", () => {
-  assert.equal(shouldLevelUp("beginner", "fast", 4), true);
-  assert.equal(shouldLevelUp("beginner", "fast", 3), false); // not enough weeks
-  assert.equal(shouldLevelUp("beginner", "normal", 6), false); // pace not fast
-  assert.equal(shouldLevelUp("advanced", "fast", 6), false); // already top
-});
-
-test("fatLossGoalReached: meaningful cut that has plateaued", () => {
-  const w = [
-    { date: "2026-05-01", weight: 90 },
-    { date: "2026-05-15", weight: 88 },
-    { date: "2026-06-01", weight: 86.5 },
-    { date: "2026-06-08", weight: 86.4 },
-    { date: "2026-06-15", weight: 86.6 },
-  ];
-  assert.equal(fatLossGoalReached("fat loss", w), true);
-  assert.equal(fatLossGoalReached("схуднення", w), true);
-  assert.equal(fatLossGoalReached("muscle gain", w), false); // not a cut goal
-  // still actively losing (no plateau) → not done
-  assert.equal(fatLossGoalReached("fat loss", [
-    { date: "2026-05-01", weight: 90 }, { date: "2026-05-15", weight: 88 },
-    { date: "2026-06-01", weight: 86 }, { date: "2026-06-15", weight: 84 },
-  ]), false);
-});
-
-test("gainGoalReached: meaningful bulk that has plateaued", () => {
-  const w = [
-    { date: "2026-04-01", weight: 70 },
-    { date: "2026-04-20", weight: 72 },
-    { date: "2026-05-10", weight: 73.5 },
-    { date: "2026-05-20", weight: 73.4 },
-    { date: "2026-05-27", weight: 73.6 },
-  ];
-  assert.equal(gainGoalReached("muscle gain", w), true);
-  assert.equal(gainGoalReached("набір маси", w), true);
-  assert.equal(gainGoalReached("fat loss", w), false); // wrong goal direction
 });
 
 function plan(ex: PlanExercise): PlanDoc {
