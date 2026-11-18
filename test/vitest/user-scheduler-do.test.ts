@@ -45,4 +45,11 @@ describe("UserSchedulerDO alarm", () => {
     const again = await runDurableObjectAlarm(stub); // a second alarm exists iff it rescheduled
     expect(again).toBe(true);
   });
+
+  it("an account that no longer exists stops its alarm instead of waking every hour for ever", async () => {
+    const stub = env.USER_SCHEDULER.get(env.USER_SCHEDULER.idFromName("299"));
+    await stub.fetch("https://do/wake?userId=299"); // nobody has this id
+    expect(await runDurableObjectAlarm(stub)).toBe(true); // it wakes once and finds no one
+    expect(await runDurableObjectAlarm(stub)).toBe(false); // and does not re-arm
+  });
 });

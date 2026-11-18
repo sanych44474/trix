@@ -1,8 +1,9 @@
 // The owner snapshot (counts and windows shared by the text reports), the metrics payload for the
 // Mini App console, and the daily error report.
-import { aiCallStatsSince, aiTokensByKindSince, aiUsageSince, errorStatsSince, recentErrors } from "../../adapters/d1/v2AiTelemetry";
+import { androidErrorSummary, aiCallStatsSince, aiTokensByKindSince, aiUsageSince, errorStatsSince, recentErrors } from "../../adapters/d1/v2AiTelemetry";
 import { countPlanSourcesSince, countReach, countSessionAccountsBySurface, engagementSince } from "../../adapters/d1/v2Analytics";
 import { countCompletedWorkoutsBetween } from "../../adapters/d1/v2Workouts";
+import { androidVersionSpread } from "../../adapters/d1/v2Push";
 import { planStatusByUser } from "../../adapters/d1/v2Plans";
 import { countByRole, countClientsOf, countPendingClientRequests, listTrainerUsers, pendingRequestsAll, pendingTrainerApplications } from "../../adapters/d1/v2Trainer";
 import { countActiveSince, countInactive, countModeration, countOnboarded, countUsers, countUsersCreatedSince, getUser, listChurnedUsers } from "../../adapters/d1/v2Users";
@@ -56,6 +57,16 @@ export async function loadOwnerSnapshot(db: D1Database) {
     activityRate7d: share(active7, onboarded),
   };
 }
+/** The Android app at a glance: which builds are installed and what it reported in the last 7 days. */
+export async function loadAndroidReport(db: D1Database) {
+  const { since7Iso } = ownerReportWindows();
+  const [versions, errors7d] = await Promise.all([
+    androidVersionSpread(db).catch(() => [] as { version: string; devices: number; people: number }[]),
+    androidErrorSummary(db, since7Iso).catch(() => ({ total: 0, crashes: 0, people: 0, top: [] as { message: string; n: number; people: number }[] })),
+  ]);
+  return { versions, errors7d };
+}
+
 // Structured counterpart to buildOwnerReport, for the Grafana "owner metrics" dashboard
 // (GET /admin/metrics/owner in src/index.ts). Built from the same loadOwnerSnapshot as the text
 // report, so the two agree by construction instead of by a hand-kept copy of the queries.
@@ -123,6 +134,7 @@ export async function buildOwnerMetrics(db: D1Database) {
     // Who uses which client. `reach` is a snapshot of onboarded accounts; `sessions*` count distinct
     // accounts per surface (counted from the day this shipped on, so early windows read low).
     platforms: { reach, sessions7d: surfaces7, sessions30d: surfaces30 },
+    android: await loadAndroidReport(db),
     // Named detail behind the counts above -- who exactly is churned/pending, not just how many.
     attention: {
       churned: churned.map((c) => ({ id: c.id, name: c.name || `id ${c.id}` })),

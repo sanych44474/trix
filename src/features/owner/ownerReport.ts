@@ -22,7 +22,7 @@ import { splitKeys } from "../../ai/errors";
 import { obSteps } from "../onboarding/questions";
 import { interviewProgress, OwnerUserRow } from "./ownerRows";
 import { barList, monoTable, pctBar, share, sparkline } from "./reportFormat";
-import { buildErrorReport, loadOwnerSnapshot, ownerReportWindows } from "./ownerMetrics";
+import { buildErrorReport, loadAndroidReport, loadOwnerSnapshot, ownerReportWindows } from "./ownerMetrics";
 
 
 type OwnerSnapshot = Awaited<ReturnType<typeof loadOwnerSnapshot>>;
@@ -349,6 +349,16 @@ export async function orErrors(db: D1Database): Promise<string> {
     const byType = new Map<string, number>();
     for (const e of errors7) byType.set(e.errorType, (byType.get(e.errorType) ?? 0) + e.n);
     lines.push("", "🐞 <b>Errors by type (7d)</b>", monoTable(["Type", "n"], [...byType.entries()].sort((a, b) => b[1] - a[1])));
+  }
+  // The Android app: builds in use and what it reported (crashes are saved on the phone and sent on the
+  // next launch, so a crash shows up here a little after it happened).
+  const android = await loadAndroidReport(db);
+  if (android.versions.length || android.errors7d.total) {
+    lines.push("", "📱 <b>Android app</b>");
+    if (android.versions.length) lines.push(`• Builds: ${android.versions.map((v) => `<b>${escapeHtml(v.version)}</b> ×${v.people}`).join(" · ")}`);
+    const e = android.errors7d;
+    lines.push(e.total ? `• Reports 7d: <b>${e.total}</b> (${e.crashes} crash${e.crashes === 1 ? "" : "es"}) from <b>${e.people}</b> ${e.people === 1 ? "person" : "people"}` : "• Reports 7d: none 🎉");
+    for (const t of e.top) lines.push(`   ${t.n}× ${escapeHtml(t.message.slice(0, 80))}${t.people > 1 ? ` (${t.people} people)` : ""}`);
   }
   // AI errors (last 24h). Null when there were no errors.
   const errReport = await buildErrorReport(db).catch(() => null);

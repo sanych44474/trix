@@ -36,3 +36,15 @@ export async function hasPushDevice(db: DB, accountId: number): Promise<boolean>
 export async function deletePushTokens(db: DB, tokens: string[]): Promise<void> {
   if (tokens.length) await db.batch(tokens.map((t) => db.prepare("DELETE FROM v2_push_devices WHERE token = ?").bind(t)));
 }
+
+/** Android devices per app version, newest registration first: which builds people actually run.
+ * A device that never reported a version counts as "unknown". */
+export async function androidVersionSpread(db: DB): Promise<{ version: string; devices: number; people: number }[]> {
+  const r = await db
+    .prepare(
+      `SELECT COALESCE(appVersion, 'unknown') AS version, COUNT(*) AS devices, COUNT(DISTINCT accountId) AS people
+       FROM v2_push_devices WHERE platform = 'android' GROUP BY COALESCE(appVersion, 'unknown') ORDER BY MAX(updatedAt) DESC LIMIT 10`,
+    )
+    .all<{ version: string; devices: number; people: number }>();
+  return r.results ?? [];
+}

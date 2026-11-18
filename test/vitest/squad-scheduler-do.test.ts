@@ -33,4 +33,11 @@ describe("SquadSchedulerDO alarm", () => {
     await stub.fetch(`https://do/wake?chatId=${CHAT - 1}`);
     expect(await runDurableObjectAlarm(stub)).toBe(true);
   });
+
+  it("a squad that no longer exists stops its alarm, at any hour", async () => {
+    const stub = env.SQUAD_SCHEDULER.get(env.SQUAD_SCHEDULER.idFromName(String(CHAT - 9)));
+    await stub.fetch(`https://do/wake?chatId=${CHAT - 9}`); // no squad row
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect(await runDurableObjectAlarm(stub)).toBe(false);
+  });
 });

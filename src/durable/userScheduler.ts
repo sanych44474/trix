@@ -55,7 +55,12 @@ export class UserSchedulerDO extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(nextHourlyAlarm(Date.now()));
 
     const user = await getUser(this.env.DB, userId);
-    if (!user) return; // account deleted since the last wake
+    if (!user) {
+      // Account deleted since the last wake: stop for good. Without this the alarm re-armed above
+      // kept waking, every hour, for an account that is gone.
+      await this.ctx.storage.deleteAlarm();
+      return;
+    }
 
     logInfo("do_alarm_run", { doType: "user" });
     // An exception thrown straight out of alarm() only reaches Workers Logs. Logging it here puts

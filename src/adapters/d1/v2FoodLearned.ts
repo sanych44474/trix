@@ -2,6 +2,7 @@
 // barcode is answered from D1. Search reads the word index by range on the first query word's
 // stem (an index seek, not a table scan) and filters the few candidates by the remaining words.
 import { foodTokens, normalizeFood, stem } from "../../domain/foodCatalog";
+import { plausiblePer100 } from "../../domain/foodPlausible";
 import { nowIso } from "./shared";
 
 interface LearnedFood {
@@ -29,7 +30,7 @@ export async function rememberFoods(db: D1Database, foods: LearnedFood[]): Promi
   const stmts: D1PreparedStatement[] = [];
   const now = nowIso();
   for (const f of foods.slice(0, 10)) {
-    if (!f.name || !(f.per100.kcal > 0)) continue;
+    if (!f.name || !plausiblePer100(f.per100)) continue;
     const id = learnedId(f.name, f.brand);
     if (f.barcode) {
       // Another food may hold this barcode under a different name; the newest scan wins.
@@ -67,6 +68,7 @@ export async function searchLearned(db: D1Database, query: string, limit = 5): P
     .bind(lead, `${lead}￿`)
     .all<Row>();
   return (r.results ?? [])
+    .filter((row) => plausiblePer100({ kcal: row.kcal, p: row.protein, f: row.fat, c: row.carbs })) // rows saved before the check
     .filter((row) => {
       const have = foodTokens(`${row.name} ${row.brand}`);
       return stems.every((s) => have.some((h) => h.startsWith(s)));
@@ -77,7 +79,7 @@ export async function searchLearned(db: D1Database, query: string, limit = 5): P
 
 export async function learnedByBarcode(db: D1Database, barcode: string): Promise<LearnedFood | null> {
   const r = await db.prepare("SELECT * FROM v2_food_learned WHERE barcode = ?").bind(barcode).first<Row>();
-  return r ? toFood(r) : null;
+  return r && plausiblePer100(toFood(r).per100) ? toFood(r) : null;
 }
 
 /** A logged pick ranks the food higher in later searches. */
