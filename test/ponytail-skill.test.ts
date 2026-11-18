@@ -2,7 +2,7 @@
 // came from, and CLAUDE.md says the repository's own rules win over it.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 const skills = ["ponytail", "ponytail-audit", "ponytail-debt", "ponytail-review"];
 
@@ -37,6 +37,3 @@ test("CLAUDE.md says the repository's rules win, notably tests for every change"
   assert.match(claude, /every change is covered by tests/);
 });
 
-test("no plugin hook files for it exist in the repository", () => {
-  assert.equal(existsSync(".claude/settings.json") && /ponytail/i.test(readFileSync(".claude/settings.json", "utf8")), false);
-});

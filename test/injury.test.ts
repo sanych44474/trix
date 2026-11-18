@@ -53,3 +53,41 @@ test("restorable: only when the slot still holds the replacement", () => {
   assert.equal(restorable("Something Else", "leg extension"), false);
   assert.equal(restorable(undefined, "leg extension"), false);
 });
+
+// ---- edges (found by mutation)
+
+test("isSafeCandidate: a name that loads the area is rejected even in a safe muscle pool, by either list", () => {
+  // knee: "squat" is a direct keyword, "hip thrust" only a related one; both pools are safe here
+  assert.equal(isSafeCandidate({ name: "Barbell Squat", muscle: "chest" }, "knee"), false, "direct keyword only");
+  assert.equal(isSafeCandidate({ name: "Hip Thrust", muscle: "abdominals" }, "knee"), false, "related keyword only");
+  assert.equal(isSafeCandidate({ name: "Bench Press", muscle: "chest" }, "knee"), true);
+  assert.equal(isSafeCandidate({ name: "BARBELL SQUAT", muscle: "chest" }, "knee"), false, "case does not matter");
+  assert.equal(isSafeCandidate({ name: "", muscle: "chest" }, "knee"), true, "no name, safe pool");
+  assert.equal(isSafeCandidate({ name: "Bench Press", muscle: "quadriceps" }, "knee"), false, "the pool decides first");
+});
+
+test("conflictingSlots: an exercise that does not touch the area is never swapped, at either severity", () => {
+  const split = [
+    { weekday: 1, exercises: [{ name: "Bench Press" }, { name: "Barbell Squat" }] },
+    { weekday: 3, exercises: [{ name: "Leg Curl" }, { name: "Row" }] },
+  ];
+  const pick = (severity: "mild" | "strong") => conflictingSlots(split, "knee", severity).map((s) => `${s.weekday}:${s.index}:${s.exercise.name}`);
+  assert.deepEqual(pick("mild"), ["1:1:Barbell Squat"], "direct only, with its day and position");
+  assert.deepEqual(pick("strong"), ["1:1:Barbell Squat", "3:0:Leg Curl"], "plus related, still no bench or row");
+  assert.deepEqual(conflictingSlots([], "knee", "strong"), []);
+  assert.deepEqual(conflictingSlots([{ weekday: 1, exercises: [{ name: "Bench Press" }] }], "knee", "strong"), []);
+});
+
+test("checkAfterDate: a mild injury is checked after 7 days, a strong one after 14", () => {
+  assert.equal(checkAfterDate("2026-06-01", "mild"), "2026-06-08");
+  assert.equal(checkAfterDate("2026-06-01", "strong"), "2026-06-15");
+  assert.equal(checkAfterDate("2026-12-28", "strong"), "2027-01-11", "across the year end");
+});
+
+test("restorable: only while the slot still holds the replacement, spelling and case aside", () => {
+  assert.equal(restorable("Leg Extension", "leg extension"), true);
+  assert.equal(restorable("  Leg Extension ", "Leg Extension"), true);
+  assert.equal(restorable("Squat", "Leg Extension"), false);
+  assert.equal(restorable(undefined, "Leg Extension"), false);
+  assert.equal(restorable("", "Leg Extension"), false);
+});

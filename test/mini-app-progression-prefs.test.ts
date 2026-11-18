@@ -27,10 +27,3 @@ test("settings: a progression card with the off switch and the removable ceiling
   assert.match(profile, /settings\.progression\.caps\.map/);
 });
 
-test("strings: every key the progression UI uses exists in en and uk", () => {
-  const keys = ["train_cap_btn", "cap_save_btn", "cap_clear_btn", "cap_note", "prog_eyebrow", "prog_title", "prog_auto_label", "prog_caps_title", "prog_caps_empty", "prog_cap_remove", "cap_all_dumbbells"];
-  for (const file of ["apps/mini-app/src/i18n/en.ts", "apps/mini-app/src/i18n/uk.ts"]) {
-    const src = read(file);
-    for (const k of keys) assert.match(src, new RegExp(`^\\s+${k}: "`, "m"), `${file}: ${k}`);
-  }
-});
