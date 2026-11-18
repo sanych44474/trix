@@ -39,7 +39,9 @@ scripts/.*-tmp.sql
 scripts/migrations_rebaseline.sql
 
 # Agent tooling (CLAUDE.md files are shared project instructions and are committed)
-.claude/
+.claude/*
+# Project skills are shared (the vendored Ponytail skills); local settings stay private.
+!.claude/skills/
 skills-lock.json
 
 # Private working material (personal plans, master prompt, generated catalogs)

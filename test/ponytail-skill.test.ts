@@ -13,16 +13,19 @@ test("each skill is one markdown file with a name, a description and its source"
     const text = readFileSync(`${folder}/SKILL.md`, "utf8");
     assert.match(text, new RegExp(`^---\\nname: ${name}\\n`), name);
     assert.match(text, /description:/, name);
-    assert.match(text, /github\.com\/DietrichGebert\/ponytail/, name);
+    assert.ok(text.includes("https://github.com/DietrichGebert/ponytail"), `${name}: source recorded`);
     assert.match(text, /MIT/, name);
   }
   assert.deepEqual(readdirSync(".claude/skills").filter((d) => d.startsWith("ponytail")).sort(), skills.slice().sort(), "only the reviewed skills");
 });
 
-test("the report skills only read: no commands, downloads or file writes in their text", () => {
+test("the report skills only read: no commands, downloads or foreign links in their text", () => {
   for (const name of skills.slice(1)) {
     const text = readFileSync(`.claude/skills/${name}/SKILL.md`, "utf8");
-    assert.doesNotMatch(text, /\b(curl|wget|npm install|rm -rf)\b|https?:\/\/(?!github\.com\/DietrichGebert\/ponytail)/, name);
+    assert.doesNotMatch(text, /\b(curl|wget|npm install|rm -rf)\b/, name);
+    for (const url of text.match(/https?:\/\/\S+/g) ?? []) {
+      assert.ok(url.startsWith("https://github.com/DietrichGebert/ponytail"), `${name}: ${url}`);
+    }
   }
 });
 
