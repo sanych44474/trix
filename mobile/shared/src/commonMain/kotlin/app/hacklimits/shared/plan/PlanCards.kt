@@ -71,6 +71,34 @@ fun RebuildPlanCard(status: ReplanStatus, error: Boolean, onStart: () -> Unit) {
     }
 }
 
+/**
+ * The account has no active plan ([noPlanAction] decides which case): one button that builds the plan
+ * or opens the questionnaire, or a line saying the trainer is preparing it. The Mini App's NoPlanCard.
+ */
+@Composable
+fun NoPlanCard(action: NoPlanAction, status: ReplanStatus, error: Boolean, onBuild: () -> Unit, onQuestionnaire: () -> Unit) {
+    val building = action == NoPlanAction.Building || (action == NoPlanAction.Build && status.pending)
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(Res.string.pl_no_plan_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            when {
+                building -> Text("⏳ " + stringResource(Res.string.pl_rebuild_pending), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                action == NoPlanAction.Trainer -> Text(stringResource(Res.string.pl_no_plan_trainer_detail), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                action == NoPlanAction.Questionnaire -> {
+                    Text(stringResource(Res.string.pl_no_plan_questionnaire_detail), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(onClick = onQuestionnaire, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.pl_no_plan_questionnaire_btn), maxLines = 1) }
+                }
+                else -> {
+                    Text(stringResource(Res.string.pl_no_plan_build_detail), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (status.failed) Text(stringResource(Res.string.pl_rebuild_failed), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(onClick = onBuild, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.pl_no_plan_build_btn), maxLines = 1) }
+                }
+            }
+            if (error) Text(stringResource(Res.string.pl_generic_error), color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
 /** "Fit my plan to my equipment": exercises needing gear the owner does not have. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

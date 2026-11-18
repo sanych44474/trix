@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { handleV2Api } from "../src/webapp/v2Api";
 import { isV2Failure } from "../src/contracts/v2";
-import { getOrCreateUser } from "../src/adapters/d1/v2Users";
+import { getOrCreateUser, updateUser } from "../src/adapters/d1/v2Users";
 import { claimIdempotencyKey } from "../src/adapters/d1/v2Idempotency";
 import { newDb } from "./harness";
 import type { Env } from "../src/types";
@@ -149,4 +149,21 @@ test("v2 workout rest: the native app's rest schedules no Telegram message and r
 
   // A browser can't pass for the app: X-Client with an Origin is a web request.
   assert.equal(await start({ "X-Client": "native", Origin: "https://example.test" }), "telegram");
+});
+
+// Trainers train too: an onboarded trainer gets the same profile-gap prompts (the Today fine-tune
+// card) as any athlete. The dashboard used to drop them for the trainer role.
+test("v2 dashboard: an onboarded trainer gets profileGaps like any athlete", async () => {
+  const db = newDb();
+  const userId = 9010;
+  await getOrCreateUser(db, userId, userId, "en", "Coach");
+  await updateUser(db, userId, { role: "trainer", onboarded: true, profile: { goal: "strength", level: "intermediate" } } as Parameters<typeof updateUser>[2]);
+  const testEnv = { DB: db, ALLOW_DEBUG_USER: "1", TELEGRAM_BOT_TOKEN: "test" } as unknown as Env;
+  const request = new Request(`https://example.test/api/v2/dashboard?debugUser=${userId}`);
+  const response = await handleV2Api(request, new URL(request.url), testEnv, ctx);
+  const body = await response.json() as { data?: { viewer?: { role?: string; profileGaps?: string[] } } };
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.equal(body.data?.viewer?.role, "trainer");
+  assert.ok(Array.isArray(body.data?.viewer?.profileGaps), `expected profileGaps for an onboarded trainer, got ${JSON.stringify(body.data?.viewer)}`);
+  assert.ok(body.data!.viewer!.profileGaps!.includes("sex"), "an empty profile has gaps to fill");
 });

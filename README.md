@@ -27,14 +27,14 @@ Actual operator costs depend on account plans, usage, and optional AI providers.
 
 | Area | Highlights |
 |---|---|
-| Training plan (33) | Split around your days, equipment and injuries — and kept inside your equipment; honest starting weights (pick by feel, or from your stated lifts); sets, weights, RPE/RIR, rest, tempo; supersets; self-balancing plans and one-tap fixes; a day swap when muscles aren't recovered; weekly progression, plateau detection, level-ups; cardio counted as load; "not my gym today" |
-| Workout logging (30) | Mini App logger with one-tap "as planned", technique pictures and steps, AI form check from a video, swaps it remembers, rest timer with a Telegram push, drafts synced across devices, measured session length, Telegram's native button, Strava import; or log by text / voice in chat |
+| Training plan (34) | Split around your days, equipment and injuries — and kept inside your equipment; honest starting weights (pick by feel, or from your stated lifts); sets, weights, RPE/RIR, rest, tempo; supersets; self-balancing plans and one-tap fixes; a day swap when muscles aren't recovered; weekly progression, plateau detection, level-ups; cardio counted as load; "not my gym today" |
+| Workout logging (28) | Mini App logger with one-tap "as planned", technique pictures and steps, AI form check from a video, swaps it remembers, rest timer with a Telegram push, drafts synced across devices, measured session length, Telegram's native button, Strava import; or log by text / voice in chat |
 | Nutrition (14) | Macros from text or a meal photo, Open Food Facts search, adaptive calories, AI meal plan, aisle-sorted shopping list |
 | Body & recovery (15) | Weight, measurements, body-fat estimate, goal forecast, water, steps, wellbeing check-in and readiness, progress photos, opt-in cycle tracking |
 | Motivation & community (21) | XP, levels, streaks with freezes, 26 badges, weekly quests, a monthly seasonal challenge, a weekly muscle-balance score, records with e1RM charts, leaderboards, challenges, buddy duels, group-chat squads, share to Telegram stories |
 | Trainer tools (22) | Invite link, request inbox and waitlist, client cards, per-client plan editor, templates, broadcasts, traffic-light digest, at-risk alerts, schedule and payments |
 | Reminders (13) | Timezone-aware and fitted to when you train, evening checklist, weekly digests, a dedicated first-14-days arc |
-| Onboarding (12), Mini App (21), Owner (10), Safeguards (5) | Button interview, instant plan; app with an exercise library (750 with pictures), a per-muscle body map (also inside the workout), recovery map and 12-week muscle trends, calendar, light/dark/high-contrast/red themes, home-screen shortcut, export and voluntary Stars support; owner console with retention by signup week; idempotent saves, GDPR delete |
+| Onboarding (12), Mini App (21), Owner (11), Safeguards (7) | Button interview, instant plan; app with an exercise library (750 with pictures), a per-muscle body map (also inside the workout), recovery map and 12-week muscle trends, calendar, light/dark/high-contrast/red themes, home-screen shortcut, export and voluntary Stars support; owner console with retention by signup week; idempotent saves, GDPR delete |
 
 **Why it matters:** it is a coach, not a log. It writes the program, decides when to add weight,
 and messages you first, inside the app you already use. Trainers get the tooling that usually
@@ -44,8 +44,8 @@ incur costs for the operator.
 | | |
 |---|---|
 | Roles | solo athlete · trainer's client · trainer · owner |
-| Surfaces | Telegram chat (45 commands) + Telegram Mini App + Android app with Google, Telegram, and email login |
-| Languages | Ukrainian, English (~1,700 strings each, parity enforced by the type checker) |
+| Surfaces | Telegram Mini App + Android app with Google, Telegram, and email login; the Telegram bot handles app sign-in, invite and pairing links, Telegram Stars payments, squads in group chats and owner tools (the private chat is retired, [ADR-0012](docs/adr/0012-private-chat-retired.md)) |
+| Languages | Ukrainian, English (679 keys each in the bot catalogs, 1,384 each in the Mini App catalogs; parity enforced by the type checker) |
 | Backend | OpenAPI 3.1 contract, versioned `/api/v2/*`, forward-only D1 migrations |
 | Quality | TypeScript checks, lint, build, dependency audit, `node:test` and Workers-runtime suites in CI |
 | User price | Free — no ads, no subscription |
@@ -55,10 +55,11 @@ incur costs for the operator.
 ```
 Telegram ──webhook──▶ Worker.fetch ──▶ grammY ──▶ handlers ──▶ AI chain + Cloudflare D1
 Mini App ──fetch─────▶ Worker.fetch ──▶ /api/v2/* (initData HMAC auth) ──┘
-                      Worker.scheduled (cron, DB-locked) ──▶ reminders / nudges / reports
+                      Worker.scheduled (cron) ──▶ outbox retries / rest timers / onboarding recovery / wakes the scheduler DOs
+Durable Object alarms (user, squad, global) ──▶ reminders / nudges / reports
 ```
 
-`apps/mini-app` (React + Vite) at `/app-v2` and its versioned REST seam at `/api/v2/*` are the
+`apps/mini-app` (Preact + Vite) at `/app-v2` and its versioned REST seam at `/api/v2/*` are the
 only Mini App surface now — `v2_*` D1 tables are the source of truth. `GET /app` is a small
 static redirect to `/app-v2`. The retired vanilla-JS source was removed from the working tree;
 its earlier version can be restored from Git history. The unversioned `/api/*` routes remain as
@@ -66,7 +67,10 @@ temporary aliases for already-loaded clients, with removal scheduled after 2026-
 shows no traffic. This is a UI rollback option, not a database rollback: migration 0089 dropped
 the old tables. See [ADR-0006](docs/adr/0006-retire-legacy-app-shell.md),
 [ADR-0009](docs/adr/0009-drop-legacy-tables.md), and the
-[D1 recovery runbook](docs/runbooks/d1-recovery.md).
+[D1 recovery runbook](docs/runbooks/d1-recovery.md). All decisions are in [docs/adr/](docs/adr/); the recent
+ones are [ADR-0014](docs/adr/0014-layering-covers-every-folder.md) (layering covers every folder),
+[ADR-0015](docs/adr/0015-scheduler-runs-in-durable-objects.md) (the scheduler runs in Durable Objects) and
+[ADR-0016](docs/adr/0016-progression-limits.md) (progression limits).
 
 User and onboarding state live on the user row in D1 — no KV, no external session store.
 Free-text messages are routed by `user.session.mode`; inline keyboards carry their state in
@@ -78,16 +82,20 @@ edge, so opening the app costs no Worker invocation.
 Every provider receives the **same input**, so falling back never loses the user's context.
 Non-Gemini providers get the JSON schema injected into the prompt.
 
-[2026-10-29] Plan generation, meal plans, translation (heavy tier) and meal-photo vision lead with
-OpenRouter's free NVIDIA models, then Gemini. The table below is the general order for the other tiers.
+The provider order depends on the task tier (`chainFor` in `src/ai/index.ts`). A provider without a
+key is left out, and Workers AI is left out when the day's neuron budget is spent.
 
-| Order | Provider | Used for |
-|---|---|---|
-| 1 | **Gemini** (`responseSchema`) | plan generation, translation — most reliable structured JSON |
-| 2 | **Groq** | conversational kinds, fast JSON, Whisper voice transcription |
-| 3 | **OpenRouter** (`:free` models) | text + vision fallback |
-| 4 | **Cloudflare Workers AI** | on-platform, no key, text-only |
-| 5 | **Ollama Cloud** | text-only last resort |
+<table>
+<tr><th>Tier</th><th>Provider order</th><th>Used for</th></tr>
+<tr><td>light</td><td>Workers AI, Groq, Gemini, OpenRouter</td><td>short, cheap calls</td></tr>
+<tr><td>standard</td><td>Groq, Workers AI, Gemini, OpenRouter, Ollama</td><td>conversational kinds, fast JSON</td></tr>
+<tr><td>heavy</td><td>OpenRouter, Gemini, Groq, Workers AI, Ollama (Ollama is skipped for translation)</td><td>plan generation, meal plans, translation</td></tr>
+<tr><td>vision</td><td>OpenRouter, Gemini, Workers AI</td><td>meal photos</td></tr>
+</table>
+
+OpenRouter's free NVIDIA models lead the heavy and vision tiers by owner decision; when its free
+daily quota is spent or a model returns 404, the chain falls through to Gemini. Groq has no vision
+model, so images skip it. Groq Whisper also transcribes voice clips (`src/ai/groq.ts`).
 
 Each Gemini model in the ladder is a separate quota bucket, so free-tier 429/503 storms fail
 over instead of erroring. If every provider is down, the bot says so and preserves the state.
@@ -101,15 +109,19 @@ over instead of erroring. If every provider is down, the bot says so and preserv
 | `src/bot/router.ts` | Command + callback route tables, bot construction |
 | `src/bot/` | grammY handlers for commands, callbacks, onboarding, plans, workouts, nutrition and community |
 | `src/bot/owner.ts` | Owner admin: user cards, moderation, video overrides |
-| `src/features/trainer/` | Trainer flows: client cards, templates, program sharing and messaging |
-| `src/scheduler.ts` | Cron: reminders, check-ins, weekly digests, trainer digests, owner report |
+| `src/features/` | Shared use cases: `plan/`, `workout/`, `nutrition/`, `onboarding/`, `checkin/`, `coach/`, `exercise/`, `gamification/`, `squad/`, `trainer/`, `owner/`, `report/`, `export/`, `feedback/`, `strava/`, `support/`, `survey/`, `vacation/` |
+| `src/durable/` | Scheduler Durable Objects: per user, per squad and global (ADR-0015), plus the wake helpers |
+| `src/notify/` | The one door for messages to another person or from the background: notification outbox, deep links, app buttons |
+| `src/schedulerJobs/` | Reminder blocks, weekly jobs and account-wide jobs that the Durable Objects and the cron call |
+| `src/scheduler.ts` | The cron entry (outbox retries, rest timers, onboarding recovery, waking the scheduler Durable Objects) and the per-user reminder pass that the user Durable Object calls |
+| `src/knowledge/` | Coach knowledge base: guide and document builders, R2 sync, retrieval |
+| `src/contracts/` | Shared REST v2 contract primitives used by the Worker and the Mini App |
 | `src/webapp/` | Mini App auth and versioned API handlers; static shell assets are built from `apps/mini-app/` |
-| `apps/mini-app/` | React + Vite v2 Mini App shell and dark sports design system |
+| `apps/mini-app/` | Preact + Vite v2 Mini App shell and dark sports design system |
 | `mobile/` | Hack Limits native app (Kotlin Multiplatform, Compose): Google, Telegram-confirm and email-code sign-in, FCM push |
 | `apps/mini-app/src/train/` | Workout logger screen pieces: focus-mode exercise, its muscle figure, rest bar, save dock, summary, history, `useSession` (rest timer + session clock) |
 | `apps/mini-app/src/logic/` | **Pure**, unit-tested client logic: logger state and draft reconciliation, saved-log hydration, rest timing |
-| `src/application/` | Deep application interfaces shared by adapters |
-| `src/adapters/d1/` | D1 adapters for the current `v2_*` data model |
+| `src/adapters/` | Infrastructure: `d1/` (the `v2_*` data model), `telegram/` (raw Bot API, keyboards, setup), `r2/` (photos, story media), `fcm/` (push), `rateLimit/`, `monitoring/` (Healthchecks), `youtube/` |
 | `packages/contracts/` | OpenAPI 3.1 contract for `/api/v2/*` |
 | `src/domain/` | **Pure**, unit-tested logic: progression, records, analysis, standards, plan bank |
 | `src/ai/` | Orchestrator + provider clients (shared `http.ts`) + prompts + nutrition DB |
@@ -239,11 +251,21 @@ npm run dev         # wrangler dev (.dev.vars + local D1)
 npm run typecheck   # tsc --noEmit
 npm run typecheck:webapp
 npm run build:webapp:v2
-npm test            # node --test (~930 unit/integration tests)
+npm test            # node --test unit/integration tests
 npm run test:workers # vitest in the Workers runtime (workerd)
 npm run deploy      # build the Mini App shell + wrangler deploy
 npm run tail        # stream live Worker logs
+npm run lint        # Biome, warnings are errors
+npm run generate:contracts  # regenerate packages/contracts/generated.ts from the OpenAPI file
+npm run types       # wrangler types (regenerate the Worker binding types)
+npm run verify-schema  # check the D1 schema against the migrations
+npm run smoke       # post-deploy smoke checks
+npm run backup:d1   # back up the D1 database
+npm run check:ai-models  # check the configured AI model names against the providers
+npm run eval:coach  # run the coach evaluation script
 ```
+
+`npm install` runs `postinstall`, which runs `wrangler types` and `npm run generate:contracts`.
 
 Both `npm run typecheck` and `npm test` must be green before anything ships — CI enforces it on
 every pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) for the conventions that are easy to
@@ -260,6 +282,18 @@ Pushing to `main` runs CI, then queues a deploy that waits for a manual approval
 `ALLOW_DEBUG_USER` is deliberately **not** among the deploy-time variables above: the committed
 `wrangler.toml` default (`"0"`) ships to production unchanged, and it is only ever set to `"1"` in
 a gitignored local `.dev.vars`.
+
+The workflows in `.github/workflows/`:
+
+<table>
+<tr><th>Workflow</th><th>What it does</th><th>When it runs</th></tr>
+<tr><td>CI (<code>ci.yml</code>)</td><td>Typechecks, lint, Mini App build, dependency audit, <code>node:test</code> and Workers-runtime tests</td><td>Every pull request; also called by Deploy</td></tr>
+<tr><td>Deploy (<code>deploy.yml</code>)</td><td>Runs CI, then deploys to Cloudflare after manual approval in the <code>production</code> environment</td><td>Push to <code>main</code>; manual</td></tr>
+<tr><td>Android release (<code>android-release.yml</code>)</td><td>Builds the signed APK and publishes it for self-update</td><td>Called by Deploy after a Worker deploy; manual</td></tr>
+<tr><td>Mobile (<code>mobile.yml</code>)</td><td>Android unit tests, lint and a debug APK build</td><td>Pull requests that touch <code>mobile/</code>; manual</td></tr>
+<tr><td>CodeQL (<code>codeql.yml</code>)</td><td>Static security analysis</td><td>Push to and pull requests against <code>main</code>; weekly (Monday)</td></tr>
+<tr><td>Secret scan (<code>secret-scan.yml</code>)</td><td>Scans the checked-out tree for credentials</td><td>Push to <code>main</code>; every pull request</td></tr>
+</table>
 
 Worker secrets set with `wrangler secret put` survive deploys, so CI never needs them.
 

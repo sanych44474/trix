@@ -6,7 +6,7 @@ import { FindTrainer } from "./FindTrainer";
 import { ReadyPrograms } from "./ReadyPrograms";
 import { DRAFT_KEY, basicSteps, basicsRequest, choose, chosen, firstOpenStep, isAnswered, parseDraft, stepsFor, stepsFrom, toRequest, type Answers, type ServerQuestion, type Step } from "./logic/onboardingWizard";
 
-type Props = { lang: Lang; isClient: boolean; onComplete: () => void; onLangChange: (lang: Lang) => void; onReload?: () => void };
+type Props = { lang: Lang; isClient: boolean; onComplete: () => void; onLangChange: (lang: Lang) => void; onReload?: () => void; onClose?: () => void };
 
 const weekdayKeys: Key[] = ["weekday_mon", "weekday_tue", "weekday_wed", "weekday_thu", "weekday_fri", "weekday_sat", "weekday_sun"];
 const liftKeys = ["bench", "squat", "deadlift"] as const;
@@ -25,7 +25,7 @@ const deviceTimeZone = () => { try { return Intl.DateTimeFormat().resolvedOption
  * start weights and calories need them), then the program list; applying one onboards the person.
  * The remaining questions are asked later by the Today fine-tune card.
  */
-export function OnboardingView({ lang, isClient, onComplete, onLangChange, onReload }: Props) {
+export function OnboardingView({ lang, isClient, onComplete, onLangChange, onReload, onClose }: Props) {
   const [answers, setAnswers] = useState<Answers>(readDraft);
   // The question set from the server; null until it loads (or while it failed to).
   const [questions, setQuestions] = useState<Step[] | null>(null);
@@ -174,6 +174,7 @@ export function OnboardingView({ lang, isClient, onComplete, onLangChange, onRel
 
   if (!step) {
     return <div className="ob-wizard view-stack">
+      {onClose && <div className="ob-progress"><button type="button" className="text-button" onClick={onClose}>← {t(lang, "ob_back_btn")}</button></div>}
       <div className="ob-welcome">
         <span className="eyebrow">{t(lang, "ob_time")}</span>
         <h1>{t(lang, "ob_welcome_title")}</h1>

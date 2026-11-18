@@ -1,6 +1,6 @@
 // Inline-button routing in the private chat. The chat is retired (ADR-0012): launcherGate lets a
 // non-owner's tap through only for the app's Telegram sign-in and the asks the bot itself sends
-// (price poll, inactive-user ask, sharing consent); the rest is the owner's tools.
+// (price poll, inactive-user ask, sharing consent, buddy request); the rest is the owner's tools.
 //
 // Exact matches first, then CB_PREFIX in registration order (first match wins).
 import { onSupportAmount } from "./support";
@@ -15,6 +15,7 @@ import { onTrainerApprove, onTrainerReject } from "../features/trainer/trainer";
 import { onFeedbackReplyButton } from "./feedbackReply";
 import { toggleShare } from "./shareConsent";
 import { answerTelegramLogin } from "./telegramLogin";
+import { answerBuddyRequest } from "./buddyRequest";
 import type { Weekday } from "../types";
 
 type CbHandler = (ctx: MyContext, rest: string, data: string) => Promise<unknown> | unknown;
@@ -49,6 +50,9 @@ export const CB_PREFIX: [string, CbHandler][] = [
   ["tglogin:ok:", (ctx, rest) => answerTelegramLogin(ctx, rest, true)],
   ["tglogin:no:", (ctx, rest) => answerTelegramLogin(ctx, rest, false)],
   ["share:tog:", (ctx, rest) => (rest === "body" || rest === "health" ? toggleShare(ctx, rest) : undefined)],
+  // A buddy request's Accept/Decline (bot/buddyRequest.ts).
+  ["bdy:ok:", (ctx, rest) => answerBuddyRequest(ctx, rest, true)],
+  ["bdy:no:", (ctx, rest) => answerBuddyRequest(ctx, rest, false)],
   // Payments.
   ["support:", (ctx, rest) => onSupportAmount(ctx, rest)],
   // Owner tools.

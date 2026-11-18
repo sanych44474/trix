@@ -1,13 +1,13 @@
 // /start: its pairing payloads (ADR-0012), then the Open-app button.
 import { joinByInviteCode } from "../features/squad/join";
 import { logInfo } from "../log";
-import type { UserDoc } from "../types";
-import { getUser, updateUser } from "../adapters/d1/v2Users";
-import { escapeHtml, t } from "../locales/i18n";
+import { updateUser } from "../adapters/d1/v2Users";
+import { t } from "../locales/i18n";
 import { joinByCode, joinByProspectCode } from "../features/trainer/trainer";
 import { sendLauncher } from "./launcher";
 import { promptTelegramLogin } from "./telegramLogin";
-import { HTML, clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
+import { requestBuddy } from "./buddyRequest";
+import { clearEditOwner, reply, type MyContext } from "../adapters/telegram/context";
 
 export async function cmdStart(ctx: MyContext, payload?: string) {
   logInfo("app_open", { surface: "bot" });
@@ -44,33 +44,9 @@ export async function cmdStart(ctx: MyContext, payload?: string) {
       await updateUser(ctx.db, u._id, { profile: u.profile }).catch(() => {});
     }
   }
-  // Accountability buddy link: pair two users mutually so each sees the other's weekly activity.
+  // Accountability buddy link: ask the link's owner, who pairs the two by accepting (buddyRequest.ts).
   if (payload?.startsWith("buddy_")) {
-    const mate = Number(payload.slice(6));
-    if (Number.isFinite(mate) && mate > 0 && mate !== u._id) {
-      const other = await getUser(ctx.db, mate).catch(() => null);
-      if (other) {
-        // Re-pairing with someone new must not leave a stale, one-sided link behind: if either
-        // side already has a DIFFERENT buddy, unlink that old buddy first (only if the old
-        // buddy's own link still points back — don't clobber a third party's unrelated state).
-        // Otherwise the old buddy's buddyId keeps pointing at someone who's moved on, which the
-        // weekly duel sweep (allBuddyPairs) would otherwise have to defend against on its own.
-        const unlinkOldBuddyOf = async (person: UserDoc) => {
-          const oldId = person.profile.buddyId;
-          if (!oldId || oldId === mate || oldId === u._id) return;
-          const old = await getUser(ctx.db, oldId).catch(() => null);
-          if (old && old.profile.buddyId === person._id) {
-            await updateUser(ctx.db, old._id, { profile: { ...old.profile, buddyId: undefined } }).catch(() => {});
-          }
-        };
-        await Promise.all([unlinkOldBuddyOf(u), unlinkOldBuddyOf(other)]);
-        u.profile = { ...u.profile, buddyId: mate };
-        await updateUser(ctx.db, u._id, { profile: u.profile }).catch(() => {});
-        await updateUser(ctx.db, mate, { profile: { ...other.profile, buddyId: u._id } }).catch(() => {});
-        await reply(ctx, t(lang, "buddy_paired", { name: escapeHtml(other.profile.name ?? `id ${mate}`) })).catch(() => {});
-        await ctx.api.sendMessage(other.chatId, t(other.lang, "buddy_paired", { name: escapeHtml(u.profile.name ?? `id ${u._id}`) }), HTML).catch(() => {});
-      }
-    }
+    await requestBuddy(ctx, Number(payload.slice(6)));
   }
   // Squad invite from the app (t.me/<bot>?start=sq_CODE): join, then open the squads screen.
   if (payload?.startsWith("sq_")) {

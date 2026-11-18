@@ -195,7 +195,7 @@ async function handleV2ApiInner(req: Request, url: URL, env: Env, ctx: Execution
     ctx.waitUntil(checkCronHeartbeat(env));
     try {
       const payload = await buildDashboardPayload(env.DB, user);
-      return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded, planPending: !user.onboarded && user.session.mode === "plan_pending", ...(user.onboarded && user.role !== "trainer" ? { profileGaps: profileGaps(user.profile) } : {}) }, ...payload }, req);
+      return withMeta({ viewer: { id: user._id, role: user.role, onboarded: user.onboarded, planPending: !user.onboarded && user.session.mode === "plan_pending", ...(user.onboarded ? { profileGaps: profileGaps(user.profile) } : {}) }, ...payload }, req);
     } catch (err) {
       logError("v2_dashboard_failed", err, { userId: user._id });
       // Also the D1 sink, which is what /ownerreport's Errors section and the error-spike alert

@@ -125,7 +125,8 @@ export interface UserProfile {
   // the period. Off by default and never inferred — the user must switch it on and log a start.
   cycleTracking?: boolean;
   referredBy?: number; // inviter's user id from a /start ref_<id> deep link (set once, pre-onboarding)
-  buddyId?: number; // accountability partner's user id (mutual, set via /start buddy_<id>)
+  buddyId?: number; // accountability partner's user id (mutual, set when the other person accepts a request)
+  buddyRequest?: { to: number; at: string }; // this user's pending buddy request (domain/buddyRequest.ts)
   waterGoalMl?: number; // personal daily water goal; absent → 35ml/kg formula
   waterEvery?: number; // opt-in water reminder interval in hours (0/undefined = off; e.g. 2/3/4)
   stepsGoal?: number; // personal daily steps goal; absent → 8000

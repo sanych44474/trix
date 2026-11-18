@@ -56,7 +56,7 @@ timestamps. Analytics Engine receives only values admitted by the `src/log.ts` a
 | Event | Source |
 |---|---|
 | `app_open`, `dashboard_loaded`, `session_started` | Bot start, Mini App dashboard load, and shared presence adapter. |
-| `onboarding_started`, `onboarding_completed`, `first_plan_ready` | Onboarding and plan activation flows. Funnel counters `funnel_onboarding_started` / `funnel_onboarding_finished` are bumped in `v2_analytics_events` by both the bot wizard and the Mini App form. |
+| `onboarding_completed`, `first_plan_ready` | Onboarding and plan activation flows. Funnel counters `funnel_onboarding_started` / `funnel_onboarding_finished` are bumped in `v2_analytics_events` by both the bot wizard and the Mini App form. |
 | `first_workout_completed`, `workout_completed` | Shared workout completion flow. |
 | `nutrition_logged`, `checkin_submitted`, `photo_uploaded` | Bot and Mini App logging paths. |
 | `trainer_client_connected`, `trainer_question_answered` | Trainer linking and messaging flows. |

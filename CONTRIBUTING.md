@@ -15,20 +15,25 @@ npm run dev
 You do not need a Cloudflare account to work on the pure domain logic or to run the tests —
 only to run the Worker itself.
 
-## The two gates
+## Checks before every push
 
 ```bash
-npm run typecheck    # tsc --noEmit
-npm test             # node --test
+npx tsc --noEmit          # Worker typecheck
+npm run typecheck:webapp  # Mini App typecheck
+npm run lint              # Biome, warnings are errors
+npm test                  # node:test
+npm run test:workers      # vitest in the Workers runtime (real D1)
+npm run build:webapp:all  # when apps/mini-app or src/webapp changed
 ```
 
-Both must pass before a pull request can merge; CI runs them on every PR, plus a Mini App build
-and a CodeQL scan. Please run them locally first — the test suite takes about 30 seconds.
+CI runs all of these on every PR (plus a dependency audit), and a CodeQL scan runs alongside.
+Please run them locally first. The test suite takes about 1 minute in CI and about 6 minutes on a
+laptop.
 
 ## Conventions that will bite you
 
 **Locale catalogs must stay in sync.** The `Dict` type is derived from `src/locales/en.ts`, and
-`uk.ts` must satisfy it; the Mini App's own catalog (`apps/mini-app/src/i18n.ts`) types `uk` as
+`uk.ts` must satisfy it; the Mini App's own catalog (`apps/mini-app/src/i18n/en.ts` and `uk.ts`) types `uk` as
 `Record<keyof typeof en, string>` the same way. Every new string key has to be added to **both**
 languages or the typecheck fails. That failure is the feature, not an obstacle.
 

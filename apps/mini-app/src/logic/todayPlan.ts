@@ -2,7 +2,7 @@
 // seven days. Pure, so the states are tested without rendering (test/mini-app-today-plan.test.ts).
 import { isSetFilled, type LoggerDraft } from "./logger";
 
-export type TodayState = "start" | "continue" | "done" | "rest";
+export type TodayState = "start" | "continue" | "done" | "rest" | "noplan";
 export type DayMark = "done" | "missed" | "planned" | "rest";
 
 export interface TodayPlan {
@@ -25,6 +25,8 @@ export interface TodayInput {
   days: Array<{ date: string; s: "done" | "missed" | "rest" }>;
   logs: Array<{ date: string; done: boolean; ex: Array<{ n: string; s: number }> }>;
   draft: LoggerDraft | null;
+  /** False when the account has no active plan (logic/noPlan.ts): Today shows "no plan", not a rest day. */
+  hasPlan?: boolean;
 }
 
 const DAY_MS = 86_400_000;
@@ -69,5 +71,6 @@ export function todayPlan(input: TodayInput): TodayPlan {
     };
   }
   if (planExercises.length) return { state: "start", exercises: planExercises, started: 0, sets: 0, week, weekDone, weekPlanned };
+  if (input.hasPlan === false) return { state: "noplan", exercises: [], started: 0, sets: 0, week, weekDone, weekPlanned };
   return { state: "rest", exercises: [], started: 0, sets: 0, week, weekDone, weekPlanned };
 }

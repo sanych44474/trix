@@ -133,7 +133,12 @@ export const uk: Record<keyof typeof en, string> = {
   plan_change_src_injury_swap: "Заміна через травму",
   edit_client_plan_btn: "Редагувати план клієнта",
   no_plan_title: "Активного плану немає",
-  no_plan_detail: "Заверши реєстрацію, щоб отримати свій перший план.",
+  no_plan_detail: "Плану тренувань тут поки немає.",
+  no_plan_build_detail: "Склади план за своїм профілем. Це займе близько хвилини.",
+  no_plan_build_btn: "Скласти план",
+  no_plan_questionnaire_detail: "Дай відповіді на коротку анкету, і ми складемо тобі план.",
+  no_plan_questionnaire_btn: "Заповнити анкету",
+  no_plan_trainer_detail: "Твій тренер готує тобі план. Він з'явиться тут, щойно буде готовий.",
 
   // fuel view
   kcal_value: "{n} ккал",

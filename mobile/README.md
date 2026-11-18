@@ -11,7 +11,7 @@ serving Telegram users, this app serves people who sign in with Google, email or
 </table>
 
 Stack: Kotlin 2.4, Compose Multiplatform 1.12 + Material 3, Ktor 3, kotlinx.serialization, Koin 4,
-AGP 9.4 (KMP library plugin), Gradle 9.8 (wrapper pinned by SHA-256). Versions live in
+AGP 9.5 (KMP library plugin), Gradle 9.8 (wrapper pinned by SHA-256). Versions live in
 `gradle/libs.versions.toml`.
 
 ## Build
@@ -20,13 +20,13 @@ Requirements: JDK 17+, Android SDK with platforms 36 and 37.
 
 ```powershell
 cd mobile
-.\gradlew.bat -Phacklimits.apiBaseUrl=https://<your-worker-host> :androidApp:assembleDebug
+.\gradlew.bat -Phacklimits.apiBaseUrl=https://<your-worker-host> :androidApp:assembleDirectDebug
 .\gradlew.bat :shared:testAndroidHostTest
 ```
 
 `hacklimits.apiBaseUrl` is required (the HTTPS origin of the Worker). Put it in
 `~/.gradle/gradle.properties` to avoid typing it. The debug APK lands in
-`androidApp/build/outputs/apk/debug/`.
+`androidApp/build/outputs/apk/direct/debug/`.
 
 ## How the app authenticates
 

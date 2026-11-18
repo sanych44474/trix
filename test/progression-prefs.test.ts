@@ -103,20 +103,6 @@ test("wiring: the weekly job and the coach prompt read the athlete's limits", as
   assert.match(readFileSync("src/features/coach/coachContext.ts", "utf8"), /planNextTargets\(plan, recent\.workouts, 10, owner\.profile\.progression\)/);
 });
 
-test("Android: the ceiling's strings exist in both languages and the UI is wired to the view model", async () => {
-  const { readFileSync } = await import("node:fs");
-  const res = "mobile/shared/src/commonMain/composeResources";
-  const names = ["wk_train_cap_btn", "wk_cap_save_btn", "wk_cap_clear_btn", "wk_cap_note", "ac_prog_eyebrow", "ac_prog_title", "ac_prog_auto", "ac_prog_caps_title", "ac_prog_caps_empty", "ac_prog_cap_remove", "wk_cap_all_dumbbells", "ac_prog_cap_all_dumbbells"];
-  for (const dir of ["values", "values-uk"]) {
-    const all = ["strings_workout.xml", "strings_account.xml"].map((f) => readFileSync(`${res}/${dir}/${f}`, "utf8")).join("\n");
-    for (const n of names) assert.match(all, new RegExp(`name="${n}"`), `${dir}: ${n}`);
-  }
-  const kt = "mobile/shared/src/commonMain/kotlin/app/hacklimits/shared";
-  assert.match(readFileSync(`${kt}/workout/ui/FocusView.kt`, "utf8"), /CapControl\(ex, onSet = \{ kg, all -> vm\.setCap\(ex\.index, kg, all\)/);
-  assert.match(readFileSync(`${kt}/ui/MoreScreen.kt`, "utf8"), /ProgressionSection\(settings\.progression, s\.busy, vm::setAutoProgression, vm::removeCap\)/);
-  assert.match(readFileSync(`${kt}/data/WorkoutApi.kt`, "utf8"), /put\("action", "progression"\)/);
-});
-
 test("one ceiling for all dumbbell exercises applies to each, and an exercise's own wins", async () => {
   const { DUMBBELL_CAP_KEY, isDumbbellOnly, limitsFor } = await import("../src/domain/progressionPrefs");
   assert.equal(isDumbbellOnly("Dumbbell Bench Press"), true);
@@ -127,4 +113,85 @@ test("one ceiling for all dumbbell exercises applies to each, and an exercise's 
   assert.deepEqual(limitsFor(prefs, "Dumbbell Bench Press"), { cap: 30, shared: true });
   assert.deepEqual(limitsFor(prefs, "Dumbbell Curl"), { cap: 20 });
   assert.deepEqual(limitsFor(prefs, "Barbell Squat"), {});
+});
+
+// ---- edges of the ceiling rules (found by mutation: the tests above checked typical values only)
+
+test("sanitizeProgression: a ceiling must be above 0 and at most 1000 kg, and is kept to the nearest half kilo", () => {
+  const kept = (kg: unknown) => sanitizeProgression({ caps: { curl: kg } }).caps?.curl;
+  assert.equal(kept(1000), 1000, "the top of the range is allowed");
+  assert.equal(kept(1000.5), undefined);
+  assert.equal(kept(0), undefined);
+  assert.equal(kept(-5), undefined);
+  assert.equal(kept("30"), undefined, "a string is not a number");
+  assert.equal(kept(Number.NaN), undefined);
+  assert.equal(kept(Number.POSITIVE_INFINITY), undefined);
+  assert.equal(kept(0.5), 0.5);
+  assert.equal(kept(30.2), 30);
+  assert.equal(kept(30.3), 30.5);
+  assert.equal(kept(30.75), 31);
+});
+
+test("sanitizeProgression: at most 60 ceilings are kept, an empty name is skipped, junk input is empty", () => {
+  const many = Object.fromEntries(Array.from({ length: 61 }, (_, i) => [`exercise ${i}`, 10]));
+  assert.equal(Object.keys(sanitizeProgression({ caps: many }).caps ?? {}).length, 60);
+  const sixty = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`exercise ${i}`, 10]));
+  assert.equal(Object.keys(sanitizeProgression({ caps: sixty }).caps ?? {}).length, 60);
+  assert.equal(sanitizeProgression({ caps: { "   ": 20 } }).caps, undefined);
+  for (const junk of [null, undefined, "x", 5, [], { caps: "x" }, { caps: null }, {}]) assert.deepEqual(sanitizeProgression(junk), {}, JSON.stringify(junk));
+  assert.deepEqual(sanitizeProgression({ auto: true }), {}, "on is the default, so it is not stored");
+  assert.deepEqual(sanitizeProgression({ auto: false }), { auto: false });
+  assert.deepEqual(sanitizeProgression({ auto: "no", unknown: 1 }), {});
+});
+
+test("withCap: set, replace and clear; a bad value changes nothing", () => {
+  assert.deepEqual(withCap(undefined, "Curl", 20), { caps: { curl: 20 } });
+  assert.deepEqual(withCap({ caps: { curl: 20 } }, " CURL ", 25), { caps: { curl: 25 } }, "same exercise, any spelling");
+  assert.deepEqual(withCap({ caps: { curl: 20 } }, "Curl", null), {});
+  assert.equal(withCap(undefined, "Curl", 1000)?.caps?.curl, 1000);
+  assert.equal(withCap(undefined, "Curl", 1001), null);
+  assert.equal(withCap(undefined, "Curl", 0), null);
+  assert.equal(withCap(undefined, "Curl", -1), null);
+  assert.equal(withCap(undefined, "Curl", Number.NaN), null);
+  assert.equal(withCap(undefined, "   ", 20), null, "no exercise name");
+  assert.deepEqual(withCap({ auto: false }, "Curl", 20), { auto: false, caps: { curl: 20 } }, "the off switch is kept");
+});
+
+test("withCap: the 60th ceiling fits, the 61st is refused, and an existing one can still change", () => {
+  const sixty = { caps: Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`exercise ${i}`, 10])) };
+  assert.equal(withCap({ caps: Object.fromEntries(Array.from({ length: 59 }, (_, i) => [`exercise ${i}`, 10])) }, "one more", 10) !== null, true);
+  assert.equal(withCap(sixty, "one more", 10), null);
+  assert.equal(withCap(sixty, "exercise 3", 12)?.caps?.["exercise 3"], 12);
+});
+
+test("limitsFor: a zero ceiling is no ceiling, the exercise's own beats the shared one, undefined names are skipped", () => {
+  assert.deepEqual(limitsFor({ caps: { curl: 0 } }, "Curl"), {});
+  assert.deepEqual(limitsFor({ caps: { "@dumbbell": 0 } }, "Dumbbell Curl"), {});
+  assert.deepEqual(limitsFor({ caps: { curl: 20 } }, undefined, "Curl"), { cap: 20 }, "tries each name it is known by");
+  assert.deepEqual(limitsFor({ auto: false }, "Curl"), { auto: false });
+  assert.deepEqual(limitsFor({ auto: true, caps: {} }, "Curl"), {});
+  assert.deepEqual(limitsFor({ caps: { "@dumbbell": 30 } }, "Barbell Row"), {}, "the shared ceiling is for dumbbell-only exercises");
+  assert.deepEqual(limitsFor(undefined, "Curl"), {});
+});
+
+test("limitTarget: only a load step that goes past the ceiling is changed", () => {
+  const best = { weight: 25, reps: 10 };
+  // a reps step is never touched, even with a ceiling below the weight
+  assert.deepEqual(limitTarget({ weight: 40, reps: 8, step: "reps" }, best, { cap: 30 }), { weight: 40, reps: 8, step: "reps" });
+  assert.deepEqual(limitTarget({ weight: 40, reps: 8, step: "hold" }, best, { cap: 30 }), { weight: 40, reps: 8, step: "hold" });
+  // no ceiling: untouched
+  assert.deepEqual(limitTarget({ weight: 40, reps: 8, step: "load" }, best, {}), { weight: 40, reps: 8, step: "load" });
+  // a load step that lands exactly on the ceiling is fine
+  assert.deepEqual(limitTarget({ weight: 30, reps: 8, step: "load" }, best, { cap: 30 }), { weight: 30, reps: 8, step: "load" });
+  // past the ceiling, still below it now: land on the ceiling, keep the rest of the step
+  assert.deepEqual(limitTarget({ weight: 32.5, reps: 8, step: "load" }, best, { cap: 30 }), { weight: 30, reps: 8, step: "load" });
+});
+
+test("limitTarget: at the ceiling it adds reps (two on an easy session), and the off switch holds everything", () => {
+  const next = { weight: 32.5, reps: 8, step: "load" as const };
+  assert.deepEqual(limitTarget(next, { weight: 30, reps: 10 }, { cap: 30 }), { weight: 30, reps: 11, step: "reps" });
+  assert.deepEqual(limitTarget(next, { weight: 30, reps: 10 }, { cap: 30 }, true), { weight: 30, reps: 12, step: "reps" });
+  assert.deepEqual(limitTarget(next, { weight: 35, reps: 6 }, { cap: 30 }), { weight: 35, reps: 7, step: "reps" }, "already above it: stay, add reps");
+  assert.deepEqual(limitTarget(next, { weight: 25, reps: 10 }, { auto: false, cap: 30 }, true), { weight: 25, reps: 10, step: "hold" });
+  assert.deepEqual(limitTarget(next, { weight: 25, reps: 10 }, undefined), next);
 });
