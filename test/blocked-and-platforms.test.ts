@@ -133,3 +133,33 @@ test("the owner report and the metrics feed carry the platform split", async () 
   assert.deepEqual(metrics.platforms.sessions7d, { bot: 0, miniapp: 0, android: 1 });
   assert.equal(metrics.platforms.reach.android, 1);
 });
+
+test("android report: builds in use, and what the app reported, crashes counted apart", async () => {
+  const { recordError } = await import("../src/adapters/d1/v2AiTelemetry");
+  const { androidVersionSpread } = await import("../src/adapters/d1/v2Push");
+  const { androidErrorSummary } = await import("../src/adapters/d1/v2AiTelemetry");
+  const { orErrors } = await import("../src/features/owner/ownerReport");
+  const db = newDb();
+  for (const id of [31, 32, 33]) await getOrCreateUser(db, id, id, "en", `U${id}`);
+  await registerPushDevice(db, 31, "t1", "android", "1.4.0");
+  await registerPushDevice(db, 32, "t2", "android", "1.4.0");
+  await registerPushDevice(db, 33, "t3", "android", "1.3.0");
+  await registerPushDevice(db, 33, "t4", "android", null);
+  await registerPushDevice(db, 31, "t5", "ios", "9.9.9");
+  assert.deepEqual((await androidVersionSpread(db)).map((v) => [v.version, v.devices, v.people]).sort(), [["1.3.0", 1, 1], ["1.4.0", 2, 2], ["unknown", 1, 1]]);
+
+  await recordError(db, { userId: 31, kind: "native", errorType: "client_native", message: "Crash: NullPointerException: x" });
+  await recordError(db, { userId: 32, kind: "native", errorType: "client_native", message: "IOException: timeout" });
+  await recordError(db, { userId: 33, kind: "native", errorType: "client_native", message: "IOException: timeout" });
+  await recordError(db, { userId: 31, kind: "webapp", errorType: "client_js", message: "not the app" });
+  const sum = await androidErrorSummary(db, "2000-01-01T00:00:00Z");
+  assert.deepEqual([sum.total, sum.crashes, sum.people], [3, 1, 3], "the web error is not counted");
+  assert.deepEqual({ ...sum.top[0] }, { message: "IOException: timeout", n: 2, people: 2 });
+  assert.equal((await androidErrorSummary(db, "2999-01-01T00:00:00Z")).total, 0);
+
+  const text = await orErrors(db);
+  assert.match(text, /Android app/);
+  assert.match(text, /Reports 7d: <b>3<\/b> \(1 crash\) from <b>3<\/b> people/);
+  assert.match(text, /2× IOException: timeout \(2 people\)/);
+  assert.equal((await buildOwnerMetrics(db)).android.errors7d.total, 3);
+});

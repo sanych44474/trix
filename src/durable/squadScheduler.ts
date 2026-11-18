@@ -43,11 +43,16 @@ export class SquadSchedulerDO extends DurableObject<Env> {
     // silently stop this squad's recap forever by throwing before the next alarm is armed.
     await this.ctx.storage.setAlarm(nextHourlyAlarm(Date.now()));
 
+    // Looked up before the hour gate so a squad that is gone stops its alarm at once, not at the
+    // next recap hour. One primary-key read an hour.
+    const squad = await getSquad(this.env.DB, chatId);
+    if (!squad) {
+      // Deleted or retired since the last wake: stop for good instead of waking every hour.
+      await this.ctx.storage.deleteAlarm();
+      return;
+    }
     const today = new Date().toISOString().slice(0, 10);
     if (new Date().getUTCHours() < SQUAD_RECAP_HOUR_UTC) return; // not the recap hour yet today
-
-    const squad = await getSquad(this.env.DB, chatId);
-    if (!squad) return; // squad deleted/retired since the last wake
     const weekKey = isoWeekKey(today);
     if (squad.lastRecapWeek === weekKey) return; // already recapped this week — nothing to log
 

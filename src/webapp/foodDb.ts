@@ -4,6 +4,7 @@
 import { getSetting, setSetting } from "../adapters/d1/v2Admin";
 import { aiJSON } from "../ai/index";
 import type { Env, Lang } from "../types";
+import { plausiblePer100 } from "../domain/foodPlausible";
 
 export interface FoodItem { name: string; brand: string; per100: { kcal: number; p: number; f: number; c: number }; ai?: boolean }
 
@@ -57,10 +58,12 @@ export async function aiProductLookup(env: Env, lang: Lang, q: { name?: string }
   }).catch(() => null);
   if (!res || !res.found || !res.name || !(res.kcal && res.kcal > 0)) return null;
   const g = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v * 10) / 10 : 0);
+  const per100 = { kcal: Math.round(res.kcal), p: g(res.protein), f: g(res.fat), c: g(res.carbs) };
+  if (!plausiblePer100(per100)) return null; // "never invent numbers" is a prompt, not a guarantee
   return {
     name: decodeEntities(res.name).trim().slice(0, 60),
     brand: decodeEntities(res.brand || "").trim().slice(0, 30),
-    per100: { kcal: Math.round(res.kcal), p: g(res.protein), f: g(res.fat), c: g(res.carbs) },
+    per100,
     ai: true,
   };
 }
@@ -89,7 +92,7 @@ async function fsToken(env: Env): Promise<string | null> {
 // FatSecret food_description looks like "Per 100g - Calories: 52kcal | Fat: 0.13g | Carbs:
 // 13.81g | Protein: 0.26g" (sometimes "Per 1 serving ..."). We only trust the per-100g form so
 // the macros are directly comparable; per-serving descriptions are skipped.
-function parsePer100(desc: string): FoodItem["per100"] | null {
+export function parsePer100(desc: string): FoodItem["per100"] | null {
   if (!/per\s*100\s*g/i.test(desc)) return null;
   const kcal = /calories:\s*([\d.]+)\s*kcal/i.exec(desc);
   const fat = /fat:\s*([\d.]+)\s*g/i.exec(desc);
@@ -98,7 +101,8 @@ function parsePer100(desc: string): FoodItem["per100"] | null {
   const kc = kcal ? Math.round(parseFloat(kcal[1])) : 0;
   if (!kc) return null;
   const g = (m: RegExpExecArray | null) => (m ? Math.round(parseFloat(m[1]) * 10) / 10 : 0);
-  return { kcal: kc, p: g(prot), f: g(fat), c: g(carbs) };
+  const per100 = { kcal: kc, p: g(prot), f: g(fat), c: g(carbs) };
+  return plausiblePer100(per100) ? per100 : null;
 }
 
 export async function fatSecretSearch(env: Env, query: string): Promise<FoodItem[] | null> {
@@ -122,4 +126,21 @@ export async function fatSecretSearch(env: Env, query: string): Promise<FoodItem
     .filter((x): x is FoodItem => !!x && !!x.name)
     .slice(0, 6);
   return items.length ? items : null;
+}
+
+/** Per-100 g numbers from Open Food Facts nutriments, across its field variants: kcal may live in
+ * energy-kcal_100g / energy-kcal / energy-kcal_value, or only as kilojoules (energy_100g, in kJ,
+ * divided by 4.184). Always fully numeric so the UI never shows "undefined". An implausible row
+ * (see domain/foodPlausible.ts) comes back with kcal 0, which every caller already treats as
+ * "no usable data". */
+export function offPer100(n?: Record<string, number>): { kcal: number; p: number; f: number; c: number } {
+  const nn = n ?? {};
+  let kcal = nn["energy-kcal_100g"] ?? nn["energy-kcal"] ?? nn["energy-kcal_value"] ?? 0;
+  if (!kcal) {
+    const kj = nn["energy_100g"] ?? nn["energy"] ?? 0;
+    if (kj) kcal = kj / 4.184;
+  }
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v * 10) / 10 : 0);
+  const per100 = { kcal: Math.round(num(kcal)), p: num(nn.proteins_100g), f: num(nn.fat_100g), c: num(nn.carbohydrates_100g) };
+  return plausiblePer100(per100) ? per100 : { kcal: 0, p: 0, f: 0, c: 0 };
 }

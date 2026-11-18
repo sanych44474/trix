@@ -11,7 +11,8 @@ import { miniAppUser } from "./auth";
 import { aiText } from "../ai/index";
 import { cleanAi } from "../locales/i18n";
 import { renderGroceryList } from "../render/telegramText";
-import { type FoodItem, aiProductLookup, decodeEntities, fatSecretSearch } from "./foodDb";
+import { MAX_KCAL_PER_100G, MAX_MACRO_G_PER_100G } from "../domain/foodPlausible";
+import { type FoodItem, aiProductLookup, decodeEntities, fatSecretSearch, offPer100 } from "./foodDb";
 import { bumpLearned, learnedByBarcode, rememberFoods, searchLearned } from "../adapters/d1/v2FoodLearned";
 import { searchCatalog } from "../domain/foodCatalog";
 import { readJsonBody } from "./validate";
@@ -150,20 +151,6 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     return Response.json({ ok: true, days: mp.days }, { headers: { "cache-control": "no-store" } });
   }
 
-  // Robust per-100g extraction across Open Food Facts field variants: kcal may live in
-  // energy-kcal_100g / energy-kcal / energy-kcal_value, or only as kilojoules (energy_100g,
-  // in kJ → ÷4.184). Guarantees a fully-numeric per100 so the UI never shows "undefined".
-  const offPer100 = (n?: Record<string, number>): { kcal: number; p: number; f: number; c: number } => {
-    const nn = n ?? {};
-    let kcal = nn["energy-kcal_100g"] ?? nn["energy-kcal"] ?? nn["energy-kcal_value"] ?? 0;
-    if (!kcal) {
-      const kj = nn["energy_100g"] ?? nn["energy"] ?? 0;
-      if (kj) kcal = kj / 4.184;
-    }
-    const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v * 10) / 10 : 0);
-    return { kcal: Math.round(num(kcal)), p: num(nn.proteins_100g), f: num(nn.fat_100g), c: num(nn.carbohydrates_100g) };
-  };
-
   // Food-DB search — FatSecret first (broad branded/international coverage), Open Food Facts as
   // fallback. Both proxied server-side. AI free-text stays the universal last resort (client).
   if (action === "dbsearch") {
@@ -260,7 +247,7 @@ export async function handleNutritionApi(req: Request, url: URL, env: Env): Prom
     const grams = Number(body.grams);
     const per = (body.per100 ?? {}) as { kcal?: unknown; p?: unknown; f?: unknown; c?: unknown };
     const num = (v: unknown, max: number) => (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= max ? v : null);
-    const kcal100 = num(per.kcal, 1000), p100 = num(per.p, 100), f100 = num(per.f, 100), c100 = num(per.c, 100);
+    const kcal100 = num(per.kcal, MAX_KCAL_PER_100G), p100 = num(per.p, MAX_MACRO_G_PER_100G), f100 = num(per.f, MAX_MACRO_G_PER_100G), c100 = num(per.c, MAX_MACRO_G_PER_100G);
     if (!name || !Number.isFinite(grams) || grams < 1 || grams > 3000 || kcal100 === null || p100 === null || f100 === null || c100 === null) {
       return typedFailure(400, "validation_error", "bad request");
     }

@@ -117,6 +117,33 @@ export async function recordError(
     .run();
 }
 
+/** What the Android app reported since `sinceIso` (kind "native", see webapp/miscApi.ts): totals, how many
+ * were crashes (the app prefixes a saved crash with "Crash:"), and the most frequent messages with how
+ * many people each one hit. */
+export async function androidErrorSummary(
+  db: DB,
+  sinceIso: string,
+  limit = 5,
+): Promise<{ total: number; crashes: number; people: number; top: { message: string; n: number; people: number }[] }> {
+  const [totals, top] = await Promise.all([
+    db
+      .prepare(
+        `SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN message LIKE 'Crash:%' THEN 1 ELSE 0 END), 0) AS crashes, COUNT(DISTINCT accountId) AS people
+         FROM v2_error_events WHERE kind = 'native' AND createdAt >= ?`,
+      )
+      .bind(sinceIso)
+      .first<{ total: number; crashes: number; people: number }>(),
+    db
+      .prepare(
+        `SELECT COALESCE(message, '') AS message, COUNT(*) AS n, COUNT(DISTINCT accountId) AS people
+         FROM v2_error_events WHERE kind = 'native' AND createdAt >= ? GROUP BY message ORDER BY n DESC, MAX(createdAt) DESC LIMIT ?`,
+      )
+      .bind(sinceIso, limit)
+      .all<{ message: string; n: number; people: number }>(),
+  ]);
+  return { total: totals?.total ?? 0, crashes: totals?.crashes ?? 0, people: totals?.people ?? 0, top: top.results ?? [] };
+}
+
 export async function errorStatsSince(
   db: DB,
   sinceIso: string,
