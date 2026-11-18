@@ -88,3 +88,69 @@ test("edit date: a date that does not exist is refused (V8 reads 2026-02-30 as 2
   assert.equal(isCalendarDate("2028-02-29"), true);
   assert.equal(isCalendarDate("26-02-28"), false);
 });
+
+// ---- edges of the volume and kcal rules
+
+test("volume: a muscle-up lifts the whole body, and added weight stacks on it", () => {
+  assert.equal(setVolumeKg("Muscle-up", { weight: 0, reps: 5 }, 80), 400);
+  assert.equal(setVolumeKg("Weighted muscle-up", { weight: 10, reps: 5 }, 80), 450);
+});
+
+test("volume: only the first matching share applies, in table order (a dip is not a push-up)", () => {
+  assert.equal(bodyweightShare("Bar dips")?.share, 0.95);
+  assert.equal(bodyweightShare("Push-ups on knees")?.share, 0.49);
+  assert.equal(bodyweightShare("Push-up")?.share, 0.64);
+  assert.equal(bodyweightShare("Bench Press"), null);
+});
+
+test("volume: negative or zero reps move nothing, a negative weight counts as zero", () => {
+  assert.equal(setVolumeKg("Bench Press", { weight: 80, reps: -3 }), 0);
+  assert.equal(setVolumeKg("Bench Press", { weight: 80, reps: 0 }), 0);
+  assert.equal(setVolumeKg("Bench Press", { weight: -20, reps: 5 }), 0);
+  assert.equal(setVolumeKg("Pull-up", { weight: -20, reps: 5 }, 80), 400, "a negative added weight is not subtracted");
+});
+
+test("volume: a zero or negative body weight is the same as an unknown one", () => {
+  assert.equal(setVolumeKg("Pull-up", { weight: 0, reps: 10 }, 0), 0);
+  assert.equal(setVolumeKg("Pull-up", { weight: 0, reps: 10 }, -80), 0);
+  assert.equal(setVolumeKg("Assisted Pull-up", { weight: 30, reps: 10 }, 0), 0);
+});
+
+test("kcal: the effort bands meet at RPE 6 / 7 / 8, and a rating outside 1 to 10 is ignored", () => {
+  assert.equal(sessionMet([6]), 3.5);
+  assert.equal(sessionMet([6.5]), 5);
+  assert.equal(sessionMet([7.9]), 5);
+  assert.equal(sessionMet([8]), 6);
+  assert.equal(sessionMet([10]), 6);
+  assert.equal(sessionMet([0]), 5, "0 means not rated");
+  assert.equal(sessionMet([11, 12]), 5, "above 10 is not a rating");
+  assert.equal(sessionMet([11, 6]), 3.5, "the invalid one is skipped, the valid one decides");
+});
+
+test("kcal: a negative or zero duration is not a measurement, the set count is used instead", () => {
+  const entries = [{ name: "Row", sets: Array.from({ length: 12 }, () => ({ weight: 60, reps: 10 })) }];
+  assert.equal(sessionKcal(entries, 70, -100), 175);
+  assert.equal(sessionKcal(entries, 70, 0), 175);
+  assert.equal(sessionKcal(entries, 70, 3600), 350, "a real hour is used as is");
+});
+
+test("kcal: rounded to 5, never below 5, and an estimate from set count stops at 3 hours", () => {
+  const sets = (n: number) => [{ name: "Row", sets: Array.from({ length: n }, () => ({ weight: 60, reps: 10 })) }];
+  assert.equal(sessionKcal(sets(1), 40), 10, "5 MET x 40 kg x 150 s is 8.3: rounded to the nearest 5");
+  assert.equal(sessionKcal(sets(1), 1), 5, "never below 5");
+  assert.equal(sessionKcal(sets(100), 70), 1050, "100 sets would be 4.2 h: capped at 3 h");
+  assert.equal(sessionKcal(sets(72), 70), 1050, "72 sets is exactly 3 h: the same as the cap");
+  assert.equal(sessionKcal(sets(71), 70), 1035, "one set fewer is just under the cap");
+});
+
+test("kcal: a timed or distance set counts as a set even with no reps", () => {
+  assert.notEqual(sessionKcal([{ name: "Plank", sets: [{ weight: 0, reps: 0, seconds: 60 }] }], 70), null);
+  assert.notEqual(sessionKcal([{ name: "Run", sets: [{ weight: 0, reps: 0, meters: 1000 }] }], 70), null);
+  assert.equal(sessionKcal([{ name: "Plank", sets: [{ weight: 0, reps: 0 }] }], 70), null);
+});
+
+test("kcal: the hardest effort comes from the whole session, set ratings included", () => {
+  const entries = [{ name: "Squat", sets: [{ weight: 100, reps: 5, rpe: 9 }, { weight: 100, reps: 5, rpe: 6 }] }];
+  assert.equal(sessionKcal(entries, 80, 3600), 480, "a set at RPE 9 makes the session 6 MET");
+  assert.equal(sessionKcal([{ name: "Squat", rpe: 9, sets: [{ weight: 100, reps: 5 }] }], 80, 3600), 480, "so does the exercise rating");
+});

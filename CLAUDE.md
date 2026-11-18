@@ -6,7 +6,7 @@ Hack Limits (repo `trix`): an AI training and nutrition coach. Three clients sha
 - Native Android app: `mobile/`, Kotlin Multiplatform + Compose.
 
 Backend: a single Cloudflare Worker (`src/`, TypeScript).
-- Storage: D1 (SQLite), R2, Durable Objects (per-user scheduler), Queues (broadcasts).
+- Storage: D1 (SQLite), R2, Durable Objects (three schedulers: per user, per squad, global; the only scheduler for reminders, ADR-0015), Queues (broadcasts).
 - AI: provider fallback in `src/ai/`.
 
 User-facing text is Ukrainian and English. The owner writes in Ukrainian or Russian: answer in their language.
@@ -61,6 +61,16 @@ Android has no SDK here: CI's "Mobile" workflow is the check (see `mobile/CLAUDE
 - PRs follow `.github/PULL_REQUEST_TEMPLATE.md`: What this changes / Why / How it was verified / Checklist.
 - Keep one goal per PR. Say what changes for the user, not only in the code.
 - Squash-merged. After a merge, restart the working branch from `origin/main`.
+
+## How agents work here (ADR-0017)
+- **Decide or ask** (skill `decide-or-ask`): do reversible work yourself and report in a line. Stop and ask the owner before production, merging, money, third-party code, user-visible rules. Ask in one message: the decision, at most three options, your recommendation.
+- **Models** (skill `model-routing`): Haiku reads and lists, Sonnet implements (the default), Opus designs and reviews risk, Fable only to escalate. Escalate after the second failed attempt.
+- **Subagents and context** (skill `subagents-and-context`): subagents for bulk reading, with a five-line brief; verify what they report. Never read huge files whole. Keep a standing list before compaction and re-verify state after it.
+- **Project subagents:** `repo-scout` (Haiku, search), `ci-triage` (Sonnet, CI logs), `risk-reviewer` (Opus, risky diffs). In `.claude/agents/`.
+- **Hooks** (`.claude/hooks/`): ask before irreversible commands, refuse edits to applied migrations and secrets in files, lint each edited file, show branch state at session start. A safety net, not the rule.
+
+## Ponytail skill
+`.claude/skills/ponytail*` are vendored copies of the Ponytail skills (tag v5.3.3): `ponytail` ("the smallest change that fully solves the task"; use it on coding tasks) and the read-only reports `ponytail-audit`, `ponytail-debt` and `ponytail-review`. The plugin itself and its hooks are not installed. Where they differ from this file, this file wins: every change is covered by tests (its "trivial changes need none" does not apply here), and the owner is answered in Ukrainian or Russian.
 
 ## Folder rules
 `mobile/CLAUDE.md` and `apps/mini-app/CLAUDE.md` add rules for those trees.

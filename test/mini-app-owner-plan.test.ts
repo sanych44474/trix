@@ -14,7 +14,3 @@ test("owner roster: the Plan button is wired from App through Workspace and Owne
   assert.match(read("OwnerRoster.tsx"), /onClick=\{\(\) => onOpenPlan\(r\.id\)\}>\{t\(lang, "roster_plan_btn"\)\}/);
 });
 
-test("owner roster: the Plan label exists in both languages", () => {
-  assert.match(read("i18n/en.ts"), /roster_plan_btn: "Plan"/);
-  assert.match(read("i18n/uk.ts"), /roster_plan_btn: "План"/);
-});

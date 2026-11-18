@@ -44,7 +44,9 @@ These are properties of the deployment, not bugs, but they decide how safe your 
   `curl -H "X-Admin-Secret: ..."` or similar; never from a browser address bar.
 - **`TELEGRAM_WEBHOOK_SECRET` is what keeps `/webhook` from accepting forged updates.** It is
   verified as the `X-Telegram-Bot-Api-Secret-Token` header. Set it, and make it random.
-- **Mini App requests are authenticated by Telegram `initData` HMAC** on every `/api/*` call.
+- **Requests to `/api/v2/*` are authenticated** either by Telegram `initData` (HMAC, sent in the
+  `authorization: tma ...` header) or by a first-party app session: an HttpOnly cookie for the web,
+  a bearer token for the native app. A session is created by email-code, Google or Telegram sign-in.
   The `?debugUser=` bypass is a separate, explicit opt-in: it works only when
   `ALLOW_DEBUG_USER` is `"1"` (set in `.dev.vars` for local development). `wrangler.toml` ships it
   as `"0"` — never enable it on a public deployment.

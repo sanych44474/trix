@@ -171,7 +171,12 @@
     <string name="pl_saving_ellipsis">Saving…</string>
     <string name="pl_nav_more">More</string>
     <string name="pl_no_plan_title">No active plan</string>
-    <string name="pl_no_plan_detail">Finish onboarding to build your first plan.</string>
+    <string name="pl_no_plan_detail">There is no training plan here yet.</string>
+    <string name="pl_no_plan_build_detail">Build a plan from your profile. It takes about a minute.</string>
+    <string name="pl_no_plan_build_btn">Build my plan</string>
+    <string name="pl_no_plan_questionnaire_detail">Answer a short questionnaire, and we will build your plan.</string>
+    <string name="pl_no_plan_questionnaire_btn">Fill in the questionnaire</string>
+    <string name="pl_no_plan_trainer_detail">Your trainer is preparing your plan. It will appear here when it is ready.</string>
     <string name="pl_days_count">%1$s days</string>
     <string name="pl_weight_label">Weight</string>
     <string name="pl_sets_label">Sets</string>

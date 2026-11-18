@@ -56,3 +56,13 @@ test("rest: no exercises today; a past missed day stays missed, today is never '
   assert.equal(p.week[0].mark, "missed");
   assert.equal(p.week[2].mark, "planned");
 });
+
+test("no plan: a distinct state, not a rest day; a workout logged or under way today still wins", () => {
+  const none = todayPlan({ ...base, planExercises: [], plannedWeekdays: [], hasPlan: false });
+  assert.equal(none.state, "noplan");
+  assert.deepEqual(none.exercises, []);
+  assert.equal(todayPlan({ ...base, planExercises: [], hasPlan: true }).state, "rest", "a plan's rest day stays a rest day");
+  assert.equal(todayPlan({ ...base, hasPlan: false, planExercises: [], draft: draft({}) }).state, "continue");
+  const logged = { date: "2026-10-14", done: true, ex: [{ n: "Squat", s: 3 }] };
+  assert.equal(todayPlan({ ...base, hasPlan: false, planExercises: [], logs: [logged] }).state, "done");
+});

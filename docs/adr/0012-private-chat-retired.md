@@ -36,7 +36,7 @@ What stays:
 | Middleware, `launcherGate`, the Open-app reply | The entry point for every chat update |
 | `/start` and its pairing payloads (`tr_`, `trp_`, `ref_`, `buddy_`, `sq_`, `login_`) | Trainer, buddy, referral and squad deep links, and the native app's Telegram sign-in |
 | `tglogin:` callbacks | The app's Telegram sign-in confirm step |
-| Payments (`pre_checkout_query`, `successful_payment`, `/support`, `/paysupport`) | Telegram Stars |
+| Payments (`pre_checkout_query`, `successful_payment`, `/paysupport`); `/support` opens the app, where the donation is made | Telegram Stars; Telegram's payment rules require `/paysupport` to answer in the chat |
 | Price poll (`pp:`, `poll_price` / `poll_wish` text) | The owner's poll, answered in the chat |
 | Inactive-user ask (`inact:`, `inact_feedback` text), `/cleanup`, `/askinactive` | The owner's cleanup flow |
 | Sharing consent after pairing (`share:tog:`, `share:skip`) | Sent by the bot, answered in the chat |
@@ -89,3 +89,7 @@ that is then unreachable from `src/index.ts`.
   caller, the chat's catalog swap. It was kept instead of deleted, and the app now uses it: the
   shared plan editor refuses a swap or add that loads an active injury directly (409
   `injury:<area>`), and the in-session swap list leaves such exercises out.
+- **Payments row corrected (2026-11-16):** the row listed `/support` and `/paysupport` as answered
+  in the chat, but `launcherGate` let only the payment updates through, so a non-owner's
+  `/paysupport` got the Open-app button. The gate now lets `/paysupport` through; `/support`
+  still opens the app's More screen, where donations are made.

@@ -29,7 +29,7 @@ private-chat message gets the Open-app button.
 | Functions in this catalog | **198** across 11 areas |
 | Roles | 4 — solo athlete · trainer's client · trainer · owner |
 | Surfaces | 3 — the Telegram Mini App, the Android app, and the bot (sign-in, invite links, payments, squads, reminders, owner tools) |
-| Languages | Ukrainian and English, with key parity enforced by the type checker (~1,700 strings each) |
+| Languages | Ukrainian and English, with key parity enforced by the type checker (679 keys each in the bot catalogs, 1,384 each in the Mini App catalogs) |
 | AI | 5 providers in a fallback chain; every provider receives the same input |
 | Backend | OpenAPI 3.1 contract, versioned `/api/v2/*`, forward-only D1 migrations |
 | Quality | `node:test` and Workers-runtime suites, typechecks, lint, build and dependency audit in CI |
@@ -38,15 +38,15 @@ private-chat message gets the Open-app button.
 | Area | Functions |
 |---|---|
 | 1. Onboarding & roles | 12 |
-| 2. Training plan & programming | 33 |
-| 3. Workout logging | 30 |
+| 2. Training plan & programming | 34 |
+| 3. Workout logging | 28 |
 | 4. Nutrition | 14 |
 | 5. Body, recovery & activity | 15 |
 | 6. Gamification & community | 21 |
 | 7. Trainer tools | 22 |
 | 8. Mini App platform | 21 |
 | 9. Reminders & automation | 13 |
-| 10. Owner / admin | 10 |
+| 10. Owner / admin | 11 |
 | 11. Engineering safeguards | 7 |
 
 ---

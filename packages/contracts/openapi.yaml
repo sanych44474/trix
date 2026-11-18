@@ -4934,7 +4934,7 @@ components:
             planPending: {type: boolean, description: 'Questionnaire submitted, plan still being built'}
             profileGaps:
               type: array
-              description: Profile fields still missing (asked by the Today fine-tune card); absent for trainers and before onboarding
+              description: Profile fields still missing (asked by the Today fine-tune card); absent before onboarding
               items: {type: string, enum: [sex, age, heightCm, weightKg, sessionMinutes, lifestyle, dietPrefs]}
         lang:
           type: string
