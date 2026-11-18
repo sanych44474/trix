@@ -1,7 +1,7 @@
 // The owner snapshot (counts and windows shared by the text reports), the metrics payload for the
 // Mini App console, and the daily error report.
 import { aiCallStatsSince, aiTokensByKindSince, aiUsageSince, errorStatsSince, recentErrors } from "../../adapters/d1/v2AiTelemetry";
-import { countPlanSourcesSince, engagementSince } from "../../adapters/d1/v2Analytics";
+import { countPlanSourcesSince, countReach, countSessionAccountsBySurface, engagementSince } from "../../adapters/d1/v2Analytics";
 import { countCompletedWorkoutsBetween } from "../../adapters/d1/v2Workouts";
 import { planStatusByUser } from "../../adapters/d1/v2Plans";
 import { countByRole, countClientsOf, countPendingClientRequests, listTrainerUsers, pendingRequestsAll, pendingTrainerApplications } from "../../adapters/d1/v2Trainer";
@@ -28,7 +28,7 @@ export async function loadOwnerSnapshot(db: D1Database) {
   const since7Date = since7Iso.slice(0, 10);
   const nowIsoStr = new Date().toISOString();
   const [trainersCount, clientsCount, pendingApps, pendingReqs, active7, active30, engagement,
-    totalUsers, onboarded, new7, moderation, planStatus, churned, inactive7] = await Promise.all([
+    totalUsers, onboarded, new7, moderation, planStatus, churned, inactive7, reach, surfaces7, surfaces30] = await Promise.all([
     countByRole(db, "trainer"),
     countByRole(db, "client"),
     pendingTrainerApplications(db),
@@ -43,10 +43,13 @@ export async function loadOwnerSnapshot(db: D1Database) {
     planStatusByUser(db).catch(() => new Map<number, { active: boolean; draft: boolean }>()),
     listChurnedUsers(db, since14Iso, since7Iso).catch(() => [] as { id: number; name: string }[]),
     countInactive(db, since7Iso, nowIsoStr).catch(() => 0),
+    countReach(db).catch(() => ({ android: 0, telegram: 0, blockedBot: 0, appOnly: 0 })),
+    countSessionAccountsBySurface(db, since7Date).catch(() => ({ bot: 0, miniapp: 0, android: 0 })),
+    countSessionAccountsBySurface(db, since30Iso.slice(0, 10)).catch(() => ({ bot: 0, miniapp: 0, android: 0 })),
   ]);
   return {
     trainersCount, clientsCount, pendingApps, pendingReqs, active7, active30, engagement,
-    totalUsers, onboarded, new7, moderation, churned, inactive7,
+    totalUsers, onboarded, new7, moderation, churned, inactive7, reach, surfaces7, surfaces30,
     usersWithPlan: [...planStatus.values()].filter((p) => p.active).length,
     // Share of onboarded users active in the last 7 days. NOT retention: retention is the cohort
     // view in orRetention (domain/cohorts.ts), which asks "did people who joined come back".
@@ -61,7 +64,7 @@ export async function buildOwnerMetrics(db: D1Database) {
   const [snap, pendingReqRows] = await Promise.all([loadOwnerSnapshot(db), pendingRequestsAll(db, 20)]);
   const {
     trainersCount, clientsCount, pendingApps, pendingReqs, active7, active30, engagement,
-    totalUsers, onboarded, new7, moderation, churned, inactive7, usersWithPlan, activityRate7d,
+    totalUsers, onboarded, new7, moderation, churned, inactive7, usersWithPlan, activityRate7d, reach, surfaces7, surfaces30,
   } = snap;
   const pendingRequestRows = await Promise.all(
     pendingReqRows.map(async (r) => {
@@ -117,6 +120,9 @@ export async function buildOwnerMetrics(db: D1Database) {
       churned7to14d: churned.length, inactive7dPlus: inactive7,
       blockedByOwner: moderation.blocked, blockedBot: moderation.botBlocked,
     },
+    // Who uses which client. `reach` is a snapshot of onboarded accounts; `sessions*` count distinct
+    // accounts per surface (counted from the day this shipped on, so early windows read low).
+    platforms: { reach, sessions7d: surfaces7, sessions30d: surfaces30 },
     // Named detail behind the counts above -- who exactly is churned/pending, not just how many.
     attention: {
       churned: churned.map((c) => ({ id: c.id, name: c.name || `id ${c.id}` })),
