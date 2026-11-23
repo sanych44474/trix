@@ -35,7 +35,7 @@ export function HistoryPanel(props: {
               <Card key={item.date}>
                 <div className="exercise-head">
                   <div><h2>{item.date}</h2></div>
-                  <span className="tag">{t(lang, "history_row_exercises", { n: item.n })}{item.durationSec ? ` · ${fmtDuration(item.durationSec)}` : ""}</span>
+                  <span className="tag">{t(lang, "history_row_exercises", { n: item.n })}{item.durationSec ? ` · ${fmtDuration(item.durationSec)}` : ""}{item.byTrainer ? ` · ${t(lang, "history_by_trainer")}` : ""}</span>
                 </div>
                 <p className="muted">{item.title}</p>
                 <div className="button-row">

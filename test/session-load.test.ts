@@ -81,7 +81,7 @@ test("quest target: the plan's days win over the profile's, as on every other su
 });
 
 test("edit date: a date that does not exist is refused (V8 reads 2026-02-30 as 2 March)", async () => {
-  const { isCalendarDate } = await import("../src/webapp/workoutApi");
+  const { isCalendarDate } = await import("../src/domain/editWindow");
   assert.equal(isCalendarDate("2026-02-30"), false);
   assert.equal(isCalendarDate("2026-13-01"), false);
   assert.equal(isCalendarDate("2026-02-28"), true);

@@ -86,6 +86,7 @@ interface WorkoutTodayPayload {
   // The saved log for this date (edit mode prefill) + past dates that have a log to fix.
   saved?: { name: string; rpe?: number; planName?: string; sets: { w: number; r: number; sec: number; m: number }[] }[];
   savedAt?: string; // when that log was last written -- the client compares it against its local copy
+  savedByTrainer?: boolean; // that saved log was written by the client's trainer (ADR-0018)
   durationSec?: number; // the saved session's measured length, if the app measured one
   restTotalSec?: number;
   // The server copy of an unsaved logger for this date (another device, or a cleared cache).
@@ -143,6 +144,7 @@ export interface WorkoutHistoryItem {
   title: string; // first few exercise names, for the picker
   n: number; // exercise count
   durationSec?: number; // measured session length (Mini App sessions only)
+  byTrainer?: boolean; // the client's trainer logged this day (ADR-0018)
 }
 export interface WorkoutCopyExercise {
   name: string;
@@ -167,7 +169,7 @@ export function assembleWorkoutHistory(logs: WorkoutLogDoc[], today: string): Wo
     .map((l) => {
       const names = l.exercises.filter((e) => !e.skipped && e.setsDone.length > 0).map((e) => e.name);
       const title = names.slice(0, 3).join(", ") + (names.length > 3 ? "…" : "");
-      return { date: l.date, title, n: names.length, ...(l.durationSec ? { durationSec: l.durationSec } : {}) };
+      return { date: l.date, title, n: names.length, ...(l.durationSec ? { durationSec: l.durationSec } : {}), ...(l.loggedBy ? { byTrainer: true } : {}) };
     });
 }
 
@@ -217,6 +219,7 @@ export async function buildWorkoutTodayPayload(db: D1Database, user: UserDoc, wo
         sets: ex.setsDone.map((st) => ({ w: st.weight || 0, r: st.reps || 0, sec: st.seconds || 0, m: st.meters || 0 })),
       }));
     if (existing.updatedAt) payload.savedAt = existing.updatedAt.toISOString();
+    if (existing.loggedBy) payload.savedByTrainer = true;
     if (existing.durationSec !== undefined) payload.durationSec = existing.durationSec;
     if (existing.restTotalSec !== undefined) payload.restTotalSec = existing.restTotalSec;
   }
@@ -389,16 +392,24 @@ const badgeKey = (code: string) => `badge_${code}` as Parameters<typeof t>[1];
 /** The Mini App's save. The work -- log, records, badges, level, trainer notification, squad post --
  * is completeWorkout (features/workout/completeWorkout.ts); this only shapes the result
  * for the app. Celebrations are returned in the response instead of being sent to chat. */
-export async function saveWorkout(env: Env, user: UserDoc, entries: SaveEntry[], dateOverride?: string, timing?: SaveTiming): Promise<SaveResult> {
+export async function saveWorkout(
+  env: Env,
+  user: UserDoc,
+  entries: SaveEntry[],
+  dateOverride?: string,
+  timing?: SaveTiming,
+  opts: { loggedBy?: number } = {},
+): Promise<SaveResult> {
   const local = localParts(user.profile.timezone);
   const date = dateOverride ?? local.date;
   const weekday = (dateOverride ? isoWeekdayOfDate(dateOverride) : local.weekday) as Weekday;
   const isPastEdit = date !== local.date;
 
   const saveEntries: WorkoutSaveEntry[] = entries.map((e) => ({ name: e.name, sets: e.sets, rpe: e.rpe, ...(e.planName ? { planName: e.planName } : {}) }));
-  const done = await completeWorkout(env, user, saveEntries, { date, weekday, rawText: buildRawText(entries), isPastEdit, timing, api: rawTelegramApi(env) });
-  // The unsaved-logger copy for this day is now superseded by the real log.
-  await deleteWorkoutDraft(env.DB, user._id, date).catch(() => {});
+  const done = await completeWorkout(env, user, saveEntries, { date, weekday, rawText: buildRawText(entries), isPastEdit, timing, loggedBy: opts.loggedBy, api: rawTelegramApi(env) });
+  // The unsaved-logger copy for this day is now superseded by the real log. Not when a trainer
+  // logged it: that draft is the client's own unfinished session, theirs to keep or discard.
+  if (!opts.loggedBy) await deleteWorkoutDraft(env.DB, user._id, date).catch(() => {});
   const fresh = done.levelBadge ? [...done.freshBadges, done.levelBadge] : done.freshBadges;
   const dropoffs = repDropoffs(entries.map((e) => ({ name: e.name, metric: metricOfSets(e.sets), setsDone: e.sets })))
     .slice(0, 2)

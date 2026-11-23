@@ -610,6 +610,7 @@ export function TrainView({ lang, sex, initialSegment = "today", startInFocus = 
       {tabs}
       {notes}
       {(logDate || copiedFrom) && <div className="button-row"><button className="text-button" onClick={() => void backToToday()}>{t(lang, "back_to_today")}</button></div>}
+      {server?.savedByTrainer && server.date === workout.date ? <p className="muted">{t(lang, "logged_by_trainer_note")}</p> : null}
       {summary ? <SessionSummary lang={lang} summary={summary} title={savedTitle} subtitle={title} date={summaryDate ?? workout.date} onAskCoach={onAskCoach} /> : saved && dayLogged ? <div className="save-note">{savedTitle}</div> : null}
       {!saved && <button type="button" className="button button-primary button-block" onClick={() => enterFocus(currentIndex)}>{filled ? t(lang, "today_continue_btn") : t(lang, "start_session")}</button>}
       {logDate && exercises.length > 1 && filled === 0 && <button type="button" className="button button-quiet button-block" onClick={fillPlannedAll}>{t(lang, "train_as_planned_all_btn")}</button>}

@@ -47,6 +47,8 @@ test("expensiveBucket: the AI / YouTube routes outside the prefixes are throttle
   assert.equal(expensiveBucket("GET", "/api/v2/workout/insight"), "insight");
   assert.equal(expensiveBucket("POST", "/api/v2/workout/custom"), "custom");
   assert.equal(expensiveBucket("POST", "/api/v2/plan/replan"), "replan");
+  assert.equal(expensiveBucket("POST", "/api/v2/trainer/voice"), "coach", "a trainer's voice command can call the AI");
+  assert.equal(expensiveBucket("POST", "/api/v2/trainer/log"), null, "saving a client's workout spends no AI");
   assert.equal(expensiveBucket("GET", "/api/v2/workout/today"), null, "ordinary reads stay free");
   assert.equal(expensiveBucket("GET", "/api/v2/plan/replan"), null, "polling the replan status is a cheap read");
 });

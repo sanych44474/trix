@@ -110,6 +110,7 @@ export async function deleteUserData(env: Env, userId: number): Promise<void> {
     // Attribution only (nullable, no code treats it as a live FK) — a deleted trainer's
     // previously-authored plans just stop being credited to them instead of pointing at a ghost.
     db.prepare("UPDATE v2_plans SET authoredBy = NULL WHERE authoredBy = ?").bind(userId),
+    db.prepare("UPDATE v2_workout_sessions SET loggedBy = NULL WHERE loggedBy = ?").bind(userId),
   ];
   for (const clientId of clientIds) {
     // Same as unlinkClient() (v2Trainer.ts): the relationship rows go with the batch above.

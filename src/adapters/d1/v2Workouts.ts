@@ -171,6 +171,7 @@ interface V2SessionRow {
   updatedAt: string;
   durationSec?: number | null;
   restTotalSec?: number | null;
+  loggedBy?: number | null;
 }
 
 interface V2ExerciseRow {
@@ -226,6 +227,7 @@ function toWorkoutLog(session: V2SessionRow, exercises: LoggedExercise[]): Worko
     updatedAt: new Date(session.updatedAt),
     ...(session.durationSec != null ? { durationSec: session.durationSec } : {}),
     ...(session.restTotalSec != null ? { restTotalSec: session.restTotalSec } : {}),
+    ...(session.loggedBy != null ? { loggedBy: session.loggedBy } : {}),
   };
 }
 
@@ -340,22 +342,26 @@ export async function upsertWorkoutLog(
   completed: boolean,
   notes?: string,
   timing?: { durationSec?: number; restTotalSec?: number },
+  loggedBy?: number,
 ): Promise<void> {
   const now = nowIso();
+  // loggedBy is a plain overwrite, not COALESCE: whoever saved the day last owns it, so the client
+  // re-saving a day their trainer logged clears the trainer mark (ADR-0018).
   // COALESCE: only the Mini App measures a session. A later save from a path that doesn't (a chat
   // edit, the quick-log API) must not wipe the length the app already recorded for that day.
   // RETURNING id gives the session's id from the upsert itself (inserted or updated), one round
   // trip instead of an upsert plus a SELECT.
   const session = await db
     .prepare(
-      `INSERT INTO v2_workout_sessions (accountId, date, weekday, completed, rawText, createdAt, updatedAt, durationSec, restTotalSec)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO v2_workout_sessions (accountId, date, weekday, completed, rawText, createdAt, updatedAt, durationSec, restTotalSec, loggedBy)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(accountId, date) DO UPDATE SET
          weekday = excluded.weekday, completed = excluded.completed, rawText = excluded.rawText, updatedAt = excluded.updatedAt,
-         durationSec = COALESCE(excluded.durationSec, durationSec), restTotalSec = COALESCE(excluded.restTotalSec, restTotalSec)
+         durationSec = COALESCE(excluded.durationSec, durationSec), restTotalSec = COALESCE(excluded.restTotalSec, restTotalSec),
+         loggedBy = excluded.loggedBy
        RETURNING id`,
     )
-    .bind(userId, date, weekday, completed ? 1 : 0, notes ?? null, now, now, timing?.durationSec ?? null, timing?.restTotalSec ?? null)
+    .bind(userId, date, weekday, completed ? 1 : 0, notes ?? null, now, now, timing?.durationSec ?? null, timing?.restTotalSec ?? null, loggedBy ?? null)
     .first<{ id: number }>();
   if (!session) return;
   await db.batch(exerciseStatements(db, session.id, exercises));

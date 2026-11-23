@@ -63,6 +63,7 @@ async function applyWorkoutSave(
   rawText: string,
   isPastEdit = false, // true when `date` is a backfilled day, not today (Mini App only -- the chat path always logs today)
   timing?: { durationSec?: number; restTotalSec?: number }, // Mini App only: the measured session clock
+  loggedBy?: number, // the trainer logging this day for the client (ADR-0018); absent = the user themselves
 ): Promise<WorkoutSaveOutcome> {
   const exercises: LoggedExercise[] = entries.map((e) => ({
     name: e.name,
@@ -75,7 +76,7 @@ async function applyWorkoutSave(
   // an edit of an already-logged day -- upsertWorkoutLog's ON CONFLICT means either is possible)
   // is never their first. A pre-save count of 0 means it unambiguously is, no further check needed.
   const isFirstEver = (await countCompletedWorkouts(db, user._id).catch(() => 1)) === 0;
-  await upsertWorkoutLog(db, user._id, date, weekday, exercises, true, rawText, timing);
+  await upsertWorkoutLog(db, user._id, date, weekday, exercises, true, rawText, timing, loggedBy);
   logInfo("workout_completed", { exerciseCount: entries.length, pastDate: isPastEdit }); // shared by both surfaces on purpose (see this function's own doc comment)
   if (isFirstEver) logInfo("first_workout_completed", {});
 
@@ -163,15 +164,18 @@ export async function completeWorkout(
     rawText: string;
     isPastEdit?: boolean;
     timing?: { durationSec?: number; restTotalSec?: number };
+    /** The trainer logging this workout for their client. It still counts in full (records, level,
+     * squad post), but the trainer is not told about a workout they logged themselves. */
+    loggedBy?: number;
     api: Pick<Api, "sendMessage">;
     defer?: (work: Promise<unknown>) => void;
   },
 ): Promise<WorkoutCompletion> {
   const isPastEdit = o.isPastEdit ?? false;
-  const outcome = await applyWorkoutSave(env.DB, user, entries, o.date, o.weekday, o.rawText, isPastEdit, o.timing);
+  const outcome = await applyWorkoutSave(env.DB, user, entries, o.date, o.weekday, o.rawText, isPastEdit, o.timing, o.loggedBy);
   const lv = await advanceLevel(env.DB, user);
 
-  if (!isPastEdit && user.role === "client" && user.trainerId) {
+  if (!isPastEdit && !o.loggedBy && user.role === "client" && user.trainerId) {
     try {
       const trainer = await getUser(env.DB, user.trainerId);
       if (trainer) {

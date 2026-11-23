@@ -66,6 +66,7 @@ const EXPENSIVE_ROUTES: Array<[method: string, path: string, bucket: string]> = 
   ["GET", "/api/v2/workout/insight", "insight"],
   ["POST", "/api/v2/workout/custom", "custom"],
   ["POST", "/api/v2/plan/replan", "replan"],
+  ["POST", "/api/v2/trainer/voice", "coach"],
 ];
 
 /** The limiter bucket for a v2 request, or null when it is not throttled. */
