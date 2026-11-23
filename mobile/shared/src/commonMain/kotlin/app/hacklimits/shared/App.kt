@@ -48,6 +48,7 @@ import app.hacklimits.shared.integrations.IntegrationsScreen
 import app.hacklimits.shared.media.MealPhotoScreen
 import app.hacklimits.shared.social.SocialScreen
 import app.hacklimits.shared.trainer.business.TrainerBusinessScreen
+import app.hacklimits.shared.trainer.clients.TrainerClientLogScreen
 import app.hacklimits.shared.trainer.clients.TrainerClientsScreen
 import app.hacklimits.shared.ui.MoreDestination
 import app.hacklimits.shared.ui.MoreTool
@@ -101,6 +102,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Serializable object LoggerRoute
 /** clientId = 0: your own plan; otherwise a trainer editing that client's plan. */
 @Serializable data class PlanRoute(val clientId: Long = 0)
+@Serializable data class ClientLogRoute(val clientId: Long, val voice: Boolean = false)
 @Serializable object OnboardingRoute
 @Serializable object CoachRoute
 @Serializable object SocialRoute
@@ -353,10 +355,15 @@ fun App(
                         TrainerClientsScreen(
                             onBack = { nav.popBackStack() },
                             onOpenClientPlan = { id -> nav.navigate(PlanRoute(id)) },
+                            onOpenClientLog = { id, voice -> nav.navigate(ClientLogRoute(id, voice)) },
                             onOpenChat = { id -> nav.navigate(ChatRoute(id)) },
                             onOpenCoach = { nav.navigate(CoachRoute) },
                             onOpenBusiness = { nav.navigate(TrainerBusinessRoute) },
                         )
+                    }
+                    composable<ClientLogRoute> { entry ->
+                        val route = entry.toRoute<ClientLogRoute>()
+                        TrainerClientLogScreen(clientId = route.clientId, voiceFirst = route.voice, onBack = { nav.popBackStack() })
                     }
                     composable<TrainerBusinessRoute> { TrainerBusinessScreen(onBack = { nav.popBackStack() }) }
                     composable<LoggerRoute> {

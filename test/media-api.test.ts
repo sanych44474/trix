@@ -123,6 +123,18 @@ test("transcribe: no audio → 400; no speech backend → 502, not a crash", asy
   assert.equal((await upload(db, 1, "/api/media/transcribe", { audio: new Blob(["a"], { type: "audio/webm" }) })).status, 502);
 });
 
+test("transcribe: spends the user's AI allowance; once it is used up the answer is 429, before any speech call", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "en", "Ann");
+  const { admitAiCall, USER_CALLS_PER_WINDOW } = await import("../src/ai/limiter");
+  for (let i = 0; i < USER_CALLS_PER_WINDOW; i++) await admitAiCall(db, 1);
+  const res = await upload(db, 1, "/api/media/transcribe", { audio: new Blob(["a"], { type: "audio/webm" }) });
+  assert.equal(res.status, 429);
+  assert.equal(((await res.json()) as { code: string }).code, "rate_limited");
+  await getOrCreateUser(db, 2, 2, "en", "Bob");
+  assert.equal((await upload(db, 2, "/api/media/transcribe", { audio: new Blob(["a"], { type: "audio/webm" }) })).status, 502, "another user's allowance is untouched");
+});
+
 test("add_items: logs the confirmed photo items for today", async () => {
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "en", "Ann");

@@ -4,6 +4,7 @@
 // webapp API. These used to be chat-only (bot/router.ts photo/video/voice handlers).
 import { aiTranscribe, aiVisionJSON, aiVisionText } from "../ai/index";
 import * as P from "../ai/prompts";
+import { admitAiCall } from "../ai/limiter";
 import { awardAchievement } from "../adapters/d1/v2Gamification";
 import { abToB64 } from "../adapters/telegram/files";
 import { FORM_CHECKS_PER_DAY, MAX_VIDEO_BYTES, aiCallsToday, formCheckGate, formCheckPrompt, formCheckSystem } from "../features/workout/formCheck";
@@ -106,6 +107,8 @@ export async function handleMediaApi(req: Request, url: URL, env: Env): Promise<
     const audio = blobOf(form, "audio");
     if (!audio) return bad("bad request");
     if (audio.size > MAX_AUDIO_BYTES) return bad("too_big");
+    // Speech-to-text spends the same per-user AI allowance as a coach answer (20 calls / 5 min).
+    if ((await admitAiCall(env.DB, user._id)) !== "ok") return bad("rate_limited", 429);
     try {
       const text = (await aiTranscribe(env, await audio.arrayBuffer(), audio.type || "audio/webm", user.lang, env.DB)).trim().slice(0, 1000);
       logInfo("voice_transcribed", { source: "webapp", empty: !text });

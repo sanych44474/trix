@@ -156,6 +156,56 @@ Plan & context: ${context || "(none)"}
 Return strictly JSON: { reply, actions }.`;
 }
 
+// ---------- Trainer voice command about a client (ADR-0018) ----------
+
+export const TRAINER_VOICE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    kind: { type: "STRING", enum: ["workout", "plan", "none"] },
+    reply: { type: "STRING" },
+    entries: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" },
+          sets: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: { weight: { type: "NUMBER" }, reps: { type: "INTEGER" }, seconds: { type: "INTEGER" }, meters: { type: "INTEGER" } },
+              required: ["weight", "reps"],
+            },
+          },
+          rpe: { type: "NUMBER" },
+        },
+        required: ["name", "sets"],
+      },
+    },
+    actions: COACH_EDIT_SCHEMA.properties.actions,
+  },
+  required: ["kind", "reply"],
+};
+
+/** The TRAINER speaks about their CLIENT: either what the client just did (sets to log) or a change to
+ * the client's plan. The answer is only a proposal; the trainer confirms it in the app. */
+export function trainerVoiceSystem(lang: Lang, today: string, context: string): string {
+  const L = langName(lang);
+  return `You turn a fitness TRAINER's spoken command about their CLIENT into a structured proposal. The trainer will review it and confirm; you apply nothing. The text is a speech transcript and may contain recognition errors. Today is ${today}.
+
+Decide the kind:
+- "workout": the trainer dictates what the client DID (exercises with weight and reps, or time/distance). entries = [{ name, sets: [{ weight, reps, seconds?, meters? }], rpe? }]. name = the exercise as it appears in the client's plan or recent logs when it is clearly the same movement, otherwise a canonical ENGLISH name. weight in kg (0 = bodyweight). One set per item: "80 on 6 three times" = three sets of 80×6. Use ONLY numbers the trainer said: never invent, round or add sets.
+- "plan": the trainer asks to CHANGE the client's plan. actions (max 4), each { label (short, in ${L}), kind, weekday, index, exercise, value } with kind one of "add" (exercise = canonical ENGLISH name, weekday), "delete" (weekday + index), "swap" (weekday + index + exercise), "weight" (weekday + index + value kg, e.g. "60"), "sets" (weekday + index + value, e.g. "4 × 8-12"). Take weekday + 0-based index from the plan listing below. Respect the session: no duplicate movement, sensible order; ${LOAD_STEP_RULE}.
+- "none": the command is unclear or missing a number or the exercise; ask ONE short clarifying question in "reply".
+"reply" = one short sentence in ${L} saying what you understood (or the question). Plain text, no markdown.
+Never invent a weekday, an exercise index or a number. If the plan listing does not identify the target, use "none".
+
+${GROUND_IN_DATA_RULE}
+
+Client plan & recent training: ${context || "(none)"}
+Return strictly JSON: { kind, reply, entries?, actions? }.`;
+}
+
 // ---------- Bi-weekly adaptive check-in (micro-adjust, no full replan) ----------
 
 export const ADAPTIVE_SCHEMA = {

@@ -595,6 +595,7 @@ export interface WorkoutLogDoc {
   updatedAt?: Date; // last write -- lets a client tell whether its local copy is older than the server's
   durationSec?: number; // measured session length (Mini App only; absent = not measured)
   restTotalSec?: number; // total measured rest inside that session
+  loggedBy?: number; // the trainer who logged this day for the account (absent = the account itself)
 }
 
 export interface MealEntry {

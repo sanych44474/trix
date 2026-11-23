@@ -15,7 +15,7 @@ const dayLabel = (lang: Lang, iso: string) =>
 
 export const noteFieldLabel = (lang: Lang, field: string): string => { const k = noteFieldKey(field); return k ? t(lang, k) : field; };
 
-export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan }: { clientId: number; lang: Lang; onBack: () => void; onTemplateSaved: () => void; onOpenPlan?: (clientId?: number) => void }) {
+export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpenPlan, onOpenLog }: { clientId: number; lang: Lang; onBack: () => void; onTemplateSaved: () => void; onOpenPlan?: (clientId?: number) => void; onOpenLog?: (clientId: number, voice: boolean) => void }) {
   const [data, setData] = useState<ClientCardPayload | null>(null);
   const [error, setError] = useState(false);
   // Separate from `error` on purpose: `error` means "couldn't load this client's card, nothing to
@@ -112,6 +112,7 @@ export function ClientCardView({ clientId, lang, onBack, onTemplateSaved, onOpen
     <div className="eyebrow">{t(lang, "client_card_eyebrow")}</div>
     {actionError && <Panel tone="muted"><div className="error-state"><strong>{t(lang, "generic_error")}</strong><button className="button button-ghost" onClick={() => setActionError(false)}>{t(lang, "close")}</button></div></Panel>}
     <div className="page-title client-title"><h1>{data.client.name}</h1><div className="button-row"><button className="button button-ghost" onClick={() => onOpenPlan?.(clientId)}>{t(lang, "edit_client_plan_btn")}</button><button className="text-button" onClick={onBack}>{t(lang, "close")}</button></div></div>
+    {onOpenLog && <div className="button-row client-log-actions"><button className="button button-primary" onClick={() => onOpenLog(clientId, false)}>{t(lang, "cc_log_workout_btn")}</button><button className="button button-ghost" onClick={() => onOpenLog(clientId, true)}>{t(lang, "cc_voice_btn")}</button></div>}
 
     {/* A plan draft waiting for the trainer comes first, with one unmistakable action. */}
     {data.draft && <section className="card draft-card" aria-labelledby="draft-title">

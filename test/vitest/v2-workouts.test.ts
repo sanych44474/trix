@@ -111,4 +111,13 @@ describe("v2Workouts: upsertStrengthRecord — read-then-write PR comparison aga
     expect(record.bestWeight).toBe(110);
     expect(record.history.length).toBe(3);
   });
+
+  it("loggedBy: a trainer's mark round-trips, and the account's own re-save clears it (last writer owns the day)", async () => {
+    await seedAccount(820);
+    const ex = makeExercises();
+    await upsertWorkoutLog(env.DB, 820, "2026-11-20", 5 as Weekday, ex, true, "", undefined, 7);
+    expect((await getWorkoutLog(env.DB, 820, "2026-11-20"))?.loggedBy).toBe(7);
+    await upsertWorkoutLog(env.DB, 820, "2026-11-20", 5 as Weekday, ex, true, "");
+    expect((await getWorkoutLog(env.DB, 820, "2026-11-20"))?.loggedBy).toBeUndefined();
+  });
 });

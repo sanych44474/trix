@@ -1,5 +1,5 @@
 // The athlete context the AI coach is grounded in (plan, recent logs, today's check-in), used by the Mini App and Android coach (webapp/coachApi.ts).
-import type { UserDoc } from "../../types";
+import type { PlanDoc, UserDoc, WorkoutLogDoc } from "../../types";
 import { getRecentContext } from "../../adapters/d1/v2Analytics";
 import { getActivePlan } from "../../adapters/d1/v2Plans";
 import { recentAdjustments } from "../../adapters/d1/v2PlanHistory";
@@ -27,38 +27,9 @@ export async function coachContext(ctx: { db: D1Database }, owner: UserDoc): Pro
     getRecentContext(ctx.db, owner._id, 14),
     getDailyCheckin(ctx.db, owner._id, date).catch(() => null),
   ]);
-  // Full plan with ISO weekday + 0-based exercise indices, so the coach can target any exercise.
-  const planText = plan?.split.length
-    ? plan.split
-        .map(
-          (d) =>
-            `${weekdayName("en", d.weekday)}(${d.weekday}): ` +
-            d.exercises.map((e, i) => `${i}:${e.name} ${e.sets} ${e.startWeight}`).join(" | "),
-        )
-        .join("\n")
-    : "no active plan";
+  const planText = planListing(plan);
   const { workouts, nutrition } = recent;
-  const workoutText = workouts.length
-    ? workouts
-        .map((w) => {
-          const lifts = w.exercises
-            .filter((e) => !e.skipped && e.setsDone.length)
-            .map((e) => {
-              // Cardio has no top *weight* — reduced by weight it printed as "Rowing BW×0", which
-              // told the coach nothing. Render each exercise on the axis it was actually logged on.
-              const metric = metricOfSets(e.setsDone);
-              if (metric !== "reps") {
-                const best = bestSetForMetric(e.setsDone, metric) ?? e.setsDone[0];
-                return `${e.name} ${formatSetEntry(best)}${e.rpe ? `@${e.rpe}` : ""}`;
-              }
-              const top = e.setsDone.reduce((a, b) => (b.weight >= a.weight ? b : a), e.setsDone[0]);
-              return `${e.name} ${top.weight || "BW"}×${top.reps}${e.rpe ? `@${e.rpe}` : ""}`;
-            })
-            .join(", ");
-          return `${w.date}(${w.completed ? "done" : "skip"}${lifts ? `: ${lifts}` : ""})`;
-        })
-        .join(" | ")
-    : "none";
+  const workoutText = workoutsLine(workouts);
   const nutDays = nutrition.length;
   const avgKcal = nutDays
     ? Math.round(
@@ -111,4 +82,43 @@ export async function coachContext(ctx: { db: D1Database }, owner: UserDoc): Pro
     memoryLine +
     `Training pace: ${owner.progressionRate ?? "normal"}. Today: ${date}.`
   );
+}
+
+/** The plan with ISO weekday + 0-based exercise indices, so a model can target any exercise. Shared
+ * with the trainer's voice command (features/trainer/trainerVoiceContext.ts). */
+export function planListing(plan: PlanDoc | null): string {
+  return plan?.split.length
+    ? plan.split
+        .map(
+          (d) =>
+            `${weekdayName("en", d.weekday)}(${d.weekday}): ` +
+            d.exercises.map((e, i) => `${i}:${e.name} ${e.sets} ${e.startWeight}`).join(" | "),
+        )
+        .join("\n")
+    : "no active plan";
+}
+
+/** Recent workouts as one line, the top set of each lift on the axis it was logged on. */
+export function workoutsLine(workouts: WorkoutLogDoc[]): string {
+  return workouts.length
+    ? workouts
+        .map((w) => {
+          const lifts = w.exercises
+            .filter((e) => !e.skipped && e.setsDone.length)
+            .map((e) => {
+              // Cardio has no top *weight* — reduced by weight it printed as "Rowing BW×0", which
+              // told the coach nothing. Render each exercise on the axis it was actually logged on.
+              const metric = metricOfSets(e.setsDone);
+              if (metric !== "reps") {
+                const best = bestSetForMetric(e.setsDone, metric) ?? e.setsDone[0];
+                return `${e.name} ${formatSetEntry(best)}${e.rpe ? `@${e.rpe}` : ""}`;
+              }
+              const top = e.setsDone.reduce((a, b) => (b.weight >= a.weight ? b : a), e.setsDone[0]);
+              return `${e.name} ${top.weight || "BW"}×${top.reps}${e.rpe ? `@${e.rpe}` : ""}`;
+            })
+            .join(", ");
+          return `${w.date}(${w.completed ? "done" : "skip"}${lifts ? `: ${lifts}` : ""})`;
+        })
+        .join(" | ")
+    : "none";
 }

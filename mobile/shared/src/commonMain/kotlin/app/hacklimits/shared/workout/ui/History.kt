@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.hacklimits.shared.resources.Res
 import app.hacklimits.shared.resources.wk_generic_error
+import app.hacklimits.shared.resources.wk_history_by_trainer
 import app.hacklimits.shared.resources.wk_history_empty_detail
 import app.hacklimits.shared.resources.wk_history_empty_title
 import app.hacklimits.shared.resources.wk_history_eyebrow
@@ -82,7 +83,8 @@ fun HistoryView(vm: LoggerViewModel, s: LoggerUi, todayDate: String) {
                             Text(item.date, Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                             Text(
                                 stringResource(Res.string.wk_history_row_exercises, item.n) +
-                                    (item.durationSec?.takeIf { it > 0 }?.let { " · ${fmtDuration(it)}" } ?: ""),
+                                    (item.durationSec?.takeIf { it > 0 }?.let { " · ${fmtDuration(it)}" } ?: "") +
+                                    (if (item.byTrainer) " · " + stringResource(Res.string.wk_history_by_trainer) else ""),
                                 style = MaterialTheme.typography.labelMedium,
                             )
                         }

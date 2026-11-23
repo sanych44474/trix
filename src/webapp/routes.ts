@@ -15,6 +15,7 @@ import { handleTrainingExtrasApi } from "./trainingExtrasApi";
 import { handleExtrasApi } from "./extrasApi";
 import { handleSquadsApi } from "./squadApi";
 import { handleTrainerApi } from "./trainerApi";
+import { handleTrainerLogApi } from "./trainerLogApi";
 import { handleTrainerScheduleApi } from "./trainerScheduleApi";
 import { handleOwnerApi } from "./ownerApi";
 import { handleCoachApi } from "./coachApi";
@@ -51,6 +52,8 @@ const MINI_APP_ROUTES: readonly MiniAppRoute[] = [
   { path: "/api/trainer/invite", handler: handleExtrasApi },
   { path: "/api/trainer/sessions", handler: handleTrainerScheduleApi, legacy: "exact" },
   { path: "/api/trainer/finance", handler: handleTrainerScheduleApi, legacy: "exact" },
+  { path: "/api/trainer/log", handler: handleTrainerLogApi },
+  { path: "/api/trainer/voice", handler: handleTrainerLogApi },
   { path: "/api/trainer", handler: handleTrainerApi, legacy: "prefix" },
   { path: "/api/owner", handler: handleOwnerApi, legacy: "prefix" },
   { path: "/api/coach", handler: handleCoachApi },

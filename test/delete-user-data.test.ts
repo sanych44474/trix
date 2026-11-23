@@ -59,6 +59,19 @@ test("deleteUserData: clears authoredBy on plans the deleted trainer wrote (attr
   assert.equal(row?.authoredBy, null);
 });
 
+test("deleteUserData: a deleted trainer's mark on a client's logged workout is cleared, the workout kept", async () => {
+  const db = newDb();
+  await getOrCreateUser(db, 1, 1, "uk", "Coach");
+  await getOrCreateUser(db, 2, 2, "uk", "Ann");
+  const { upsertWorkoutLog, getWorkoutLog } = await import("../src/adapters/d1/v2Workouts");
+  await upsertWorkoutLog(db, 2, "2026-11-20", 5, [{ name: "Bench", skipped: false, setsDone: [{ weight: 50, reps: 5 }] }], true, "", undefined, 1);
+  assert.equal((await getWorkoutLog(db, 2, "2026-11-20"))?.loggedBy, 1);
+  await deleteUserData(testEnv(db), 1);
+  const log = await getWorkoutLog(db, 2, "2026-11-20");
+  assert.equal(log?.exercises[0]?.name, "Bench", "the client's workout stays");
+  assert.equal(log?.loggedBy, undefined, "no longer credited to a deleted account");
+});
+
 test("deleteUserData: removes trainer_templates, shared_programs, trainer_prospects and client_note_history rows", async () => {
   const db = newDb();
   await getOrCreateUser(db, 1, 1, "uk", "Coach");

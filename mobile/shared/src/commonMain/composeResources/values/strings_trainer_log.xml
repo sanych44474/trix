@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <!-- The trainer logs a client’s workout and gives voice commands (ADR-0018). -->
+    <string name="tr_log_open">Log workout</string>
+    <string name="tr_log_open_voice">🎤 Voice</string>
+    <string name="tr_log_title">Log workout</string>
+    <string name="tr_log_today">Today</string>
+    <string name="tr_log_by_you">You logged this day. Saving again replaces it.</string>
+    <string name="tr_log_client_logged">The client already logged this day: the form shows it, edit and save.</string>
+    <string name="tr_log_voice_title">Voice</string>
+    <string name="tr_log_voice_hint">Say the sets or a plan change. Check the text, then tap Suggest.</string>
+    <string name="tr_log_voice_example">For example: “bench 80 by 6, 80 by 5” or “Monday: bench 65, remove squats”.</string>
+    <string name="tr_log_voice_label">What to log or change</string>
+    <string name="tr_log_speak">🎤 Speak</string>
+    <string name="tr_log_listening">Listening…</string>
+    <string name="tr_log_stop">■ Stop</string>
+    <string name="tr_log_suggest">Suggest</string>
+    <string name="tr_log_proposal_workout">Sets to add:</string>
+    <string name="tr_log_proposal_plan">Plan changes:</string>
+    <string name="tr_log_add_to_form">Add to the form</string>
+    <string name="tr_log_apply_plan">Apply to the plan</string>
+    <string name="tr_log_plan_applied">Plan updated: %1$s change(s).</string>
+    <string name="tr_log_plan_failed">A change could not be applied: the plan changed meanwhile. Open the plan to check.</string>
+    <string name="tr_log_plan_injury">A change was refused: it loads the client’s injury.</string>
+    <string name="tr_log_slow_down">Too many requests. Wait a minute and try again.</string>
+    <string name="tr_log_failed">Something went wrong. Try again.</string>
+    <string name="tr_log_speech_empty">Nothing was heard. Try again closer to the phone.</string>
+    <string name="tr_log_no_mic">The microphone is not available.</string>
+    <string name="tr_log_weight">kg</string>
+    <string name="tr_log_reps">reps</string>
+    <string name="tr_log_seconds">sec</string>
+    <string name="tr_log_meters">m</string>
+    <string name="tr_log_add_set">+ Set</string>
+    <string name="tr_log_add_exercise">Add an exercise</string>
+    <string name="tr_log_save">Save for the client</string>
+    <string name="tr_log_saving">Saving…</string>
+    <string name="tr_log_saved">Saved. The client was told.</string>
+    <string name="tr_log_stale">The client saved this day meanwhile. The form now shows their log: check it and save again.</string>
+    <string name="tr_log_nothing">Fill in at least one set.</string>
+    <string name="wk_history_by_trainer">by trainer</string>
+</resources>

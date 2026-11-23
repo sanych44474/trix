@@ -3,7 +3,7 @@ import { z } from "zod";
 const COACH_ACTION_KINDS =["add", "delete", "swap", "weight", "sets", "harder", "easier", "feedback", "none"] as const;
 type CoachActionKind = (typeof COACH_ACTION_KINDS)[number];
 
-interface CoachAction {
+export interface CoachAction {
   label: string;
   kind: CoachActionKind;
   weekday?: number;
@@ -55,6 +55,14 @@ function validateActionSemantics(action: CoachAction, path: string): void {
   if ((action.kind === "weight" || action.kind === "sets") && action.value && action.value.length > 80) {
     throw new Error(`${path}.value is too long for ${action.kind}`);
   }
+}
+
+/** Validate a list of plan actions from any model answer (the coach chat, the trainer's voice command). */
+export function validateCoachActions(raw: unknown[]): CoachAction[] {
+  const result = z.array(actionSchema).max(4).safeParse(raw);
+  if (!result.success) throw new Error(`coach actions are invalid: ${issueText(result.error.issues)}`);
+  for (const [index, action] of result.data.entries()) validateActionSemantics(action, `actions[${index}]`);
+  return result.data;
 }
 
 /** Validate the provider output before it can reach Telegram or the user's session state. */

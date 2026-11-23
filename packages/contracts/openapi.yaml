@@ -3052,6 +3052,142 @@ paths:
                   properties:
                     data: {$ref: '#/components/schemas/TrainerProspectInvite'}
                   required: [data]
+  /api/v2/trainer/log:
+    get:
+      operationId: getTrainerLog
+      description: >-
+        A client's workout day for their trainer's form (ADR-0018): the plan session, the saved log
+        and savedAt to prefill and to send back as baseSavedAt. The client's own unsaved draft is
+        never included. The date is checked against the client's timezone (today back to 14 days).
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {name: clientId, in: query, required: true, schema: {type: integer}}
+      - {name: date, in: query, required: false, schema: {type: string, format: date}}
+      responses:
+        '200':
+          description: The client's day.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                      - {$ref: '#/components/schemas/WorkoutToday'}
+                      - type: object
+                        required: [client]
+                        properties:
+                          client:
+                            type: object
+                            required: [id, name, today]
+                            properties:
+                              id: {type: integer}
+                              name: {type: string}
+                              today: {type: string, format: date, description: The client's local date.}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: saveTrainerLog
+      description: >-
+        The trainer saves the client's workout for a day. It counts as the client's own (records,
+        level, plan weights) and is marked as logged by the trainer; the client is notified once per
+        day. 409 "stale" when the day was saved after the form was opened (baseSavedAt differs).
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - {$ref: '#/components/schemas/SaveWorkoutRequest'}
+              - type: object
+                required: [clientId, baseSavedAt]
+                properties:
+                  clientId: {type: integer}
+                  baseSavedAt:
+                    type: [string, 'null']
+                    description: savedAt from GET /api/v2/trainer/log, or null when the day had no log.
+      responses:
+        '200':
+          description: Saved for the client.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      required: [ok, prExercises, level, leveledUp, totalWorkouts, volumeKg, savedAt]
+                      properties:
+                        ok: {const: true}
+                        prExercises: {type: array, items: {type: string}}
+                        level: {type: integer}
+                        leveledUp: {type: boolean}
+                        totalWorkouts: {type: integer}
+                        volumeKg: {type: integer}
+                        savedAt: {type: [string, 'null'], description: The new savedAt, for a follow-up edit.}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v2/trainer/voice:
+    post:
+      operationId: trainerVoiceProposal
+      description: >-
+        A trainer's command about a client (usually a speech transcript) turned into a proposal:
+        workout entries to put in the log form, or plan-edit actions to apply through
+        POST /api/v2/plan with clientId, expectName (the action's target) and If-Match (version).
+        Nothing is applied by this call. Plain set dictation is parsed without the AI.
+      security:
+      - telegramInitData: []
+      - appSession: []
+      parameters:
+      - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId, text]
+              properties:
+                clientId: {type: integer}
+                text: {type: string, minLength: 1, maxLength: 1000}
+                date: {type: string, format: date}
+      responses:
+        '200':
+          description: The proposal.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - {$ref: '#/components/schemas/Envelope'}
+                - type: object
+                  properties:
+                    data: {$ref: '#/components/schemas/TrainerVoiceProposal'}
+                  required: [data]
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '502':
+          description: No AI provider answered (error "dependency_unavailable").
   /api/v2/trainer/sessions:
     get:
       operationId: getTrainerSessions
@@ -5334,6 +5470,7 @@ components:
                   required: [w, r, sec, m]
             required: [name, sets]
         savedAt: {type: string, description: When the saved log for this date was last written.}
+        savedByTrainer: {type: boolean, description: That saved log was written by the client's trainer (ADR-0018).}
         durationSec: {type: number, description: The saved session's measured length, if measured.}
         restTotalSec: {type: number}
         draft:
@@ -5347,6 +5484,47 @@ components:
           type: array
           items: {type: string}
         alreadyLogged: {type: boolean}
+    TrainerVoiceProposal:
+      type: object
+      required: [kind, transcript, reply]
+      properties:
+        kind: {type: string, enum: [workout, plan, none]}
+        transcript: {type: string, description: The text the proposal was made from.}
+        reply: {type: string, description: What was understood, or a clarifying question (kind none). Empty on the no-AI path.}
+        entries:
+          type: array
+          description: kind workout. Same shape as SaveWorkoutRequest entries.
+          items:
+            type: object
+            required: [name, sets]
+            properties:
+              name: {type: string}
+              rpe: {type: number}
+              sets:
+                type: array
+                items:
+                  type: object
+                  required: [weight, reps]
+                  properties:
+                    weight: {type: number}
+                    reps: {type: number}
+                    seconds: {type: number}
+                    meters: {type: number}
+        actions:
+          type: array
+          description: kind plan, already in the order to apply them one by one.
+          items:
+            type: object
+            required: [label, kind]
+            properties:
+              label: {type: string}
+              kind: {type: string, enum: [add, delete, swap, weight, sets]}
+              weekday: {type: integer}
+              index: {type: integer}
+              exercise: {type: string}
+              value: {type: string}
+              target: {type: string, description: The exercise expected at (weekday, index); send as expectName.}
+        version: {type: string, description: kind plan. The plan version to send as If-Match.}
     WorkoutHistoryItem:
       type: object
       required: [date, title, n]
@@ -5355,6 +5533,7 @@ components:
         title: {type: string}
         n: {type: integer}
         durationSec: {type: integer, description: Measured session length, when the app measured one.}
+        byTrainer: {type: boolean, description: The client's trainer logged this day (ADR-0018).}
     WorkoutCopyExercise:
       type: object
       required: [name, metric, sets, rpe]

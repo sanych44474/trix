@@ -61,6 +61,8 @@ import kotlin.math.roundToInt
 fun TrainerClientsScreen(
     onBack: () -> Unit,
     onOpenClientPlan: (Long) -> Unit,
+    /** Log a client's workout (true: open with voice first). Null hides the buttons. */
+    onOpenClientLog: ((Long, Boolean) -> Unit)? = null,
     onOpenChat: (Long) -> Unit = {},
     onOpenCoach: () -> Unit = {},
     onOpenBusiness: () -> Unit = {},
@@ -78,7 +80,7 @@ fun TrainerClientsScreen(
             }) { Text(stringResource(Res.string.back)) }
         }
         when {
-            s.cardId != null -> TrainerClientCard(s, vm, onOpenClientPlan, onOpenChat)
+            s.cardId != null -> TrainerClientCard(s, vm, onOpenClientPlan, onOpenChat, onOpenClientLog)
             s.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             s.loadFailed -> LoadErrorPanel(onRetry = vm::load)
             s.showAtRisk -> AtRiskList(s, vm)

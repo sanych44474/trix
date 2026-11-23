@@ -9,6 +9,7 @@ import { t, type Lang } from "./i18n";
 import { track } from "./logic/track";
 import { VoiceButton } from "./media/VoiceButton";
 import type { CoachAction } from "./types";
+import { actionToPlanEditBody } from "./logic/trainerLog";
 
 type Action = CoachAction;
 type Turn = { role: "user" | "coach"; text: string; actions?: Action[]; done?: number[]; bodySignal?: { kind: "injury" | "urgent" } };
@@ -17,7 +18,6 @@ const KEY = "trix:v2:coach-chat";
 const load = (): Turn[] => { try { return JSON.parse(sessionStorage.getItem(KEY) ?? "[]") as Turn[]; } catch { return []; } };
 const store = (turns: Turn[]) => { try { sessionStorage.setItem(KEY, JSON.stringify(turns.slice(-30))); } catch { /* optional */ } };
 
-const PLAN_ACTION: Record<string, "weight" | "sets" | "del" | "swap" | "add"> = { weight: "weight", sets: "sets", delete: "del", swap: "swap", add: "add" };
 
 export function CoachChat({ lang, prefill, onReportInjury }: { lang: Lang; prefill?: string; onReportInjury?: () => void }) {
   const [turns, setTurns] = useState<Turn[]>(load);
@@ -50,9 +50,9 @@ export function CoachChat({ lang, prefill, onReportInjury }: { lang: Lang; prefi
       if (a.kind === "feedback") {
         await api("/api/v2/coach/feedback", { method: "POST", idempotencyKey: true, body: typedBody<"sendCoachFeedback">({ summary: a.value ?? "", ...(a.note ? { original: a.note } : {}) }) });
       } else {
-        const action = PLAN_ACTION[a.kind];
-        if (!action || !a.weekday) throw new Error("unsupported");
-        await api("/api/v2/plan", { method: "POST", idempotencyKey: true, body: typedBody<"editPlan">({ action, weekday: a.weekday, index: a.index ?? -1, value: a.kind === "swap" || a.kind === "add" ? a.exercise : a.value, ...(a.target ? { expectName: a.target } : {}) }) });
+        const edit = actionToPlanEditBody(a);
+        if (!edit) throw new Error("unsupported");
+        await api("/api/v2/plan", { method: "POST", idempotencyKey: true, body: typedBody<"editPlan">(edit) });
       }
       setTurns((prev) => prev.map((x, j) => (j === turnIdx ? { ...x, done: [...(x.done ?? []), i] } : x)));
       track(`app_coach_action_${a.kind}`);

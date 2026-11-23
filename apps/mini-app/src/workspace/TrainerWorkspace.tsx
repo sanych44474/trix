@@ -9,6 +9,7 @@ import { Icon } from "../icons";
 import { showWhen, statusKey, toInstant } from "../logic/workspace";
 import { TrainerQuestions, TrainerRequests, TrainerTemplates, ClientSummary, TrainerProfilePayload, Panel, WorkspaceError, Metric , type WorkspaceProps } from "./shared";
 import { ClientCardView } from "./ClientCardView";
+import { ClientLogView } from "./ClientLogView";
 import { AiCoachView } from "./AiCoachView";
 import { ProgramSharingView, TrainerReportView } from "./TrainerTools";
 import { ClientContext } from "./ClientContext";
@@ -227,7 +228,8 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan, initialClientId 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [actionError, setActionError] = useState(false);
-  const [subview, setSubview] = useState<"list" | "client" | "profile" | "atrisk" | "coach" | "schedule" | "finance" | "share" | "report">(initialClientId ? "client" : "list");
+  const [subview, setSubview] = useState<"list" | "client" | "log" | "profile" | "atrisk" | "coach" | "schedule" | "finance" | "share" | "report">(initialClientId ? "client" : "list");
+  const [logVoice, setLogVoice] = useState(false);
   const [activeClientId, setActiveClientId] = useState<number | null>(initialClientId ?? null);
   const [assignTemplateId, setAssignTemplateId] = useState("");
   const [assignClientId, setAssignClientId] = useState("");
@@ -273,8 +275,11 @@ export function TrainerWorkspace({ dashboard, lang, onOpenPlan, initialClientId 
   if (subview === "share") return <ProgramSharingView lang={lang} clients={dashboard.trainer?.clients ?? []} onBack={() => setSubview("list")} />;
   if (subview === "coach") return <AiCoachView lang={lang} routed={false} onBack={() => setSubview("list")} />;
   if (subview === "atrisk") return <AtRiskReportView dashboard={dashboard} lang={lang} onBack={() => setSubview("list")} onOpenClient={(id) => { setActiveClientId(id); setSubview("client"); }} />;
+  if (subview === "log" && activeClientId !== null) {
+    return <ClientLogView clientId={activeClientId} lang={lang} voiceFirst={logVoice} onBack={() => setSubview("client")} />;
+  }
   if (subview === "client" && activeClientId !== null) {
-    return <ClientCardView clientId={activeClientId} lang={lang} onBack={() => setSubview("list")} onTemplateSaved={() => void load()} onOpenPlan={onOpenPlan} />;
+    return <ClientCardView clientId={activeClientId} lang={lang} onBack={() => setSubview("list")} onTemplateSaved={() => void load()} onOpenPlan={onOpenPlan} onOpenLog={(_id, voice) => { setLogVoice(voice); setSubview("log"); }} />;
   }
 
   // Clients with unread chat messages first, then the dashboard's own order.

@@ -29,6 +29,8 @@ data class WorkoutToday(
     val exercises: List<Exercise> = emptyList(),
     val saved: List<SavedEntry>? = null,
     val savedAt: String? = null,
+    /** That saved log was written by the client's trainer (ADR-0018). */
+    val savedByTrainer: Boolean = false,
     val durationSec: Int? = null,
     val restTotalSec: Int? = null,
     val draft: Draft? = null,
@@ -113,7 +115,7 @@ data class WorkoutCopyExercise(
     val rpe: Double = 0.0,
 )
 
-@Serializable data class WorkoutHistoryItem(val date: String, val title: String = "", val n: Int = 0, val durationSec: Int? = null)
+@Serializable data class WorkoutHistoryItem(val date: String, val title: String = "", val n: Int = 0, val durationSec: Int? = null, val byTrainer: Boolean = false)
 @Serializable data class WorkoutHistoryResponse(val logs: List<WorkoutHistoryItem> = emptyList())
 
 @Serializable data class SwapChoice(val id: String = "", val name: String)
