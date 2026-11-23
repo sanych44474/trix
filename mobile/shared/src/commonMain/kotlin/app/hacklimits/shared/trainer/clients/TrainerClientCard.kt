@@ -52,12 +52,13 @@ internal fun TrainerClientCard(
     vm: TrainerClientsViewModel,
     onOpenClientPlan: (Long) -> Unit,
     onOpenChat: (Long) -> Unit,
+    onOpenClientLog: ((Long, Boolean) -> Unit)? = null,
 ) {
     val card = s.card
     when {
         s.cardFailed -> LoadErrorPanel(onRetry = vm::retryCard)
         card == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        else -> CardBody(s, card, vm, onOpenClientPlan, onOpenChat)
+        else -> CardBody(s, card, vm, onOpenClientPlan, onOpenChat, onOpenClientLog)
     }
 }
 
@@ -68,6 +69,7 @@ private fun CardBody(
     vm: TrainerClientsViewModel,
     onOpenClientPlan: (Long) -> Unit,
     onOpenChat: (Long) -> Unit,
+    onOpenClientLog: ((Long, Boolean) -> Unit)?,
 ) {
     val id = card.client.id
     val idle = s.busy == null
@@ -91,6 +93,12 @@ private fun CardBody(
                     Text(card.client.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 OutlinedButton(onClick = { onOpenClientPlan(id) }) { Text(stringResource(Res.string.tr_edit_plan)) }
+            }
+        }
+        if (onOpenClientLog != null) item("log") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { onOpenClientLog(id, false) }, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.tr_log_open), maxLines = 1) }
+                OutlinedButton(onClick = { onOpenClientLog(id, true) }, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.tr_log_open_voice), maxLines = 1) }
             }
         }
         if (s.actionError) item("error") { ActionErrorNote(onDismiss = vm::dismissError) }

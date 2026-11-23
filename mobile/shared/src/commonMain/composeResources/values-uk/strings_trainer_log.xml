@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="tr_log_open">Записати тренування</string>
+    <string name="tr_log_open_voice">🎤 Голос</string>
+    <string name="tr_log_title">Записати тренування</string>
+    <string name="tr_log_today">Сьогодні</string>
+    <string name="tr_log_by_you">Цей день записали ви. Повторне збереження його замінить.</string>
+    <string name="tr_log_client_logged">Клієнт уже записав цей день: форма показує його запис, виправте і збережіть.</string>
+    <string name="tr_log_voice_title">Голос</string>
+    <string name="tr_log_voice_hint">Назвіть сети або зміну плану. Перевірте текст і натисніть «Запропонувати».</string>
+    <string name="tr_log_voice_example">Наприклад: «жим 80 на 6, 80 на 5» або «понеділок: жим 65, прибери присідання».</string>
+    <string name="tr_log_voice_label">Що записати або змінити</string>
+    <string name="tr_log_speak">🎤 Сказати</string>
+    <string name="tr_log_listening">Слухаю…</string>
+    <string name="tr_log_stop">■ Стоп</string>
+    <string name="tr_log_suggest">Запропонувати</string>
+    <string name="tr_log_proposal_workout">Сети, які додати:</string>
+    <string name="tr_log_proposal_plan">Зміни плану:</string>
+    <string name="tr_log_add_to_form">Додати у форму</string>
+    <string name="tr_log_apply_plan">Застосувати до плану</string>
+    <string name="tr_log_plan_applied">План оновлено: змін — %1$s.</string>
+    <string name="tr_log_plan_failed">Зміну не застосовано: план тим часом змінився. Відкрийте план і перевірте.</string>
+    <string name="tr_log_plan_injury">Зміну відхилено: вона навантажує травму клієнта.</string>
+    <string name="tr_log_slow_down">Забагато запитів. Зачекайте хвилину і спробуйте ще.</string>
+    <string name="tr_log_failed">Щось пішло не так. Спробуйте ще.</string>
+    <string name="tr_log_speech_empty">Нічого не почули. Спробуйте ближче до телефона.</string>
+    <string name="tr_log_no_mic">Мікрофон недоступний.</string>
+    <string name="tr_log_weight">кг</string>
+    <string name="tr_log_reps">повт.</string>
+    <string name="tr_log_seconds">сек</string>
+    <string name="tr_log_meters">м</string>
+    <string name="tr_log_add_set">+ Сет</string>
+    <string name="tr_log_add_exercise">Додати вправу</string>
+    <string name="tr_log_save">Зберегти для клієнта</string>
+    <string name="tr_log_saving">Зберігаю…</string>
+    <string name="tr_log_saved">Збережено. Клієнта сповіщено.</string>
+    <string name="tr_log_stale">Клієнт тим часом зберіг цей день. Форма тепер показує його запис: перевірте і збережіть ще раз.</string>
+    <string name="tr_log_nothing">Заповніть хоча б один сет.</string>
+    <string name="wk_history_by_trainer">тренер</string>
+</resources>

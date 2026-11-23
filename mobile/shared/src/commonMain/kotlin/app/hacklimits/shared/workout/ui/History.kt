@@ -82,7 +82,8 @@ fun HistoryView(vm: LoggerViewModel, s: LoggerUi, todayDate: String) {
                             Text(item.date, Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                             Text(
                                 stringResource(Res.string.wk_history_row_exercises, item.n) +
-                                    (item.durationSec?.takeIf { it > 0 }?.let { " · ${fmtDuration(it)}" } ?: ""),
+                                    (item.durationSec?.takeIf { it > 0 }?.let { " · ${fmtDuration(it)}" } ?: "") +
+                                    (if (item.byTrainer) " · " + stringResource(Res.string.wk_history_by_trainer) else ""),
                                 style = MaterialTheme.typography.labelMedium,
                             )
                         }
